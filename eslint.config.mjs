@@ -132,8 +132,9 @@ export default [
     },
     rules: {
       'no-unused-vars': 'off',
+      'no-redeclare': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'opintel/module-boundary': 'error',
       'opintel/no-raw-style-values': 'error'
     }
