@@ -67,7 +67,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.3 | Shared kernel: `Result`, `DomainError`, branded ids, clock, id factory | 1.1 | `shared/kernel` | every `Result` branch covered |
 | 1.4 | **Tenant wrapper** `withTenant` / `withPlatform`, `set_config(...,true)`, pool not exported. **Hand-written** | 1.2, 1.3 | `platform/db/scope.ts` | RLS-01 to RLS-10 |
 | 1.5 | Mail port, local file adapter, outbox | 1.1 | `platform/mail` | mail sent after commit only |
-| 1.6 | Identity domain and schema | 1.2, 1.3 | `modules/identity` | domain invariants |
+| 1.6 | Identity domain and schema | 1.2, 1.3, 2.1  | `modules/identity` | domain invariants |
 | 1.7 | Magic link: request, callback, device nonce, rate limits, single use | 1.4, 1.5, 1.6 | endpoints | B-001 to B-015, A-005, A-006 |
 | 1.8 | Sessions: Redis, cookie, timeouts, revocation | 1.6 | session store | D-001 to D-011 |
 | 1.9 | OIDC with PKCE, account linking on verified email | 1.7 | provider adapters | C-001 to C-011 |
@@ -84,16 +84,15 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 2.1 | Tenancy domain and schema, region immutable | 1.4 | `modules/tenancy` | domain invariants |
+| 2.1 | Tenancy and vocabulary domains, and their schema in one migration. company and project reference industry; vocabulary_term, synonym_candidate and embedding reference project, so the dependency is mutual and the tables cannot be split across migrations | 1.4 | modules/tenancy, modules/vocabulary | domain invariants, region immutable, E2-005, E2-011 |
 | 2.2 | SpiceDB schema, `AuthorizationPort`, cached snapshot with consistency token | 1.2 | `modules/authz` | E-001 to E-004 |
 | 2.3 | Route permission declarations, startup assertion | 2.2 | `platform/http` | a route without a permission fails boot |
 | 2.4 | RLS policies on every tenant table, `pg_policies` scan test | 1.4, 2.1 | migrations | RLS-10 |
-| 2.5 | Industry and vocabulary schema, one industry seeded | 2.1 | `modules/vocabulary` | E2-005, E2-011 |
-| 2.6 | Create project, industry selection, immutable region | 2.1, 2.5 | endpoint and screen | E2-001 to E2-022 |
+| 2.6 | Create project, industry selection, immutable region | 2.1 | endpoint and screen | E2-001 to E2-022 |
 | 2.7 | Invitations, relationship written on acceptance | 2.2, 1.7 | endpoints | E-010 to E-014 |
 | 2.8 | Roles, capability resolution, permission explanation | 2.2 | endpoint | E-005 to E-009 |
 | 2.9 | Access screen with derivation, project switcher | 2.8, 1.12 | two screens | E-009, E-015, E-016 |
-| 2.10 | Migrate industry: dry run, typed confirmation, entitlements untouched | 2.5, 2.6 | endpoint and dialog | E2-023 to E2-035 |
+| 2.10 | Migrate industry: dry run, typed confirmation, entitlements untouched | 2.1, 2.6 | endpoint and dialog | E2-023 to E2-035 |
 
 **Gate.** A company admin resolves to project admin without a per-project grant. An operator cannot set entitlements, refused at the API. A non-member gets 404. The derivation panel matches SpiceDB's own explanation for three users. An invitation grants nothing until accepted.
 
@@ -115,7 +114,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18 |
 | **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source and on every record | 3.8 | `ingest/land.ts` | ING-19 to ING-26 |
 | **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27 to ING-32 |
-| 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve cedants, inconsistent formats | 3.9, 2.5 | `modules/sources/demo` | demo path identical, asserted on the port |
+| 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve cedants, inconsistent formats | 3.9, 2.1 | `modules/sources/demo` | demo path identical, asserted on the port |
 | 3.12 | Data sources screen, connect wizard, origin badges, demo card | 3.6, 1.11 | screens | F-001 to F-004, O-002 |
 | 3.13 | Filings within source detail, expandable per source. Quarantine surfaced on the dashboard and in observations | 3.10, 1.11 | source screen sections | ING-27 to ING-32 |
 | 3.14 | Schema explorer, virtualised, prefix fetch | 3.1, 1.11 | screen | G-019, G-020, R-001, R-002 |
@@ -147,7 +146,8 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1 | `modules/entitlements` | H-001, H-004, H-009 |
+| 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003 |
+| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009 |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |
@@ -167,7 +167,6 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 5.1 | Pool domain and schema, one current key, grace window | 2.1, 4.1 | `modules/pools` | I-001 to I-003 |
 | 5.2 | Key generation, hashing, shown once, rotation and revocation | 5.1 | `pools/keys.ts` | I-015 to I-017, I-002 |
 | 5.3 | Pool to source binding in SpiceDB, two-check resolution | 5.1, 2.2 | `pools/binding.ts` | I-005, I-006 |
 | 5.4 | Agent presence state machine, never silently removed | 5.1, 3.16 | `pools/presence.ts` | I-018 to I-021 |
@@ -199,7 +198,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 6.1 | Vocabulary domain: four term kinds, project overrides shadow industry | 2.5 | `modules/vocabulary` | R-021, E2-028 |
+| 6.1 | Vocabulary domain: four term kinds, project overrides shadow industry | 2.1 | `modules/vocabulary` | R-021, E2-028 |
 | 6.2 | Effective vocabulary merge, server side, `source` per term | 6.1 | read model | R-021 |
 | 6.3 | Retrieval: embedding table, HNSW, `RetrievalPort`, content hash | 6.1 | `modules/retrieval` | T-001 to T-027 |
 | 6.4 | Re-embedding jobs, model versioning, backfill and rollback | 6.3 | jobs | T-011 to T-019 |

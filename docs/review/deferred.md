@@ -11,3 +11,12 @@ cat > docs/review/deferred.md <<'EOF'
 - migrate.ts uses a direct pg.Client. Deliberate: migrations run before any
   tenant exists. Needs an explicit exemption when the pool lint rule is added.
 EOF
+
+# Plan ordering corrections, found by foreign-key audit
+
+- 2.1 and 2.5 merged: company/project reference industry, and
+  vocabulary_term/synonym_candidate/embedding reference project. Mutual.
+- 1.6 now depends on 2.1: pending_invite references company and project.
+- 5.1 now depends on 1.6: pool_key.created_by references user_account.
+- 5.1 moved to the top of P3: entitlement.pool_id references pool, so the
+  governance phase cannot build before the pool table exists.
