@@ -31,6 +31,7 @@ jobs:
     timeout-minutes: 5
     env:
       DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
+      REDIS_URL: redis://localhost:6379
       REQUIRE_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
