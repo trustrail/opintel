@@ -277,6 +277,7 @@ type TermId       = string & { readonly __brand: 'TermId' };
 type RuleId       = string & { readonly __brand: 'RuleId' };
 type DemoSourceId = string & { readonly __brand: 'DemoSourceId' };
 type FilingId     = string & { readonly __brand: 'FilingId' };
+type SessionId   = string & { readonly __brand: 'SessionId' };
 
 // Branded strings with a shape rule, validated on construction.
 type DuckDbName    = string & { readonly __brand: 'DuckDbName' };
@@ -476,23 +477,42 @@ type CurrentUser = {
   email: string;                    // verified. The identity, per §3.2
   fullName: string | null;
   timezone: string;
-  method: 'magic_link' | `oidc:${string}`;   // recorded on the audit entry
+  method: AuthMethod;
   sessionCreatedAt: Timestamp;
   deviceConfirmed: boolean;         // true when a nonce mismatch was resolved
 };
 
+type AuthMethod = 'magic_link' | `oidc:${string}`;
+
 interface SessionPort {
   create(user: UserId, meta: SessionMeta): Promise<SessionId>;
-  read(id: SessionId): Promise<CurrentUser | null>;   // null when expired or revoked
-  touch(id: SessionId): Promise<void>;                // extends idle, never absolute
-  rotate(id: SessionId): Promise<SessionId>;          // on privilege change
+  read(id: SessionId): Promise<SessionRecord | null>;
+  touch(id: SessionId): Promise<void>;
+  rotate(id: SessionId): Promise<SessionId>;
   revoke(id: SessionId): Promise<void>;
-  revokeAllFor(user: UserId): Promise<number>;        // returns how many, for SCIM
-  listFor(user: UserId): Promise<Array<{ id: SessionId; meta: SessionMeta; lastSeenAt: Timestamp }>>;
+  revokeAllFor(user: UserId, except?: SessionId): Promise<number>;
+  listFor(user: UserId): Promise<SessionSummary[]>;
 }
-type SessionId  = string & { readonly __brand: 'SessionId' };
+
+// What Redis holds. It is NOT CurrentUser: the session stores identity and
+// nothing else, so a profile change does not require rewriting sessions.
+type SessionRecord = {
+  userId: UserId;
+  method: AuthMethod;
+  createdAt: Timestamp;          // absolute expiry is measured from here
+  lastSeenAt: Timestamp;         // idle expiry is measured from here
+  deviceConfirmed: boolean;
+  meta: SessionMeta;
+};
+
+type SessionSummary = {
+  id: SessionId;
+  meta: SessionMeta;
+  lastSeenAt: Timestamp;
+  current: boolean;              // set by the caller, which knows its own id
+};
+
 type SessionMeta = {
-  method: CurrentUser['method'];
   ip: string;
   userAgent: string;
   deviceNonce: string;
@@ -872,6 +892,12 @@ type AppError = {
 };
 ```
 
+**`CurrentUser` is assembled, not stored.** The session holds `userId`; the request pipeline reads the account and composes `CurrentUser`. Storing a name or timezone in Redis would mean a profile edit leaves stale copies in every live session.
+
+**A session id is a bearer credential.** `read` takes no requesting user, because possession is the claim. D-009 is about the cookie being bound to its session, and replay by another user is prevented by the cookie's attributes rather than by a check inside the port.
+
+**Self-revocation is the caller's concern.** The route knows its own session id and passes it as `except` to `revokeAllFor`, and sets `current` on each summary. The port does not need ambient request context.
+
 **`Tx` deliberately exposes no lifecycle methods.** A callback that could call `commit` or `release` would be able to defeat the scope, which is the one thing the scope exists to prevent.
 
 ### The outbox
@@ -1189,10 +1215,12 @@ Just-in-time provisioning happens only where a pending invitation exists. Domain
 Opaque id in an `httpOnly`, `Secure`, `SameSite=Lax` cookie. No JWT, no claims in the cookie. Server state in Redis:
 
 ```ts
-`session:${id}` -> { userId, method, idpRef, createdAt, lastSeenAt, ip, userAgent, deviceNonce }
+`session:${id}` -> SessionRecord    // see §1.7
 ```
 
 Idle timeout 8 hours, absolute 30 days, rotation on privilege change. `method` is recorded and appears in the audit log.
+
+**Redis is configured without persistence. ** A restart logs everyone out. That is acceptable and preferable: session state is the one thing safe to lose, and durability would mean a stolen session surviving an incident-response restart.
 
 ## 3.4 The authorization graph
 
