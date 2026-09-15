@@ -40,6 +40,7 @@ jobs:
       - run: npm ci
       - run: docker compose up -d --wait
       - run: npm run migrate:up
+      - run: npm test
       - run: npm run migrate:down
       - run: npm run migrate:up
       - run: docker compose down -v

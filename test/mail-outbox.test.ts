@@ -2,100 +2,21 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DomainError,
   err,
   ok,
   TestClock,
   Timestamp,
-  type JsonObject,
 } from '../src/shared/kernel/index.js';
-import { type Tx } from '../src/platform/db/scope.js';
+import { withPlatform } from '../src/platform/db/scope.js';
 import {
   LocalFileMailAdapter,
   MailOutbox,
   type MailPort,
   type OutboundMail,
 } from '../src/platform/mail/index.js';
-
-type StoredMail = OutboundMail & {
-  dispatchedAt?: string;
-  providerId?: string;
-};
-
-function asJsonObject(value: unknown): JsonObject {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error('mail vars must be an object');
-  }
-  return value as JsonObject;
-}
-
-class TransactionalMailDatabase {
-  private readonly rows: StoredMail[] = [];
-
-  async transaction<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
-    const inserted: StoredMail[] = [];
-    const dispatched = new Map<string, Pick<StoredMail, 'dispatchedAt' | 'providerId'>>();
-    const tx: Tx = {
-      query: async <Row>(statement: string, params?: readonly unknown[]): Promise<Row[]> => {
-        if (statement.includes('INSERT INTO mail_outbox')) {
-          const [to, template, vars, idempotencyKey] = params ?? [];
-          if (
-            typeof to !== 'string'
-            || typeof template !== 'string'
-            || typeof vars !== 'string'
-            || typeof idempotencyKey !== 'string'
-          ) {
-            throw new Error('invalid outbox insert');
-          }
-          if (!this.rows.some((row) => row.idempotencyKey === idempotencyKey)
-            && !inserted.some((row) => row.idempotencyKey === idempotencyKey)) {
-            inserted.push({
-              to,
-              template: template as OutboundMail['template'],
-              vars: asJsonObject(JSON.parse(vars) as unknown),
-              idempotencyKey,
-            });
-          }
-          return [];
-        }
-        if (statement.includes('FROM mail_outbox')) {
-          const limit = params?.[0];
-          if (typeof limit !== 'number') throw new Error('invalid outbox limit');
-          return this.rows
-            .filter((row) => row.dispatchedAt === undefined)
-            .slice(0, limit) as unknown as Row[];
-        }
-        if (statement.includes('UPDATE mail_outbox')) {
-          const [idempotencyKey, dispatchedAt, providerId] = params ?? [];
-          if (
-            typeof idempotencyKey !== 'string'
-            || typeof dispatchedAt !== 'string'
-            || typeof providerId !== 'string'
-          ) {
-            throw new Error('invalid outbox dispatch update');
-          }
-          dispatched.set(idempotencyKey, { dispatchedAt, providerId });
-          return [];
-        }
-        throw new Error(`unexpected SQL: ${statement}`);
-      },
-    };
-
-    const result = await work(tx);
-    this.rows.push(...inserted);
-    for (const row of this.rows) {
-      const update = dispatched.get(row.idempotencyKey);
-      if (update !== undefined) Object.assign(row, update);
-    }
-    return result;
-  }
-
-  pendingCount(): number {
-    return this.rows.filter((row) => row.dispatchedAt === undefined).length;
-  }
-}
 
 const mail: OutboundMail = {
   to: 'person@example.com',
@@ -116,13 +37,18 @@ function successfulMailPort(delivered: OutboundMail[]): MailPort {
   };
 }
 
-describe('mail outbox', () => {
+const databaseDescribe = process.env.DATABASE_URL === undefined ? describe.skip : describe;
+
+databaseDescribe('mail outbox with Postgres', () => {
+  beforeEach(async () => {
+    await withPlatform((tx) => tx.query('TRUNCATE TABLE mail_outbox'));
+  });
+
   it('does not send mail enqueued in a rolled-back transaction', async () => {
-    const database = new TransactionalMailDatabase();
-    const outbox = new MailOutbox(database.transaction.bind(database));
+    const outbox = new MailOutbox();
     const delivered: OutboundMail[] = [];
 
-    await expect(database.transaction(async (tx) => {
+    await expect(withPlatform(async (tx) => {
       await outbox.enqueue(tx, mail);
       throw new Error('rollback');
     })).rejects.toThrow('rollback');
@@ -132,21 +58,21 @@ describe('mail outbox', () => {
   });
 
   it('sends mail only after its transaction commits', async () => {
-    const database = new TransactionalMailDatabase();
-    const outbox = new MailOutbox(database.transaction.bind(database));
+    const outbox = new MailOutbox();
     const delivered: OutboundMail[] = [];
-
-    await database.transaction((tx) => outbox.enqueue(tx, mail));
+    await withPlatform((tx) => outbox.enqueue(tx, mail));
 
     expect(await outbox.dispatchPending(successfulMailPort(delivered))).toEqual({ sent: 1, retained: 0 });
     expect(delivered).toEqual([mail]);
-    expect(database.pendingCount()).toBe(0);
+    const rows = await withPlatform((tx) => tx.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM mail_outbox WHERE dispatched_at IS NULL',
+    ));
+    expect(rows[0]?.count).toBe('0');
   });
 
   it('retains an outbox row when mail dispatch fails', async () => {
-    const database = new TransactionalMailDatabase();
-    const outbox = new MailOutbox(database.transaction.bind(database));
-    await database.transaction((tx) => outbox.enqueue(tx, mail));
+    const outbox = new MailOutbox();
+    await withPlatform((tx) => outbox.enqueue(tx, mail));
     const failingMailPort: MailPort = {
       send: async () => err(new DomainError(
         'dependency_unavailable',
@@ -157,7 +83,44 @@ describe('mail outbox', () => {
     };
 
     expect(await outbox.dispatchPending(failingMailPort)).toEqual({ sent: 0, retained: 1 });
-    expect(database.pendingCount()).toBe(1);
+    const rows = await withPlatform((tx) => tx.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM mail_outbox WHERE dispatched_at IS NULL',
+    ));
+    expect(rows[0]?.count).toBe('1');
+  });
+
+  it('does not allow concurrent dispatchers to claim the same row', async () => {
+    const outbox = new MailOutbox();
+    await withPlatform((tx) => outbox.enqueue(tx, mail));
+    const delivered: OutboundMail[] = [];
+    let notifyFirstSend: (() => void) | undefined;
+    const firstSendStarted = new Promise<void>((resolve) => {
+      notifyFirstSend = resolve;
+    });
+    let releaseFirstSend: (() => void) | undefined;
+    const allowFirstSend = new Promise<void>((resolve) => {
+      releaseFirstSend = resolve;
+    });
+    const blockingMailPort: MailPort = {
+      send: async (message) => {
+        delivered.push({ ...message, vars: { ...message.vars } });
+        notifyFirstSend?.();
+        await allowFirstSend;
+        return ok({
+          providerId: 'local-test',
+          acceptedAt: Timestamp(new Date('2026-09-15T00:00:00.000Z')),
+        });
+      },
+    };
+
+    const firstDispatch = outbox.dispatchPending(blockingMailPort);
+    await firstSendStarted;
+    const secondDispatch = await outbox.dispatchPending(successfulMailPort(delivered));
+    releaseFirstSend?.();
+
+    expect(await firstDispatch).toEqual({ sent: 1, retained: 0 });
+    expect(secondDispatch).toEqual({ sent: 0, retained: 0 });
+    expect(delivered).toHaveLength(1);
   });
 });
 
