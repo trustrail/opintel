@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createHttpServer, requestIdHeader, type HttpEndpoint } from '../src/platform/http/index.js';
+import { createHttpServer, defineRoute, requestIdHeader } from '../src/platform/http/index.js';
 
 const servers: ReturnType<typeof createHttpServer>[] = [];
 
@@ -12,28 +12,31 @@ afterEach(async () => {
   })));
 });
 
-async function request<TRequest, TResponse>(endpoint: HttpEndpoint<TRequest, TResponse>, body: unknown): Promise<Response> {
-  const server = createHttpServer(endpoint, { requestIdFactory: () => 'req-test' });
+async function request(routes: readonly ReturnType<typeof defineRoute>[], path: string, method: string, body: unknown): Promise<Response> {
+  const server = createHttpServer(routes, { requestIdFactory: () => 'req-test' });
   servers.push(server);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
   if (address === null || typeof address === 'string') throw new Error('Test server did not bind to TCP.');
 
-  return fetch(`http://127.0.0.1:${(address as AddressInfo).port}`, {
-    method: 'POST',
+  return fetch(`http://127.0.0.1:${(address as AddressInfo).port}${path}`, {
+    method,
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    ...(method === 'GET' ? {} : { body: JSON.stringify(body) }),
   });
 }
 
 describe('HTTP server boundaries', () => {
   it('returns the validation_failed envelope for an invalid request body', async () => {
-    const response = await request({
+    const response = await request([defineRoute({
+      method: 'POST',
+      path: '/api/v1/check',
+      params: z.object({}),
       request: z.object({ email: z.string().email() }),
       response: z.object({ accepted: z.literal(true) }),
       handle: async () => ({ body: { accepted: true } }),
-    }, { email: 'not-an-email' });
+    })], '/api/v1/check', 'POST', { email: 'not-an-email' });
 
     expect(response.status).toBe(400);
     expect(response.headers.get(requestIdHeader)).toBe('req-test');
@@ -48,13 +51,16 @@ describe('HTTP server boundaries', () => {
   });
 
   it('returns a request id but no stack trace for an unhandled error', async () => {
-    const response = await request({
+    const response = await request([defineRoute({
+      method: 'POST',
+      path: '/api/v1/check',
+      params: z.object({}),
       request: z.object({}),
       response: z.object({ accepted: z.literal(true) }),
       handle: async () => {
         throw new Error('stack-only-test-error');
       },
-    }, {});
+    })], '/api/v1/check', 'POST', {});
 
     expect(response.status).toBe(500);
     expect(response.headers.get(requestIdHeader)).toBe('req-test');
@@ -71,13 +77,60 @@ describe('HTTP server boundaries', () => {
   });
 
   it('adds a request id to successful responses', async () => {
-    const response = await request({
+    const response = await request([defineRoute({
+      method: 'POST',
+      path: '/api/v1/check',
+      params: z.object({}),
       request: z.object({}),
       response: z.object({ accepted: z.literal(true) }),
       handle: async () => ({ body: { accepted: true } }),
-    }, {});
+    })], '/api/v1/check', 'POST', {});
 
     expect(response.status).toBe(200);
     expect(response.headers.get(requestIdHeader)).toBe('req-test');
+  });
+
+  it('maps three handlers, including a validated path parameter, on one server', async () => {
+    const routes = [
+      defineRoute({
+        method: 'POST', path: '/api/v1/first', params: z.object({}),
+        request: z.object({}), response: z.object({ route: z.literal('first') }),
+        handle: async () => ({ body: { route: 'first' } }),
+      }),
+      defineRoute({
+        method: 'POST', path: '/api/v1/second/:id', params: z.object({ id: z.string().uuid() }),
+        request: z.object({}), response: z.object({ route: z.literal('second'), id: z.string().uuid() }),
+        handle: async (httpRequest) => ({ body: { route: 'second', id: httpRequest.params.id } }),
+      }),
+      defineRoute({
+        method: 'POST', path: '/api/v1/third', params: z.object({}),
+        request: z.object({}), response: z.object({ route: z.literal('third') }),
+        handle: async () => ({ body: { route: 'third' } }),
+      }),
+    ];
+
+    const first = await request(routes, '/api/v1/first', 'POST', {});
+    const second = await request(routes, '/api/v1/second/018f8f9d-7f83-7abc-8def-0123456789ab', 'POST', {});
+    const third = await request(routes, '/api/v1/third', 'POST', {});
+
+    await expect(first.json()).resolves.toEqual({ route: 'first' });
+    await expect(second.json()).resolves.toEqual({ route: 'second', id: '018f8f9d-7f83-7abc-8def-0123456789ab' });
+    await expect(third.json()).resolves.toEqual({ route: 'third' });
+  });
+
+  it('returns the error envelope for an unknown path and a known path with the wrong method', async () => {
+    const routes = [defineRoute({
+      method: 'POST', path: '/api/v1/check', params: z.object({}),
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async () => ({ body: { accepted: true } }),
+    })];
+
+    const unknown = await request(routes, '/api/v1/missing', 'POST', {});
+    const wrongMethod = await request(routes, '/api/v1/check', 'GET', {});
+
+    expect(unknown.status).toBe(404);
+    expect(await unknown.json()).toMatchObject({ error: { code: 'not_found', requestId: 'req-test' } });
+    expect(wrongMethod.status).toBe(405);
+    expect(await wrongMethod.json()).toMatchObject({ error: { code: 'method_not_allowed', requestId: 'req-test' } });
   });
 });

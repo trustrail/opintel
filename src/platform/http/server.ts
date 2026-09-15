@@ -22,6 +22,7 @@ export interface HttpRequest<TBody> {
   readonly path: string;
   readonly headers: IncomingHttpHeaders;
   readonly body: TBody;
+  readonly params: Readonly<Record<string, string>>;
   readonly requestId: string;
 }
 
@@ -35,6 +36,23 @@ export interface HttpEndpoint<TRequest, TResponse> {
   readonly request: z.ZodType<TRequest>;
   readonly response: z.ZodType<TResponse>;
   handle(request: HttpRequest<TRequest>): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
+}
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, string>> extends HttpEndpoint<TRequest, TResponse> {
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly params: z.ZodType<TParams>;
+  handle(request: HttpRequest<TRequest> & { readonly params: TParams }): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
+}
+
+type RegisteredRoute = HttpRoute<unknown, unknown, Record<string, string>>;
+
+export function defineRoute<TRequest, TResponse, TParams extends Record<string, string>>(
+  route: HttpRoute<TRequest, TResponse, TParams>,
+): RegisteredRoute {
+  return route as unknown as RegisteredRoute;
 }
 
 export interface HttpLogger {
@@ -105,8 +123,41 @@ function validationFailure(requestId: string): ErrorEnvelope {
   return errorEnvelope('validation_failed', 'The request did not pass validation.', requestId, false);
 }
 
-export function createHttpServer<TRequest, TResponse>(
-  endpoint: HttpEndpoint<TRequest, TResponse>,
+function routeMatch(path: string, route: RegisteredRoute): Record<string, string> | null {
+  const pathSegments = path.split('/').filter((segment) => segment.length > 0);
+  const routeSegments = route.path.split('/').filter((segment) => segment.length > 0);
+  if (pathSegments.length !== routeSegments.length) return null;
+
+  const params: Record<string, string> = {};
+  for (let index = 0; index < routeSegments.length; index += 1) {
+    const routeSegment = routeSegments[index];
+    const pathSegment = pathSegments[index];
+    if (routeSegment === undefined || pathSegment === undefined) return null;
+    if (routeSegment.startsWith(':')) {
+      const name = routeSegment.slice(1);
+      if (name.length === 0) return null;
+      try {
+        params[name] = decodeURIComponent(pathSegment);
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    if (routeSegment !== pathSegment) return null;
+  }
+  return params;
+}
+
+function notFound(requestId: string): ErrorEnvelope {
+  return errorEnvelope('not_found', 'The requested resource was not found.', requestId, false);
+}
+
+function methodNotAllowed(requestId: string): ErrorEnvelope {
+  return errorEnvelope('method_not_allowed', 'The request method is not allowed for this resource.', requestId, false);
+}
+
+export function createHttpServer(
+  routes: readonly RegisteredRoute[],
   options: HttpServerOptions = {},
 ): Server {
   const requestIdFactory = options.requestIdFactory ?? randomUUID;
@@ -115,21 +166,38 @@ export function createHttpServer<TRequest, TResponse>(
   return createServer(async (request, response) => {
     const requestId = requestIdFactory();
     try {
+      const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+      const matchingPaths = routes.flatMap((route) => {
+        const params = routeMatch(path, route);
+        return params === null ? [] : [{ route, params }];
+      });
+      if (matchingPaths.length === 0) {
+        writeJson(response, 404, requestId, notFound(requestId));
+        return;
+      }
+      const matched = matchingPaths.find(({ route }) => route.method === request.method);
+      if (matched === undefined) {
+        writeJson(response, 405, requestId, methodNotAllowed(requestId));
+        return;
+      }
+
       const body = await readJsonBody(request);
-      const parsedRequest = endpoint.request.safeParse(body);
-      if (!parsedRequest.success) {
+      const parsedRequest = matched.route.request.safeParse(body);
+      const parsedParams = matched.route.params.safeParse(matched.params);
+      if (!parsedRequest.success || !parsedParams.success) {
         writeJson(response, 400, requestId, validationFailure(requestId));
         return;
       }
 
-      const result = await endpoint.handle({
+      const result = await matched.route.handle({
         method: request.method ?? 'GET',
-        path: new URL(request.url ?? '/', 'http://localhost').pathname,
+        path,
         headers: request.headers,
         body: parsedRequest.data,
+        params: parsedParams.data,
         requestId,
       });
-      const parsedResponse = endpoint.response.safeParse(result.body);
+      const parsedResponse = matched.route.response.safeParse(result.body);
       if (!parsedResponse.success) throw new Error('HTTP response did not pass its boundary schema.');
 
       writeJson(response, result.status ?? 200, requestId, parsedResponse.data, result.headers);

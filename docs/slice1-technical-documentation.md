@@ -291,6 +291,10 @@ type ProjectName   = string & { readonly __brand: 'ProjectName' };  // 1 to 80 c
 type PoolName      = string & { readonly __brand: 'PoolName' };     // 1 to 80 chars, unique per project
 type SourceName    = string & { readonly __brand: 'SourceName' };   // 1 to 80 chars, unique per project
 type TermName      = string & { readonly __brand: 'TermName' };     // lowercase, unique per scope and kind
+type InviteId     = string & { readonly __brand: 'InviteId' };
+type InviteId     = string & { readonly __brand: 'InviteId' };
+type InviteId     = string & { readonly __brand: 'InviteId' };
+type InviteId     = string & { readonly __brand: 'InviteId' };
 
 // Closed unions.
 type Region    = 'eu-west-1' | 'us-east-1' | 'ap-southeast-1' | 'ap-southeast-3';
@@ -485,7 +489,7 @@ type CurrentUser = {
 type AuthMethod = 'magic_link' | `oidc:${string}`;
 
 interface SessionPort {
-  create(user: UserId, meta: SessionMeta): Promise<SessionId>;
+  create(user: UserId, meta: SessionMeta, method: AuthMethod, deviceConfirmed: boolean): Promise<SessionId>;
   read(id: SessionId): Promise<SessionRecord | null>;
   touch(id: SessionId): Promise<void>;
   rotate(id: SessionId): Promise<SessionId>;
@@ -516,6 +520,36 @@ type SessionMeta = {
   ip: string;
   userAgent: string;
   deviceNonce: string;
+};
+
+// modules/identity
+interface AccountRepository {
+  findByEmail(email: string): Promise<UserAccount | null>;
+  create(email: string, invite: PendingInvite | null): Promise<UserAccount>;
+  recordLogin(id: UserId, at: Timestamp): Promise<void>;
+}
+
+interface InviteRepository {
+  findPendingFor(email: string): Promise<PendingInvite | null>;
+  markAccepted(id: InviteId, by: UserId): Promise<void>;
+}
+
+type UserAccount = {
+  id: UserId;
+  email: string;
+  fullName: string | null;
+  timezone: string;
+  createdAt: Timestamp;
+  lastLoginAt: Timestamp | null;
+};
+
+type PendingInvite = {
+  id: InviteId;
+  email: string;
+  companyId: CompanyId;
+  projectId: ProjectId | null;
+  role: 'admin' | 'operator' | 'viewer';
+  expiresAt: Timestamp;
 };
 
 // ---- pools ----
@@ -1207,6 +1241,13 @@ On nonce mismatch the link was opened elsewhere. Do not fail: require an explici
 Slice 1 ships OIDC with PKCE: Google, Microsoft Entra, and generic. SAML and SCIM are Slice 2.
 
 **The verified email is the identity.** The same address through any route resolves to one `user_account`. An unverified email claim from a provider is refused outright and never links.
+
+**Request-link always does the same work. It looks up the account and any pending invitation, then either enqueues mail or discards the result. Timing is equalised by doing the lookup regardless, not by adding a sleep. The response is 202 with an empty body in every case.
+
+**Backoff after the IP limit is 1s, 2s, 4s, 8s, 16s, capped at 16, keyed on IP in Redis with a 15 minute window. The response is 429 with retryAfter in the envelope details. It is identical whether or not the address is known.
+
+**Membership on invitation acceptance is written by the tenancy module, not identity. In Slice 1 the callback marks the invitation accepted and records the intended role; the SpiceDB relationship write lands in item 2.7. B-015 asserts the invitation is marked accepted and the role recorded.
+
 
 Just-in-time provisioning happens only where a pending invitation exists. Domain capture is Slice 2.
 
