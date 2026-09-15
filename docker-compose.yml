@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: opintel
+      POSTGRES_PASSWORD: opintel
+      POSTGRES_DB: opintel
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opintel"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  spicedb:
+    image: authzed/spicedb:latest
+    command: serve --grpc-preshared-key devkey --datastore-engine memory
+    ports: ["50051:50051"]

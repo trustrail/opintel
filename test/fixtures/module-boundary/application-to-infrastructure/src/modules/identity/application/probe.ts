@@ -1,0 +1,3 @@
+import '../infrastructure/thing';
+
+export {};

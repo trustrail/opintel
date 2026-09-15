@@ -1,0 +1,2568 @@
+# Opintel Slice 1 (Pilot): Technical Documentation
+
+**Slice 1a plus 1b. Everything needed to pass the pilot success criteria and nothing else.**
+
+Sequencing, gates and work items are in `implementation-plan.md`. This document carries no schedule; the plan explains why.
+Version 1.1
+
+This document establishes the conventions for all three slices. Slices 2 and 3 are written as deltas against it. Where they are silent, this document governs.
+
+**In scope:** foundation and auth, companies and projects, two source connectors, per-field entitlements, pools and the agent interface, evidence records, natural language querying without the compounding layer, and the query sidecar in customer-network mode.
+
+**Explicitly out:** fragments, protocols, fast lane, learning loops, source of truth registry, relationships, knowledge, the **observations register** as a workflow surface, key-policy release, SAML, SCIM.
+
+**The Dashboard screen is in.** Findings surface in its needs-a-decision feed. What Slice 3 adds is the register behind them, with acknowledge and resolve states and a history.
+
+---
+
+# 1. Domain model
+
+## 1.1 Bounded contexts
+
+Ten contexts in Slice 1. Each is a folder under `src/modules/`, each owns its tables, and cross-context access goes through a published interface, never a direct table read.
+
+| Context | Owns | Publishes |
+|---|---|---|
+| `identity` | Users, sessions, magic links, federated identities | `CurrentUser`, `SessionPort` |
+| `tenancy` | Companies, projects, members, invitations | `ProjectRef`, `MembershipQuery` |
+| `authz` | The SpiceDB graph and its cache | `AuthorizationPort` |
+| `sources` | Data source registration, credentials, introspection runs | `SourceRef`, `SourceConnector` |
+| `catalog` | Schemas, objects, elements, statistics, namespace mapping | `ElementRef`, `CatalogQuery` |
+| `entitlements` | The per-pool, per-element decision and view compilation | `EntitlementQuery`, `ViewDefinition` |
+| `pools` | Pools, keys, source bindings, agent presence | `PoolRef`, `KeyVerifier` |
+| `vocabulary` | Industries, inherited terms, project overrides, embeddings | `EffectiveVocabulary`, `RetrievalPort` |
+| `querying` | Classification, resolution, composition, quality control | `PipelinePort` |
+| `evidence` | Run records, stages, export | `RecordWriter`, `EvidenceQuery` |
+
+**Rule.** A context may import another context's published types. It may not import another context's `domain/` or `infrastructure/`. Enforced by an ESLint boundary rule and a dependency-cruiser check in CI.
+
+## 1.2 Aggregates and their invariants
+
+An aggregate is the unit of consistency. One transaction touches one aggregate root.
+
+### Project (root: `Project`)
+
+```ts
+class Project {
+  readonly id: ProjectId;
+  readonly companyId: CompanyId;
+  readonly industryId: IndustryId;   // immutable except by migration
+  readonly region: Region;           // immutable, always
+  name: ProjectName;
+  settings: ProjectSettings;
+}
+```
+
+**Invariants**
+- `name` unique within `companyId`, case-insensitive
+- `region` never changes after creation. There is no setter and no route
+- `industryId` changes only through `MigrateIndustry`, which is a distinct command requiring both project and company administration. It is a migration because it changes which terms are inherited and must not touch entitlements. **In Slice 3 it also orphans protocols and fragments keyed to the old vocabulary**, which are deactivated rather than deleted; neither exists in Slice 1
+- `companyId` is fixed once any agent has authenticated against the project
+
+### Industry (root: `Industry`) and its vocabulary
+
+**Platform scope, not tenant scope.** This is the only aggregate in the system that is shared across every customer, and the only one a customer cannot write to.
+
+```ts
+class Industry {
+  readonly id: IndustryId;
+  readonly slug: IndustrySlug;         // 'reinsurance-treaty', 'real-estate-finance'
+  name: string;
+  description: string;
+  active: boolean;
+  vocabularyVersion: number;           // bumped on any publish
+  demoPackVersion: number;
+}
+
+class DemoSourceTemplate {
+  readonly id: DemoSourceId;
+  readonly industryId: IndustryId;
+  name: string;                        // 'Bordereaux Store'
+  kind: DemoTemplateKind;              // how the demo is produced, not what
+                                       // the resulting source is. Both end up
+                                       // as a data_source of kind 'demo'.
+  schemaSpec: SchemaSpec;              // objects, elements, types, keys
+  generatorSpec: GeneratorSpec;        // seed, row counts, distributions, join keys
+  narrative: string;                   // what this source is for, shown when connecting
+}
+
+class VocabularyTerm {
+  readonly id: TermId;
+  readonly scope: 'industry' | 'project';
+  readonly industryId: IndustryId | null;   // set when scope is industry
+  readonly projectId: ProjectId | null;     // set when scope is project
+  readonly kind: 'metric' | 'subject' | 'operation' | 'parameter';
+  name: TermName;                       // canonical, unique within its scope and kind
+  displayName: string;
+  synonyms: string[];
+  active: boolean;
+  // metric only
+  formula?: string;
+  requiredColumns?: string[];
+  assumptionColumns?: string[];
+  grainRule?: GrainRule;                // required for measures and ratios
+  // parameter only
+  paramType?: 'string' | 'enum' | 'integer' | 'date' | 'boolean';
+  enumValues?: string[];
+  columnHint?: string;                  // drives value resolution
+  // subject only
+  aliases?: string[];
+  // operation only
+  resultShape?: 'scalar' | 'row' | 'series' | 'comparison';
+}
+```
+
+**Invariants**
+
+- `scope` determines which of `industryId` and `projectId` is set. Exactly one, enforced by a check constraint
+- A project term with the same `kind` and `name` as an industry term **overrides** it. Both rows continue to exist; the merge decides which wins
+- A metric whose `formula` aggregates requires a `grainRule`. Composition refuses without one, because `SUM(a)/SUM(b)` and `AVG(a/b)` are different numbers and which is correct is a business decision
+- Only a platform administrator writes industry-scope terms. There is no customer-facing route that does
+
+**Four kinds, not one entity.** A metric carries a formula, required columns and a grain rule. A parameter carries a type, enumerated values and a column hint. Collapsing them into one `term` entity would produce a lowest common denominator that helps nobody.
+
+### Demo sources, and why there is no sandbox mode
+
+**There is no sandbox project, no sandbox mode, and no flag on `Project`.** Every project is real.
+
+An industry ships a **demo pack** alongside its vocabulary: a set of source templates with realistic schemas, generated data, and cross-source join keys that actually join. A person connects one through the same flow as a customer database. It is tested, introspected, catalogued, entitled, queried and recorded by **the same code**, with no branch anywhere that asks whether a source is real.
+
+What this buys:
+
+- **Onboarding and evaluation with no database access.** Create a project, connect the demo source for your industry, and the product works end to end on the first day
+- **A demo source and a customer source side by side in one project**, which is what someone evaluating actually wants and which a boolean forbade
+- **No destructive mode transition.** Leaving the demo behind is deleting a source, an ordinary operation with the confirmation we already have
+- **The demo exercises the real introspection path**, so a bug in it is a bug in the product rather than in a special case
+
+**Synthetic is a property of data, derived at write time.** A run is marked synthetic when any source it touched was a demo source, computed from what it actually reached, not from a flag that could disagree with reality. Synthetic runs are excluded from evidence exports and from metering.
+
+**The demo pack is versioned with the industry**, so improving it improves evaluation for every future project in that vertical, exactly as vocabulary does.
+
+**An industry pack therefore has three parts:** the vocabulary, the demo sources, and the discovery question set (§11.2). Slice 3 adds a fourth, fragments and protocols.
+
+### EffectiveVocabulary (a read model, not an aggregate)
+
+```ts
+type EffectiveVocabulary = {
+  projectId: ProjectId;
+  version: number;                      // industryVersion + projectRevision
+  terms: Array<VocabularyTerm & { source: 'inherited' | 'project' }>;
+};
+```
+
+**The merge happens server side, once.** Screens and the classifier both consume the merged result with a `source` field per term. If the client merged, four screens would implement four slightly different merge rules.
+
+**Inheritance is by reference, never by copy.** A project reads its industry's terms through this read model. Republishing an industry pack improves every project in that vertical with no migration. Copying at creation would freeze each project at the pack version of the day it was made, which is the difference between a compounding asset and two hundred divergent snapshots.
+
+### DataSource (root: `DataSource`)
+
+```ts
+class DataSource {
+  readonly id: SourceId;
+  readonly projectId: ProjectId;
+  readonly kind: SourceKind;         // postgres | demo
+  readonly origin: 'customer' | 'demo';
+  readonly demoTemplateId: DemoSourceId | null;   // set when origin is demo
+  name: SourceName;
+  credentialRef: VaultRef | null;    // null for demo, never a literal otherwise
+  samplingConsent: boolean;
+  status: SourceStatus;
+  freshness: Freshness;
+}
+```
+
+**Invariants**
+- `credentialRef` is a vault reference, or null when `origin` is `demo`. A literal secret fails construction
+- `origin` is immutable. A demo source never becomes a customer source, and the reverse is meaningless
+- Deleting a source requires that its dependent entitlements be enumerated to the caller first
+- `samplingConsent` defaults false and can only be set by an explicit command with an audit entry
+
+### CatalogElement (root: `CatalogObject`, elements are entities within it)
+
+```ts
+class CatalogElement {
+  readonly id: ElementId;
+  readonly objectId: ObjectId;
+  readonly sourceIdentifier: string;   // as the source names it
+  readonly duckdbName: string;         // normalised once, never recomputed
+  readonly stableRef: string | null;   // attnum, field id, if the source has one
+  type: SourceType;
+  duckdbType: DuckDbType;
+  status: 'active' | 'removed';
+}
+```
+
+**Invariants**
+- `duckdbName` is assigned at first discovery and is immutable. Recomputing it would rename tables under running agents
+- Two elements in one object cannot share a `duckdbName`. Collisions get a numeric suffix and raise a catalog diff entry
+- An element marked `removed` keeps its entitlements for evidence reproducibility
+
+### Entitlement (root: `Entitlement`, keyed by pool and element)
+
+```ts
+type Treatment = 'clear' | 'tokenized' | 'masked' | 'aggregate_only' | 'withheld';
+// 'reference' is Slice 3
+
+class Entitlement {
+  readonly poolId: PoolId;
+  readonly elementId: ElementId;
+  treatment: Treatment;
+  readonly setBy: ActorRef;          // user or rule
+  readonly setAt: Timestamp;
+}
+```
+
+**Invariants**
+- There is no `undecided` treatment. Undecided is the **absence** of an entitlement row. This is the single most important modelling decision in the system: it makes "not decided" unrepresentable as a granted state
+- An entitlement cannot be deleted back to undecided through the API. The only transition out of undecided is a decision
+- Setting a bulk selection to `clear` requires a non-empty justification, carried on the command
+
+### Pool (root: `Pool`)
+
+```ts
+class Pool {
+  readonly id: PoolId;
+  readonly projectId: ProjectId;
+  name: PoolName;
+  boundSources: SourceId[];
+  modes: { query: boolean; prompt: boolean };
+  clarificationPolicy: 'pause' | 'refuse';   // unattended callers set refuse
+  budgets: PoolBudgets;
+  keys: PoolKey[];                   // at most two: current and retiring
+}
+```
+
+**Invariants**
+- At most one key is `current`. A rotation creates a second in `retiring` with a grace expiry
+- A pool with no bound sources can exist. It resolves to an empty namespace, which is correct and not an error
+- **Agents are not members of this aggregate.** The key is the membership. `agentId` is observational and appears only in presence and evidence
+
+### QueryRun (root: `QueryRun`, append-only)
+
+```ts
+class QueryRun {
+  readonly id: RunId;
+  readonly poolId: PoolId;
+  readonly agentId: string | null;   // self-declared, observational
+  readonly mode: 'query' | 'prompt';
+  readonly request: string;
+  readonly stages: RunStage[];
+  readonly elements: ElementDelivery[];
+  readonly versions: VersionStamp;
+  readonly outcome: RunOutcome;
+}
+```
+
+**Invariants**
+- Immutable after `outcome` is set. No setters exist on the class
+- Every stage that ran appends a `RunStage`. A refusal records the stage that refused and why
+- `versions` is captured at request start, not at completion, so a mid-flight configuration change is visible as a discrepancy rather than hidden
+
+## 1.3 Value objects
+
+Always constructed through a factory that validates. Never a bare string. **This is the complete inventory**, so nothing elsewhere in this document uses a branded name that is not here.
+
+```ts
+// Branded UUIDs. Every one is validated on construction.
+type CompanyId    = string & { readonly __brand: 'CompanyId' };
+type ProjectId    = string & { readonly __brand: 'ProjectId' };
+type UserId       = string & { readonly __brand: 'UserId' };
+type SourceId     = string & { readonly __brand: 'SourceId' };
+type ObjectId     = string & { readonly __brand: 'ObjectId' };
+type ElementId    = string & { readonly __brand: 'ElementId' };
+type PoolId       = string & { readonly __brand: 'PoolId' };
+type RunId        = string & { readonly __brand: 'RunId' };
+type IndustryId   = string & { readonly __brand: 'IndustryId' };
+type TermId       = string & { readonly __brand: 'TermId' };
+type RuleId       = string & { readonly __brand: 'RuleId' };
+type DemoSourceId = string & { readonly __brand: 'DemoSourceId' };
+type FilingId     = string & { readonly __brand: 'FilingId' };
+
+// Branded strings with a shape rule, validated on construction.
+type DuckDbName    = string & { readonly __brand: 'DuckDbName' };
+  // lowercase snake case, not a DuckDB reserved word, 63 characters or fewer
+type IndustrySlug  = string & { readonly __brand: 'IndustrySlug' };
+  // lowercase kebab case, for example 'reinsurance-treaty'
+type PoolKey       = string & { readonly __brand: 'PoolKey' };
+  // opk_live_ plus 22 base62 characters. Held as a SHA-256 hash after creation
+  // and never returned by any route
+type ProjectName   = string & { readonly __brand: 'ProjectName' };  // 1 to 80 chars, unique per company
+type PoolName      = string & { readonly __brand: 'PoolName' };     // 1 to 80 chars, unique per project
+type SourceName    = string & { readonly __brand: 'SourceName' };   // 1 to 80 chars, unique per project
+type TermName      = string & { readonly __brand: 'TermName' };     // lowercase, unique per scope and kind
+
+// Closed unions.
+type Region    = 'eu-west-1' | 'us-east-1' | 'ap-southeast-1' | 'ap-southeast-3';
+type GrainRule = 'sum' | 'sum_over_sum' | 'avg_of_ratio' | 'none';
+```
+
+**Every branded type has a factory with the same name**, which validates and throws `InvariantViolation` on a bad value:
+
+```ts
+export const ProjectId = (raw: string): ProjectId => {
+  if (!UUID_RE.test(raw)) throw new InvariantViolation('ProjectId', raw);
+  return raw as ProjectId;
+};
+
+export const DuckDbName = (raw: string): DuckDbName => {
+  if (!/^[a-z_][a-z0-9_]{0,62}$/.test(raw) || RESERVED.has(raw)) {
+    throw new InvariantViolation('DuckDbName', raw);
+  }
+  return raw as DuckDbName;
+};
+```
+
+A function taking `(projectId: ProjectId, poolId: PoolId)` cannot be called with the arguments swapped. That eliminates an entire class of bug otherwise found only in production, and it costs one line per type.
+
+**Construction throws rather than returning a `Result`.** A malformed id is a programming error, not a domain outcome, and it should not travel through a use case's error path pretending to be one. Input from the wire is validated by Zod at the boundary before any factory sees it.
+
+## 1.4 Domain events
+
+Published in-process after the transaction commits, via an outbox. Handlers are idempotent and keyed on the event id.
+
+| Event | Raised by | Consumed by |
+|---|---|---|
+| `ProjectCreated` | tenancy | evidence (audit), catalog (seed) |
+| `MemberGranted` / `MemberRevoked` | tenancy | authz (write tuple), evidence |
+| `SourceConnected` | sources | catalog (queue introspection) |
+| `IntrospectionCompleted` | sources | catalog (apply diff), entitlements (apply pattern rules) |
+| `ElementsDiscovered` | catalog | entitlements (rules), evidence |
+| `EntitlementChanged` | entitlements | pools (recompile view), evidence (audit) |
+| `PoolKeyRotated` | pools | evidence (audit) |
+| `AgentPresenceChanged` | pools | (stream only) |
+| `IndustryPackPublished` | vocabulary (platform) | vocabulary (invalidate effective, re-embed), sources (new demo templates available) |
+| `TermChanged` | vocabulary | vocabulary (re-embed), evidence (audit) |
+| `QueryExecuted` | evidence | (Slice 3: knowledge) |
+
+**Rule.** An event never carries a domain object. It carries identifiers and a minimal payload. Handlers re-read what they need.
+
+## 1.5 State machines
+
+Explicit transition tables. An illegal transition throws in development and is logged and dropped in production.
+
+**Introspection run**
+
+```
+queued -> connecting -> reading -> diffing -> complete
+                 |          |         |
+                 +----------+---------+---> failed
+any -> cancelled  (from queued, connecting, reading only)
+```
+
+**Agent presence**
+
+```
+connecting -> active <-> idle -> stale -> disconnected
+```
+
+`idle` after 60s without a request, `stale` after 3 missed heartbeats, `disconnected` after the grace window. **A disconnected agent is never removed from the list.** Absence is information.
+
+**Pool key**
+
+```
+current -> retiring -> expired
+current -> revoked          (break glass, requires typed confirmation)
+```
+
+## 1.6 What is deliberately not modelled in Slice 1
+
+- Agent as a graph subject. The key is the membership
+- `undecided` as a treatment value
+- Fragments, protocols, vocabulary versions beyond a single counter
+- Releases and **release** key custody, meaning the by-reference treatment and its policy-bound key release. The **tokenization** key is a different thing and is in Slice 1: see §4.3a in the plan and algorithm specifications A.5.1
+- Observations as a workflow entity. Slice 1 surfaces findings inline, not as a register
+
+## 1.7 Types used throughout
+
+Referenced across this document and previously left undefined. All live in `shared/kernel` or their owning module's `domain`.
+
+```ts
+// shared/kernel
+type JsonValue  = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+type JsonObject = { [k: string]: JsonValue };
+
+type ActorRef =
+  | { kind: 'user';   id: UserId }
+  | { kind: 'rule';   id: RuleId }
+  | { kind: 'system'; name: string };
+
+type ErrorCode =
+  // console
+  | 'unauthenticated' | 'forbidden' | 'not_found' | 'validation_failed'
+  | 'conflict' | 'idempotency_key_reused' | 'rate_limited' | 'dependency_unavailable'
+  // agent facing
+  | 'entitlement_missing' | 'element_withheld' | 'object_unavailable'
+  | 'term_unresolved' | 'clarification_required' | 'domain_knowledge_gap'
+  | 'sources_cannot_be_joined' | 'large_result_confirmation' | 'budget_exceeded'
+  | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown';
+
+// platform/db: the transaction handle a scope hands to its callback.
+// It exposes query and nothing else. No commit, no rollback, no release:
+// the scope owns the lifecycle.
+interface Tx {
+  query<T = unknown>(sql: string, params?: readonly unknown[]): Promise<T[]>;
+  one<T = unknown>(sql: string, params?: readonly unknown[]): Promise<T>;
+  none(sql: string, params?: readonly unknown[]): Promise<void>;
+}
+
+// modules/sources/domain
+type SourceKind   = 'postgres' | 'demo';
+
+// How a demo template produces its data. Distinct from SourceKind: a template
+// of either kind yields a data_source whose kind is 'demo'. A 'spreadsheet'
+// template generates files and lands them, exercising the ingest path.
+type DemoTemplateKind = 'postgres' | 'spreadsheet';
+type SourceOrigin = 'customer' | 'demo';
+type SourceStatus = 'pending' | 'testing' | 'connected' | 'unreachable' | 'archived';
+type Freshness    =
+  | { mode: 'live' }
+  | { mode: 'cached'; asOf: Timestamp; maxAgeSeconds: number }
+  | { mode: 'generated' };                       // demo sources
+type LandingStrategy = 'append_as_at' | 'table_per_filing';
+
+// modules/pools/domain
+type PoolBudgets = {
+  rowsPerDay: number;
+  rowsPerRequest: number;
+  timeoutMs: number;
+  memoryMb: number;
+  concurrency: number;
+};
+
+// modules/tenancy/domain
+type ProjectSettings = {
+  discovery: { schedule: 'off'|'hourly'|'daily'|'weekly';
+               newElements: 'hold'|'rules_only';
+               typeFamilyChange: 'revert'|'carry';
+               renameHandling: 'carry'|'new';
+               adoptRenamedNames: boolean;
+               valueSampling: boolean; sampleSize: number };
+  query:     { timeoutSeconds: number; rowLimit: number;
+               dailyRowBudgetPerPool: number;
+               cardinalityConfirmThreshold: number;
+               aggregateMinGroupSize: number;
+               memoryLimitMb: number; concurrencyPerPool: number };
+  evidence:  { fullRetentionDays: number; rollupRetentionDays: number;
+               redaction: 'aggressive'|'allowlist'|'none';
+               allowlistedFields: string[]; captureSamplingPercent: number };
+};
+
+// shared/kernel: the one error thrown rather than returned. A broken invariant
+// is a bug, not a domain outcome, so it does not travel in a Result.
+class InvariantViolation extends Error {
+  readonly code = 'invariant_violation' as const;
+  constructor(readonly invariant: string, readonly received: unknown) {
+    // NOTE: `received` is never rendered into the message, because it may be a
+    // customer value. It is available to a debugger and to nothing else.
+    super(`Invariant violated: ${invariant}`);
+  }
+}
+
+// modules/catalog: two type families, kept apart on purpose. A source type is
+// whatever the source called it, verbatim, so a diff can detect a change. A
+// DuckDB type is what the agent sees, after treatment.
+type SourceType = string & { readonly __brand: 'SourceType' };   // 'character varying(40)'
+type DuckDbType =
+  | 'BOOLEAN' | 'TINYINT' | 'SMALLINT' | 'INTEGER' | 'BIGINT' | 'HUGEINT'
+  | 'FLOAT' | 'DOUBLE' | `DECIMAL(${number},${number})`
+  | 'VARCHAR' | 'DATE' | 'TIME' | 'TIMESTAMP' | 'TIMESTAMPTZ'
+  | 'UUID' | 'JSON' | `LIST(${string})` | `STRUCT(${string})`;
+
+// ---- identity ----
+// What a request carries once authenticated. Never the session id itself:
+// that stays in the cookie and in Redis, and no handler needs it.
+type CurrentUser = {
+  id: UserId;
+  email: string;                    // verified. The identity, per §3.2
+  fullName: string | null;
+  timezone: string;
+  method: 'magic_link' | `oidc:${string}`;   // recorded on the audit entry
+  sessionCreatedAt: Timestamp;
+  deviceConfirmed: boolean;         // true when a nonce mismatch was resolved
+};
+
+interface SessionPort {
+  create(user: UserId, meta: SessionMeta): Promise<SessionId>;
+  read(id: SessionId): Promise<CurrentUser | null>;   // null when expired or revoked
+  touch(id: SessionId): Promise<void>;                // extends idle, never absolute
+  rotate(id: SessionId): Promise<SessionId>;          // on privilege change
+  revoke(id: SessionId): Promise<void>;
+  revokeAllFor(user: UserId): Promise<number>;        // returns how many, for SCIM
+  listFor(user: UserId): Promise<Array<{ id: SessionId; meta: SessionMeta; lastSeenAt: Timestamp }>>;
+}
+type SessionId  = string & { readonly __brand: 'SessionId' };
+type SessionMeta = {
+  method: CurrentUser['method'];
+  ip: string;
+  userAgent: string;
+  deviceNonce: string;
+};
+
+// ---- pools ----
+type PoolRef = {
+  id: PoolId;
+  projectId: ProjectId;
+  name: PoolName;
+  modes: { query: boolean; prompt: boolean };
+  clarificationPolicy: 'pause' | 'refuse';
+};
+
+// Resolves a presented bearer token to a pool. This is the ONLY place a key
+// becomes an identity, and it is deliberately narrow: it returns a pool and
+// nothing about any agent.
+interface KeyVerifier {
+  verify(presented: string): Promise<KeyVerdict>;
+}
+type KeyVerdict =
+  | { ok: true;  pool: PoolRef; keyPrefix: string; keyState: 'current' | 'retiring' }
+  | { ok: false; reason: 'unknown' | 'revoked' | 'expired' | 'malformed' };
+// A failed verdict never says which of the four it was to the caller. The
+// distinction is recorded, not returned, because it is an oracle otherwise.
+
+// ---- retrieval ----
+interface RetrievalPort {
+  search(q: RetrievalQuery): Promise<RetrievalHit[]>;
+  upsert(owner: { type: 'metric' | 'term_synonym' | 'prompt'; id: string },
+         scope: { industryId?: IndustryId; projectId?: ProjectId },
+         content: string): Promise<void>;
+  deactivate(owner: { type: string; id: string }): Promise<void>;
+}
+type RetrievalQuery = {
+  text: string;
+  ownerType: 'metric' | 'term_synonym' | 'prompt';
+  industryId: IndustryId;        // scope filters ALWAYS applied before ranking,
+  projectId: ProjectId;          // never after. Asserted in test T-020
+  limit: number;
+  model: string;                 // one model per search. Never mixed
+};
+type RetrievalHit = {
+  ownerId: string;
+  content: string;
+  similarity: number;            // cosine, 0 to 1
+  scope: 'industry' | 'project';
+};
+
+// ---- querying ----
+interface PipelinePort {
+  run(req: PipelineRequest): AsyncIterable<PipelineEvent>;
+  resume(runId: RunId, answers: ClarificationAnswer[]): AsyncIterable<PipelineEvent>;
+  dryRun(req: PipelineRequest): Promise<{ plan: JsonObject; wouldRefuse: ErrorCode | null }>;
+}
+type PipelineRequest = {
+  pool: PoolRef;
+  mode: 'query' | 'prompt';
+  text: string;
+  agentId: string | null;        // observational only. Nothing authorises on it
+};
+type PipelineEvent =
+  | { kind: 'stage';   stage: RunStage }
+  | { kind: 'clarify'; items: ClarificationItem[] }
+  | { kind: 'rows';    rows: JsonObject[]; truncated: boolean }
+  | { kind: 'done';    outcome: RunOutcome; runId: RunId };
+type ClarificationItem = {
+  concept: string;
+  kind: 'parameter_value' | 'metric' | 'source' | 'join_path';
+  candidates: Array<{ value: string; frequency?: number; via: 'mapping' | 'similarity' | 'frequency'; spokenAs?: string }>;
+  saveAsDefaultAvailable: boolean;
+};
+type ClarificationAnswer = { concept: string; value: string | null; saveAsDefault: boolean };
+
+// ---- evidence ----
+interface RecordWriter {
+  // Opening a record is the FIRST thing a request does, so a crash mid-flight
+  // leaves a record with no outcome rather than no record at all.
+  open(req: { pool: PoolRef; mode: 'query' | 'prompt'; text: string;
+              agentId: string | null; versions: VersionStamp }): Promise<RunId>;
+  stage(run: RunId, stage: RunStage): Promise<void>;
+  elements(run: RunId, delivered: ElementDelivery[]): Promise<void>;
+  close(run: RunId, outcome: RunOutcome): Promise<void>;
+}
+
+interface EvidenceQuery {
+  run(id: RunId): Promise<QueryRun | null>;
+  list(project: ProjectId, filter: RunFilter, cursor?: string):
+    Promise<{ items: QueryRun[]; nextCursor: string | null }>;
+  countsByOutcome(project: ProjectId, since: Timestamp): Promise<Record<RunOutcome['kind'], number>>;
+  export(project: ProjectId, filter: RunFilter, format: 'ndjson' | 'csv'): AsyncIterable<string>;
+}
+type RunFilter = {
+  pool?: PoolId;
+  mode?: 'query' | 'prompt';
+  outcome?: RunOutcome['kind'];
+  element?: ElementId;
+  from?: Timestamp;
+  to?: Timestamp;
+  includeSynthetic?: boolean;     // default false. Exports exclude them
+};
+
+// ---- published interfaces, one per bounded context ----
+// These are the ONLY things a module exposes. A caller that needs more is
+// either in the wrong module or the boundary is drawn in the wrong place.
+
+// tenancy
+type ProjectRef = {
+  id: ProjectId;
+  companyId: CompanyId;
+  industryId: IndustryId;
+  region: Region;
+  name: string;
+};
+interface MembershipQuery {
+  rolesFor(user: UserId, project: ProjectId): Promise<ProjectRole[]>;
+  membersOf(project: ProjectId): Promise<Array<{ user: UserId; role: ProjectRole; via: 'project' | 'company' }>>;
+  projectsFor(user: UserId): Promise<ProjectRef[]>;
+}
+type ProjectRole = 'admin' | 'operator' | 'viewer';
+
+// authz
+interface AuthorizationPort {
+  check(req: CheckRequest): Promise<CheckResult>;
+  checkMany(reqs: CheckRequest[]): Promise<CheckResult[]>;
+  write(updates: RelationshipUpdate[]): Promise<ZedToken>;
+  explain(req: CheckRequest): Promise<{ allowed: boolean; path: string[] }>;
+}
+type CheckRequest = {
+  resource: { type: 'company' | 'project' | 'pool' | 'datasource'; id: string };
+  permission: string;
+  subject: { type: 'user' | 'pool'; id: string };
+};
+type CheckResult = {
+  allowed: boolean;
+  checkedAt: Timestamp;
+  token: ZedToken;         // stamped on the evidence record
+  snapshotAgeMs: number;   // beyond the staleness ceiling, the caller refuses
+};
+type ZedToken = string & { readonly __brand: 'ZedToken' };
+type RelationshipUpdate = {
+  operation: 'touch' | 'delete';
+  resource: CheckRequest['resource'];
+  relation: string;
+  subject: CheckRequest['subject'];
+};
+
+// catalog
+type ElementRef = {
+  id: ElementId;
+  objectId: ObjectId;
+  projectId: ProjectId;
+  duckdbName: DuckDbName;
+  duckdbType: DuckDbType;
+};
+interface CatalogQuery {
+  element(id: ElementId): Promise<ElementRef | null>;
+  elementsOf(object: ObjectId): Promise<ElementRef[]>;
+  byPrefix(project: ProjectId, prefix: string, cursor?: string):
+    Promise<{ items: ElementRef[]; nextCursor: string | null }>;
+  undecidedCount(project: ProjectId): Promise<number>;
+  resolve(project: ProjectId, duckdbName: DuckDbName): Promise<ElementRef | null>;
+}
+
+// entitlements
+interface EntitlementQuery {
+  forPool(pool: PoolId): Promise<Map<ElementId, Treatment>>;
+  forElement(pool: PoolId, element: ElementId): Promise<Treatment | null>;  // null IS undecided
+  clearRatio(pool: PoolId): Promise<number>;
+  countsByTreatment(project: ProjectId): Promise<Record<Treatment | 'undecided', number>>;
+}
+
+// ---- evidence ----
+type VersionStamp = {
+  policy: number;       // project.policy_version at request start
+  vocabulary: number;   // effective vocabulary version
+  catalog: number;      // catalog generation
+  tokenKey: number;     // which token key produced the tokens in this response
+};
+
+type RunStage = {
+  stage: 'classify' | 'recover' | 'resolve_values' | 'resolve_sources'
+       | 'compose' | 'validate' | 'qqc_l1' | 'qqc_l2' | 'qqc_l3'
+       | 'execute' | 'record';
+  result: 'ok' | 'clarify' | 'refuse' | 'warn';
+  detail: JsonObject | null;
+  ms: number;
+};
+
+type ElementDelivery = {
+  elementId: ElementId | null;      // null when the agent named something unknown
+  duckdbName: DuckDbName;
+  treatment: Treatment | null;      // null when it was never entitled
+  state: 'released' | 'withheld' | 'undecided' | 'aggregated';
+  withheldReason: string | null;
+};
+
+type RunOutcome =
+  | { kind: 'answered'; rowCount: number; truncated: boolean }
+  | { kind: 'reduced';  rowCount: number; truncated: boolean; withheld: number }
+  | { kind: 'refused';  code: ErrorCode; element: DuckDbName | null; stage: RunStage['stage'] }
+  | { kind: 'clarify';  items: number; resumedAs: RunId | null }
+  | { kind: 'failed';   code: ErrorCode; retryable: boolean };
+
+// shared/kernel: time. A branded ISO 8601 string in UTC, so a Timestamp
+// cannot be confused with an arbitrary string and arithmetic on it is explicit.
+type Timestamp = string & { readonly __brand: 'Timestamp' };
+const Timestamp = (d: Date): Timestamp => d.toISOString() as Timestamp;
+
+// platform/vault: a reference, never a secret. Construction validates the
+// scheme, which is what makes the "no literal secret" constraint enforceable
+// in code as well as in the database.
+type VaultRef = string & { readonly __brand: 'VaultRef' };
+const VaultRef = (raw: string): VaultRef => {
+  if (!raw.startsWith('vault://')) throw new InvariantViolation('VaultRef', raw);
+  return raw as VaultRef;
+};
+
+// modules/sources: lightweight references passed across module boundaries.
+// A Ref carries identity and just enough to name the thing. Anything more
+// is re-read by the receiving module.
+type SourceRef = {
+  id: SourceId;
+  projectId: ProjectId;
+  kind: SourceKind;
+  alias: DuckDbName;              // the catalog name agents address it by
+};
+type ObjectRef = {
+  id: ObjectId;
+  sourceId: SourceId;
+  schema: string;
+  name: string;
+};
+
+// modules/catalog: the aggregate that owns elements.
+class CatalogObject {
+  readonly id: ObjectId;
+  readonly sourceId: SourceId;
+  readonly projectId: ProjectId;
+  readonly schemaName: string;
+  readonly objectName: string;
+  readonly kind: 'table' | 'view' | 'fileset';
+  duckdbSchema: DuckDbName;
+  duckdbName: DuckDbName;         // assigned once, never recomputed
+  lineageKnown: boolean;          // false for a view with no traceable columns
+  rowEstimate: number | null;
+  description: string | null;
+  status: 'active' | 'removed';
+  elements: CatalogElement[];
+}
+
+// What a connector returns from introspection. Structure only: no row values
+// unless sampling consent was given, and then only through sampleTopValues.
+type CatalogSnapshot = {
+  takenAt: Timestamp;
+  objects: Array<{
+    schema: string;
+    name: string;
+    kind: 'table' | 'view' | 'fileset';
+    rowEstimate: number | null;
+    columns: Array<{
+      sourceIdentifier: string;
+      stableRef: string | null;     // attnum or field id, where the source has one
+      ordinal: number;              // preserved, so SELECT * matches the source
+      sourceType: string;
+      nullable: boolean;
+      isKey: boolean;
+      description: string | null;
+    }>;
+  }>;
+  foreignKeys: Array<{
+    fromObject: string; fromColumn: string;
+    toObject: string;   toColumn: string;
+  }>;
+};
+
+// modules/entitlements: what the view compiler emits alongside the DDL.
+// This is where undecided and withheld stop being identical: both are absent
+// from the SELECT, and describe and the evidence record need to tell them apart.
+type CompiledColumn = {
+  elementId: ElementId;
+  duckdbName: DuckDbName;
+  sourceIdentifier: string;
+  declaredType: DuckDbType;        // POST-treatment: a tokenized int is VARCHAR
+  state: 'emitted' | 'withheld' | 'undecided';
+  treatment: Treatment | null;     // null when undecided
+  expression: string | null;       // the SELECT expression, when emitted
+};
+
+// An aggregate-only constraint cannot live in a view, so it travels beside
+// the DDL and is enforced by inspecting the parsed query.
+type AggregateOnly = {
+  elementId: ElementId;
+  duckdbName: DuckDbName;
+  object: DuckDbName;
+  minGroupSize: number;            // from ProjectSettings.query
+};
+
+// shared/kernel: the two ports that make the domain testable.
+// Nothing in domain or application reads the wall clock or generates an id
+// directly, so a test can make both deterministic.
+interface Clock {
+  now(): Timestamp;                  // always UTC
+}
+interface IdFactory {
+  create<T extends string>(): T;     // uuid v7, so ids sort by creation time
+}
+
+// modules/sources: the one connector interface. The plan and this document
+// both call it SourceConnector; ConnectorPort is not a second thing.
+interface SourceConnector {
+  readonly kind: SourceKind;
+  testConnection(ref: VaultRef): Promise<Result<void, DomainError>>;
+  introspect(ref: VaultRef, include: string[]): Promise<Result<CatalogSnapshot, DomainError>>;
+  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number):
+    Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
+  estimateRowCount(ref: VaultRef, object: ObjectRef): Promise<Result<number, DomainError>>;
+}
+type TopValue = { value: string; frequency: number };
+
+// modules/sources: what a demo source template declares. Both are data, not
+// code: a template is published with an industry pack and never executes.
+type SchemaSpec = {
+  schemas: Array<{
+    name: string;
+    objects: Array<{
+      name: string;
+      kind: 'table' | 'view';
+      columns: Array<{
+        name: string;
+        type: string;              // source-dialect type, mapped per §4.4
+        nullable: boolean;
+        isKey?: boolean;
+        description?: string;
+      }>;
+    }>;
+  }>;
+};
+
+type GeneratorSpec = {
+  seed: number;                    // fixed, so a demo source is reproducible
+  rows: Record<string, number>;    // object name to row count
+  joinKeys: Array<{               // keys that must agree across objects,
+    objects: string[];            // so cross-source joins actually join
+    column: string;
+    cardinality: number;
+  }>;
+  columns?: Record<string, {      // per column, keyed 'object.column'
+    distribution?: 'uniform' | 'zipf' | 'normal';
+    values?: string[];            // a closed domain, for enumerated columns
+    nullRate?: number;
+  }>;
+};
+
+// platform/mail
+interface MailPort {
+  send(msg: OutboundMail): Promise<Result<MailReceipt, DomainError>>;
+}
+type OutboundMail = {
+  to: string;                        // one recipient. No bulk path exists
+  template: 'magic_link' | 'invitation' | 'alert' | 'digest';
+  vars: JsonObject;                  // rendered by the adapter, never by the caller
+  idempotencyKey: string;            // template plus recipient plus a nonce
+};
+type MailReceipt = { providerId: string; acceptedAt: Timestamp };
+
+// Mail is always enqueued to the outbox inside the transaction and dispatched
+// after commit. A caller never invokes MailPort directly from a use case.
+
+// shared/api, frontend
+type AppError = {
+  code: ErrorCode;
+  message: string;            // written for a human, rendered unchanged
+  details?: JsonObject;
+  requestId: string;
+  retryable: boolean;
+};
+```
+
+**`Tx` deliberately exposes no lifecycle methods.** A callback that could call `commit` or `release` would be able to defeat the scope, which is the one thing the scope exists to prevent.
+
+
+---
+
+# 2. API contracts
+
+## 2.1 Conventions
+
+| Concern | Rule |
+|---|---|
+| Style | REST over HTTPS. JSON only. No GraphQL in any slice |
+| Base | `/api/v1`. The version is in the path and changes only on a breaking change |
+| Naming | Plural nouns, kebab-case paths, camelCase bodies |
+| Nesting | At most one level: `/projects/:id/pools`. Deeper resources are top level with a filter |
+| Time | RFC 3339 with offset, always UTC on the wire. The client renders in the user's zone |
+| Ids | Branded UUIDs as strings |
+| Casing | Request and response bodies are camelCase. The database is snake_case. The mapping happens in the repository, never in a handler |
+
+**Every request and response is validated by a Zod schema at the boundary.** The same schemas generate the OpenAPI document and the typed client. There is no hand-written client.
+
+```ts
+// modules/pools/api/schemas.ts
+export const CreatePoolBody = z.object({
+  name: z.string().min(1).max(80),
+  boundSourceIds: z.array(z.string().uuid()).max(20),
+  modes: z.object({ query: z.boolean(), prompt: z.boolean() }),
+});
+export const PoolView = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  boundSources: z.array(SourceSummary),
+  modes: z.object({ query: z.boolean(), prompt: z.boolean() }),
+  clearRatio: z.number().min(0).max(1),
+  agentCount: z.number().int(),
+  keyPrefix: z.string(),
+  keyCreatedAt: z.string().datetime({ offset: true }),
+});
+export type PoolView = z.infer<typeof PoolView>;
+```
+
+## 2.2 The response envelope
+
+Success returns the resource directly. Errors always use one shape:
+
+```jsonc
+{
+  "error": {
+    "code": "entitlement_missing",
+    "message": "warehouse.public.orders.tax_id has no entitlement for this pool.",
+    "details": { "elementId": "…", "poolId": "…" },
+    "requestId": "req_8f21a3",
+    "retryable": false
+  }
+}
+```
+
+**`message` is written for a human and appears in the UI unchanged.** It states what happened and what to do. It never contains a stack trace, a SQL fragment, or an internal identifier the user cannot act on.
+
+## 2.3 Pagination
+
+Cursor-based everywhere. Offset pagination is forbidden because the catalog and the run log both grow while being read.
+
+```
+GET /api/v1/projects/:id/elements?cursor=eyJ…&limit=100&prefix=public.orders
+-> { "items": [...], "nextCursor": "eyJ…" | null }
+```
+
+`limit` defaults to 50, maximum 500. A request above the maximum is clamped, not rejected, and the response says so in a `Warning` header.
+
+## 2.4 Idempotency
+
+Every non-GET route accepts `Idempotency-Key`. It is **required** on: pool creation, key rotation, key revocation, source deletion, bulk entitlement set, and export creation.
+
+The key, the route, and a hash of the body are stored for 24 hours. A repeat with the same key and body returns the original response. A repeat with the same key and a different body returns `409 idempotency_key_reused`.
+
+## 2.5 Slice 1 endpoints
+
+### identity
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/auth/providers?email=` | Which routes are available. Safe before submit |
+| POST | `/auth/request-link` | Always 202, constant time |
+| POST | `/auth/callback` | `{ token, deviceNonce }`, sets the cookie. Returns `deviceMismatch: true` instead of a session when the nonce differs |
+| POST | `/auth/confirm-device` | `{ token, confirm: true }`. The explicit "yes, I opened this myself". Consumes the token and sets the cookie. Declining consumes the token and creates nothing. The confirmation is recorded on the session |
+| GET | `/auth/oidc/:provider/start` | PKCE, state, nonce |
+| GET | `/auth/oidc/:provider/callback` | Validates, links, sets the cookie |
+| POST | `/auth/logout` | |
+| GET | `/auth/me` | User, memberships, effective permissions |
+| GET / DELETE | `/auth/sessions[/:id]` | List, revoke |
+
+### tenancy
+
+| Method | Path |
+|---|---|
+| POST / GET | `/companies` |
+| GET / PATCH | `/companies/:id` |
+| POST / GET | `/projects` |
+| GET / PATCH | `/projects/:id` |
+| POST | `/projects/:id/migrate-industry` (dry run via `?dryRun=true`) |
+| GET | `/projects/:id/members` |
+| POST | `/projects/:id/invitations` |
+| DELETE | `/invitations/:id` |
+| POST | `/invitations/:token/accept` |
+| PATCH / DELETE | `/projects/:id/members/:userId` |
+| GET | `/projects/:id/permissions/:userId/explain` |
+
+### sources and catalog
+
+| Method | Path |
+|---|---|
+| POST | `/projects/:id/sources` |
+| POST | `/projects/:id/sources/from-demo` | `{ demoTemplateId }`. Provisions and introspects. Same downstream path as any source |
+| POST | `/projects/:id/sources/test` (validates before saving) |
+| GET / PATCH / DELETE | `/sources/:id` |
+| POST | `/sources/:id/introspect` |
+| GET | `/sources/:id/runs` and `/runs/:runId` |
+| GET | `/sources/:id/runs/:runId/diff` |
+| POST | `/sources/:id/sampling-consent` |
+| GET | `/projects/:id/elements` (cursor, prefix, treatment, undecided filters) |
+| GET | `/elements/:id` |
+| PATCH | `/elements/:id` (description only) |
+
+### vocabulary
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/industries` | Platform scope. Name, slug, and inherited counts for the create-project picker |
+| GET | `/industries/:id` | Includes example terms, so the picker can show what the choice brings |
+| GET | `/industries/:id/demo-sources` | The demo pack for an industry. Name, narrative, what it demonstrates |
+| GET | `/projects/:id/vocabulary` | **The effective merge.** Every term with `source: inherited \| project` |
+| POST | `/projects/:id/vocabulary/terms` | Creates a project-scope term, overriding an inherited one if names collide |
+| PATCH / DELETE | `/vocabulary/terms/:termId` | Project scope only. Industry terms are not writable here |
+| GET | `/projects/:id/vocabulary/export` | The reviewable artifact: every term, its readiness, JSON or CSV |
+| GET | `/projects/:id/vocabulary/readiness` | Per concept: declared, inferred, ambiguous, unmapped |
+| GET | `/industries/:id/discovery-questions` | The structured question set for a deployment |
+| GET | `/projects/:id/discovery-coverage` | Asked, clarified, unresolved |
+| GET | `/projects/:id/vocabulary/unmapped` | Terms used in prompts with no mapping, with occurrence counts |
+| GET | `/projects/:id/vocabulary/candidates` | Expressions resolved by similarity rather than exact match |
+| POST | `/vocabulary/candidates/:id/accept` | Adds as a synonym and re-embeds |
+| POST | `/admin/industries/:id/publish` | **Platform administrators only.** Bumps the version, fans out invalidation |
+
+`GET /projects/:id/vocabulary` is the only vocabulary route a screen calls for reading. Nothing consumes the raw industry pack directly, because that would push the merge into the client.
+
+### entitlements
+
+| Method | Path |
+|---|---|
+| GET | `/pools/:id/entitlements` |
+| PUT | `/pools/:id/entitlements/:elementId` |
+| POST | `/pools/:id/entitlements/bulk` (requires `justification` when treatment is `clear`) |
+| GET | `/pools/:id/view-definition` (the compiled DDL, admin only) |
+| GET / POST / DELETE | `/projects/:id/pattern-rules[/:ruleId]` |
+
+### pools
+
+| Method | Path |
+|---|---|
+| POST / GET | `/projects/:id/pools` |
+| GET / PATCH / DELETE | `/pools/:id` |
+| POST | `/pools/:id/keys/rotate` |
+| POST | `/pools/:id/keys/revoke` (typed confirmation in body) |
+| GET | `/pools/:id/agents` |
+| GET | `/pools/:id/agents/:agentId` |
+
+### querying and evidence
+
+| Method | Path |
+|---|---|
+| POST | `/projects/:id/runs` (the Workbench; SSE response) |
+| POST | `/runs/:id/clarify` (resume a paused run) |
+| GET | `/projects/:id/runs` (cursor, filters) |
+| GET | `/runs/:id` |
+| POST | `/projects/:id/exports` |
+| GET | `/exports/:id` (status, then a signed download URL) |
+
+### streams
+
+| Method | Path |
+|---|---|
+| GET | `/projects/:id/stream` (SSE: presence, catalog changes, counts) |
+| GET | `/runs/:id/stream` (SSE: stage progress, clarification, result) |
+
+## 2.6 The agent interface
+
+Separate from the console API. Streamable HTTP at `/mcp/v1/p/:projectId`, authenticated by the pool key as a bearer token.
+
+**Slice 1 tools:** `opintel.describe`, `opintel.query`, `opintel.explain`, `opintel.ask`, `opintel.respond_clarification`.
+
+Tool availability is driven by pool configuration and a `notifications/tools/list_changed` is emitted when it changes.
+
+**The response contract that matters most.** Reduction appears in the text content the model reads, not only in structured fields:
+
+```jsonc
+{
+  "content": [
+    { "type": "text",
+      "text": "38 rows. 3 elements were withheld: tax_id, bank_account, salary_band. email was returned tokenized." },
+    { "type": "resource", "resource": { "mimeType": "application/json", "text": "{…rows…}" } }
+  ],
+  "_meta": { "recordId": "run_8f21", "reduced": true, "elements": [ … ] }
+}
+```
+
+If a withheld field is merely absent from the JSON, the model concludes the data does not exist and reasons confidently over a partial picture. Everything else in the system degrades visibly. This degrades silently, which is why it is a contract and not a nicety.
+
+## 2.7 The sidecar contract
+
+Internal, mutually authenticated, not public.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/health` | Heartbeat, engine version, reachability per source |
+| POST | `/introspect` | Structure only. Returns no row data in schema mode |
+| POST | `/sample` | Reads real values. Refuses without the consent flag |
+| POST | `/validate` | Parses and plans against view definitions. Opens no source connection |
+| POST | `/execute` | Governed SQL plus view definitions and limits. Returns rows |
+| POST | `/session/:id/cancel` | Cancels in flight, releases connections |
+
+`execute` carries an `entitlementContext` field, null in Slices 1 and 2, populated in Slice 3.
+
+---
+
+# 3. Authentication and authorization
+
+## 3.1 The two mechanisms, kept separate
+
+**Humans** authenticate with a magic link or an identity provider, hold a session cookie, and are authorized by SpiceDB.
+
+**Agents** authenticate with a pool key. The key is the membership. `agentId` is self-declared and used only for presence and evidence. **Nothing is authorized on it.**
+
+Conflating these is the most likely design error in the system. A code review that finds an authorization check keyed on `agentId` rejects the change.
+
+## 3.2 Sign-in
+
+One screen offers every route the person may use. On email submit:
+
+| Condition | Behaviour |
+|---|---|
+| Domain maps to a company with SSO enforced | Redirect to that provider. No link sent. Say where they are going |
+| Domain maps to a company with SSO available | Send the link, and offer the provider as an alternative |
+| Domain matches no company but a pending invitation exists | Send the link with the invitation attached |
+| Domain matches nothing | Respond exactly as above. Send nothing. Constant time |
+
+**No account enumeration.** The observable difference is a provider redirect, which is already public information about a domain.
+
+### Magic link
+
+| Property | Value |
+|---|---|
+| Entropy | 32 bytes from `crypto.randomBytes`, base64url |
+| Storage | SHA-256 hash only |
+| Lifetime | 15 minutes |
+| Uses | Exactly one, consumed atomically |
+| Device binding | `deviceNonce` generated by the SPA, held in `localStorage`, compared on callback |
+| Rate limit | 3 per email per 15 minutes, 10 per IP, exponential backoff |
+| Invalidation | Requesting a new link invalidates outstanding ones |
+
+On nonce mismatch the link was opened elsewhere. Do not fail: require an explicit "yes, I opened this myself" and record it on the session. This is the difference between security and a support queue.
+
+### Federated identity
+
+Slice 1 ships OIDC with PKCE: Google, Microsoft Entra, and generic. SAML and SCIM are Slice 2.
+
+**The verified email is the identity.** The same address through any route resolves to one `user_account`. An unverified email claim from a provider is refused outright and never links.
+
+Just-in-time provisioning happens only where a pending invitation exists. Domain capture is Slice 2.
+
+## 3.3 Session
+
+Opaque id in an `httpOnly`, `Secure`, `SameSite=Lax` cookie. No JWT, no claims in the cookie. Server state in Redis:
+
+```ts
+`session:${id}` -> { userId, method, idpRef, createdAt, lastSeenAt, ip, userAgent, deviceNonce }
+```
+
+Idle timeout 8 hours, absolute 30 days, rotation on privilege change. `method` is recorded and appears in the audit log.
+
+## 3.4 The authorization graph
+
+SpiceDB, self-hosted in Slice 1. The schema holds companies, projects, human roles, and the binding from pools to sources. **Agents do not appear.**
+
+```zed
+definition user {}
+
+definition company {
+  relation admin: user
+  relation member: user
+  permission administer = admin
+  permission view = admin + member
+}
+
+definition project {
+  relation company: company
+  relation admin: user
+  relation operator: user
+  relation viewer: user
+
+  /* administration: anything that can widen what agents see */
+  permission administer      = admin + company->administer
+  permission set_entitlement = administer
+  permission map_term        = administer
+  permission bind_source     = administer
+  permission view_unredacted = administer
+  permission archive         = administer
+
+  /* operations: keeping agents running WITHOUT widening what they see */
+  permission export_evidence = operator + administer
+  permission simulate        = operator + administer
+  permission ack_observation = operator + administer
+
+  permission view = viewer + operator + admin + company->view
+}
+
+definition pool {
+  relation project: project
+  permission administer = project->administer
+  permission view       = project->view
+}
+
+definition datasource {
+  relation project: project
+  relation bound_pool: pool
+  permission reachable  = bound_pool
+  permission introspect = project->bind_source
+  permission view       = project->view
+}
+```
+
+**The operator role exists to separate running from widening.** An operator keeps agents working and exports evidence but cannot change what anything sees. If a permission ever appears on both sides of that line, the split is cosmetic and the review should say so.
+
+**Pools bind to sources with the pool as the subject**, not with a subject relation to agents. Pools overlap on sources with different entitlements, so a boolean "can this agent read this source" would not say which pool authorised it, and the entitlement set could not be selected. Two checks, pool pinned by the key:
+
+```ts
+check(pool:harvest-ops,     'view',      user:dara)         // console
+check(datasource:warehouse, 'reachable', pool:harvest-ops)  // request path
+```
+
+## 3.5 Route declarations
+
+Every route declares its permission. A route without one fails to start the server, as a startup assertion rather than a review convention.
+
+### The inventory
+
+Every route in §2.5 carries one of these. Public routes declare `public` explicitly; the absence of a declaration is what fails, not the value.
+
+| Route group | Permission |
+|---|---|
+| `/auth/*` except `me` and `sessions` | `public` |
+| `/auth/me`, `/auth/sessions*` | `authenticated` |
+| `POST /companies` | `authenticated` |
+| `GET` / `PATCH /companies/:id` | `company#view` / `company#administer` |
+| `POST /projects` | `company#administer` |
+| `GET /projects/:id` | `project#view` |
+| `PATCH /projects/:id` | `project#administer` |
+| `POST /projects/:id/migrate-industry` | `project#administer` **and** `company#administer` |
+| `/projects/:id/members`, `/invitations` | `project#view` read, `project#administer` write |
+| `POST /invitations/:token/accept` | `public` |
+| `/projects/:id/permissions/*/explain` | `project#view` |
+| `/projects/:id/sources`, `/sources/:id` | `project#view` read, `project#bind_source` write |
+| `/sources/:id/introspect`, `/sampling-consent` | `project#bind_source` |
+| `/projects/:id/elements`, `/elements/:id` | `project#view` read, `project#set_entitlement` write |
+| `/pools/:id/entitlements*`, `/pattern-rules*` | `project#view` read, `project#set_entitlement` write |
+| `/pools/:id/view-definition` | `project#administer` |
+| `/projects/:id/pools`, `/pools/:id`, `/keys/*` | `project#view` read, `project#administer` write |
+| `/pools/:id/agents*` | `project#view` |
+| `POST /projects/:id/runs`, `/runs/:id/clarify` | `project#simulate` |
+| `GET /projects/:id/runs`, `/runs/:id` | `project#view` |
+| `/projects/:id/exports`, `/exports/:id` | `project#export_evidence` |
+| `/projects/:id/stream`, `/runs/:id/stream` | `project#view` |
+| `/projects/:id/vocabulary*` | `project#view` read, `project#map_term` write |
+| `/industries*` | `authenticated` |
+| `/admin/*` | `platform_admin`, never reachable from the customer API |
+
+**The agent interface at `/mcp/v1/p/:projectId` is not in this table.** It authenticates by pool key rather than by session, and every authorization question there is answered against the pool.
+
+
+```ts
+route.post('/pools/:id/entitlements/bulk', {
+  permission: { resource: 'project', id: r => r.pool.projectId, permission: 'set_entitlement' },
+  body: BulkEntitlementBody,
+}, handler);
+```
+
+## 3.6 Defence in depth
+
+Three independent layers. Any one of them alone is sufficient to deny.
+
+1. **SpiceDB** at the API boundary, from a cached snapshot with a stored consistency token, failing closed
+2. **Postgres row-level security**, with `app.project_id` and `app.user_id` set per request from the session
+3. **Scope filters** injected into SQL before it reaches the sidecar, and enforced there
+
+### Scope filters, specified
+
+A scope filter is a predicate the API appends to the outermost query before dispatch, derived from the resolved plan rather than from anything the agent sent.
+
+```ts
+type ScopeFilter = {
+  object: DuckDbName;        // the object it constrains
+  predicate: string;         // parameterised, never interpolated from input
+  params: readonly unknown[];
+};
+```
+
+| Rule | |
+|---|---|
+| Derived from the plan, never from the request | An agent cannot influence its own scope |
+| Appended at the outermost level, after the agent's own `WHERE` | It cannot be escaped by a subquery |
+| Enforced again in the sidecar against the parsed statement | The API could be bypassed; the sidecar cannot |
+| Recorded on the evidence record | A reviewer can see what constrained the query |
+
+In Slice 1 the only scope filters are the pool's bound-source restriction and, for landed sources under `table_per_filing`, the filing restriction where a pool is scoped to one cedant. Row-level entitlements are not expressed this way: those are compiled into the view.
+
+### The three database scopes
+
+```ts
+withTenant(ctx, fn)        // tenant data, RLS active, app.user_id and app.project_id set
+withPlatform(fn)           // read industry and vocabulary at industry scope. No RLS bypass
+withPlatformAdmin(fn)      // write industry scope. Distinct role, no customer route reaches it
+```
+
+`withPlatformAdmin` is used only by the platform administration surface and the promotion jobs. **No route in the customer-facing API calls it**, and a test asserts that by scanning the call graph.
+
+## 3.7 Agent authentication
+
+```
+Authorization: Bearer opk_live_a3f2…
+X-Opintel-Agent-Id: harvester-01     // optional, observational
+```
+
+The key is hashed and looked up. A valid key resolves to a pool. From that point every authorization question is answered against the pool, never the agent.
+
+Keys are shown once at creation and stored only as a SHA-256 hash. Rotation creates a second key with a grace window; both are valid until the window closes, and the console shows migration progress computed from recent authentications.
+
+---
+
+# 4. Database schema
+
+## 4.1 Conventions
+
+- Postgres 16. `snake_case`. Tables singular
+- Every table: `id uuid primary key default gen_random_uuid()`, `created_at timestamptz not null default now()`, `updated_at timestamptz` where mutable
+- Foreign keys always, with an explicit `on delete` decision. No orphan cleanup jobs
+- Every tenant table carries `project_id` denormalised, even when reachable through a join, because RLS predicates must not require one
+- Timestamps are `timestamptz`. Never `timestamp`
+- Money and ratios are `numeric`, never float
+- Enums are Postgres enums when the set is closed and stable, otherwise `text` with a check constraint
+- Migrations are forward-only in production and reversible in test. Both directions run in CI
+
+## 4.2 Identity and tenancy
+
+```sql
+-- Declaration order matters: magic_link_token references pending_invite,
+-- so pending_invite is created first.
+create table user_account (
+  id            uuid primary key default gen_random_uuid(),
+  email         citext not null unique,
+  full_name     text,
+  avatar_url    text,
+  timezone      text not null default 'UTC',
+  created_at    timestamptz not null default now(),
+  last_login_at timestamptz
+);
+
+create table user_identity (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references user_account(id) on delete cascade,
+  provider         text not null,           -- magic_link | oidc:google | oidc:entra
+  provider_subject text not null,
+  email_verified   boolean not null,
+  linked_at        timestamptz not null default now(),
+  unique (provider, provider_subject)
+);
+
+
+
+create table company (
+  id                uuid primary key default gen_random_uuid(),
+  name              text not null,
+  default_industry_id uuid references industry(id),
+  default_region    text not null,
+  sso_enforced      boolean not null default false,
+  idle_timeout_mins integer not null default 480,
+  allowed_domains   text[] not null default '{}',
+  created_at        timestamptz not null default now()
+);
+
+create table project (
+  id          uuid primary key default gen_random_uuid(),
+  company_id  uuid not null references company(id) on delete restrict,
+  industry_id uuid not null references industry(id) on delete restrict,
+  name        text not null,
+  region      text not null,                       -- immutable
+  settings    jsonb not null default '{}',
+  policy_version integer not null default 1,       -- bumped by any entitlement change
+  archived_at timestamptz,
+  created_at  timestamptz not null default now(),
+  unique (company_id, lower(name))
+);
+
+create table pending_invite (
+  id         uuid primary key default gen_random_uuid(),
+  email      citext not null,
+  company_id uuid not null references company(id) on delete cascade,
+  project_id uuid references project(id) on delete cascade,
+  role       text not null check (role in ('admin','operator','viewer')),
+  token_hash bytea not null unique,
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  created_by uuid not null references user_account(id)
+);
+
+create table magic_link_token (
+  id           uuid primary key default gen_random_uuid(),
+  email        citext not null,
+  token_hash   bytea not null unique,
+  device_nonce text not null,
+  invite_id    uuid references pending_invite(id) on delete set null,
+  expires_at   timestamptz not null,
+  consumed_at  timestamptz,
+  requested_ip inet,
+  created_at   timestamptz not null default now()
+);
+create index on magic_link_token (email, created_at desc);
+create index on magic_link_token (expires_at) where consumed_at is null;
+```
+
+## 4.3 Industry and vocabulary
+
+Platform scope. Not tenant scoped, not covered by row-level security, readable by every authenticated user, writable only by the platform role.
+
+```sql
+create table industry (
+  id                 uuid primary key default gen_random_uuid(),
+  slug               text not null unique,
+  name               text not null,
+  description        text,
+  vocabulary_version integer not null default 1,
+  active             boolean not null default true,
+  created_at         timestamptz not null default now()
+);
+
+create table vocabulary_term (
+  id            uuid primary key default gen_random_uuid(),
+  scope         text not null check (scope in ('industry','project')),
+  industry_id   uuid references industry(id) on delete cascade,
+  project_id    uuid references project(id)  on delete cascade,
+  kind          text not null check (kind in ('metric','subject','operation','parameter')),
+  name          text not null,
+  display_name  text not null,
+  description   text,
+
+  -- metric
+  formula            text,
+  required_columns   jsonb not null default '[]',
+  assumption_columns jsonb not null default '[]',
+  grain_rule         text check (grain_rule in ('sum','sum_over_sum','avg_of_ratio','none')),
+
+  -- parameter
+  param_type   text check (param_type in ('string','enum','integer','date','boolean')),
+  enum_values  jsonb not null default '[]',
+  column_hint  text,
+
+  -- subject / operation
+  aliases      jsonb not null default '[]',
+  result_shape text,
+
+  active     boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+
+  constraint scope_target check (
+    (scope = 'industry' and industry_id is not null and project_id is null) or
+    (scope = 'project'  and project_id  is not null and industry_id is null)
+  ),
+  constraint measure_needs_grain check (
+    kind <> 'metric' or formula is null or grain_rule is not null
+  )
+);
+
+-- canonical name is unique within a scope and kind, so a project term can shadow an
+-- industry term of the same name without colliding with it
+create unique index term_unique_industry on vocabulary_term (industry_id, kind, lower(name))
+  where scope = 'industry' and active;
+create unique index term_unique_project  on vocabulary_term (project_id, kind, lower(name))
+  where scope = 'project' and active;
+
+create table demo_source_template (
+  id             uuid primary key default gen_random_uuid(),
+  industry_id    uuid not null references industry(id) on delete cascade,
+  name           text not null,
+  kind           text not null check (kind in ('postgres','spreadsheet')),
+  narrative      text,
+  schema_spec    jsonb not null,      -- objects, elements, types, keys
+  generator_spec jsonb not null,      -- seed, row counts, distributions, join keys
+  pack_version   integer not null default 1,
+  active         boolean not null default true,
+  unique (industry_id, lower(name))
+);
+
+create table term_synonym (
+  id         uuid primary key default gen_random_uuid(),
+  term_id    uuid not null references vocabulary_term(id) on delete cascade,
+  synonym    text not null,
+  created_at timestamptz not null default now(),
+  unique (term_id, lower(synonym))
+);
+
+create table synonym_candidate (
+  id           uuid primary key default gen_random_uuid(),
+  project_id   uuid not null references project(id) on delete cascade,
+  expression   text not null,
+  resolved_term_id uuid references vocabulary_term(id) on delete set null,
+  confidence   numeric(4,3),
+  occurrences  integer not null default 1,
+  first_seen   timestamptz not null default now(),
+  last_seen    timestamptz not null default now(),
+  status       text not null default 'pending'
+                 check (status in ('pending','accepted','rejected')),
+  unique (project_id, lower(expression))
+);
+```
+
+### The retrieval layer
+
+Prompt mode recovers unknown metrics by similarity, so Slice 1 needs embeddings. They live in Postgres with pgvector rather than a separate vector store: the corpus is a few thousand vectors per industry, every search is filtered by industry and project first, and re-embedding must be transactional with the write that triggered it.
+
+```sql
+create table embedding (
+  id           uuid primary key default gen_random_uuid(),
+  owner_type   text not null check (owner_type in ('metric','term_synonym','prompt')),
+  owner_id     uuid not null,
+  scope_type   text not null check (scope_type in ('industry','project')),
+  industry_id  uuid references industry(id) on delete cascade,
+  project_id   uuid references project(id)  on delete cascade,
+  content      text not null,            -- exactly what was embedded, kept for re-embedding and audit
+  content_hash bytea not null,           -- skip re-embedding when unchanged
+  model        text not null,
+  dimensions   smallint not null,
+  vector       vector(1536) not null,
+  active       boolean not null default true,
+  created_at   timestamptz not null default now(),
+  unique (owner_type, owner_id, model)
+);
+
+create index embedding_metric_hnsw on embedding
+  using hnsw (vector vector_cosine_ops) with (m = 16, ef_construction = 64)
+  where owner_type = 'metric' and active;
+
+create index embedding_scope on embedding (owner_type, scope_type, industry_id, project_id)
+  where active;
+```
+
+**One table with partial indexes per owner type**, rather than a vector column on each owning table. A column per table means an index per table, inconsistent maintenance, and no single place to re-embed.
+
+**Model changes are a backfill, not a migration.** `model` and `dimensions` are recorded per row, a retrieval filters to one model, and the active model flips per industry only when its backfill completes. Without this, changing embedding provider is an outage.
+
+## 4.3b Sources and catalog
+
+```sql
+create table data_source (
+  id             uuid primary key default gen_random_uuid(),
+  project_id     uuid not null references project(id) on delete cascade,
+  kind           text not null check (kind in ('postgres','demo')),
+  origin         text not null default 'customer' check (origin in ('customer','demo')),
+  demo_template_id uuid references demo_source_template(id) on delete restrict,
+  name           text not null,
+  credential_ref text,                             -- vault://... or null for demo
+  sampling_consent boolean not null default false,
+  status         text not null default 'pending',
+  freshness_mode text not null default 'live',
+  last_introspected_at timestamptz,
+  created_at     timestamptz not null default now(),
+  unique (project_id, lower(name)),
+  constraint credential_matches_origin check (
+    (origin = 'customer' and credential_ref like 'vault://%') or
+    (origin = 'demo'     and credential_ref is null and demo_template_id is not null)
+  )
+);
+
+create table introspection_run (
+  id         uuid primary key default gen_random_uuid(),
+  source_id  uuid not null references data_source(id) on delete cascade,
+  project_id uuid not null references project(id) on delete cascade,
+  state      text not null default 'queued',
+  progress   jsonb not null default '{}',
+  error      text,
+  started_at timestamptz,
+  ended_at   timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table catalog_object (
+  id          uuid primary key default gen_random_uuid(),
+  source_id   uuid not null references data_source(id) on delete cascade,
+  project_id  uuid not null references project(id) on delete cascade,
+  schema_name text not null,
+  object_name text not null,
+  object_kind text not null check (object_kind in ('table','view','fileset')),
+  duckdb_schema text not null,
+  duckdb_name   text not null,
+  lineage_known boolean not null default false,
+  row_estimate  bigint,
+  description   text,
+  status        text not null default 'active',
+  unique (source_id, schema_name, object_name)
+);
+
+create table catalog_element (
+  id                uuid primary key default gen_random_uuid(),
+  object_id         uuid not null references catalog_object(id) on delete cascade,
+  project_id        uuid not null references project(id) on delete cascade,
+  source_identifier text not null,
+  duckdb_name       text not null,          -- assigned once, immutable
+  stable_ref        text,                   -- attnum / field id where available
+  source_type       text not null,
+  duckdb_type       text not null,
+  nullable          boolean not null default true,
+  is_key            boolean not null default false,
+  description       text,
+  status            text not null default 'active',
+  discovered_at     timestamptz not null default now(),
+  removed_at        timestamptz,
+  unique (object_id, duckdb_name),
+  unique (object_id, source_identifier)
+);
+create index on catalog_element (project_id, status);
+create index on catalog_element (object_id) include (duckdb_name, duckdb_type);
+
+create table element_stats (
+  element_id  uuid primary key references catalog_element(id) on delete cascade,
+  top_values  jsonb not null default '[]',   -- [{value, frequency}]
+  cardinality bigint,
+  null_rate   numeric(5,4),
+  sampled_at  timestamptz
+);
+```
+
+
+## 4.4 The exposed namespace and type mapping
+
+Agents address data by a DuckDB name, not a source name. The mapping is part of the contract: the agent writes it, `describe` returns it, and every evidence record carries both.
+
+**A pool is a DuckDB session.** Only that pool's bound sources are attached, so the pool never appears in a name. Within the session the mapping is three-level:
+
+| DuckDB | Source concept | Example |
+|---|---|---|
+| Catalog | Data source | `warehouse` |
+| Schema | Source schema | `public`, `bdx` |
+| Table (a view) | Table, view, or landed table | `treaty_risk` |
+
+```
+warehouse.public.orders        Postgres  warehouse / public.orders
+bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadsheets
+```
+
+**Identifier normalisation.** Source identifiers may contain spaces, mixed case or characters DuckDB will not accept unquoted. Opintel normalises to lowercase snake case, and:
+
+- The normalised name is **recorded on the element at first discovery and never recomputed**, so it cannot drift between introspection runs
+- Collisions after normalisation get a numeric suffix and raise a diff entry, because a collision usually means two things that should not share a namespace
+- The original identifier is always available in `describe` and on the evidence record
+
+**Source renames.** Where a rename is detected against a stable underlying identifier, the entitlement carries over but **the exposed DuckDB name does not change by default.** Changing it would break every agent referencing it. The console shows the divergence and an administrator can adopt the new name deliberately, which is a breaking change and is labelled as one.
+
+**Nothing withheld or undecided appears in the namespace.** The view for a pool contains only entitled columns, so an undecided element is not addressable, not merely refused.
+
+### Type mapping
+
+`describe` returns DuckDB types, not source types, so the agent reasons about one type system regardless of where the data lives.
+
+| Source family | DuckDB |
+|---|---|
+| Integer types | `TINYINT` to `BIGINT`, `HUGEINT` |
+| Exact numeric, money | `DECIMAL(p,s)` |
+| Float, double | `FLOAT`, `DOUBLE` |
+| Text, varchar, clob | `VARCHAR` |
+| Boolean | `BOOLEAN` |
+| Date | `DATE` |
+| Timestamp with or without zone | `TIMESTAMP`, `TIMESTAMPTZ` |
+| UUID | `VARCHAR`, or `UUID` where well formed |
+| JSON, JSONB | `JSON` |
+| Array | `LIST(...)` |
+| Struct, nested record | `STRUCT(...)` |
+| Geometry, binary | Not exposed by default |
+
+**Treatments constrain the mapping.** A tokenized column is always `VARCHAR` regardless of its source type, because a token is not an integer. `describe` reports the **post-treatment** type, since that is what the agent receives. Reporting the source type would make the agent write arithmetic against a token.
+
+**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released.
+
+## 4.5 Entitlements and pools
+
+```sql
+create table pool (
+  id          uuid primary key default gen_random_uuid(),
+  project_id  uuid not null references project(id) on delete cascade,
+  name        text not null,
+  mode_query  boolean not null default true,
+  mode_prompt boolean not null default true,
+  clarification_policy text not null default 'pause'
+    check (clarification_policy in ('pause','refuse')),
+  budgets     jsonb not null default '{}',
+  created_at  timestamptz not null default now(),
+  unique (project_id, lower(name))
+);
+
+create table pool_key (
+  id          uuid primary key default gen_random_uuid(),
+  pool_id     uuid not null references pool(id) on delete cascade,
+  project_id  uuid not null references project(id) on delete cascade,
+  key_hash    bytea not null unique,
+  key_prefix  text not null,
+  state       text not null check (state in ('current','retiring','revoked','expired')),
+  grace_until timestamptz,
+  created_at  timestamptz not null default now(),
+  created_by  uuid not null references user_account(id)
+);
+create unique index one_current_key_per_pool
+  on pool_key (pool_id) where state = 'current';
+
+create table pool_source_binding (
+  pool_id    uuid not null references pool(id) on delete cascade,
+  source_id  uuid not null references data_source(id) on delete cascade,
+  project_id uuid not null references project(id) on delete cascade,
+  bound_at   timestamptz not null default now(),
+  primary key (pool_id, source_id)
+);
+
+-- the absence of a row IS "undecided". There is no 'undecided' value.
+create table entitlement (
+  pool_id     uuid not null references pool(id) on delete cascade,
+  element_id  uuid not null references catalog_element(id) on delete cascade,
+  project_id  uuid not null references project(id) on delete cascade,
+  treatment   text not null check (treatment in
+                ('clear','tokenized','masked','aggregate_only','withheld')),
+  source_kind text not null check (source_kind in ('user','rule')),
+  source_ref  text not null,                -- user id or rule id
+  justification text,                        -- required for bulk -> clear
+  set_at      timestamptz not null default now(),
+  primary key (pool_id, element_id)
+);
+create index on entitlement (project_id, treatment);
+create index on entitlement (element_id);
+
+create table pattern_rule (
+  id         uuid primary key default gen_random_uuid(),
+  project_id uuid not null references project(id) on delete cascade,
+  matcher    text not null,
+  match_kind text not null check (match_kind in ('name_glob','type','schema')),
+  treatment  text not null,
+  priority   integer not null default 100,
+  active     boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table agent_presence (
+  pool_id    uuid not null references pool(id) on delete cascade,
+  agent_id   text not null,
+  project_id uuid not null references project(id) on delete cascade,
+  client     text,
+  first_seen timestamptz not null default now(),
+  last_seen  timestamptz not null default now(),
+  reconnects integer not null default 0,
+  state      text not null default 'connecting',
+  primary key (pool_id, agent_id)
+);
+```
+
+## 4.6 Evidence
+
+Append-only and partitioned by month.
+
+```sql
+create table query_run (
+  id            uuid not null default gen_random_uuid(),
+  project_id    uuid not null,
+  pool_id       uuid not null,
+  agent_id      text,
+  key_prefix    text not null,
+  mode          text not null check (mode in ('query','prompt')),
+  request       text not null,
+  cil           jsonb,
+  source_plan   jsonb,
+  generated_sql text,
+  row_count     integer,
+  outcome       text not null,
+  refusal_code  text,
+  latency_ms    integer,
+  versions      jsonb not null,
+  freshness     jsonb not null default '{}',
+  -- derived at write time from the sources actually reached, never from a project flag
+  synthetic     boolean not null default false,
+  started_at    timestamptz not null,
+  completed_at  timestamptz,
+  primary key (id, started_at)
+) partition by range (started_at);
+
+create table run_element (
+  run_id     uuid not null,
+  started_at timestamptz not null,
+  element_id uuid,
+  duckdb_name text not null,
+  treatment  text not null,
+  withheld_reason text
+) partition by range (started_at);
+
+create table run_stage (
+  run_id     uuid not null,
+  started_at timestamptz not null,
+  stage      text not null,
+  result     text not null,
+  detail     jsonb,
+  ms         integer
+) partition by range (started_at);
+
+create table audit_entry (
+  id          uuid primary key default gen_random_uuid(),
+  project_id  uuid,
+  company_id  uuid,
+  actor_id    uuid,
+  actor_kind  text not null check (actor_kind in ('user','system','rule')),
+  action      text not null,
+  target      jsonb not null,
+  before      jsonb,
+  after       jsonb,
+  revision    text,
+  occurred_at timestamptz not null default now()
+);
+create index on audit_entry (project_id, occurred_at desc);
+```
+
+**The append-only guarantee is a grant, not a convention:**
+
+```sql
+revoke update, delete on query_run, run_element, run_stage, audit_entry from opintel_app;
+grant  insert, select  on query_run, run_element, run_stage, audit_entry to opintel_app;
+```
+
+A test asserts this. If someone adds an `UPDATE` path, the grant fails it, not code review.
+
+## 4.7 Row-level security
+
+Enabled on every tenant table.
+
+```sql
+alter table catalog_element enable row level security;
+
+create policy tenant_read on catalog_element for select
+  using (project_id = current_setting('app.project_id', true)::uuid);
+
+create policy tenant_write on catalog_element for all
+  using      (project_id = current_setting('app.project_id', true)::uuid)
+  with check (project_id = current_setting('app.project_id', true)::uuid);
+```
+
+The GUCs are set per request, inside the transaction, using `set_config(name, value, true)`. **The third argument makes them transaction-local, so they disappear on commit or rollback with no cleanup path to forget.** A session-scoped `SET` would survive connection release and a pooled connection could carry one tenant's identity into a later request. Tests RLS-03 and RLS-04 assert the setting is gone after both outcomes.
+
+---
+
+# 5. Frontend architecture
+
+## 5.1 Structure
+
+```
+src/
+  app/                  providers, router, error boundaries, composition root
+  screens/<screen>/     one folder per console screen
+    <Screen>.tsx        layout only, no data fetching
+    components/         screen-local
+    hooks/              screen-local, wrapping entity hooks
+    store.ts            Zustand, UI state only, optional
+  features/<feature>/   reusable across screens (trace-panel, treatment-picker)
+  entities/<entity>/    schema.ts, keys.ts, queries.ts, mutations.ts
+  shared/
+    ui/                 design system primitives
+    lib/                formatting, dates, cn()
+    api/                generated client, SSE hook
+```
+
+**There is no `src/store`.** Server state lives in TanStack Query, which is the cache. UI state that dies on refresh lives beside its screen. There is no third category.
+
+## 5.2 State rules
+
+| Kind | Home | Example |
+|---|---|---|
+| Server data | TanStack Query | elements, pools, runs |
+| Screen-local UI | Zustand beside the screen | tree expansion, selection, filters |
+| Form | React Hook Form + Zod | connect source wizard |
+| URL | TanStack Router search params | active filter, selected element |
+
+Anything a user would expect to survive a page share goes in the URL, not in Zustand.
+
+## 5.3 The entity layer
+
+Slice 1 entities, grouped by scope because scope determines cache policy.
+
+**Platform scope**, shared across every project, read-mostly, long cache:
+`industry`, `industryTerm`, `demoSourceTemplate`, `discoveryQuestion`
+
+**Project scope**:
+`user`, `company`, `project`, `member`, `invite`, `session`, `dataSource`, `introspectionRun`, `catalogElement`, `entitlement`, `patternRule`, `pool`, `agent`, `effectiveVocabulary`, `synonymCandidate`, `run`, `runStage`
+
+Platform keys begin `['industry', industryId, …]` and therefore survive a project switch. Project keys begin `['project', projectId, …]` and do not.
+
+Every entity has a key factory. Hand-written key arrays are blocked by lint.
+
+```ts
+export const elementKeys = {
+  all:    (p: ProjectId) => ['project', p, 'element'] as const,
+  lists:  (p: ProjectId) => [...elementKeys.all(p), 'list'] as const,
+  list:   (p: ProjectId, f: ElementFilter) => [...elementKeys.lists(p), f] as const,
+  detail: (p: ProjectId, id: ElementId) => [...elementKeys.all(p), 'detail', id] as const,
+};
+```
+
+Every project-scoped key begins `['project', projectId, …]`, so switching project invalidates everything scoped to the old one by prefix removal rather than 15 explicit calls.
+
+### Cache policy
+
+| Entity | Stale time | Notes |
+|---|---|---|
+| `catalogElement` | 5 min | Large. Fetched by prefix, never wholesale |
+| `entitlement` | 1 min | Changes often, drives the view |
+| `pool`, `dataSource` | 1 min | |
+| `agent` | realtime | Written by SSE, not polled |
+| `introspectionRun` | 5 s while active | Stops polling on terminal state |
+| `industry`, `industryTerm`, `demoSourceTemplate`, `discoveryQuestion` | 1 hour | Shared, changes only on a platform publish |
+| `effectiveVocabulary` | 5 min | Keyed by `(projectId, vocabularyVersion)` |
+| `synonymCandidate` | 1 min | A queue, changes as prompts arrive |
+| `run`, `runStage` | **Infinite** | Immutable once written. Never refetched |
+
+Immutable entities caching forever is the largest single cache win in the application.
+
+### Invalidation matrix
+
+| Mutation | Invalidates |
+|---|---|
+| Set entitlement | `entitlement.detail`, `pool.detail`, `catalogElement.lists`, `project.stats` |
+| Bulk set | `entitlement.all`, `pool.lists`, `catalogElement.lists`, `project.stats` |
+| Connect source | `dataSource.lists`, `project.stats` |
+| Introspection completes | `catalogElement.all`, `dataSource.detail`, `entitlement.all` |
+| Delete source | `dataSource.lists`, `catalogElement.all`, `entitlement.all`, `pool.lists` |
+| Create pool | `pool.lists`, `project.stats` |
+| Rotate key | `pool.detail` only |
+| Bind source | `pool.detail`, `entitlement.all` for that pool |
+| Accept invite | `member.lists`, `project.lists`, `auth.me` |
+| Change role | `member.lists`, `auth.me` if self |
+| Add or edit a project term | `effectiveVocabulary`, `industryTerm` untouched |
+| Accept a synonym candidate | `synonymCandidate.lists`, `effectiveVocabulary` |
+| Publish an industry pack (platform) | `industry`, and `effectiveVocabulary` for **every project in that industry**, by version bump rather than enumeration |
+| Migrate a project's industry | `effectiveVocabulary`, `project.detail`. **Never `entitlement`** |
+
+A mutation not in this table is incomplete.
+
+### Optimistic updates
+
+Permitted where the outcome is deterministic and rollback is harmless: setting an entitlement, toggling a setting, editing a description.
+
+**Forbidden** where the action is irreversible or the server may refuse on grounds the client cannot evaluate: key rotation, key revocation, source deletion, member removal. These show a pending state and wait.
+
+## 5.4 SSE into the cache
+
+One stream hook at the project layout. High-frequency deltas write directly; structural changes invalidate.
+
+```ts
+useProjectStream(projectId, {
+  'agent.presence':   d => qc.setQueryData(poolKeys.agents(projectId, d.poolId), upsert(d)),
+  'catalog.changed':  () => qc.invalidateQueries({ queryKey: elementKeys.all(projectId) }),
+  'run.created':      d => qc.setQueryData(runKeys.detail(projectId, d.id), d),
+});
+```
+
+Writing directly for everything causes divergence. Invalidating for everything causes a request storm.
+
+## 5.5 Screen contract
+
+```ts
+type ScreenState<T> =
+  | { status: 'loading' }
+  | { status: 'empty' }
+  | { status: 'error'; error: AppError; retry: () => void }
+  | { status: 'ready'; data: T };
+```
+
+Rendering an empty table with no explanation is a defect. Every screen has a purposeful empty state naming the next action.
+
+## 5.6 Slice 1 screens
+
+Sign in, check email, auth callback, confirm device, accept invitation, project chooser, create project (industry picker), dashboard, workbench, vocabulary (with readiness), synonym candidates, discovery coverage, data sources, source detail, introspection run, entitlements, pools, pool detail, agent twin, activity, run detail, access, project settings (details, discovery, query, evidence, access), personal settings, kitchen sink.
+
+Deferred to Slice 3: releases, source of truth, relationships, knowledge, audit log, and the **observations register** as a workflow surface with state.
+
+**The Dashboard is in Slice 1a**, as item 5.15. It shows the decided ratio, the treatment spectrum, counts, the needs-a-decision feed and the pool shields. Findings surface inline in that feed rather than in a register with acknowledge and resolve states, which is what Slice 3 adds.
+
+Quarantined filings appear in the dashboard feed for the same reason: they need a decision and they belong to no source.
+
+**There is no Playground screen.** Connecting a demo source is an option in the connect-a-source flow, presented alongside the customer database options with its narrative. The guided first-run checklist lives on the dashboard's empty state, where it belongs, and disappears once the project has a source and a pool.
+
+## 5.7 Design system
+
+Tokens are the only source of colour, type, spacing and motion. Raw hex or an arbitrary Tailwind value in a component fails lint.
+
+```css
+--plum:#1B0232; --green:#0CC655; --yellow:#FFF730;
+--bg:#F2EFF6; --surface:#FFF; --rule:#E1DAEA;
+--ink:#1B0232; --ink-2:#5A4A6B; --ink-3:#8B7E9B;
+--t-clear:#0CC655; --t-token:#1F6FD0; --t-mask:#B8940A;
+--t-agg:#7A3FA8;  --t-held:#C2334D;  --t-unset:#FFF730;
+```
+
+**Three rules enforced in review:**
+
+- **Yellow means "this needs a decision from you" and nothing else.** Not errors. Nothing is broken when Opintel is holding data back as designed
+- **Monospace for every machine artifact:** SQL, identifiers, keys, row counts, timestamps. Prose in the body face. The separation is the product's argument made visible
+- **No scores.** Facts about configuration, never grades
+
+Fonts are self-hosted and subset. No third-party font CDN on a security product.
+
+All CSS is scoped under a root id so the application cannot collide with a host page.
+
+Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `prefers-reduced-motion` respected, and **state never conveyed by colour alone**, so every treatment badge carries a text label.
+
+---
+
+# 6. Error handling
+
+### The Tailwind theme mapping
+
+Referenced by the header of `opintel-master.css`. The stylesheet is the source of truth; this maps its tokens into Tailwind so utilities never introduce a value the stylesheet does not define.
+
+```css
+@theme {
+  --color-plum: var(--plum);            --color-plum-2: var(--plum-2);
+  --color-green: var(--green);          --color-green-dk: var(--green-dk);
+  --color-green-bg: var(--green-bg);
+  --color-yellow: var(--yellow);        --color-yellow-br: var(--yellow-br);
+  --color-yellow-bg: var(--yellow-bg);
+
+  --color-bg: var(--bg);                --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);              --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);            --color-rule-2: var(--rule-2);
+
+  /* treatments, each a trio */
+  --color-token: var(--token);   --color-token-bg: var(--token-bg);   --color-token-dk: var(--token-dk);
+  --color-mask: var(--mask);     --color-mask-bg: var(--mask-bg);     --color-mask-dk: var(--mask-dk);
+  --color-agg: var(--agg);       --color-agg-bg: var(--agg-bg);       --color-agg-dk: var(--agg-dk);
+  --color-held: var(--held);     --color-held-bg: var(--held-bg);     --color-held-dk: var(--held-dk);
+
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 820px;     /* the drawer collapses below this */
+  --breakpoint-lg: 1100px;
+  --breakpoint-xl: 1400px;
+}
+```
+
+**Two rules.** Tailwind may only reference these names, never a literal. And where a component has a class in `opintel-master.css`, that class is used rather than a utility stack that reproduces it: the stylesheet owns appearance, Tailwind handles layout the stylesheet does not cover.
+
+**Dark mode is off.** Do not add a variant for later; it doubles every review.
+
+## 6.1 Taxonomy
+
+Four kinds, handled differently. Confusing them is the usual cause of unhelpful error messages.
+
+| Kind | Meaning | HTTP | Retryable | Alerts |
+|---|---|---|---|---|
+| **Invariant violation** | A domain rule was broken. A bug | 500 | No | Yes, page |
+| **Refusal** | The system worked correctly and declined | 403 / 409 / 422 | No | No |
+| **Input error** | The caller sent something invalid | 400 | No | No |
+| **Infrastructure failure** | A dependency failed | 502 / 503 | Yes | Yes, if sustained |
+
+**A refusal is not a failure.** An entitlement refusal, an unmapped term, a cardinality block are the product working. They are recorded, surfaced, and never alerted on. Alerting on refusals produces noise that trains people to ignore alerts.
+
+## 6.2 Result, not exceptions
+
+Domain and application layers return `Result<T, DomainError>`. Exceptions are reserved for genuinely exceptional infrastructure failure.
+
+```ts
+type Result<T, E = DomainError> =
+  | { ok: true;  value: T }
+  | { ok: false; error: E };
+
+class DomainError {
+  constructor(
+    readonly code: ErrorCode,
+    readonly message: string,      // user-facing, written for a human
+    readonly details?: JsonObject,
+    readonly retryable = false,
+  ) {}
+}
+```
+
+Every branch of a `Result` is covered by a test. That is the point of the type.
+
+## 6.3 Codes
+
+Stable, machine-readable, and part of the public contract. Renaming one is a breaking change.
+
+**Console**
+
+`unauthenticated` · `forbidden` · `not_found` · `validation_failed` · `conflict` · `idempotency_key_reused` · `rate_limited` · `dependency_unavailable`
+
+**Agent-facing**, which matter more because a model consumes them:
+
+| Code | Agent should |
+|---|---|
+| `entitlement_missing` | Report the gap upward. Do not retry |
+| `element_withheld` | Report. Do not retry |
+| `term_unresolved` | Name the term. Rephrase or escalate |
+| `clarification_required` | Answer through `respond_clarification` |
+| `sources_cannot_be_joined` | Report. Needs an administrator |
+| `large_result_confirmation` | Confirm or narrow |
+| `budget_exceeded` | Back off, retry later |
+| `source_unavailable` | Retry with backoff |
+| `sql_not_permitted` | Rewrite. Do not retry unchanged |
+| `unsupported_pushdown` | Simplify or narrow the scan |
+| `rate_limited` | Back off per `retryAfter` |
+
+## 6.4 Message rules
+
+The `message` field is written for a person and appears in the UI unchanged.
+
+- State what happened and what to do
+- Name the specific object: `warehouse.public.orders.tax_id`, not "a field"
+- Never a stack trace, a SQL fragment, or an internal id the reader cannot act on
+- Never apologise, never blame the user
+
+Good: *"tax_id has no entitlement for Harvest Ops. Set one in Entitlements, or the agent will keep being refused."*
+Bad: *"Error: forbidden."*
+
+## 6.5 Boundaries
+
+**Backend.** One error middleware maps `DomainError` to the envelope. An uncaught exception becomes a 500 with a generic message, a logged stack, and a `requestId` the user can quote. The internal message never reaches the client.
+
+**Frontend.** An error boundary per route renders `ErrorState` with what failed and a retry. A boundary never renders a blank page. Query errors surface in the screen's error state; mutation errors surface as a toast naming what failed, with the optimistic change rolled back.
+
+**Agent.** Errors arrive as a normal MCP result with `isError: true` and the code in `_meta`, plus the human-readable reason **in the text content**, for the same reason reduction is in the text content.
+
+## 6.6 Fail closed
+
+If Opintel cannot determine an entitlement, it refuses. If a source is unreachable, it refuses rather than answering from stale data. If the authorization cache is beyond its staleness ceiling, it refuses.
+
+Every refusal is recorded with its reason. A refusal with no record is a defect, because the customer's question afterwards is "what happened", and silence is not an answer.
+
+---
+
+# 7. Testing strategy
+
+## 7.1 Levels
+
+| Level | Tool | Rule |
+|---|---|---|
+| Domain unit | Vitest | Every invariant. No mocks, the domain has no dependencies |
+| Use case | Vitest | Ports stubbed. Every `Result` branch |
+| Integration | Vitest + Testcontainers | Real Postgres, Redis, SpiceDB. **No mocked persistence** |
+| Contract | Pact | MCP tool schemas and the sidecar, both directions |
+| Component | Testing Library | Every screen renders all four states |
+| E2E | Playwright | The tranche's exit criteria, verbatim |
+| Visual | Playwright screenshots | Every screen at 390 / 900 / 1440 |
+| Accessibility | axe-core in Playwright | Zero violations, gates the build |
+| Load | k6 | The performance budgets |
+
+## 7.2 Fixtures
+
+One seeded project, deterministic, shared by every test and by evaluation: **Far East Treaty Book**, Kuwait Re, connected to the Reinsurance demo pack. That pack is **twelve cedant spreadsheets in inconsistent formats landing into a demo Postgres**, plus one customer Postgres source. 2,140 elements, four pools, sixty-one elements deliberately undecided.
+
+**The demo pack is the same artifact a customer connects**, so the fixture exercises the ingest path rather than sidestepping it, and a bug in it is a bug in the product.
+
+Tests that mutate run in a transaction rolled back at teardown, or against a per-worker database. A test that depends on another test's leftovers is a defect.
+
+## 7.3 What Slice 1 must prove
+
+The pilot criteria are the acceptance tests. Each is automated.
+
+| # | Criterion | Test |
+|---|---|---|
+| S1 | For any request, show which fields were received and in what form | Pick five random runs, produce the full record for each in under a minute |
+| S2 | A field added mid-pilot is unreadable until someone decides | Add a column, assert it appears in no agent response |
+| S3 | The same restriction holds in SQL and in prompt | Request a withheld element both ways, both refused, both recorded |
+| S4 | The customer's own agent connects without vendor code | Configure from the published documentation only |
+| S5 | Entitlement decisions took a tolerable amount of effort | Manual, sponsor judgement, recorded in writing |
+
+## 7.4 The tests that matter most
+
+**The bypass suite.** Ten named tests that agent SQL cannot reach a base catalog: fully qualified reference, withheld column via the base catalog, `duckdb_tables()`, `information_schema`, `duckdb_views()`, reference inside a CTE, inside a prepared statement, quoted or case-varied identifier, `ATTACH` of an attached source, `search_path` manipulation. A newly discovered bypass is added in the same pull request as its fix.
+
+**The ephemerality test.** Run a query returning 100k rows of sentinel values, then scan the container filesystem and mapped memory. Zero matches, or the slice fails. "We do not persist anything" is unverifiable. This is verifiable.
+
+**The append-only test.** Assert the application role cannot `UPDATE` or `DELETE` evidence, at the grant level rather than by trying and catching.
+
+**The tokenization test.** The same input produces the same token in two different sources, so a cross-source join holds without either releasing the real identifier.
+
+**The inheritance tests.** A new project answers a question on its first day using inherited terms alone. Inheritance is by reference, so no vocabulary rows are copied at creation and the row count is unchanged. Republishing an industry pack reaches an existing project without a migration. A project term shadows an inherited one of the same name, and both rows still exist.
+
+**The migration test.** Changing a project's industry leaves **every entitlement untouched**, asserted row by row. Industry governs language, not access, and this is the assertion that keeps it true.
+
+**The grain rule test.** A metric whose formula aggregates and which has no grain rule refuses composition rather than warning. A warning on a wrong number is not a fix.
+
+**The demo source tests.** A demo source connects, introspects and catalogues through exactly the same code path as a Postgres source, asserted by spying on the connector port rather than by inspecting output. A project holds a demo source and a customer source at once and queries across both. A run touching a demo source is marked synthetic from the sources it reached, and a run touching only customer sources is not. Synthetic runs never appear in an export. Deleting a demo source is the ordinary source deletion, with no special path.
+
+**The determinism test.** The same prompt with the same vocabulary version produces identical classification across ten runs.
+
+## 7.5 Coverage
+
+Traceability, not percentage. Every normative statement in this document maps to at least one test id. The matrix is generated from test annotations at CI time and compared against the entity, screen and endpoint inventories. **Any inventory item with zero tests fails the build.**
+
+---
+
+# 8. Observability
+
+## 8.1 Principle
+
+Opintel sits in the request path of someone else's agents and fails closed. When it is slow or refusing, their agents are slow or refusing. Observability is therefore an availability requirement, not a nicety.
+
+**One rule governs everything below: no customer data in telemetry.** Not in span attributes, not in log fields, not in metric labels. Row values, prompt text and SQL literals are never emitted. Field names and identifiers are, because they are metadata and they are what makes a trace useful.
+
+## 8.2 Traces
+
+OpenTelemetry. One trace per request, propagated into the sidecar.
+
+```
+opintel.request                       [pool, project, mode, outcome]
+  auth.verify_key
+  authz.check                         [cached, snapshot_age_ms]
+  pipeline.classify                   [model, tokens, confidence]
+  pipeline.resolve_values             [params, clarified]
+  pipeline.resolve_sources            [concepts, registry_hits]
+  pipeline.compose
+  pipeline.qqc                        [l1, l2, l3]
+  sidecar.execute                     [sources, rows_scanned, rows_returned, memory_peak_mb]
+    sidecar.attach[source]
+    sidecar.apply_views
+    sidecar.scan[source]              [pushdown]
+  evidence.write
+```
+
+Span naming is `<context>.<operation>`. Attribute keys are `snake_case` and drawn from a published allowlist. An attribute not on the allowlist is dropped by the exporter, so a well-meaning addition cannot leak a value.
+
+Sampling: 100% of errors and refusals, 100% of prompt-mode runs in Slice 1 because volume is low and the traces are the product, 10% of query mode above 100 requests per minute.
+
+## 8.3 Metrics
+
+Low cardinality by construction. **Never label by element, agent, user or run id.**
+
+| Metric | Type | Labels |
+|---|---|---|
+| `opintel_requests_total` | counter | project, pool, mode, outcome |
+| `opintel_request_duration_ms` | histogram | mode, lane |
+| `opintel_refusals_total` | counter | code |
+| `opintel_elements_undecided` | gauge | project |
+| `opintel_clear_ratio` | gauge | project, pool |
+| `opintel_agents_connected` | gauge | project, state |
+| `opintel_authz_check_ms` | histogram | cached |
+| `opintel_authz_snapshot_age_ms` | gauge | |
+| `opintel_sidecar_health` | gauge | project, sidecar |
+| `opintel_introspection_duration_ms` | histogram | source_kind |
+| `opintel_llm_tokens_total` | counter | project, call_site |
+| `opintel_evidence_write_lag_ms` | histogram | |
+
+`opintel_elements_undecided` and `opintel_clear_ratio` are business metrics that happen to be operational: a sudden drop in undecided means a bulk decision, and a sudden rise in clear ratio means someone widened access. Both are worth seeing.
+
+## 8.4 Logs
+
+Structured JSON, one line per event, with `requestId`, `projectId`, `poolId` and `traceId` on every line. Field allowlist enforced by the logger, not by developer discipline.
+
+| Level | Use |
+|---|---|
+| `error` | Invariant violations and infrastructure failures only |
+| `warn` | Degraded mode, circuit open, retry exhausted |
+| `info` | Lifecycle: request start and end, introspection state changes, key rotation |
+| `debug` | Off in production, per-request enablement by header for support |
+
+**Refusals log at `info`**, not `warn`. They are normal operation.
+
+## 8.5 Dashboards
+
+Three, and no more, because a dashboard nobody reads is worse than none. **These are operational dashboards for the team running Opintel**, not the product's Dashboard screen, which is a different thing in a different place.
+
+**Service health.** Request rate, error rate, p50/p95/p99 by mode, authorization check latency, sidecar fleet health, evidence write lag.
+
+**Customer health, per project.** Undecided count, clear ratio, refusals by code, agents connected against expected, introspection freshness. This is the view a customer success conversation runs from.
+
+**Cost.** LLM tokens and embedding calls per project per day, with a projection against plan ceilings.
+
+## 8.6 Alerts
+
+Page only on customer impact.
+
+| Alert | Condition | Severity |
+|---|---|---|
+| Availability | Error rate above 2% for 5 minutes | Page |
+| Authorization unavailable | SpiceDB unreachable beyond the staleness ceiling | Page |
+| Sidecar fleet down | All sidecars for a project unhealthy for 2 minutes | Page |
+| Evidence write failing | Write lag above 30 seconds | Page. **A request we cannot record is a request we should not serve** |
+| Latency | p95 above budget for 15 minutes | Ticket |
+| Introspection failing | Same source failing three runs | Ticket |
+| Cost | Project above 80% of ceiling | Ticket |
+
+**Not alerted:** refusals of any kind, undecided elements, agents going stale. These are product signals and appear in the console.
+
+---
+
+# 9. CI/CD
+
+## 9.1 Pipeline
+
+Every pull request, in order, failing fast:
+
+```
+1. install, cache
+2. typecheck            tsc --noEmit, strict, noUncheckedIndexedAccess
+3. lint                 eslint, boundary rules, no raw hex, no arbitrary tailwind values
+4. unit                 vitest, domain and use cases
+5. migrations           up and down against a fresh database
+6. integration          testcontainers: postgres, redis, spicedb
+7. contract             pact verification, MCP and sidecar
+8. build                vite build, bundle budget check
+9. component + a11y     testing-library, axe
+10. e2e                 playwright against a composed stack
+11. visual              screenshot comparison, three viewports
+12. traceability        generate the matrix, fail on any uncovered inventory item
+```
+
+Steps 1 to 5 must finish inside five minutes. If they do not, the team stops merging and fixes the pipeline, because a slow gate is a gate people route around.
+
+## 9.2 Environments
+
+| Environment | Purpose | Data |
+|---|---|---|
+| `local` | Development. Docker Compose | Seeded fixture |
+| `preview` | One per pull request, torn down on merge | Seeded fixture |
+| `staging` | Release candidate, production shaped | Synthetic only. **Never customer data** |
+| `production` | | |
+
+Staging holds no customer data at all, so a staging incident is never a customer incident, and engineers can be given access without a review.
+
+## 9.3 Migrations
+
+Forward-only in production, reversible in test, and both directions run in CI.
+
+**Expand and contract for anything breaking.** Add the new column, backfill, dual-write, switch reads, remove the old column in a later release. A migration that renames or drops in one step is rejected in review.
+
+Long-running backfills run as jobs, not migrations, so a deploy is never blocked behind a table rewrite.
+
+Every migration is checked for a lock that would block writes on a large table. `ALTER TABLE ... ADD COLUMN` with a default is fine on Postgres 16; adding a constraint is not, and must be `NOT VALID` then validated separately.
+
+## 9.4 Deployment
+
+Rolling, with a health gate. The new version must answer `/healthz` and pass a smoke test against a real seeded project before the old version drains.
+
+**Backward compatibility for one version.** The API and the agent interface must serve the previous release's clients, because a customer's agents are not redeployed when Opintel is.
+
+Rollback is a redeploy of the previous image, and it is tested every release rather than assumed. A rollback that has never been run is a hope.
+
+## 9.5 Feature flags
+
+Per project, evaluated server side, defaulting off.
+
+`prompt_mode` · `value_sampling` · `demo_sources` · `spreadsheet_ingest` · `oidc_<provider>`
+
+Flags are for enabling work in progress and for per-customer rollout. They are removed within two releases of full rollout, and a stale flag is a lint failure after 60 days.
+
+## 9.6 The sidecar
+
+Built and released separately, versioned independently, and **never auto-upgraded**. A customer running it in their own network upgrades on their schedule.
+
+The API declares a minimum sidecar version and refuses to dispatch below it, with a clear message naming the required version rather than a protocol error.
+
+---
+
+# 10. Security requirements
+
+## 10.1 What we are defending
+
+| Asset | Threat | Primary control |
+|---|---|---|
+| Customer data in the source | An agent reads what it should not | Per-field entitlements compiled into per-pool views; undecided is absent from the namespace |
+| Customer data in flight | Interception | TLS 1.3 everywhere, including to the sidecar |
+| Customer data at rest, in Opintel | There is none | Opintel persists no customer rows. The query path holds results in memory and releases them after the response |
+| Customer data at rest, in the customer's environment | Landed spreadsheets are written to the customer's own Postgres | This is a copy, and it is theirs. It is made by software they run, inside their network, from a file they already had. **Opintel never receives the file** |
+| Source credentials | Theft | Vault references only. A literal in the database fails a constraint |
+| Pool keys | Leak or misplacement | Hashed at rest, shown once, rotatable with a grace window, narrow pools bound to few sources |
+| Evidence | Tampering | Append-only enforced by grant, not convention |
+| The authorization graph | Privilege escalation | Route-level declarations, startup assertion, RLS and scope filters behind it |
+| Cross-tenant | Leakage | Project id in every key, RLS on every table, GUC cleared on connection release |
+| The industry pack, vocabulary and demo templates | A customer writing to shared platform data | Industry-scope rows are writable only by the platform role. There is no customer route that reaches them, and a check constraint keeps project terms in project scope |
+| Retrieval | A project retrieving another project's embeddings | Every search filters by industry and project before ranking. Asserted on the filter, not on the result |
+
+## 10.2 The pool key
+
+The most likely thing to leak, because it is pasted into agent configuration by hand.
+
+**Blast radius is bounded by design, not by vigilance.** Whatever holds a key sees exactly what that pool is entitled to see. Which makes pool narrowness the control, and makes the clear ratio on each pool a blast-radius reading rather than a statistic.
+
+Slice 1 accepts that a leaked key grants that pool's access. Enrolment tokens and platform attestation, which would remove the shared secret from the runtime path, are not in scope and are stated to customers as such.
+
+## 10.3 The query engine
+
+The controls that make the entitlement model real rather than nominal.
+
+- Base catalogs are **not addressable** by agent SQL. Views are materialised in a session with no attachments, and the ten-case bypass suite proves it
+- Hardening is applied then locked, with `lock_configuration` as the **final** statement. Without it an agent can undo everything above it
+- External access, extension loading and file readers are disabled
+- No disk spill. Exceeding memory fails rather than writes
+- Read-only source connections, opened per execution and closed after
+- Statement timeout and row cap on every execution
+- Per-pool concurrency ceiling, queued to a bound then refused
+
+## 10.4 Application security
+
+- CSP with no `unsafe-inline` and no third-party origins. Fonts and scripts self-hosted
+- Session cookie `httpOnly`, `Secure`, `SameSite=Lax`, opaque, server-side state
+- CSRF: `SameSite=Lax` plus an origin check on every state-changing request
+- Every input validated by Zod at the boundary. Nothing trusts a client-supplied identifier without an authorization check on it
+- Parameterised queries only. The one place SQL is constructed is the view compiler, which builds from a validated catalog rather than user input
+- Rate limits per session, per key, per IP, and per project
+- Dependencies: lockfile committed, `npm audit` gates the build, automated updates reviewed weekly
+
+## 10.5 Secrets
+
+Vault or a cloud secret manager. Nothing in environment files in the repository, nothing in the image.
+
+Source credentials are stored as references and resolved by the sidecar at execution time. **In VNet and on-premises mode the customer holds them and Opintel never receives them**, which is worth stating in a security review because it is unusual.
+
+Pool keys, magic link tokens and SCIM tokens are stored as SHA-256 hashes. There is no route that returns a secret after creation.
+
+## 10.6 Data handling
+
+| Category | Where it lives | Retention |
+|---|---|---|
+| Customer rows | Only in the customer's source, and transiently in sidecar memory | Released after each response |
+| Landed spreadsheet rows | The customer's own Postgres, written by the sidecar inside their environment | Their retention, not ours. Opintel holds the filing metadata only |
+| Schema metadata | Opintel database, in the project's region | Life of the project |
+| Evidence records | Opintel database, in the project's region | Configurable, 90 days default |
+| Prompt text | Evidence records, subject to redaction settings | As above |
+| Telemetry | Observability platform | 30 days, no customer data |
+
+The redaction setting defaults to aggressive, so tool arguments are redacted unless a customer allowlists fields.
+
+## 10.7 SOC 2, started in Slice 1
+
+The observation window takes months, so evidence collection begins with the first commit rather than when a customer asks.
+
+Controls already implemented by the architecture: logical access with defined roles, change management through the pipeline, audit logging that cannot be altered, encryption in transit and at rest, and vulnerability management through the dependency gate.
+
+What Slice 1 must add for the auditor rather than for the product: quarterly access review with an export, an incident response runbook, a documented risk assessment, and vendor review records for the sidecar dependencies and the model provider.
+
+**Managed authorization removes a system from audit scope**, which is the clearest commercial trigger for moving off the self-hosted deployment and is worth planning for rather than discovering.
+
+---
+
+# 11. Vocabulary lifecycle and readiness
+
+The vocabulary is the compounding asset. This section specifies how it is built, who owns each part, and how an enterprise knows which concepts are safe to point an unattended agent at.
+
+## 11.1 Two tiers, two owners
+
+| Tier | Who builds it | When | Where it lives |
+|---|---|---|---|
+| **Industry core** | Opintel, from field observation | Before any customer in that vertical | `vocabulary_term` at industry scope |
+| **Enterprise extension** | Professional services, with the customer | The six week deployment | `vocabulary_term` at project scope |
+
+**The industry core is our responsibility and our asset.** It is built by sitting with practitioners, watching them do the work, and capturing what they say rather than what the schema calls things. A reinsurance underwriter says burn cost, attachment, GWP, and cession. None of those are column names.
+
+**The enterprise extension is what the six weeks produces.** No two firms mean exactly the same thing by the same word, and the local overrides are the difference between a system that answers and one that answers correctly.
+
+**The pack improves with each deployment.** A term that appears at three customers in the same vertical is a candidate for promotion into the industry core, which improves the starting position for every future customer. That is the same review-gated promotion path as fragments, and it is why the vocabulary is worth more than any single deployment.
+
+## 11.2 The discovery question set
+
+Shipped with each industry pack. A structured set of questions designed to provoke the ambiguities that matter, so a deployment produces coverage rather than whatever the consultant happened to think of.
+
+```sql
+create table discovery_question (
+  id           uuid primary key default gen_random_uuid(),
+  industry_id  uuid not null references industry(id) on delete cascade,
+  ordinal      integer not null,
+  question     text not null,          -- asked in prompt mode, verbatim
+  provokes     text not null,          -- the ambiguity it is designed to surface
+  concepts     jsonb not null default '[]',   -- expected concepts
+  pack_version integer not null default 1
+);
+```
+
+Each question names what it is for. A reinsurance example:
+
+| Question | Provokes |
+|---|---|
+| What was our written premium last year? | Written, earned or signed basis. Calendar year or treaty year |
+| Which cedants had the worst loss ratio this year? | Whether loss ratio is sum over sum or the average of per-treaty ratios |
+| What is our aggregate exposure to flood? | Sum insured, PML, or total exposed limit |
+| Show me claims for treaty year 2025 | Whether a claim belongs to the treaty year or the calendar year it was reported |
+
+**Coverage is measurable.** A deployment reports how many of the pack's questions ran, how many produced a clarification, and how many are still unresolved. That converts six weeks of judgement into a number a customer can see and a consultant can be held to.
+
+**A question the pack does not contain is a gap in the pack.** Where a deployment surfaces an ambiguity no question provoked, the question is written and added to the pack, and the next customer in that vertical benefits.
+
+## 11.3 Concept readiness
+
+The state an enterprise needs in order to plan its agents. Computed per concept, per project.
+
+| State | Meaning | Unattended agents |
+|---|---|---|
+| **Declared** | A project or industry term exists, and where the concept resolves to a source, a registry entry exists | **Safe.** Will not pause, will not drift |
+| **Inferred** | Resolves today by matching, with a single clear candidate | **Works, may pause.** A schema change can make it ambiguous or move it |
+| **Ambiguous** | More than one plausible candidate inside the band | **Will pause or refuse** |
+| **Unmapped** | Used in prompts, no mapping | **Will refuse** |
+
+Exposed as a column on the Vocabulary screen and in the export, so an agent team can plan against it rather than discovering it in production.
+
+**Readiness is the deployment's progress bar.** A pilot starts with most concepts inferred or unmapped and ends with the queried ones declared. That is a better measure of a deployment than the number of queries run.
+
+## 11.4 Export
+
+`GET /projects/:id/vocabulary/export` returns the whole vocabulary as a reviewable artifact: every term with its kind, canonical name, synonyms, formula, grain rule, source (inherited or project), and readiness state. JSON and CSV.
+
+**This is a deliverable of the engagement, not a debugging aid.** The customer's agent teams read it to know what language works. Their architects diff it between versions. It is signed off at the end of the six weeks, and it exists whether or not they continue.
+
+## 11.5 What the customer sees, and adapts to
+
+At the end of the deployment the enterprise holds:
+
+- The concept list with readiness, exported
+- A record of every clarification answered and what was decided
+- The unmapped list, which is the honest statement of what the system will refuse
+- Per pool, whether clarification pauses or refuses
+
+Their agent teams then adapt: use declared concepts in unattended pipelines, keep inferred ones under supervision, and avoid unmapped ones or ask for them to be defined.
+
+**That is the operating model.** Interactive use is how the system is configured. Unattended use is what it is configured for.
+
+---
+
+# 12. Clarification policy
+
+## 12.1 The problem
+
+A clarification assumes someone can answer. A scheduled pipeline at 02:00 cannot, and an autonomous agent choosing between two options it knows nothing about is guessing with extra steps.
+
+## 12.2 Per pool setting
+
+```ts
+type ClarificationPolicy = 'pause' | 'refuse';
+```
+
+| Value | Behaviour | For |
+|---|---|---|
+| `pause` (default) | The run pauses durably and waits for `respond_clarification` | An assistant with a person present |
+| `refuse` | Returns `clarification_required` immediately, naming every ambiguity and the candidates | Scheduled and unattended callers |
+
+**A refusal under this policy is not a failure to answer, it is a request for configuration.** The response names the concept, the candidates, and the fact that declaring it would prevent recurrence, so the operator has an actionable item rather than an error.
+
+The policy is recorded on every run, so a record shows why a request refused rather than paused.
+
+## 12.3 Ambiguities are collected, not raised one at a time
+
+Resolution completes for **every** concept before any clarification is raised. A prompt with three ambiguities produces **one** clarification with three questions, not three sequential round trips.
+
+```ts
+type ClarificationRequest = {
+  runId: RunId;
+  items: Array<{
+    concept: string;
+    kind: 'parameter_value' | 'metric' | 'source' | 'join_path';
+    candidates: Array<{ value: string; frequency?: number; detail?: string }>;
+    saveAsDefaultAvailable: boolean;
+  }>;
+};
+```
+
+Sequential clarification is a defect, not a degraded experience. It triples latency and it makes an interactive session feel like an interrogation.
+
+## 12.4 Save as default
+
+Every clarification item that can be remembered offers it. Accepting writes a project-scope term or a registry entry, and that concept never asks again.
+
+**This is the mechanism that converts interactive use into unattended reliability**, and it is why the six week deployment produces a system a pipeline can run against.
+
+## 12.5 Tests
+
+| ID | Case | Expected |
+|---|---|---|
+| CLR-01 | Pool set to `refuse`, ambiguous prompt | Immediate `clarification_required` naming every ambiguity |
+| CLR-02 | Pool set to `pause`, ambiguous prompt | Durable pause, resumable |
+| CLR-03 | Three ambiguities in one prompt | **One** clarification with three items |
+| CLR-04 | Save as default accepted | Registry or term written; the identical prompt does not ask again |
+| CLR-05 | Policy recorded | Every run states which policy applied |
+| CLR-06 | Readiness after declaring | The concept moves from ambiguous to declared |
+| CLR-07 | Export | Contains every term with its readiness state |
+| CLR-08 | Discovery question coverage | Reports asked, clarified, and unresolved counts |

@@ -1,0 +1,84 @@
+/**
+ * Opintel: SpiceDB schema
+ *
+ * Two jobs, and neither is the entitlement model:
+ *   1. Console RBAC for humans, across company and project
+ *   2. The binding between pools and the data sources they may reach
+ *
+ * AGENTS DO NOT APPEAR IN THIS GRAPH. The pool key is the membership.
+ * agent_id is self-declared and used only for presence and evidence.
+ * Nothing is authorised on it.
+ *
+ * Per-element treatments are NOT here. Roughly 2,000 elements per source,
+ * each resolving to a five-way choice rather than a boolean. A tuple per
+ * column per pool would turn SpiceDB into a key-value store with worse
+ * latency. Those live in Postgres and compile into per-pool views.
+ */
+
+definition user {}
+
+definition company {
+  relation admin: user
+  relation member: user
+
+  permission administer = admin
+  permission view       = admin + member
+}
+
+definition project {
+  relation company: company
+
+  relation admin: user
+  relation operator: user
+  relation viewer: user
+
+  /* administration: anything that can widen what agents see */
+  permission administer      = admin + company->administer
+  permission set_entitlement = administer
+  permission map_term        = administer
+  permission bind_source     = administer
+  permission view_unredacted = administer
+  permission archive         = administer
+
+  /* operations: keeping agents running WITHOUT widening what they see.
+     This split is the reason the operator role exists. If a permission ever
+     appears on both sides of this line, the split is cosmetic. */
+  permission export_evidence = operator + administer
+  permission simulate        = operator + administer
+  permission ack_observation = operator + administer
+
+  /* read */
+  permission view = viewer + operator + admin + company->view
+}
+
+definition pool {
+  relation project: project
+
+  permission administer = project->administer
+  permission view       = project->view
+}
+
+definition datasource {
+  relation project: project
+
+  /* Pools overlap on sources: two pools may both reach one source with
+     different entitlements. So the binding subject is the POOL, pinned by
+     the key on the request, never inferred from the agent. */
+  relation bound_pool: pool
+
+  permission reachable  = bound_pool
+  permission introspect = project->bind_source
+  permission view       = project->view
+}
+
+/**
+ * Runtime resolution is two checks, and the pool is never inferred:
+ *
+ *   pool := resolve_pool_from_key(bearer)
+ *   Check(pool:<pool>,            member,    user:<user>)    // console
+ *   Check(datasource:<source>,    reachable, pool:<pool>)    // request path
+ *
+ * Entitlements are then keyed (pool, element) in Postgres, so the same
+ * column can be tokenized for one pool and withheld for another with no
+ * conflict in the graph.
+ */
