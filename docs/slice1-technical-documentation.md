@@ -874,6 +874,49 @@ type AppError = {
 
 **`Tx` deliberately exposes no lifecycle methods.** A callback that could call `commit` or `release` would be able to defeat the scope, which is the one thing the scope exists to prevent.
 
+### The outbox
+
+```sql
+create table outbox_mail (
+  id              uuid primary key default gen_random_uuid(),
+  idempotency_key text not null unique,
+  recipient       text not null,
+  template        text not null,
+  vars            jsonb not null,
+  state           text not null default 'pending'
+                    check (state in ('pending','sent','failed')),
+  attempts        integer not null default 0,
+  last_error      text,
+  claimed_at      timestamptz,
+  send_after      timestamptz not null default now(),
+  created_at      timestamptz not null default now(),
+  sent_at         timestamptz
+);
+create index on outbox_mail (state, send_after) where state = 'pending';
+```
+
+**Enqueue happens inside the caller's transaction.** A rolled-back transaction leaves no row, so no mail is sent. That is the entire point of the pattern.
+
+**Claiming is `FOR UPDATE SKIP LOCKED`**, so several dispatchers can run without sending twice:
+
+```sql
+update outbox_mail set state = 'pending', claimed_at = now(), attempts = attempts + 1
+where id in (
+  select id from outbox_mail
+  where state = 'pending' and send_after <= now()
+  order by send_after limit 10
+  for update skip locked
+)
+returning *;
+```
+
+**Retry** is exponential with jitter: 1m, 5m, 25m, 2h, 10h. After five attempts the row becomes `failed` and stays for inspection. Nothing is deleted.
+
+**A send that succeeds but whose database update fails** will be retried, and the same message may be delivered twice. `idempotency_key` lets a real provider deduplicate. **At-least-once is the guarantee**, and it is the right one: a duplicate magic link is an annoyance, a lost one is a locked-out user.
+
+**The dispatcher polls every 5 seconds** in Slice 1. `LISTEN/NOTIFY` is a later optimisation.
+
+**The local file adapter** writes to `MAIL_OUTPUT_DIR`, default `./tmp/mail`, one JSON file per message named `{timestamp}-{idempotencyKey}.json`, and logs the magic link URL to stdout so a developer can click it. Templates render in the adapter from `vars`; nothing above the adapter composes a message body.
 
 ---
 
