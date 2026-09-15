@@ -11,9 +11,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",
     "test": "vitest run --passWithNoTests",
-    "migrate:up": "bash scripts/migrate.sh up",
-    "migrate:down": "bash scripts/migrate.sh down",
-    "migrate:status": "bash scripts/migrate.sh status"
+    "migrate:up": "tsx src/platform/db/migrate.ts up",
+    "migrate:down": "tsx src/platform/db/migrate.ts down",
+    "migrate:status": "tsx src/platform/db/migrate.ts status"
+  },
+  "dependencies": {
+    "pg": "^8.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -21,7 +24,9 @@
     "@typescript-eslint/parser": "^8.0.0",
     "dependency-cruiser": "^16.0.0",
     "eslint": "^9.0.0",
+    "@types/pg": "^8.0.0",
     "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
     "vitest": "^2.0.0"
   },
   "packageManager": "npm@11.0.0"
