@@ -19,6 +19,7 @@ import {
   ProjectName,
   RunId,
   RuleId,
+  SessionId,
   SourceId,
   SourceName,
   TermId,
@@ -36,7 +37,7 @@ describe('shared kernel value objects', () => {
   it('rejects malformed input through every branded factory', () => {
     const factories = [
       CompanyId, ProjectId, UserId, SourceId, ObjectId, ElementId, PoolId,
-      RunId, IndustryId, TermId, RuleId, DemoSourceId, FilingId,
+      RunId, IndustryId, TermId, RuleId, DemoSourceId, FilingId, SessionId,
     ];
     for (const factory of factories) {
       expect(() => factory('not-a-uuid')).toThrow(InvariantViolation);

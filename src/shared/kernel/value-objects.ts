@@ -15,6 +15,7 @@ export type TermId = Brand<'TermId'>;
 export type RuleId = Brand<'RuleId'>;
 export type DemoSourceId = Brand<'DemoSourceId'>;
 export type FilingId = Brand<'FilingId'>;
+export type SessionId = Brand<'SessionId'>;
 
 export type DuckDbName = Brand<'DuckDbName'>;
 export type IndustrySlug = Brand<'IndustrySlug'>;
@@ -67,6 +68,7 @@ export const TermId = uuidFactory('TermId');
 export const RuleId = uuidFactory('RuleId');
 export const DemoSourceId = uuidFactory('DemoSourceId');
 export const FilingId = uuidFactory('FilingId');
+export const SessionId = uuidFactory('SessionId');
 
 export const DuckDbName = textFactory(
   'DuckDbName',
