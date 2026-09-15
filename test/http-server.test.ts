@@ -118,6 +118,26 @@ describe('HTTP server boundaries', () => {
     await expect(third.json()).resolves.toEqual({ route: 'third' });
   });
 
+  it('returns validation_failed without calling a handler for an invalid path parameter', async () => {
+    let calls = 0;
+    const routes = [defineRoute({
+      method: 'POST', path: '/api/v1/second/:id', params: z.object({ id: z.string().uuid() }),
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async () => {
+        calls += 1;
+        return { body: { accepted: true } };
+      },
+    })];
+
+    const response = await request(routes, '/api/v1/second/not-a-uuid', 'POST', {});
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'validation_failed', requestId: 'req-test' },
+    });
+    expect(calls).toBe(0);
+  });
+
   it('returns the error envelope for an unknown path and a known path with the wrong method', async () => {
     const routes = [defineRoute({
       method: 'POST', path: '/api/v1/check', params: z.object({}),

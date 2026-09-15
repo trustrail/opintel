@@ -28,3 +28,8 @@ EOF
 - Idempotency-Key (§2.4) is not implemented. Required on pool creation, key
   rotation, source deletion, bulk entitlement set and export creation.
   Needed by item 5.1.
+
+# From item 1.5c
+
+- No test for a path parameter that fails Zod validation. The happy path is
+  covered; an invalid :id should return validation_failed in the envelope.
