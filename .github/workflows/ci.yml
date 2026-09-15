@@ -22,3 +22,22 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+
+  migrations:
+    name: Migrations
+    needs: foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+      - run: npm ci
+      - run: docker compose up -d --wait
+      - run: npm run migrate:up
+      - run: npm run migrate:down
+      - run: npm run migrate:up
+      - run: docker compose down -v
+        if: always()
