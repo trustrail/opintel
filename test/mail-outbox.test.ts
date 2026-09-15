@@ -37,10 +37,17 @@ function successfulMailPort(delivered: OutboundMail[]): MailPort {
   };
 }
 
-const databaseDescribe = process.env.DATABASE_URL === undefined ? describe.skip : describe;
+const databaseUrl = process.env.DATABASE_URL;
+const databaseTestsRequired = process.env.REQUIRE_DB_TESTS === '1';
+const databaseDescribe = databaseUrl === undefined && !databaseTestsRequired
+  ? describe.skip
+  : describe;
 
 databaseDescribe('mail outbox with Postgres', () => {
   beforeEach(async () => {
+    if (databaseUrl === undefined) {
+      throw new Error('DATABASE_URL is required when REQUIRE_DB_TESTS=1.');
+    }
     await withPlatform((tx) => tx.query('TRUNCATE TABLE mail_outbox'));
   });
 
