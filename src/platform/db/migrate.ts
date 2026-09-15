@@ -4,6 +4,7 @@ import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { config as loadEnvironmentFile } from 'dotenv';
 import { Client } from 'pg';
 
 type QueryResult<Row> = { rows: Row[] };
@@ -42,10 +43,15 @@ const defaultReporter: MigrationReporter = {
   idle: (direction) => process.stdout.write(`No migrations to run ${direction}.\n`),
 };
 
-const migrationsDirectory = path.resolve(
+const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../migrations',
+  '../../..',
 );
+if (process.env.NODE_ENV !== 'production') {
+  loadEnvironmentFile({ path: path.join(repositoryRoot, '.env') });
+}
+
+const migrationsDirectory = path.join(repositoryRoot, 'migrations');
 
 const migrationFilename = /^(?<version>\d+)_(?<name>[a-z0-9_]+)\.(?<direction>up|down)\.sql$/u;
 
@@ -209,7 +215,10 @@ async function main(): Promise<void> {
     throw new Error('Usage: migrate.ts <up|down|status>');
   }
   if (process.env.DATABASE_URL === undefined) {
-    throw new Error('DATABASE_URL is required to run migrations.');
+    const instruction = process.env.NODE_ENV === 'production'
+      ? 'Set it in the environment.'
+      : 'Copy .env.example to .env, or set it inline.';
+    throw new Error(`DATABASE_URL is required. ${instruction}`);
   }
 
   const client = new Client({ connectionString: process.env.DATABASE_URL });

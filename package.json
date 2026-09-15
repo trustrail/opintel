@@ -16,6 +16,7 @@
     "migrate:status": "tsx src/platform/db/migrate.ts status"
   },
   "dependencies": {
+    "dotenv": "^16.0.0",
     "pg": "^8.0.0"
   },
   "devDependencies": {
