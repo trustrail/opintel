@@ -25,7 +25,7 @@ export type SessionSummary = {
 };
 
 export interface SessionPort {
-  create(user: UserId, meta: SessionMeta): Promise<SessionId>;
+  create(user: UserId, meta: SessionMeta, method: AuthMethod, deviceConfirmed: boolean): Promise<SessionId>;
   read(id: SessionId): Promise<SessionRecord | null>;
   touch(id: SessionId): Promise<void>;
   rotate(id: SessionId): Promise<SessionId>;

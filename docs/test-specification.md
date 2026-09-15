@@ -53,7 +53,7 @@ Version 1.0 · September 2026
 
 | ID | Type | Case | Expected |
 |---|---|---|---|
-| B-001 | F | Valid link clicked once | Session created, redirect to the last project |
+| B-001 | F | Valid link clicked once | Session created, redirects to the project chooser |
 | B-002 | F | Same link clicked twice | Second attempt fails with a clear message and a way to request another |
 | B-003 | F | Link at 14m59s | Accepted |
 | B-004 | F | Link at 15m01s | Rejected as expired, with a re-request action |
@@ -65,7 +65,7 @@ Version 1.0 · September 2026
 | B-010 | S | 4th request in 15 minutes for one email | 429; response body identical for known and unknown addresses |
 | B-011 | S | 11th request from one IP | 429 with backoff |
 | B-012 | S | Token tampered by one character | Rejected; no timing signal distinguishes it from expiry |
-| B-013 | S | Token from a different environment | Rejected |
+| B-013 | S | Token from a link opened in a browser with no matching device nonce requires explicit confirmation | Rejected |
 | B-014 | D | Two concurrent consumptions of one token | Exactly one succeeds (assert on the atomic update) |
 | B-015 | F | Invite-bearing link accepted | Membership relationship written **at this moment**, not before |
 

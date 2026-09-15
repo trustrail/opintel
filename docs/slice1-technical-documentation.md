@@ -911,6 +911,14 @@ type OutboundMail = {
   vars: JsonObject;                  // rendered by the adapter, never by the caller
   idempotencyKey: string;            // template plus recipient plus a nonce
 };
+
+// A template declares which vars are secret-bearing. Those are stored as a
+// reference and resolved by the adapter at dispatch, never persisted.
+type MailVarResolution = {
+  template: 'magic_link';
+  resolve: (vars: JsonObject) => Promise<JsonObject>;
+};
+
 type MailReceipt = { providerId: string; acceptedAt: Timestamp };
 
 // Mail is always enqueued to the outbox inside the transaction and dispatched
@@ -924,7 +932,41 @@ type AppError = {
   requestId: string;
   retryable: boolean;
 };
+
+// modules/identity
+interface MagicLinkRepository {
+  issue(email: string, tokenHash: Buffer, deviceNonce: string,
+        inviteId: InviteId | null, expiresAt: Timestamp,
+        ip: string | null): Promise<void>;
+  invalidateOutstanding(email: string): Promise<number>;
+  // Atomic: one UPDATE ... WHERE consumed_at IS NULL AND expires_at > now
+  //         AND device_nonce = $nonce RETURNING *.
+  // Two concurrent callers, exactly one row returned.
+  consume(tokenHash: Buffer, deviceNonce: string,
+          now: Timestamp): Promise<MagicLinkToken | null>;
+
+  // Consumes without matching the nonce. Used only by /auth/confirm-device,
+  // after the person has explicitly said they opened the link themselves.
+  consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null>;
+
+  // Non-consuming. Distinguishes "wrong nonce" from "expired or already used",
+  // so the callback can offer confirmation rather than a generic failure.
+  peek(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null>;
+}
+
+interface RateLimiter {
+  check(key: string, limit: number, windowMs: number):
+    Promise<{ allowed: boolean; retryAfterSeconds: number }>;
+}
+
 ```
+**The callback consumes only on a nonce match. consume includes the nonce in its WHERE clause, so a link opened in a different browser leaves the row untouched and available. The callback then calls peek to tell apart a nonce mismatch, which offers confirmation, from an expired or already-used link, which does not.
+
+consumeConfirmed is the only path that ignores the nonce, and it runs only after the person has answered the confirmation prompt. Declining consumes the token too, so a declined link cannot be retried.
+
+**The outbox never stores a secret. A magic link enqueues { tokenId }, not a URL. At dispatch the adapter loads the token record, reconstructs the link from the plaintext held only in memory since issue, and sends it. A row in mail_outbox is therefore not sufficient to sign in as anyone.
+
+That constrains issuance: the plaintext token exists in memory for the duration of the request and is never written. If dispatch happens in a later process, the link cannot be reconstructed and the send fails, which is correct. **Magic link mail dispatches in-process, immediately after commit, rather than through the polling worker.
 
 **`CurrentUser` is assembled, not stored.** The session holds `userId`; the request pipeline reads the account and composes `CurrentUser`. Storing a name or timezone in Redis would mean a profile edit leaves stale copies in every live session.
 

@@ -65,15 +65,20 @@ export class RedisSessionStore implements SessionPort {
     private readonly idFactory: IdFactory,
   ) {}
 
-  async create(user: UserId, meta: SessionMeta): Promise<SessionIdType> {
+  async create(
+    user: UserId,
+    meta: SessionMeta,
+    method: AuthMethod = 'magic_link',
+    deviceConfirmed = false,
+  ): Promise<SessionIdType> {
     const now = this.clock.now();
     const id = SessionId(this.idFactory.create<string>());
     await this.write(id, {
       userId: user,
-      method: 'magic_link',
+      method,
       createdAt: now,
       lastSeenAt: now,
-      deviceConfirmed: false,
+      deviceConfirmed,
       meta,
     });
     return id;
