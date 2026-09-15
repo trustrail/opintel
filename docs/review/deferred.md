@@ -20,3 +20,11 @@ EOF
 - 5.1 now depends on 1.6: pool_key.created_by references user_account.
 - 5.1 moved to the top of P3: entitlement.pool_id references pool, so the
   governance phase cannot build before the pool table exists.
+
+# From item 1.5a
+
+- platform/http logs unhandled errors with console.error. §8.4 requires the
+  structured logger with a field allowlist. Switch to platform/telemetry.
+- Idempotency-Key (§2.4) is not implemented. Required on pool creation, key
+  rotation, source deletion, bulk entitlement set and export creation.
+  Needed by item 5.1.
