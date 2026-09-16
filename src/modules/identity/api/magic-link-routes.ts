@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { defineRoute, errorEnvelopeSchema } from '../../../platform/http/index.js';
+import { requestLinkEmailSchema } from '../../../shared/api/index.js';
 import { sessionCookie } from './session-cookie.js';
 import { MagicLinkService } from '../application/magic-link.js';
 
 const emptyParams = z.object({});
-const requestLinkBody = z.object({ email: z.string().email().max(320), deviceNonce: z.string().min(1) });
+const requestLinkBody = z.object({ email: requestLinkEmailSchema, deviceNonce: z.string().min(1) });
 const callbackBody = z.object({ token: z.string().min(1), deviceNonce: z.string().min(1) });
 const confirmBody = callbackBody.extend({ confirm: z.boolean() });
 const callbackResponse = z.object({ deviceMismatch: z.boolean() });

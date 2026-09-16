@@ -2,12 +2,13 @@
 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RouteErrorBoundary } from '../src/app/error-boundary.js';
 import { labelForPath, navGroups } from '../src/app/navigation.js';
 import { router } from '../src/app/router.js';
 import { ToastHost } from '../src/app/toast.js';
 import { RouterProvider } from '@tanstack/react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 describe('application shell contracts', () => {
   it('ports all five navigation groups and their console items', () => {
@@ -31,7 +32,11 @@ describe('application shell contracts', () => {
   });
 
   it('collapses and expands from visible controls in the rendered shell', async () => {
-    render(<RouterProvider router={router} />);
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      id: '018f8f9d-7f83-7abc-8def-0123456789ab', email: 'person@example.com', fullName: null,
+      timezone: 'UTC', method: 'magic_link', sessionCreatedAt: '2026-01-01T00:00:00.000Z', deviceConfirmed: false,
+    }), { status: 200, headers: { 'x-request-id': 'req-shell' } }));
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
     const collapseButton = await screen.findByRole('button', { name: 'Collapse menu' });
     const shell = document.querySelector('#opintel-app > .shell');
     expect(shell?.className).toBe('shell');
@@ -44,5 +49,6 @@ describe('application shell contracts', () => {
     expect(expandButton.className).toBe('dtoggle');
     fireEvent.click(expandButton);
     expect(shell?.className).toBe('shell');
+    fetcher.mockRestore();
   });
 });

@@ -1,17 +1,24 @@
 import { DomainError, InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { redisKeyPrefix, type RedisClient } from '../../../platform/redis/index.js';
+import type { CurrentUserAccount, CurrentUserRepository } from '../application/current-user.js';
 import type { AccountRepository, InviteRepository, MagicLinkRepository, MagicLinkToken, PendingInvite, RateLimiter, UserAccount } from '../application/magic-link.js';
 
 type AccountRow = { id: string; email: string };
+type CurrentUserRow = { id: string; email: string; full_name: string | null; timezone: string };
 type InviteRow = { id: string; email: string; role: PendingInvite['role']; expires_at: string };
 type TokenRow = { id: string; email: string; device_nonce: string; invite_id: string | null };
 
-export class PostgresIdentityRepository implements AccountRepository, InviteRepository, MagicLinkRepository {
+export class PostgresIdentityRepository implements AccountRepository, InviteRepository, MagicLinkRepository, CurrentUserRepository {
   constructor(private readonly now: Clock) {}
   async findByEmail(email: string): Promise<UserAccount | null> {
     const rows = await withPlatform((tx) => tx.query<AccountRow>('SELECT id, email FROM user_account WHERE email = $1', [email]));
     const row = rows[0]; return row === undefined ? null : { id: UserId(row.id), email: row.email };
+  }
+  async findById(id: UserId): Promise<CurrentUserAccount | null> {
+    const rows = await withPlatform((tx) => tx.query<CurrentUserRow>('SELECT id, email, full_name, timezone FROM user_account WHERE id = $1', [id]));
+    const row = rows[0];
+    return row === undefined ? null : { id: UserId(row.id), email: row.email, fullName: row.full_name, timezone: row.timezone };
   }
   async create(email: string, _invite: PendingInvite | null): Promise<UserAccount> {
     const rows = await withPlatform((tx) => tx.query<AccountRow>('INSERT INTO user_account (email) VALUES ($1) RETURNING id, email', [email]));

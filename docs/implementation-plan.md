@@ -80,6 +80,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.12 | App shell: router, drawer, top bar, error boundaries, toast host | 1.11 | `app/`, shell | shell renders |
 | 1.12a | Frontend HTTP client: typed fetch against the API, error envelope to AppError, request id surfaced | 1.5a, 1.11 | src/shared/api | envelope parsed, network failure becomes AppError, request id available to the UI |
 | 1.13 | Auth screens | 1.10, 1.11 | four screens | A-014, A-015, B-007 to B-009 |
+1.13a | Authenticated route guard: unauthenticated visitors redirect to /sign-in, the intended path is preserved and restored after sign-in | 1.12, 1.13 | app/guard.tsx | an unauthenticated visit to a console route redirects, the path is restored |
 | 1.14 | Kitchen sink, visual snapshots, axe in CI | 1.11 | `/dev/kitchen-sink` | O-005 to O-009 |
 | 1.15 | Observability: OTel, request id, logs with field allowlist | 1.1 | `platform/telemetry` | no customer data in telemetry |
 

@@ -1286,6 +1286,18 @@ Conflating these is the most likely design error in the system. A code review th
 
 ## 3.2 Sign-in
 
+Browser paths and token transport.
+
+Screen	Path
+Sign in	/sign-in
+Check email	/check-email
+Callback	/auth/callback?token=…
+Confirm device	/auth/confirm-device?token=…
+
+The token travels as a **query parameter**, not a fragment. A fragment never reaches the server, which is usually the point, but here the SPA reads it either way and a query parameter survives email clients that rewrite links. The token is single-use and short-lived, so its appearance in a browser history entry is acceptable and is stated in the security review.
+
+**The device nonce** is stored in localStorage under the key opintel.device_nonce. It is 16 bytes from crypto.getRandomValues, base64url encoded, created on first visit and never rotated. It identifies a browser, not a person, and carries no authority on its own: a matching nonce only avoids a confirmation prompt.
+
 **PKCE state is held in Redis** under oidc:{state} for 10 minutes, single use, deleted on callback:
 
 ```ts

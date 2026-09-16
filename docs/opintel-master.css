@@ -716,3 +716,10 @@
 
 #opintel-app{display:block;width:100%;min-height:100vh}
 
+#opintel-app .authpage{min-height:100vh;background:var(--plum);display:grid;place-items:center;padding:24px}
+#opintel-app .authcard{width:100%;max-width:420px}
+#opintel-app .authmark{display:block;margin:0 auto 20px;height:32px;width:auto}
+
+#opintel-app .fld.err input{border-color:var(--held);background:var(--held-bg)}
+#opintel-app .fld.err input:focus{outline-color:var(--held)}
+#opintel-app .fld .err-msg{display:block;margin-top:6px;font-size:12px;font-weight:600;color:var(--held-dk)}
