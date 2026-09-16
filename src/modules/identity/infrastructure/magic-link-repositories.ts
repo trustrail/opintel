@@ -1,4 +1,4 @@
-import { InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
+import { DomainError, InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { redisKeyPrefix, type RedisClient } from '../../../platform/redis/index.js';
 import type { AccountRepository, InviteRepository, MagicLinkRepository, MagicLinkToken, PendingInvite, RateLimiter, UserAccount } from '../application/magic-link.js';
@@ -16,6 +16,20 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
   async create(email: string, _invite: PendingInvite | null): Promise<UserAccount> {
     const rows = await withPlatform((tx) => tx.query<AccountRow>('INSERT INTO user_account (email) VALUES ($1) RETURNING id, email', [email]));
     const row = rows[0]; if (row === undefined) throw new Error('Account creation returned no account.'); return { id: UserId(row.id), email: row.email };
+  }
+  async linkVerifiedIdentity(accountId: UserId, provider: string, subject: string): Promise<void> {
+    const rows = await withPlatform((tx) => tx.query<{ user_id: string }>(
+      `INSERT INTO user_identity (user_id, provider, provider_subject, email_verified)
+       VALUES ($1, $2, $3, true)
+       ON CONFLICT (provider, provider_subject) DO UPDATE
+       SET email_verified = true
+       WHERE user_identity.user_id = EXCLUDED.user_id
+       RETURNING user_id`,
+      [accountId, provider, subject],
+    ));
+    if (rows[0] === undefined) {
+      throw new DomainError('conflict', 'This identity is already linked to another account.');
+    }
   }
   async recordLogin(id: UserId, at: Timestamp): Promise<void> { await withPlatform((tx) => tx.query('UPDATE user_account SET last_login_at = $2 WHERE id = $1', [id, at])); }
   async findPendingFor(email: string): Promise<PendingInvite | null> {

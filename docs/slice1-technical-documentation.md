@@ -959,7 +959,15 @@ interface RateLimiter {
     Promise<{ allowed: boolean; retryAfterSeconds: number }>;
 }
 
+// platform/vault
+interface VaultPort {
+  resolve(ref: VaultRef): Promise<string>;   // never logged, never cached to disk
+  store(path: string, secret: string): Promise<VaultRef>;
+}
+
 ```
+**The development adapter reads from environment variables**. A reference vault://opintel/idp/{companyId}/{provider} resolves to OPINTEL_SECRET_<uppercased path>. Production uses a real secret manager behind the same port. A resolved secret is held in memory for the duration of the call and never written anywhere.
+
 **The callback consumes only on a nonce match. consume includes the nonce in its WHERE clause, so a link opened in a different browser leaves the row untouched and available. The callback then calls peek to tell apart a nonce mismatch, which offers confirmation, from an expired or already-used link, which does not.
 
 consumeConfirmed is the only path that ignores the nonce, and it runs only after the person has answered the confirmation prompt. Declining consumes the token too, so a declined link cannot be retried.
@@ -1252,6 +1260,25 @@ Internal, mutually authenticated, not public.
 Conflating these is the most likely design error in the system. A code review that finds an authorization check keyed on `agentId` rejects the change.
 
 ## 3.2 Sign-in
+
+**PKCE state is held in Redis** under oidc:{state} for 10 minutes, single use, deleted on callback:
+
+```ts
+type OidcFlowState = {
+  codeVerifier: string;       // 43 to 128 chars, base64url
+  nonce: string;
+  provider: string;
+  companyId: CompanyId | null;
+  redirectUri: string;
+  inviteId: InviteId | null;
+  deviceNonce: string;
+  createdAt: Timestamp;
+};
+```
+state is 32 bytes from a CSPRNG. A callback whose state is absent, expired or already consumed is refused without saying which.
+
+**ID tokens are verified with openid-client**, which handles discovery, JWKS retrieval and caching. Accepted algorithms are RS256 and ES256 only; none and HMAC variants are refused. Issuer must match the discovered issuer exactly, audience must equal the client id, exp and iat are checked with 60 seconds of clock skew, and nonce must match the one in the flow state. **Code replay is prevented by the single-use flow state**, so no separate replay store is needed.
+
 
 One screen offers every route the person may use. On email submit:
 
@@ -1552,7 +1579,25 @@ create table magic_link_token (
 );
 create index on magic_link_token (email, created_at desc);
 create index on magic_link_token (expires_at) where consumed_at is null;
+
+create table company_idp (
+  id            uuid primary key default gen_random_uuid(),
+  company_id    uuid not null references company(id) on delete cascade,
+  provider      text not null,            -- 'oidc:google', 'oidc:entra', 'oidc:generic'
+  display_name  text not null,            -- shown on the sign-in screen
+  issuer        text not null,
+  client_id     text not null,
+  client_secret_ref text not null,        -- vault://... never a literal
+  discovery_url text,                     -- null when issuer is well known
+  enabled       boolean not null default true,
+  created_at    timestamptz not null default now(),
+  unique (company_id, provider),
+  constraint secret_is_reference check (client_secret_ref like 'vault://%')
+);
 ```
+**Platform defaults**. Google and Microsoft Entra are available to every company without configuration, using platform-level credentials. company_idp exists for a company bringing its own tenant or a generic OIDC issuer. So /auth/providers returns the platform defaults plus any enabled company_idp rows for the matching domain.
+
+**sso_enforced without an enabled company_idp row is a misconfiguration** that would lock everyone out. Setting it refuses unless at least one provider is enabled.
 
 ## 4.3 Industry and vocabulary
 

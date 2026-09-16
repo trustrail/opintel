@@ -70,6 +70,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.5a | HTTP server, Zod validation at the boundary, error envelope, request id | 1.3, 1.15 | platform/http | error envelope shape, validation rejects at the boundary |
 | 1.5b | Redis client and connection lifecycle | 1.2 | platform/redis | connects, reconnects, closes cleanly |
 | 1.5c | HTTP routing: a registry mapping method and path to a validated handler | 1.5a | platform/http/router.ts | three handlers on one server, 404 for unknown paths |
+| 1.5d | Vault port, development environment adapter | 1.3 | platform/vault | resolve returns the secret, a missing one refuses, the secret never reaches a log |
 | 1.6 | Identity domain and schema | 1.2, 1.3, 2.1  | `modules/identity` | domain invariants |
 | 1.8 | Sessions: Redis, cookie, timeouts, revocation | 1.6 | session store | D-001 to D-011 |
 | 1.7 | Magic link: request, callback, device nonce, rate limits, single use | 1.4, 1.5, 1.5a, 1.5b, 1.6, 1.8 | endpoints | B-001 to B-015, A-005, A-006 |

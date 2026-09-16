@@ -9,6 +9,7 @@ export type MagicLinkToken = { id: string; email: string; deviceNonce: string; i
 export interface AccountRepository {
   findByEmail(email: string): Promise<UserAccount | null>;
   create(email: string, invite: PendingInvite | null): Promise<UserAccount>;
+  linkVerifiedIdentity(accountId: UserId, provider: string, subject: string): Promise<void>;
   recordLogin(id: UserId, at: Timestamp): Promise<void>;
 }
 
@@ -79,6 +80,7 @@ export class MagicLinkService {
   private async complete(token: MagicLinkToken, input: Callback, deviceConfirmed: boolean): Promise<CallbackResult> {
     const invite = token.inviteId === null ? null : await this.invites.findPendingFor(token.email);
     const account = await this.accounts.findByEmail(token.email) ?? await this.accounts.create(token.email, invite);
+    await this.accounts.linkVerifiedIdentity(account.id, 'magic_link', token.email);
     if (invite !== null) await this.invites.markAccepted(invite.id, account.id);
     await this.accounts.recordLogin(account.id, this.clock.now());
     const sessionId = await this.sessions.create(account.id, { ip: input.ip, userAgent: input.userAgent, deviceNonce: token.deviceNonce }, 'magic_link', deviceConfirmed);
