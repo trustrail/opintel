@@ -1102,7 +1102,7 @@ The key, the route, and a hash of the body are stored for 24 hours. A repeat wit
 | GET | `/auth/providers?email=` | Which routes are available. Safe before submit |
 | POST | `/auth/request-link` | Always 202, constant time |
 | POST | `/auth/callback` | `{ token, deviceNonce }`, sets the cookie. Returns `deviceMismatch: true` instead of a session when the nonce differs |
-| POST | `/auth/confirm-device` | `{ token, confirm: true }`. The explicit "yes, I opened this myself". Consumes the token and sets the cookie. Declining consumes the token and creates nothing. The confirmation is recorded on the session |
+| POST | `/auth/confirm-device` | `{ token, deviceNonce, confirm: true }`. The explicit "yes, I opened this myself". Consumes the token and sets the cookie. Declining consumes the token and creates nothing. The confirmation is recorded on the session |
 | GET | `/auth/oidc/:provider/start` | PKCE, state, nonce |
 | GET | `/auth/oidc/:provider/callback` | Validates, links, sets the cookie |
 | POST | `/auth/logout` | |
@@ -2148,6 +2148,7 @@ All CSS is scoped under a root id so the application cannot collide with a host 
 
 Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `prefers-reduced-motion` respected, and **state never conveyed by colour alone**, so every treatment badge carries a text label.
 
+**The four auth screens have no counterpart in the reference implementation**, which is the signed-in console. They are composed from existing primitives on the plum background: a centred `.card` at most 420px wide, the Opintel mark above it, a `.fld` for the email, `.btn go` for the primary action, `.btn ghost` for each provider, and `.note` for secondary text. No new classes. If a needed class genuinely does not exist, stop and say which.
 ---
 
 # 6. Error handling

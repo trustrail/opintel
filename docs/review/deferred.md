@@ -43,3 +43,12 @@ EOF
 
 - Breadcrumb and project switcher show console demo data (Northwind Foods,
   Field Yield 2026). Replace with real project state at item 2.6.
+
+# From item 1.12
+
+- Breadcrumb, project switcher and account footer show console demo data
+  (Northwind Foods, Field Yield 2026, Dara Okafor). Replace with real state
+  at item 2.6 and item 1.13 respectively.
+- docs/opintel-master.css corrected: .collapsed .dtoggle was display:none,
+  so the console itself could not reopen the drawer. The reference
+  implementation carried the defect.
