@@ -64,3 +64,25 @@ EOF
 - Added the API composition root omitted by the original plan. It registers
   the existing identity routes, is started by `dev:api`, and Vite proxies
   `/api` to it in development. Future routes must be registered there.
+
+# From item 1.13
+
+- No route creates the first user_account. request-link only sends mail for
+  a known account or pending invitation, so a fresh database has no way in.
+  Company creation is 2.6 and invitations are 2.7; the very first account
+  has no owner. Currently inserted by hand.
+- .fld.err reuses --held, the withheld-treatment colour, for invalid input.
+  Acceptable since forms and treatment badges never share a screen, but
+  worth revisiting when the entitlements screen lands.
+
+# From item 1.14
+
+- --ink-3 was #8B7E9B, 3.78:1 on white, failing WCAG AA. The first
+  correction to #756784 was measured against white and surface-2 only and
+  still failed on green-bg (4.44) and surface-3 (4.33). Now #675878, which
+  clears 5.38:1 against all nine backgrounds in the palette.
+- Lesson: a text token must be measured against every surface it can appear
+  on, not the common ones. Worth a script rather than judgement.
+- Second defect found in the reference implementation, after
+  .collapsed .dtoggle. Anything the console was never measured against is
+  suspect: contrast, keyboard order, focus visibility.

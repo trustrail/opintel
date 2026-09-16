@@ -13,7 +13,9 @@
     "dev:api": "tsx src/platform/http/start.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests test",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
     "migrate:up": "tsx src/platform/db/migrate.ts up",
     "migrate:down": "tsx src/platform/db/migrate.ts down",
     "migrate:status": "tsx src/platform/db/migrate.ts status"
@@ -32,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.3",
     "@types/pg": "^8.0.0",

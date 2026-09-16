@@ -2213,7 +2213,7 @@ Tokens are the only source of colour, type, spacing and motion. Raw hex or an ar
 ```css
 --plum:#1B0232; --green:#0CC655; --yellow:#FFF730;
 --bg:#F2EFF6; --surface:#FFF; --rule:#E1DAEA;
---ink:#1B0232; --ink-2:#5A4A6B; --ink-3:#8B7E9B;
+--ink:#1B0232; --ink-2:#5A4A6B; --ink-3:#675878;
 --t-clear:#0CC655; --t-token:#1F6FD0; --t-mask:#B8940A;
 --t-agg:#7A3FA8;  --t-held:#C2334D;  --t-unset:#FFF730;
 ```
