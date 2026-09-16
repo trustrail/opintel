@@ -1,0 +1,17 @@
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@theme {
+  --color-plum: var(--plum); --color-plum-2: var(--plum-2);
+  --color-green: var(--green); --color-green-dk: var(--green-dk); --color-green-bg: var(--green-bg);
+  --color-yellow: var(--yellow); --color-yellow-br: var(--yellow-br); --color-yellow-bg: var(--yellow-bg);
+  --color-bg: var(--bg); --color-surface: var(--surface); --color-surface-2: var(--surface-2); --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink); --color-ink-2: var(--ink-2); --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule); --color-rule-2: var(--rule-2);
+  --color-token: var(--token); --color-token-bg: var(--token-bg); --color-token-dk: var(--token-dk);
+  --color-mask: var(--mask); --color-mask-bg: var(--mask-bg); --color-mask-dk: var(--mask-dk);
+  --color-agg: var(--agg); --color-agg-bg: var(--agg-bg); --color-agg-dk: var(--agg-dk);
+  --color-held: var(--held); --color-held-bg: var(--held-bg); --color-held-dk: var(--held-dk);
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --breakpoint-sm: 640px; --breakpoint-md: 820px; --breakpoint-lg: 1100px; --breakpoint-xl: 1400px;
+}

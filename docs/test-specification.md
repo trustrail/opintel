@@ -368,7 +368,7 @@ Version 1.0 · September 2026
 
 | ID | Type | Case | Expected |
 |---|---|---|---|
-| O-001 | F | Every screen, loading | Skeleton matching the final shape |
+| O-001 | F | Loading state | Matches the reference implementation's pattern for that surface: a stage rail with an elapsed counter where work is staged, a purposeful empty state otherwise. Never a bare spinner |
 | O-002 | F | Every screen, empty | Purposeful empty state with a next action |
 | O-003 | F | Every screen, error | States what happened and the fix, with retry |
 | O-004 | F | Every screen, ready | Renders |

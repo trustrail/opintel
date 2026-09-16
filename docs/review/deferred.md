@@ -33,3 +33,13 @@ EOF
 
 - No test for a path parameter that fails Zod validation. The happy path is
   covered; an invalid :id should return validation_failed in the envelope.
+
+# From item 1.11
+
+- src/shared/ui/styles.ts imports ../../../docs/opintel-master.css. Works in
+  Vite; confirm the production build and any Docker image include docs/.
+
+# From item 1.12
+
+- Breadcrumb and project switcher show console demo data (Northwind Foods,
+  Field Yield 2026). Replace with real project state at item 2.6.

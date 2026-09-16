@@ -54,7 +54,8 @@
 #opintel-app .dhead .nm{color:#fff;font-size:16px;font-weight:800;letter-spacing:-.03em}
 #opintel-app .dtoggle{margin-left:auto;background:none;border:none;color:#9D89B2;cursor:pointer;font-size:16px;padding:4px;border-radius:5px;line-height:1}
 #opintel-app .dtoggle:hover{color:#fff;background:var(--plum-2)}
-#opintel-app .collapsed .dhead .nm, #opintel-app .collapsed .dtoggle{display:none}
+#opintel-app .collapsed .dhead .nm{display:none}
+#opintel-app .collapsed .dtoggle{margin-left:0;transform:rotate(180deg)}
 #opintel-app .collapsed .dhead{justify-content:center;padding:17px 0 15px}
 #opintel-app .ctx{padding:14px 12px 6px;position:relative}
 #opintel-app .ctxlabel{font-family:"IBM Plex Mono",monospace;font-size:8.5px;letter-spacing:.16em;color:#7C6690;text-transform:uppercase;padding:0 6px 6px}

@@ -122,7 +122,7 @@ export default [
     files: ['src/**/*.{ts,tsx}', 'test/fixtures/module-boundary/**/src/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
-      globals: { ...globals.node },
+      globals: { ...globals.node, ...globals.browser },
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module'
