@@ -17,12 +17,13 @@ export const errorEnvelopeSchema = z.object({
 
 export type ErrorEnvelope = z.infer<typeof errorEnvelopeSchema>;
 
-export interface HttpRequest<TBody> {
+export interface HttpRequest<TBody, TQuery = Record<string, never>> {
   readonly method: string;
   readonly path: string;
   readonly headers: IncomingHttpHeaders;
   readonly body: TBody;
   readonly params: Readonly<Record<string, string>>;
+  readonly query: TQuery;
   readonly requestId: string;
 }
 
@@ -32,25 +33,26 @@ export interface HttpResponse<TBody> {
   readonly body: TBody;
 }
 
-export interface HttpEndpoint<TRequest, TResponse> {
+export interface HttpEndpoint<TRequest, TResponse, TQuery = Record<string, never>> {
   readonly request: z.ZodType<TRequest>;
   readonly response: z.ZodType<TResponse>;
-  handle(request: HttpRequest<TRequest>): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
+  handle(request: HttpRequest<TRequest, TQuery>): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, string>> extends HttpEndpoint<TRequest, TResponse> {
+export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>> extends HttpEndpoint<TRequest, TResponse, TQuery> {
   readonly method: HttpMethod;
   readonly path: string;
   readonly params: z.ZodType<TParams>;
-  handle(request: HttpRequest<TRequest> & { readonly params: TParams }): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
+  readonly query?: z.ZodType<TQuery>;
+  handle(request: HttpRequest<TRequest, TQuery> & { readonly params: TParams }): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
 }
 
-type RegisteredRoute = HttpRoute<unknown, unknown, Record<string, string>>;
+type RegisteredRoute = HttpRoute<unknown, unknown, Record<string, string>, unknown>;
 
-export function defineRoute<TRequest, TResponse, TParams extends Record<string, string>>(
-  route: HttpRoute<TRequest, TResponse, TParams>,
+export function defineRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>>(
+  route: HttpRoute<TRequest, TResponse, TParams, TQuery>,
 ): RegisteredRoute {
   return route as unknown as RegisteredRoute;
 }
@@ -148,6 +150,16 @@ function routeMatch(path: string, route: RegisteredRoute): Record<string, string
   return params;
 }
 
+function queryParameters(search: URLSearchParams): Record<string, string | string[]> {
+  const query: Record<string, string | string[]> = {};
+  for (const [key, value] of search) {
+    const current = query[key];
+    if (current === undefined) query[key] = value;
+    else query[key] = Array.isArray(current) ? [...current, value] : [current, value];
+  }
+  return query;
+}
+
 function notFound(requestId: string): ErrorEnvelope {
   return errorEnvelope('not_found', 'The requested resource was not found.', requestId, false);
 }
@@ -166,7 +178,8 @@ export function createHttpServer(
   return createServer(async (request, response) => {
     const requestId = requestIdFactory();
     try {
-      const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+      const url = new URL(request.url ?? '/', 'http://localhost');
+      const path = url.pathname;
       const matchingPaths = routes.flatMap((route) => {
         const params = routeMatch(path, route);
         return params === null ? [] : [{ route, params }];
@@ -184,7 +197,8 @@ export function createHttpServer(
       const body = await readJsonBody(request);
       const parsedRequest = matched.route.request.safeParse(body);
       const parsedParams = matched.route.params.safeParse(matched.params);
-      if (!parsedRequest.success || !parsedParams.success) {
+      const parsedQuery = (matched.route.query ?? z.object({})).safeParse(queryParameters(url.searchParams));
+      if (!parsedRequest.success || !parsedParams.success || !parsedQuery.success) {
         writeJson(response, 400, requestId, validationFailure(requestId));
         return;
       }
@@ -195,6 +209,7 @@ export function createHttpServer(
         headers: request.headers,
         body: parsedRequest.data,
         params: parsedParams.data,
+        query: parsedQuery.data,
         requestId,
       });
       const parsedResponse = matched.route.response.safeParse(result.body);

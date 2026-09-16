@@ -52,3 +52,9 @@ EOF
 - docs/opintel-master.css corrected: .collapsed .dtoggle was display:none,
   so the console itself could not reopen the drawer. The reference
   implementation carried the defect.
+
+# From item 1.10
+
+- sso_enforced requires exactly one enabled company_idp. There is no company
+  settings route in Slice 1, so nothing enforces this at write time. Item
+  5.16 owns it. Until then /auth/providers handles the ambiguity defensively.

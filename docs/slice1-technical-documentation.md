@@ -1253,6 +1253,31 @@ Internal, mutually authenticated, not public.
 
 ## 3.1 The two mechanisms, kept separate
 
+### `GET /auth/providers`
+
+Takes `email` as a query parameter. Always `200`, always the same shape.
+
+```ts
+type ProvidersResponse = {
+  magicLink: boolean;              // false only when sso_enforced for this domain
+  providers: Array<{
+    provider: string;              // 'oidc:google', 'oidc:entra', 'oidc:acme'
+    displayName: string;           // 'Google', 'Microsoft', 'Acme SSO'
+    startPath: string;             // '/auth/oidc/oidc:google/start'
+  }>;
+  enforced: string | null;         // the provider to redirect to, or null
+};
+```
+
+**An unknown domain returns the platform defaults**, exactly as a known domain with no `company_idp` rows does. The two are indistinguishable.
+
+**`enforced` is non-null only when the domain maps to a company with `sso_enforced` set.** The client redirects immediately rather than showing the form. That is the one observable difference, and it reveals only that a domain uses SSO, which is already public.
+
+**When `enforced` is set, `magicLink` is false and `providers` contains exactly one entry**, the enforced provider.
+
+sso_enforced requires exactly one enabled company_idp row. More than one is ambiguous: the sign-in screen is bypassed, so there is nothing to choose from. Setting sso_enforced refuses with conflict when zero or more than one provider is enabled, and disabling the last provider while sso_enforced is set refuses the same way.
+
+
 **Humans** authenticate with a magic link or an identity provider, hold a session cookie, and are authorized by SpiceDB.
 
 **Agents** authenticate with a pool key. The key is the membership. `agentId` is self-declared and used only for presence and evidence. **Nothing is authorized on it.**
