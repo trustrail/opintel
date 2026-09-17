@@ -1,3 +1,3 @@
-import '../infrastructure/thing';
+import '../infrastructure/thing.js';
 
 export {};

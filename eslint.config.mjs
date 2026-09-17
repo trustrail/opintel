@@ -68,7 +68,9 @@ const localRules = {
           }
 
           const publicEntry = target.root;
-          if (targetPath !== publicEntry && targetPath !== `${publicEntry}${path.sep}index`) {
+          if (targetPath !== publicEntry &&
+              targetPath !== `${publicEntry}${path.sep}index` &&
+              targetPath !== `${publicEntry}${path.sep}index.js`) {
             context.report({ node, messageId: 'crossContextDeepImport' });
           }
         }

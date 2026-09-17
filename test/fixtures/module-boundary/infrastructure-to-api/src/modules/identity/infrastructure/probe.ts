@@ -1,3 +1,3 @@
-import '../api/thing';
+import '../api/thing.js';
 
 export {};

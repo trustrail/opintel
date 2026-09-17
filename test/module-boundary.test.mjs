@@ -22,4 +22,33 @@ describe('module boundary rule', () => {
     expect(result.messages[0]?.ruleId).toBe('opintel/module-boundary');
     expect(result.messages[0]?.messageId).toBe('layerImport');
   });
+
+  it('rejects a cross-module non-index .js import', async () => {
+    const eslint = new ESLint({ cwd: rootDirectory });
+    const [result] = await eslint.lintFiles([
+      path.join(fixture('cross-module-deep-import'), 'application/probe.ts')
+    ]);
+
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe('opintel/module-boundary');
+    expect(result.messages[0]?.messageId).toBe('crossContextDeepImport');
+  });
+
+  it('accepts a cross-module index.js import', async () => {
+    const eslint = new ESLint({ cwd: rootDirectory });
+    const [result] = await eslint.lintFiles([
+      path.join(fixture('cross-module-public-import'), 'application/probe.ts')
+    ]);
+
+    expect(result.messages).toEqual([]);
+  });
+
+  it('still accepts a cross-module extensionless index import', async () => {
+    const eslint = new ESLint({ cwd: rootDirectory });
+    const [result] = await eslint.lintText("import '../../authz/index';\n", {
+      filePath: path.join(fixture('cross-module-public-import'), 'application/probe.ts')
+    });
+
+    expect(result.messages).toEqual([]);
+  });
 });
