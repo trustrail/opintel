@@ -10,7 +10,7 @@ describe('database scope export surface', () => {
     ]);
   });
 
-  it('does not expose a pool or client outside the scope module', () => {
+  it('RLS-07: does not expose a pool or client outside the scope module', () => {
     expect(scope).not.toHaveProperty('pool');
     expect(scope).not.toHaveProperty('client');
   });

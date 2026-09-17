@@ -214,14 +214,14 @@ async function main(): Promise<void> {
   if (command !== 'up' && command !== 'down' && command !== 'status') {
     throw new Error('Usage: migrate.ts <up|down|status>');
   }
-  if (process.env.DATABASE_URL === undefined) {
+  if (process.env.MIGRATION_DATABASE_URL === undefined) {
     const instruction = process.env.NODE_ENV === 'production'
       ? 'Set it in the environment.'
       : 'Copy .env.example to .env, or set it inline.';
-    throw new Error(`DATABASE_URL is required. ${instruction}`);
+    throw new Error(`MIGRATION_DATABASE_URL is required. ${instruction}`);
   }
 
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const client = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
   await client.connect();
   try {
     if (command === 'up') await migrateUp(client);

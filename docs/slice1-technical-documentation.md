@@ -1472,6 +1472,17 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 
 **The agent interface at `/mcp/v1/p/:projectId` is not in this table.** It authenticates by pool key rather than by session, and every authorization question there is answered against the pool.
 
+**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, pattern_rule, agent_presence, query_run, run_element, run_stage, synonym_candidate.
+
+**Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, term_synonym, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp.
+
+**term_synonym is reached only through its vocabulary_term**, so it carries no project_id and is protected by the parent's policy rather than its own. RLS-10 skips it by name, with that reason recorded.
+
+**vocabulary_term and embedding hold both industry-scope and project-scope rows.** The policy is: a row is visible when project_id = current_setting('app.project_id'), or when project_id is null, since a null project id means industry scope and industry data is shared by design.
+
+**pending_invite is company-scoped**, not project-scoped, and is read before a project is chosen. It is excluded from RLS and protected by the route permission instead.
+
+
 
 ```ts
 route.post('/pools/:id/entitlements/bulk', {
@@ -2056,6 +2067,19 @@ A test asserts this. If someone adds an `UPDATE` path, the grant fails it, not c
 ## 4.7 Row-level security
 
 Enabled on every tenant table.
+
+**The application never connects as the database owner**. Migrations run as opintel, which owns the schema. The application connects as opintel_app, opintel_platform and opintel_platform_admin, none of which own any table and none of which have BYPASSRLS. A test asserts that opintel_app is not a superuser and does not own the tenant tables, because a policy on a table its connection owns is decoration.
+
+**Roles are created without login credentials**. The migration creates opintel_app, opintel_platform and opintel_platform_admin as NOLOGIN roles carrying only grants and RLS behaviour. They are not connection identities.
+
+**The application connects once, as a login role, and assumes a role per scope**. One connection string, DATABASE_URL, using a login role that is a member of all three and owns nothing. Each scope begins with SET LOCAL ROLE, which is transaction-local exactly as the GUCs are, so it reverts on commit or rollback with no cleanup path:
+
+SET LOCAL ROLE opintel_app;
+SELECT set_config('app.user_id', $1, true), set_config('app.project_id', $2, true);
+
+**This keeps one pool and one credential**. Three connection strings would mean three pools, three secrets to rotate, and a way to reach the wrong one. SET LOCAL ROLE gives the same isolation with none of that.
+
+**Migrations connect as the owner**, using a separate MIGRATION_DATABASE_URL. In development both may point at opintel; in production they are different credentials and the application's cannot alter schema.
 
 ```sql
 alter table catalog_element enable row level security;

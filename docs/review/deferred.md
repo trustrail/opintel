@@ -2,8 +2,7 @@ mkdir -p docs/review
 cat > docs/review/deferred.md <<'EOF'
 # Deferred from item 1.4
 
-- withPlatform and withPlatformAdmin share the tenant pool. Distinct roles
-  arrive with item 2.4 role setup.
+- withPlatform and withPlatformAdmin share the tenant pool..
 - withPlatformAdmin does not write an audit entry; audit_entry arrives in 2.1.
 - No call-graph test proving customer routes cannot reach withPlatformAdmin.
   Add when routes exist, item 2.3.
@@ -86,3 +85,12 @@ EOF
 - Second defect found in the reference implementation, after
   .collapsed .dtoggle. Anything the console was never measured against is
   suspect: contrast, keyboard order, focus visibility.
+
+# From the test database separation
+
+- Tests share one database and do not all truncate. A test asserting on a
+  count that includes other tests' rows passes or fails depending on file
+  order. The mail-outbox concurrency case hit this: dispatchPending claims a
+  batch of up to 100, so it swept a leftover row. Consider a transaction per
+  test with rollback, or truncation in a shared beforeEach, before many more
+  integration tests exist.

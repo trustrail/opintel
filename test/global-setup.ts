@@ -1,4 +1,4 @@
-const postgresAffectedTests = 13;
+const postgresAffectedTests = 23;
 const redisAffectedTests = 22;
 const bothServicesAffectedTests = 8;
 const spiceDbAffectedTests = 5;

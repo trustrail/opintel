@@ -98,6 +98,7 @@ databaseDescribe('mail outbox with Postgres', () => {
 
   it('does not allow concurrent dispatchers to claim the same row', async () => {
     const outbox = new MailOutbox();
+    await withPlatform((tx) => tx.query('TRUNCATE TABLE mail_outbox'));
     await withPlatform((tx) => outbox.enqueue(tx, mail));
     const delivered: OutboundMail[] = [];
     let notifyFirstSend: (() => void) | undefined;
@@ -125,6 +126,7 @@ databaseDescribe('mail outbox with Postgres', () => {
     const secondDispatch = await outbox.dispatchPending(successfulMailPort(delivered));
     releaseFirstSend?.();
 
+    // dispatchPending claims a batch of up to 100, so this fixture contains one row.
     expect(await firstDispatch).toEqual({ sent: 1, retained: 0 });
     expect(secondDispatch).toEqual({ sent: 0, retained: 0 });
     expect(delivered).toHaveLength(1);

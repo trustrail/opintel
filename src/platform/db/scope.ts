@@ -21,28 +21,31 @@ const wrap = (c: PoolClient): Tx => ({
   },
 });
 
+type ScopeRole = 'opintel_app' | 'opintel_platform' | 'opintel_platform_admin';
+
 async function run<T>(
+  role: ScopeRole,
   setup: (c: PoolClient) => Promise<void>,
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
+  let discardConnection = false;
   try {
     await client.query('BEGIN');
+    await client.query(`SET LOCAL ROLE ${role}`);
     await setup(client);
     const result = await fn(wrap(client));
     await client.query('COMMIT');
-    await client.query('RESET app.user_id');
-    await client.query('RESET app.project_id');
-    client.release();
     return result;
   } catch (e) {
     try {
       await client.query('ROLLBACK');
-      client.release();
     } catch {
-      client.release(true);   // unknown state: destroy, do not reuse
+      discardConnection = true;
     }
     throw e;
+  } finally {
+    client.release(discardConnection);
   }
 }
 
@@ -51,6 +54,7 @@ export async function withTenant<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   return run(
+    'opintel_app',
     async (c) => {
       await c.query(
         `SELECT set_config('app.user_id', $1, true),
@@ -63,7 +67,7 @@ export async function withTenant<T>(
 }
 
 export async function withPlatform<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return run(async () => {}, fn);
+  return run('opintel_platform', async () => {}, fn);
 }
 
 export async function withPlatformAdmin<T>(
@@ -72,5 +76,5 @@ export async function withPlatformAdmin<T>(
 ): Promise<T> {
   // TODO item 2.1: write an audit entry for every call, using ctx.actor.
   // The audit_entry table does not exist yet.
-  return run(async () => {}, fn);
+  return run('opintel_platform_admin', async () => {}, fn);
 }
