@@ -691,7 +691,10 @@ type RelationshipUpdate = {
   operation: 'touch' | 'delete';
   resource: CheckRequest['resource'];
   relation: string;
-  subject: CheckRequest['subject'];
+  subject:
+    | { type: 'user';    id: UserId }
+    | { type: 'pool';    id: PoolId }
+    | { type: 'company'; id: CompanyId }; 
 };
 
 // catalog
@@ -966,6 +969,8 @@ interface VaultPort {
 }
 
 ```
+CheckRequest and RelationshipUpdate have different subject types on purpose. Only a user or a pool asks an authorization question. A company appears as the subject of project#company@company, which is how a project inherits from its company, and is never itself a caller.
+
 **The development adapter reads from environment variables**. A reference vault://opintel/idp/{companyId}/{provider} resolves to OPINTEL_SECRET_<uppercased path>. Production uses a real secret manager behind the same port. A resolved secret is held in memory for the duration of the call and never written anywhere.
 
 **The callback consumes only on a nonce match. consume includes the nonce in its WHERE clause, so a link opened in a different browser leaves the row untouched and available. The callback then calls peek to tell apart a nonce mismatch, which offers confirmation, from an expired or already-used link, which does not.

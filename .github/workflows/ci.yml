@@ -37,6 +37,8 @@ jobs:
       DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
       TEST_DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel_test
       REDIS_URL: redis://localhost:6379
+      SPICEDB_ENDPOINT: localhost:50051
+      SPICEDB_TOKEN: devkey
       REQUIRE_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +50,7 @@ jobs:
       - run: docker compose up -d --wait
       - run: docker compose exec -T postgres createdb -U opintel opintel_test
       - run: DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
+      - run: npm run spicedb:schema
       - run: npm test
       - run: DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:down
       - run: DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up

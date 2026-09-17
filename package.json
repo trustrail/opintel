@@ -18,7 +18,8 @@
     "test:visual:update": "playwright test --update-snapshots",
     "migrate:up": "tsx src/platform/db/migrate.ts up",
     "migrate:down": "tsx src/platform/db/migrate.ts down",
-    "migrate:status": "tsx src/platform/db/migrate.ts status"
+    "migrate:status": "tsx src/platform/db/migrate.ts status",
+    "spicedb:schema": "tsx src/modules/authz/infrastructure/load-schema.ts"
   },
   "dependencies": {
     "@authzed/authzed-node": "^1.6.1",
