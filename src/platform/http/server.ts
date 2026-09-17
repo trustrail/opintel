@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { DomainError, type JsonObject } from '../../shared/kernel/index.js';
+import { DomainError, type JsonObject, type UserId } from '../../shared/kernel/index.js';
+import type { AuthorizationPort, CheckRequest } from '../../modules/authz/index.js';
 import { z } from 'zod';
 
 export const requestIdHeader = 'x-request-id';
@@ -41,11 +42,21 @@ export interface HttpEndpoint<TRequest, TResponse, TQuery = Record<string, never
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+export type RoutePermission<TBody, TParams extends Record<string, string>, TQuery> =
+  | 'public'
+  | 'authenticated'
+  | {
+    readonly resource: CheckRequest['resource']['type'];
+    readonly id: (request: HttpRequest<TBody, TQuery> & { readonly params: TParams }) => string;
+    readonly permission: string;
+  };
+
 export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>> extends HttpEndpoint<TRequest, TResponse, TQuery> {
   readonly method: HttpMethod;
   readonly path: string;
   readonly params: z.ZodType<TParams>;
   readonly query?: z.ZodType<TQuery>;
+  readonly permission?: RoutePermission<TRequest, TParams, TQuery>;
   handle(request: HttpRequest<TRequest, TQuery> & { readonly params: TParams }): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
 }
 
@@ -64,6 +75,10 @@ export interface HttpLogger {
 export interface HttpServerOptions {
   readonly requestIdFactory?: () => string;
   readonly logger?: HttpLogger;
+  readonly authorization?: {
+    readonly currentUser: (headers: IncomingHttpHeaders) => Promise<UserId | null>;
+    readonly port?: AuthorizationPort;
+  };
 }
 
 class InvalidJsonBody extends Error {
@@ -168,12 +183,32 @@ function methodNotAllowed(requestId: string): ErrorEnvelope {
   return errorEnvelope('method_not_allowed', 'The request method is not allowed for this resource.', requestId, false);
 }
 
+function unauthorized(requestId: string): ErrorEnvelope {
+  return errorEnvelope('unauthenticated', 'Sign in is required.', requestId, false);
+}
+
+function forbidden(requestId: string): ErrorEnvelope {
+  return errorEnvelope('forbidden', 'You do not have permission to perform this action.', requestId, false);
+}
+
+function assertRoutePermissions(routes: readonly RegisteredRoute[], authorization: HttpServerOptions['authorization']): void {
+  for (const route of routes) {
+    if (route.permission === undefined) {
+      throw new Error(`Route ${route.method} ${route.path} is missing a permission declaration.`);
+    }
+    if (typeof route.permission === 'object' && authorization?.port === undefined) {
+      throw new Error(`Route ${route.method} ${route.path} requires an AuthorizationPort.`);
+    }
+  }
+}
+
 export function createHttpServer(
   routes: readonly RegisteredRoute[],
   options: HttpServerOptions = {},
 ): Server {
   const requestIdFactory = options.requestIdFactory ?? randomUUID;
   const logger = options.logger ?? defaultLogger;
+  assertRoutePermissions(routes, options.authorization);
 
   return createServer(async (request, response) => {
     const requestId = requestIdFactory();
@@ -201,6 +236,47 @@ export function createHttpServer(
       if (!parsedRequest.success || !parsedParams.success || !parsedQuery.success) {
         writeJson(response, 400, requestId, validationFailure(requestId));
         return;
+      }
+
+      if (matched.route.permission !== 'public') {
+        const authorization = options.authorization;
+        const user = authorization === undefined ? null : await authorization.currentUser(request.headers);
+        if (user === null) {
+          writeJson(response, 401, requestId, unauthorized(requestId));
+          return;
+        }
+        if (typeof matched.route.permission === 'object') {
+          const resource = {
+            type: matched.route.permission.resource,
+            id: matched.route.permission.id({
+              method: request.method ?? 'GET',
+              path,
+              headers: request.headers,
+              body: parsedRequest.data,
+              params: parsedParams.data,
+              query: parsedQuery.data,
+              requestId,
+            }),
+          };
+          const authorizationPort = authorization?.port;
+          if (authorizationPort === undefined) throw new Error('AuthorizationPort was not configured.');
+          const view = await authorizationPort.check({ resource, permission: 'view', subject: { type: 'user', id: user } });
+          if (!view.allowed) {
+            writeJson(response, 404, requestId, notFound(requestId));
+            return;
+          }
+          if (matched.route.permission.permission !== 'view') {
+            const permission = await authorizationPort.check({
+              resource,
+              permission: matched.route.permission.permission,
+              subject: { type: 'user', id: user },
+            });
+            if (!permission.allowed) {
+              writeJson(response, 403, requestId, forbidden(requestId));
+              return;
+            }
+          }
+        }
       }
 
       const result = await matched.route.handle({

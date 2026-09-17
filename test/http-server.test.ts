@@ -2,7 +2,9 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createHttpServer, defineRoute, requestIdHeader } from '../src/platform/http/index.js';
+import { Timestamp, UserId } from '../src/shared/kernel/index.js';
+import type { AuthorizationPort, CheckRequest, CheckResult, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import { createHttpServer, defineRoute, requestIdHeader, type HttpServerOptions } from '../src/platform/http/index.js';
 
 const servers: ReturnType<typeof createHttpServer>[] = [];
 
@@ -12,8 +14,14 @@ afterEach(async () => {
   })));
 });
 
-async function request(routes: readonly ReturnType<typeof defineRoute>[], path: string, method: string, body: unknown): Promise<Response> {
-  const server = createHttpServer(routes, { requestIdFactory: () => 'req-test' });
+async function request(
+  routes: readonly ReturnType<typeof defineRoute>[],
+  path: string,
+  method: string,
+  body: unknown,
+  options: Omit<HttpServerOptions, 'requestIdFactory'> = {},
+): Promise<Response> {
+  const server = createHttpServer(routes, { ...options, requestIdFactory: () => 'req-test' });
   servers.push(server);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -27,11 +35,38 @@ async function request(routes: readonly ReturnType<typeof defineRoute>[], path: 
   });
 }
 
+class TestAuthorizationPort implements AuthorizationPort {
+  constructor(private readonly allowedPermissions: ReadonlySet<string>) {}
+
+  async check(request: CheckRequest): Promise<CheckResult> {
+    return {
+      allowed: this.allowedPermissions.has(request.permission),
+      checkedAt: Timestamp(new Date('2026-01-01T00:00:00.000Z')),
+      token: 'test-zed-token' as ZedToken,
+      snapshotAgeMs: 0,
+    };
+  }
+
+  async checkMany(requests: CheckRequest[]): Promise<CheckResult[]> {
+    return Promise.all(requests.map(async (request) => this.check(request)));
+  }
+
+  async write(_updates: RelationshipUpdate[]): Promise<ZedToken> {
+    return 'test-zed-token' as ZedToken;
+  }
+
+  async explain(request: CheckRequest): Promise<{ allowed: boolean; path: string[] }> {
+    const result = await this.check(request);
+    return { allowed: result.allowed, path: [] };
+  }
+}
+
 describe('HTTP server boundaries', () => {
   it('returns the validation_failed envelope for an invalid request body', async () => {
     const response = await request([defineRoute({
       method: 'POST',
       path: '/api/v1/check',
+      permission: 'public',
       params: z.object({}),
       request: z.object({ email: z.string().email() }),
       response: z.object({ accepted: z.literal(true) }),
@@ -54,6 +89,7 @@ describe('HTTP server boundaries', () => {
     const response = await request([defineRoute({
       method: 'POST',
       path: '/api/v1/check',
+      permission: 'public',
       params: z.object({}),
       request: z.object({}),
       response: z.object({ accepted: z.literal(true) }),
@@ -80,6 +116,7 @@ describe('HTTP server boundaries', () => {
     const response = await request([defineRoute({
       method: 'POST',
       path: '/api/v1/check',
+      permission: 'public',
       params: z.object({}),
       request: z.object({}),
       response: z.object({ accepted: z.literal(true) }),
@@ -93,17 +130,17 @@ describe('HTTP server boundaries', () => {
   it('maps three handlers, including a validated path parameter, on one server', async () => {
     const routes = [
       defineRoute({
-        method: 'POST', path: '/api/v1/first', params: z.object({}),
+        method: 'POST', path: '/api/v1/first', params: z.object({}), permission: 'public',
         request: z.object({}), response: z.object({ route: z.literal('first') }),
         handle: async () => ({ body: { route: 'first' } }),
       }),
       defineRoute({
-        method: 'POST', path: '/api/v1/second/:id', params: z.object({ id: z.string().uuid() }),
+        method: 'POST', path: '/api/v1/second/:id', params: z.object({ id: z.string().uuid() }), permission: 'public',
         request: z.object({}), response: z.object({ route: z.literal('second'), id: z.string().uuid() }),
         handle: async (httpRequest) => ({ body: { route: 'second', id: httpRequest.params.id } }),
       }),
       defineRoute({
-        method: 'POST', path: '/api/v1/third', params: z.object({}),
+        method: 'POST', path: '/api/v1/third', params: z.object({}), permission: 'public',
         request: z.object({}), response: z.object({ route: z.literal('third') }),
         handle: async () => ({ body: { route: 'third' } }),
       }),
@@ -121,7 +158,7 @@ describe('HTTP server boundaries', () => {
   it('returns validation_failed without calling a handler for an invalid path parameter', async () => {
     let calls = 0;
     const routes = [defineRoute({
-      method: 'POST', path: '/api/v1/second/:id', params: z.object({ id: z.string().uuid() }),
+      method: 'POST', path: '/api/v1/second/:id', params: z.object({ id: z.string().uuid() }), permission: 'public',
       request: z.object({}), response: z.object({ accepted: z.literal(true) }),
       handle: async () => {
         calls += 1;
@@ -140,7 +177,7 @@ describe('HTTP server boundaries', () => {
 
   it('returns the error envelope for an unknown path and a known path with the wrong method', async () => {
     const routes = [defineRoute({
-      method: 'POST', path: '/api/v1/check', params: z.object({}),
+      method: 'POST', path: '/api/v1/check', params: z.object({}), permission: 'public',
       request: z.object({}), response: z.object({ accepted: z.literal(true) }),
       handle: async () => ({ body: { accepted: true } }),
     })];
@@ -152,5 +189,63 @@ describe('HTTP server boundaries', () => {
     expect(await unknown.json()).toMatchObject({ error: { code: 'not_found', requestId: 'req-test' } });
     expect(wrongMethod.status).toBe(405);
     expect(await wrongMethod.json()).toMatchObject({ error: { code: 'method_not_allowed', requestId: 'req-test' } });
+  });
+
+  it('fails startup with the method and path when a route has no permission declaration', () => {
+    expect(() => createHttpServer([defineRoute({
+      method: 'POST', path: '/api/v1/undeclared', params: z.object({}),
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async () => ({ body: { accepted: true } }),
+    })])).toThrow('Route POST /api/v1/undeclared is missing a permission declaration.');
+  });
+
+  it('returns 403 when a visible resource lacks the declared permission', async () => {
+    let calls = 0;
+    const routes = [defineRoute({
+      method: 'POST', path: '/api/v1/projects/:id/entitlements', params: z.object({ id: z.string().uuid() }),
+      permission: { resource: 'project', id: (httpRequest) => httpRequest.params.id, permission: 'set_entitlement' },
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async () => {
+        calls += 1;
+        return { body: { accepted: true } };
+      },
+    })];
+
+    const response = await request(
+      routes,
+      '/api/v1/projects/018f8f9d-7f83-7abc-8def-0123456789ab/entitlements',
+      'POST',
+      {},
+      { authorization: { currentUser: async () => UserId('018f8f9d-7f83-7abc-8def-0123456789ac'), port: new TestAuthorizationPort(new Set(['view'])) } },
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: { code: 'forbidden', requestId: 'req-test' } });
+    expect(calls).toBe(0);
+  });
+
+  it('returns 404 instead of 403 when the user cannot view the resource', async () => {
+    let calls = 0;
+    const routes = [defineRoute({
+      method: 'POST', path: '/api/v1/projects/:id/entitlements', params: z.object({ id: z.string().uuid() }),
+      permission: { resource: 'project', id: (httpRequest) => httpRequest.params.id, permission: 'set_entitlement' },
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async () => {
+        calls += 1;
+        return { body: { accepted: true } };
+      },
+    })];
+
+    const response = await request(
+      routes,
+      '/api/v1/projects/018f8f9d-7f83-7abc-8def-0123456789ab/entitlements',
+      'POST',
+      {},
+      { authorization: { currentUser: async () => UserId('018f8f9d-7f83-7abc-8def-0123456789ac'), port: new TestAuthorizationPort(new Set()) } },
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: { code: 'not_found', requestId: 'req-test' } });
+    expect(calls).toBe(0);
   });
 });

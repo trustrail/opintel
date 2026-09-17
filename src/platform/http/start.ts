@@ -21,7 +21,7 @@ async function start(): Promise<void> {
   loadDevelopmentEnvironment();
 
   const [
-    { SystemClock, UuidV7IdFactory },
+    { SessionId, SystemClock, UuidV7IdFactory },
     { createHttpServer },
     { createRedisConnection },
     { MagicLinkService },
@@ -34,7 +34,8 @@ async function start(): Promise<void> {
     { PostgresProviderResolutionRepository },
     { magicLinkRoutes },
     { providerRoutes },
-    { currentUserRoutes },
+    { currentUserRoutes, cookieValue },
+    { sessionCookieName },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -50,6 +51,7 @@ async function start(): Promise<void> {
     import('../../modules/identity/api/magic-link-routes.js'),
     import('../../modules/identity/api/provider-routes.js'),
     import('../../modules/identity/api/current-user-routes.js'),
+    import('../../modules/identity/api/session-cookie.js'),
   ]);
 
   const clock = new SystemClock();
@@ -64,7 +66,20 @@ async function start(): Promise<void> {
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
     ...currentUserRoutes(new CurrentUserService(sessions, identity)),
   ];
-  const server = createHttpServer(routes);
+  const server = createHttpServer(routes, {
+    authorization: {
+      currentUser: async (headers) => {
+        const rawSessionId = cookieValue(headers.cookie, sessionCookieName);
+        if (rawSessionId === null) return null;
+        try {
+          const session = await sessions.read(SessionId(rawSessionId));
+          return session?.userId ?? null;
+        } catch {
+          return null;
+        }
+      },
+    },
+  });
   const port = apiPort();
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });

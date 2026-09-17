@@ -21,6 +21,7 @@ export function magicLinkRoutes(service: MagicLinkService) {
   return [
     defineRoute({
       method: 'POST', path: '/api/v1/auth/request-link', params: emptyParams,
+      permission: 'public',
       request: requestLinkBody, response: z.union([z.undefined(), errorEnvelopeSchema]),
       handle: async (request) => {
         const result = await service.requestLink({ ...request.body, ip: requestMetadata(request.headers).ip });
@@ -30,6 +31,7 @@ export function magicLinkRoutes(service: MagicLinkService) {
     }),
     defineRoute({
       method: 'POST', path: '/api/v1/auth/callback', params: emptyParams,
+      permission: 'public',
       request: callbackBody, response: callbackResponse,
       handle: async (request) => {
         const meta = requestMetadata(request.headers);
@@ -40,6 +42,7 @@ export function magicLinkRoutes(service: MagicLinkService) {
     }),
     defineRoute({
       method: 'POST', path: '/api/v1/auth/confirm-device', params: emptyParams,
+      permission: 'public',
       request: confirmBody, response: callbackResponse,
       handle: async (request) => {
         const meta = requestMetadata(request.headers);

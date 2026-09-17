@@ -45,7 +45,10 @@ afterEach(async () => {
 });
 
 async function request(service: CurrentUserService, cookie?: string): Promise<Response> {
-  const server = createHttpServer(currentUserRoutes(service), { requestIdFactory: () => 'req-current-user' });
+  const server = createHttpServer(currentUserRoutes(service), {
+    requestIdFactory: () => 'req-current-user',
+    authorization: { currentUser: async () => userId },
+  });
   servers.push(server);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');

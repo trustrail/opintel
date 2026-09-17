@@ -38,6 +38,7 @@ function sessionIdFromCookie(cookie: string | undefined): ReturnType<typeof Sess
 export function currentUserRoutes(service: CurrentUserService) {
   return [defineRoute({
     method: 'GET', path: '/api/v1/auth/me', params: emptyParams,
+    permission: 'authenticated',
     request: emptyRequest, response: z.union([currentUserResponse, errorEnvelopeSchema]),
     handle: async (request) => {
       const sessionId = sessionIdFromCookie(request.headers.cookie);
