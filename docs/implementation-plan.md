@@ -94,7 +94,11 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 2.2 | SpiceDB schema, `AuthorizationPort`, cached snapshot with consistency token | 1.2 | `modules/authz` | E-001 to E-004 |
 | 2.3 | Route permission declarations, startup assertion | 2.2 | `platform/http` | a route without a permission fails boot |
 | 2.4 | RLS policies on every tenant table, `pg_policies` scan test | 1.4, 2.1 | migrations | RLS-10 |
-| 2.6 | Create project, industry selection, immutable region | 2.1 | endpoint and screen | E2-001 to E2-022 |
+| 2.5a | Authenticated actor handoff: routes declaring a permission receive actor: CurrentUser, typed so a public-route handler has no actor field | 2.3 | platform/http | a handler on an authenticated route cannot compile without an actor; a public handler has none |
+| 2.6a | Relationship outbox dispatcher: row and entry in one transaction, SpiceDB write after commit, command awaits it | 2.2, 2.4 | modules/authz | a create that cannot write its relationship fails rather than returning optimistically |
+| 2.6b | POST /companies, POST /projects, PATCH /projects/:id | 2.5a, 2.6a | modules/tenancy | E2-001 to E2-012 |
+| 2.6c | List routes: GET /projects, GET /companies | 2.6a | endpoints | E2-017, E2-018 |
+| 2.6d | Project chooser, create project, create company screens, and the drawer wired to real projects | 2.6b, 1.12 | screens | E2-019, E2-020, E2-022 |
 | 2.7 | Invitations, relationship written on acceptance | 2.2, 1.7 | endpoints | E-010 to E-014 |
 | 2.8 | Roles, capability resolution, permission explanation | 2.2 | endpoint | E-005 to E-009 |
 | 2.9 | Access screen with derivation, project switcher | 2.8, 1.12 | two screens | E-009, E-015, E-016 |

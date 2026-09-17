@@ -24,6 +24,10 @@ type PolicyRow = {
 };
 type RlsTableRow = { table_name: string; rls_forced: boolean };
 
+// §4.7: membership is read before a project is selected and is protected by
+// route permissions, not tenant RLS. term_synonym has no project_id.
+const nonTenantProjectTables = ['company_member', 'project_member'] as const;
+
 type Fixture = {
   industryId: string;
   companyId: string;
@@ -231,7 +235,9 @@ databaseIntegration('row-level security', () => {
         AND project_id.attname = 'project_id'
         AND project_id.attnotnull
         AND NOT project_id.attisdropped
-       WHERE n.nspname = 'public' AND c.relkind = 'r' AND r.rolname = 'opintel_app'`,
+       WHERE n.nspname = 'public' AND c.relkind = 'r' AND r.rolname = 'opintel_app'
+         AND c.relname <> ALL($1)`,
+      [nonTenantProjectTables],
     ));
     const policies = await withPlatform(async (tx) => tx.query<PolicyRow>(
       `SELECT c.relname AS table_name, c.relrowsecurity AS rls_enabled, c.relforcerowsecurity AS rls_forced,
@@ -244,8 +250,9 @@ databaseIntegration('row-level security', () => {
         AND project_id.attnotnull
         AND NOT project_id.attisdropped
        LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname
-       WHERE n.nspname = 'public' AND c.relkind = 'r'
+       WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> ALL($1)
        GROUP BY c.relname, c.relrowsecurity, c.relforcerowsecurity`,
+      [nonTenantProjectTables],
     ));
     const protectedTables = await withPlatform(async (tx) => tx.query<RlsTableRow>(
       `SELECT c.relname AS table_name, c.relforcerowsecurity AS rls_forced

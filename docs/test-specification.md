@@ -141,15 +141,15 @@ Version 1.0 · September 2026
 | E2-010 | F | Create succeeds | SpiceDB `project#company` and `project#admin` written; assert both tuples |
 | E2-011 | D | Inheritance after create | **By reference.** No vocabulary rows copied; assert the row count is unchanged |
 | E2-012 | F | Republish the industry pack after create | Project sees the new terms without a migration |
-| E2-013 | F | A new project with no sources | No demo source is connected automatically. The offer appears, nothing is provisioned |
-| E2-014 | F | Demo source connected at create | Provisioned, introspected, every element undecided. Same connector port as a customer source |
-| E2-015 | F | Copy settings from another project | Query, reference, evidence, alert settings copied |
-| E2-016 | D | Copy settings | **Does not** copy entitlements, sources, pools or vocabulary overrides; assert each is empty |
+| E2-013 | F | A new project with no sources *(needs item 3.11 demo sources)*| No demo source is connected automatically. The offer appears, nothing is provisioned |
+| E2-014 | F | Demo source connected at create *(needs item 3.11)* | Provisioned, introspected, every element undecided. Same connector port as a customer source |
+| E2-015 | F | Copy settings from another project *(needs item 3.x sources)* | Query, reference, evidence, alert settings copied |
+| E2-016 | D | Copy settings | **Does not** copy entitlements, sources, pools or vocabulary overrides; assert each is empty *(needs item 5.1 pools)* |
 | E2-017 | F | Region defaults from the company | Pre-filled, changeable at create |
 | E2-018 | F | Region after create | Read-only everywhere; no API route mutates it |
 | E2-019 | F | Create fails server-side | Entered values preserved; form does not reset |
 | E2-020 | F | Landing after create | Project dashboard with three-step setup guidance |
-| E2-021 | D | Audit entry | `ProjectCreated` recorded with actor, company, industry, region |
+| E2-021 | D | Audit entry | `ProjectCreated` recorded with actor, company, industry, region *(needs audit_entry, item 5.10)* |
 | E2-022 | X | Create screen | Keyboard traversable, axe clean |
 | E2-023 | A | Migrate industry as project admin only | 403, company admin is also required |
 | E2-024 | F | Migrate dry run | Reports shadowed terms and, in Slice 1b, prompts in the last 30 days using terms unique to the old industry. **Protocols do not exist until Slice 3**, so nothing is reported about them |

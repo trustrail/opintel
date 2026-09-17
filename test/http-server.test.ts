@@ -4,9 +4,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { Timestamp, UserId } from '../src/shared/kernel/index.js';
 import type { AuthorizationPort, CheckRequest, CheckResult, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import type { CurrentUser } from '../src/modules/identity/application/current-user.js';
 import { createHttpServer, defineRoute, requestIdHeader, type HttpServerOptions } from '../src/platform/http/index.js';
 
 const servers: ReturnType<typeof createHttpServer>[] = [];
+const currentUser: CurrentUser = {
+  id: UserId('018f8f9d-7f83-7abc-8def-0123456789ac'), email: 'test@example.com', fullName: null,
+  timezone: 'UTC', method: 'magic_link', sessionCreatedAt: Timestamp(new Date('2026-09-17T00:00:00.000Z')), deviceConfirmed: true,
+};
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).filter((server) => server.listening).map((server) => new Promise<void>((resolve, reject) => {
@@ -216,7 +221,7 @@ describe('HTTP server boundaries', () => {
       '/api/v1/projects/018f8f9d-7f83-7abc-8def-0123456789ab/entitlements',
       'POST',
       {},
-      { authorization: { currentUser: async () => UserId('018f8f9d-7f83-7abc-8def-0123456789ac'), port: new TestAuthorizationPort(new Set(['view'])) } },
+      { authorization: { currentUser: async () => currentUser, port: new TestAuthorizationPort(new Set(['view'])) } },
     );
 
     expect(response.status).toBe(403);
@@ -241,7 +246,7 @@ describe('HTTP server boundaries', () => {
       '/api/v1/projects/018f8f9d-7f83-7abc-8def-0123456789ab/entitlements',
       'POST',
       {},
-      { authorization: { currentUser: async () => UserId('018f8f9d-7f83-7abc-8def-0123456789ac'), port: new TestAuthorizationPort(new Set()) } },
+      { authorization: { currentUser: async () => currentUser, port: new TestAuthorizationPort(new Set()) } },
     );
 
     expect(response.status).toBe(404);

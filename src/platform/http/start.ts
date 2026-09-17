@@ -59,12 +59,13 @@ async function start(): Promise<void> {
   await redis.connect();
   const identity = new PostgresIdentityRepository(clock);
   const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory());
+  const currentUsers = new CurrentUserService(sessions, identity);
   const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
   const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, new OutboxMagicLinkDispatcher(new MailOutbox(), mail));
   const routes = [
     ...magicLinkRoutes(magicLinks),
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
-    ...currentUserRoutes(new CurrentUserService(sessions, identity)),
+    ...currentUserRoutes(currentUsers),
   ];
   const server = createHttpServer(routes, {
     authorization: {
@@ -72,8 +73,7 @@ async function start(): Promise<void> {
         const rawSessionId = cookieValue(headers.cookie, sessionCookieName);
         if (rawSessionId === null) return null;
         try {
-          const session = await sessions.read(SessionId(rawSessionId));
-          return session?.userId ?? null;
+        return await currentUsers.read(SessionId(rawSessionId));
         } catch {
           return null;
         }

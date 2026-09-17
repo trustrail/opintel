@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { DomainError, type JsonObject, type UserId } from '../../shared/kernel/index.js';
+import { DomainError, type JsonObject } from '../../shared/kernel/index.js';
+import type { CurrentUser } from '../../modules/identity/application/current-user.js';
 import type { AuthorizationPort, CheckRequest } from '../../modules/authz/index.js';
 import { z } from 'zod';
 
@@ -76,7 +77,7 @@ export interface HttpServerOptions {
   readonly requestIdFactory?: () => string;
   readonly logger?: HttpLogger;
   readonly authorization?: {
-    readonly currentUser: (headers: IncomingHttpHeaders) => Promise<UserId | null>;
+    readonly currentUser: (headers: IncomingHttpHeaders) => Promise<CurrentUser | null>;
     readonly port?: AuthorizationPort;
   };
 }
@@ -260,7 +261,7 @@ export function createHttpServer(
           };
           const authorizationPort = authorization?.port;
           if (authorizationPort === undefined) throw new Error('AuthorizationPort was not configured.');
-          const view = await authorizationPort.check({ resource, permission: 'view', subject: { type: 'user', id: user } });
+          const view = await authorizationPort.check({ resource, permission: 'view', subject: { type: 'user', id: user.id } });
           if (!view.allowed) {
             writeJson(response, 404, requestId, notFound(requestId));
             return;
@@ -269,7 +270,7 @@ export function createHttpServer(
             const permission = await authorizationPort.check({
               resource,
               permission: matched.route.permission.permission,
-              subject: { type: 'user', id: user },
+              subject: { type: 'user', id: user.id },
             });
             if (!permission.allowed) {
               writeJson(response, 403, requestId, forbidden(requestId));

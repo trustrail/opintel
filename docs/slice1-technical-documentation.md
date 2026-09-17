@@ -381,10 +381,14 @@ current -> revoked          (break glass, requires typed confirmation)
 
 Referenced across this document and previously left undefined. All live in `shared/kernel` or their owning module's `domain`.
 
+On project creation: project#company@company and project#admin@user for the creating user. Nothing else.
+
 ```ts
 // shared/kernel
 type JsonValue  = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 type JsonObject = { [k: string]: JsonValue };
+
+companiesAdministeredBy(user: UserId): Promise<CompanyId[]>;
 
 type ActorRef =
   | { kind: 'user';   id: UserId }
@@ -1070,6 +1074,18 @@ export const PoolView = z.object({
 });
 export type PoolView = z.infer<typeof PoolView>;
 ```
+**Authenticated handlers receive the caller**. A route declaring a permission other than public receives actor on the request, typed as CurrentUser. The type guarantees it: a handler on an authenticated route cannot compile without one, and a handler on a public route has no actor field to read.
+
+```ts
+type PublicRequest        = { /* body, query, params, requestId */ };
+type AuthenticatedRequest = PublicRequest & { actor: CurrentUser };
+```
+
+**The server assembles CurrentUser once**, from the session and the account, and passes it down. A handler never reads a cookie, never touches SessionPort, and never imports anything from the identity module.
+
+**Assembling CurrentUser costs one account read per authenticated request**. That is accepted rather than cached, because a cache of user records is a second source of truth for identity and the failure mode is someone acting with a stale role after a change.
+
+The read is a primary key lookup on user_account. If it becomes measurable, the answer is to measure first: §8.3's request duration histogram will show it, and a short-lived cache keyed on the session id with explicit invalidation on account change is the remedy, not a default.
 
 ## 2.2 The response envelope
 
@@ -1137,6 +1153,71 @@ The key, the route, and a hash of the body are stored for 24 hours. A repeat wit
 | POST | `/invitations/:token/accept` |
 | PATCH / DELETE | `/projects/:id/members/:userId` |
 | GET | `/projects/:id/permissions/:userId/explain` |
+
+### Company and project payloads
+
+```ts
+const CreateCompanyBody = z.object({
+  name: z.string().min(1).max(120),
+  defaultRegion: RegionSchema,
+  defaultIndustryId: z.string().uuid().nullable(),
+});
+
+const CreateProjectBody = z.object({
+  companyId: z.string().uuid(),
+  name: z.string().min(1).max(80),
+  industryId: z.string().uuid(),
+  region: RegionSchema,              // immutable thereafter
+});
+
+const ProjectView = z.object({
+  id: z.string().uuid(),
+  companyId: z.string().uuid(),
+  name: z.string(),
+  industry: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    inheritedTermCount: z.number().int(),
+  }),
+  region: RegionSchema,
+  createdAt: z.string().datetime({ offset: true }),
+});
+
+const UpdateProjectBody = z.object({ name: z.string().min(1).max(80) });
+// region and industryId are absent by design. Region never changes;
+// industry changes only through migrate-industry.
+```
+### List payloads
+
+```ts
+const ProjectListItem = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  region: RegionSchema,
+  company: z.object({ id: z.string().uuid(), name: z.string() }),
+  industry: z.object({ id: z.string().uuid(), name: z.string() }),
+  role: z.enum(['admin', 'operator', 'viewer']),   // this user's role here
+});
+
+const ProjectListResponse = z.object({
+  items: z.array(ProjectListItem),
+  nextCursor: z.string().nullable(),
+});
+
+const CompanyListItem = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  role: z.enum(['admin', 'member']),
+  projectCount: z.number().int(),
+});
+```
+
+**GET /projects returns only projects the caller can reach**, each carrying its company and industry so the chooser and the drawer need no second request. The user's role is included because the drawer and the chooser both show what they may do there.
+
+**There is no selected-project state on the server**. The active project is in the URL, and every project-scoped route carries it. The switcher reads the current project from the route and the list from GET /projects. A server-side "last project" would be state to keep in sync for no benefit.
+
+**The breadcrumb is composed from the current project's ProjectListItem**: company name, then project name, then screen. No separate lookup.
+
 
 ### sources and catalog
 
@@ -1298,8 +1379,18 @@ Sign in	/sign-in
 Check email	/check-email
 Callback	/auth/callback?token=…
 Confirm device	/auth/confirm-device?token=…
+Project chooser	/projects
+Create project	/projects/new
+Create company	/companies/new
+
 
 The token travels as a **query parameter**, not a fragment. A fragment never reaches the server, which is usually the point, but here the SPA reads it either way and a query parameter survives email clients that rewrite links. The token is single-use and short-lived, so its appearance in a browser history entry is acceptable and is stated in the security review.
+
+**The project chooser is where a signed-in user with no project lands**. It lists the projects they can reach and offers to create one. A user who administers no company is offered company creation first, since a project cannot exist without one.
+
+**Create project is reached from three places**: the chooser, the project switcher in the drawer, and directly by path. The switcher already exists in the shell and currently shows fixture data; wiring it to real projects is part of this item.
+
+**After creation the user lands on the new project's dashboard**, not back on the chooser.
 
 **The device nonce** is stored in localStorage under the key opintel.device_nonce. It is 16 bytes from crypto.getRandomValues, base64url encoded, created on first visit and never rotated. It identifies a browser, not a person, and carries no authority on its own: a matching nonce only avoids a confirmation prompt.
 
@@ -1607,6 +1698,40 @@ create table project (
   unique (company_id, lower(name))
 );
 
+create table company_member (
+  company_id uuid not null references company(id) on delete cascade,
+  user_id    uuid not null references user_account(id) on delete cascade,
+  role       text not null check (role in ('admin','member')),
+  granted_at timestamptz not null default now(),
+  granted_by uuid references user_account(id),
+  primary key (company_id, user_id)
+);
+
+create table project_member (
+  project_id uuid not null references project(id) on delete cascade,
+  user_id    uuid not null references user_account(id) on delete cascade,
+  role       text not null check (role in ('admin','operator','viewer')),
+  granted_at timestamptz not null default now(),
+  granted_by uuid references user_account(id),
+  primary key (project_id, user_id)
+);
+
+create table relationship_outbox (
+  id           bigint primary key generated always as identity,
+  operation    text not null check (operation in ('touch','delete')),
+  resource_type text not null,
+  resource_id  text not null,
+  relation     text not null,
+  subject_type text not null,
+  subject_id   text not null,
+  created_at   timestamptz not null default now(),
+  written_at   timestamptz,
+  zed_token    text,
+  attempts     integer not null default 0,
+  last_error   text
+);
+create index on relationship_outbox (created_at) where written_at is null;
+
 create table pending_invite (
   id         uuid primary key default gen_random_uuid(),
   email      citext not null,
@@ -1651,6 +1776,20 @@ create table company_idp (
 **Platform defaults**. Google and Microsoft Entra are available to every company without configuration, using platform-level credentials. company_idp exists for a company bringing its own tenant or a generic OIDC issuer. So /auth/providers returns the platform defaults plus any enabled company_idp rows for the matching domain.
 
 **sso_enforced without an enabled company_idp row is a misconfiguration** that would lock everyone out. Setting it refuses unless at least one provider is enabled.
+
+**Membership is written in both places, and SpiceDB is authoritative for decisions**. Postgres holds the same facts so the application can list — which companies a user administers, who the members of a project are — without asking SpiceDB to enumerate. SpiceDB answers whether a user may do a thing; Postgres answers what exists.
+
+**Both writes happen in one command**, the Postgres row inside the transaction and the SpiceDB relationship after it commits, through the outbox. A relationship written without its row, or the reverse, is a defect, and a reconciliation job reports any divergence.
+
+**Neither table is tenant-scoped for RLS purposes**. project_member is read before a project is selected, and company_member has no project at all. Both are protected by route permissions.
+
+**The pattern is the mail outbox's, applied to authorization**. The membership row and its outbox entry are written in one transaction; a dispatcher writes to SpiceDB after commit and records the returned ZedToken. A crash between them leaves an unwritten entry, which the dispatcher retries.
+
+**Dispatch is in-process and immediate**, as magic link mail is. A membership that takes seconds to become effective is a support call, so the command awaits the write and reports failure to the caller rather than succeeding optimistically.
+
+**The row is never deleted**, so relationship_outbox is also the audit trail of every authorization change until audit_entry arrives in item 5.10.
+
+**Reconciliation** compares company_member and project_member against SpiceDB nightly and reports divergence. It does not repair automatically: a relationship present in one and not the other is a fault worth a human looking at.
 
 ## 4.3 Industry and vocabulary
 
@@ -1781,6 +1920,15 @@ create index embedding_scope on embedding (owner_type, scope_type, industry_id, 
 **One table with partial indexes per owner type**, rather than a vector column on each owning table. A column per table means an index per table, inconsistent maintenance, and no single place to re-embed.
 
 **Model changes are a backfill, not a migration.** `model` and `dimensions` are recorded per row, a retrieval filters to one model, and the active model flips per industry only when its backfill completes. Without this, changing embedding provider is an outage.
+
+**A General industry is seeded alongside every vertical pack**. Slug general, name "General", described as "No industry vocabulary. Terms you define yourself."
+
+**It has no terms**. Its inherited count is zero, and a project created against it starts with an empty vocabulary. That is the honest state for a business whose language Opintel does not yet know, and it is preferable to inheriting reinsurance terms into a logistics company.
+
+**It is the fallback**, used when a company has no default_industry_id. It is also a legitimate choice: a customer can pick it deliberately and build their vocabulary from nothing, which is what a first customer in a new vertical does.
+
+**It carries no demo pack**, so a general project has nothing to connect for evaluation. That is a reason to build the vertical pack before selling into a vertical, not a gap to fill with generic sample data.
+
 
 ## 4.3b Sources and catalog
 
@@ -2260,6 +2408,8 @@ All CSS is scoped under a root id so the application cannot collide with a host 
 Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `prefers-reduced-motion` respected, and **state never conveyed by colour alone**, so every treatment badge carries a text label.
 
 **The four auth screens have no counterpart in the reference implementation**, which is the signed-in console. They are composed from existing primitives on the plum background: a centred `.card` at most 420px wide, the Opintel mark above it, a `.fld` for the email, `.btn go` for the primary action, `.btn ghost` for each provider, and `.note` for secondary text. No new classes. If a needed class genuinely does not exist, stop and say which.
+
+**Create project has no counterpart in the reference implementation**, which shows an already-created project. Compose it from existing primitives: a .card containing .fld for the name, a list of industries each showing its inherited term count, and a region selector. The industry choice is presented as a decision with consequences, not a dropdown.
 ---
 
 # 6. Error handling
