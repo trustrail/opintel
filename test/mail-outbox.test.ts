@@ -20,7 +20,7 @@ import {
 
 const mail: OutboundMail = {
   to: 'person@example.com',
-  template: 'magic_link',
+  template: 'alert',
   vars: { link: 'https://example.com/magic-link' },
   idempotencyKey: 'magic-link:person@example.com:nonce',
 };

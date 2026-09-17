@@ -28,7 +28,9 @@ async function start(): Promise<void> {
     { ProviderResolutionService },
     { CurrentUserService },
     { PostgresIdentityRepository, RedisRateLimiter },
+    { OutboxMagicLinkDispatcher },
     { RedisSessionStore },
+    { LocalFileMailAdapter, MailOutbox },
     { PostgresProviderResolutionRepository },
     { magicLinkRoutes },
     { providerRoutes },
@@ -41,7 +43,9 @@ async function start(): Promise<void> {
     import('../../modules/identity/application/providers.js'),
     import('../../modules/identity/application/current-user.js'),
     import('../../modules/identity/infrastructure/magic-link-repositories.js'),
+    import('../../modules/identity/infrastructure/magic-link-mail-dispatcher.js'),
     import('../../modules/identity/infrastructure/redis-session-store.js'),
+    import('../mail/index.js'),
     import('../../modules/identity/infrastructure/provider-resolution-repository.js'),
     import('../../modules/identity/api/magic-link-routes.js'),
     import('../../modules/identity/api/provider-routes.js'),
@@ -53,7 +57,8 @@ async function start(): Promise<void> {
   await redis.connect();
   const identity = new PostgresIdentityRepository(clock);
   const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory());
-  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock);
+  const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
+  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, new OutboxMagicLinkDispatcher(new MailOutbox(), mail));
   const routes = [
     ...magicLinkRoutes(magicLinks),
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),

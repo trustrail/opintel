@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { TestClock, TestIdFactory } from '../src/shared/kernel/index.js';
 import { MagicLinkService } from '../src/modules/identity/application/magic-link.js';
 import { PostgresIdentityRepository, RedisRateLimiter } from '../src/modules/identity/infrastructure/magic-link-repositories.js';
@@ -8,6 +11,8 @@ import { withPlatform } from '../src/platform/db/scope.js';
 import { createRedisConnection, type RedisConnection } from '../src/platform/redis/index.js';
 import { createHttpServer } from '../src/platform/http/index.js';
 import { magicLinkRoutes } from '../src/modules/identity/api/magic-link-routes.js';
+import { LocalFileMailAdapter, MailOutbox } from '../src/platform/mail/index.js';
+import { OutboxMagicLinkDispatcher } from '../src/modules/identity/infrastructure/magic-link-mail-dispatcher.js';
 
 const redisUrl = process.env.REDIS_URL;
 const required = process.env.REQUIRE_DB_TESTS === '1';
@@ -22,9 +27,14 @@ integration('magic links', () => {
   let service: MagicLinkService;
   let clock: TestClock;
 
+  function redisConnection(): RedisConnection {
+    if (connection === undefined) throw new Error('Redis connection is missing.');
+    return connection;
+  }
+
   beforeEach(async () => {
     if (redisUrl === undefined || process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL and REDIS_URL are required when REQUIRE_DB_TESTS=1.');
-    await withPlatform((tx) => tx.query('TRUNCATE magic_link_token, pending_invite, user_identity, user_account CASCADE'));
+    await withPlatform((tx) => tx.query('TRUNCATE mail_outbox, magic_link_token, pending_invite, user_identity, user_account CASCADE'));
     connection = createRedisConnection({ url: magicLinkRedisUrl ?? redisUrl });
     await connection.connect();
     await connection.client.flushDb();
@@ -86,6 +96,33 @@ integration('magic links', () => {
     for (const row of outboxRows) expect(row.vars).not.toContain(issued.token);
     const tampered = `${issued.token.slice(0, -1)}${issued.token.endsWith('A') ? 'B' : 'A'}`;
     await expect(service.callback(callback(tampered))).resolves.toEqual({ kind: 'invalid' });
+  });
+
+  it('writes a usable magic-link URL for a known account and nothing for an unknown account', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'opintel-magic-link-'));
+    try {
+      const repository = new PostgresIdentityRepository(clock);
+      const loggedUrls: URL[] = [];
+      const dispatcher = new OutboxMagicLinkDispatcher(
+        new MailOutbox(),
+        new LocalFileMailAdapter(directory, clock, (url) => { loggedUrls.push(url); }, 'http://localhost:5173'),
+      );
+      const delivered = new MagicLinkService(repository, repository, repository, new RedisRateLimiter(redisConnection().client), new RedisSessionStore(redisConnection().client, clock, new TestIdFactory()), clock, dispatcher);
+      const known = await delivered.requestLink(request);
+      if (known.token === null) throw new Error('Expected token.');
+      const files = await readdir(directory);
+      expect(files).toHaveLength(1);
+      const contents = await readFile(path.join(directory, files[0] ?? ''), 'utf8');
+      const expectedUrl = `http://localhost:5173/auth/callback?token=${known.token}`;
+      expect(contents).toContain(expectedUrl);
+      expect(loggedUrls.map((url) => url.toString())).toEqual([expectedUrl]);
+
+      const unknown = await delivered.requestLink({ ...request, email: 'unknown@example.com' });
+      expect(unknown.token).toBeNull();
+      expect(await readdir(directory)).toHaveLength(1);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
   });
 
   it('B-010 and B-011: rate limits known and unknown addresses with the same response shape', async () => {

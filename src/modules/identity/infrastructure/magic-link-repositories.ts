@@ -45,6 +45,16 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
   }
   async markAccepted(id: import('../../../shared/kernel/index.js').InviteId, by: UserId): Promise<void> { await withPlatform((tx) => tx.query('UPDATE pending_invite SET accepted_at = now() WHERE id = $1 AND accepted_at IS NULL', [id])); void by; }
   async issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: import('../../../shared/kernel/index.js').InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<void> { await withPlatform((tx) => tx.query('INSERT INTO magic_link_token (email, token_hash, device_nonce, invite_id, expires_at, requested_ip) VALUES ($1, $2, $3, $4, $5, $6)', [email, tokenHash, deviceNonce, inviteId, expiresAt, ip])); }
+  async issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: import('../../../shared/kernel/index.js').InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<MagicLinkToken> {
+    return withPlatform(async (tx) => {
+      await tx.query('UPDATE magic_link_token SET consumed_at = now() WHERE email = $1 AND consumed_at IS NULL', [email]);
+      const rows = await tx.query<TokenRow>('INSERT INTO magic_link_token (email, token_hash, device_nonce, invite_id, expires_at, requested_ip) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, device_nonce, invite_id', [email, tokenHash, deviceNonce, inviteId, expiresAt, ip]);
+      const token = this.token(rows[0]);
+      if (token === null) throw new Error('Magic-link issuance returned no token.');
+      await tx.query('INSERT INTO mail_outbox (to_email, template, vars, idempotency_key) VALUES ($1, $2, $3::jsonb, $4)', [email, 'magic_link', JSON.stringify({ tokenId: token.id }), `magic_link:${token.id}`]);
+      return token;
+    });
+  }
   async invalidateOutstanding(email: string): Promise<number> { const rows = await withPlatform((tx) => tx.query<{ count: string }>('WITH updated AS (UPDATE magic_link_token SET consumed_at = now() WHERE email = $1 AND consumed_at IS NULL RETURNING 1) SELECT count(*)::text AS count FROM updated', [email])); return Number(rows[0]?.count ?? '0'); }
   async consume(tokenHash: Buffer, deviceNonce: string, now: Timestamp): Promise<MagicLinkToken | null> { return this.consumeStatement('UPDATE magic_link_token SET consumed_at = $3 WHERE token_hash = $1 AND device_nonce = $2 AND consumed_at IS NULL AND expires_at > $3 RETURNING id, email, device_nonce, invite_id', [tokenHash, deviceNonce, now]); }
   async consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null> { return this.consumeStatement('UPDATE magic_link_token SET consumed_at = $2 WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2 RETURNING id, email, device_nonce, invite_id', [tokenHash, now]); }

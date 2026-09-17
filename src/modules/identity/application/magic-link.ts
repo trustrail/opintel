@@ -20,6 +20,7 @@ export interface InviteRepository {
 
 export interface MagicLinkRepository {
   issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<void>;
+  issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<MagicLinkToken>;
   invalidateOutstanding(email: string): Promise<number>;
   consume(tokenHash: Buffer, deviceNonce: string, now: Timestamp): Promise<MagicLinkToken | null>;
   consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null>;
@@ -27,6 +28,7 @@ export interface MagicLinkRepository {
 }
 
 export interface RateLimiter { check(key: string, limit: number, windowMs: number): Promise<{ allowed: boolean; retryAfterSeconds: number }>; }
+export interface MagicLinkDispatchPort { dispatch(message: { tokenId: string; token: string }): Promise<void>; }
 
 export type RequestLink = { email: string; deviceNonce: string; ip: string | null };
 export type Callback = { token: string; deviceNonce: string; ip: string; userAgent: string };
@@ -46,6 +48,7 @@ export class MagicLinkService {
     private readonly rateLimiter: RateLimiter,
     private readonly sessions: SessionPort,
     private readonly clock: Clock,
+    private readonly delivery?: MagicLinkDispatchPort,
   ) {}
 
   async requestLink(input: RequestLink): Promise<{ allowed: boolean; retryAfterSeconds: number; token: string | null }> {
@@ -59,8 +62,8 @@ export class MagicLinkService {
     if (account === null && invite === null) return { allowed: true, retryAfterSeconds: 0, token: null };
 
     const token = randomBytes(32).toString('base64url');
-    await this.tokens.invalidateOutstanding(input.email);
-    await this.tokens.issue(input.email, hash(token), input.deviceNonce, invite?.id ?? null, expiry(this.clock.now()), input.ip);
+    const issued = await this.tokens.issueAndEnqueue(input.email, hash(token), input.deviceNonce, invite?.id ?? null, expiry(this.clock.now()), input.ip);
+    await this.delivery?.dispatch({ tokenId: issued.id, token });
     return { allowed: true, retryAfterSeconds: 0, token };
   }
 

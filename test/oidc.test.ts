@@ -76,6 +76,12 @@ class MemoryMagicTokens implements MagicLinkRepository {
   async issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteIdType | null, _expiresAt: TimestampType, _ip: string | null): Promise<void> {
     this.tokens.set(tokenHash.toString('hex'), { id: tokenHash.toString('hex'), email, deviceNonce, inviteId });
   }
+  async issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteIdType | null, expiresAt: TimestampType, ip: string | null): Promise<MagicLinkToken> {
+    await this.issue(email, tokenHash, deviceNonce, inviteId, expiresAt, ip);
+    const token = this.tokens.get(tokenHash.toString('hex'));
+    if (token === undefined) throw new Error('Magic token was not stored.');
+    return token;
+  }
   async invalidateOutstanding(_email: string): Promise<number> { return 0; }
   async consume(tokenHash: Buffer, deviceNonce: string, _now: TimestampType): Promise<MagicLinkToken | null> {
     const key = tokenHash.toString('hex');

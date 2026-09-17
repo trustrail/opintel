@@ -34,25 +34,35 @@ export class MailOutbox {
     return this.inPlatformScope((tx) => this.dispatchInScope(tx, mail, batchSize));
   }
 
+  async dispatchOne(mail: MailPort, idempotencyKey: string, transientVars: JsonObject): Promise<DispatchSummary> {
+    return this.inPlatformScope((tx) => this.dispatchInScope(tx, mail, 1, idempotencyKey, transientVars));
+  }
+
   private async dispatchInScope(
     tx: Tx,
     mail: MailPort,
     batchSize: number,
+    idempotencyKey?: string,
+    transientVars?: JsonObject,
   ): Promise<DispatchSummary> {
+    const filter = idempotencyKey === undefined ? '' : 'AND idempotency_key = $2';
+    const values = idempotencyKey === undefined ? [batchSize] : [batchSize, idempotencyKey];
     const messages = await tx.query<PendingMailRow>(
       `SELECT to_email AS "to", template, vars, idempotency_key AS "idempotencyKey"
        FROM mail_outbox
        WHERE dispatched_at IS NULL
+       ${filter}
        ORDER BY created_at
        LIMIT $1
        FOR UPDATE SKIP LOCKED`,
-      [batchSize],
+      values,
     );
     let sent = 0;
     let retained = 0;
 
     for (const message of messages) {
-      const receipt = await this.send(mail, message);
+      const delivery = transientVars === undefined ? message : { ...message, vars: { ...message.vars, ...transientVars } };
+      const receipt = await this.send(mail, delivery);
       if (receipt === undefined) {
         retained += 1;
         continue;
