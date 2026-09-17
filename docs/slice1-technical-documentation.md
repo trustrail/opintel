@@ -2383,6 +2383,8 @@ One seeded project, deterministic, shared by every test and by evaluation: **Far
 
 Tests that mutate run in a transaction rolled back at teardown, or against a per-worker database. A test that depends on another test's leftovers is a defect.
 
+Integration tests use `TEST_DATABASE_URL`, never the development `DATABASE_URL`. When `TEST_DATABASE_URL` is absent, the test runner derives it from `DATABASE_URL` by appending `_test` to the database name; migrations run against that isolated database before the suite.
+
 ## 7.3 What Slice 1 must prove
 
 The pilot criteria are the acceptance tests. Each is automated.

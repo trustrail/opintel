@@ -22,7 +22,7 @@ Version 1.0 · September 2026
 
 **Automation:** all cases are automated unless marked **M** (manual), which is reserved for judgement, visual quality, copy review, and the ergonomics assessment in the pilot criteria.
 
-**Fixtures.** One seeded project, `Far East Treaty Book`, Kuwait Re, Reinsurance. Sources: the demo pack, which is twelve cedant spreadsheets in inconsistent formats landing into a demo Postgres, plus one customer Postgres. 2,140 elements, four pools, sixty-one deliberately undecided, deterministic. Every test starts from this seed and restores it. Tests that mutate the seed run in a transaction rolled back at teardown, or against a per-worker database.
+**Fixtures.** One seeded project, `Far East Treaty Book`, Kuwait Re, Reinsurance. Sources: the demo pack, which is twelve cedant spreadsheets in inconsistent formats landing into a demo Postgres, plus one customer Postgres. 2,140 elements, four pools, sixty-one deliberately undecided, deterministic. Every test starts from this seed and restores it. Tests that mutate the seed run in a transaction rolled back at teardown, or against a per-worker database. Integration tests use `TEST_DATABASE_URL`, never the development `DATABASE_URL`; CI migrates the isolated test database before running them.
 
 ---
 

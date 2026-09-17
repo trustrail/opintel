@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 5
     env:
       DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
+      TEST_DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel_test
       REDIS_URL: redis://localhost:6379
       REQUIRE_DB_TESTS: '1'
     steps:
@@ -45,9 +46,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: docker compose up -d --wait
-      - run: npm run migrate:up
+      - run: docker compose exec -T postgres createdb -U opintel opintel_test
+      - run: DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
       - run: npm test
-      - run: npm run migrate:down
-      - run: npm run migrate:up
+      - run: DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:down
+      - run: DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
       - run: docker compose down -v
         if: always()
