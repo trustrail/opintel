@@ -94,3 +94,13 @@ EOF
   batch of up to 100, so it swept a leftover row. Consider a transaction per
   test with rollback, or truncation in a shared beforeEach, before many more
   integration tests exist.
+
+# Working practice
+
+- A long Codex session degrades: it completes single-file instructions but
+  abandons multi-file ones, reporting nothing substantive as blocking. A
+  fresh session completed the same task in one turn. Restart the session
+  every few items rather than running one indefinitely.
+- The module boundary rule had never been exercised: relationship-outbox.ts
+  is the first genuine cross-module import. Its fixtures used extensionless
+  paths the codebase never writes. Fixture tests must match real usage.

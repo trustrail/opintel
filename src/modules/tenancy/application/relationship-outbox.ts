@@ -1,10 +1,16 @@
-import type { RelationshipUpdate, ZedToken } from '../../authz/index.js';
-import type { Tx } from '../../../platform/db/scope.js';
+import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../../authz/index.js';
+import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { CompanyId, PoolId, UserId } from '../../../shared/kernel/index.js';
 
 export type RelationshipOutboxTx = Tx;
 
 export type RelationshipOutboxEntry = RelationshipUpdate & { readonly id: bigint };
+
+type TransactionScope = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
+
+type DispatchOutcome =
+  | { readonly ok: true; readonly token: ZedToken | null }
+  | { readonly ok: false; readonly error: unknown };
 
 type Row = {
   id: string;
@@ -17,6 +23,8 @@ type Row = {
 };
 
 export class RelationshipOutbox {
+  constructor(private readonly inPlatformScope: TransactionScope = withPlatform) {}
+
   async enqueue(tx: RelationshipOutboxTx, update: RelationshipUpdate): Promise<bigint> {
     const rows = await tx.query<{ id: string }>(
       `INSERT INTO relationship_outbox (operation, resource_type, resource_id, relation, subject_type, subject_id)
@@ -58,5 +66,39 @@ export class RelationshipOutbox {
        WHERE id = $1 AND written_at IS NULL`,
       [id.toString(), token],
     );
+  }
+
+  // Call after the transaction that enqueued the relationship has committed.
+  // A separate scope sees only committed entries and owns the dispatch lock.
+  async dispatchOne(authorization: AuthorizationPort, id: bigint): Promise<ZedToken | null> {
+    const outcome = await this.inPlatformScope<DispatchOutcome>(async (tx) => {
+      const entry = await this.read(tx, id);
+      if (entry === null) return { ok: true, token: null };
+
+      let token: ZedToken;
+      try {
+        token = await authorization.write([{
+          operation: entry.operation,
+          resource: entry.resource,
+          relation: entry.relation,
+          subject: entry.subject,
+        }]);
+      } catch (error) {
+        await tx.query(
+          `UPDATE relationship_outbox
+           SET attempts = attempts + 1, last_error = $2
+           WHERE id = $1 AND written_at IS NULL`,
+          [id.toString(), 'SpiceDB write failed.'],
+        );
+        return { ok: false, error };
+      }
+
+      await this.markWritten(tx, id, token);
+      return { ok: true, token };
+    });
+
+    // Commit failure bookkeeping before reporting the infrastructure failure.
+    if (!outcome.ok) throw outcome.error;
+    return outcome.token;
   }
 }
