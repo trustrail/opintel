@@ -29,6 +29,11 @@ export interface HttpRequest<TBody, TQuery = Record<string, never>> {
   readonly requestId: string;
 }
 
+export type PublicRequest<TBody, TQuery = Record<string, never>> = HttpRequest<TBody, TQuery>;
+export type AuthenticatedRequest<TBody, TQuery = Record<string, never>> = HttpRequest<TBody, TQuery> & {
+  readonly actor: CurrentUser;
+};
+
 export interface HttpResponse<TBody> {
   readonly status?: number;
   readonly headers?: Readonly<Record<string, string>>;
@@ -52,13 +57,16 @@ export type RoutePermission<TBody, TParams extends Record<string, string>, TQuer
     readonly permission: string;
   };
 
-export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>> extends HttpEndpoint<TRequest, TResponse, TQuery> {
+type RequestForPermission<TBody, TQuery, TPermission> =
+  TPermission extends 'public' ? PublicRequest<TBody, TQuery> : AuthenticatedRequest<TBody, TQuery>;
+
+export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>, TPermission extends RoutePermission<TRequest, TParams, TQuery> = RoutePermission<TRequest, TParams, TQuery>> extends HttpEndpoint<TRequest, TResponse, TQuery> {
   readonly method: HttpMethod;
   readonly path: string;
   readonly params: z.ZodType<TParams>;
   readonly query?: z.ZodType<TQuery>;
-  readonly permission?: RoutePermission<TRequest, TParams, TQuery>;
-  handle(request: HttpRequest<TRequest, TQuery> & { readonly params: TParams }): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
+  readonly permission?: TPermission;
+  handle(request: RequestForPermission<TRequest, TQuery, TPermission> & { readonly params: TParams }): Promise<HttpResponse<TResponse>> | HttpResponse<TResponse>;
 }
 
 type RegisteredRoute = HttpRoute<unknown, unknown, Record<string, string>, unknown>;
