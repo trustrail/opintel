@@ -71,8 +71,8 @@ export interface HttpRoute<TRequest, TResponse, TParams extends Record<string, s
 
 type RegisteredRoute = HttpRoute<unknown, unknown, Record<string, string>, unknown>;
 
-export function defineRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>>(
-  route: HttpRoute<TRequest, TResponse, TParams, TQuery>,
+export function defineRoute<TRequest, TResponse, TParams extends Record<string, string>, TQuery = Record<string, never>, const TPermission extends RoutePermission<TRequest, TParams, TQuery> = RoutePermission<TRequest, TParams, TQuery>>(
+  route: HttpRoute<TRequest, TResponse, TParams, TQuery, TPermission>,
 ): RegisteredRoute {
   return route as unknown as RegisteredRoute;
 }
@@ -247,6 +247,7 @@ export function createHttpServer(
         return;
       }
 
+      let actor: CurrentUser | undefined;
       if (matched.route.permission !== 'public') {
         const authorization = options.authorization;
         const user = authorization === undefined ? null : await authorization.currentUser(request.headers);
@@ -254,6 +255,7 @@ export function createHttpServer(
           writeJson(response, 401, requestId, unauthorized(requestId));
           return;
         }
+        actor = user;
         if (typeof matched.route.permission === 'object') {
           const resource = {
             type: matched.route.permission.resource,
@@ -296,6 +298,7 @@ export function createHttpServer(
         params: parsedParams.data,
         query: parsedQuery.data,
         requestId,
+        ...(actor === undefined ? {} : { actor }),
       });
       const parsedResponse = matched.route.response.safeParse(result.body);
       if (!parsedResponse.success) throw new Error('HTTP response did not pass its boundary schema.');

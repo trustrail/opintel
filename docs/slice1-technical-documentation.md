@@ -1186,6 +1186,14 @@ const ProjectView = z.object({
 const UpdateProjectBody = z.object({ name: z.string().min(1).max(80) });
 // region and industryId are absent by design. Region never changes;
 // industry changes only through migrate-industry.
+
+const CompanyView = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  defaultRegion: RegionSchema,
+  defaultIndustryId: z.string().uuid().nullable(),
+  createdAt: z.string().datetime({ offset: true }),
+});
 ```
 ### List payloads
 
@@ -1218,6 +1226,7 @@ const CompanyListItem = z.object({
 
 **The breadcrumb is composed from the current project's ProjectListItem**: company name, then project name, then screen. No separate lookup.
 
+**Creation returns 201 with the created resource**. No Location header: the SPA routes client-side and already has the id from the body.
 
 ### sources and catalog
 

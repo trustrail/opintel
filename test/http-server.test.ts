@@ -67,6 +67,49 @@ class TestAuthorizationPort implements AuthorizationPort {
 }
 
 describe('HTTP server boundaries', () => {
+  it.each(['authenticated', 'resource'] as const)('hands the authenticated actor to a %s route', async (kind) => {
+    const response = await request([defineRoute({
+      method: 'POST', path: '/api/v1/actor', params: z.object({}),
+      permission: kind === 'authenticated' ? 'authenticated' : {
+        resource: 'company', id: () => 'company-id', permission: 'administer',
+      },
+      request: z.object({}), response: z.object({ id: z.string() }),
+      handle: async (httpRequest) => {
+        expect(httpRequest.actor).toBe(currentUser);
+        return { body: { id: httpRequest.actor.id } };
+      },
+    })], '/api/v1/actor', 'POST', {}, {
+      authorization: { currentUser: async () => currentUser, port: new TestAuthorizationPort(new Set(['view', 'administer'])) },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: currentUser.id });
+  });
+
+  it('does not supply an actor to a public route', async () => {
+    const response = await request([defineRoute({
+      method: 'POST', path: '/api/v1/public', params: z.object({}), permission: 'public',
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async (httpRequest) => {
+        // @ts-expect-error Public handlers must not expose an authenticated actor.
+        expect(httpRequest.actor).toBeUndefined();
+        expect(httpRequest).not.toHaveProperty('actor');
+        return { body: { accepted: true } };
+      },
+    })], '/api/v1/public', 'POST', {}, { authorization: { currentUser: async () => currentUser } });
+    expect(response.status).toBe(200);
+  });
+
+  it('does not invoke an authenticated handler without a user', async () => {
+    let called = false;
+    const response = await request([defineRoute({
+      method: 'POST', path: '/api/v1/actor', params: z.object({}), permission: 'authenticated',
+      request: z.object({}), response: z.object({ accepted: z.literal(true) }),
+      handle: async () => { called = true; return { body: { accepted: true } }; },
+    })], '/api/v1/actor', 'POST', {}, { authorization: { currentUser: async () => null } });
+    expect(response.status).toBe(401);
+    expect(called).toBe(false);
+  });
+
   it('returns the validation_failed envelope for an invalid request body', async () => {
     const response = await request([defineRoute({
       method: 'POST',

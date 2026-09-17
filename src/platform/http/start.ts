@@ -11,7 +11,7 @@ function apiPort(): number {
   return port;
 }
 
-function requiredEnvironment(name: 'REDIS_URL'): string {
+function requiredEnvironment(name: 'REDIS_URL' | 'SPICEDB_ENDPOINT' | 'SPICEDB_TOKEN'): string {
   const value = process.env[name];
   if (value === undefined || value.length === 0) throw new Error(`${name} is required. Copy .env.example to .env, or set it inline.`);
   return value;
@@ -36,6 +36,11 @@ async function start(): Promise<void> {
     { providerRoutes },
     { currentUserRoutes, cookieValue },
     { sessionCookieName },
+    { RelationshipOutbox },
+    { CreateCompanyService },
+    { PostgresCompanyCreationRepository },
+    { companyRoutes },
+    { SpiceDbAuthorizationPort },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -52,9 +57,22 @@ async function start(): Promise<void> {
     import('../../modules/identity/api/provider-routes.js'),
     import('../../modules/identity/api/current-user-routes.js'),
     import('../../modules/identity/api/session-cookie.js'),
+    import('../../modules/tenancy/index.js'),
+    import('../../modules/tenancy/application/create-company.js'),
+    import('../../modules/tenancy/infrastructure/company-creation-repository.js'),
+    import('../../modules/tenancy/api/company-routes.js'),
+    import('../../modules/authz/infrastructure/spicedb-authorization-port.js'),
   ]);
 
   const clock = new SystemClock();
+  const authorization = new SpiceDbAuthorizationPort({
+    endpoint: requiredEnvironment('SPICEDB_ENDPOINT'), token: requiredEnvironment('SPICEDB_TOKEN'),
+    clock, stalenessCeilingMs: 0,
+  });
+  const relationshipOutbox = new RelationshipOutbox();
+  const companies = new CreateCompanyService(
+    new PostgresCompanyCreationRepository(relationshipOutbox), relationshipOutbox, authorization,
+  );
   const redis = createRedisConnection({ url: requiredEnvironment('REDIS_URL') });
   await redis.connect();
   const identity = new PostgresIdentityRepository(clock);
@@ -66,6 +84,7 @@ async function start(): Promise<void> {
     ...magicLinkRoutes(magicLinks),
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
     ...currentUserRoutes(currentUsers),
+    ...companyRoutes(companies),
   ];
   const server = createHttpServer(routes, {
     authorization: {
@@ -84,7 +103,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
-    server.close(() => { void redis.close(); });
+    server.close(() => { authorization.close(); void redis.close(); });
   };
   process.once('SIGINT', close);
   process.once('SIGTERM', close);
