@@ -42,6 +42,10 @@ export const navGroups: readonly NavGroup[] = [
 
 export function labelForPath(pathname: string): string {
   if (pathname === '/') return 'Dashboard';
+  if (pathname === '/projects/new') return 'Create project';
+  if (pathname === '/companies/new') return 'Create company';
+  const projectScreen = /^\/projects\/[^/]+\/(.+)$/u.exec(pathname)?.[1];
+  if (projectScreen !== undefined) return labelForPath(`/${projectScreen}`);
   for (const group of navGroups) {
     const match = group.items.find((item) => item.path === pathname);
     if (match !== undefined) return match.label;

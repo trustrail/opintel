@@ -2,19 +2,8 @@ import { z } from 'zod';
 import { cursorPagination, defineRoute, errorEnvelopeSchema } from '../../../platform/http/index.js';
 import type { TenancyListService } from '../application/list-tenancy.js';
 
-export const ProjectListItem = z.object({
-  id: z.string().uuid(), name: z.string(),
-  region: z.enum(['eu-west-1', 'us-east-1', 'ap-southeast-1', 'ap-southeast-3']),
-  company: z.object({ id: z.string().uuid(), name: z.string() }),
-  industry: z.object({ id: z.string().uuid(), name: z.string() }),
-  role: z.enum(['admin', 'operator', 'viewer']),
-  archivedAt: z.string().datetime({ offset: true }).nullable().optional(),
-});
-export const ProjectListResponse = z.object({ items: z.array(ProjectListItem), nextCursor: z.string().nullable() });
-export const CompanyListItem = z.object({
-  id: z.string().uuid(), name: z.string(), role: z.enum(['admin', 'member']), projectCount: z.number().int(),
-});
-export const CompanyListResponse = z.object({ items: z.array(CompanyListItem), nextCursor: z.string().nullable() });
+import { ProjectListResponse, CompanyListResponse } from '../../../shared/api/tenancy-schemas.js';
+export { ProjectListItem, ProjectListResponse, CompanyListItem, CompanyListResponse } from '../../../shared/api/tenancy-schemas.js';
 
 const cursorValue = z.object({ id: z.string().uuid(), kind: z.enum(['projects', 'companies']), includeArchived: z.boolean() });
 const cursorSchema = z.string().max(1024).transform((value, ctx) => {

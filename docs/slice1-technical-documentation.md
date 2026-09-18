@@ -1218,6 +1218,15 @@ const CompanyListItem = z.object({
   role: z.enum(['admin', 'member']),
   projectCount: z.number().int(),
 });
+
+const IndustryListItem = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  inheritedTermCount: z.number().int(),
+  hasDemoPack: z.boolean(),
+});
 ```
 
 **GET /projects returns only projects the caller can reach**, each carrying its company and industry so the chooser and the drawer need no second request. The user's role is included because the drawer and the chooser both show what they may do there.
@@ -1231,6 +1240,10 @@ const CompanyListItem = z.object({
 **Archived projects are excluded by default**. GET /projects returns only projects with archived_at null. ?includeArchived=true includes them, each carrying archivedAt so the caller can distinguish. The chooser and the switcher use the default; a settings surface that lists archived projects asks for them explicitly.
 
 **projectCount counts only projects the caller can reach**, not every project in the company. A company admin sees all of them by inheritance and therefore sees the true total. An operator on two of a company's ten projects sees 2, which is the honest answer to "how many projects are here for me" and avoids disclosing that eight others exist.
+
+**GET /industries is platform scope and needs only authentication**. Industries are shared across every customer, so there is nothing tenant-specific to authorize. It is not paginated: the list is short by construction, and a vertical Opintel has not built a pack for should not be in it.
+
+**hasDemoPack tells the create screen whether evaluation is possible without a database**. An industry with no pack is still a legitimate choice, and the screen says so rather than hiding it.
 
 ### sources and catalog
 
@@ -2349,6 +2362,9 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Accept a synonym candidate | `synonymCandidate.lists`, `effectiveVocabulary` |
 | Publish an industry pack (platform) | `industry`, and `effectiveVocabulary` for **every project in that industry**, by version bump rather than enumeration |
 | Migrate a project's industry | `effectiveVocabulary`, `project.detail`. **Never `entitlement`** |
+| Create company | company.lists, auth.me |
+| Create project | project.lists, company.lists |
+| Rename project | project.lists, project.detail |
 
 A mutation not in this table is incomplete.
 

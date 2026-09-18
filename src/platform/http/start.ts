@@ -49,6 +49,9 @@ async function start(): Promise<void> {
     { TenancyListService },
     { PostgresTenancyListRepository },
     { tenancyListRoutes },
+    { ListIndustriesService },
+    { PostgresIndustryListRepository },
+    { industryRoutes },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -78,6 +81,9 @@ async function start(): Promise<void> {
     import('../../modules/tenancy/application/list-tenancy.js'),
     import('../../modules/tenancy/infrastructure/tenancy-list-repository.js'),
     import('../../modules/tenancy/api/list-routes.js'),
+    import('../../modules/vocabulary/application/list-industries.js'),
+    import('../../modules/vocabulary/infrastructure/industry-list-repository.js'),
+    import('../../modules/vocabulary/api/industry-routes.js'),
   ]);
 
   const clock = new SystemClock();
@@ -107,6 +113,7 @@ async function start(): Promise<void> {
     ...projectRoutes(projects),
     ...projectUpdateRoutes(new UpdateProjectService(new PostgresProjectUpdateRepository())),
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),
+    ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
   const server = createHttpServer(routes, {
     authorization: {

@@ -1,5 +1,5 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { Outlet, useRouterState } from '@tanstack/react-router';
+import { Navigate, Outlet, useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { RouteErrorBoundary } from './error-boundary.js';
 import { navGroups, type NavItem } from './navigation.js';
@@ -7,6 +7,7 @@ import { AppShell } from './shell.js';
 import { AuthCallbackScreen, CheckEmailScreen, ConfirmDeviceScreen, isAuthPath, SignInScreen } from './auth-screens.js';
 import { AuthGuard } from './guard.js';
 import { KitchenSinkScreen } from './kitchen-sink.js';
+import { CreateCompanyScreen, CreateProjectScreen, ProjectChooser, ProjectDashboard } from './tenancy/screens.js';
 
 function RouteScreen({ title }: { title: string }): ReactNode {
   return <RouteErrorBoundary><section className="screen on"><h1>{title}</h1></section></RouteErrorBoundary>;
@@ -24,7 +25,15 @@ function AuthRoute({ children }: { readonly children: ReactNode }): ReactNode {
 }
 
 const rootRoute = createRootRoute({ component: RootLayout });
-const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => <RouteScreen title="Dashboard" /> });
+const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => <Navigate to="/projects" replace /> });
+const chooserRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects', component: ProjectChooser });
+const createProjectRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/new', component: CreateProjectScreen });
+const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: '/companies/new', component: CreateCompanyScreen });
+const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });
+const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', component: () => {
+  const { screen } = projectScreenRoute.useParams();
+  return <RouteScreen title={navGroups.flatMap((group) => group.items).find((item) => item.path === `/${screen}`)?.label ?? 'Not found'} />;
+} });
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: () => <AuthRoute><SignInScreen /></AuthRoute> });
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
@@ -41,8 +50,8 @@ function routeFor(item: NavItem) {
   });
 }
 
-const routes = navGroups.flatMap((group) => group.items.map(routeFor));
-const routeTree = rootRoute.addChildren([dashboardRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects').map(routeFor));
+const routeTree = rootRoute.addChildren([dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
 
 export const router = createRouter({ routeTree });
 

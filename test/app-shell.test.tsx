@@ -32,7 +32,7 @@ describe('application shell contracts', () => {
   });
 
   it('collapses and expands from visible controls in the rendered shell', async () => {
-    const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
       id: '018f8f9d-7f83-7abc-8def-0123456789ab', email: 'person@example.com', fullName: null,
       timezone: 'UTC', method: 'magic_link', sessionCreatedAt: '2026-01-01T00:00:00.000Z', deviceConfirmed: false,
     }), { status: 200, headers: { 'x-request-id': 'req-shell' } }));

@@ -4,23 +4,8 @@ import { CompanyId, IndustryId, ProjectId, ProjectName } from '../../../shared/k
 import type { CreateProjectService } from '../application/create-project.js';
 import type { UpdateProjectService } from '../application/update-project.js';
 
-const RegionSchema = z.enum(['eu-west-1', 'us-east-1', 'ap-southeast-1', 'ap-southeast-3']);
-
-export const CreateProjectBody = z.object({
-  companyId: z.string().uuid(),
-  name: z.string().min(1).max(80),
-  industryId: z.string().uuid(),
-  region: RegionSchema,
-});
-
-export const ProjectView = z.object({
-  id: z.string().uuid(), companyId: z.string().uuid(), name: z.string(),
-  industry: z.object({ id: z.string().uuid(), name: z.string(), inheritedTermCount: z.number().int() }),
-  region: RegionSchema,
-  createdAt: z.string().datetime({ offset: true }),
-});
-
-export const UpdateProjectBody = z.object({ name: z.string().min(1).max(80) });
+import { CreateProjectBody, ProjectView, UpdateProjectBody } from '../../../shared/api/tenancy-schemas.js';
+export { CreateProjectBody, ProjectView, UpdateProjectBody } from '../../../shared/api/tenancy-schemas.js';
 
 export function projectUpdateRoutes(service: UpdateProjectService) {
   return [defineRoute({

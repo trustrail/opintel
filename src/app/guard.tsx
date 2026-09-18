@@ -16,7 +16,7 @@ const currentUserSchema = z.object({
   deviceConfirmed: z.boolean(),
 });
 
-const authKeys = {
+export const authKeys = {
   currentUser: () => ['auth', 'current-user'] as const,
 };
 
