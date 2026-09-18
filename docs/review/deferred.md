@@ -104,3 +104,10 @@ EOF
 - The module boundary rule had never been exercised: relationship-outbox.ts
   is the first genuine cross-module import. Its fixtures used extensionless
   paths the codebase never writes. Fixture tests must match real usage.
+
+# From item 2.6b
+
+- No vocabulary_term rows exist. Migration 003 seeds the reinsurance
+  industry but no terms, so inheritedTermCount is always 0 and the
+  "nothing is copied at creation" property is unfalsifiable. Seeding the
+  reinsurance pack is a content exercise; item 2.1 created the schema only.

@@ -43,7 +43,9 @@ async function start(): Promise<void> {
     { SpiceDbAuthorizationPort },
     { CreateProjectService },
     { PostgresProjectCreationRepository },
-    { projectRoutes },
+    { projectRoutes, projectUpdateRoutes },
+    { UpdateProjectService },
+    { PostgresProjectUpdateRepository },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -68,6 +70,8 @@ async function start(): Promise<void> {
     import('../../modules/tenancy/application/create-project.js'),
     import('../../modules/tenancy/infrastructure/project-creation-repository.js'),
     import('../../modules/tenancy/api/project-routes.js'),
+    import('../../modules/tenancy/application/update-project.js'),
+    import('../../modules/tenancy/infrastructure/project-update-repository.js'),
   ]);
 
   const clock = new SystemClock();
@@ -95,6 +99,7 @@ async function start(): Promise<void> {
     ...currentUserRoutes(currentUsers),
     ...companyRoutes(companies),
     ...projectRoutes(projects),
+    ...projectUpdateRoutes(new UpdateProjectService(new PostgresProjectUpdateRepository())),
   ];
   const server = createHttpServer(routes, {
     authorization: {
