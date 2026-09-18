@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -146,6 +147,7 @@ const databaseTestsRequired = process.env.REQUIRE_DB_TESTS === '1';
 const databaseIntegration = process.env.DATABASE_URL === undefined && !databaseTestsRequired ? describe.skip : describe;
 
 databaseIntegration('provider resolution persistence', () => {
+  resetDatabaseBeforeEach('company');
   it('reads enabled company providers for the matching allowed domain', async () => {
     if (process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required when REQUIRE_DB_TESTS=1.');
     const domain = `provider-${crypto.randomUUID()}.example`;

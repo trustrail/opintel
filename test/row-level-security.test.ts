@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ProjectId, UserId, type ProjectId as ProjectIdValue } from '../src/shared/kernel/index.js';
@@ -101,6 +102,7 @@ afterEach(async () => {
 });
 
 databaseIntegration('row-level security', () => {
+  resetDatabaseBeforeEach('industry', 'company');
   it('RLS-01: returns no project A rows while scoped to project B', async () => {
     const fixture = await createFixture(2);
     const projectA = requiredRow(fixture.projectIds, 'Project A is missing.');

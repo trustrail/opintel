@@ -88,12 +88,19 @@ EOF
 
 # From the test database separation
 
-- Tests share one database and do not all truncate. A test asserting on a
-  count that includes other tests' rows passes or fails depending on file
-  order. The mail-outbox concurrency case hit this: dispatchPending claims a
-  batch of up to 100, so it swept a leftover row. Consider a transaction per
-  test with rollback, or truncation in a shared beforeEach, before many more
-  integration tests exist.
+- Resolved: database-writing suites register their table roots with
+  `test/database-fixture.ts`, whose shared beforeEach truncates them and their
+  dependents. Industry-writing suites restore the two migration seed packs.
+  Vitest serializes files and test cases sharing the database, so one reset
+  cannot erase another test's live fixtures. Concurrency inside a test is
+  unchanged, preserving the outbox and transaction concurrency checks.
+- The second collision was between magic-link and invitation suites:
+  overlapping truncations deleted users, tokens, invitations and memberships;
+  whole-table reads and outbox batches also saw the other suite's rows.
+- New database-writing suites must register every root they touch before
+  fixture-building hooks. Do not add per-test truncation or weaken assertions.
+  These tests deliberately commit across multiple application scopes, so an
+  outer rollback transaction cannot isolate their real after-commit behavior.
 
 # Working practice
 

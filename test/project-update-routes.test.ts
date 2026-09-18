@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -50,6 +51,7 @@ afterEach(async () => {
 });
 
 databaseDescribe('PATCH /projects/:id with Postgres', () => {
+  resetDatabaseBeforeEach('company');
   beforeEach(async () => {
     if (process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required.');
     projectId = randomUUID();

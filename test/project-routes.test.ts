@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,6 +53,7 @@ afterEach(async () => {
 });
 
 databaseDescribe('POST /projects with Postgres', () => {
+  resetDatabaseBeforeEach('industry', 'company', 'user_account', 'relationship_outbox');
   beforeEach(async () => {
     if (process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required.');
     actor = {

@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -45,6 +46,7 @@ describe('GET /industries', () => {
 
 const databaseDescribe = process.env.DATABASE_URL === undefined && process.env.REQUIRE_DB_TESTS !== '1' ? describe.skip : describe;
 databaseDescribe('industry listing with Postgres', () => {
+  resetDatabaseBeforeEach('industry');
   it('reads in platform scope, counts active inherited terms and excludes inactive industries', async () => {
     const active = randomUUID();
     const inactive = randomUUID();

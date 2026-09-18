@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -44,11 +45,11 @@ const databaseDescribe = databaseUrl === undefined && !databaseTestsRequired
   : describe;
 
 databaseDescribe('mail outbox with Postgres', () => {
+  resetDatabaseBeforeEach('mail_outbox');
   beforeEach(async () => {
     if (databaseUrl === undefined) {
       throw new Error('DATABASE_URL is required when REQUIRE_DB_TESTS=1.');
     }
-    await withPlatform((tx) => tx.query('TRUNCATE TABLE mail_outbox'));
   });
 
   it('does not send mail enqueued in a rolled-back transaction', async () => {
@@ -98,7 +99,6 @@ databaseDescribe('mail outbox with Postgres', () => {
 
   it('does not allow concurrent dispatchers to claim the same row', async () => {
     const outbox = new MailOutbox();
-    await withPlatform((tx) => tx.query('TRUNCATE TABLE mail_outbox'));
     await withPlatform((tx) => outbox.enqueue(tx, mail));
     const delivered: OutboundMail[] = [];
     let notifyFirstSend: (() => void) | undefined;

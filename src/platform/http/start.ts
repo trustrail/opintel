@@ -52,6 +52,9 @@ async function start(): Promise<void> {
     { ListIndustriesService },
     { PostgresIndustryListRepository },
     { industryRoutes },
+    { InvitationService },
+    { PostgresInvitationRepository },
+    { invitationRoutes },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -84,6 +87,9 @@ async function start(): Promise<void> {
     import('../../modules/vocabulary/application/list-industries.js'),
     import('../../modules/vocabulary/infrastructure/industry-list-repository.js'),
     import('../../modules/vocabulary/api/industry-routes.js'),
+    import('../../modules/tenancy/application/invitations.js'),
+    import('../../modules/tenancy/infrastructure/invitation-repository.js'),
+    import('../../modules/tenancy/api/invitation-routes.js'),
   ]);
 
   const clock = new SystemClock();
@@ -100,13 +106,18 @@ async function start(): Promise<void> {
   );
   const redis = createRedisConnection({ url: requiredEnvironment('REDIS_URL') });
   await redis.connect();
-  const identity = new PostgresIdentityRepository(clock);
+
   const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory());
-  const currentUsers = new CurrentUserService(sessions, identity);
+
   const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
-  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, new OutboxMagicLinkDispatcher(new MailOutbox(), mail));
+  const delivery = new OutboxMagicLinkDispatcher(new MailOutbox(), mail);
+  const invitations = new InvitationService(new PostgresInvitationRepository(relationshipOutbox), relationshipOutbox, authorization, clock, delivery);
+  const identity = new PostgresIdentityRepository(clock, invitations);
+  const currentUsers = new CurrentUserService(sessions, identity);
+  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, delivery);
   const routes = [
     ...magicLinkRoutes(magicLinks),
+    ...invitationRoutes(invitations),
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
     ...currentUserRoutes(currentUsers),
     ...companyRoutes(companies),

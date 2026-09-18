@@ -1,3 +1,4 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
@@ -47,6 +48,7 @@ function storedEntries(id: bigint) {
 }
 
 databaseDescribe('relationship outbox with Postgres', () => {
+  resetDatabaseBeforeEach('relationship_outbox');
   beforeEach(() => {
     if (process.env.DATABASE_URL === undefined) {
       throw new Error('DATABASE_URL is required when REQUIRE_DB_TESTS=1.');

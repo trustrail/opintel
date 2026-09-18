@@ -1,3 +1,8 @@
+import { resetDatabaseBeforeEach } from './database-fixture.js';
+import { InvitationService } from '../src/modules/tenancy/application/invitations.js';
+import { PostgresInvitationRepository } from '../src/modules/tenancy/infrastructure/invitation-repository.js';
+import { RelationshipOutbox } from '../src/modules/tenancy/application/relationship-outbox.js';
+import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
@@ -23,6 +28,7 @@ const magicLinkRedisUrl = redisUrl === undefined ? undefined : (() => {
   return url.toString();
 })();
 integration('magic links', () => {
+  resetDatabaseBeforeEach('company', 'user_account', 'mail_outbox', 'relationship_outbox');
   let connection: RedisConnection | undefined;
   let service: MagicLinkService;
   let clock: TestClock;
@@ -34,12 +40,17 @@ integration('magic links', () => {
 
   beforeEach(async () => {
     if (redisUrl === undefined || process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL and REDIS_URL are required when REQUIRE_DB_TESTS=1.');
-    await withPlatform((tx) => tx.query('TRUNCATE mail_outbox, magic_link_token, pending_invite, user_identity, user_account CASCADE'));
     connection = createRedisConnection({ url: magicLinkRedisUrl ?? redisUrl });
     await connection.connect();
     await connection.client.flushDb();
     clock = new TestClock(new Date('2026-01-01T00:00:00.000Z'));
-    const repository = new PostgresIdentityRepository(clock);
+    const outbox = new RelationshipOutbox();
+    const authorization: AuthorizationPort = {
+      check: async () => ({ allowed: true, checkedAt: clock.now(), token: 'test' as ZedToken, snapshotAgeMs: 0 }),
+      checkMany: async () => [], write: async () => 'test' as ZedToken, explain: async () => ({ allowed: true, path: [] }),
+    };
+    const invitations = new InvitationService(new PostgresInvitationRepository(outbox), outbox, authorization, clock, { dispatch: async () => {} });
+    const repository = new PostgresIdentityRepository(clock, invitations);
     service = new MagicLinkService(repository, repository, repository, new RedisRateLimiter(connection.client), new RedisSessionStore(connection.client, clock, new TestIdFactory()), clock);
     await repository.create('known@example.com', null);
   });

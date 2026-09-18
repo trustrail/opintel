@@ -107,8 +107,8 @@ export class OidcService {
     }
     if (!identity.emailVerified) return { kind: 'refused', message: invalidCallbackMessage };
 
-    const pendingInvite = flow.inviteId === null ? null : await this.invites.findPendingFor(identity.email);
-    const invite = pendingInvite?.id === flow.inviteId ? pendingInvite : null;
+    const pendingInvite = flow.inviteId === null ? null : await this.invites.findInvitationById(flow.inviteId);
+    const invite = pendingInvite?.email.toLowerCase() === identity.email.toLowerCase() ? pendingInvite : null;
     let account = await this.accounts.findByEmail(identity.email);
     if (account === null && invite === null) return { kind: 'refused', message: invitationRequiredMessage };
     if (account === null) account = await this.accounts.create(identity.email, invite);

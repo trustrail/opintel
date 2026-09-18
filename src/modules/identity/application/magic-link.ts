@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { Clock, InviteId, SessionId, Timestamp, UserId } from '../../../shared/kernel/index.js';
+import { DomainError, type Clock, type InviteId, type Result, type SessionId, type Timestamp, type UserId } from '../../../shared/kernel/index.js';
 import type { SessionPort } from './session.js';
 
 export type PendingInvite = { id: InviteId; email: string; role: 'admin' | 'operator' | 'viewer'; expiresAt: Timestamp };
@@ -15,7 +15,11 @@ export interface AccountRepository {
 
 export interface InviteRepository {
   findPendingFor(email: string): Promise<PendingInvite | null>;
+  findInvitationById(id: InviteId): Promise<PendingInvite | null>;
   markAccepted(id: InviteId, by: UserId): Promise<void>;
+}
+export interface InvitationAcceptancePort {
+  accept(id: InviteId, user: UserId): Promise<Result<void, DomainError>>;
 }
 
 export interface MagicLinkRepository {
@@ -25,6 +29,7 @@ export interface MagicLinkRepository {
   consume(tokenHash: Buffer, deviceNonce: string, now: Timestamp): Promise<MagicLinkToken | null>;
   consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null>;
   peek(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null>;
+  expiredInvitation(tokenHash: Buffer, now: Timestamp): Promise<boolean>;
 }
 
 export interface RateLimiter { check(key: string, limit: number, windowMs: number): Promise<{ allowed: boolean; retryAfterSeconds: number }>; }
@@ -71,22 +76,37 @@ export class MagicLinkService {
     const tokenHash = hash(input.token);
     const consumed = await this.tokens.consume(tokenHash, input.deviceNonce, this.clock.now());
     if (consumed !== null) return this.complete(consumed, input, false);
+    await this.rejectExpiredInvitation(tokenHash);
     return (await this.tokens.peek(tokenHash, this.clock.now())) === null ? { kind: 'invalid' } : { kind: 'device_mismatch' };
   }
 
   async confirm(input: Callback & { confirm: boolean }): Promise<CallbackResult> {
     const consumed = await this.tokens.consumeConfirmed(hash(input.token), this.clock.now());
+    if (consumed === null) await this.rejectExpiredInvitation(hash(input.token));
     if (consumed === null || !input.confirm) return { kind: 'invalid' };
     return this.complete(consumed, input, true);
   }
 
   private async complete(token: MagicLinkToken, input: Callback, deviceConfirmed: boolean): Promise<CallbackResult> {
-    const invite = token.inviteId === null ? null : await this.invites.findPendingFor(token.email);
-    const account = await this.accounts.findByEmail(token.email) ?? await this.accounts.create(token.email, invite);
+    const invite = token.inviteId === null ? null : await this.invites.findInvitationById(token.inviteId);
+    if (invite !== null && invite.email.toLowerCase() !== token.email.toLowerCase()) {
+      throw new DomainError('forbidden', 'This invitation belongs to another email address.');
+    }
+    if (invite !== null && new Date(invite.expiresAt).getTime() <= new Date(this.clock.now()).getTime()) {
+      throw new DomainError('validation_failed', 'This invitation has expired. Ask an administrator for a new invitation.', { action: 'request_invitation' });
+    }
+    const email = invite?.email ?? token.email;
+    const account = await this.accounts.findByEmail(email) ?? await this.accounts.create(email, invite);
     await this.accounts.linkVerifiedIdentity(account.id, 'magic_link', token.email);
     if (invite !== null) await this.invites.markAccepted(invite.id, account.id);
     await this.accounts.recordLogin(account.id, this.clock.now());
     const sessionId = await this.sessions.create(account.id, { ip: input.ip, userAgent: input.userAgent, deviceNonce: token.deviceNonce }, 'magic_link', deviceConfirmed);
     return { kind: 'session', sessionId };
+  }
+
+  private async rejectExpiredInvitation(tokenHash: Buffer): Promise<void> {
+    if (await this.tokens.expiredInvitation(tokenHash, this.clock.now())) {
+      throw new DomainError('validation_failed', 'This invitation has expired. Ask an administrator for a new invitation.', { action: 'request_invitation' });
+    }
   }
 }

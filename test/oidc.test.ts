@@ -1,3 +1,4 @@
+import type { SessionMeta, SessionPort, SessionRecord, SessionSummary } from '../src/modules/identity/application/session.js';
 import { describe, expect, it } from 'vitest';
 import {
   InviteId,
@@ -6,10 +7,6 @@ import {
   Timestamp,
   UserId,
   type InviteId as InviteIdType,
-  type SessionMeta,
-  type SessionPort,
-  type SessionRecord,
-  type SessionSummary,
   type Timestamp as TimestampType,
   type UserId as UserIdType,
 } from '../src/shared/kernel/index.js';
@@ -58,6 +55,7 @@ class MemoryInvites implements InviteRepository {
   readonly accepted: InviteIdType[] = [];
   constructor(private readonly invitations = new Map<string, PendingInvite>()) {}
   async findPendingFor(email: string): Promise<PendingInvite | null> { return this.invitations.get(email) ?? null; }
+  async findInvitationById(id: InviteIdType): Promise<PendingInvite | null> { return [...this.invitations.values()].find((invite) => invite.id === id) ?? null; }
   async markAccepted(id: InviteIdType, _by: UserIdType): Promise<void> { this.accepted.push(id); }
 }
 
@@ -72,6 +70,7 @@ class MemoryFlows implements OidcFlowStore {
 }
 
 class MemoryMagicTokens implements MagicLinkRepository {
+  async expiredInvitation(): Promise<boolean> { return false; }
   private readonly tokens = new Map<string, MagicLinkToken>();
   async issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteIdType | null, _expiresAt: TimestampType, _ip: string | null): Promise<void> {
     this.tokens.set(tokenHash.toString('hex'), { id: tokenHash.toString('hex'), email, deviceNonce, inviteId });

@@ -535,6 +535,7 @@ interface AccountRepository {
 
 interface InviteRepository {
   findPendingFor(email: string): Promise<PendingInvite | null>;
+  findInvitationById(id: InviteId): Promise<PendingInvite | null>;
   markAccepted(id: InviteId, by: UserId): Promise<void>;
 }
 
@@ -1148,9 +1149,8 @@ The key, the route, and a hash of the body are stored for 24 hours. A repeat wit
 | GET / PATCH | `/projects/:id` |
 | POST | `/projects/:id/migrate-industry` (dry run via `?dryRun=true`) |
 | GET | `/projects/:id/members` |
-| POST | `/projects/:id/invitations` |
+| POST / GET | `/projects/:id/invitations` |
 | DELETE | `/invitations/:id` |
-| POST | `/invitations/:token/accept` |
 | PATCH / DELETE | `/projects/:id/members/:userId` |
 | GET | `/projects/:id/permissions/:userId/explain` |
 
@@ -1244,6 +1244,47 @@ const IndustryListItem = z.object({
 **GET /industries is platform scope and needs only authentication**. Industries are shared across every customer, so there is nothing tenant-specific to authorize. It is not paginated: the list is short by construction, and a vertical Opintel has not built a pack for should not be in it.
 
 **hasDemoPack tells the create screen whether evaluation is possible without a database**. An industry with no pack is still a legitimate choice, and the screen says so rather than hiding it.
+
+### Invitation payloads
+
+```ts
+const CreateInvitationBody = z.object({
+  email: z.string().email(),
+  companyId: z.string().uuid(),
+  projectId: z.string().uuid().nullable(),
+  role: z.enum(['admin', 'operator', 'viewer']),
+});
+
+const InvitationListItem = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  companyId: z.string().uuid(),
+  projectId: z.string().uuid().nullable(),
+  role: z.enum(['admin', 'operator', 'viewer']),
+  invitedBy: z.object({ id: z.string().uuid(), email: z.string() }),
+  expiresAt: z.string().datetime({ offset: true }),
+  createdAt: z.string().datetime({ offset: true }),
+});
+```
+
+| Method | Path |
+|---|---|
+| POST | `/projects/:id/invitations` |
+| GET | `/projects/:id/invitations` |
+| DELETE | `/invitations/:id` |
+
+
+**Invitations last 7 days**. Longer makes a leaked link a standing risk; shorter irritates people who read email weekly.
+
+**Item 2.7 creates project invitations only**. projectId must be non-null and match the project id in the URL, and companyId must name that project's company. Company invitations are not supported by these routes.
+
+**There is no separate acceptance endpoint**. An invitation is delivered as a magic link carrying invite_id, so acceptance is a sign-in that happens to also accept. That means one code path, one atomic transaction, and no way to accept without proving control of the address.
+
+**The invitation's email is the identity**. The token's invite_id names the exact invitation; the account is found or created for the email on the invitation, not on anything the caller supplies. A magic link carrying an invitation for one address cannot enrol another.
+
+**Acceptance creates a session**, because the person has just proven control of the address by the same mechanism as any sign-in.
+
+**Revoking deletes the pending_invite row**. An outstanding magic link carrying that invite_id then signs the person in without granting anything, which is correct: they proved control of the address, and the grant was withdrawn.
 
 ### sources and catalog
 
@@ -1474,7 +1515,7 @@ Slice 1 ships OIDC with PKCE: Google, Microsoft Entra, and generic. SAML and SCI
 
 **Backoff after the IP limit is 1s, 2s, 4s, 8s, 16s, capped at 16, keyed on IP in Redis with a 15 minute window. The response is 429 with retryAfter in the envelope details. It is identical whether or not the address is known.
 
-**Membership on invitation acceptance is written by the tenancy module, not identity. In Slice 1 the callback marks the invitation accepted and records the intended role; the SpiceDB relationship write lands in item 2.7. B-015 asserts the invitation is marked accepted and the role recorded.
+**Membership on invitation acceptance is written by the tenancy module, not identity. The callback resolves the exact invite_id attached to the token. Tenancy writes the membership, marks the invitation accepted and enqueues the relationship in one transaction, then awaits dispatch after commit. B-015 asserts the invitation is marked accepted and the intended role is granted.
 
 
 Just-in-time provisioning happens only where a pending invitation exists. Domain capture is Slice 2.
@@ -1570,7 +1611,6 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 | `PATCH /projects/:id` | `project#administer` |
 | `POST /projects/:id/migrate-industry` | `project#administer` **and** `company#administer` |
 | `/projects/:id/members`, `/invitations` | `project#view` read, `project#administer` write |
-| `POST /invitations/:token/accept` | `public` |
 | `/projects/:id/permissions/*/explain` | `project#view` |
 | `/projects/:id/sources`, `/sources/:id` | `project#view` read, `project#bind_source` write |
 | `/sources/:id/introspect`, `/sampling-consent` | `project#bind_source` |
@@ -1767,7 +1807,8 @@ create table pending_invite (
   token_hash bytea not null unique,
   expires_at timestamptz not null,
   accepted_at timestamptz,
-  created_by uuid not null references user_account(id)
+  created_by uuid not null references user_account(id),
+  created_at timestamptz not null default now()
 );
 
 create table magic_link_token (

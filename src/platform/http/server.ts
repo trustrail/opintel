@@ -312,7 +312,13 @@ export function createHttpServer(
       if (error instanceof DomainError) {
         writeJson(
           response,
-          error.code === 'validation_failed' ? 400 : 500,
+          error.code === 'validation_failed' ? 400
+            : error.code === 'unauthenticated' ? 401
+              : error.code === 'forbidden' ? 403
+                : error.code === 'not_found' ? 404
+                  : error.code === 'conflict' ? 409
+                    : error.code === 'rate_limited' ? 429
+                      : error.code === 'dependency_unavailable' ? 503 : 500,
           requestId,
           errorEnvelope(error.code, error.message, requestId, error.retryable, error.details),
         );
