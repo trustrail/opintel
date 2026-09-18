@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PostgresConnector, PostgresSourceScope, type SamplingAudit } from '../sidecar/index.js';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { PostgresConnector, PostgresSourceScope, createPostgresConnector, type SidecarConnector, type SamplingAudit } from '../sidecar/index.js';
+import { DevelopmentVaultAdapter, type VaultPort } from '../src/platform/vault/index.js';
 import { CatalogObject, describeElement, mapSourceType } from '../src/modules/catalog/index.js';
 import { DuckDbName, ElementId, ObjectId, ProjectId, SourceId, ok, type Result } from '../src/shared/kernel/index.js';
 import type { CatalogSnapshot } from '../src/modules/sources/index.js';
@@ -17,7 +18,7 @@ const envelope = { requestId: 'connector-test', projectId: ProjectId(randomUUID(
 const element = ElementId(randomUUID());
 let sourceUrl: string;
 const events: SamplingAudit[] = [];
-let connector: PostgresConnector;
+let connector: SidecarConnector;
 
 // This provisions a simulated customer source, not Opintel metadata. Each
 // fixture access owns and closes its connection, like the sidecar source scope.
@@ -51,9 +52,11 @@ beforeAll(async () => {
     if (base === undefined) throw new Error('Test database missing.');
     const url = new URL(base); url.username = role; url.password = password; sourceUrl = url.toString();
   });
-  connector = new PostgresConnector(new PostgresSourceScope({ resolve: async () => sourceUrl }, {
-    maxConnectionsPerSource: 2, statementTimeoutMs: 2000, operationTimeoutMs: 5000,
-  }), { record: async (event) => { events.push(event); } });
+  connector = createPostgresConnector({
+    vault: new DevelopmentVaultAdapter({ OPINTEL_SECRET_TEST_CUSTOMER: sourceUrl }),
+    limits: { maxConnectionsPerSource: 2, statementTimeoutMs: 2000, operationTimeoutMs: 5000 },
+    audit: { record: async (event) => { events.push(event); } },
+  });
 }, 60000);
 afterAll(async () => {
   await fixture(async (db) => {
@@ -63,6 +66,61 @@ afterAll(async () => {
 });
 
 describe('sidecar Postgres connector against a read-only source credential', () => {
+  it('F-005/F-006: resolves source references through VaultPort on each call without returning or logging credentials', async () => {
+    const environment: Record<string, string | undefined> = { OPINTEL_SECRET_TEST_CUSTOMER: sourceUrl };
+    const vault = new DevelopmentVaultAdapter(environment);
+    const resolve = vi.spyOn(vault, 'resolve');
+    const store = vi.spyOn(vault, 'store');
+    const logs = [vi.spyOn(console, 'log'), vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')];
+    const source = createPostgresConnector({ vault,
+      limits: { maxConnectionsPerSource: 1, statementTimeoutMs: 1000, operationTimeoutMs: 3000 },
+      audit: { record: async (event) => { events.push(event); } },
+    });
+    try {
+      expect(resolve).not.toHaveBeenCalled();
+      const responses: unknown[] = [];
+      responses.push(await source.testConnection(request({})));
+      responses.push(await source.introspect(request({ include: [schema] })));
+      responses.push(await source.sampleTopValues(sample(true)));
+      responses.push(await source.estimateRowCount(request({ object: { schema, name: 't0' } })));
+      expect(responses.every((response) => typeof response === 'object' && response !== null && 'ok' in response && response.ok === true)).toBe(true);
+      delete environment.OPINTEL_SECRET_TEST_CUSTOMER;
+      const missing = await source.testConnection(request({}));
+      expect(missing).toMatchObject({ ok: false, error: { code: 'dependency_unavailable', message: 'Source credentials are unavailable.' } });
+      responses.push(missing);
+      // A successful previous call must not leave a cached resolved credential.
+      environment.OPINTEL_SECRET_TEST_CUSTOMER = sourceUrl;
+      expect(await source.testConnection(request({}))).toEqual(ok({ reachable: true }));
+      expect(resolve.mock.calls).toEqual(Array.from({ length: 6 }, () => [envelope.credentialRef]));
+      expect(store).not.toHaveBeenCalled();
+      const literal = await source.testConnection({ ...request({}), credentialRef: sourceUrl });
+      expect(literal).toMatchObject({ ok: false, error: { code: 'validation_failed' } });
+      expect(resolve).toHaveBeenCalledTimes(6);
+      responses.push(literal);
+      for (const output of [JSON.stringify(responses), JSON.stringify(events), JSON.stringify(logs.map((log) => log.mock.calls))]) {
+        expect(output).not.toContain(password);
+        expect(output).not.toContain(sourceUrl);
+      }
+    } finally {
+      resolve.mockRestore(); store.mockRestore();
+      for (const log of logs) log.mockRestore();
+    }
+  });
+
+  it('F-005: an untrusted vault failure cannot expose a resolved credential in a connector response', async () => {
+    const vault: VaultPort = {
+      resolve: async () => { throw new Error(`Vault failed with ${sourceUrl}`); },
+      store: async () => { throw new Error('Not used.'); },
+    };
+    const source = createPostgresConnector({ vault,
+      limits: { maxConnectionsPerSource: 1, statementTimeoutMs: 1000, operationTimeoutMs: 3000 },
+      audit: { record: async () => {} },
+    });
+    const result = await source.testConnection(request({}));
+    expect(result).toEqual(ok({ reachable: false, reason: 'Source operation failed.' }));
+    expect(JSON.stringify(result)).not.toContain(password);
+  });
+
   it('tests credentials and estimates without counting source rows', async () => {
     expect(await connector.testConnection(request({}))).toEqual(ok({ reachable: true }));
     expect(await connector.estimateRowCount(request({ object: { schema, name: 't0' } }))).toEqual(ok({ rows: 4 }));

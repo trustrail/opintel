@@ -135,6 +135,9 @@ export class PostgresConnector implements SidecarConnector {
         (session) => work(session, parsed.data.payload));
       return ok(value);
     } catch (error: unknown) {
+      if (error instanceof DomainError && error.code === 'dependency_unavailable') {
+        return err(new DomainError('dependency_unavailable', 'Source credentials are unavailable.', undefined, error.retryable));
+      }
       if (error instanceof SourceBusy) return err(new DomainError('budget_exceeded', 'Source connection limit reached.', undefined, true));
       if (error instanceof UnavailableObject) return err(new DomainError('object_unavailable', 'Source object is unavailable.'));
       const code = z.object({ code: z.string() }).safeParse(error);

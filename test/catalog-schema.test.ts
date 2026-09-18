@@ -118,9 +118,12 @@ integration('catalogue schema with Postgres', () => {
   });
 
   it('F-006: stores only a vault reference and rejects plaintext credentials', async () => {
-    for (const credential of [null, 'literal-secret']) {
+    const plaintext = 'postgres://customer:plaintext-password@customer-db/customer';
+    for (const credential of [null, 'literal-secret', plaintext]) {
       await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, credential_ref)
         VALUES ($1, 'postgres', 'Invalid', $2)`, [projectId, credential])))
+        .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });
+      await expect(scope((tx) => tx.query('UPDATE data_source SET credential_ref = $1 WHERE id = $2', [credential, source])))
         .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });
     }
     const rows = await scope((tx) => tx.query<{ credential_ref: string; stored: string }>(
@@ -129,5 +132,6 @@ integration('catalogue schema with Postgres', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.credential_ref).toBe('vault://test/warehouse');
     expect(rows.every((row) => !row.stored.includes('literal-secret'))).toBe(true);
+    expect(rows.every((row) => !row.stored.includes('plaintext-password'))).toBe(true);
   });
 });

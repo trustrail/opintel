@@ -1,11 +1,9 @@
 import type { DomainError, ElementId, ProjectId, Result, SourceId } from '../../src/shared/kernel/index.js';
-import type { VaultRef } from '../../src/platform/vault/types.js';
+import type { VaultPort } from '../../src/platform/vault/types.js';
 import type { CatalogSnapshot, TopValue } from '../../src/modules/sources/index.js';
 
-/** Implemented by the sidecar's vault integration, never by the application. */
-export interface SourceCredentialResolver {
-  resolve(ref: VaultRef): Promise<string>;
-}
+/** Read-only capability of the existing vault port, used only in the sidecar. */
+export type SourceCredentialResolver = Pick<VaultPort, 'resolve'>;
 export type SamplingAudit = {
   requestId: string; projectId: ProjectId; sourceId: SourceId; elementIds: ElementId[];
   consentGiven: boolean; outcome: 'started' | 'completed' | 'refused' | 'failed';
