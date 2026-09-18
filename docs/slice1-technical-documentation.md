@@ -184,10 +184,11 @@ class CatalogElement {
   readonly id: ElementId;
   readonly objectId: ObjectId;
   readonly sourceIdentifier: string;   // as the source names it
-  readonly duckdbName: string;         // normalised once, never recomputed
+  readonly duckdbName: string | null;  // assigned once; null means unnameable
+  nameRevision: number;               // incremented only by explicit adoption
   readonly stableRef: string | null;   // attnum, field id, if the source has one
   type: SourceType;
-  duckdbType: DuckDbType;
+  duckdbType: DuckDbType | null;       // null means unsupported type
   status: 'active' | 'removed';
 }
 ```
@@ -2139,6 +2140,7 @@ create table catalog_object (
   object_kind text not null check (object_kind in ('table','view','fileset')),
   duckdb_schema text not null,
   duckdb_name   text not null,
+  name_revision integer not null default 0,
   lineage_known boolean not null default false,
   row_estimate  bigint,
   description   text,
@@ -2151,10 +2153,11 @@ create table catalog_element (
   object_id         uuid not null references catalog_object(id) on delete cascade,
   project_id        uuid not null references project(id) on delete cascade,
   source_identifier text not null,
-  duckdb_name       text not null,          -- assigned once, immutable
+  duckdb_name       text,                   -- assigned once; null means unnameable
+  name_revision     integer not null default 0, -- explicit adoption advances once
   stable_ref        text,                   -- attnum / field id where available
   source_type       text not null,
-  duckdb_type       text not null,
+  duckdb_type       text,                   -- null means unsupported type
   nullable          boolean not null default true,
   is_key            boolean not null default false,
   description       text,
@@ -2179,7 +2182,7 @@ create table element_stats (
 
 ## 4.4 The exposed namespace and type mapping
 
-The catalogue migration enforces immutable `duckdb_name` on both objects and elements, and immutable `duckdb_schema` on objects. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. All five tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
+The catalogue guard rejects ordinary updates to `duckdb_name` on objects and elements and to `duckdb_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. All five tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
 
 Item 3.1's pure catalogue aggregate accepts assigned names for new identities and never invokes name assignment for an existing identity. It retains removed entities and emits identifier-only addition, rename and removal events. Item 3.2 supplies normalization and collision suffixes; later introspection work persists and publishes the changes. Entitlement preservation is verified against entitlement rows when item 4.1 introduces that table.
 
@@ -2203,6 +2206,29 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 - The normalised name is **recorded on the element at first discovery and never recomputed**, so it cannot drift between introspection runs
 - Collisions after normalisation get a numeric suffix and raise a diff entry, because a collision usually means two things that should not share a namespace
 - The original identifier is always available in `describe` and on the evidence record
+
+
+
+**Edge cases, in order of application:**
+| Input | Result |
+|---|---|
+| Unicode letters | Transliterated to ASCII where a standard mapping exists, otherwise dropped. Größe becomes grosse |
+| Punctuation and spaces | Collapsed to a single underscore, leading and trailing removed |
+| Leading digit | Prefixed with n_. 123 Sales becomes n_123_sales |
+| DuckDB reserved word | Suffixed with _col. select becomes select_col |
+| Normalises to nothing | Refused. The element is catalogued with duckdb_name null and reported as unnameable, which is an administrator's problem to solve by renaming the source column or giving it an alias |
+| Longer than 63 characters | Truncated to 57, then suffixed with _ and the first 5 hex characters of the SHA-256 of the original identifier, so two long names that share a prefix do not collide |
+
+**Collision suffixes start at _2**. The first occupant keeps the unsuffixed name; the second becomes name_2. A collision raises a diff entry, because two source columns normalising to one name usually means they should not share a namespace.
+
+**Every rule is applied at first discovery only**, and the result is stored, including a null result for an unnameable identifier. Changing a rule later does not rename anything already assigned. Explicit adoption is the deliberate exception. Collision suffixes reserve space within 63 characters, retaining the five-character hash for long identifiers. Removed elements continue to reserve their assigned names. Unicode transliteration is provided by a pinned local adapter; the naming and adoption domain do not depend on a connector.
+
+
+
+
+
+
+
 
 **Source renames.** Where a rename is detected against a stable underlying identifier, the entitlement carries over but **the exposed DuckDB name does not change by default.** Changing it would break every agent referencing it. The console shows the divergence and an administrator can adopt the new name deliberately, which is a breaking change and is labelled as one.
 
@@ -2229,7 +2255,7 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 
 **Treatments constrain the mapping.** A tokenized column is always `VARCHAR` regardless of its source type, because a token is not an integer. `describe` reports the **post-treatment** type, since that is what the agent receives. Reporting the source type would make the agent write arithmetic against a token.
 
-**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released.
+**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released. A null catalog_element.duckdb_type records this state independently of entitlement. Type-mapping metadata takes precedence over entitlement state, so a tokenized treatment cannot expose an unsupported source type. Exact numeric and money mappings require representable precision and scale; nested arrays and structs require supported child types. The describe metadata helper returns post-treatment types; the agent endpoint and view compiler remain with their owning items.
 
 ## 4.5 Entitlements and pools
 

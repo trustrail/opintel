@@ -50,6 +50,34 @@ integration('catalogue schema with Postgres', () => {
     }
   });
 
+  it('G-011: permits explicit adoption with one name revision, but rejects ordinary and malformed updates', async () => {
+    for (const [table, id] of [['catalog_object', object], ['catalog_element', element]] as const) {
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'adopted' WHERE id = $1`, [id])))
+        .rejects.toMatchObject({ code: '23514' });
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'adopted', name_revision = name_revision + 2 WHERE id = $1`, [id])))
+        .rejects.toMatchObject({ code: '23514' });
+      expect(await scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'adopted', name_revision = name_revision + 1 WHERE id = $1
+        RETURNING duckdb_name, name_revision`, [id])))
+        .toEqual([{ duckdb_name: 'adopted', name_revision: 1 }]);
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'ordinary' WHERE id = $1`, [id])))
+        .rejects.toMatchObject({ code: '23514' });
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET name_revision = name_revision + 1 WHERE id = $1`, [id])))
+        .rejects.toMatchObject({ code: '23514' });
+    }
+  });
+
+  it('retains unnameable and unsupported elements, and does not permit implicit assignment on rediscovery', async () => {
+    const id = randomUUID();
+    await scope((tx) => tx.query(`INSERT INTO catalog_element
+      (id, object_id, project_id, source_identifier, duckdb_name, source_type, duckdb_type)
+      VALUES ($1, $2, $3, '😀', NULL, 'geometry', NULL)`, [id, object, projectId]));
+    expect(await scope((tx) => tx.query('SELECT duckdb_name, duckdb_type, source_type FROM catalog_element WHERE id = $1', [id])))
+      .toEqual([{ duckdb_name: null, duckdb_type: null, source_type: 'geometry' }]);
+    await expect(scope((tx) => tx.query("UPDATE catalog_element SET duckdb_name = 'alias' WHERE id = $1", [id])))
+      .rejects.toMatchObject({ code: '23514' });
+    await scope((tx) => tx.query("UPDATE catalog_element SET duckdb_name = 'alias', name_revision = name_revision + 1 WHERE id = $1", [id]));
+  });
+
   it('G-007: retains the removed row and its statistics beside the new identity', async () => {
     const fresh = randomUUID();
     await scope(async (tx) => {

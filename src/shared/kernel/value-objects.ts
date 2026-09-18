@@ -31,6 +31,12 @@ export type GrainRule = 'sum' | 'sum_over_sum' | 'avg_of_ratio' | 'none';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const duckDbReservedWords = new Set([
+  // DuckDB v1.4.3 parser/kwlist.hpp reserved entries, plus the existing
+  // conservative identifier restrictions below. This is a discovery-time list.
+  'analyse', 'analyze', 'any', 'array', 'asymmetric', 'both', 'collate',
+  'deferrable', 'describe', 'do', 'foreign', 'initially', 'lambda', 'lateral',
+  'leading', 'only', 'pivot', 'pivot_longer', 'pivot_wider', 'placing', 'qualify',
+  'show', 'some', 'summarize', 'symmetric', 'to', 'trailing', 'unpivot', 'variadic', 'window',
   'all', 'and', 'as', 'asc', 'between', 'by', 'case', 'cast', 'check', 'column', 'constraint',
   'create', 'cross', 'default', 'delete', 'desc', 'distinct', 'drop', 'else', 'end', 'except',
   'exists', 'false', 'fetch', 'for', 'from', 'full', 'group', 'having', 'in', 'inner', 'insert',
@@ -72,9 +78,11 @@ export const FilingId = uuidFactory('FilingId');
 export const SessionId = uuidFactory('SessionId');
 export const InviteId = uuidFactory('InviteId');
 
+export const isDuckDbReservedWord = (raw: string): boolean => duckDbReservedWords.has(raw.toLowerCase());
+
 export const DuckDbName = textFactory(
   'DuckDbName',
-  (raw) => /^[a-z_][a-z0-9_]{0,62}$/u.test(raw) && !duckDbReservedWords.has(raw),
+  (raw) => /^[a-z_][a-z0-9_]{0,62}$/u.test(raw) && !isDuckDbReservedWord(raw),
 );
 export const IndustrySlug = textFactory('IndustrySlug', (raw) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(raw));
 export const PoolKey = textFactory('PoolKey', (raw) => /^opk_live_[A-Za-z0-9]{22}$/u.test(raw));

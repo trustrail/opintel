@@ -1,2 +1,8 @@
 export { CatalogElement, CatalogObject } from './domain/catalog.js';
 export type { AssignElementIdentity, CatalogChange, CatalogObjectState, ElementDiscovery, ElementState } from './domain/catalog.js';
+export { CatalogNaming } from './application/naming.js';
+export type { AssignedName, IdentifierTransliterator } from './application/naming.js';
+export { mapSourceType, postTreatmentType } from './domain/type-mapping.js';
+export type { DuckDbType, SourceTypeSpec, Treatment } from './domain/type-mapping.js';
+export { describeElement } from './domain/describe-element.js';
+export { exposedObjectName } from './domain/namespace.js';

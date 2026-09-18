@@ -2,13 +2,14 @@ import {
   DomainError, err, ok, type DuckDbName, type ElementId, type ObjectId,
   type ProjectId, type Result, type SourceId, type Timestamp,
 } from '../../../shared/kernel/index.js';
+import type { DuckDbType } from './type-mapping.js';
 
 export type ElementDiscovery = Readonly<{
-  sourceIdentifier: string; stableRef: string | null; sourceType: string; duckdbType: string;
+  sourceIdentifier: string; stableRef: string | null; sourceType: string; duckdbType: DuckDbType | null;
   nullable: boolean; isKey: boolean; description: string | null;
 }>;
 export type ElementState = ElementDiscovery & Readonly<{
-  id: ElementId; objectId: ObjectId; projectId: ProjectId; duckdbName: DuckDbName;
+  id: ElementId; objectId: ObjectId; projectId: ProjectId; duckdbName: DuckDbName | null; nameRevision?: number;
   status: 'active' | 'removed'; discoveredAt: Timestamp; removedAt: Timestamp | null;
 }>;
 
@@ -16,30 +17,31 @@ export type ElementState = ElementDiscovery & Readonly<{
 // mutating an entity obtained from the aggregate. Changes produce a new entity.
 export class CatalogElement {
   readonly state: ElementState;
-  constructor(state: ElementState) { this.state = Object.freeze({ ...state }); }
+  constructor(state: ElementState) { this.state = Object.freeze({ ...state, nameRevision: state.nameRevision ?? 0 }); }
 }
 
 export type CatalogObjectState = Readonly<{
   id: ObjectId; sourceId: SourceId; projectId: ProjectId;
   schemaName: string; objectName: string; kind: 'table' | 'view' | 'fileset';
-  duckdbSchema: DuckDbName; duckdbName: DuckDbName;
+  duckdbSchema: DuckDbName; duckdbName: DuckDbName; nameRevision?: number;
   lineageKnown: boolean; rowEstimate: number | null; description: string | null;
   status: 'active' | 'removed';
 }>;
 export type CatalogChange = Readonly<{
-  type: 'CatalogElementAdded' | 'CatalogElementRenamed' | 'CatalogElementRemoved';
-  projectId: ProjectId; objectId: ObjectId; elementId: ElementId;
+  type: 'CatalogElementAdded' | 'CatalogElementRenamed' | 'CatalogElementRemoved'
+    | 'CatalogObjectRenamed' | 'CatalogNameCollision' | 'CatalogElementUnnameable' | 'CatalogNameAdopted';
+  projectId: ProjectId; objectId: ObjectId; elementId?: ElementId; breaking?: true;
 }>;
 export type AssignElementIdentity = (
   discovery: ElementDiscovery, reservedNames: readonly DuckDbName[],
-) => Result<{ id: ElementId; duckdbName: DuckDbName }, DomainError>;
+) => Result<{ id: ElementId; duckdbName: DuckDbName | null; collision?: boolean }, DomainError>;
 
 export class CatalogObject {
-  readonly state: CatalogObjectState;
+  private objectState: CatalogObjectState;
   private current: readonly CatalogElement[];
 
   private constructor(state: CatalogObjectState, elements: readonly CatalogElement[]) {
-    this.state = Object.freeze({ ...state });
+    this.objectState = Object.freeze({ ...state, nameRevision: state.nameRevision ?? 0 });
     this.current = Object.freeze([...elements]);
   }
 
@@ -51,7 +53,36 @@ export class CatalogObject {
     return valid.ok ? ok(new CatalogObject(state, elements)) : valid;
   }
 
+  get state(): CatalogObjectState { return this.objectState; }
+
   get elements(): readonly CatalogElement[] { return this.current; }
+
+  renameSource(schemaName: string, objectName: string): Result<readonly CatalogChange[], DomainError> {
+    if (schemaName === this.state.schemaName && objectName === this.state.objectName) return ok([]);
+    this.objectState = Object.freeze({ ...this.state, schemaName, objectName });
+    return ok([{ type: 'CatalogObjectRenamed', projectId: this.state.projectId, objectId: this.state.id }]);
+  }
+
+  // Only this explicit command changes an existing exposed name. Item 3.6
+  // authorizes the administrator and persists this revision with its diff.
+  adoptRenamedName(name: DuckDbName, elementId?: ElementId): Result<readonly CatalogChange[], DomainError> {
+    if (elementId === undefined) {
+      if (name === this.state.duckdbName) return ok([]);
+      this.objectState = Object.freeze({ ...this.state, duckdbName: name, nameRevision: (this.state.nameRevision ?? 0) + 1 });
+    } else {
+      const element = this.current.find((entry) => entry.state.id === elementId);
+      if (element === undefined) return err(new DomainError('not_found', 'The catalogue element does not exist.'));
+      if (element.state.duckdbName === name) return ok([]);
+      if (this.current.some((entry) => entry.state.duckdbName === name)) {
+        return err(new DomainError('conflict', 'The exposed name is already assigned to another element.'));
+      }
+      this.current = Object.freeze(this.current.map((entry) => entry !== element ? entry : new CatalogElement({
+        ...entry.state, duckdbName: name, nameRevision: (entry.state.nameRevision ?? 0) + 1,
+      })));
+    }
+    return ok([{ type: 'CatalogNameAdopted', projectId: this.state.projectId, objectId: this.state.id,
+      ...(elementId === undefined ? {} : { elementId }), breaking: true }]);
+  }
 
   // Pure aggregate reconciliation. Contacting a source, normalising names,
   // persistence and publishing these changes belong to later application items.
@@ -61,7 +92,7 @@ export class CatalogObject {
     const matched = new Set<ElementId>();
     const changes: CatalogChange[] = [];
     const next: CatalogElement[] = [];
-    const reservedNames = this.current.map((element) => element.state.duckdbName);
+    const reservedNames = this.current.flatMap((element) => element.state.duckdbName === null ? [] : [element.state.duckdbName]);
     const change = (type: CatalogChange['type'], elementId: ElementId): void => {
       changes.push({ type, projectId: this.state.projectId, objectId: this.state.id, elementId });
     };
@@ -83,15 +114,17 @@ export class CatalogObject {
         // drift when a naming algorithm changes or a source column is renamed.
         const identity = assign(discovery, Object.freeze([...reservedNames]));
         if (!identity.ok) return identity;
-        if (this.current.some((element) => element.state.id === identity.value.id) || reservedNames.includes(identity.value.duckdbName)) {
+        if (this.current.some((element) => element.state.id === identity.value.id) || (identity.value.duckdbName !== null && reservedNames.includes(identity.value.duckdbName))) {
           return err(new DomainError('conflict', 'A new element must have a new identity and an unused exposed name.'));
         }
-        reservedNames.push(identity.value.duckdbName);
+        if (identity.value.duckdbName !== null) reservedNames.push(identity.value.duckdbName);
         next.push(new CatalogElement({
-          ...discovery, ...identity.value, objectId: this.state.id, projectId: this.state.projectId,
+          ...discovery, id: identity.value.id, duckdbName: identity.value.duckdbName, objectId: this.state.id, projectId: this.state.projectId,
           status: 'active', discoveredAt: now, removedAt: null,
         }));
         change('CatalogElementAdded', identity.value.id);
+        if (identity.value.collision) change('CatalogNameCollision', identity.value.id);
+        if (identity.value.duckdbName === null) change('CatalogElementUnnameable', identity.value.id);
       }
     }
     for (const element of this.current) {
@@ -112,11 +145,13 @@ function validateElements(elements: readonly CatalogElement[]): Result<void, Dom
   const identifiers = new Set<string>();
   const refs = new Set<string>();
   for (const { state } of elements) {
-    if (ids.has(state.id) || names.has(state.duckdbName) || identifiers.has(state.sourceIdentifier)
+    if (ids.has(state.id) || (state.duckdbName !== null && names.has(state.duckdbName)) || identifiers.has(state.sourceIdentifier)
       || (state.stableRef !== null && refs.has(state.stableRef))) {
       return err(new DomainError('conflict', 'Catalogue element identities and names must be unique within an object.'));
     }
-    ids.add(state.id); names.add(state.duckdbName); identifiers.add(state.sourceIdentifier);
+    ids.add(state.id);
+    if (state.duckdbName !== null) names.add(state.duckdbName);
+    identifiers.add(state.sourceIdentifier);
     if (state.stableRef !== null) refs.add(state.stableRef);
   }
   return ok(undefined);
