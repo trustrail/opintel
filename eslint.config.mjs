@@ -121,7 +121,7 @@ export default [
   { ignores: ['node_modules/**', 'dist/**', 'coverage/**'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts', 'test/fixtures/module-boundary/**/src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts', 'sidecar/**/*.ts', 'test/fixtures/module-boundary/**/src/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
       globals: { ...globals.node, ...globals.browser },

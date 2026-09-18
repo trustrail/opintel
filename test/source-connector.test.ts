@@ -14,7 +14,7 @@ const ref = VaultRef('vault://customer/warehouse');
 const element = ElementId(randomUUID());
 const context: SourceConnectorContext = {
   projectId: ProjectId(randomUUID()), sourceId: SourceId(randomUUID()), requestId: 'request-123',
-  sampling: async () => ok({ consentGiven: true, elements: [{ elementId: element, object: 'public.orders', column: 'customer' }] }),
+  sampling: async () => ok({ consentGiven: true, elements: [{ elementId: element, schema: 'public', object: 'orders', column: 'customer' }] }),
 };
 const object = { id: ObjectId(randomUUID()), sourceId: context.sourceId, schema: 'public', name: 'orders' };
 let dir: string;
@@ -115,7 +115,7 @@ describe('SourceConnector sidecar wire contract', () => {
   it('asserts consent and maps only requested sample values', async () => {
     responses['/sample'] = { values: { [element]: [{ value: 'example', frequency: 2 }] } };
     expect(await client().sampleTopValues(ref, [element], 5)).toEqual(ok(new Map([[element, [{ value: 'example', frequency: 2 }]]])));
-    expect(seen.at(-1)?.body).toMatchObject({ payload: { consentGiven: true, limit: 5, elements: [{ elementId: element, object: 'public.orders', column: 'customer' }] } });
+    expect(seen.at(-1)?.body).toMatchObject({ payload: { consentGiven: true, limit: 5, elements: [{ elementId: element, schema: 'public', object: 'orders', column: 'customer' }] } });
     responses['/sample'] = { values: { [randomUUID()]: [] } };
     expect(await client().sampleTopValues(ref, [element], 5)).toMatchObject({ ok: false });
   });

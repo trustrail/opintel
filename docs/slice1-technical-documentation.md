@@ -1520,7 +1520,7 @@ type TestConnectionPayload = Record<string, never>;
 type TestConnectionResponse = { reachable: true } | { reachable: false; reason: string };
 
 // POST /introspect -> introspect
-type IntrospectPayload = { include: string[] };      // schema name patterns
+type IntrospectPayload = { include: string[] };      // exact schema names; empty selects readable non-system schemas
 type IntrospectResponse = { snapshot: CatalogSnapshot };
 
 // POST /sample -> sampleTopValues
@@ -1529,7 +1529,7 @@ type IntrospectResponse = { snapshot: CatalogSnapshot };
 // is visible in the sidecar's own logs.
 type SamplePayload = {
   consentGiven: true;
-  elements: Array<{ elementId: ElementId; object: string; column: string }>;
+  elements: Array<{ elementId: ElementId; schema: string; object: string; column: string }>;
   limit: number;
 };
 type SampleResponse = { values: Record<string, TopValue[]> };
@@ -1542,6 +1542,26 @@ type EstimateResponse = { rows: number | null };     // null when the source can
 **A contract mismatch fails loudly.** The client calls `/health` on first use and refuses if `contract` differs from the version it was built against. A sidecar upgraded ahead of the application, or behind it, stops rather than guessing.
 
 **`consentGiven` is always `true` when present.** The application never sends `false`; it simply does not call `/sample`. The field exists so a sidecar operator auditing their own logs can see that consent was asserted for every sampling request.
+
+
+
+**include holds exact schema names, not patterns**. An empty array means every schema the credential can read, excluding pg_catalog, information_schema and anything beginning pg_. Patterns were rejected because a pattern that silently starts matching a new schema would introspect data nobody chose to expose, and the set of schemas is small enough to enumerate.
+
+**Identifiers are never string-concatenated**. SamplePayload carries schema, object and column as separate fields:
+
+```ts
+type SamplePayload = {
+  consentGiven: true;
+  elements: Array<{
+    elementId: ElementId;
+    schema: string;
+    object: string;
+    column: string;
+  }>;
+  limit: number;
+};
+```
+A table named sales.data is then unambiguous, and the sidecar quotes each part when building SQL. **Any wire format that joins identifiers with a separator is wrong**, because the separator can appear inside a name and the ambiguity becomes a query against the wrong table.
 
 ---
 
