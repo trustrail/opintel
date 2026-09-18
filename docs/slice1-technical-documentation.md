@@ -1228,6 +1228,10 @@ const CompanyListItem = z.object({
 
 **Creation returns 201 with the created resource**. No Location header: the SPA routes client-side and already has the id from the body.
 
+**Archived projects are excluded by default**. GET /projects returns only projects with archived_at null. ?includeArchived=true includes them, each carrying archivedAt so the caller can distinguish. The chooser and the switcher use the default; a settings surface that lists archived projects asks for them explicitly.
+
+**projectCount counts only projects the caller can reach**, not every project in the company. A company admin sees all of them by inheritance and therefore sees the true total. An operator on two of a company's ten projects sees 2, which is the honest answer to "how many projects are here for me" and avoids disclosing that eight others exist.
+
 ### sources and catalog
 
 | Method | Path |
