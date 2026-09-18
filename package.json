@@ -10,10 +10,11 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "dev:up": "tsx scripts/dev-up.ts",
     "dev:api": "tsx src/platform/http/start.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",
-    "test": "vitest run --passWithNoTests test",
+    "lint": "eslint src scripts --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",
+    "test": "tsx scripts/test.ts",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "migrate:up": "tsx src/platform/db/migrate.ts up",

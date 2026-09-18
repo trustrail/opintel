@@ -1,10 +1,54 @@
 # Start here
 
-Everything is in place. Nothing to copy, rename or move.
+## 1. Start the development stack
 
-## 1. Start the services
+Install Node 20.19+ and Docker Compose v2, then start Docker. On the first checkout:
 
-    docker compose up -d
+```sh
+npm ci
+cp .env.example .env
+```
+
+Start or recover the stack with:
+
+```sh
+npm run dev:up
+```
+
+This starts Compose and waits for Postgres, Redis and SpiceDB readiness, creates
+both `opintel` and `opintel_test` if missing, applies all migrations to both, and
+loads `docs/opintel-schema.zed`. It is safe to run again: existing databases are
+kept and only pending migrations run. SpiceDB dispatch caching remains enabled.
+
+Use this command after `docker compose down` / `up` or a volume reset. Compose
+alone does not apply migrations or reload SpiceDB's in-memory schema. Bootstrap
+restores the schema, not relationships lost from the in-memory datastore, and
+does not restore deleted Postgres data.
+
+Then run the API and frontend in separate terminals:
+
+```sh
+npm run dev:api
+npm run dev
+```
+
+Run all tests with:
+
+```sh
+npm test
+```
+
+Tests read `.env` (explicit environment variables take precedence) and use
+`TEST_DATABASE_URL`; if omitted, it is derived by appending `_test` to the database
+name in `DATABASE_URL`. The development and test databases must be distinct.
+`MIGRATION_DATABASE_URL` supplies schema-owner credentials for bootstrap; its
+credentials are also used to migrate the test database.
+
+Before any suite starts, a read-only preflight checks the test database, migration
+checksums, Redis connectivity and the loaded SpiceDB schema. Missing prerequisites
+fail once with their names and the recovery command `npm run dev:up`, rather than
+producing failures in every suite. Tests do not create databases or load schemas
+as a substitute for this preflight. CI uses the same bootstrap and checks.
 
 ## 2. Open Codex
 

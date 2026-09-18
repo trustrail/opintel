@@ -22,7 +22,7 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      # The full test suite runs below after service bootstrap.
       - run: npm run build
       - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
       - run: npx playwright install --with-deps chrome
@@ -48,10 +48,7 @@ jobs:
           node-version: 20.19.0
           cache: npm
       - run: npm ci
-      - run: docker compose up -d --wait
-      - run: docker compose exec -T postgres createdb -U opintel opintel_test
-      - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
-      - run: npm run spicedb:schema
+      - run: npm run dev:up
       - run: npm test
       - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:down
       - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
