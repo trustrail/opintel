@@ -56,3 +56,15 @@ export const IndustryListItem = z.object({
   inheritedTermCount: z.number().int(), hasDemoPack: z.boolean(),
 });
 export const IndustryListResponse = z.array(IndustryListItem);
+
+export const PermissionExplanation = z.object({
+  permission: z.string(), allowed: z.boolean(), path: z.array(z.string()),
+  via: z.enum(['project', 'company', 'none']),
+});
+export const ExplainResponse = z.object({
+  user: z.object({ id: z.string().uuid(), email: z.string() }),
+  projectRole: z.enum(['admin', 'operator', 'viewer']).nullable(),
+  companyRole: z.enum(['admin', 'member']).nullable(),
+  permissions: z.array(PermissionExplanation),
+  checkedAt: z.string().datetime({ offset: true }), token: z.string(),
+});

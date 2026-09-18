@@ -119,8 +119,36 @@ export class SpiceDbAuthorizationPort implements AuthorizationPort {
     }
   }
 
-  async checkMany(requests: CheckRequest[]): Promise<CheckResult[]> {
-    return Promise.all(requests.map(async (request) => this.check(request)));
+  async checkMany(requests: CheckRequest[], options?: { withTracing: boolean }): Promise<CheckResult[]> {
+    if (requests.length === 0) return [];
+    const checkedAt = this.options.clock.now();
+    const response = await this.client.checkBulkPermissions(v1.CheckBulkPermissionsRequest.create({
+      consistency: consistency(undefined),
+      withTracing: options?.withTracing ?? false,
+      items: requests.map((request) => v1.CheckBulkPermissionsRequestItem.create({
+        resource: objectReference(request.resource), permission: request.permission,
+        subject: subjectReference(request.subject),
+      })),
+    }));
+    const token = zedToken(response.checkedAt);
+    const results = new Map<string, CheckResult>();
+    for (const pair of response.pairs) {
+      const request = pair.request;
+      if (request?.resource === undefined || request.subject?.object === undefined || pair.response.oneofKind !== 'item') {
+        throw new Error('SpiceDB returned an incomplete bulk check.');
+      }
+      const item = pair.response.item;
+      const allowed = item.permissionship === v1.CheckPermissionResponse_Permissionship.HAS_PERMISSION;
+      const trace = item.debugTrace?.check;
+      const explanation = options?.withTracing ? { path: tracePath(trace) } : undefined;
+      const key = `${request.resource.objectType}:${request.resource.objectId}#${request.permission}@${request.subject.object.objectType}:${request.subject.object.objectId}`;
+      results.set(key, { allowed, checkedAt, token, snapshotAgeMs: 0, ...(explanation === undefined ? {} : { explanation }) });
+    }
+    return requests.map((request) => {
+      const result = results.get(cacheKey(request));
+      if (result === undefined) throw new Error('SpiceDB omitted a bulk check result.');
+      return result;
+    });
   }
 
   async write(updates: RelationshipUpdate[]): Promise<ZedToken> {

@@ -8,11 +8,14 @@ export type CheckRequest = {
   subject: { type: 'user' | 'pool'; id: string };
 };
 
+export type PermissionTrace = { path: string[] };
+
 export type CheckResult = {
   allowed: boolean;
   checkedAt: Timestamp;
   token: ZedToken;
   snapshotAgeMs: number;
+  explanation?: PermissionTrace;
 };
 
 export type RelationshipUpdate = {
@@ -27,7 +30,7 @@ export type RelationshipUpdate = {
 
 export interface AuthorizationPort {
   check(request: CheckRequest): Promise<CheckResult>;
-  checkMany(requests: CheckRequest[]): Promise<CheckResult[]>;
+  checkMany(requests: CheckRequest[], options?: { withTracing: boolean }): Promise<CheckResult[]>;
   write(updates: RelationshipUpdate[]): Promise<ZedToken>;
   explain(request: CheckRequest): Promise<{ allowed: boolean; path: string[] }>;
 }

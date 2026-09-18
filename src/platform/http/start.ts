@@ -55,6 +55,9 @@ async function start(): Promise<void> {
     { InvitationService },
     { PostgresInvitationRepository },
     { invitationRoutes },
+    { ExplainPermissionsService },
+    { PostgresPermissionSubjectRepository },
+    { permissionRoutes },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -90,6 +93,9 @@ async function start(): Promise<void> {
     import('../../modules/tenancy/application/invitations.js'),
     import('../../modules/tenancy/infrastructure/invitation-repository.js'),
     import('../../modules/tenancy/api/invitation-routes.js'),
+    import('../../modules/tenancy/application/explain-permissions.js'),
+    import('../../modules/tenancy/infrastructure/permission-subject-repository.js'),
+    import('../../modules/tenancy/api/permission-routes.js'),
   ]);
 
   const clock = new SystemClock();
@@ -118,6 +124,7 @@ async function start(): Promise<void> {
   const routes = [
     ...magicLinkRoutes(magicLinks),
     ...invitationRoutes(invitations),
+    ...permissionRoutes(new ExplainPermissionsService(new PostgresPermissionSubjectRepository(), authorization)),
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
     ...currentUserRoutes(currentUsers),
     ...companyRoutes(companies),

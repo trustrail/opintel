@@ -676,7 +676,7 @@ type ProjectRole = 'admin' | 'operator' | 'viewer';
 // authz
 interface AuthorizationPort {
   check(req: CheckRequest): Promise<CheckResult>;
-  checkMany(reqs: CheckRequest[]): Promise<CheckResult[]>;
+  checkMany(reqs: CheckRequest[], options?: { withTracing: boolean }): Promise<CheckResult[]>;
   write(updates: RelationshipUpdate[]): Promise<ZedToken>;
   explain(req: CheckRequest): Promise<{ allowed: boolean; path: string[] }>;
 }
@@ -690,6 +690,7 @@ type CheckResult = {
   checkedAt: Timestamp;
   token: ZedToken;         // stamped on the evidence record
   snapshotAgeMs: number;   // beyond the staleness ceiling, the caller refuses
+  explanation?: { path: string[] }; // requested with withTracing
 };
 type ZedToken = string & { readonly __brand: 'ZedToken' };
 type RelationshipUpdate = {
@@ -1285,6 +1286,39 @@ const InvitationListItem = z.object({
 **Acceptance creates a session**, because the person has just proven control of the address by the same mechanism as any sign-in.
 
 **Revoking deletes the pending_invite row**. An outstanding magic link carrying that invite_id then signs the person in without granting anything, which is correct: they proved control of the address, and the grant was withdrawn.
+
+### Permission explanation
+
+`GET /projects/:id/permissions/:userId/explain` returns every project permission with its verdict and derivation.
+
+```ts
+const PermissionExplanation = z.object({
+  permission: z.string(),
+  allowed: z.boolean(),
+  path: z.array(z.string()),      // SpiceDB's own trace, in order
+  via: z.enum(['project', 'company', 'none']),
+});
+
+const ExplainResponse = z.object({
+  user: z.object({ id: z.string().uuid(), email: z.string() }),
+  projectRole: z.enum(['admin', 'operator', 'viewer']).nullable(),
+  companyRole: z.enum(['admin', 'member']).nullable(),
+  permissions: z.array(PermissionExplanation),
+  checkedAt: z.string().datetime({ offset: true }),
+  token: z.string(),              // the ZedToken the checks ran against
+});
+```
+**via is the field the screen actually uses**. A permission held through company administration looks identical to one granted on the project until you ask why, and that difference is what someone reviewing access needs to see. For an allowed check, an existing project_member row yields project; otherwise a company_member admin row yields company. All other cases yield none. The verdict comes from SpiceDB, and via comes from membership rows, never trace branches.
+
+**path is SpiceDB's trace, unmodified**. It is supplementary detail and may be thinner on a cache hit or empty. An allowed check with an empty path is normal and never causes an error.
+
+**All permissions are checked in one checkMany**, against one consistency token, so the response is a coherent snapshot rather than independent checks at different moments. A traced bulk check fails closed if SpiceDB cannot supply a complete verdict snapshot; individual cached checks are not substituted.
+
+**SpiceDB dispatch caching stays enabled** in development, tests and production. Trace depth does not determine allowed or via.
+
+**The caller needs project#view** to explain anyone's permissions on that project. Seeing who can do what is part of viewing a project.
+
+
 
 ### sources and catalog
 
