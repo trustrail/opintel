@@ -41,6 +41,9 @@ async function start(): Promise<void> {
     { PostgresCompanyCreationRepository },
     { companyRoutes },
     { SpiceDbAuthorizationPort },
+    { CreateProjectService },
+    { PostgresProjectCreationRepository },
+    { projectRoutes },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -62,6 +65,9 @@ async function start(): Promise<void> {
     import('../../modules/tenancy/infrastructure/company-creation-repository.js'),
     import('../../modules/tenancy/api/company-routes.js'),
     import('../../modules/authz/infrastructure/spicedb-authorization-port.js'),
+    import('../../modules/tenancy/application/create-project.js'),
+    import('../../modules/tenancy/infrastructure/project-creation-repository.js'),
+    import('../../modules/tenancy/api/project-routes.js'),
   ]);
 
   const clock = new SystemClock();
@@ -72,6 +78,9 @@ async function start(): Promise<void> {
   const relationshipOutbox = new RelationshipOutbox();
   const companies = new CreateCompanyService(
     new PostgresCompanyCreationRepository(relationshipOutbox), relationshipOutbox, authorization,
+  );
+  const projects = new CreateProjectService(
+    new PostgresProjectCreationRepository(relationshipOutbox), relationshipOutbox, authorization,
   );
   const redis = createRedisConnection({ url: requiredEnvironment('REDIS_URL') });
   await redis.connect();
@@ -85,9 +94,11 @@ async function start(): Promise<void> {
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
     ...currentUserRoutes(currentUsers),
     ...companyRoutes(companies),
+    ...projectRoutes(projects),
   ];
   const server = createHttpServer(routes, {
     authorization: {
+      port: authorization,
       currentUser: async (headers) => {
         const rawSessionId = cookieValue(headers.cookie, sessionCookieName);
         if (rawSessionId === null) return null;
