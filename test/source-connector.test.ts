@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, type Server } from 'node:https';
 import type { TLSSocket } from 'node:tls';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidecarSourceConnector, type SourceConnectorContext, type SidecarOptions } from '../src/modules/sources/index.js';
 import { ElementId, ObjectId, ProjectId, SourceId, ok } from '../src/shared/kernel/index.js';
 import { VaultRef } from '../src/platform/vault/types.js';
@@ -127,6 +127,20 @@ describe('SourceConnector sidecar wire contract', () => {
     const result = await client().introspect(ref, ['public']);
     expect(result).toMatchObject({ ok: false });
     expect(JSON.stringify(result)).not.toContain('secret');
+  });
+  it('propagates request cancellation during HTTP I/O and accepts pre-aborted calls', async () => {
+    stall = '/introspect';
+    const connector = client();
+    const controller = new AbortController();
+    const running = connector.introspect(ref, ['public'], controller.signal);
+    await vi.waitFor(() => expect(seen.some((request) => request.path === '/introspect')).toBe(true));
+    controller.abort();
+    expect(await running).toMatchObject({ ok: false, error: { message: 'Source request cancelled.' } });
+    const count = seen.length;
+    expect(await connector.testConnection(ref, controller.signal)).toMatchObject({ ok: false });
+    expect(await connector.sampleTopValues(ref, [element], 1, controller.signal)).toMatchObject({ ok: false });
+    expect(await connector.estimateRowCount(ref, object, controller.signal)).toMatchObject({ ok: false });
+    expect(seen).toHaveLength(count);
   });
   it('rejects a literal credential before any network request (F-006)', async () => {
     expect(await client().testConnection('postgres://user:secret@host/db' as VaultRef)).toMatchObject({ ok: false });

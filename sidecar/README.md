@@ -51,3 +51,13 @@ The integration tests provision and remove an isolated source schema and login
 inside test Postgres. G-003–G-005 combine real snapshots with the existing pure
 catalogue aggregate. Persisting the diff belongs to 3.6; testing preservation
 against actual entitlement rows belongs to 4.1.
+
+The S1 host passes an `AbortSignal` to every connector method and aborts it when
+its HTTP request is aborted or the response connection closes before completion.
+There is no cancellation endpoint. An abort cancels the operation's Postgres
+backend using `pg_cancel_backend` through a short-lived, bounded control connection
+with the same credential, then closes both connections. The query-connection
+ceiling remains per source; cancellation uses a separate control connection so a
+full query ceiling cannot prevent releasing those queries. If cancellation cannot
+reach Postgres, closing the query connection and its statement timeout remain the
+fallback. These controls do not govern DuckDB sessions (S3).

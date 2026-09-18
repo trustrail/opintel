@@ -119,7 +119,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | 3.3 | `SourceConnector` port. **All source contact goes through the sidecar** | 3.1, S1 | `modules/sources` | F-002, F-003, F-005, F-006 |
 | 3.4 | Postgres connector: test, introspect, sample, estimate | 3.3, S1 | adapter | G-001 to G-005, G-014 to G-016 |
 | 3.5 | Vault integration, literal-secret constraint | 3.3 | `platform/vault` | F-005, F-006 |
-| 3.6 | Introspection job, state machine, diff, cancel | 3.4 | `jobs/introspect` | G-017, G-018, R-023, F-010 |
+| 3.6 | Introspection job, state machine, diff, cancel | 3.4 | `jobs/introspect` | G-017, G-018, R-023, F-010 (source status); G-009 diff only |
 | **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify cedant, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 |
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18 |
 | **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source and on every record | 3.8 | `ingest/land.ts` | ING-19 to ING-26 |
@@ -150,14 +150,14 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 
 **On the no-copy claim.** Landing writes data, so "nothing is copied" stops being true without qualification. The defensible statements are that **the query path copies nothing** and that **nothing leaves the customer's environment**. Both hold. Sales material and the threat model say it that way, and a reviewer who finds the unqualified version will discount everything around it.
 
-**Gate.** A real Postgres source is catalogued. 200 tables in under 60 seconds. A re-run produces an empty diff. Adding a column produces one addition. A rename carries identity. A type-family change reverts to undecided. Twelve reinsurance spreadsheets in inconsistent formats land, are catalogued, and every column arrives undecided. Both landing strategies work and are recorded. Credentials appear in no response and no plaintext column.
+**Gate.** A real Postgres source is catalogued. 200 tables in under 60 seconds. A re-run produces an empty diff. Adding a column produces one addition. A rename carries identity. A type-family change records the invalidation diff; item 4.1 proves the entitlement deletion that restores undecided. Twelve reinsurance spreadsheets in inconsistent formats land, are catalogued, and every column arrives undecided. Both landing strategies work and are recorded. Credentials appear in no response and no plaintext column.
 
 ### P3 Governance
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003, E2-027 |
-| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008 |
+| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff) |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |
@@ -182,7 +182,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 5.4 | Agent presence state machine, never silently removed | 5.1, 3.16 | `pools/presence.ts` | I-018 to I-021 |
 | 5.5 | MCP server, key auth, tool listing driven by pool config | 5.2, 4.4 | `modules/mcp` | I-004, I-013, I-014, I-023 |
 | 5.6 | `describe`: entitled with types, withheld marked, undecided absent | 5.5, 4.4 | tool | I-007, I-008 |
-| 5.7 | `query`: SQL subset on the parsed statement, dispatch to sidecar | 5.5, S2 | tool | I-009 to I-012, K-001 to K-009 |
+| 5.7 | `query`: SQL subset on the parsed statement, dispatch to sidecar | 5.5, S2 | tool | I-009 to I-012, K-001 to K-009, F-010 (query refusal) |
 | 5.8 | **Reduction in the text content the model reads.** Hand-reviewed | 5.7 | `mcp/response.ts` | I-009 |
 | 5.9 | `explain` dry run, no source contact | 5.7 | tool | N-003 |
 | 5.10 | Evidence domain, append-only grants, partitioning | 2.1 | `modules/evidence` | M-001 to M-006 |

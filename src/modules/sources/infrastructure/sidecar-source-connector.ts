@@ -30,8 +30,8 @@ export class SidecarSourceConnector implements SourceConnector {
     this.fingerprint = new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
   }
 
-  async testConnection(ref: VaultRef): Promise<Result<void>> {
-    const response = await this.call('/test-connection', ref, {}, wire.connectionResponse);
+  async testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void>> {
+    const response = await this.call('/test-connection', ref, {}, wire.connectionResponse, signal);
     if (!response.ok) return response;
     // A peer's arbitrary reason can contain a connection string or password.
     // Classify common failures without reflecting untrusted text to the API.
@@ -44,14 +44,15 @@ export class SidecarSourceConnector implements SourceConnector {
     return ok(undefined);
   }
 
-  async introspect(ref: VaultRef, include: string[]) {
+  async introspect(ref: VaultRef, include: string[], signal?: AbortSignal) {
     const parsed = wire.introspectPayload.safeParse({ include });
     if (!parsed.success) return this.invalid();
-    const result = await this.call('/introspect', ref, parsed.data, wire.snapshotResponse);
+    const result = await this.call('/introspect', ref, parsed.data, wire.snapshotResponse, signal);
     return result.ok ? ok(result.value.snapshot) : result;
   }
 
-  async sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number): Promise<Result<Map<ElementId, TopValue[]>>> {
+  async sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>>> {
+    if (signal?.aborted) return err(new DomainError('source_unavailable', 'Source request cancelled.'));
     const resolution = await this.context.sampling(elements);
     if (!resolution.ok) return resolution;
     if (!resolution.value.consentGiven) return err(new DomainError('forbidden', 'Sampling requires source consent.'));
@@ -59,7 +60,7 @@ export class SidecarSourceConnector implements SourceConnector {
     if (!parsed.success || new Set(elements).size !== elements.length || parsed.data.elements.length !== elements.length
       || new Set(parsed.data.elements.map((element) => element.elementId)).size !== elements.length
       || parsed.data.elements.some((element) => !elements.some((id) => id === element.elementId))) return this.invalid();
-    const result = await this.call('/sample', ref, parsed.data, wire.sampleResponse);
+    const result = await this.call('/sample', ref, parsed.data, wire.sampleResponse, signal);
     if (!result.ok) return result;
     if (Object.keys(result.value.values).some((id) => !elements.some((element) => element === id))) return this.malformed();
     const values = new Map<ElementId, TopValue[]>();
@@ -71,21 +72,23 @@ export class SidecarSourceConnector implements SourceConnector {
     return ok(values);
   }
 
-  async estimateRowCount(ref: VaultRef, object: ObjectRef) {
+  async estimateRowCount(ref: VaultRef, object: ObjectRef, signal?: AbortSignal) {
     if (object.sourceId !== this.context.sourceId) return this.invalid();
     const parsed = wire.estimatePayload.safeParse({ object: { schema: object.schema, name: object.name } });
     if (!parsed.success) return this.invalid();
-    const result = await this.call('/estimate', ref, parsed.data, wire.estimateResponse);
+    const result = await this.call('/estimate', ref, parsed.data, wire.estimateResponse, signal);
     return result.ok ? ok(result.value.rows) : result;
   }
 
   private invalid(): Result<never> { return err(new DomainError('validation_failed', 'Invalid sidecar request.')); }
   private malformed(): Result<never> { return err(new DomainError('dependency_unavailable', 'Sidecar returned an invalid response.')); }
 
-  private async call<T>(path: string, ref: VaultRef, payload: unknown, schema: z.ZodType<T>): Promise<Result<T>> {
+  private async call<T>(path: string, ref: VaultRef, payload: unknown, schema: z.ZodType<T>, abort?: AbortSignal): Promise<Result<T>> {
     const body = wire.envelope.safeParse({ requestId: this.context.requestId, projectId: this.context.projectId, sourceId: this.context.sourceId, credentialRef: ref, payload });
     if (!body.success) return this.invalid();
-    const signal = AbortSignal.timeout(this.timeoutMs);
+    const timeout = AbortSignal.timeout(this.timeoutMs);
+    const signal = abort === undefined ? timeout : AbortSignal.any([timeout, abort]);
+    if (signal.aborted) return err(new DomainError('source_unavailable', 'Source request cancelled.'));
     try {
       if (!this.contractChecked) {
         const health = wire.healthResponse.safeParse(await this.post('/health', undefined, signal));
@@ -96,7 +99,7 @@ export class SidecarSourceConnector implements SourceConnector {
       const response = schema.safeParse(await this.post(path, body.data, signal));
       return response.success ? ok(response.data) : this.malformed();
     } catch {
-      return err(new DomainError('source_unavailable', signal.aborted ? 'Source connection timed out.' : 'Sidecar connection failed or returned an invalid response.', undefined, true));
+      return err(new DomainError('source_unavailable', abort?.aborted ? 'Source request cancelled.' : signal.aborted ? 'Source connection timed out.' : 'Sidecar connection failed or returned an invalid response.', undefined, true));
     }
   }
 

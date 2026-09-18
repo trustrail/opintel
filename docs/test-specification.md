@@ -176,7 +176,7 @@ Version 1.0 · September 2026
 | F-007 | A | Member without `bind_source` connects *(needs the connect route, item 3.12)* | 403 |
 | F-008 | F | Delete a source with entitlements *(needs entitlement, item 4.1)* | Confirmation names the dependent entitlements; typed confirmation required |
 | F-009 | F | Two sources of different types in one project *(needs item 3.12)* | Both catalogue independently |
-| F-010 | R | Source becomes unreachable after connection *(needs source status, item 3.6)* | Status reflects it; queries refuse rather than serve stale |
+| F-010 | R | Source becomes unreachable after connection *(3.6 proves source status; query refusal deferred to 5.7)* | Status reflects it; queries refuse rather than serve stale |
 
 ## S1-G · Introspection and catalogue
 
@@ -190,7 +190,7 @@ Version 1.0 · September 2026
 | G-006 | F | Column renamed, stable id available | Element id unchanged; entitlement carries; observation raised |
 | G-007 | F | Column renamed, no stable id | Treated as removal plus addition; new element undecided |
 | G-008 | F | Type widened within family (`varchar(50)`→`varchar(100)`) | Entitlement carries |
-| G-009 | F | Type family changed (`integer`→`varchar`) | Reverts to undecided; observation raised |
+| G-009 | F | Type family changed (`integer`→`varchar`) | Item 3.6 records the type-family diff and required invalidation. Item 4.1 deletes the entitlement row after the diff is recorded, restoring undecided |
 | G-010 | F | Table renamed | Objects re-map; exposed DuckDB name unchanged by default |
 | G-011 | F | "Adopt renamed names" enabled | Name changes; labelled a breaking change |
 | G-012 | D | Identifier requiring normalisation | Normalised name recorded once; identical across two runs |

@@ -6,3 +6,5 @@ export { mapSourceType, postTreatmentType } from './domain/type-mapping.js';
 export type { DuckDbType, SourceTypeSpec, Treatment } from './domain/type-mapping.js';
 export { describeElement } from './domain/describe-element.js';
 export { exposedObjectName } from './domain/namespace.js';
+export { reconcileSnapshot, type IntrospectionDiff } from './application/introspection-diff.js';
+export { AsciiTransliterator } from './infrastructure/ascii-transliterator.js';

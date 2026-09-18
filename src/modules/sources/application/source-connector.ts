@@ -18,10 +18,10 @@ export type CatalogSnapshot = {
 
 export interface SourceConnector {
   readonly kind: SourceKind;
-  testConnection(ref: VaultRef): Promise<Result<void, DomainError>>;
-  introspect(ref: VaultRef, include: string[]): Promise<Result<CatalogSnapshot, DomainError>>;
-  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number): Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
-  estimateRowCount(ref: VaultRef, object: ObjectRef): Promise<Result<number | null, DomainError>>;
+  testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
+  introspect(ref: VaultRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
+  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
+  estimateRowCount(ref: VaultRef, object: ObjectRef, signal?: AbortSignal): Promise<Result<number | null, DomainError>>;
 }
 
 // The application binds a connector to a source and supplies current consent

@@ -219,6 +219,28 @@ describe('sidecar Postgres connector against a read-only source credential', () 
     expect(await fixture(async (db) => (await db.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1", [role])).rows)).toEqual([{ count: 0 }]);
   });
 
+  it('G-018: request abort cancels the source backend and releases its connection', async () => {
+    const { VaultRef } = await import('../src/platform/vault/types.js');
+    const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 5000, operationTimeoutMs: 6000 });
+    const controller = new AbortController();
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => { started = resolve; });
+    let code: unknown;
+    const running = scope.run('cancel-test', VaultRef(envelope.credentialRef), async (session) => {
+      started();
+      try { await session.query('SELECT pg_sleep(5)'); }
+      catch (error: unknown) { if (typeof error === 'object' && error !== null && 'code' in error) code = error.code; throw error; }
+    }, controller.signal);
+    const finished = expect(running).rejects.toThrow();
+    await ready;
+    const start = performance.now();
+    controller.abort();
+    await finished;
+    expect(performance.now() - start).toBeLessThan(2500);
+    expect(code).toBe('57014');
+    expect(await fixture(async (db) => (await db.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1", [role])).rows)).toEqual([{ count: 0 }]);
+  });
+
   it('C.4: bounds total wall time, refuses excess connections, and releases the slot', async () => {
     const { VaultRef } = await import('../src/platform/vault/types.js');
     const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 5000, operationTimeoutMs: 100 });

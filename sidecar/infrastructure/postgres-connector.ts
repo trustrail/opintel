@@ -4,7 +4,7 @@ import { VaultRef } from '../../src/platform/vault/types.js';
 import * as wire from '../../src/shared/sidecar-contract.js';
 import type { CatalogSnapshot, TopValue } from '../../src/modules/sources/index.js';
 import type { SamplingAudit, SamplingAuditPort, SidecarConnector } from '../application/source-connector.js';
-import { PostgresSourceScope, SourceBusy, SourceTimeout, type SourceSession } from './postgres-source-scope.js';
+import { PostgresSourceScope, SourceBusy, SourceTimeout, SourceCancelled, type SourceSession } from './postgres-source-scope.js';
 
 const identifier = z.string().min(1).refine((value) => !value.includes('\0'));
 const sampling = wire.samplePayload.extend({ elements: z.array(z.strictObject({ elementId: z.uuid(), schema: identifier, object: identifier, column: identifier })) });
@@ -19,16 +19,16 @@ const quote = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 export class PostgresConnector implements SidecarConnector {
   constructor(private readonly scope: PostgresSourceScope, private readonly audit: SamplingAuditPort) {}
 
-  async testConnection(request: unknown) {
+  async testConnection(request: unknown, signal?: AbortSignal) {
     const result = await this.run(request, z.strictObject({}), async (session) => {
       await session.query('SELECT 1');
       return { reachable: true as const };
-    });
+    }, signal);
     if (result.ok || result.error.code !== 'source_unavailable') return result;
     return ok({ reachable: false as const, reason: result.error.message });
   }
 
-  async introspect(request: unknown): Promise<Result<{ snapshot: CatalogSnapshot }>> {
+  async introspect(request: unknown, signal?: AbortSignal): Promise<Result<{ snapshot: CatalogSnapshot }>> {
     return this.run(request, wire.introspectPayload, async (session, payload) => {
       const relations = z.array(relationRow).parse(await session.query(`
         SELECT c.oid::text AS oid, n.nspname AS schema, c.relname AS name,
@@ -77,10 +77,10 @@ export class PostgresConnector implements SidecarConnector {
         takenAt: Timestamp(new Date()),
         objects: relations.map(({ oid, ...relation }) => ({ ...relation, columns: byObject.get(oid) ?? [] })), foreignKeys,
       } });
-    });
+    }, signal);
   }
 
-  async sampleTopValues(request: unknown): Promise<Result<{ values: Record<string, TopValue[]> }>> {
+  async sampleTopValues(request: unknown, signal?: AbortSignal): Promise<Result<{ values: Record<string, TopValue[]> }>> {
     const envelope = wire.envelope.safeParse(request);
     if (!envelope.success) return invalid();
     const payload = sampling.safeParse(envelope.data.payload);
@@ -107,12 +107,12 @@ export class PostgresConnector implements SidecarConnector {
         values[element.elementId] = z.array(topRow).parse(rows);
       }
       return wire.sampleResponse.parse({ values });
-    });
+    }, signal);
     if (!await this.record({ ...event, outcome: result.ok ? 'completed' : 'failed' })) return auditFailure();
     return result;
   }
 
-  async estimateRowCount(request: unknown): Promise<Result<{ rows: number | null }>> {
+  async estimateRowCount(request: unknown, signal?: AbortSignal): Promise<Result<{ rows: number | null }>> {
     return this.run(request, wire.estimatePayload, async (session, payload) => {
       const rows = await session.query(`SELECT CASE WHEN c.reltuples < 0 OR c.relkind = 'v' THEN NULL
           ELSE round(c.reltuples::numeric)::float8 END AS rows
@@ -121,20 +121,21 @@ export class PostgresConnector implements SidecarConnector {
           AND has_schema_privilege(n.oid, 'USAGE') AND has_any_column_privilege(c.oid, 'SELECT')`, [payload.object.schema, payload.object.name]);
       if (rows.length !== 1) throw new UnavailableObject();
       return wire.estimateResponse.parse(rows[0]);
-    });
+    }, signal);
   }
 
   private async record(event: SamplingAudit): Promise<boolean> {
     try { await this.audit.record(event); return true; } catch { return false; }
   }
-  private async run<P, T>(request: unknown, schema: z.ZodType<P>, work: (session: SourceSession, payload: P) => Promise<T>): Promise<Result<T>> {
+  private async run<P, T>(request: unknown, schema: z.ZodType<P>, work: (session: SourceSession, payload: P) => Promise<T>, signal?: AbortSignal): Promise<Result<T>> {
     const parsed = wire.envelope.extend({ payload: schema }).safeParse(request);
     if (!parsed.success) return invalid();
     try {
       const value = await this.scope.run(`${parsed.data.projectId}:${parsed.data.sourceId}`, VaultRef(parsed.data.credentialRef),
-        (session) => work(session, parsed.data.payload));
+        (session) => work(session, parsed.data.payload), signal);
       return ok(value);
     } catch (error: unknown) {
+      if (error instanceof SourceCancelled) return err(new DomainError('source_unavailable', 'Source request cancelled.'));
       if (error instanceof DomainError && error.code === 'dependency_unavailable') {
         return err(new DomainError('dependency_unavailable', 'Source credentials are unavailable.', undefined, error.retryable));
       }

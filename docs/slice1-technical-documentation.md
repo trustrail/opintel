@@ -218,6 +218,11 @@ class Entitlement {
 - An entitlement cannot be deleted back to undecided through the API. The only transition out of undecided is a decision
 - Setting a bulk selection to `clear` requires a non-empty justification, carried on the command
 
+**A type-family change deletes the entitlement row**. That is the only deletion the model permits, and it is how an element returns to undecided. The decision was made about a number; the column is now text, and carrying the treatment across would be honouring a decision nobody made.
+
+**The deletion is recorded before it happens**. The introspection diff names the element, the old treatment, the old and new type families, and the run that caused it. The row is gone; the fact that it existed and why it went is not.
+
+
 ### Pool (root: `Pool`)
 
 ```ts
@@ -869,11 +874,11 @@ interface IdFactory {
 // both call it SourceConnector; ConnectorPort is not a second thing.
 interface SourceConnector {
   readonly kind: SourceKind;
-  testConnection(ref: VaultRef): Promise<Result<void, DomainError>>;
-  introspect(ref: VaultRef, include: string[]): Promise<Result<CatalogSnapshot, DomainError>>;
-  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number):
+  testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
+  introspect(ref: VaultRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
+  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number, signal?: AbortSignal):
     Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
-  estimateRowCount(ref: VaultRef, object: ObjectRef): Promise<Result<number | null, DomainError>>;
+  estimateRowCount(ref: VaultRef, object: ObjectRef, signal?: AbortSignal): Promise<Result<number | null, DomainError>>;
 }
 type TopValue = { value: string; frequency: number };
 
@@ -1490,9 +1495,10 @@ Internal, mutually authenticated, not public.
 | POST | `/sample` | Reads real values. Refuses without the consent flag |
 | POST | `/validate` | Parses and plans against view definitions. Opens no source connection |
 | POST | `/execute` | Governed SQL plus view definitions and limits. Returns rows |
-| POST | `/session/:id/cancel` | Cancels in flight, releases connections |
 
 `execute` carries an `entitlementContext` field, null in Slices 1 and 2, populated in Slice 3.
+
+**Cancellation is the HTTP request being aborted**. There is no cancel endpoint. The application aborts its request; the sidecar sees the connection close and cancels the source query through pg_cancel_backend, then releases the connection. A sidecar that cannot cancel still releases on timeout.
 
 
 ### The wire contract
@@ -2193,6 +2199,8 @@ create table data_source (
 );
 
 create table introspection_run (
+  include_schemas text[] not null default '{}', -- exact selection retained for retries
+  diff       jsonb not null default '[]',     -- durable entries; type-family invalidation precedes metadata changes
   id         uuid primary key default gen_random_uuid(),
   source_id  uuid not null references data_source(id) on delete cascade,
   project_id uuid not null references project(id) on delete cascade,
@@ -2252,6 +2260,28 @@ create table element_stats (
 );
 ```
 
+
+Item 3.6 persists the requested schema selection and the diff on `introspection_run`.
+Only one queued or active run per source is allowed. Catalogue reconciliation is
+staged in memory; the diff, all catalogue changes, source status and run completion
+publish in one tenant transaction. A failed or cancelled read preserves the previous
+catalogue. Cancellation is accepted only while queued, connecting or reading;
+publication starts after the transition to diffing. Workers observe cancellation
+through the persisted run state and abort the connector request.
+
+A type-family diff carries the element identifier, before/after types and
+`requiresEntitlementDeletion: true`. Item 4.1 supplies the deletion after this diff
+is recorded. An unchanged structural snapshot yields an empty diff. Exact schema
+subsets do not mark objects outside that selection removed.
+
+Explicit `adoptRenamedNames` is recorded in run progress and requires project
+administration at enqueue and again before publication. The default preserves
+exposed names. Adoption uses the catalogue command, increments its name revision,
+and records the breaking change in the same transaction.
+
+Source connection failure sets status to `unreachable`; successful publication
+sets it to `connected`. Item 3.6 exposes this status through its application service.
+F-010 query-path refusal is implemented and verified in item 5.7.
 
 ## 4.4 The exposed namespace and type mapping
 
