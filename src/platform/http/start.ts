@@ -58,6 +58,12 @@ async function start(): Promise<void> {
     { ExplainPermissionsService },
     { PostgresPermissionSubjectRepository },
     { permissionRoutes },
+    { ListMembersService },
+    { PostgresMemberListRepository },
+    { memberRoutes },
+    { MigrateIndustryService },
+    { PostgresIndustryMigrationRepository },
+    { industryMigrationRoutes },
   ] = await Promise.all([
     import('../../shared/kernel/index.js'),
     import('./index.js'),
@@ -96,6 +102,12 @@ async function start(): Promise<void> {
     import('../../modules/tenancy/application/explain-permissions.js'),
     import('../../modules/tenancy/infrastructure/permission-subject-repository.js'),
     import('../../modules/tenancy/api/permission-routes.js'),
+    import('../../modules/tenancy/application/list-members.js'),
+    import('../../modules/tenancy/infrastructure/member-list-repository.js'),
+    import('../../modules/tenancy/api/member-routes.js'),
+    import('../../modules/tenancy/application/migrate-industry.js'),
+    import('../../modules/tenancy/infrastructure/industry-migration-repository.js'),
+    import('../../modules/tenancy/api/industry-migration-routes.js'),
   ]);
 
   const clock = new SystemClock();
@@ -122,8 +134,10 @@ async function start(): Promise<void> {
   const currentUsers = new CurrentUserService(sessions, identity);
   const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, delivery);
   const routes = [
+    ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
     ...magicLinkRoutes(magicLinks),
     ...invitationRoutes(invitations),
+    ...memberRoutes(new ListMembersService(new PostgresMemberListRepository())),
     ...permissionRoutes(new ExplainPermissionsService(new PostgresPermissionSubjectRepository(), authorization)),
     ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
     ...currentUserRoutes(currentUsers),

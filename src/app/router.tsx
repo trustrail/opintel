@@ -5,6 +5,7 @@ import { RouteErrorBoundary } from './error-boundary.js';
 import { navGroups, type NavItem } from './navigation.js';
 import { AppShell } from './shell.js';
 import { AuthCallbackScreen, CheckEmailScreen, ConfirmDeviceScreen, isAuthPath, SignInScreen } from './auth-screens.js';
+import { AccessScreen } from './access/screen.js';
 import { AuthGuard } from './guard.js';
 import { KitchenSinkScreen } from './kitchen-sink.js';
 import { CreateCompanyScreen, CreateProjectScreen, ProjectChooser, ProjectDashboard } from './tenancy/screens.js';
@@ -31,7 +32,8 @@ const createProjectRoute = createRoute({ getParentRoute: () => rootRoute, path: 
 const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: '/companies/new', component: CreateCompanyScreen });
 const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', component: () => {
-  const { screen } = projectScreenRoute.useParams();
+  const { screen, projectId } = projectScreenRoute.useParams();
+  if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   return <RouteScreen title={navGroups.flatMap((group) => group.items).find((item) => item.path === `/${screen}`)?.label ?? 'Not found'} />;
 } });
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: () => <AuthRoute><SignInScreen /></AuthRoute> });

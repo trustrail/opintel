@@ -154,12 +154,12 @@ Version 1.0 · September 2026
 | E2-023 | A | Migrate industry as project admin only | 403, company admin is also required |
 | E2-024 | F | Migrate dry run | Reports shadowed terms and, in Slice 1b, prompts in the last 30 days using terms unique to the old industry. **Protocols do not exist until Slice 3**, so nothing is reported about them |
 | E2-025 | F | Migrate without typed confirmation | Rejected |
-| E2-026 | D | After migration, entitlements | **Every entitlement unchanged**; assert row-by-row |
-| E2-027 | D | After migration, sources, pools, keys | Unchanged |
+| E2-026 | D | After migration, entitlements *(needs entitlement, item 4.1)* | **Every entitlement unchanged**; assert row-by-row |
+| E2-027 | D | After migration, sources, pools *(needs data_source item 3.1, pool item 5.1)* , keys | Unchanged |
 | E2-028 | D | After migration, project-scope terms | Retained and still overriding |
-| E2-031 | F | After migration, observation | Lists terms that no longer resolve |
-| E2-032 | D | Historical evidence after migration | Still explains itself against its original vocabulary version |
-| E2-033 | F | Prompt using an old-industry-only term after migration | Refused and named; not silently mis-resolved |
+| E2-031 | F | After migration, observation *(needs the observations register, Slice 3)* | Lists terms that no longer resolve |
+| E2-032 | D | Historical evidence after migration *(needs evidence records, item 5.10)* | Still explains itself against its original vocabulary version |
+| E2-033 | F | Prompt using an old-industry-only term after migration *(needs prompt mode, Slice 1b item 6.6)* | Refused and named; not silently mis-resolved |
 | E2-034 | D | Vocabulary version | Bumped once; `effectiveVocabulary` invalidated for this project only |
 | E2-035 | R | Migration fails mid-way | Rolled back; project fully on the old industry |
 

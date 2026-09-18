@@ -102,7 +102,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 2.7 | Invitations, relationship written on acceptance | 2.2, 1.7 | endpoints | E-010 to E-014 |
 | 2.8 | Roles, capability resolution, permission explanation | 2.2 | endpoint | E-005 to E-009 |
 | 2.9 | Access screen with derivation, project switcher | 2.8, 1.12 | two screens | E-009, E-015, E-016 |
-| 2.10 | Migrate industry: dry run, typed confirmation, entitlements untouched | 2.1, 2.6 | endpoint and dialog | E2-023 to E2-035 |
+| 2.10 | Migrate industry: dry run, typed confirmation, entitlements untouched | 2.1, 2.6 | endpoint and dialog | E2-023 to E2-025, E2-028, E2-034 to E2-035 |
 
 **Gate.** A company admin resolves to project admin without a per-project grant. An operator cannot set entitlements, refused at the API. A non-member gets 404. The derivation panel matches SpiceDB's own explanation for three users. An invitation grants nothing until accepted.
 
@@ -156,8 +156,8 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003 |
-| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009 |
+| 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003, E2-027 |
+| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026 |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |

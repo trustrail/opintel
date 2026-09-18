@@ -35,6 +35,17 @@ export const ProjectView = z.object({
 
 export const UpdateProjectBody = z.object({ name: z.string().min(1).max(80) });
 
+export const MigrateIndustryBody = z.object({
+  industryId: z.string().uuid(), confirmation: z.string(),
+});
+const MigrationIndustry = z.object({ id: z.string().uuid(), name: z.string(), termCount: z.number().int() });
+export const MigrateIndustryPreview = z.object({
+  from: MigrationIndustry, to: MigrationIndustry,
+  shadowedTerms: z.array(z.object({ name: z.string(), kind: z.string() })),
+  projectTermsRetained: z.number().int(), entitlementsAffected: z.literal(0),
+  confirmationPhrase: z.string(),
+});
+
 
 export const ProjectListItem = z.object({
   id: z.string().uuid(), name: z.string(),
@@ -68,3 +79,13 @@ export const ExplainResponse = z.object({
   permissions: z.array(PermissionExplanation),
   checkedAt: z.string().datetime({ offset: true }), token: z.string(),
 });
+
+export const ProjectMemberListItem = z.object({
+  user: z.object({ id: z.string().uuid(), email: z.string(), fullName: z.string().nullable() }),
+  projectRole: z.enum(['admin', 'operator', 'viewer']).nullable(),
+  companyRole: z.enum(['admin', 'member']).nullable(),
+  via: z.enum(['project', 'company', 'both']),
+  grantedAt: z.string().datetime({ offset: true }).nullable(),
+  grantedBy: z.object({ id: z.string().uuid(), email: z.string() }).nullable(),
+});
+export const ProjectMemberListResponse = z.object({ items: z.array(ProjectMemberListItem), nextCursor: z.string().nullable() });

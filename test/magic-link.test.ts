@@ -3,7 +3,7 @@ import { InvitationService } from '../src/modules/tenancy/application/invitation
 import { PostgresInvitationRepository } from '../src/modules/tenancy/infrastructure/invitation-repository.js';
 import { RelationshipOutbox } from '../src/modules/tenancy/application/relationship-outbox.js';
 import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -148,6 +148,48 @@ integration('magic links', () => {
     expect(known.allowed).toBe(false);
     expect(unknown.allowed).toBe(false);
     expect(known.retryAfterSeconds).toBe(unknown.retryAfterSeconds);
+  });
+
+  it('B-011: rejects the eleventh request from one IP across different addresses', async () => {
+    for (let index = 0; index < 10; index += 1) {
+      const result = await service.requestLink({ ...request, email: `unknown-${index}@example.com` });
+      expect(result.allowed).toBe(true);
+    }
+    const result = await service.requestLink({ ...request, email: 'unknown-11@example.com' });
+    expect(result).toEqual({ allowed: false, retryAfterSeconds: 1, token: null });
+  });
+
+  it.each(['unavailable', 'command error'] as const)('allows request-link and warns when the limiter store has %s', async (failure) => {
+    if (failure === 'unavailable') {
+      await redisConnection().close();
+    } else {
+      await redisConnection().client.set('rate-limit:magic-link:email:known@example.com', 'not-a-counter');
+    }
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const server = createHttpServer(magicLinkRoutes(service));
+    try {
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const address = server.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/auth/request-link`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: request.email, deviceNonce: request.deviceNonce }),
+      });
+      expect(response.status).toBe(202);
+      expect(await response.text()).toBe('');
+      expect(response.headers.get('retry-after')).toBeNull();
+      expect(warning).toHaveBeenCalledWith('Magic-link rate limiter store failed; allowing request.', {
+        operation: failure === 'unavailable' ? 'connection' : 'INCR',
+        failure: failure === 'unavailable' ? 'unavailable' : 'redis_command_error',
+      });
+      expect(JSON.stringify(warning.mock.calls)).not.toContain(request.email);
+      const tokens = await withPlatform((tx) => tx.query('SELECT id FROM magic_link_token'));
+      const messages = await withPlatform((tx) => tx.query('SELECT id FROM mail_outbox'));
+      expect(tokens).toHaveLength(1);
+      expect(messages).toHaveLength(1);
+    } finally {
+      warning.mockRestore();
+      await new Promise<void>((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error)));
+    }
   });
 
   it('B-015: accepts an invite while preserving its intended role', async () => {

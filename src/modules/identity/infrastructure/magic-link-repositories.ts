@@ -1,3 +1,4 @@
+import { ErrorReply, TimeoutError } from 'redis';
 import { DomainError, InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { redisKeyPrefix, type RedisClient } from '../../../platform/redis/index.js';
@@ -84,10 +85,27 @@ const limiterKeys = redisKeyPrefix('rate-limit');
 export class RedisRateLimiter implements RateLimiter {
   constructor(private readonly client: RedisClient) {}
   async check(key: string, limit: number, windowMs: number): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
-    const redisKey = limiterKeys.key(key);
-    const count = await this.client.incr(redisKey);
-    if (count === 1) await this.client.pExpire(redisKey, windowMs);
-    const retryAfterSeconds = count <= limit ? 0 : Math.min(2 ** (count - limit - 1), 16);
-    return { allowed: count <= limit, retryAfterSeconds };
+    let operation = 'connection';
+    try {
+      // Do not queue sign-in behind an unavailable store's reconnect loop.
+      if (!this.client.isReady) throw new Error('Limiter store is unavailable.');
+      const client = this.client.withCommandOptions({ timeout: 1_000 });
+      const redisKey = limiterKeys.key(key);
+      operation = 'INCR';
+      const count = await client.incr(redisKey);
+      if (count === 1) {
+        operation = 'PEXPIRE';
+        await client.pExpire(redisKey, windowMs);
+      }
+      const retryAfterSeconds = count <= limit ? 0 : Math.min(2 ** (count - limit - 1), 16);
+      return { allowed: count <= limit, retryAfterSeconds };
+    } catch (error: unknown) {
+      // Redis errors may contain keys (email/IP); never log their raw contents.
+      const failure = !this.client.isReady ? 'unavailable'
+        : error instanceof TimeoutError ? 'timeout'
+          : error instanceof ErrorReply ? 'redis_command_error' : 'client_error';
+      console.warn('Magic-link rate limiter store failed; allowing request.', { operation, failure });
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
   }
 }

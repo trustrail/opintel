@@ -14,6 +14,9 @@ const manage = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;
 const sharedRead: GrantContract = {
   opintel_app: ['SELECT'], opintel_platform: ['SELECT'], opintel_platform_admin: manage,
 };
+const projectVocabulary: GrantContract = {
+  ...sharedRead, opintel_app: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+};
 const platformManaged: GrantContract = {
   opintel_app: [], opintel_platform: manage, opintel_platform_admin: manage,
 };
@@ -22,11 +25,11 @@ const platformManaged: GrantContract = {
 // public table until its owning scope and privileges have been reviewed.
 const contracts: Record<string, GrantContract> = {
   industry: sharedRead,
-  vocabulary_term: sharedRead,
+  vocabulary_term: projectVocabulary,
   embedding: sharedRead,
   demo_source_template: sharedRead,
   // §4.5: synonyms must be accessed through their vocabulary_term parent.
-  term_synonym: sharedRead,
+  term_synonym: projectVocabulary,
   synonym_candidate: {
     opintel_app: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
     opintel_platform: [], opintel_platform_admin: manage,
