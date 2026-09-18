@@ -2113,7 +2113,7 @@ create table data_source (
   created_at     timestamptz not null default now(),
   unique (project_id, lower(name)),
   constraint credential_matches_origin check (
-    (origin = 'customer' and credential_ref like 'vault://%') or
+    (origin = 'customer' and credential_ref is not null and credential_ref like 'vault://%') or
     (origin = 'demo'     and credential_ref is null and demo_template_id is not null)
   )
 );
@@ -2178,6 +2178,10 @@ create table element_stats (
 
 
 ## 4.4 The exposed namespace and type mapping
+
+The catalogue migration enforces immutable `duckdb_name` on both objects and elements, and immutable `duckdb_schema` on objects. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. All five tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
+
+Item 3.1's pure catalogue aggregate accepts assigned names for new identities and never invokes name assignment for an existing identity. It retains removed entities and emits identifier-only addition, rename and removal events. Item 3.2 supplies normalization and collision suffixes; later introspection work persists and publishes the changes. Entitlement preservation is verified against entitlement rows when item 4.1 introduces that table.
 
 Agents address data by a DuckDB name, not a source name. The mapping is part of the contract: the agent writes it, `describe` returns it, and every evidence record carries both.
 

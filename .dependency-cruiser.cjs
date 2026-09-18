@@ -5,7 +5,7 @@ module.exports = {
       comment: 'A context consumes another context through that context public index only.',
       severity: 'error',
       from: { path: '^src/modules/([^/]+)/' },
-      to: { path: '^src/modules/(?!\\1(?:/|$))[^/]+/(?:domain|infrastructure)(?:/|$)' }
+      to: { path: '^src/modules/(?!$1(?:/|$))[^/]+/(?:domain|infrastructure)(?:/|$)' }
     }
   ],
   options: {
