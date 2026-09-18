@@ -167,16 +167,16 @@ Version 1.0 · September 2026
 
 | ID | Type | Case | Expected |
 |---|---|---|---|
-| F-001 | F | Connect Postgres with a valid read-only role | Test passes, source saved, introspection queued |
+| F-001 | F | Connect Postgres with a valid read-only role *(save and queue need item 3.12)* | Test passes, source saved, introspection queued |
 | F-002 | F | Connect with wrong credentials | Test fails with a message naming the failure, source not saved |
 | F-003 | F | Connect to an unreachable host | Fails with a timeout message inside 10s |
-| F-004 | F | Connect a second Postgres source that receives landed spreadsheets | Succeeds; landed tables catalogued like any other |
+| F-004 | F | Connect a second Postgres source that receives landed spreadsheets *(needs item 3.12)* | Succeeds; landed tables catalogued like any other |
 | F-005 | S | Credentials in an API response | Absent from every payload |
 | F-006 | D | Credentials at rest | Vault reference only; a database scan finds no plaintext |
-| F-007 | A | Member without `bind_source` connects | 403 |
-| F-008 | F | Delete a source with entitlements | Confirmation names the dependent entitlements; typed confirmation required |
-| F-009 | F | Two sources of different types in one project | Both catalogue independently |
-| F-010 | R | Source becomes unreachable after connection | Status reflects it; queries refuse rather than serve stale |
+| F-007 | A | Member without `bind_source` connects *(needs the connect route, item 3.12)* | 403 |
+| F-008 | F | Delete a source with entitlements *(needs entitlement, item 4.1)* | Confirmation names the dependent entitlements; typed confirmation required |
+| F-009 | F | Two sources of different types in one project *(needs item 3.12)* | Both catalogue independently |
+| F-010 | R | Source becomes unreachable after connection *(needs source status, item 3.6)* | Status reflects it; queries refuse rather than serve stale |
 
 ## S1-G · Introspection and catalogue
 

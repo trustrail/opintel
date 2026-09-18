@@ -873,7 +873,7 @@ interface SourceConnector {
   introspect(ref: VaultRef, include: string[]): Promise<Result<CatalogSnapshot, DomainError>>;
   sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number):
     Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
-  estimateRowCount(ref: VaultRef, object: ObjectRef): Promise<Result<number, DomainError>>;
+  estimateRowCount(ref: VaultRef, object: ObjectRef): Promise<Result<number | null, DomainError>>;
 }
 type TopValue = { value: string; frequency: number };
 
@@ -995,6 +995,10 @@ That constrains issuance: the plaintext token exists in memory for the duration 
 **Self-revocation is the caller's concern.** The route knows its own session id and passes it as `except` to `revokeAllFor`, and sets `current` on each summary. The port does not need ambient request context.
 
 **`Tx` deliberately exposes no lifecycle methods.** A callback that could call `commit` or `release` would be able to defeat the scope, which is the one thing the scope exists to prevent.
+
+
+**null from estimateRowCount means the source cannot estimate**, not that the call failed. The distinction matters at query planning: an unknown row count means the cardinality check cannot run, so the query is refused with unsupported_pushdown rather than executed blind. An error means the source was unreachable, which is a different refusal.
+
 
 ### The outbox
 
@@ -1489,6 +1493,55 @@ Internal, mutually authenticated, not public.
 | POST | `/session/:id/cancel` | Cancels in flight, releases connections |
 
 `execute` carries an `entitlementContext` field, null in Slices 1 and 2, populated in Slice 3.
+
+
+### The wire contract
+
+All requests are `POST`, JSON, over mutual TLS. The sidecar presents a certificate the application pins; the application presents one the sidecar pins. There is no bearer token: the certificate is the identity.
+
+```ts
+type SidecarRequest<T> = {
+  requestId: string;              // the application's request id, for correlation
+  projectId: ProjectId;
+  sourceId: SourceId;
+  credentialRef: VaultRef;        // the sidecar resolves it, the application never holds the secret
+  payload: T;
+};
+
+// POST /health  -> no body
+type HealthResponse = {
+  version: string;                // semver of the sidecar
+  contract: number;               // wire contract version, currently 1
+  duckdb: string;
+};
+
+// POST /test-connection -> testConnection
+type TestConnectionPayload = Record<string, never>;
+type TestConnectionResponse = { reachable: true } | { reachable: false; reason: string };
+
+// POST /introspect -> introspect
+type IntrospectPayload = { include: string[] };      // schema name patterns
+type IntrospectResponse = { snapshot: CatalogSnapshot };
+
+// POST /sample -> sampleTopValues
+// Refused unless the source carries sampling consent. The sidecar does not
+// decide that; the application does, and passes it explicitly so the refusal
+// is visible in the sidecar's own logs.
+type SamplePayload = {
+  consentGiven: true;
+  elements: Array<{ elementId: ElementId; object: string; column: string }>;
+  limit: number;
+};
+type SampleResponse = { values: Record<string, TopValue[]> };
+
+// POST /estimate -> estimateRowCount
+type EstimatePayload = { object: { schema: string; name: string } };
+type EstimateResponse = { rows: number | null };     // null when the source cannot estimate
+```
+
+**A contract mismatch fails loudly.** The client calls `/health` on first use and refuses if `contract` differs from the version it was built against. A sidecar upgraded ahead of the application, or behind it, stops rather than guessing.
+
+**`consentGiven` is always `true` when present.** The application never sends `false`; it simply does not call `/sample`. The field exists so a sidecar operator auditing their own logs can see that consent was asserted for every sampling request.
 
 ---
 

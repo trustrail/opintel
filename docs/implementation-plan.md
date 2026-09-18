@@ -116,16 +116,16 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 |---|---|---|---|---|
 | 3.1 | Catalogue domain and schema, element identity, `duckdb_name` immutable | 2.1 | `modules/catalog` | G-006, G-007, G-012 |
 | 3.2 | Namespace and type mapping, normalisation recorded once | 3.1 | `catalog/naming.ts` | G-010 to G-013, R-003 |
-| 3.3 | `SourceConnector` port. **All source contact goes through the sidecar** | 3.1, S1 | `modules/sources` | F-001 to F-010 |
+| 3.3 | `SourceConnector` port. **All source contact goes through the sidecar** | 3.1, S1 | `modules/sources` | F-002, F-003, F-005, F-006 |
 | 3.4 | Postgres connector: test, introspect, sample, estimate | 3.3, S1 | adapter | G-001 to G-005, G-014 to G-016 |
 | 3.5 | Vault integration, literal-secret constraint | 3.3 | `platform/vault` | F-005, F-006 |
-| 3.6 | Introspection job, state machine, diff, cancel | 3.4 | `jobs/introspect` | G-017, G-018, R-023 |
+| 3.6 | Introspection job, state machine, diff, cancel | 3.4 | `jobs/introspect` | G-017, G-018, R-023, F-010 |
 | **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify cedant, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 |
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18 |
 | **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source and on every record | 3.8 | `ingest/land.ts` | ING-19 to ING-26 |
 | **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27 to ING-32 |
 | 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve cedants, inconsistent formats | 3.9, 2.1 | `modules/sources/demo` | demo path identical, asserted on the port |
-| 3.12 | Data sources screen, connect wizard, origin badges, demo card | 3.6, 1.11 | screens | F-001 to F-004, O-002 |
+| 3.12 | Data sources screen, connect wizard, origin badges, demo card | 3.6, 1.11 | screens | F-001, F-004, F-007, F-009, O-002 |
 | 3.13 | Filings within source detail, expandable per source. Quarantine surfaced on the dashboard and in observations | 3.10, 1.11 | source screen sections | ING-27 to ING-32 |
 | 3.14 | Schema explorer, virtualised, prefix fetch | 3.1, 1.11 | screen | G-019, G-020, R-001, R-002 |
 | 3.15 | Introspection run and diff screen, live progress | 3.6, 3.16 | screen | G-003 to G-009 |
@@ -157,7 +157,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003, E2-027 |
-| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026 |
+| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008 |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |
