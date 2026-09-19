@@ -237,7 +237,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| S1 | Skeleton, config, mutual auth, `/health`, `/introspect`, `/sample` with consent | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
+| S1 | Runnable host, validated config, pinned mutual TLS; `/health`, `/test-connection`, `/introspect`, `/sample` with consent, `/estimate`; audit and disconnect cancellation | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
 | **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-26 |
 | S2 | **Two-session construction**, hardening with `lock_configuration` last, `/validate`, `/execute`. **Hand-written** | S1, 4.4 | session lifecycle | J-003 to J-018, and the bypass suite against both execution paths |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |

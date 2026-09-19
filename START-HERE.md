@@ -2,7 +2,7 @@
 
 ## 1. Start the development stack
 
-Install Node 20.19+ and Docker Compose v2, then start Docker. On the first checkout:
+Install Node 20.19+, OpenSSL and Docker Compose v2, then start Docker. On the first checkout:
 
 ```sh
 npm ci
@@ -17,7 +17,7 @@ npm run dev:up
 
 This starts Compose and waits for Postgres, Redis and SpiceDB readiness, creates
 both `opintel` and `opintel_test` if missing, applies all migrations to both, and
-loads `docs/opintel-schema.zed`. It is safe to run again: existing databases are
+loads `docs/opintel-schema.zed`, and starts the local sidecar over pinned mTLS. It is safe to run again: existing databases are
 kept and only pending migrations run. SpiceDB dispatch caching remains enabled.
 
 Use this command after `docker compose down` / `up` or a volume reset. Compose
@@ -49,6 +49,66 @@ checksums, Redis connectivity and the loaded SpiceDB schema. Missing prerequisit
 fail once with their names and the recovery command `npm run dev:up`, rather than
 producing failures in every suite. Tests do not create databases or load schemas
 as a substitute for this preflight. CI uses the same bootstrap and checks.
+
+## Local sidecar (S1)
+
+`npm run dev:up` generates a local CA and separate server/client certificates
+under ignored `tmp/sidecar/tls/`, then starts the sidecar as a background Node
+process at **https://127.0.0.1:3100**. It waits for an authenticated, pinned
+`POST /health` with contract 1. A healthy existing process is reused. This is a
+local development process, not a container image or deployment package.
+
+- Server configuration: `tmp/sidecar/service.json`.
+- Application client configuration: `tmp/sidecar/client.json`.
+- Process log and PID: `tmp/sidecar/service.log`, `tmp/sidecar/sidecar.pid`.
+- Durable sampling audit: `tmp/sidecar/sampling-audit.jsonl`, identifiers and
+  outcomes only. Source rows and resolved credentials are never written there.
+
+To run in the foreground after stopping the background sidecar with SIGTERM:
+
+```sh
+npm run dev:sidecar -- tmp/sidecar/service.json
+```
+
+The sidecar releases active source operations during shutdown. Inspect the PID
+before signalling it if the PID file may be stale. Configuration changes require
+a restart. The generated certificates last 30 days; to regenerate them, stop the
+sidecar, move `tmp/sidecar/tls` aside, and rerun `dev:up`. Never commit keys.
+
+The startup command accepts a configuration filename; alternatively set
+`SIDECAR_CONFIG_FILE`. Relative certificate and audit paths are resolved beside
+that file. Server configuration contains the bind host/port, CA/server key and
+certificate/client certificate pin, audit path, source connection ceiling,
+statement/operation timeouts, request-body bound and shutdown deadline.
+Keep `client.json` in sync when changing the server's address or identity.
+
+Source credentials belong to the sidecar. In development, supply them through
+its environment or ignored `.env.sidecar.local`. For example, the reference
+`vault://customer/warehouse` resolves from `OPINTEL_SECRET_CUSTOMER_WAREHOUSE`.
+The value is the customer Postgres connection URI. The application sends only
+the vault reference. The programmatic host accepts a `VaultPort` for a production
+secret manager; the CLI uses the existing development environment adapter.
+
+Application-side setup uses the existing connector:
+
+```ts
+import { loadSidecarClientOptions, SidecarSourceConnector } from './src/modules/sources/index.js';
+
+const options = await loadSidecarClientOptions('tmp/sidecar/client.json');
+const connector = new SidecarSourceConnector('postgres', sourceContext, options);
+```
+
+`sourceContext` supplies the request, project and source IDs and the existing
+sampling-consent/catalogue resolver. The client pins the server; the server pins
+the application certificate. There is no bearer token. `/health` reports
+`duckdb: "not-loaded"` until the separately implemented S2 runtime exists.
+
+The five POST routes are `/health`, `/test-connection`, `/introspect`, `/sample`
+and `/estimate`. `/health` has no body; the other routes use §2.7's envelope.
+Cancellation is an HTTP request abort, not another endpoint. OpenAPI is in
+`sidecar/openapi.json`, generated from the shared Zod schemas with
+`npm run sidecar:openapi`. Integration tests start isolated hosts with real
+certificates and test Postgres; they do not depend on the background dev sidecar.
 
 ## 2. Open Codex
 

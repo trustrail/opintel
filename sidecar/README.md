@@ -1,9 +1,11 @@
 # Postgres connector hosting
 
-Item 3.4 supplies connector logic; S1 supplies the HTTP service, pinned mTLS,
-configuration, and durable audit/vault adapters. This directory is a separate
-runtime entry point. Application code uses `SidecarSourceConnector` over HTTPS
-and must never import the Postgres adapter.
+S1 supplies the runnable HTTPS host in `start.ts` and `http/server.ts`, validated
+file configuration, pinned mTLS, the five wire endpoints, a durable local sampling
+audit sink, disconnect cancellation, and graceful shutdown. Item 3.4 supplies its
+connector logic. See [START-HERE.md](../START-HERE.md#local-sidecar-s1) for local
+startup and application client configuration. Application code contacts this
+runtime through `SidecarSourceConnector`; it never imports the Postgres adapter.
 
 Use `createPostgresConnector({ vault, audit, limits })` once per host. Supply the
 existing `VaultPort`: `DevelopmentVaultAdapter` in development, or a production
@@ -26,8 +28,7 @@ remain separate and unchanged.
 Supply a `SamplingAuditPort` that persists identifier-only events.
 The connector consumes the §2.7 request envelopes, with
 Zod validation, and returns `Result` values. The host maps `forbidden` to HTTP
-403; successful values have the declared wire response shape. No HTTP listener
-or `/health` implementation is included here. Resolve vault references only
+403; successful values have the declared wire response shape. The HTTP host serves `/health` without source contact and reports contract 1. Resolve vault references only
 inside this runtime. Do not log raw driver exceptions or resolved credentials.
 
 Sampling records `started` before source contact and `completed` or `failed`

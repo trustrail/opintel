@@ -7,3 +7,6 @@ coverage/
 playwright-report/
 test-results/
 *.local
+
+# Local sidecar keys, process state, and audit metadata
+tmp/sidecar/

@@ -11,6 +11,8 @@
     "build": "vite build",
     "dev": "vite",
     "dev:up": "tsx scripts/dev-up.ts",
+    "sidecar:openapi": "tsx scripts/sidecar-openapi.ts",
+    "dev:sidecar": "tsx sidecar/start.ts",
     "dev:api": "tsx src/platform/http/start.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts sidecar --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",

@@ -1,3 +1,4 @@
+import { startDevelopmentSidecar } from './sidecar-dev.js';
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { setTimeout } from 'node:timers/promises';
@@ -74,6 +75,7 @@ async function main(): Promise<void> {
     console.info('Loaded docs/opintel-schema.zed into SpiceDB.');
   } finally { client.close(); }
   await testPreflight(environment);
+  await startDevelopmentSidecar();
   console.info('Development services are ready. Run npm run dev:api, npm run dev, or npm test.');
 }
 

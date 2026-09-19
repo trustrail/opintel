@@ -31,3 +31,25 @@ export const envelope = z.strictObject({
   requestId: z.string().min(1), projectId: z.uuid(), sourceId: z.uuid(),
   credentialRef: z.string().startsWith('vault://').min(9), payload: z.unknown(),
 });
+
+/** OpenAPI and the client/server boundaries share these exact Zod schemas. */
+export function sidecarOpenApiDocument() {
+  const operations = [
+    ['/health', null, healthResponse],
+    ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
+    ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
+    ['/sample', envelope.extend({payload:samplePayload}), sampleResponse],
+    ['/estimate', envelope.extend({payload:estimatePayload}), estimateResponse],
+  ] as const;
+  const error = z.strictObject({error:z.strictObject({code:z.string(),message:z.string(),requestId:z.string(),retryable:z.boolean()})});
+  return {
+    openapi:'3.1.0',info:{title:'Opintel sidecar',version:'1'},
+    components:{securitySchemes:{applicationCertificate:{type:'mutualTLS'}}},
+    paths:Object.fromEntries(operations.map(([path,body,response])=>[path,{post:{
+      security:[{applicationCertificate:[]}],
+      ...(body===null?{}:{requestBody:{required:true,content:{'application/json':{schema:z.toJSONSchema(body,{io:'input'})}}}}),
+      responses:{'200':{description:'Success',content:{'application/json':{schema:z.toJSONSchema(response,{io:'input'})}}},
+        default:{description:'Refusal or failure',content:{'application/json':{schema:z.toJSONSchema(error)}}}},
+    }}])),
+  };
+}

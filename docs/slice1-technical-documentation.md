@@ -1490,7 +1490,9 @@ Internal, mutually authenticated, not public.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Heartbeat, engine version, reachability per source |
+| POST | `/health` | Sidecar and contract versions; no request body or source contact |
+| POST | `/test-connection` | Test a source through its vault reference |
+| POST | `/estimate` | Source row estimate, or null when unavailable |
 | POST | `/introspect` | Structure only. Returns no row data in schema mode |
 | POST | `/sample` | Reads real values. Refuses without the consent flag |
 | POST | `/validate` | Parses and plans against view definitions. Opens no source connection |
@@ -1544,6 +1546,20 @@ type SampleResponse = { values: Record<string, TopValue[]> };
 type EstimatePayload = { object: { schema: string; name: string } };
 type EstimateResponse = { rows: number | null };     // null when the source cannot estimate
 ```
+
+S1 serves the five source-connector endpoints as a standalone HTTPS process.
+Every endpoint requires the pinned application certificate. Request schemas,
+response schemas, the application client and `sidecar/openapi.json` share the
+Zod wire definitions. Sampling consent refusal maps to HTTP 403. Audit records
+are append-only, fsynced local JSONL containing identifiers, consent and outcome;
+no source values or resolved credentials enter them. The development CLI uses
+`DevelopmentVaultAdapter`; the host accepts an injected `VaultPort`.
+
+S1 reports `duckdb: "not-loaded"` in health because it does not create a DuckDB
+engine. `/validate` and `/execute` belong to S2 and are not mounted by S1.
+The built wire contract is 1 and the independently reported sidecar version
+starts at 0.1.0. Local bootstrap creates expiring development certificates and
+starts the host; it does not build the S5 deployment package.
 
 **A contract mismatch fails loudly.** The client calls `/health` on first use and refuses if `contract` differs from the version it was built against. A sidecar upgraded ahead of the application, or behind it, stops rather than guessing.
 
