@@ -550,7 +550,7 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ING-21 | F | `table_per_filing` lands a first filing | One table named for the filing |
 | ING-22 | F | `table_per_filing` lands a restatement | Separate table, prior untouched |
 | ING-23 | D | Strategy recorded on the source | Present and immutable after the first filing |
-| ING-24 | D | Strategy stamped on every evidence record | Present on runs touching that source |
+| ING-24 | D | Strategy stamped on every evidence record | Present on runs touching that source. Persisted evidence assertion belongs to item 5.11; item 3.9 records the source strategy |
 | ING-25 | F | No strategy chosen at connection | Connection refused. There is no default |
 | ING-26 | **S** | **A restatement under either strategy** | **Visibly a restatement. A reserve that moved is traceable to the filing that moved it** |
 | ING-27 | F | Filing register after several filings | What arrived, from whom, when, strategy, what it superseded |

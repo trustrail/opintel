@@ -10,6 +10,7 @@ export const identificationRulesSchema = z.strictObject({
     matchKind: z.enum(['filename_regex', 'folder']), pattern: z.string().min(1), kind: z.enum(['premium', 'claims', 'submission']).nullable(),
     sheet: z.string().nullable().optional(), sheetIndex: z.number().int().nullable().optional(), headerRow: z.number().int().optional(),
     verifyColumn: z.string().nullable().optional(), verifyValue: z.string().nullable().optional(),
+    periodAsAtFormat: z.enum(['month_end', 'month_start', 'quarter_end', 'exact_date']).nullable().optional(),
     periodGroup: z.string().min(1).nullable(), priority: z.number().int(), active: z.boolean(),
   })),
 });
@@ -21,6 +22,6 @@ export async function readIdentificationRules(context: { projectId: ProjectId; u
   return withTenant(context, async (tx) => identificationRulesSchema.parse({
     cedants: await tx.query('SELECT id, project_id AS "projectId", code, name, active, decimal_separator AS "decimalSeparator", date_format AS "dateFormat" FROM cedant ORDER BY id'),
     rules: await tx.query(`SELECT id, cedant_id AS "cedantId", project_id AS "projectId", match_kind AS "matchKind", pattern, kind,
-      period_group AS "periodGroup", priority, active, sheet, sheet_index AS "sheetIndex", header_row AS "headerRow", verify_column AS "verifyColumn", verify_value AS "verifyValue" FROM cedant_file_rule ORDER BY id`),
+      period_as_at_format AS "periodAsAtFormat", period_group AS "periodGroup", priority, active, sheet, sheet_index AS "sheetIndex", header_row AS "headerRow", verify_column AS "verifyColumn", verify_value AS "verifyValue" FROM cedant_file_rule ORDER BY id`),
   }));
 }

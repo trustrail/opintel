@@ -136,3 +136,13 @@ EOF
   of cedant_file_rule.sheet/sheet_index. Do not queue that migration before the
   backfill: the normal migration runner would apply it immediately after 018.
 - No assumption is made that deployments have empty cedant tables.
+
+# From item 3.9
+
+- Item 3.10 must reconcile the existing arrival history's `landing` state with
+  customer-local transactional commit receipts and the application's
+  `landing_receipt` delivery inbox. Do not introduce another arrival authority.
+  In particular, landed-but-unregistered filings must remain visible with their
+  registration error; a refused receipt never rolls back committed customer rows.
+- ING-24's persisted evidence assertion belongs to item 5.11. Item 3.9 retains
+  the strategy on the source and every landing receipt for that writer to consume.

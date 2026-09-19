@@ -26,7 +26,7 @@ export async function prepareSidecarDevelopment(directory=sidecarDevDirectory): 
     await openssl('req','-x509','-newkey','rsa:2048','-nodes','-keyout','ca.key','-out','ca.pem','-subj','/CN=Opintel local development CA','-days','30');
     for(const name of ['server','client']){
       await openssl('req','-newkey','rsa:2048','-nodes','-keyout',`${name}.key`,'-out',`${name}.csr`,'-subj',`/CN=Opintel local ${name}`);
-      await writeFile(resolve(tlsDir,`${name}.ext`),`subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=${name==='server'?'serverAuth':'clientAuth'}\n`,{mode:0o600});
+      await writeFile(resolve(tlsDir,`${name}.ext`),`subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth,clientAuth\n`,{mode:0o600});
       await openssl('x509','-req','-in',`${name}.csr`,'-CA','ca.pem','-CAkey','ca.key','-CAcreateserial','-out',`${name}.pem`,'-days','30','-extfile',`${name}.ext`);
       await chmod(resolve(tlsDir,`${name}.key`),0o600);
     }

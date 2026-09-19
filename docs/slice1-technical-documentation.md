@@ -1545,6 +1545,22 @@ type SampleResponse = { values: Record<string, TopValue[]> };
 // POST /estimate -> estimateRowCount
 type EstimatePayload = { object: { schema: string; name: string } };
 type EstimateResponse = { rows: number | null };     // null when the source cannot estimate
+// POST /landing-receipt  — sidecar to application, the only outbound call
+type LandingReceipt = {
+  filingId: FilingId;
+  sourceId: SourceId;
+  projectId: ProjectId;
+  partyCode: string;
+  kind: string;
+  period: string;
+  asAt: string | null;
+  strategy: 'append_as_at' | 'table_per_filing';
+  landedTable: string;
+  rowCount: number;
+  fileSha256: string;
+  supersedes: FilingId | null;
+  landedAt: string;
+};
 ```
 
 S1 serves the five source-connector endpoints as a standalone HTTPS process.
@@ -1565,11 +1581,17 @@ starts the host; it does not build the S5 deployment package.
 
 **`consentGiven` is always `true` when present.** The application never sends `false`; it simply does not call `/sample`. The field exists so a sidecar operator auditing their own logs can see that consent was asserted for every sampling request.
 
-
-
 **include holds exact schema names, not patterns**. An empty array means every schema the credential can read, excluding pg_catalog, information_schema and anything beginning pg_. Patterns were rejected because a pattern that silently starts matching a new schema would introspect data nobody chose to expose, and the set of schemas is small enough to enumerate.
 
 **Identifiers are never string-concatenated**. SamplePayload carries schema, object and column as separate fields:
+
+**The sidecar calls the application, not the reverse, for receipts**. Mutual TLS runs in both directions on the same certificate pair.
+
+**The first receipt for a source fixes its strategy**. The application writes landing_strategy on the data_source row if it is null, and refuses the receipt if it is set and differs, naming both. The sidecar enforces the same rule locally, so a lost connection cannot produce a filing under the wrong strategy. Two enforcements of one rule, because either alone has a window.
+
+**Receipt delivery implementation.** The application serves `/landing-receipt` on a dedicated pinned-mTLS listener, using the same certificate pair in reverse. Both certificates need serverAuth and clientAuth EKUs. The shared Zod payload generates `sidecar/landing-receipt.openapi.json`; acceptance returns 204, conflicts 409, and temporary registration failures 503 with the standard error envelope. Acceptance locks `data_source` and inserts an idempotent, tenant-scoped `landing_receipt` inbox entry in one transaction. An identical retry succeeds; a changed payload for the same filing ID refuses. The first accepted receipt sets `first_landed_at`; a database trigger then prevents changing the strategy or clearing that marker. Runtime configuration is documented in `sidecar/README.md`.
+
+**A receipt the application refuses leaves the filing landed but unregistered**. That is visible rather than silent: the filing register in item 3.10 reports it, and an operator reconciles. The alternative, unlanding the rows, would mean the sidecar undoing a committed write in the customer's database.
 
 ```ts
 type SamplePayload = {
@@ -2203,6 +2225,9 @@ create table data_source (
   name           text not null,
   credential_ref text,                             -- vault://... or null for demo
   sampling_consent boolean not null default false,
+  receives_landings boolean not null default false,
+  landing_strategy text check (landing_strategy in ('append_as_at','table_per_filing')),
+  first_landed_at timestamptz,
   status         text not null default 'pending',
   freshness_mode text not null default 'live',
   last_introspected_at timestamptz,
@@ -2295,6 +2320,7 @@ create table cedant_file_rule (
   pattern     text not null,
   kind        text check (kind in ('premium','claims','submission')),
   period_group text,                            -- named capture yielding the period
+  period_as_at_format text check (period_as_at_format in ('month_end','month_start','quarter_end','exact_date')),
   sheet       text,
   sheet_index integer,                          -- one-based, alternative to sheet
   header_row  integer not null default 1,
@@ -2377,6 +2403,35 @@ The NOT NULL declarations above describe the final schema, not the expand phase.
 **It cannot rescue a file quarantined by 3.7**. A file with no rule has no declared sheet, header row or locale, so there is nothing to read it with.
 
 
+### Landing
+
+**as_at is the filing's period, not its receipt date**. A March bordereau delivered in April is March data. cedant_file_rule gains period_as_at_format text, declaring how the period label parses to a date; where it is null the period is kept as a label and as_at is null. Receipt date is never used as as_at — it answers when a file arrived, which is a different question and already recorded.
+
+**A landing table groups by** (source, cedant, kind). Named {cedant_code}_{kind}, lowercased and normalised by §4.4's rules, in a schema named for the source. Two cedants' premium bordereaux never share a table: their columns differ, and merging them would mean reconciling schemas at write time.
+
+**Provenance columns, prefixed _opintel_ and added to every landed row**: _opintel_filing_id uuid, _opintel_as_at date, _opintel_period text, _opintel_received_at timestamptz, _opintel_file_sha256 text.
+
+**Atomic landing and recovery.** DDL, rows, column-type history and a commit receipt are committed together in customer Postgres. The source schema assignment and strategy lock persist there across restarts. A crash before saving local arrival state replays that receipt without inserting rows twice. The arrival history stores registration success or failure; item 3.10 reconciles this history with commit receipts and the application inbox, rather than adding another arrival authority. Per-filing table names use the assigned cedant/kind base (up to 30 characters), an underscore and the filing UUID without hyphens. Reserved `_opintel_` headers and headers that cannot fit PostgreSQL identifiers refuse rather than overwrite provenance or truncate names.
+
+**A later filing adding a column** adds it to the table, nullable. Earlier rows keep null, which is honest: that cedant did not report it then.
+
+**A later filing changing a column's type** does not alter the column. The filing is quarantined naming the column, both types, and the earlier filing that established it. Widening numeric to text to accommodate one bad file would silently change every historical value's meaning.
+
+**The strategy is required only for sources that receive landed files**. data_source gains landing_strategy text and receives_landings boolean not null default false. A source with receives_landings true and no strategy is refused at connection. An ordinary Postgres source has neither.
+
+**period_as_at_format accepts four values:**
+| Value | Period label | as_at |
+|-------|--------------|-------|
+| month_end | 2026-03 | 2026-03-31 |
+| month_start | 2026-03 | 2026-03-01 |
+| quarter_end | 2026-Q1 | 2026-03-31 |
+| exact_date | 2026-03-15 | 2026-03-15 |
+
+**Month-end is the expected choice for bordereaux, but is never defaulted**, because a monthly bordereau reports the position as at the close of that month. Month-start exists because some cedants label a filing by the period it opens, and that is their convention to state rather than ours to override.
+
+**A period label that does not parse under the declared format quarantines the file**, naming the label and the format. There is no fallback to the receipt date and no inference from the label's shape.
+
+**The value is declared per rule, not guessed**, for the same reason as the locale: 2026-03 means the 1st to one cedant and the 31st to another, and a wrong choice moves every number by a month without changing anything visible.
 
 
 ## 4.4 The exposed namespace and type mapping

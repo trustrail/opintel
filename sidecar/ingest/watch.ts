@@ -3,12 +3,16 @@ import { open, readdir, lstat, mkdir, readFile, rename, unlink } from 'node:fs/p
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
+import { landingReceiptSchema, landingStrategySchema } from '../../src/shared/landing-contract.js';
+import { VaultRef } from '../../src/platform/vault/types.js';
+import type { FilingLander } from './land.js';
 import { identifyFile, identificationRulesSchema, type CedantId, type CedantFileRuleId, type FileExtractor, type Cedant, type CedantFileRule } from '../../src/modules/ingest/index.js';
 import { ProjectId, SourceId, FilingId } from '../../src/shared/kernel/index.js';
 
 export const landingZoneSchema = z.strictObject({
   projectId: z.uuid().transform(ProjectId), sourceId: z.uuid().transform(SourceId),
   directory: z.string().min(1), stateFile: z.string().min(1), rulesFile: z.string().min(1),
+  landing: z.strictObject({ name: z.string().min(1), credentialRef: z.string().startsWith('vault://').min(9).transform(VaultRef), strategy: landingStrategySchema }).optional(),
   pollMs: z.number().int().min(10).max(60_000).default(1000),
 });
 export type LandingZone = z.infer<typeof landingZoneSchema>;
@@ -19,6 +23,7 @@ const filingSchema = z.strictObject({
   cedantId: z.uuid().transform((id) => id as CedantId).nullable(), period: z.string().nullable(), kind: z.enum(['premium', 'claims', 'submission']).nullable(),
   extraction: z.strictObject({ sheet: z.string(), sheetIndex: z.number().int().positive(), headerRow: z.number().int().positive(), rowCount: z.number().int().nonnegative(),
     columns: z.array(z.strictObject({ name: z.string(), header: z.string().nullable(), type: z.enum(['TEXT', 'NUMERIC', 'BOOLEAN', 'DATE']) })) }).optional(),
+  landing: z.strictObject({ receipt: landingReceiptSchema, registered: z.boolean(), error: z.string().nullable() }).optional(),
   supersedes: z.uuid().transform(FilingId).nullable(), duplicateOf: z.uuid().transform(FilingId).nullable(),
 });
 export type WatchedFiling = z.infer<typeof filingSchema>;
@@ -47,9 +52,9 @@ export class LandingWatcher {
   private queue: Promise<void> = Promise.resolve();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
-  private constructor(private readonly zone: LandingZone, private readonly warn: () => void, private readonly extractor?: FileExtractor) {}
+  private constructor(private readonly zone: LandingZone, private readonly warn: () => void, private readonly extractor?: FileExtractor, private readonly lander?: FilingLander) {}
 
-  static async open(input: LandingZone, warn: () => void = () => console.warn('Landing zone scan failed; files remain unprocessed.'), extractor?: FileExtractor): Promise<LandingWatcher> {
+  static async open(input: LandingZone, warn: () => void = () => console.warn('Landing zone scan failed; files remain unprocessed.'), extractor?: FileExtractor, lander?: FilingLander): Promise<LandingWatcher> {
     const zone = landingZoneSchema.parse(input);
     zone.directory = resolve(zone.directory); zone.stateFile = resolve(zone.stateFile); zone.rulesFile = resolve(zone.rulesFile);
     for (const file of [zone.stateFile, zone.rulesFile]) {
@@ -62,7 +67,7 @@ export class LandingWatcher {
     const lock = zone.stateFile + '.lock';
     const owner = await open(lock, 'wx', 0o600);
     try { await owner.writeFile(String(process.pid)); await owner.sync(); } finally { await owner.close(); }
-    const watcher = new LandingWatcher(zone, warn, extractor);
+    const watcher = new LandingWatcher(zone, warn, extractor, lander);
     try {
       await watcher.rules();
       try {
@@ -120,12 +125,18 @@ export class LandingWatcher {
       return result.ok ? { ...filing, extraction: result.value } : { ...filing, status: 'quarantined', reason: result.error.message };
     } catch { return { ...filing, status: 'quarantined', reason: 'Extraction failed for this file.' }; }
   }
+  private async process(filing: WatchedFiling, cedants: Cedant[], rules: CedantFileRule[]): Promise<WatchedFiling> {
+    const extracted = await this.extract(filing, cedants, rules);
+    return this.lander ? this.lander.process(extracted,
+      cedants.find((entry) => entry.id === filing.cedantId && entry.projectId === filing.projectId),
+      rules.find((entry) => entry.id === filing.ruleIds[0] && entry.projectId === filing.projectId)) : extracted;
+  }
   private async scanOnce(): Promise<void> {
     const { cedants, rules } = await this.rules();
     // Resume the same durable arrivals after restart; never create a second register.
     for (let index = 0; index < this.filings.length; index += 1) {
       const current = this.filings[index]!;
-      const extracted = await this.extract(current, cedants, rules);
+      const extracted = await this.process(current, cedants, rules);
       if (extracted !== current) {
         const updated = [...this.filings]; updated[index] = extracted;
         await this.persist(updated); this.filings = updated;
@@ -173,7 +184,7 @@ export class LandingWatcher {
         // Register the arrival before opening the workbook. A crash during
         // extraction resumes this filing ID rather than registering it again.
         await this.save(base);
-        const extracted = await this.extract(base, cedants, rules);
+        const extracted = await this.process(base, cedants, rules);
         if (extracted !== base) {
           const updated = [...this.filings]; updated[updated.length - 1] = extracted;
           await this.persist(updated); this.filings = updated;

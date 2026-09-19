@@ -11,12 +11,15 @@ export const sidecarConfigSchema = z.strictObject({
   tls: z.strictObject({ caFile: z.string().min(1), certFile: z.string().min(1), keyFile: z.string().min(1), clientPinFile: z.string().min(1) }),
   auditFile: z.string().min(1),
   limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds }),
+  receiptUrl: z.url().refine((value) => new URL(value).protocol === 'https:').optional(),
   landingZones: z.array(landingZoneSchema).optional(),
   maxRequestBytes: z.number().int().min(1).max(16 * 1024 * 1024).default(1024 * 1024),
   shutdownTimeoutMs: milliseconds.default(10000),
 }).superRefine((config, ctx) => {
   const sources = new Set<string>();
+  if (config.landingZones?.length && !config.receiptUrl) ctx.addIssue({ code: 'custom', path: ['receiptUrl'], message: 'Landing requires a receipt endpoint.' });
   for (const [index, zone] of (config.landingZones ?? []).entries()) {
+    if (!zone.landing) ctx.addIssue({ code: 'custom', path: ['landingZones', index, 'landing'], message: 'Landing requires source configuration and an explicit strategy.' });
     const key = zone.projectId + ':' + zone.sourceId;
     if (sources.has(key)) ctx.addIssue({ code: 'custom', path: ['landingZones', index], message: 'One landing zone per source is required.' });
     sources.add(key);

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
 
 function loadDevelopmentEnvironment(): void {
   if (process.env.NODE_ENV !== 'production') dotenv.config();
@@ -161,10 +162,28 @@ async function start(): Promise<void> {
       },
     },
   });
+  // Dedicated mTLS listener: the receipt route is never mounted on the browser API.
+  let receiptServer: import('node:https').Server | undefined;
+  const receiptConfig = process.env.LANDING_RECEIPT_CLIENT_CONFIG ?? (process.env.NODE_ENV !== 'production' && existsSync('tmp/sidecar/client.json') ? 'tmp/sidecar/client.json' : undefined);
+  if (receiptConfig) {
+    const [{ loadSidecarClientOptions }, { createLandingReceiptServer }, { AcceptLandingReceipt }, { PostgresLandingReceiptRepository }] = await Promise.all([
+      import('../../modules/sources/index.js'), import('../../modules/ingest/api/landing-receipt-server.js'),
+      import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
+    ]);
+    const options = await loadSidecarClientOptions(receiptConfig);
+    receiptServer = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()));
+    const receiptPort = Number(process.env.LANDING_RECEIPT_PORT ?? '3101');
+    if (!Number.isInteger(receiptPort) || receiptPort < 1 || receiptPort > 65535) throw new Error('Invalid landing receipt port.');
+    await new Promise<void>((resolve, reject) => {
+      receiptServer!.once('error', reject);
+      receiptServer!.listen(receiptPort, process.env.LANDING_RECEIPT_HOST ?? '127.0.0.1', resolve);
+    });
+  }
   const port = apiPort();
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
+    receiptServer?.close();
     server.close(() => { authorization.close(); void redis.close(); });
   };
   process.once('SIGINT', close);

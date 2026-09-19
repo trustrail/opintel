@@ -1,3 +1,6 @@
+import { FilingLander } from './ingest/land.js';
+import { PostgresLanding } from './ingest/infrastructure/postgres-landing.js';
+import { HttpsLandingReceipts } from './ingest/infrastructure/receipt-client.js';
 import { resolve } from 'node:path';
 import { SpreadsheetExtractor } from './ingest/extract.js';
 import { LocalWorkbookReader } from './ingest/infrastructure/workbook-reader.js';
@@ -17,7 +20,17 @@ async function main(): Promise<void> {
   const host = createSidecarServer({config,tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   try {
-    for (const zone of config.landingZones ?? []) watchers.push(await LandingWatcher.open(zone, undefined, new SpreadsheetExtractor(new LocalWorkbookReader())));
+    for (const zone of config.landingZones ?? []) {
+      if (!zone.landing || !config.receiptUrl) throw new Error('Landing requires a source strategy and receipt URL.');
+      const source = { ...zone.landing, sourceId: zone.sourceId, projectId: zone.projectId };
+      const writer = new PostgresLanding(new DevelopmentVaultAdapter(), config.limits.statementTimeoutMs);
+      const connected = await writer.connect(source);
+      if (!connected.ok) throw new Error(connected.error.message);
+      const extractor = new SpreadsheetExtractor(new LocalWorkbookReader());
+      const receipts = new HttpsLandingReceipts(config.receiptUrl, { ca: tls.ca, cert: tls.cert, key: tls.key, pinnedCertificate: tls.clientPin });
+      const lander = new FilingLander(zone.directory, source, writer, extractor, receipts);
+      watchers.push(await LandingWatcher.open(zone, undefined, extractor, lander));
+    }
     await host.listen();
     for (const watcher of watchers) watcher.start();
   } catch (error) {

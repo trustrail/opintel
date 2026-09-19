@@ -182,3 +182,95 @@ Expanded rows have the same limit, and active merged values have an 8 MiB limit.
 XLSX limits also cap columns at 16,384, styles at 65,536, and merged ranges/workbook
 parts at 100,000. Files beyond these limits fail individually. Extraction does
 not evaluate formulas, resolve external workbook links, or contact a database.
+
+### Landing into customer Postgres (3.9)
+
+The sidecar now consumes extraction rows transactionally. It still sends no file
+or row values to the application. Provision the source's `receives_landings=true`
+and explicitly choose `landing_strategy` through the tenant scope. Existing
+ordinary Postgres sources retain `receives_landings=false` and no strategy.
+Migration 019 adds these settings and the optional per-rule
+`period_as_at_format`; it backfills neither a strategy nor a period convention.
+
+Add the following to the service configuration (IDs/paths are illustrative):
+
+```json
+{
+  "receiptUrl": "https://localhost:3101",
+  "landingZones": [{
+    "projectId": "11111111-1111-4111-8111-111111111111",
+    "sourceId": "22222222-2222-4222-8222-222222222222",
+    "directory": "/customer/incoming",
+    "stateFile": "/customer/state/arrivals.json",
+    "rulesFile": "/customer/config/rules.json",
+    "landing": {
+      "name": "Bordereaux",
+      "credentialRef": "vault://customer/landing-postgres",
+      "strategy": "append_as_at"
+    }
+  }]
+}
+```
+
+The rule snapshot accepts `periodAsAtFormat`: `month_end`, `month_start`,
+`quarter_end`, `exact_date`, or null. Null retains the period label with a null
+as-at date. Declared formats parse strictly; invalid labels quarantine. Receipt
+date is never substituted. Raw headers remain quoted PostgreSQL column names;
+empty/duplicate headers use extraction's established names. A header using the
+reserved `_opintel_` prefix, containing NUL, or exceeding PostgreSQL's 63-byte
+identifier limit refuses rather than silently truncating or overwriting it.
+
+Resolve the Vault reference to a customer-managed Postgres credential permitted
+to create schemas/tables and insert/alter landing tables. The existing source
+connector remains read-only; the landing writer uses a separate write scope.
+Each filing commits all its DDL, rows, column-type history, and commit receipt in
+one transaction. Writes are serialized to prevent namespace/schema races and
+bounded by the configured statement timeout. A late extraction failure rolls
+back the whole filing. Database outages retain the ready filing for retry.
+
+Schemas use the normalized source name, with collision suffixes. Assignment is
+persisted once in customer-local `_opintel_landing.sources`; changing a display
+name does not rename existing tables. Within it, append tables are named from
+`{cedant_code}_{kind}`. `table_per_filing` uses the assigned base (up to 30
+characters), underscore and the filing UUID without hyphens. Customer-local
+commit metadata retains each receipt and its `supersedes` link, including empty
+filings. All rows carry the five `_opintel_` provenance columns specified in
+§4.3b. Added columns are nullable; type changes quarantine with the establishing
+filing ID. Neither strategy updates or deletes prior landed rows.
+
+The first committed filing fixes the strategy in the customer database. Restart,
+configuration changes, and an unavailable application cannot bypass it. The
+commit receipt makes replay idempotent if a crash occurs before local arrival
+state is saved. This is commit recovery metadata, not a replacement arrival
+register; item 3.10 must reconcile it with the existing arrival history.
+
+### Receiving landing receipts
+
+`npm run dev:api` starts a separate pinned-mTLS listener on `127.0.0.1:3101` when
+`tmp/sidecar/client.json` exists. In deployments set
+`LANDING_RECEIPT_CLIENT_CONFIG` to the application sidecar-client TLS configuration,
+`LANDING_RECEIPT_HOST` to the bind address, and optionally `LANDING_RECEIPT_PORT`.
+This route is not exposed on the browser API listener. It uses the application
+certificate as its server identity and pins the sidecar certificate as client.
+The sidecar sends using its server certificate and pins the application's
+certificate. **Both certificates therefore need serverAuth and clientAuth EKUs
+and appropriate server DNS/IP SANs.** Newly generated development certificates
+include both usages. Existing S1 development certificates must be replaced during
+a coordinated local restart: stop API/sidecar, move `tmp/sidecar/tls` aside, run
+`npm run dev:up`, then restart the API. Do not reuse the old running process's pins.
+The existing TLS configuration paths continue to point at the new pair.
+
+`POST /landing-receipt` takes the shared Zod `LandingReceipt` payload directly,
+returns 204 after durable acceptance, and uses the standard error envelope for
+refusals. Its generated contract is `sidecar/landing-receipt.openapi.json`.
+The application locks the source row, fixes/validates the strategy and inserts an
+idempotent receipt inbox entry in one tenant transaction. Identical retries
+succeed; conflicting receipts refuse. The inbox is metadata only and has forced
+RLS; it is not the evidence record writer (ING-24 belongs to 5.11).
+
+A receipt refusal or network failure **does not undo landing**. Arrival state
+keeps `landing.receipt`, `landing.registered=false`, and the registration error.
+Subsequent scans retry delivery without re-reading or re-inserting the filing.
+These landed-but-unregistered entries remain visible to the future 3.10 register.
+Reconcile the application source/strategy or restore connectivity; never remove
+customer rows as a substitute for receipt reconciliation.

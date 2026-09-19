@@ -122,7 +122,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | 3.6 | Introspection job, state machine, diff, cancel | 3.4 | `jobs/introspect` | G-017, G-018, R-023, F-010 (source status); G-009 diff only |
 | **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify cedant, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 (ING-02 filename/folder only; ING-07 detection and registration only) |
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18; ING-02 content inspection |
-| **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source and on every record | 3.8 | `ingest/land.ts` | ING-19 to ING-26; ING-07 landing assertions |
+| **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source; evidence stamping follows in 5.11 | 3.8 | `ingest/land.ts` | ING-19 to ING-23, ING-25, ING-26; ING-07 landing assertions |
 | **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27 to ING-32 |
 | 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve cedants, inconsistent formats | 3.9, 2.1 | `modules/sources/demo` | demo path identical, asserted on the port |
 | 3.12 | Data sources screen, connect wizard, origin badges, demo card | 3.6, 1.11 | screens | F-001, F-004, F-007, F-009, O-002 |
@@ -186,7 +186,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 5.8 | **Reduction in the text content the model reads.** Hand-reviewed | 5.7 | `mcp/response.ts` | I-009 |
 | 5.9 | `explain` dry run, no source contact | 5.7 | tool | N-003 |
 | 5.10 | Evidence domain, append-only grants, partitioning | 2.1 | `modules/evidence` | M-001 to M-006 |
-| 5.11 | Record writer: per-element treatment, versions, freshness, landing strategy, synthetic derived | 5.10, 5.7, 3.9 | `evidence/write.ts` | M-002, M-011, M-012 |
+| 5.11 | Record writer: per-element treatment, versions, freshness, landing strategy, synthetic derived | 5.10, 5.7, 3.9 | `evidence/write.ts` | M-002, M-011, M-012; ING-24 persisted landing-strategy evidence |
 | 5.12 | Activity screen, filters, record detail | 5.10, 1.11 | two screens | M-007, M-013 to M-015 |
 | 5.13 | Export: streaming NDJSON and CSV, synthetic excluded | 5.10 | endpoint | M-008 to M-010 |
 | 5.14 | Pools screens: list, detail with key management, agent twin | 5.2, 5.4 | three screens | I-015 to I-022 |
@@ -238,7 +238,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | S1 | Runnable host, validated config, pinned mutual TLS; `/health`, `/test-connection`, `/introspect`, `/sample` with consent, `/estimate`; audit and disconnect cancellation | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
-| **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-26 |
+| **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-23, ING-25, ING-26 (ING-24: 5.11) |
 | S2 | **Two-session construction**, hardening with `lock_configuration` last, `/validate`, `/execute`. **Hand-written** | S1, 4.4 | session lifecycle | J-003 to J-018, and the bypass suite against both execution paths |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
 | **S2b** | **Streaming execution path**, condition evaluated conservatively, bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
@@ -257,7 +257,7 @@ Thirty-six cases for ingest, to be added to the test specification.
 |---|---|---|
 | ING-01 to ING-08 | Watch and identify | Cedant, period and kind identified from a file with no metadata. A restatement recognised as such. An unidentifiable file quarantined with a reason, never guessed |
 | ING-09 to ING-18 | Extract | Header row not first. Merged cells. Twelve sheets, one relevant. Mixed types in a column. A malformed file fails without taking the batch with it |
-| ING-19 to ING-26 | Landing strategy | Both strategies land the same file correctly. Strategy recorded on the source. A restatement under `append_as_at` leaves both versions present and queryable. Under `table_per_filing` it lands separately |
+| ING-19 to ING-23, ING-25, ING-26 | Landing strategy (ING-24 evidence stamping: 5.11) | Both strategies land the same file correctly. Strategy recorded on the source. A restatement under `append_as_at` leaves both versions present and queryable. Under `table_per_filing` it lands separately |
 | ING-27 to ING-32 | Filing register | What arrived, from whom, when, under which strategy, what it superseded. Reconcilable against the landing zone |
 | ING-33 to ING-36 | Concepts over landed columns *(1b)* | A cedant header maps to a term. An unmapped header is refused and named, not guessed. Two cedants' different headers map to one term and aggregate correctly |
 

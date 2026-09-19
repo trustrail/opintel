@@ -27,6 +27,7 @@ const contracts: Record<string, GrantContract> = {
   ...Object.fromEntries(['data_source', 'introspection_run', 'catalog_object', 'catalog_element', 'element_stats', 'cedant', 'cedant_file_rule'].map((table) => [table, {
     opintel_app: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], opintel_platform: [], opintel_platform_admin: manage,
   } satisfies GrantContract])),
+  landing_receipt: { opintel_app: ['SELECT', 'INSERT'], opintel_platform: [], opintel_platform_admin: ['SELECT', 'INSERT', 'TRUNCATE'] },
   industry: sharedRead,
   vocabulary_term: projectVocabulary,
   embedding: sharedRead,

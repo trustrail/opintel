@@ -23,7 +23,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
   read(ctx: IntrospectionContext, id: RunId) { return withTenant(ctx, (tx) => this.readTx(tx, id)); }
   source(ctx: IntrospectionContext, id: SourceId) {
     return withTenant(ctx, async (tx): Promise<Result<IntrospectionSource>> => {
-      const [row] = await tx.query<IntrospectionSource>('SELECT id, project_id AS "projectId", kind, credential_ref AS "credentialRef", status FROM data_source WHERE id=$1', [id]);
+      const [row] = await tx.query<IntrospectionSource>('SELECT id, project_id AS "projectId", kind, credential_ref AS "credentialRef", status, receives_landings AS "receivesLandings", landing_strategy AS "landingStrategy" FROM data_source WHERE id=$1', [id]);
       return row === undefined ? missing() : ok(row);
     });
   }

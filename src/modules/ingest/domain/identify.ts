@@ -7,6 +7,7 @@ export type Cedant = { id: CedantId; projectId: ProjectId; code: string; name: s
 export type CedantFileRule = {
   id: CedantFileRuleId; cedantId: CedantId; projectId: ProjectId;
   matchKind: 'filename_regex' | 'folder'; pattern: string;
+  periodAsAtFormat?: import('./landing.js').PeriodAsAtFormat | null;
   sheet?: string | null; sheetIndex?: number | null; headerRow?: number; verifyColumn?: string | null; verifyValue?: string | null;
   kind: FilingKind | null; periodGroup: string | null; priority: number; active: boolean;
 };

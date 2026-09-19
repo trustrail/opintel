@@ -64,6 +64,7 @@ export class IntrospectionJob {
       if (!source.ok || source.value.credentialRef === null || source.value.status === 'archived') {
         return await this.store.fail(ctx,id,'Source is unavailable for introspection.',false);
       }
+      if (source.value.receivesLandings && !source.value.landingStrategy) return await this.store.fail(ctx,id,'A landing source requires an explicit strategy before connection.',false);
       const connector = this.connector(source.value,id);
       const connected = await connector.testConnection(source.value.credentialRef,controller.signal);
       if (controller.signal.aborted) return await this.store.cancel(ctx,id);
