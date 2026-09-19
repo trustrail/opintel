@@ -121,10 +121,10 @@ EOF
 
 # From item 3.7
 
-- Item 3.10's filing register must take over the sidecar's existing durable arrival
+- Resolved in item 3.10: the filing register takes over the sidecar's existing durable arrival
   history, including filing IDs, SHA-256 hashes, duplicate/restatement links and
-  quarantine reasons. Identification must consult that authority; do not keep a
-  second, independent record of arrivals or reset history during the handoff.
+  quarantine reasons. Identification consults that authority; the watcher delegates to it, preserving
+  existing history rather than introducing a second record.
 
 # From item 3.8 — extraction declaration rollout
 
@@ -139,7 +139,7 @@ EOF
 
 # From item 3.9
 
-- Item 3.10 must reconcile the existing arrival history's `landing` state with
+- Resolved in item 3.10: the register reconciles the arrival history's `landing` state with
   customer-local transactional commit receipts and the application's
   `landing_receipt` delivery inbox. Do not introduce another arrival authority.
   In particular, landed-but-unregistered filings must remain visible with their

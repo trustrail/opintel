@@ -123,7 +123,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify filing party, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 (ING-02 filename/folder only; ING-07 detection and registration only) |
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18; ING-02 content inspection |
 | **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source; evidence stamping follows in 5.11 | 3.8 | `ingest/land.ts` | ING-19 to ING-23, ING-25, ING-26; ING-07 landing assertions |
-| **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27 to ING-32 |
+| **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27, ING-28, ING-29, ING-31, ING-32 |
 | 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve cedants, inconsistent formats | 3.9, 2.1 | `modules/sources/demo` | demo path identical, asserted on the port |
 | 3.12 | Data sources screen, connect wizard, origin badges, demo card | 3.6, 1.11 | screens | F-001, F-004, F-007, F-009, O-002 |
 | 3.13 | Filings within source detail, expandable per source. Quarantine surfaced on the dashboard and in observations | 3.10, 1.11 | source screen sections | ING-27 to ING-32 |
@@ -157,7 +157,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003, E2-027 |
-| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff) |
+| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff), ING-30 (persisted undecided assertion) |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |

@@ -50,6 +50,9 @@ jobs:
       - run: npm ci
       - run: npm run dev:up
       - run: npm test
+      # Separate process: no functional test workers compete with E-016.
+      - name: Isolated E-016 latency budget
+        run: npm run test:performance
       - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:down
       - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
       - run: docker compose down -v

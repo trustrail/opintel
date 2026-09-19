@@ -29,7 +29,7 @@ async function main(): Promise<void> {
       const extractor = new SpreadsheetExtractor(new LocalWorkbookReader());
       const receipts = new HttpsLandingReceipts(config.receiptUrl, { ca: tls.ca, cert: tls.cert, key: tls.key, pinnedCertificate: tls.clientPin });
       const lander = new FilingLander(zone.directory, source, writer, extractor, receipts);
-      watchers.push(await LandingWatcher.open(zone, undefined, extractor, lander));
+      watchers.push(await LandingWatcher.open(zone, undefined, extractor, lander, receipts));
     }
     await host.listen();
     for (const watcher of watchers) watcher.start();

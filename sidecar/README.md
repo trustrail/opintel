@@ -310,3 +310,47 @@ supplies the reinsurance industry's `filing_party` subject with display name
 can provide their own language and meaningful kinds; platform validation accepts
 other non-empty values without a release. Reinsurance labels in historical
 migration/upgrade code are compatibility identifiers only.
+
+### Filing register (3.10)
+
+The register owns the existing `stateFile`; the watcher delegates to it. No second
+arrival history is created. Filing IDs, hashes, received timestamps, duplicates,
+restatement links, extraction summaries and customer-local reasons survive restart.
+The source strategy is stamped on new arrivals and committed receipts.
+
+Each changed outcome has a durable increasing revision. `/arrival-notice` sends
+only the declared metadata and quarantine category over the pinned mTLS pair;
+it never sends paths, workbook contents or raw reasons. The application stores a
+projection, discards older/equal revisions and exposes cursor-paginated
+`GET /api/v1/projects/:id/filings` under `project#view`. Receipts supply landed row
+counts and supersession. A refused receipt leaves committed rows intact and the
+local register shows `landing.registered: false` with its error. Notice delivery
+is retried independently of receipt delivery.
+
+Every scan consults customer Postgres commit receipts, repairing local receipt
+loss without opening or inserting the workbook again. Reconciliation also replays
+delivered receipts idempotently to check and repair the application inbox. Reconciliation counts
+current zone entries against durable registrations, including quarantines and
+duplicates. Unsettled, unreadable and special entries count as unregistered;
+nothing is silently reported as accounted for. Only counts and `checkedAt` leave
+via `/reconciliation-report`. The pinned request carries `x-opintel-project-id`
+for tenant scope; the payload contains no file list.
+
+Stop the sidecar before a local command: the register retains exclusive state
+ownership, including for inspection. Use the same config and state path:
+
+```sh
+npm run sidecar:register -- list SOURCE_ID - path/to/service.json
+npm run sidecar:register -- show SOURCE_ID FILING_ID path/to/service.json
+npm run sidecar:register -- reconcile SOURCE_ID - path/to/service.json
+npm run sidecar:register -- retry SOURCE_ID FILING_ID path/to/service.json
+```
+
+`show` deliberately displays local detail to the operator, including the raw
+reason. This output is not telemetry; do not forward it to a log collector.
+Correct the rule and re-export the snapshot before retry. Retry preserves the
+filing ID and re-runs identification, extraction and landing; it offers no manual
+attribution. Changed bytes require a new arrival rather than rewriting history.
+Restart the sidecar after the command. Rule edits alone never release quarantine.
+Ingest logs and span attributes use an enforced field allowlist: only a fixed
+event and optional filing UUID. Raw reasons and file values are never logged.

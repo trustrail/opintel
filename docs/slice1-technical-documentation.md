@@ -1545,7 +1545,7 @@ type SampleResponse = { values: Record<string, TopValue[]> };
 // POST /estimate -> estimateRowCount
 type EstimatePayload = { object: { schema: string; name: string } };
 type EstimateResponse = { rows: number | null };     // null when the source cannot estimate
-// POST /landing-receipt  — sidecar to application, the only outbound call
+// POST /landing-receipt — sidecar to application; arrival notices and count reports below also leave the sidecar
 type LandingReceipt = {
   filingId: FilingId;
   sourceId: SourceId;
@@ -1606,6 +1606,68 @@ type SamplePayload = {
 };
 ```
 A table named sales.data is then unambiguous, and the sidecar quotes each part when building SQL. **Any wire format that joins identifiers with a separator is wrong**, because the separator can appear inside a name and the ambiguity becomes a query against the wrong table.
+
+
+// POST /arrival-notice — sidecar to application, for every file, landed or not
+```ts
+type ArrivalNotice = {
+  filingId: FilingId;
+  sourceId: SourceId;
+  projectId: ProjectId;
+  fileSha256: string;
+  receivedAt: string;
+  revision: number;               // positive, monotonically increasing per filing
+  outcome: 'pending' | 'landed' | 'quarantined' | 'duplicate';
+  partyCode: string | null;        // null when attribution failed
+  kind: string | null;
+  period: string | null;
+  quarantineCategory:
+    | 'no_rule_matched' | 'multiple_rules_matched' | 'unreadable_format'
+    | 'sheet_absent' | 'merged_header' | 'formula_uncached'
+    | 'locale_undeclared' | 'period_unparseable' | 'verification_mismatch'
+    | 'column_type_changed'
+    | 'rule_invalid' | 'attribution_missing' | 'header_invalid'
+    | null;
+};
+```
+**The application accepts a notice only when its revision exceeds the one stored**. A retried quarantine that lands arrives as a higher revision; a delayed delivery of the older outcome is discarded rather than overwriting it.
+
+**Opintel receives a category, never a reason**. The full reason may contain a cell value, a column name or a filename fragment, and those are the customer's data. The category is enough to say what to fix; the detail stays local and is read through the local register command by whoever operates it. This is the one place the register is deliberately incomplete, and the console says so rather than appearing to show everything.
+
+**GET /projects/:id/filings** lists the register. Reconciliation is local: the sidecar compares its zone against its own state, and reports a count to Opintel rather than a file list.
+
+**Reconciliation transport.** `/reconciliation-report` uses the same pinned mTLS as receipts and notices. Its `x-opintel-project-id` header binds the tenant scope; the source must exist in that project. Older `checkedAt` reports are discarded. Counts account for current zone entries matched to the durable register; unregistered includes deliveries still settling or entries that cannot safely be read.
+
+**Resolution is a local command**. An operator corrects the rule, re-exports the snapshot, and retries the filing by id. The filing id is preserved, identification and validation re-run, and there is no attribution override — a file is never attributed by hand, because that is exactly the guess ING-08 exists to prevent.
+
+
+```ts
+const FilingListItem = z.object({
+  filingId: z.string().uuid(),
+  sourceId: z.string().uuid(),
+  partyCode: z.string().nullable(),
+  kind: z.string().nullable(),
+  period: z.string().nullable(),
+  outcome: z.enum(['pending', 'landed', 'quarantined', 'duplicate']),
+  quarantineCategory: z.string().nullable(),
+  supersedes: z.string().uuid().nullable(),
+  rowCount: z.number().int().nullable(),
+  receivedAt: z.string().datetime({ offset: true }),
+  revision: z.number().int(),
+});
+
+// POST /reconciliation-report — sidecar to application
+type ReconciliationReport = {
+  sourceId: SourceId;
+  zoneFileCount: number;
+  registeredCount: number;
+  unregisteredCount: number;
+  checkedAt: string;
+};
+```
+
+**`GET /projects/:id/filings` requires `project#view`.** Cursor paginated.
+
 
 ---
 

@@ -69,6 +69,12 @@ export class PostgresLanding implements LandingPort {
         : new DomainError('source_unavailable', 'Landing database operation failed; the filing remains available for retry.'));
     } finally { await db?.end().catch(() => {}); }
   }
+  async committed(source: LandingSource): Promise<Result<LandingReceipt[]>> {
+    return this.scope(source, async (db) => {
+      const result = await db.query<{ receipt: unknown }>('SELECT receipt FROM _opintel_landing.commits WHERE source_id=$1', [source.sourceId]);
+      return result.rows.map((row) => landingReceiptSchema.parse(row.receipt));
+    });
+  }
   async connect(source: LandingSource): Promise<Result<void>> {
     if (!['append_as_at', 'table_per_filing'].includes(source.strategy)) return err(new DomainError('validation_failed', 'A landing source requires an explicit strategy.'));
     return this.scope(source, async () => undefined);
@@ -87,7 +93,7 @@ export class PostgresLanding implements LandingPort {
       const names = new Set<string>();
       for (const column of input.columns) {
         if (!column.name || Buffer.byteLength(column.name) > 63 || column.name.includes('\0') || column.name.toLowerCase().startsWith('_opintel_') || names.has(column.name))
-          throw new DomainError('validation_failed', `Column ${JSON.stringify(column.name)} cannot be landed without changing its identity.`);
+          throw new DomainError('validation_failed', `Column ${JSON.stringify(column.name)} cannot be landed without changing its identity.`, { quarantineCategory: 'header_invalid' });
         names.add(column.name);
       }
       const group = await db.query<{ table_name: string; columns: unknown }>(`SELECT * FROM ${qualified(metadata, 'groups')} WHERE source_id=$1 AND party_id=$2 AND kind=$3`, [input.source.sourceId, input.partyId, input.kind]);
@@ -95,7 +101,7 @@ export class PostgresLanding implements LandingPort {
       const columns = previous ? columnsSchema.parse(previous.columns) : [];
       for (const column of input.columns) {
         const old = columns.find((entry) => entry.name === column.name);
-        if (old && old.type !== column.type) throw new DomainError('validation_failed', `Column ${JSON.stringify(column.name)} changed from ${old.type} to ${column.type}; established by filing ${old.filingId}.`);
+        if (old && old.type !== column.type) throw new DomainError('validation_failed', `Column ${JSON.stringify(column.name)} changed from ${old.type} to ${column.type}; established by filing ${old.filingId}.`, { quarantineCategory: 'column_type_changed' });
       }
       let base = previous?.table_name;
       if (!base) {

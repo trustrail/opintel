@@ -134,7 +134,10 @@ async function start(): Promise<void> {
   const identity = new PostgresIdentityRepository(clock, invitations);
   const currentUsers = new CurrentUserService(sessions, identity);
   const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, delivery);
+  const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
+  const register = new PostgresFilingRegister();
   const routes = [
+    ...registerRoutes(register),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
     ...magicLinkRoutes(magicLinks),
     ...invitationRoutes(invitations),
@@ -171,7 +174,7 @@ async function start(): Promise<void> {
       import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
     ]);
     const options = await loadSidecarClientOptions(receiptConfig);
-    receiptServer = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()));
+    receiptServer = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()), register);
     const receiptPort = Number(process.env.LANDING_RECEIPT_PORT ?? '3101');
     if (!Number.isInteger(receiptPort) || receiptPort < 1 || receiptPort > 65535) throw new Error('Invalid landing receipt port.');
     await new Promise<void>((resolve, reject) => {

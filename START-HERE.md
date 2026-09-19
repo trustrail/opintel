@@ -230,3 +230,18 @@ environment**. Both hold; the unqualified version did not.
 For item 3.7 landing-zone configuration, rule snapshot provisioning, and local
 registration/quarantine state, see [the sidecar ingest instructions](sidecar/README.md#landing-watch-and-identify-37).
 The watcher only identifies and hashes files; extraction and Postgres landing are later items.
+
+## Isolated authorization timing check
+
+`npm test` retains the E-015/E-016 functional comparison of the project list with
+SpiceDB LookupResources across 200 projects. Run the unchanged **under 100ms**
+E-016 budget separately, after other tests finish:
+
+```sh
+npm run test:performance
+```
+
+This uses a dedicated Vitest configuration with one worker and no concurrency;
+`test/performance/` is excluded from the main suite. CI runs it as a separate step
+after `npm test`. Do not run the two commands concurrently. Both use the normal
+service-readiness checks; bootstrap with `npm run dev:up` first.

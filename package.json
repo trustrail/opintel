@@ -22,7 +22,9 @@
     "migrate:up": "tsx src/platform/db/migrate.ts up",
     "migrate:down": "tsx src/platform/db/migrate.ts down",
     "migrate:status": "tsx src/platform/db/migrate.ts status",
-    "spicedb:schema": "tsx src/modules/authz/infrastructure/load-schema.ts"
+    "spicedb:schema": "tsx src/modules/authz/infrastructure/load-schema.ts",
+    "sidecar:register": "tsx sidecar/ingest/command.ts",
+    "test:performance": "tsx scripts/test.ts --config vitest.performance.config.ts"
   },
   "dependencies": {
     "@authzed/authzed-node": "^1.6.1",

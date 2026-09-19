@@ -122,7 +122,7 @@ Version 1.0 · September 2026
 | E-013 | F | Invite revoked before acceptance | Link no longer works |
 | E-014 | F | Invite to an existing member | Rejected with a clear message |
 | E-015 | D | Project switcher | Lists exactly what `LookupResources` returns, no more |
-| E-016 | P | `LookupResources` across 200 projects | Under 100ms |
+| E-016 | P | `LookupResources` across 200 projects | Under 100ms; timed assertion runs alone via `npm run test:performance`. Functional list equivalence stays in the main suite |
 
 
 ## S1-E2 · Creating a project and migrating industry
@@ -556,7 +556,7 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ING-27 | F | Filing register after several filings | What arrived, from whom, when, strategy, what it superseded |
 | ING-28 | F | Register reconciled against the landing zone | Every file accounted for, including quarantined ones |
 | ING-29 | F | Quarantined file appears in the register | With its reason, and a route to resolve it |
-| ING-30 | D | Landed columns after introspection | Every one undecided, exactly as a native table |
+| ING-30 | D | Landed columns after introspection *(3.10 proves ordinary catalogue handoff; persisted undecided assertion needs entitlement, item 4.1)* | Every one undecided, exactly as a native table |
 | ING-31 | S | Files leaving the customer environment | Never. Asserted on the sidecar's egress |
 | ING-32 | D | File contents in logs or traces | Never. Asserted against the field allowlist |
 | ING-33 | F | A filing party header mapped to a term *(1b)* | Resolves in prompt mode like any column |
