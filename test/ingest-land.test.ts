@@ -75,6 +75,35 @@ describe('landing into customer Postgres', () => {
       expect(unwrap(await writer().land(second, rows(['999'])))).toEqual(two);
     });
   }
+  it('ING-26: append_as_at keeps original and restated reserves independently retrievable by filing ID and as-at date', async () => {
+    const original = input(source('append_as_at'));
+    const first = unwrap(await writer().land(original, rows(['100'], ['200'])));
+    const restatement = { ...original, filingId: FilingId(randomUUID()), fileSha256: 'b'.repeat(64),
+      receivedAt: '2026-05-15T10:00:00.000Z', supersedes: original.filingId };
+    const second = unwrap(await writer().land(restatement, rows(['125'], ['225'])));
+
+    expect(second.landedTable).toBe(first.landedTable);
+    expect(restatement.filingId).not.toBe(original.filingId);
+    // Query the customer rows after BOTH commits. A receipt or supersedes link
+    // alone cannot prove that the historical reserve values are still present.
+    await fixture(async (pg) => {
+      for (const [filing, reserves] of [[original, ['100', '200']], [restatement, ['125', '225']]] as const) {
+        const result = await pg.query(`SELECT "Reserve", _opintel_filing_id, _opintel_as_at::text AS as_at,
+          _opintel_period FROM ${first.landedTable}
+          WHERE _opintel_filing_id=$1 AND _opintel_as_at=$2::date ORDER BY "Reserve"`, [filing.filingId, '2026-03-31']);
+        expect(result.rows).toEqual(reserves.map((Reserve) => ({ Reserve, _opintel_filing_id: filing.filingId,
+          as_at: '2026-03-31', _opintel_period: '2026-03' })));
+      }
+      const all = await pg.query(`SELECT "Reserve", _opintel_filing_id, _opintel_as_at::text AS as_at
+        FROM ${first.landedTable} ORDER BY "Reserve"`);
+      expect(all.rows).toEqual([
+        { Reserve: '100', _opintel_filing_id: original.filingId, as_at: '2026-03-31' },
+        { Reserve: '125', _opintel_filing_id: restatement.filingId, as_at: '2026-03-31' },
+        { Reserve: '200', _opintel_filing_id: original.filingId, as_at: '2026-03-31' },
+        { Reserve: '225', _opintel_filing_id: restatement.filingId, as_at: '2026-03-31' },
+      ]);
+    });
+  });
   it('ING-23/25: requires an explicit strategy and locks it locally after first commit, including across restart', async () => {
     const first = input(source('append_as_at')); unwrap(await writer().land(first, rows(['1'])));
     const different = await writer().connect({ ...first.source, strategy: 'table_per_filing' });

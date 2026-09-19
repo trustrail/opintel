@@ -56,6 +56,23 @@ describe('landing receipt over pinned mutual TLS', () => {
     await expect(withTenant(context, (tx) => tx.query("UPDATE data_source SET landing_strategy='table_per_filing' WHERE id=$1", [sourceId]))).rejects.toMatchObject({ code: '23514' });
     expect(await client.send({ ...first, rowCount: 100 })).toMatchObject({ ok: false });
   });
+  it.each([
+    ['append_as_at', 'table_per_filing'],
+    ['table_per_filing', 'append_as_at'],
+  ] as const)('ING-23: application refuses a %s source receipt carrying %s, naming both strategies', async (stored, incoming) => {
+    await withTenant(context, (tx) => tx.query('UPDATE data_source SET landing_strategy=$2 WHERE id=$1', [sourceId, stored]));
+    const conflicting = { ...receipt(), strategy: incoming };
+
+    // Exercise the application listener and its real tenant repository over
+    // pinned mTLS, independently of the sidecar's local strategy lock.
+    expect(await client.send(conflicting)).toMatchObject({ ok: false, error: {
+      code: 'conflict', message: `Landing strategy is ${stored}; received ${incoming}.`,
+    } });
+    expect(await withTenant(context, (tx) => tx.query(
+      'SELECT landing_strategy, first_landed_at FROM data_source WHERE id=$1', [sourceId],
+    ))).toEqual([{ landing_strategy: stored, first_landed_at: null }]);
+    expect(await withTenant(context, (tx) => tx.query('SELECT filing_id FROM landing_receipt WHERE filing_id=$1', [conflicting.filingId]))).toEqual([]);
+  });
   it('ING-25: only sources receiving landings require a strategy before connection', async () => {
     await expect(withTenant(context, (tx) => tx.query("UPDATE data_source SET status='connected' WHERE id=$1", [sourceId]))).rejects.toMatchObject({ code: '23514' });
     await withTenant(context, (tx) => tx.query("UPDATE data_source SET receives_landings=false,status='connected' WHERE id=$1", [sourceId]));
