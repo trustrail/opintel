@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { LandingWatcher, MissingLandingStateError } from './ingest/watch.js';
 import { config as loadEnvironment } from 'dotenv';
 import { DevelopmentVaultAdapter } from '../src/platform/vault/index.js';
 import { loadSidecarConfig } from './config.js';
@@ -12,13 +13,23 @@ async function main(): Promise<void> {
   const {config,tls} = await loadSidecarConfig(file);
   const audit = await FileSamplingAudit.open(config.auditFile);
   const host = createSidecarServer({config,tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
-  try { await host.listen(); } catch { await audit.close(); throw new Error('Sidecar could not listen. Check the configured host and port.'); }
+  const watchers: LandingWatcher[] = [];
+  try {
+    for (const zone of config.landingZones ?? []) watchers.push(await LandingWatcher.open(zone));
+    await host.listen();
+    for (const watcher of watchers) watcher.start();
+  } catch (error) {
+    await Promise.all(watchers.map((watcher) => watcher.close()));
+    await audit.close();
+    if (error instanceof MissingLandingStateError) throw error;
+    throw new Error('Sidecar startup failed. Check TLS, port, landing paths, rule snapshots and state locks.');
+  }
   console.info('Sidecar ready.',{host:config.host,port:config.port});
   let stopping = false;
   const stop = () => {
     if (stopping) return;
     stopping = true;
-    void host.close().then(()=>audit.close()).then(()=>{process.exitCode=0;}).catch(()=>{console.error('Sidecar shutdown failed.');process.exitCode=1;});
+    void Promise.all([host.close(), ...watchers.map((watcher) => watcher.close())]).then(()=>audit.close()).then(()=>{process.exitCode=0;}).catch(()=>{console.error('Sidecar shutdown failed.');process.exitCode=1;});
   };
   process.once('SIGTERM',stop); process.once('SIGINT',stop);
 }

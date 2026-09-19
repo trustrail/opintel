@@ -118,3 +118,10 @@ EOF
   industry but no terms, so inheritedTermCount is always 0 and the
   "nothing is copied at creation" property is unfalsifiable. Seeding the
   reinsurance pack is a content exercise; item 2.1 created the schema only.
+
+# From item 3.7
+
+- Item 3.10's filing register must take over the sidecar's existing durable arrival
+  history, including filing IDs, SHA-256 hashes, duplicate/restatement links and
+  quarantine reasons. Identification must consult that authority; do not keep a
+  second, independent record of arrivals or reset history during the handoff.

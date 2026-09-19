@@ -62,3 +62,60 @@ ceiling remains per source; cancellation uses a separate control connection so a
 full query ceiling cannot prevent releasing those queries. If cancellation cannot
 reach Postgres, closing the query connection and its statement timeout remain the
 fallback. These controls do not govern DuckDB sessions (S3).
+
+## Landing watch and identify (3.7)
+
+Add optional `landingZones` to the service JSON. Each entry has `projectId`,
+`sourceId`, `directory`, `rulesFile`, `stateFile`, and optional `pollMs` (default
+1000). Paths resolve relative to the service configuration. The input directory
+must exist; keep the state and rule files outside it, on the customer's disk.
+Provision one watcher per source. No HTTP endpoint or customer file upload is
+involved. Restart the sidecar after changing its zone configuration.
+
+Provision `rulesFile` as the JSON metadata snapshot returned by the application's
+`readIdentificationRules({projectId, userId})`, using its normal tenant scope.
+The snapshot contains `cedants` and `rules` with camelCase fields corresponding to
+§4.3b. It is read again on every scan so deployment rule changes need no release.
+Write rule snapshots using atomic replacement. This is deployment configuration,
+not an automatic metadata synchronization protocol.
+
+`filename_regex` is a Unicode JavaScript regular expression against the basename,
+with the declared named `periodGroup` capture. `folder` matches the exact relative
+parent directory, using `/` separators (`""` means the root). Only active rules
+for active cedants in the configured project participate. Priority never breaks
+a tie. Zero matches, multiple matches, an invalid regex, or a missing period/kind
+quarantine with a reason; conflicts record all matching rule IDs. A folder rule
+alone cannot supply a named period capture and therefore cannot produce a ready
+filing. No period is inferred from a filename when its rule did not declare one.
+Numeric `YYYY-M`, `YYYY-MM`, and slash-separated equivalents normalize to
+`YYYY-MM`; other period labels stay verbatim. No host date parsing is used.
+
+Deliver files by atomic rename into the zone after the producer closes them.
+The watcher also waits for unchanged metadata across two scans and checks it
+again after hashing. It never parses spreadsheets: bytes stream solely through
+SHA-256. Symlinks are not followed. Original files remain in place, including
+quarantined files. Do not mutate a delivered file while a downstream processor
+is using it.
+
+On a genuine first run, an empty landing zone initializes durable state with its
+project/source identity and an empty filing list before accepting arrivals. If
+state is missing while files exist anywhere in the zone, startup refuses with an
+explicit missing-history message. An operator must restore the state or confirm
+a genuine first run, set the files aside, initialize the empty zone, and then
+redeliver them. Startup does not decide that existing files are new.
+
+Local state is atomically replaced and synced before a filing becomes visible.
+`ready` records are the durable handoff for 3.8, **not landed tables**. A ready
+filing carries its cedant, period, kind and matching rule ID. `supersedes` points
+to the preceding ready filing for the same source/cedant/period/kind; distinct
+bytes produce a restatement. SHA-256 duplicates within the source carry
+`duplicateOf` and are not ready. Quarantined registrations never enter the ready
+handoff and carry no attributed cedant. Retries/restarts retain registration and
+duplicate history. Rule edits do not silently release quarantined registrations;
+resolution and the user-facing register belong to 3.10.
+
+State has an exclusive `.lock` containing the owning PID. Graceful shutdown drains
+scans and removes it. After a crash, verify that PID is no longer running before
+removing the stale lock and restarting. Keep a source bound to the same state
+file: changing it discards its duplicate/restatement history. Watcher failures
+log a fixed warning without paths, file contents, or captured labels.

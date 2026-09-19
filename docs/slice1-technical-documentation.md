@@ -2274,9 +2274,29 @@ create table element_stats (
   null_rate   numeric(5,4),
   sampled_at  timestamptz
 );
+
+create table cedant (
+  id          uuid primary key default gen_random_uuid(),
+  project_id  uuid not null references project(id) on delete cascade,
+  code        text not null,                    -- '4471', the customer's own reference
+  name        text not null,
+  active      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  unique (project_id, lower(code))
+);
+
+create table cedant_file_rule (
+  id          uuid primary key default gen_random_uuid(),
+  cedant_id   uuid not null references cedant(id) on delete cascade,
+  project_id  uuid not null references project(id) on delete cascade,
+  match_kind  text not null check (match_kind in ('filename_regex','folder')),
+  pattern     text not null,
+  kind        text check (kind in ('premium','claims','submission')),
+  period_group text,                            -- named capture yielding the period
+  priority    integer not null default 100,
+  active      boolean not null default true
+);
 ```
-
-
 Item 3.6 persists the requested schema selection and the diff on `introspection_run`.
 Only one queued or active run per source is allowed. Catalogue reconciliation is
 staged in memory; the diff, all catalogue changes, source status and run completion
@@ -2299,9 +2319,30 @@ Source connection failure sets status to `unreachable`; successful publication
 sets it to `connected`. Item 3.6 exposes this status through its application service.
 F-010 query-path refusal is implemented and verified in item 5.7.
 
+**Rules are established during the six-week deployment**, one set per cedant, and are data rather than code. A new cedant is a row, not a release.
+
+**Two rules matching one file is a conflict, not a tie to break**. The file is quarantined naming both rules. Silently preferring the higher priority would attribute a bordereau by an ordering nobody reviewed.
+
+**Zero rules matching is also a quarantine**. There is no fallback, no inference from the folder, and no guess from content. ING-08.
+
+**Only filename and folder are matched in Slice 1**. Content-based identification reads the file, which is extraction, and belongs to 3.8 if it is ever needed.
+
+**A filing is identified by (source_id, cedant_id, period, kind)**. A second file with the same tuple is a restatement. period is a text label from the rule's named capture, normalised to YYYY-MM where it parses as a month and kept verbatim otherwise — the customer's period labels are theirs, and reinterpreting them is how a March file becomes April.
+
+**A byte-identical re-delivery is a duplicate, not a restatement**, detected by SHA-256 of the file. ING-06.
+
+**Item 3.7 parses no file**. It streams the bytes to compute a SHA-256 for duplicate detection, which is an opaque read requiring no knowledge of the format. It does not open the spreadsheet, select a sheet, or read a cell. Interpretation of content is item 3.8. Identification is filename and folder only. ING-02's content inspection is deferred to 3.8 and marked.
+
+The 3.7 sidecar watcher uses a deployment-provisioned tenant rule snapshot and
+an atomic, durable local registration file per source. Ready registrations are
+the handoff to 3.8; quarantine and duplicate registrations are never handed off.
+No landing SQL or spreadsheet parsing runs in 3.7. Runtime configuration and
+operational recovery are documented in `sidecar/README.md` under “Landing watch
+and identify”. ING-07's landing assertions remain with 3.9.
+
 ## 4.4 The exposed namespace and type mapping
 
-The catalogue guard rejects ordinary updates to `duckdb_name` on objects and elements and to `duckdb_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. All five tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
+The catalogue guard rejects ordinary updates to `duckdb_name` on objects and elements and to `duckdb_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. The catalogue tables and cedant identification tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
 
 Item 3.1's pure catalogue aggregate accepts assigned names for new identities and never invokes name assignment for an existing identity. It retains removed entities and emits identifier-only addition, rename and removal events. Item 3.2 supplies normalization and collision suffixes; later introspection work persists and publishes the changes. Entitlement preservation is verified against entitlement rows when item 4.1 introduces that table.
 

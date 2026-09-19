@@ -226,3 +226,7 @@ was claiming, in customer-facing material, that nothing is copied. Landing
 writes a file into the customer's Postgres, so the defensible claims are that
 **the query path copies nothing** and **nothing leaves the customer's
 environment**. Both hold; the unqualified version did not.
+
+For item 3.7 landing-zone configuration, rule snapshot provisioning, and local
+registration/quarantine state, see [the sidecar ingest instructions](sidecar/README.md#landing-watch-and-identify-37).
+The watcher only identifies and hashes files; extraction and Postgres landing are later items.
