@@ -528,13 +528,13 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ID | Type | Case | Expected |
 |---|---|---|---|
 | ING-01 | F | A file arrives in the landing zone | Detected, registered, processing starts |
-| ING-02 | F | Cedant identified from filename/folder and verified against declared content | Item 3.7 attributes; item 3.8 verifies. A mismatch quarantines naming both; content never creates attribution |
+| ING-02 | F | Filing party identified from filename/folder and verified against declared content | Item 3.7 attributes; item 3.8 verifies. A mismatch quarantines naming both; content never creates attribution |
 | ING-03 | F | Period identified | Correct period, recorded |
 | ING-04 | F | Premium versus claims bordereau distinguished | Correct kind |
 | ING-05 | F | A file for a period already filed | Recognised as a restatement, not a duplicate |
 | ING-06 | F | An exact byte-identical re-delivery | Recognised as a duplicate, not landed twice |
 | ING-07 | R | Two files arrive simultaneously | Item 3.7 proves concurrent detection and registration. Both land, no interleaving and no partial table are deferred to item 3.9 |
-| ING-08 | **S** | **A file that cannot be attributed to a cedant** | **Quarantined with a reason. Never guessed, never landed** |
+| ING-08 | **S** | **A file that cannot be attributed to a filing party** | **Quarantined with a reason. Never guessed, never landed** |
 | ING-09 | F | Declared header row is not the first row | Correct declared row and headers used; no inference |
 | ING-10 | F | Merged header and data cells | Merged header quarantines; merged data repeats the anchor value deterministically |
 | ING-11 | F | Twelve sheets, one declared | Exact declared sheet selected, choice recorded; an absent sheet quarantines |
@@ -559,12 +559,12 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ING-30 | D | Landed columns after introspection | Every one undecided, exactly as a native table |
 | ING-31 | S | Files leaving the customer environment | Never. Asserted on the sidecar's egress |
 | ING-32 | D | File contents in logs or traces | Never. Asserted against the field allowlist |
-| ING-33 | F | A cedant header mapped to a term *(1b)* | Resolves in prompt mode like any column |
+| ING-33 | F | A filing party header mapped to a term *(1b)* | Resolves in prompt mode like any column |
 | ING-34 | F | An unmapped header *(1b)* | Refused and named. Never guessed |
-| ING-35 | F | Two cedants, different headers, one term *(1b)* | Both resolve, aggregate correctly |
+| ING-35 | F | Two filing parties, different headers, one term *(1b)* | Both resolve, aggregate correctly |
 | ING-36 | D | A question answered from a landed bordereau *(1b)* | Same pipeline, same record shape, same trace as a native table |
 
-**ING-08 and ING-26 are the two that matter most.** A bordereau attributed to the wrong cedant is worse than one that did not land, and a reserve that moved silently is a wrong number nobody can trace.
+**ING-08 and ING-26 are the two that matter most.** A bordereau attributed to the wrong filing party is worse than one that did not land, and a reserve that moved silently is a wrong number nobody can trace.
 
 ## S1-P · Pilot acceptance (the customer-facing criteria)
 

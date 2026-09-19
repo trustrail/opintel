@@ -74,7 +74,7 @@ involved. Restart the sidecar after changing its zone configuration.
 
 Provision `rulesFile` as the JSON metadata snapshot returned by the application's
 `readIdentificationRules({projectId, userId})`, using its normal tenant scope.
-The snapshot contains `cedants` and `rules` with camelCase fields corresponding to
+The snapshot contains `filingParties` and `rules` with camelCase fields corresponding to
 §4.3b. It is read again on every scan so deployment rule changes need no release.
 Write rule snapshots using atomic replacement. This is deployment configuration,
 not an automatic metadata synchronization protocol.
@@ -82,7 +82,7 @@ not an automatic metadata synchronization protocol.
 `filename_regex` is a Unicode JavaScript regular expression against the basename,
 with the declared named `periodGroup` capture. `folder` matches the exact relative
 parent directory, using `/` separators (`""` means the root). Only active rules
-for active cedants in the configured project participate. Priority never breaks
+for active filing parties in the configured project participate. Priority never breaks
 a tie. Zero matches, multiple matches, an invalid regex, or a missing period/kind
 quarantine with a reason; conflicts record all matching rule IDs. A folder rule
 alone cannot supply a named period capture and therefore cannot produce a ready
@@ -106,11 +106,11 @@ redeliver them. Startup does not decide that existing files are new.
 
 Local state is atomically replaced and synced before a filing becomes visible.
 `ready` records are the durable handoff for 3.8, **not landed tables**. A ready
-filing carries its cedant, period, kind and matching rule ID. `supersedes` points
-to the preceding ready filing for the same source/cedant/period/kind; distinct
+filing carries its filing party, period, kind and matching rule ID. `supersedes` points
+to the preceding ready filing for the same source/filing party/period/kind; distinct
 bytes produce a restatement. SHA-256 duplicates within the source carry
 `duplicateOf` and are not ready. Quarantined registrations never enter the ready
-handoff and carry no attributed cedant. Retries/restarts retain registration and
+handoff and carry no attributed filing party. Retries/restarts retain registration and
 duplicate history. Rule edits do not silently release quarantined registrations;
 resolution and the user-facing register belong to 3.10.
 
@@ -129,7 +129,7 @@ Arrivals are committed before extraction opens the workbook. Existing ready
 filings without a summary resume on the next scan with the same filing ID. A failed file
 becomes quarantined with a reason; its siblings continue. Nothing is landed yet.
 
-Re-export the tenant rule snapshot after migration 018. Cedants must declare
+Re-export the tenant rule snapshot after migration 018. Filing parties must declare
 `decimalSeparator` (`.` or `,`) and `dateFormat` (`DD/MM/YYYY`, `MM/DD/YYYY`, or
 `YYYY-MM-DD`). Neither has a default. Rules declare exactly one of `sheet` (exact
 name) or `sheetIndex` (one-based), plus `headerRow` (one-based; the database default
@@ -231,7 +231,7 @@ back the whole filing. Database outages retain the ready filing for retry.
 Schemas use the normalized source name, with collision suffixes. Assignment is
 persisted once in customer-local `_opintel_landing.sources`; changing a display
 name does not rename existing tables. Within it, append tables are named from
-`{cedant_code}_{kind}`. `table_per_filing` uses the assigned base (up to 30
+`{party_code}_{kind}`. `table_per_filing` uses the assigned base (up to 30
 characters), underscore and the filing UUID without hyphens. Customer-local
 commit metadata retains each receipt and its `supersedes` link, including empty
 filings. All rows carry the five `_opintel_` provenance columns specified in
@@ -274,3 +274,39 @@ Subsequent scans retry delivery without re-reading or re-inserting the filing.
 These landed-but-unregistered entries remain visible to the future 3.10 register.
 Reconcile the application source/strategy or restore connectivity; never remove
 customer rows as a substitute for receipt reconciliation.
+
+### Upgrade to industry-neutral filing parties
+
+Stop the application workers and sidecars for the upgrade. Apply migrations 020
+and 021; migrations 017–019 are unchanged historical inputs. Migration 020 renames
+`cedant` to `filing_party`, `cedant_file_rule` to `filing_party_rule`, and
+`cedant_id` to `party_id` in place, including named indexes/constraints. Existing
+IDs, rows, forced RLS, grants and foreign keys remain intact. Downgrade refuses
+if new free-text kinds cannot fit the old enum; it does not delete those rows.
+
+Re-export the rule snapshot with `filingParties` and rule `partyId` fields before
+starting the new sidecar. On startup the watcher validates version-1 arrival
+history, converts `cedantId` to `partyId`, and atomically persists version 2 under
+its exclusive state lock. It retains all filing IDs, fingerprints, hashes,
+duplicate/restatement links, extraction summaries and registration outcomes.
+It never initializes fresh history as part of this rename. Invalid/mixed formats
+refuse startup; old binaries cannot read version 2.
+
+On its first customer-Postgres transaction the new writer takes the existing
+landing advisory lock and checks `_opintel_landing.groups`. For an old database it
+executes `ALTER TABLE _opintel_landing.groups RENAME COLUMN cedant_id TO party_id`.
+PostgreSQL keeps the same primary-key index and column identity. This upgrade and
+the non-empty-kind check commit transactionally; fresh databases create the new
+column directly, and subsequent startups do not repeat the rename. A database
+containing both names refuses for operator reconciliation. No landed tables are
+renamed, no customer rows are copied, and stored table assignments, column type
+history and commit receipts remain unchanged. Do not run old and new writers
+against the same database: the old SQL references the removed column name.
+
+`kind` is non-empty text, not a platform enum. Null still represents an incomplete
+rule or an unattributed quarantined arrival and cannot be landed. Migration 021
+supplies the reinsurance industry's `filing_party` subject with display name
+“Cedant” and its `filing_kind` parameter values in vocabulary data. Other packs
+can provide their own language and meaningful kinds; platform validation accepts
+other non-empty values without a release. Reinsurance labels in historical
+migration/upgrade code are compatibility identifiers only.

@@ -1,0 +1,19 @@
+-- In-place rename: retain row identities, RLS policies, grants and FK bindings.
+ALTER TABLE cedant RENAME TO filing_party;
+ALTER TABLE cedant_file_rule RENAME TO filing_party_rule;
+ALTER TABLE filing_party_rule RENAME COLUMN cedant_id TO party_id;
+ALTER TABLE filing_party RENAME CONSTRAINT cedant_pkey TO filing_party_pkey;
+ALTER TABLE filing_party RENAME CONSTRAINT cedant_id_project_id_key TO filing_party_id_project_id_key;
+ALTER TABLE filing_party RENAME CONSTRAINT cedant_project_id_fkey TO filing_party_project_id_fkey;
+ALTER INDEX cedant_project_code RENAME TO filing_party_project_code;
+ALTER TABLE filing_party RENAME CONSTRAINT cedant_decimal_separator_check TO filing_party_decimal_separator_check;
+ALTER TABLE filing_party RENAME CONSTRAINT cedant_date_format_check TO filing_party_date_format_check;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_pkey TO filing_party_rule_pkey;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_project_id_fkey TO filing_party_rule_project_id_fkey;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_cedant_id_project_id_fkey TO filing_party_rule_party_id_project_id_fkey;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_match_kind_check TO filing_party_rule_match_kind_check;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_sheet_index_check TO filing_party_rule_sheet_index_check;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_header_row_check TO filing_party_rule_header_row_check;
+ALTER TABLE filing_party_rule RENAME CONSTRAINT cedant_file_rule_period_as_at_format_check TO filing_party_rule_period_as_at_format_check;
+ALTER TABLE filing_party_rule DROP CONSTRAINT cedant_file_rule_kind_check;
+ALTER TABLE filing_party_rule ADD CONSTRAINT filing_party_rule_kind_nonempty CHECK (kind IS NULL OR length(kind) > 0);

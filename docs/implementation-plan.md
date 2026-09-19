@@ -120,7 +120,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | 3.4 | Postgres connector: test, introspect, sample, estimate | 3.3, S1 | adapter | G-001 to G-005, G-014 to G-016 |
 | 3.5 | Vault integration, literal-secret constraint | 3.3 | `platform/vault` | F-005, F-006 |
 | 3.6 | Introspection job, state machine, diff, cancel | 3.4 | `jobs/introspect` | G-017, G-018, R-023, F-010 (source status); G-009 diff only |
-| **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify cedant, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 (ING-02 filename/folder only; ING-07 detection and registration only) |
+| **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify filing party, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 (ING-02 filename/folder only; ING-07 detection and registration only) |
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18; ING-02 content inspection |
 | **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source; evidence stamping follows in 5.11 | 3.8 | `ingest/land.ts` | ING-19 to ING-23, ING-25, ING-26; ING-07 landing assertions |
 | **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27 to ING-32 |
@@ -171,7 +171,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 4.8 | Entitlements screen: virtualised tree, select, bulk bar, chips | 4.1, 1.11 | screen | H-016, H-018 |
 | 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | VC-17, VC-18, M-005, M-006 |
 
-**Gate.** A newly landed spreadsheet column is undecided and unreadable. Setting a treatment recompiles in under two seconds. Withheld and undecided both absent from the DDL and distinguishable in metadata. The same cedant identifier tokenizes identically across two sources. Bulk-to-clear without justification returns 400.
+**Gate.** A newly landed spreadsheet column is undecided and unreadable. Setting a treatment recompiles in under two seconds. Withheld and undecided both absent from the DDL and distinguishable in metadata. The same filing party identifier tokenizes identically across two sources. Bulk-to-clear without justification returns 400.
 
 ### P4 Access
 
@@ -227,7 +227,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | 6.16 | Vocabulary screen with readiness, synonym candidates | 6.2, 6.7 | two screens | CLR-06, R-024 |
 | 6.17 | Vocabulary export and discovery coverage | 6.2 | endpoints and screen | CLR-07, CLR-08 |
 | 6.18 | Discovery question set seeded for reinsurance | 6.1 | seed | CLR-08 |
-| **6.19** | **Concepts over landed spreadsheet columns.** A cedant header maps to a term like any other column | 6.1, 3.9 | vocabulary mappings | ING-33 to ING-36 |
+| **6.19** | **Concepts over landed spreadsheet columns.** A filing party header maps to a term like any other column | 6.1, 3.9 | vocabulary mappings | ING-33 to ING-36 |
 
 **Gate.** A new project answers a question on its first day from inherited vocabulary alone. The same prompt with the same vocabulary version produces identical CIL across ten runs. A misspelled parameter clarifies with real values and real frequencies. A measure with no grain rule refuses composition. A pool set to refuse returns immediately with every ambiguity named. A question answered from a landed bordereau resolves through the same path as one from a native table. Pilot criterion S5 passes.
 
@@ -255,13 +255,13 @@ Thirty-six cases for ingest, to be added to the test specification.
 
 | Range | Area | Notable cases |
 |---|---|---|
-| ING-01 to ING-08 | Watch and identify | Cedant, period and kind identified from a file with no metadata. A restatement recognised as such. An unidentifiable file quarantined with a reason, never guessed |
+| ING-01 to ING-08 | Watch and identify | Filing party, period and kind identified from a file with no metadata. A restatement recognised as such. An unidentifiable file quarantined with a reason, never guessed |
 | ING-09 to ING-18 | Extract | Header row not first. Merged cells. Twelve sheets, one relevant. Mixed types in a column. A malformed file fails without taking the batch with it |
 | ING-19 to ING-23, ING-25, ING-26 | Landing strategy (ING-24 evidence stamping: 5.11) | Both strategies land the same file correctly. Strategy recorded on the source. A restatement under `append_as_at` leaves both versions present and queryable. Under `table_per_filing` it lands separately |
 | ING-27 to ING-32 | Filing register | What arrived, from whom, when, under which strategy, what it superseded. Reconcilable against the landing zone |
-| ING-33 to ING-36 | Concepts over landed columns *(1b)* | A cedant header maps to a term. An unmapped header is refused and named, not guessed. Two cedants' different headers map to one term and aggregate correctly |
+| ING-33 to ING-36 | Concepts over landed columns *(1b)* | A filing party header maps to a term. An unmapped header is refused and named, not guessed. Two filing parties' different headers map to one term and aggregate correctly |
 
-**ING-08 and ING-26 are the two that matter most.** An unidentifiable file must be quarantined rather than guessed at, because a bordereau attributed to the wrong cedant is worse than one that did not land. And a restatement must be visibly a restatement, because a reserve that moved silently is a wrong number nobody can trace.
+**ING-08 and ING-26 are the two that matter most.** An unidentifiable file must be quarantined rather than guessed at, because a bordereau attributed to the wrong filing party is worse than one that did not land. And a restatement must be visibly a restatement, because a reserve that moved silently is a wrong number nobody can trace.
 
 ---
 
@@ -294,7 +294,7 @@ Ranked by what they prevent. Each fails silently in production if absent.
 | VC-01 to VC-04 | An undecided element being readable |
 | M-003, M-004 | Evidence being alterable |
 | I-009, 5.8 | An agent reasoning confidently over a partial picture |
-| **ING-08** | A bordereau attributed to the wrong cedant |
+| **ING-08** | A bordereau attributed to the wrong filing party |
 | **ING-26** | A restatement disappearing without trace |
 | CLS-01 *(1b)* | Non-reproducible interpretation, which voids the record |
 | J-019 | Data persisting after a response |
@@ -320,7 +320,7 @@ Ranked by expected cost.
 | # | Risk | Why it is likely | Early warning | Response |
 |---|---|---|---|---|
 | 1 | **Sidecar isolation is wrong in a way tests do not catch** | The bypass suite is only as good as its list, and a DuckDB upgrade can open a route nobody enumerated | A bypass found in review rather than by a test | Hand-write S2 and the suite. Add every new bypass in the same pull request as its fix. Re-run the full suite on every DuckDB upgrade |
-| 2 | **Real bordereaux break the ingest assumptions** | Every cedant differs, and the messiness is the problem rather than an edge case | The first real file, in P2 | Get real files before P2 completes. Quarantine rather than guess. Expect the long tail to continue past the gate |
+| 2 | **Real bordereaux break the ingest assumptions** | Every filing party differs, and the messiness is the problem rather than an edge case | The first real file, in P2 | Get real files before P2 completes. Quarantine rather than guess. Expect the long tail to continue past the gate |
 | 3 | **Introspection meets a real schema and breaks** | Views without lineage, quoted identifiers, vendor types, very wide tables | First real connection | A real Postgres before P2. Budget for the tail |
 | 4 | **Landing strategy chosen wrongly for a customer** | It is a judgement call made early, and it changes what every number means | A customer asking why two periods disagree | No default. A consultant chooses deliberately. Strategy stamped on every record so a wrong choice is at least visible |
 | 5 | **Tokenization key management is fiddlier than specified** | Vault, per-project keys, sidecar resolution at execution, rotation semantics | P3 | Prototype early, ahead of need. Blocked on review anyway |

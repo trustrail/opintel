@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
-import { periodAsAt, type Cedant, type CedantId, type CedantFileRule, type CedantFileRuleId, type LandingStrategy } from '../src/modules/ingest/index.js';
+import { periodAsAt, type FilingParty, type PartyId, type FilingPartyRule, type FilingPartyRuleId, type LandingStrategy } from '../src/modules/ingest/index.js';
 import { DomainError, FilingId, ProjectId, SourceId, err, ok, type Result } from '../src/shared/kernel/index.js';
 import { VaultRef } from '../src/platform/vault/index.js';
 import { PostgresLanding } from '../sidecar/ingest/infrastructure/postgres-landing.js';
@@ -27,7 +27,7 @@ function source(strategy: LandingStrategy): LandingSource {
   sources.push(value); return value;
 }
 function input(value: LandingSource): LandingInput {
-  return { source: value, filingId: FilingId(randomUUID()), cedantId: randomUUID() as CedantId, partyCode: '4471', kind: 'claims', period: '2026-03', asAt: '2026-03-31',
+  return { source: value, filingId: FilingId(randomUUID()), partyId: randomUUID() as PartyId, partyCode: '4471', kind: 'claims', period: '2026-03', asAt: '2026-03-31',
     receivedAt: '2026-04-12T10:00:00.000Z', fileSha256: 'a'.repeat(64), supersedes: null, columns: [{ name: 'Reserve', header: 'Reserve', type: 'NUMERIC' }] };
 }
 async function* rows(...values: string[][]) { for (const value of values) yield ok(value); }
@@ -142,11 +142,11 @@ describe('landing into customer Postgres', () => {
   });
   it('ING-07/12/26: watcher lands concurrent files, quarantines drift/invalid periods, and retains refused receipts across restart', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'opintel-land-')); const zoneDir = join(directory, 'zone'); await mkdir(zoneDir);
-    const value = source('append_as_at'); const cedant: Cedant = { id: randomUUID() as CedantId, projectId: value.projectId, code: '4471', name: 'Test', active: true, decimalSeparator: '.', dateFormat: 'YYYY-MM-DD' };
-    const rule: CedantFileRule = { id: randomUUID() as CedantFileRuleId, cedantId: cedant.id, projectId: value.projectId, matchKind: 'filename_regex', pattern: '^4471_(?<period>[^_]+)_.+\\.csv$',
+    const value = source('append_as_at'); const filingParty: FilingParty = { id: randomUUID() as PartyId, projectId: value.projectId, code: '4471', name: 'Test', active: true, decimalSeparator: '.', dateFormat: 'YYYY-MM-DD' };
+    const rule: FilingPartyRule = { id: randomUUID() as FilingPartyRuleId, partyId: filingParty.id, projectId: value.projectId, matchKind: 'filename_regex', pattern: '^4471_(?<period>[^_]+)_.+\\.csv$',
       kind: 'claims', periodGroup: 'period', priority: 1, active: true, sheetIndex: 1, headerRow: 1, periodAsAtFormat: 'month_end' };
     const zone = { directory: zoneDir, stateFile: join(directory, 'state.json'), rulesFile: join(directory, 'rules.json'), sourceId: value.sourceId, projectId: value.projectId, pollMs: 1000 };
-    await writeFile(zone.rulesFile, JSON.stringify({ cedants: [cedant], rules: [rule] }));
+    await writeFile(zone.rulesFile, JSON.stringify({ filingParties: [filingParty], rules: [rule] }));
     const extractor = new SpreadsheetExtractor(new LocalWorkbookReader()); let online = false;
     const lander = new FilingLander(zoneDir, value, writer(), extractor, { send: async () => online ? ok(undefined) : err(new DomainError('conflict', 'Receipt refused.')) });
     let watcher = await LandingWatcher.open(zone, undefined, extractor, lander);

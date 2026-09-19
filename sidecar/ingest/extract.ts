@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { DomainError, err, ok, type Result } from '../../src/shared/kernel/index.js';
-import { inferCell, columnNames, type Cedant, type CedantFileRule, type CellValue, type Workbook, type WorkbookReader, type FileExtractor, type ExtractionSummary, type SheetRow, type ExtractedColumn } from '../../src/modules/ingest/index.js';
+import { inferCell, columnNames, type FilingParty, type FilingPartyRule, type CellValue, type Workbook, type WorkbookReader, type FileExtractor, type ExtractionSummary, type SheetRow, type ExtractedColumn } from '../../src/modules/ingest/index.js';
 import { InvalidWorkbook } from './infrastructure/workbook-reader.js';
 
 const refused = (message: string) => err(new DomainError('validation_failed', message));
@@ -38,9 +38,9 @@ async function* flattened(workbook: Workbook): AsyncGenerator<SheetRow> {
 
 export class SpreadsheetExtractor implements FileExtractor {
   constructor(private readonly reader: WorkbookReader) {}
-  private async open(path: string, sha256: string, cedant: Cedant, rule: CedantFileRule): Promise<Result<Workbook>> {
-    if (cedant.id !== rule.cedantId || cedant.projectId !== rule.projectId || !cedant.active || !rule.active) return err(new DomainError('validation_failed', 'Extraction requires the existing active attribution.'));
-    if (!['.', ','].includes(cedant.decimalSeparator ?? '') || !['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'].includes(cedant.dateFormat ?? '')) return err(new DomainError('validation_failed', 'The cedant must declare a supported decimal separator and date format.'));
+  private async open(path: string, sha256: string, filingParty: FilingParty, rule: FilingPartyRule): Promise<Result<Workbook>> {
+    if (filingParty.id !== rule.partyId || filingParty.projectId !== rule.projectId || !filingParty.active || !rule.active) return err(new DomainError('validation_failed', 'Extraction requires the existing active attribution.'));
+    if (!['.', ','].includes(filingParty.decimalSeparator ?? '') || !['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'].includes(filingParty.dateFormat ?? '')) return err(new DomainError('validation_failed', 'The filing party must declare a supported decimal separator and date format.'));
     const sheet = rule.sheet ?? null; const sheetIndex = rule.sheetIndex ?? null;
     if ((sheet === null) === (sheetIndex === null) || sheet === '' || (sheetIndex !== null && (!Number.isInteger(sheetIndex) || sheetIndex < 1))) return err(new DomainError('validation_failed', 'Declare exactly one sheet name or one-based sheet index.'));
     if (!Number.isInteger(rule.headerRow) || (rule.headerRow ?? 0) < 1) return err(new DomainError('validation_failed', 'The header row must be declared as a positive row number.'));
@@ -54,10 +54,10 @@ export class SpreadsheetExtractor implements FileExtractor {
   }
   private failure(error: unknown): Result<never> { return err(new DomainError('validation_failed', error instanceof InvalidWorkbook ? error.message : 'The spreadsheet is malformed or unreadable.')); }
 
-  async inspect(path: string, sha256: string, cedant: Cedant, rule: CedantFileRule): Promise<Result<ExtractionSummary>> {
+  async inspect(path: string, sha256: string, filingParty: FilingParty, rule: FilingPartyRule): Promise<Result<ExtractionSummary>> {
     let workbook: Workbook | undefined;
     try {
-      const opened = await this.open(path, sha256, cedant, rule); if (!opened.ok) return opened;
+      const opened = await this.open(path, sha256, filingParty, rule); if (!opened.ok) return opened;
       workbook = opened.value;
       const headerRow = rule.headerRow!;
       if (workbook.merges.some((merge) => merge.firstRow <= headerRow && merge.lastRow >= headerRow)) return err(new DomainError('validation_failed', 'The declared header row contains a merged cell.'));
@@ -76,11 +76,11 @@ export class SpreadsheetExtractor implements FileExtractor {
         }
         if (empty(row.cells)) break;
         if (verifyIndex >= 0 && (row.cells[verifyIndex]?.text ?? '') !== rule.verifyValue) {
-          return refused(`Content disagrees with filename attribution ${cedant.code}: expected ${JSON.stringify(rule.verifyValue)}, found ${JSON.stringify(row.cells[verifyIndex]?.text ?? '')}.`);
+          return refused(`Content disagrees with filename attribution ${filingParty.code}: expected ${JSON.stringify(rule.verifyValue)}, found ${JSON.stringify(row.cells[verifyIndex]?.text ?? '')}.`);
         }
         rowCount += 1;
         for (let index = 0; index < row.cells.length; index += 1) {
-          const inferred = inferCell(row.cells[index] ?? null, cedant.decimalSeparator!, cedant.dateFormat!);
+          const inferred = inferCell(row.cells[index] ?? null, filingParty.decimalSeparator!, filingParty.dateFormat!);
           if (inferred) types[index] = types[index] === undefined || types[index] === inferred.type ? inferred.type : 'TEXT';
         }
       }
@@ -98,19 +98,19 @@ export class SpreadsheetExtractor implements FileExtractor {
 
   // Re-read after inference, so a late mixed value makes every value in that
   // column text. No rows or workbook-sized value array are retained in memory.
-  async *rows(path: string, sha256: string, cedant: Cedant, rule: CedantFileRule): AsyncGenerator<Result<Array<string | null>>> {
-    const inspected = await this.inspect(path, sha256, cedant, rule);
+  async *rows(path: string, sha256: string, filingParty: FilingParty, rule: FilingPartyRule): AsyncGenerator<Result<Array<string | null>>> {
+    const inspected = await this.inspect(path, sha256, filingParty, rule);
     if (!inspected.ok) { yield inspected; return; }
     let workbook: Workbook | undefined;
     try {
-      const opened = await this.open(path, sha256, cedant, rule); if (!opened.ok) { yield opened; return; }
+      const opened = await this.open(path, sha256, filingParty, rule); if (!opened.ok) { yield opened; return; }
       workbook = opened.value;
       for await (const row of flattened(workbook)) {
         if (row.number <= inspected.value.headerRow) continue;
         if (empty(row.cells)) break;
         yield ok(inspected.value.columns.map((column, index) => {
           const cell = row.cells[index] ?? null;
-          return cell === null ? null : column.type === 'TEXT' ? cell.text : inferCell(cell, cedant.decimalSeparator!, cedant.dateFormat!)?.value ?? null;
+          return cell === null ? null : column.type === 'TEXT' ? cell.text : inferCell(cell, filingParty.decimalSeparator!, filingParty.dateFormat!)?.value ?? null;
         }));
       }
       if (!await this.unchanged(path, sha256)) yield err(new DomainError('conflict', 'The file changed during extraction.'));

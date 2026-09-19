@@ -1890,7 +1890,7 @@ type ScopeFilter = {
 | Enforced again in the sidecar against the parsed statement | The API could be bypassed; the sidecar cannot |
 | Recorded on the evidence record | A reviewer can see what constrained the query |
 
-In Slice 1 the only scope filters are the pool's bound-source restriction and, for landed sources under `table_per_filing`, the filing restriction where a pool is scoped to one cedant. Row-level entitlements are not expressed this way: those are compiled into the view.
+In Slice 1 the only scope filters are the pool's bound-source restriction and, for landed sources under `table_per_filing`, the filing restriction where a pool is scoped to one filing party. Row-level entitlements are not expressed this way: those are compiled into the view.
 
 ### The three database scopes
 
@@ -2300,7 +2300,7 @@ create table element_stats (
   sampled_at  timestamptz
 );
 
-create table cedant (
+create table filing_party (
   id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references project(id) on delete cascade,
   code        text not null,                    -- '4471', the customer's own reference
@@ -2312,13 +2312,13 @@ create table cedant (
   unique (project_id, lower(code))
 );
 
-create table cedant_file_rule (
+create table filing_party_rule (
   id          uuid primary key default gen_random_uuid(),
-  cedant_id   uuid not null references cedant(id) on delete cascade,
+  party_id   uuid not null references filing_party(id) on delete cascade,
   project_id  uuid not null references project(id) on delete cascade,
   match_kind  text not null check (match_kind in ('filename_regex','folder')),
   pattern     text not null,
-  kind        text check (kind in ('premium','claims','submission')),
+  kind        text check (kind is null or length(kind) > 0),
   period_group text,                            -- named capture yielding the period
   period_as_at_format text check (period_as_at_format in ('month_end','month_start','quarter_end','exact_date')),
   sheet       text,
@@ -2352,7 +2352,7 @@ Source connection failure sets status to `unreachable`; successful publication
 sets it to `connected`. Item 3.6 exposes this status through its application service.
 F-010 query-path refusal is implemented and verified in item 5.7.
 
-**Rules are established during the six-week deployment**, one set per cedant, and are data rather than code. A new cedant is a row, not a release.
+**Rules are established during the six-week deployment**, one set per filing party, and are data rather than code. A new filing party is a row, not a release.
 
 **Two rules matching one file is a conflict, not a tie to break**. The file is quarantined naming both rules. Silently preferring the higher priority would attribute a bordereau by an ordering nobody reviewed.
 
@@ -2360,7 +2360,7 @@ F-010 query-path refusal is implemented and verified in item 5.7.
 
 **Only filename and folder are matched in Slice 1**. Content-based identification reads the file, which is extraction, and belongs to 3.8 if it is ever needed.
 
-**A filing is identified by (source_id, cedant_id, period, kind)**. A second file with the same tuple is a restatement. period is a text label from the rule's named capture, normalised to YYYY-MM where it parses as a month and kept verbatim otherwise — the customer's period labels are theirs, and reinterpreting them is how a March file becomes April.
+**A filing is identified by (source_id, party_id, period, kind)**. A second file with the same tuple is a restatement. period is a text label from the rule's named capture, normalised to YYYY-MM where it parses as a month and kept verbatim otherwise — the customer's period labels are theirs, and reinterpreting them is how a March file becomes April.
 
 **A byte-identical re-delivery is a duplicate, not a restatement**, detected by SHA-256 of the file. ING-06.
 
@@ -2375,7 +2375,7 @@ and identify”. ING-07's landing assertions remain with 3.9.
 
 **Formats: .xlsx and .csv only**. .xls is refused with a message naming the format, because the legacy binary format needs a different library and appears rarely in bordereaux. Quarantined, not silently skipped.
 
-**Sheet selection is declared, not inferred**. cedant_file_rule gains sheet text, matched by exact name, and sheet_index integer as an alternative. Exactly one must be set. A rule with neither is invalid, like one missing its period group. A named sheet that is absent quarantines the file.
+**Sheet selection is declared, not inferred**. filing_party_rule gains sheet text, matched by exact name, and sheet_index integer as an alternative. Exactly one must be set. A rule with neither is invalid, like one missing its period group. A named sheet that is absent quarantines the file.
 
 **The header row is declared too**: header_row integer not null default 1. Inferring it means guessing which row of a spreadsheet is the header, and a wrong guess silently shifts every column by one.
 
@@ -2385,7 +2385,7 @@ and identify”. ING-07's landing assertions remain with 3.9.
 
 **Formulas use their cached value**. A formula with no cached value quarantines the file, because evaluating it would mean implementing a spreadsheet engine and guessing at a value nobody computed.
 
-**Declared per cedant, on the cedant row**: decimal_separator char(1) not null and date_format text not null. Not per rule, since a cedant's locale does not vary by file, and not per source, since one source receives many cedants.
+**Declared per filing party, on the filing party row**: decimal_separator char(1) not null and date_format text not null. Not per rule, since a filing party's locale does not vary by file, and not per source, since one source receives many filing parties.
 
 **Migration rollout.** Migration 018 adds locale and sheet-selection columns
 nullable, preserving existing rows. Extraction refuses incomplete declarations.
@@ -2394,26 +2394,43 @@ Deployment owners must explicitly backfill them following
 backfill is verified, adds the locale NOT NULL and exactly-one-sheet constraints.
 The NOT NULL declarations above describe the final schema, not the expand phase.
 
-**No default, and no inference**. A cedant without a declared locale cannot have files landed. Inferring from the data is how 03/04/2026 becomes March in one file and April in the next.
+**No default, and no inference**. A filing party without a declared locale cannot have files landed. Inferring from the data is how 03/04/2026 becomes March in one file and April in the next.
 
-**Content never attributes, only verifies**. Where cedant_file_rule.verify_column and verify_value are set, extraction checks that column holds that value. A mismatch quarantines the file naming both the filename attribution and the content value.
+**Content never attributes, only verifies**. Where filing_party_rule.verify_column and verify_value are set, extraction checks that column holds that value. A mismatch quarantines the file naming both the filename attribution and the content value.
 
 **Runtime representation.** Extraction appends a summary to the existing customer-local arrival history and streams typed rows for item 3.9; it does not create a second filing register or a landing table. CSV is UTF-8 comma-delimited with quoting and uses sheet index 1. Supported date declarations are `DD/MM/YYYY`, `MM/DD/YYYY`, and `YYYY-MM-DD`; unsupported declarations refuse. Detailed parser conventions and resource limits are in `sidecar/README.md`.
 
 **It cannot rescue a file quarantined by 3.7**. A file with no rule has no declared sheet, header row or locale, so there is nothing to read it with.
 
 
+**Industry-neutral filing parties.** The platform uses `filing_party`,
+`filing_party_rule`, `party_id`, `PartyId`, `FilingParty`, and `FilingPartyRule`.
+`kind` is free, non-empty text; null may represent an incomplete identification
+rule or an unattributed quarantine, never a landed filing. The industry pack
+supplies meaningful kinds. The reinsurance vocabulary seeds subject
+`filing_party` with display name `Cedant` and parameter `filing_kind` with
+`premium`, `claims`, and `submission` values. These are industry data, not
+platform validation rules.
+
+Migration 020 renames existing application tables and keys in place; 021 seeds
+that pack vocabulary. Historical migrations 017–019 remain unchanged. Customer
+landing metadata upgrades `cedant_id` to `party_id` transactionally under the
+landing advisory lock, preserving its primary-key index and all stored table
+assignments. Watcher history upgrades from version 1 to version 2 without changing
+arrival identities or restatement links. Deploy with a coordinated restart and
+re-exported rule snapshots; see `sidecar/README.md` for the sequence.
+
 ### Landing
 
-**as_at is the filing's period, not its receipt date**. A March bordereau delivered in April is March data. cedant_file_rule gains period_as_at_format text, declaring how the period label parses to a date; where it is null the period is kept as a label and as_at is null. Receipt date is never used as as_at — it answers when a file arrived, which is a different question and already recorded.
+**as_at is the filing's period, not its receipt date**. A March bordereau delivered in April is March data. filing_party_rule gains period_as_at_format text, declaring how the period label parses to a date; where it is null the period is kept as a label and as_at is null. Receipt date is never used as as_at — it answers when a file arrived, which is a different question and already recorded.
 
-**A landing table groups by** (source, cedant, kind). Named {cedant_code}_{kind}, lowercased and normalised by §4.4's rules, in a schema named for the source. Two cedants' premium bordereaux never share a table: their columns differ, and merging them would mean reconciling schemas at write time.
+**A landing table groups by** (source, filing party, kind). Named {party_code}_{kind}, lowercased and normalised by §4.4's rules, in a schema named for the source. Two filing parties' premium bordereaux never share a table: their columns differ, and merging them would mean reconciling schemas at write time.
 
 **Provenance columns, prefixed _opintel_ and added to every landed row**: _opintel_filing_id uuid, _opintel_as_at date, _opintel_period text, _opintel_received_at timestamptz, _opintel_file_sha256 text.
 
-**Atomic landing and recovery.** DDL, rows, column-type history and a commit receipt are committed together in customer Postgres. The source schema assignment and strategy lock persist there across restarts. A crash before saving local arrival state replays that receipt without inserting rows twice. The arrival history stores registration success or failure; item 3.10 reconciles this history with commit receipts and the application inbox, rather than adding another arrival authority. Per-filing table names use the assigned cedant/kind base (up to 30 characters), an underscore and the filing UUID without hyphens. Reserved `_opintel_` headers and headers that cannot fit PostgreSQL identifiers refuse rather than overwrite provenance or truncate names.
+**Atomic landing and recovery.** DDL, rows, column-type history and a commit receipt are committed together in customer Postgres. The source schema assignment and strategy lock persist there across restarts. A crash before saving local arrival state replays that receipt without inserting rows twice. The arrival history stores registration success or failure; item 3.10 reconciles this history with commit receipts and the application inbox, rather than adding another arrival authority. Per-filing table names use the assigned filing party/kind base (up to 30 characters), an underscore and the filing UUID without hyphens. Reserved `_opintel_` headers and headers that cannot fit PostgreSQL identifiers refuse rather than overwrite provenance or truncate names.
 
-**A later filing adding a column** adds it to the table, nullable. Earlier rows keep null, which is honest: that cedant did not report it then.
+**A later filing adding a column** adds it to the table, nullable. Earlier rows keep null, which is honest: that filing party did not report it then.
 
 **A later filing changing a column's type** does not alter the column. The filing is quarantined naming the column, both types, and the earlier filing that established it. Widening numeric to text to accommodate one bad file would silently change every historical value's meaning.
 
@@ -2427,16 +2444,16 @@ The NOT NULL declarations above describe the final schema, not the expand phase.
 | quarter_end | 2026-Q1 | 2026-03-31 |
 | exact_date | 2026-03-15 | 2026-03-15 |
 
-**Month-end is the expected choice for bordereaux, but is never defaulted**, because a monthly bordereau reports the position as at the close of that month. Month-start exists because some cedants label a filing by the period it opens, and that is their convention to state rather than ours to override.
+**Month-end is the expected choice for bordereaux, but is never defaulted**, because a monthly bordereau reports the position as at the close of that month. Month-start exists because some filing parties label a filing by the period it opens, and that is their convention to state rather than ours to override.
 
 **A period label that does not parse under the declared format quarantines the file**, naming the label and the format. There is no fallback to the receipt date and no inference from the label's shape.
 
-**The value is declared per rule, not guessed**, for the same reason as the locale: 2026-03 means the 1st to one cedant and the 31st to another, and a wrong choice moves every number by a month without changing anything visible.
+**The value is declared per rule, not guessed**, for the same reason as the locale: 2026-03 means the 1st to one filing party and the 31st to another, and a wrong choice moves every number by a month without changing anything visible.
 
 
 ## 4.4 The exposed namespace and type mapping
 
-The catalogue guard rejects ordinary updates to `duckdb_name` on objects and elements and to `duckdb_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. The catalogue tables and cedant identification tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
+The catalogue guard rejects ordinary updates to `duckdb_name` on objects and elements and to `duckdb_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. The catalogue tables and filing-party identification tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
 
 Item 3.1's pure catalogue aggregate accepts assigned names for new identities and never invokes name assignment for an existing identity. It retains removed entities and emits identifier-only addition, rename and removal events. Item 3.2 supplies normalization and collision suffixes; later introspection work persists and publishes the changes. Entitlement preservation is verified against entitlement rows when item 4.1 introduces that table.
 

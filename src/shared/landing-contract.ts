@@ -4,7 +4,7 @@ const id = z.uuid().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}
 export const landingStrategySchema = z.enum(['append_as_at', 'table_per_filing']);
 export const landingReceiptSchema = z.strictObject({
   filingId: id.transform(FilingId), sourceId: id.transform(SourceId), projectId: id.transform(ProjectId),
-  partyCode: z.string().min(1), kind: z.enum(['premium', 'claims', 'submission']), period: z.string().min(1),
+  partyCode: z.string().min(1), kind: z.string().min(1), period: z.string().min(1),
   asAt: z.iso.date().nullable(), strategy: landingStrategySchema, landedTable: z.string().min(1),
   rowCount: z.number().int().nonnegative().safe(), fileSha256: z.string().regex(/^[a-f0-9]{64}$/),
   supersedes: id.transform(FilingId).nullable(), landedAt: z.iso.datetime(),

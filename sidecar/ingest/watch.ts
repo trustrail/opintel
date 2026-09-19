@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { landingReceiptSchema, landingStrategySchema } from '../../src/shared/landing-contract.js';
 import { VaultRef } from '../../src/platform/vault/types.js';
 import type { FilingLander } from './land.js';
-import { identifyFile, identificationRulesSchema, type CedantId, type CedantFileRuleId, type FileExtractor, type Cedant, type CedantFileRule } from '../../src/modules/ingest/index.js';
+import { identifyFile, identificationRulesSchema, type PartyId, type FilingPartyRuleId, type FileExtractor, type FilingParty, type FilingPartyRule } from '../../src/modules/ingest/index.js';
 import { ProjectId, SourceId, FilingId } from '../../src/shared/kernel/index.js';
 
 export const landingZoneSchema = z.strictObject({
@@ -19,15 +19,23 @@ export type LandingZone = z.infer<typeof landingZoneSchema>;
 const filingSchema = z.strictObject({
   id: z.uuid().transform(FilingId), sourceId: z.uuid().transform(SourceId), projectId: z.uuid().transform(ProjectId), path: z.string(), fingerprint: z.string(),
   sha256: z.string().regex(/^[a-f0-9]{64}$/), receivedAt: z.iso.datetime(),
-  status: z.enum(['ready', 'quarantined', 'duplicate']), reason: z.string().nullable(), ruleIds: z.array(z.uuid().transform((id) => id as CedantFileRuleId)),
-  cedantId: z.uuid().transform((id) => id as CedantId).nullable(), period: z.string().nullable(), kind: z.enum(['premium', 'claims', 'submission']).nullable(),
+  status: z.enum(['ready', 'quarantined', 'duplicate']), reason: z.string().nullable(), ruleIds: z.array(z.uuid().transform((id) => id as FilingPartyRuleId)),
+  partyId: z.uuid().transform((id) => id as PartyId).nullable(), period: z.string().nullable(), kind: z.string().min(1).nullable(),
   extraction: z.strictObject({ sheet: z.string(), sheetIndex: z.number().int().positive(), headerRow: z.number().int().positive(), rowCount: z.number().int().nonnegative(),
     columns: z.array(z.strictObject({ name: z.string(), header: z.string().nullable(), type: z.enum(['TEXT', 'NUMERIC', 'BOOLEAN', 'DATE']) })) }).optional(),
   landing: z.strictObject({ receipt: landingReceiptSchema, registered: z.boolean(), error: z.string().nullable() }).optional(),
   supersedes: z.uuid().transform(FilingId).nullable(), duplicateOf: z.uuid().transform(FilingId).nullable(),
 });
 export type WatchedFiling = z.infer<typeof filingSchema>;
-const stateSchema = z.strictObject({ version: z.literal(1), sourceId: z.uuid(), projectId: z.uuid(), filings: z.array(filingSchema) });
+const currentStateSchema = z.strictObject({ version: z.literal(2), sourceId: z.uuid(), projectId: z.uuid(), filings: z.array(filingSchema) });
+
+// Read the historical on-disk format only at this migration boundary. Never
+// reset arrival identity, hashes, duplicate links, or restatement history.
+const legacyFilingSchema = filingSchema.omit({ partyId: true }).extend({
+  cedantId: z.uuid().transform((id) => id as PartyId).nullable(),
+}).transform(({ cedantId, ...filing }) => ({ ...filing, partyId: cedantId }));
+const legacyStateSchema = currentStateSchema.extend({ version: z.literal(1), filings: z.array(legacyFilingSchema) });
+const stateSchema = z.union([currentStateSchema, legacyStateSchema]);
 
 export class MissingLandingStateError extends Error {
   constructor() {
@@ -74,6 +82,7 @@ export class LandingWatcher {
         const state = stateSchema.parse(JSON.parse(await readFile(zone.stateFile, 'utf8')) as unknown);
         if (state.sourceId !== zone.sourceId || state.projectId !== zone.projectId) throw new Error('Landing state belongs to a different source.');
         watcher.filings = state.filings;
+        if (state.version === 1) await watcher.persist(state.filings);
       } catch (error) {
         if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
         if (await containsFiles(zone.directory)) throw new MissingLandingStateError();
@@ -103,7 +112,7 @@ export class LandingWatcher {
     await unlink(this.zone.stateFile + '.lock');
   }
   private async persist(filings: readonly WatchedFiling[]): Promise<void> {
-    const state = { version: 1, sourceId: this.zone.sourceId, projectId: this.zone.projectId, filings };
+    const state = { version: 2, sourceId: this.zone.sourceId, projectId: this.zone.projectId, filings };
     const temporary = this.zone.stateFile + '.next';
     const handle = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600);
     try { await handle.writeFile(JSON.stringify(state)); await handle.sync(); } finally { await handle.close(); }
@@ -115,28 +124,28 @@ export class LandingWatcher {
     await this.persist([...this.filings, filing]);
     this.filings.push(filing);
   }
-  private async extract(filing: WatchedFiling, cedants: Cedant[], rules: CedantFileRule[]): Promise<WatchedFiling> {
+  private async extract(filing: WatchedFiling, filingParties: FilingParty[], rules: FilingPartyRule[]): Promise<WatchedFiling> {
     if (!this.extractor || filing.status !== 'ready' || filing.extraction) return filing;
-    const cedant = cedants.find((entry) => entry.id === filing.cedantId && entry.projectId === filing.projectId);
+    const filingParty = filingParties.find((entry) => entry.id === filing.partyId && entry.projectId === filing.projectId);
     const rule = rules.find((entry) => entry.id === filing.ruleIds[0] && entry.projectId === filing.projectId);
-    if (!cedant || !rule) return { ...filing, status: 'quarantined', reason: 'The original attribution is no longer available for extraction.' };
+    if (!filingParty || !rule) return { ...filing, status: 'quarantined', reason: 'The original attribution is no longer available for extraction.' };
     try {
-      const result = await this.extractor.inspect(join(this.zone.directory, filing.path), filing.sha256, cedant, rule);
+      const result = await this.extractor.inspect(join(this.zone.directory, filing.path), filing.sha256, filingParty, rule);
       return result.ok ? { ...filing, extraction: result.value } : { ...filing, status: 'quarantined', reason: result.error.message };
     } catch { return { ...filing, status: 'quarantined', reason: 'Extraction failed for this file.' }; }
   }
-  private async process(filing: WatchedFiling, cedants: Cedant[], rules: CedantFileRule[]): Promise<WatchedFiling> {
-    const extracted = await this.extract(filing, cedants, rules);
+  private async process(filing: WatchedFiling, filingParties: FilingParty[], rules: FilingPartyRule[]): Promise<WatchedFiling> {
+    const extracted = await this.extract(filing, filingParties, rules);
     return this.lander ? this.lander.process(extracted,
-      cedants.find((entry) => entry.id === filing.cedantId && entry.projectId === filing.projectId),
+      filingParties.find((entry) => entry.id === filing.partyId && entry.projectId === filing.projectId),
       rules.find((entry) => entry.id === filing.ruleIds[0] && entry.projectId === filing.projectId)) : extracted;
   }
   private async scanOnce(): Promise<void> {
-    const { cedants, rules } = await this.rules();
+    const { filingParties, rules } = await this.rules();
     // Resume the same durable arrivals after restart; never create a second register.
     for (let index = 0; index < this.filings.length; index += 1) {
       const current = this.filings[index]!;
-      const extracted = await this.process(current, cedants, rules);
+      const extracted = await this.process(current, filingParties, rules);
       if (extracted !== current) {
         const updated = [...this.filings]; updated[index] = extracted;
         await this.persist(updated); this.filings = updated;
@@ -166,25 +175,25 @@ export class LandingWatcher {
           if (after.size !== stat.size || after.mtimeNs !== stat.mtimeNs || after.ctimeNs !== stat.ctimeNs) continue;
           digest = hash.digest('hex');
         } finally { await handle.close(); }
-        const identified = identifyFile(this.zone.projectId, basename(path), dirname(name) === '.' ? '' : dirname(name), cedants, rules);
+        const identified = identifyFile(this.zone.projectId, basename(path), dirname(name) === '.' ? '' : dirname(name), filingParties, rules);
         const base: WatchedFiling = { id: FilingId(randomUUID()), sourceId: this.zone.sourceId, projectId: this.zone.projectId, path: name, fingerprint, sha256: digest,
-          receivedAt: new Date().toISOString(), status: 'quarantined', reason: null, ruleIds: [], cedantId: null, period: null, kind: null, supersedes: null, duplicateOf: null };
+          receivedAt: new Date().toISOString(), status: 'quarantined', reason: null, ruleIds: [], partyId: null, period: null, kind: null, supersedes: null, duplicateOf: null };
         if (!identified.ok) {
           base.reason = identified.error.message;
-          base.ruleIds = (identified.error.details?.ruleIds ?? []) as CedantFileRuleId[];
+          base.ruleIds = (identified.error.details?.ruleIds ?? []) as FilingPartyRuleId[];
         } else {
           const value = identified.value;
-          Object.assign(base, { cedantId: value.cedantId, period: value.period, kind: value.kind, ruleIds: [value.ruleId], status: 'ready' });
+          Object.assign(base, { partyId: value.partyId, period: value.period, kind: value.kind, ruleIds: [value.ruleId], status: 'ready' });
           const duplicate = this.filings.find((filing) => filing.status !== 'quarantined' && filing.sha256 === digest);
           if (duplicate) { base.status = 'duplicate'; base.duplicateOf = duplicate.duplicateOf ?? duplicate.id; }
           else {
-            base.supersedes = this.filings.findLast((filing) => filing.status === 'ready' && filing.cedantId === value.cedantId && filing.period === value.period && filing.kind === value.kind)?.id ?? null;
+            base.supersedes = this.filings.findLast((filing) => filing.status === 'ready' && filing.partyId === value.partyId && filing.period === value.period && filing.kind === value.kind)?.id ?? null;
           }
         }
         // Register the arrival before opening the workbook. A crash during
         // extraction resumes this filing ID rather than registering it again.
         await this.save(base);
-        const extracted = await this.process(base, cedants, rules);
+        const extracted = await this.process(base, filingParties, rules);
         if (extracted !== base) {
           const updated = [...this.filings]; updated[updated.length - 1] = extracted;
           await this.persist(updated); this.filings = updated;

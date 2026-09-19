@@ -513,7 +513,7 @@ Start only after the Slice 1a gate passes. Nothing in 1a depends on anything her
 
 6.19 Read: implementation plan Slice 1b, technical documentation §11.
      Tests: ING-33 to ING-36.
-     A cedant header maps to a term like any other column. An unmapped
+     A filing party header maps to a term like any other column. An unmapped
      header is refused and named, never guessed.
 ```
 

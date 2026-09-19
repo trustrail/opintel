@@ -1,14 +1,17 @@
 # Extraction declarations: expand, backfill, enforce
 
-Migration 018 is safe on populated cedant and rule tables. It adds nullable
+Migration 018 is safe on populated filing party and rule tables. It adds nullable
 `decimal_separator`, `date_format`, `sheet` and `sheet_index` columns without
 inventing declarations. Existing IDs, rules and relationships are preserved.
 `header_row` keeps its specified default of 1. Other validation checks allow
 NULL declarations while rejecting invalid supplied values.
 
-## Backfill after applying 018
+Migration 020 renames these tables to `filing_party` and `filing_party_rule`.
+The SQL below uses those current names; apply 020 before following it.
 
-1. Have the deployment owner obtain each cedant's decimal separator and date
+## Backfill after applying 018 and 020
+
+1. Have the deployment owner obtain each filing party's decimal separator and date
    format, and each rule's exact sheet name or one-based sheet index. Include
    inactive rows: the later database constraints apply to them too.
 2. Update the declarations through the existing tenant scope, using reviewed
@@ -17,8 +20,8 @@ NULL declarations while rejecting invalid supplied values.
    statements for `withTenant`, not a prefilled backfill:
 
    ```sql
-   UPDATE cedant SET decimal_separator = $1, date_format = $2 WHERE id = $3;
-   UPDATE cedant_file_rule
+   UPDATE filing_party SET decimal_separator = $1, date_format = $2 WHERE id = $3;
+   UPDATE filing_party_rule
    SET sheet = $1, sheet_index = $2, header_row = $3 WHERE id = $4;
    ```
 
@@ -30,11 +33,11 @@ NULL declarations while rejecting invalid supplied values.
    between verification and the enforcement release.
 
    ```sql
-   SELECT id FROM cedant
+   SELECT id FROM filing_party
    WHERE decimal_separator IS NULL OR date_format IS NULL
       OR date_format NOT IN ('DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD');
 
-   SELECT id FROM cedant_file_rule
+   SELECT id FROM filing_party_rule
    WHERE (sheet IS NULL) = (sheet_index IS NULL);
    ```
 
@@ -51,10 +54,10 @@ window if enforcement shipped beside 018. Once all deployments have completed
 and verified their backfill, release a separately numbered forward migration:
 
 ```sql
-ALTER TABLE cedant
+ALTER TABLE filing_party
   ALTER COLUMN decimal_separator SET NOT NULL,
   ALTER COLUMN date_format SET NOT NULL;
-ALTER TABLE cedant_file_rule
+ALTER TABLE filing_party_rule
   ADD CONSTRAINT extraction_sheet_declared
   CHECK ((sheet IS NULL) <> (sheet_index IS NULL));
 ```

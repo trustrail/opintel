@@ -5,18 +5,18 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LandingWatcher, MissingLandingStateError, type LandingZone } from '../sidecar/ingest/watch.js';
 import { ProjectId, SourceId } from '../src/shared/kernel/index.js';
-import { identifyFile, normalizePeriod, type Cedant, type CedantFileRule, type CedantId, type CedantFileRuleId } from '../src/modules/ingest/index.js';
+import { identifyFile, normalizePeriod, type FilingParty, type FilingPartyRule, type PartyId, type FilingPartyRuleId } from '../src/modules/ingest/index.js';
 
 const projectId = ProjectId(randomUUID());
-const cedant: Cedant = { id: randomUUID() as CedantId, projectId, code: '4471', name: 'Declared cedant', active: true };
-const rule: CedantFileRule = { id: randomUUID() as CedantFileRuleId, cedantId: cedant.id, projectId, matchKind: 'filename_regex',
+const filingParty: FilingParty = { id: randomUUID() as PartyId, projectId, code: '4471', name: 'Declared filing party', active: true };
+const rule: FilingPartyRule = { id: randomUUID() as FilingPartyRuleId, partyId: filingParty.id, projectId, matchKind: 'filename_regex',
   pattern: '^4471_(?<period>[0-9]{4}-[0-9]{1,2})_premium(?:_v[0-9]+)?\\.xlsx$', kind: 'premium', periodGroup: 'period', priority: 100, active: true };
 let directory: string;
 let zone: LandingZone;
 let watcher: LandingWatcher | undefined;
 const settle = async () => { await watcher!.scan(); await watcher!.scan(); };
 const delivery = (name: string, bytes = 'opaque bytes, deliberately not a spreadsheet') => writeFile(join(zone.directory, name), bytes);
-async function rules(value: CedantFileRule[]) { await writeFile(zone.rulesFile, JSON.stringify({ cedants: [cedant], rules: value })); }
+async function rules(value: FilingPartyRule[]) { await writeFile(zone.rulesFile, JSON.stringify({ filingParties: [filingParty], rules: value })); }
 
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'opintel-ingest-'));
@@ -27,9 +27,34 @@ beforeEach(async () => {
 afterEach(async () => { await watcher?.close(); watcher = undefined; await rm(directory, { recursive: true, force: true }); });
 
 describe('sidecar watch and identify', () => {
+  it('upgrades version-1 history atomically, retaining identities, hashes, duplicate links and restatements', async () => {
+    await delivery('4471_2026-3_premium.xlsx', 'first'); await settle();
+    await delivery('4471_2026-3_premium_v2.xlsx', 'second'); await settle();
+    await delivery('4471_2026-3_premium_v3.xlsx', 'first'); await settle();
+    const expected = watcher!.records();
+    await watcher!.close(); watcher = undefined;
+    await writeFile(zone.stateFile, JSON.stringify({ version: 1, projectId, sourceId: zone.sourceId,
+      filings: expected.map(({ partyId, ...filing }) => ({ ...filing, cedantId: partyId })) }));
+    watcher = await LandingWatcher.open(zone);
+    expect(watcher.records()).toEqual(expected);
+    expect(JSON.parse(await readFile(zone.stateFile, 'utf8'))).toEqual({ version: 2, projectId, sourceId: zone.sourceId, filings: expected });
+    await watcher.close(); watcher = undefined; watcher = await LandingWatcher.open(zone); await settle();
+    expect(watcher.records()).toEqual(expected);
+  });
+  it('accepts a non-reinsurance kind through rule validation, identification and persisted-state reload; refuses empty kinds', async () => {
+    await rules([{ ...rule, kind: 'inventory' }]);
+    await delivery('4471_2026-3_premium.xlsx'); await settle();
+    expect(watcher!.records()[0]).toMatchObject({ kind: 'inventory', partyId: filingParty.id });
+    await watcher!.close(); watcher = undefined; watcher = await LandingWatcher.open(zone);
+    expect(watcher.records()[0]?.kind).toBe('inventory');
+    expect(identifyFile(projectId, '4471_2026-3_premium.xlsx', '', [filingParty], [{ ...rule, kind: '' }])).toMatchObject({ ok: false });
+    await rules([{ ...rule, kind: '' }]);
+    await expect(watcher.scan()).rejects.toThrow();
+  });
+
   it('starts a genuine first run in an empty zone and persists its identity before any arrival', async () => {
     expect(watcher!.records()).toEqual([]);
-    expect(JSON.parse(await readFile(zone.stateFile, 'utf8'))).toEqual({ version: 1, projectId, sourceId: zone.sourceId, filings: [] });
+    expect(JSON.parse(await readFile(zone.stateFile, 'utf8'))).toEqual({ version: 2, projectId, sourceId: zone.sourceId, filings: [] });
     await watcher!.close(); watcher = undefined;
     watcher = await LandingWatcher.open(zone);
     expect(watcher.records()).toEqual([]);
@@ -54,7 +79,7 @@ describe('sidecar watch and identify', () => {
     await delivery('4471_2026-3_premium.xlsx');
     await expect.poll(() => watcher!.records().length).toBe(1);
     const [filing] = watcher!.records();
-    expect(filing).toMatchObject({ status: 'ready', cedantId: cedant.id, period: '2026-03', kind: 'premium', supersedes: null,
+    expect(filing).toMatchObject({ status: 'ready', partyId: filingParty.id, period: '2026-03', kind: 'premium', supersedes: null,
       sha256: createHash('sha256').update('opaque bytes, deliberately not a spreadsheet').digest('hex') });
     expect(JSON.parse(await readFile(zone.stateFile, 'utf8'))).toMatchObject({ filings: [filing] });
     expect(await readFile(join(zone.directory, '4471_2026-3_premium.xlsx'), 'utf8')).toBe('opaque bytes, deliberately not a spreadsheet');
@@ -85,24 +110,24 @@ describe('sidecar watch and identify', () => {
     expect(new Set(watcher!.records().map((filing) => filing.id)).size).toBe(2);
     await expect(LandingWatcher.open(zone)).rejects.toMatchObject({ code: 'EEXIST' });
   });
-  it('ING-08: zero matches quarantines with a reason and no attributed cedant', async () => {
+  it('ING-08: zero matches quarantines with a reason and no attributed filing party', async () => {
     await delivery('unknown.xlsx'); await settle();
-    expect(watcher!.records()[0]).toMatchObject({ status: 'quarantined', reason: 'No cedant rule matched.', cedantId: null, ruleIds: [] });
+    expect(watcher!.records()[0]).toMatchObject({ status: 'quarantined', reason: 'No filing party rule matched.', partyId: null, ruleIds: [] });
   });
-  it('ING-08: two matching rules quarantine even for one cedant and unequal priorities', async () => {
-    const other = { ...rule, id: randomUUID() as CedantFileRuleId, priority: 1 };
+  it('ING-08: two matching rules quarantine even for one filing party and unequal priorities', async () => {
+    const other = { ...rule, id: randomUUID() as FilingPartyRuleId, priority: 1 };
     await rules([rule, other]); await delivery('4471_2026-3_premium.xlsx'); await settle();
-    expect(watcher!.records()[0]).toMatchObject({ status: 'quarantined', reason: 'Multiple cedant rules matched.', cedantId: null, ruleIds: [rule.id, other.id] });
+    expect(watcher!.records()[0]).toMatchObject({ status: 'quarantined', reason: 'Multiple filing party rules matched.', partyId: null, ruleIds: [rule.id, other.id] });
   });
   it('fails safely for inactive, foreign, incomplete and invalid rules; folder matching is explicit', () => {
     for (const candidate of [{ ...rule, active: false }, { ...rule, projectId: ProjectId(randomUUID()) }, { ...rule, pattern: '[' }, { ...rule, kind: null }]) {
-      expect(identifyFile(projectId, '4471_2026-3_premium.xlsx', '', [cedant], [candidate]).ok).toBe(false);
+      expect(identifyFile(projectId, '4471_2026-3_premium.xlsx', '', [filingParty], [candidate]).ok).toBe(false);
     }
-    const folder: CedantFileRule = { ...rule, matchKind: 'folder', pattern: 'declared' };
-    const match = identifyFile(projectId, 'unrelated.xlsx', 'declared', [cedant], [folder]);
+    const folder: FilingPartyRule = { ...rule, matchKind: 'folder', pattern: 'declared' };
+    const match = identifyFile(projectId, 'unrelated.xlsx', 'declared', [filingParty], [folder]);
     expect(match).toMatchObject({ ok: false, error: { message: 'The matching rule did not supply a period and kind.' } });
-    expect(identifyFile(projectId, '4471_2026-3_premium.xlsx', 'declared', [cedant], [rule, folder]))
-      .toMatchObject({ ok: false, error: { message: 'Multiple cedant rules matched.' } });
+    expect(identifyFile(projectId, '4471_2026-3_premium.xlsx', 'declared', [filingParty], [rule, folder]))
+      .toMatchObject({ ok: false, error: { message: 'Multiple filing party rules matched.' } });
   });
   it('does not register a file that changes between observations', async () => {
     await delivery('4471_2026-3_premium.xlsx', 'partial'); await watcher!.scan();

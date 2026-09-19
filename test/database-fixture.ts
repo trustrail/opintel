@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { beforeEach } from 'vitest';
 import { withPlatformAdmin } from '../src/platform/db/scope.js';
 
@@ -18,6 +19,7 @@ export function resetDatabaseBeforeEach(...tables: [FixtureTable, ...FixtureTabl
         await tx.query(`INSERT INTO industry (slug, name, description) VALUES
           ('reinsurance-treaty', 'Reinsurance Treaty', 'Reinsurance treaty vocabulary and demo pack.'),
           ('general', 'General', 'No industry vocabulary. Terms you define yourself.')`);
+        await tx.query(await readFile(new URL('../migrations/021_reinsurance_filing_vocabulary.up.sql', import.meta.url), 'utf8'));
       }
     });
   });

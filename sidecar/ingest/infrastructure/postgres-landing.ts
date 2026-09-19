@@ -34,8 +34,18 @@ export class PostgresLanding implements LandingPort {
       await db.query(`CREATE TABLE IF NOT EXISTS ${qualified(metadata, 'sources')} (
         source_id uuid PRIMARY KEY, project_id uuid NOT NULL, schema_name text UNIQUE NOT NULL, strategy text)`);
       await db.query(`CREATE TABLE IF NOT EXISTS ${qualified(metadata, 'groups')} (
-        source_id uuid NOT NULL, cedant_id uuid NOT NULL, kind text NOT NULL, table_name text NOT NULL, columns jsonb NOT NULL,
-        PRIMARY KEY(source_id,cedant_id,kind), UNIQUE(source_id,table_name))`);
+        source_id uuid NOT NULL, party_id uuid NOT NULL, kind text NOT NULL, table_name text NOT NULL, columns jsonb NOT NULL,
+        PRIMARY KEY(source_id,party_id,kind), UNIQUE(source_id,table_name))`);
+      // Forward-only customer schema upgrade under the same advisory lock and
+      // transaction as landing. PostgreSQL preserves PK/FK/index bindings on a
+      // column rename; no table copy or name reassignment occurs.
+      const attributes = await db.query<{ attname: string }>("SELECT attname FROM pg_attribute WHERE attrelid=to_regclass('_opintel_landing.groups') AND attnum>0 AND NOT attisdropped");
+      const hasLegacyParty = attributes.rows.some((row) => row.attname === 'cedant_id');
+      const hasParty = attributes.rows.some((row) => row.attname === 'party_id');
+      if (hasLegacyParty && hasParty) throw new DomainError('conflict', 'Landing groups contain both old and new party columns; operator reconciliation is required.');
+      if (hasLegacyParty) await db.query(`ALTER TABLE ${qualified(metadata, 'groups')} RENAME COLUMN cedant_id TO party_id`);
+      const constraint = await db.query("SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass('_opintel_landing.groups') AND conname='groups_kind_nonempty'");
+      if (!constraint.rowCount) await db.query(`ALTER TABLE ${qualified(metadata, 'groups')} ADD CONSTRAINT groups_kind_nonempty CHECK (length(kind)>0)`);
       await db.query(`CREATE TABLE IF NOT EXISTS ${qualified(metadata, 'commits')} (
         filing_id uuid PRIMARY KEY, source_id uuid NOT NULL, receipt jsonb NOT NULL)`);
       const existing = await db.query<{ schema_name: string; project_id: string; strategy: string | null }>(`SELECT * FROM ${qualified(metadata, 'sources')} WHERE source_id=$1 FOR UPDATE`, [source.sourceId]);
@@ -65,6 +75,7 @@ export class PostgresLanding implements LandingPort {
   }
   async land(input: LandingInput, rows: AsyncIterable<Result<Array<string | null>>>): Promise<Result<LandingReceipt>> {
     if (!['append_as_at', 'table_per_filing'].includes(input.source.strategy)) return err(new DomainError('validation_failed', 'A landing source requires an explicit strategy.'));
+    if (input.kind.length === 0) return err(new DomainError('validation_failed', 'A filing kind must be non-empty.'));
     return this.scope(input.source, async (db, schema) => {
       const replay = await db.query<{ receipt: unknown }>(`SELECT receipt FROM ${qualified(metadata, 'commits')} WHERE filing_id=$1`, [input.filingId]);
       if (replay.rows[0]) {
@@ -79,7 +90,7 @@ export class PostgresLanding implements LandingPort {
           throw new DomainError('validation_failed', `Column ${JSON.stringify(column.name)} cannot be landed without changing its identity.`);
         names.add(column.name);
       }
-      const group = await db.query<{ table_name: string; columns: unknown }>(`SELECT * FROM ${qualified(metadata, 'groups')} WHERE source_id=$1 AND cedant_id=$2 AND kind=$3`, [input.source.sourceId, input.cedantId, input.kind]);
+      const group = await db.query<{ table_name: string; columns: unknown }>(`SELECT * FROM ${qualified(metadata, 'groups')} WHERE source_id=$1 AND party_id=$2 AND kind=$3`, [input.source.sourceId, input.partyId, input.kind]);
       const previous = group.rows[0];
       const columns = previous ? columnsSchema.parse(previous.columns) : [];
       for (const column of input.columns) {
@@ -90,7 +101,7 @@ export class PostgresLanding implements LandingPort {
       if (!base) {
         const occupied = await db.query<{ table_name: string }>(`SELECT table_name FROM ${qualified(metadata, 'groups')} WHERE source_id=$1`, [input.source.sourceId]);
         base = naming.assign(`${input.partyCode}_${input.kind}`, occupied.rows.map((row) => DuckDbName(row.table_name))).name ?? undefined;
-        if (!base) throw new DomainError('validation_failed', 'The cedant code cannot name a landing table.');
+        if (!base) throw new DomainError('validation_failed', 'The filing party code cannot name a landing table.');
       }
       const table = input.source.strategy === 'append_as_at' ? base : `${base.slice(0, 30)}_${input.filingId.replaceAll('-', '')}`;
       const target = qualified(schema, table);
@@ -121,8 +132,8 @@ export class PostgresLanding implements LandingPort {
       }
       await flush();
       columns.push(...added.map((column) => ({ name: column.name, type: column.type, filingId: input.filingId })));
-      await db.query(`INSERT INTO ${qualified(metadata, 'groups')} VALUES ($1,$2,$3,$4,$5) ON CONFLICT (source_id,cedant_id,kind) DO UPDATE SET columns=EXCLUDED.columns`,
-        [input.source.sourceId, input.cedantId, input.kind, base, JSON.stringify(columns)]);
+      await db.query(`INSERT INTO ${qualified(metadata, 'groups')} VALUES ($1,$2,$3,$4,$5) ON CONFLICT (source_id,party_id,kind) DO UPDATE SET columns=EXCLUDED.columns`,
+        [input.source.sourceId, input.partyId, input.kind, base, JSON.stringify(columns)]);
       await db.query(`UPDATE ${qualified(metadata, 'sources')} SET strategy=$2 WHERE source_id=$1`, [input.source.sourceId, input.source.strategy]);
       const receipt: LandingReceipt = { filingId: input.filingId, sourceId: input.source.sourceId, projectId: input.source.projectId, partyCode: input.partyCode,
         kind: input.kind, period: input.period, asAt: input.asAt, strategy: input.source.strategy, landedTable: target, rowCount,

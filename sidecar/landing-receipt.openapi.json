@@ -48,11 +48,7 @@
                   },
                   "kind": {
                     "type": "string",
-                    "enum": [
-                      "premium",
-                      "claims",
-                      "submission"
-                    ]
+                    "minLength": 1
                   },
                   "period": {
                     "type": "string",

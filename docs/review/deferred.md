@@ -114,10 +114,10 @@ EOF
 
 # From item 2.6b
 
-- No vocabulary_term rows exist. Migration 003 seeds the reinsurance
-  industry but no terms, so inheritedTermCount is always 0 and the
-  "nothing is copied at creation" property is unfalsifiable. Seeding the
-  reinsurance pack is a content exercise; item 2.1 created the schema only.
+- Partially resolved: migration 021 adds the reinsurance pack's filing-party
+  subject label and filing-kind parameter. Its inherited term count is now two
+  before deployment additions. The broader reinsurance vocabulary remains a
+  content exercise; it is not implemented by the platform rename.
 
 # From item 3.7
 
@@ -129,13 +129,13 @@ EOF
 # From item 3.8 — extraction declaration rollout
 
 - Migration 018 is an expand-only migration: locale and sheet declarations remain
-  nullable for existing cedants/rules. Extraction refuses incomplete declarations.
+  nullable for existing filing parties/rules. Extraction refuses incomplete declarations.
 - Complete and verify the explicit per-deployment backfill in
   [extraction-backfill.md](extraction-backfill.md), then release a later migration
-  setting cedant.decimal_separator/date_format NOT NULL and requiring exactly one
-  of cedant_file_rule.sheet/sheet_index. Do not queue that migration before the
+  setting filing_party.decimal_separator/date_format NOT NULL and requiring exactly one
+  of filing_party_rule.sheet/sheet_index. Do not queue that migration before the
   backfill: the normal migration runner would apply it immediately after 018.
-- No assumption is made that deployments have empty cedant tables.
+- No assumption is made that deployments have empty filing party tables.
 
 # From item 3.9
 
@@ -146,3 +146,11 @@ EOF
   registration error; a refused receipt never rolls back committed customer rows.
 - ING-24's persisted evidence assertion belongs to item 5.11. Item 3.9 retains
   the strategy on the source and every landing receipt for that writer to consume.
+
+# From the filing_party rename
+
+- sidecar/ingest/watch.ts parses version-1 state with cedantId, and
+  postgres-landing.ts renames cedant_id in the customer database on first
+  contact. Both are upgrade shims for sidecars that ran before the rename.
+  Nothing outside local development has. Remove them before first
+  deployment rather than carrying them forward.

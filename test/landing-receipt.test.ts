@@ -13,7 +13,7 @@ import { PostgresLandingReceiptRepository } from '../src/modules/ingest/infrastr
 import { HttpsLandingReceipts } from '../sidecar/ingest/infrastructure/receipt-client.js';
 import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { FilingId, ProjectId, SourceId, UserId } from '../src/shared/kernel/index.js';
-import type { LandingReceipt } from '../src/shared/landing-contract.js';
+import { landingReceiptSchema, landingReceiptOpenApiDocument, type LandingReceipt } from '../src/shared/landing-contract.js';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 
 const context = { projectId: ProjectId(randomUUID()), userId: UserId(randomUUID()) };
@@ -72,6 +72,15 @@ describe('landing receipt over pinned mutual TLS', () => {
       'SELECT landing_strategy, first_landed_at FROM data_source WHERE id=$1', [sourceId],
     ))).toEqual([{ landing_strategy: stored, first_landed_at: null }]);
     expect(await withTenant(context, (tx) => tx.query('SELECT filing_id FROM landing_receipt WHERE filing_id=$1', [conflicting.filingId]))).toEqual([]);
+  });
+  it('accepts a pack-independent kind over the wire and rejects an empty kind in the shared/OpenAPI contract', async () => {
+    const arbitrary = { ...receipt(), kind: 'inventory' };
+    expect(await client.send(arbitrary)).toEqual({ ok: true, value: undefined });
+    expect(await withTenant(context, (tx) => tx.query('SELECT payload FROM landing_receipt'))).toEqual([{ payload: arbitrary }]);
+    expect(landingReceiptSchema.safeParse({ ...arbitrary, kind: '' }).success).toBe(false);
+    const schema = landingReceiptOpenApiDocument().paths['/landing-receipt'].post.requestBody.content['application/json'].schema;
+    expect(schema.properties?.kind).toMatchObject({ type: 'string', minLength: 1 });
+    expect(schema.properties?.kind).not.toHaveProperty('enum');
   });
   it('ING-25: only sources receiving landings require a strategy before connection', async () => {
     await expect(withTenant(context, (tx) => tx.query("UPDATE data_source SET status='connected' WHERE id=$1", [sourceId]))).rejects.toMatchObject({ code: '23514' });
