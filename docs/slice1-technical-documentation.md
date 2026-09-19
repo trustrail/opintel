@@ -2281,6 +2281,8 @@ create table cedant (
   code        text not null,                    -- '4471', the customer's own reference
   name        text not null,
   active      boolean not null default true,
+  decimal_separator char(1) not null,
+  date_format text not null,
   created_at  timestamptz not null default now(),
   unique (project_id, lower(code))
 );
@@ -2293,6 +2295,11 @@ create table cedant_file_rule (
   pattern     text not null,
   kind        text check (kind in ('premium','claims','submission')),
   period_group text,                            -- named capture yielding the period
+  sheet       text,
+  sheet_index integer,                          -- one-based, alternative to sheet
+  header_row  integer not null default 1,
+  verify_column text,
+  verify_value text,
   priority    integer not null default 100,
   active      boolean not null default true
 );
@@ -2339,6 +2346,38 @@ the handoff to 3.8; quarantine and duplicate registrations are never handed off.
 No landing SQL or spreadsheet parsing runs in 3.7. Runtime configuration and
 operational recovery are documented in `sidecar/README.md` under “Landing watch
 and identify”. ING-07's landing assertions remain with 3.9.
+
+**Formats: .xlsx and .csv only**. .xls is refused with a message naming the format, because the legacy binary format needs a different library and appears rarely in bordereaux. Quarantined, not silently skipped.
+
+**Sheet selection is declared, not inferred**. cedant_file_rule gains sheet text, matched by exact name, and sheet_index integer as an alternative. Exactly one must be set. A rule with neither is invalid, like one missing its period group. A named sheet that is absent quarantines the file.
+
+**The header row is declared too**: header_row integer not null default 1. Inferring it means guessing which row of a spreadsheet is the header, and a wrong guess silently shifts every column by one.
+
+**Data ends at the first fully empty row** after the header. Trailing notes below a blank row are excluded, which is the common bordereau shape. ING-13.
+
+**Merged cells flatten by repeating the value** across the span for data cells. A merged header cell quarantines the file: it means the header is two rows, and the rule declared one.
+
+**Formulas use their cached value**. A formula with no cached value quarantines the file, because evaluating it would mean implementing a spreadsheet engine and guessing at a value nobody computed.
+
+**Declared per cedant, on the cedant row**: decimal_separator char(1) not null and date_format text not null. Not per rule, since a cedant's locale does not vary by file, and not per source, since one source receives many cedants.
+
+**Migration rollout.** Migration 018 adds locale and sheet-selection columns
+nullable, preserving existing rows. Extraction refuses incomplete declarations.
+Deployment owners must explicitly backfill them following
+`docs/review/extraction-backfill.md`. A later migration, released only after that
+backfill is verified, adds the locale NOT NULL and exactly-one-sheet constraints.
+The NOT NULL declarations above describe the final schema, not the expand phase.
+
+**No default, and no inference**. A cedant without a declared locale cannot have files landed. Inferring from the data is how 03/04/2026 becomes March in one file and April in the next.
+
+**Content never attributes, only verifies**. Where cedant_file_rule.verify_column and verify_value are set, extraction checks that column holds that value. A mismatch quarantines the file naming both the filename attribution and the content value.
+
+**Runtime representation.** Extraction appends a summary to the existing customer-local arrival history and streams typed rows for item 3.9; it does not create a second filing register or a landing table. CSV is UTF-8 comma-delimited with quoting and uses sheet index 1. Supported date declarations are `DD/MM/YYYY`, `MM/DD/YYYY`, and `YYYY-MM-DD`; unsupported declarations refuse. Detailed parser conventions and resource limits are in `sidecar/README.md`.
+
+**It cannot rescue a file quarantined by 3.7**. A file with no rule has no declared sheet, header row or locale, so there is nothing to read it with.
+
+
+
 
 ## 4.4 The exposed namespace and type mapping
 

@@ -3,10 +3,11 @@ import { DomainError, err, ok, type Result, type ProjectId } from '../../../shar
 export type CedantId = string & { readonly __brand: 'CedantId' };
 export type CedantFileRuleId = string & { readonly __brand: 'CedantFileRuleId' };
 export type FilingKind = 'premium' | 'claims' | 'submission';
-export type Cedant = { id: CedantId; projectId: ProjectId; code: string; name: string; active: boolean };
+export type Cedant = { id: CedantId; projectId: ProjectId; code: string; name: string; active: boolean; decimalSeparator?: string | null; dateFormat?: string | null };
 export type CedantFileRule = {
   id: CedantFileRuleId; cedantId: CedantId; projectId: ProjectId;
   matchKind: 'filename_regex' | 'folder'; pattern: string;
+  sheet?: string | null; sheetIndex?: number | null; headerRow?: number; verifyColumn?: string | null; verifyValue?: string | null;
   kind: FilingKind | null; periodGroup: string | null; priority: number; active: boolean;
 };
 export type Identification = { cedantId: CedantId; ruleId: CedantFileRuleId; period: string; kind: FilingKind };

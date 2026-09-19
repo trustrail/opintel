@@ -125,3 +125,14 @@ EOF
   history, including filing IDs, SHA-256 hashes, duplicate/restatement links and
   quarantine reasons. Identification must consult that authority; do not keep a
   second, independent record of arrivals or reset history during the handoff.
+
+# From item 3.8 — extraction declaration rollout
+
+- Migration 018 is an expand-only migration: locale and sheet declarations remain
+  nullable for existing cedants/rules. Extraction refuses incomplete declarations.
+- Complete and verify the explicit per-deployment backfill in
+  [extraction-backfill.md](extraction-backfill.md), then release a later migration
+  setting cedant.decimal_separator/date_format NOT NULL and requiring exactly one
+  of cedant_file_rule.sheet/sheet_index. Do not queue that migration before the
+  backfill: the normal migration runner would apply it immediately after 018.
+- No assumption is made that deployments have empty cedant tables.

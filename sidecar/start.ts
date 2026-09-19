@@ -1,4 +1,6 @@
 import { resolve } from 'node:path';
+import { SpreadsheetExtractor } from './ingest/extract.js';
+import { LocalWorkbookReader } from './ingest/infrastructure/workbook-reader.js';
 import { LandingWatcher, MissingLandingStateError } from './ingest/watch.js';
 import { config as loadEnvironment } from 'dotenv';
 import { DevelopmentVaultAdapter } from '../src/platform/vault/index.js';
@@ -15,7 +17,7 @@ async function main(): Promise<void> {
   const host = createSidecarServer({config,tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   try {
-    for (const zone of config.landingZones ?? []) watchers.push(await LandingWatcher.open(zone));
+    for (const zone of config.landingZones ?? []) watchers.push(await LandingWatcher.open(zone, undefined, new SpreadsheetExtractor(new LocalWorkbookReader())));
     await host.listen();
     for (const watcher of watchers) watcher.start();
   } catch (error) {

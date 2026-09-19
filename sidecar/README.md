@@ -119,3 +119,66 @@ scans and removes it. After a crash, verify that PID is no longer running before
 removing the stale lock and restarting. Keep a source bound to the same state
 file: changing it discards its duplicate/restatement history. Watcher failures
 log a fixed warning without paths, file contents, or captured labels.
+
+## Extraction (3.8)
+
+The runnable sidecar inspects each ready filing and records its extraction summary
+on that same arrival: selected sheet name/index, header row, row count, and ordered
+columns with their original headers, stable output names and inferred types.
+Arrivals are committed before extraction opens the workbook. Existing ready
+filings without a summary resume on the next scan with the same filing ID. A failed file
+becomes quarantined with a reason; its siblings continue. Nothing is landed yet.
+
+Re-export the tenant rule snapshot after migration 018. Cedants must declare
+`decimalSeparator` (`.` or `,`) and `dateFormat` (`DD/MM/YYYY`, `MM/DD/YYYY`, or
+`YYYY-MM-DD`). Neither has a default. Rules declare exactly one of `sheet` (exact
+name) or `sheetIndex` (one-based), plus `headerRow` (one-based; the database default
+is 1). Old snapshots lacking these declarations refuse extraction rather than
+infer a locale or sheet. Migration 018 adds these columns nullable so existing rows survive unchanged.
+Extraction refuses incomplete declarations during the backfill window. Follow
+[the backfill procedure](../docs/review/extraction-backfill.md); NOT NULL and
+exactly-one-sheet enforcement must ship in a later migration only after that
+backfill has been verified. No enforcement migration is queued automatically.
+
+CSV is UTF-8, comma-delimited with quoted fields, with optional UTF-8 BOM. Declare
+`sheetIndex: 1` for its single logical sheet. Commas inside European numbers must
+be quoted. XLSX uses the declared exact sheet or index. `.xls` and other formats
+quarantine. CSV delimiters, worksheet selection and dates are never autodetected.
+
+Numeric text uses the declared decimal separator and validates any grouping with
+the other separator in groups of three. Canonical numeric output remains a
+string for lossless Postgres NUMERIC input; it is never rounded through a JS
+number. Text that does not match the declaration remains text. Date strings must
+match the declared format and a valid calendar date. Native XLSX numeric cells
+use the workbook's numeric representation, and date cells respect its 1900/1904
+calendar. Excel's fictitious 1900-02-29 refuses. Date-times remain text without an
+invented timezone. No machine locale or timezone controls parsing.
+
+Data ends at the first fully empty row, including a missing XLSX row. Trailing
+notes after it are excluded. Merged data cells repeat their anchor value across
+the range; a merge intersecting the header quarantines. Formula cells use only
+their cached result; missing caches and spreadsheet error cells quarantine.
+Missing headers become `column_N`; duplicates receive `_2`, `_3`, etc., reserving
+literal headers so a generated name cannot displace one.
+
+Optional `verifyColumn` and `verifyValue` must be supplied together. The original
+header must identify exactly one column, and every data row must match the
+expected raw value. A mismatch records the filename attribution and conflicting
+content in the customer-local quarantine reason. Logs contain identifiers and a
+fixed refusal code only. Content never creates an attribution or releases a
+quarantine from 3.7.
+
+`SpreadsheetExtractor.inspect()` provides a typed summary. Its `rows()` iterator
+first infers all column types, then re-reads rows with those final types; any mixed
+column is TEXT and retains original textual values. It yields Result values and
+never writes a landing table. Item 3.9 must consume the iterator transactionally,
+rolling back if a later read fails. The file's SHA-256 is checked before and after reads.
+
+Both readers stream rows. XLSX shared strings use an indexed temporary directory
+on the sidecar's local filesystem, cleaned up when the reader closes; values do
+not leave the customer's environment. Memory is bounded by row and metadata
+limits, not row count. A row/shared string or CSV record exceeding 1 MiB refuses;
+Expanded rows have the same limit, and active merged values have an 8 MiB limit.
+XLSX limits also cap columns at 16,384, styles at 65,536, and merged ranges/workbook
+parts at 100,000. Files beyond these limits fail individually. Extraction does
+not evaluate formulas, resolve external workbook links, or contact a database.

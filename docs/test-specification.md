@@ -528,18 +528,18 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ID | Type | Case | Expected |
 |---|---|---|---|
 | ING-01 | F | A file arrives in the landing zone | Detected, registered, processing starts |
-| ING-02 | F | Cedant identified from filename and folder | Correct cedant, recorded on the filing. Content inspection is deferred to item 3.8 |
+| ING-02 | F | Cedant identified from filename/folder and verified against declared content | Item 3.7 attributes; item 3.8 verifies. A mismatch quarantines naming both; content never creates attribution |
 | ING-03 | F | Period identified | Correct period, recorded |
 | ING-04 | F | Premium versus claims bordereau distinguished | Correct kind |
 | ING-05 | F | A file for a period already filed | Recognised as a restatement, not a duplicate |
 | ING-06 | F | An exact byte-identical re-delivery | Recognised as a duplicate, not landed twice |
 | ING-07 | R | Two files arrive simultaneously | Item 3.7 proves concurrent detection and registration. Both land, no interleaving and no partial table are deferred to item 3.9 |
 | ING-08 | **S** | **A file that cannot be attributed to a cedant** | **Quarantined with a reason. Never guessed, never landed** |
-| ING-09 | F | Header row is not the first row | Detected, correct headers used |
-| ING-10 | F | Merged cells in the header | Flattened deterministically |
-| ING-11 | F | Twelve sheets, one relevant | Correct sheet selected, choice recorded |
-| ING-12 | F | Mixed types within a column | Landed as text, never silently coerced |
-| ING-13 | F | Blank rows and trailing notes below the data | Excluded from the landed rows |
+| ING-09 | F | Declared header row is not the first row | Correct declared row and headers used; no inference |
+| ING-10 | F | Merged header and data cells | Merged header quarantines; merged data repeats the anchor value deterministically |
+| ING-11 | F | Twelve sheets, one declared | Exact declared sheet selected, choice recorded; an absent sheet quarantines |
+| ING-12 | F | Mixed types within a column | Item 3.8 emits the entire column as TEXT preserving values; item 3.9 lands it as text, never silently coerced |
+| ING-13 | F | Fully empty row and trailing notes below the data | Extraction stops at the first fully empty row; notes are absent from the rows handed to item 3.9 |
 | ING-14 | F | A column with no header | Landed under a generated stable name |
 | ING-15 | F | Duplicate headers in one sheet | Suffixed deterministically, both retained |
 | ING-16 | R | Malformed file inside a batch | Fails alone. The batch continues |
