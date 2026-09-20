@@ -164,7 +164,7 @@ class DataSource {
   readonly origin: 'customer' | 'demo';
   readonly demoTemplateId: DemoSourceId | null;   // set when origin is demo
   name: SourceName;
-  credentialRef: VaultRef | null;    // null for demo, never a literal otherwise
+  credentialRef: VaultRef;           // required for every source, including demo
   samplingConsent: boolean;
   status: SourceStatus;
   freshness: Freshness;
@@ -172,7 +172,7 @@ class DataSource {
 ```
 
 **Invariants**
-- `credentialRef` is a vault reference, or null when `origin` is `demo`. A literal secret fails construction
+- `credentialRef` is a non-null vault reference for every origin. A literal secret fails construction
 - `origin` is immutable. A demo source never becomes a customer source, and the reverse is meaningless
 - Deleting a source requires that its dependent entitlements be enumerated to the caller first
 - `samplingConsent` defaults false and can only be set by an explicit command with an audit entry
@@ -914,6 +914,19 @@ type GeneratorSpec = {
     values?: string[];            // a closed domain, for enumerated columns
     nullRate?: number;
   }>;
+  files?: Array<{
+    id: string;                    // stable, referenced by dependsOn
+    party: string;
+    kind: string;
+    period: string;
+    sheetName: string;
+    headerRow: number;
+    decimalSeparator: '.' | ',';
+    dateFormat: string;
+    mergedHeader?: boolean;
+    supersedes?: string;           // id of the filing this restates
+    dependsOn?: string;            // id that must be durably registered first
+  }>;
 };
 
 // platform/mail
@@ -979,7 +992,6 @@ interface VaultPort {
   resolve(ref: VaultRef): Promise<string>;   // never logged, never cached to disk
   store(path: string, secret: string): Promise<VaultRef>;
 }
-
 ```
 CheckRequest and RelationshipUpdate have different subject types on purpose. Only a user or a pool asks an authorization question. A company appears as the subject of project#company@company, which is how a project inherits from its company, and is never itself a caller.
 
@@ -1004,6 +1016,7 @@ That constrains issuance: the plaintext token exists in memory for the duration 
 
 **null from estimateRowCount means the source cannot estimate**, not that the call failed. The distinction matters at query planning: an unknown row count means the cardinality check cannot run, so the query is refused with unsupported_pushdown rather than executed blind. An error means the source was unreachable, which is a different refusal.
 
+**Provisioning withholds a dependent file until its predecessor is registered**. Writing files in order does not guarantee the watcher observes them in order, and a restatement arriving before its original is a different scenario from the one the fixture intends.
 
 ### The outbox
 
@@ -1669,6 +1682,41 @@ type ReconciliationReport = {
 **`GET /projects/:id/filings` requires `project#view`.** Cursor paginated.
 
 
+// POST /provision-demo
+```ts
+type ProvisionDemoPayload = {
+  templateId: DemoSourceId;
+  schemaSpec: SchemaSpec;
+  generatorSpec: GeneratorSpec;
+  landingZone: string | null;      // set for spreadsheet templates
+};
+type ProvisionDemoResponse = { credentialRef: VaultRef; database: string };
+```
+
+**The sidecar provisions demo data because demo data is still the customer's environment**. A spreadsheet template writes files into the landing zone and stops: the watcher picks them up through the ordinary path, with no special provisioning route
+
+
+### Bootstrap. Pre-provisioned, not a writable secret store.
+
+**The sidecar does not create databases**. /provision-demo writes schema and rows into a database that already exists, whose credential the operator configured at the same time as everything else in service.json. Creating databases would need an administrative credential in the sidecar, which is a larger privilege than anything else it holds, for a convenience.
+
+**In development the demo database is a second database on the Compose Postgres**, created by dev:up, with its reference in the development vault adapter. In a deployment it is whatever the customer provisions, and the six-week engagement configures it.
+
+### Item 3.11 implementation: demo delivery
+
+The reinsurance template is published by migration 024 from
+`src/modules/sources/demo/reinsurance.json`: twelve initial filing-party workbooks
+and a thirteenth restatement. The sidecar demo target declares `database` and
+`credentialRef`; only zones using that reference can receive demo files.
+Files are named `id_period.xlsx`; the SchemaSpec object named `party_kind` supplies
+columns and GeneratorSpec row counts. Dependencies reference earlier file IDs,
+not filenames or periods. Prepared workbooks and their template signature stay
+outside the zone; retries publish the same bytes without replacement. Arrival
+authority remains the ordinary register. See `sidecar/README.md` for bootstrap,
+local commands and migration rollback/backfill constraints.
+
+
+
 ---
 
 # 3. Authentication and authorization
@@ -2285,7 +2333,7 @@ create table data_source (
   origin         text not null default 'customer' check (origin in ('customer','demo')),
   demo_template_id uuid references demo_source_template(id) on delete restrict,
   name           text not null,
-  credential_ref text,                             -- vault://... or null for demo
+  credential_ref text,                             -- required vault://... for every origin
   sampling_consent boolean not null default false,
   receives_landings boolean not null default false,
   landing_strategy text check (landing_strategy in ('append_as_at','table_per_filing')),
@@ -2296,8 +2344,8 @@ create table data_source (
   created_at     timestamptz not null default now(),
   unique (project_id, lower(name)),
   constraint credential_matches_origin check (
-    (origin = 'customer' and credential_ref is not null and credential_ref like 'vault://%') or
-    (origin = 'demo'     and credential_ref is null and demo_template_id is not null)
+    credential_ref is not null and credential_ref like 'vault://%' and
+    (origin = 'customer' or (origin = 'demo' and demo_template_id is not null))
   )
 );
 
@@ -2413,6 +2461,9 @@ and records the breaking change in the same transaction.
 Source connection failure sets status to `unreachable`; successful publication
 sets it to `connected`. Item 3.6 exposes this status through its application service.
 F-010 query-path refusal is implemented and verified in item 5.7.
+
+**A demo source holds a real Vault reference to a real Postgres**. It is a database Opintel provisioned rather than one the customer owns, and that is the only difference. Making it credential-less would mean a second code path through introspection, and a demo that proves nothing about the product. The origin column says it is generated; nothing else does.
+
 
 **Rules are established during the six-week deployment**, one set per filing party, and are data rather than code. A new filing party is a row, not a release.
 

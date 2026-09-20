@@ -245,3 +245,8 @@ This uses a dedicated Vitest configuration with one worker and no concurrency;
 `test/performance/` is excluded from the main suite. CI runs it as a separate step
 after `npm test`. Do not run the two commands concurrently. Both use the normal
 service-readiness checks; bootstrap with `npm run dev:up` first.
+
+The reinsurance demo pack and its local preparation/provisioning commands are
+documented in [the sidecar demo instructions](sidecar/README.md#reinsurance-demo-pack-311).
+`dev:up` also creates the separate `opintel_demo` landing database; application
+migrations run only on the application and test databases.

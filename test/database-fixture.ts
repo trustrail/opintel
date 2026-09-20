@@ -20,6 +20,7 @@ export function resetDatabaseBeforeEach(...tables: [FixtureTable, ...FixtureTabl
           ('reinsurance-treaty', 'Reinsurance Treaty', 'Reinsurance treaty vocabulary and demo pack.'),
           ('general', 'General', 'No industry vocabulary. Terms you define yourself.')`);
         await tx.query(await readFile(new URL('../migrations/021_reinsurance_filing_vocabulary.up.sql', import.meta.url), 'utf8'));
+        await tx.query(await readFile(new URL('../migrations/024_reinsurance_demo_pack.up.sql', import.meta.url), 'utf8'));
       }
     });
   });

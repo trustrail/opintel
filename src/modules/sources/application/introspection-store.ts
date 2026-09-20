@@ -5,7 +5,7 @@ import type { IntrospectionDiff } from '../../catalog/index.js';
 import type { VaultRef } from '../../../platform/vault/types.js';
 export type IntrospectionContext = { projectId: ProjectId; userId: UserId };
 export type SourceStatus = 'pending' | 'testing' | 'connected' | 'unreachable' | 'archived';
-export type IntrospectionSource = { id: SourceId; projectId: ProjectId; kind: SourceKind; credentialRef: VaultRef | null; status: SourceStatus; receivesLandings?: boolean; landingStrategy?: string | null };
+export type IntrospectionSource = { id: SourceId; projectId: ProjectId; kind: SourceKind; credentialRef: VaultRef; status: SourceStatus; receivesLandings?: boolean; landingStrategy?: string | null };
 export type IntrospectionRun = { id: RunId; sourceId: SourceId; state: IntrospectionState; adoptRenamedNames: boolean; include: string[]; diff: IntrospectionDiff[]; error: string | null; startedAt: Timestamp | null; endedAt: Timestamp | null };
 export interface IntrospectionStore {
   enqueue(ctx: IntrospectionContext, sourceId: SourceId, include: string[], adoptRenamedNames?: boolean): Promise<Result<IntrospectionRun>>;

@@ -170,7 +170,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(invalid.status).toBe(400);expect(JSON.stringify(invalid)).not.toContain(password);
     expect(resolveSpy).not.toHaveBeenCalled();
   });
-  it('bounds request bodies and generates the five-endpoint OpenAPI contract from shared schemas',async()=>{
+  it('bounds request bodies and generates the sidecar OpenAPI contract from shared schemas',async()=>{
     const limited=createSidecarServer({config:{...config,maxRequestBytes:64},tls,connector});
     try{
       const port=await limited.listen();
@@ -178,7 +178,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await limited.close();}
     const specification=wire.sidecarOpenApiDocument();
-    expect(Object.keys(specification.paths).sort()).toEqual(['/estimate','/health','/introspect','/sample','/test-connection']);
+    expect(Object.keys(specification.paths).sort()).toEqual(['/estimate','/health','/introspect','/provision-demo','/sample','/test-connection']);
     expect(JSON.parse(await readFile(new URL('../sidecar/openapi.json',import.meta.url),'utf8'))).toEqual(specification);
   });
 

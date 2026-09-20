@@ -1,3 +1,5 @@
+import { provisionDemoPayload, provisionDemoResponse, type ProvisionDemoPayload } from '../../../shared/demo-contract.js';
+import type { DemoProvisioningPort } from '../application/demo-provisioning.js';
 import { X509Certificate } from 'node:crypto';
 import { request } from 'node:https';
 import { checkServerIdentity } from 'node:tls';
@@ -14,7 +16,7 @@ export interface SidecarOptions {
   timeoutMs?: number;
 }
 
-export class SidecarSourceConnector implements SourceConnector {
+export class SidecarSourceConnector implements SourceConnector, DemoProvisioningPort {
   private readonly url: URL;
   private readonly timeoutMs: number;
   private readonly fingerprint: string;
@@ -30,6 +32,10 @@ export class SidecarSourceConnector implements SourceConnector {
     this.fingerprint = new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
   }
 
+  async provisionDemo(ref: VaultRef, payload: ProvisionDemoPayload, signal?: AbortSignal) {
+    const parsed = provisionDemoPayload.safeParse(payload);
+    return parsed.success ? this.call('/provision-demo', ref, parsed.data, provisionDemoResponse, signal) : this.invalid();
+  }
   async testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void>> {
     const response = await this.call('/test-connection', ref, {}, wire.connectionResponse, signal);
     if (!response.ok) return response;

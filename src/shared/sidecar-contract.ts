@@ -1,3 +1,4 @@
+import { provisionDemoPayload, provisionDemoResponse } from './demo-contract.js';
 import { z } from 'zod';
 import { Timestamp } from './kernel/index.js';
 
@@ -39,6 +40,7 @@ export function sidecarOpenApiDocument() {
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
     ['/sample', envelope.extend({payload:samplePayload}), sampleResponse],
+    ['/provision-demo', envelope.extend({payload:provisionDemoPayload}), provisionDemoResponse],
     ['/estimate', envelope.extend({payload:estimatePayload}), estimateResponse],
   ] as const;
   const error = z.strictObject({error:z.strictObject({code:z.string(),message:z.string(),requestId:z.string(),retryable:z.boolean()})});

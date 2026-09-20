@@ -24,7 +24,8 @@
     "migrate:status": "tsx src/platform/db/migrate.ts status",
     "spicedb:schema": "tsx src/modules/authz/infrastructure/load-schema.ts",
     "sidecar:register": "tsx sidecar/ingest/command.ts",
-    "test:performance": "tsx scripts/test.ts --config vitest.performance.config.ts"
+    "test:performance": "tsx scripts/test.ts --config vitest.performance.config.ts",
+    "demo:pack": "tsx scripts/demo-pack.ts"
   },
   "dependencies": {
     "@authzed/authzed-node": "^1.6.1",
@@ -32,6 +33,7 @@
     "@tanstack/react-router": "^1.170.36",
     "csv-parse": "^7.0.2",
     "dotenv": "^16.0.0",
+    "exceljs": "^4.4.0",
     "openid-client": "^6.8.8",
     "pg": "^8.0.0",
     "react": "^19.3.0",
@@ -58,7 +60,6 @@
     "axe-core": "^4.13.0",
     "dependency-cruiser": "^16.0.0",
     "eslint": "^9.0.0",
-    "exceljs": "^4.4.0",
     "globals": "^17.12.0",
     "happy-dom": "^20.14.5",
     "tailwindcss": "^4.3.3",

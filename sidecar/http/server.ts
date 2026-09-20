@@ -1,3 +1,4 @@
+import { provisionDemoResponse } from '../../src/shared/demo-contract.js';
 import { randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:https';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -11,20 +12,23 @@ import type { SidecarConfig, SidecarTls } from '../config.js';
 
 export const sidecarBuild = { version: '0.1.0', contract: 1, duckdb: 'not-loaded' } as const;
 type Route = { permission: 'pinned_application_certificate'; invoke: (body: unknown, signal: AbortSignal) => Promise<Result<unknown>>; response: z.ZodType };
-const statusFor = (code: string) => code === 'forbidden' ? 403 : code === 'validation_failed' ? 400 : code === 'object_unavailable' ? 404 : code === 'budget_exceeded' ? 429 : 503;
+const statusFor = (code: string) => code === 'forbidden' ? 403 : code === 'validation_failed' ? 400 : code === 'conflict' ? 409 : code === 'object_unavailable' ? 404 : code === 'budget_exceeded' ? 429 : 503;
 const errorMessages: Readonly<Record<string,string>> = {
   forbidden: 'Sampling requires source consent.', validation_failed: 'The request did not pass validation.',
   object_unavailable: 'The source object is unavailable.', budget_exceeded: 'Source connection limit reached.',
   source_unavailable: 'The source is unavailable.', dependency_unavailable: 'A sidecar dependency is unavailable.',
+  conflict: 'The demo template or delivery path conflicts with an existing delivery.',
 };
 
 export function createSidecarServer(options: {
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
+  demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
   build?: typeof sidecarBuild | { version: string; contract: number; duckdb: string };
 }) {
   const build = wire.healthResponse.parse(options.build ?? sidecarBuild);
   const pin = new X509Certificate(options.tls.clientPin).fingerprint256;
   const routes: Record<string, Route> = {
+    ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),
     '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:build}) },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
     '/introspect': { permission:'pinned_application_certificate', response:wire.snapshotResponse, invoke:(body,signal)=>options.connector.introspect(body,signal) },

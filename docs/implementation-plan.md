@@ -157,7 +157,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003, E2-027 |
-| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff), ING-30 (persisted undecided assertion) |
+| 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff), ING-30 and E2-014 (persisted undecided assertions) |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |

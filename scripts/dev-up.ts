@@ -26,7 +26,7 @@ async function waitUntilReady(check: () => Promise<void>): Promise<void> {
   }
 }
 
-async function prepareDatabase(connectionString: string): Promise<void> {
+async function prepareDatabase(connectionString: string, migrate = true): Promise<void> {
   const url = new URL(connectionString);
   const name = decodeURIComponent(url.pathname.slice(1));
   if (!name) throw new Error('Database URL must include a database name.');
@@ -42,6 +42,7 @@ async function prepareDatabase(connectionString: string): Promise<void> {
       console.info(`Created database "${name}".`);
     }
   } finally { await admin.end(); }
+  if (!migrate) return;
   const client = new Client({ connectionString, connectionTimeoutMillis: 5_000 });
   try {
     await client.connect();
@@ -64,6 +65,11 @@ async function main(): Promise<void> {
   testMigration.port = test.port;
   testMigration.pathname = test.pathname;
   await prepareDatabase(testMigration.toString());
+  const demo = new URL(environment.migrationDatabaseUrl);
+  demo.pathname = '/opintel_demo';
+  await prepareDatabase(demo.toString(), false);
+  // Child sidecar resolves this configured development-only reference. No store().
+  process.env.OPINTEL_SECRET_DEMO_POSTGRES = demo.toString();
   const client = spiceDbClient(environment);
   try {
     const schema = await readFile(new URL('../docs/opintel-schema.zed', import.meta.url), 'utf8');

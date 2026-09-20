@@ -5,3 +5,5 @@ export { PostgresIntrospectionStore } from './infrastructure/postgres-introspect
 export type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore, SourceStatus } from './application/introspection-store.js';
 export { runStates, transitions, transitionRun, enforceTransition, type IntrospectionState } from './domain/introspection-run.js';
 export { loadSidecarClientOptions } from './infrastructure/sidecar-client-config.js';
+
+export type { DemoProvisioningPort } from './application/demo-provisioning.js';

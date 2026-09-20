@@ -354,3 +354,83 @@ attribution. Changed bytes require a new arrival rather than rewriting history.
 Restart the sidecar after the command. Rule edits alone never release quarantine.
 Ingest logs and span attributes use an enforced field allowlist: only a fixed
 event and optional filing UUID. Raw reasons and file values are never logged.
+
+### Reinsurance demo pack (3.11)
+
+Migration 024 publishes **Bordereaux Store** for `reinsurance-treaty`. The reviewed
+pack data is `src/modules/sources/demo/reinsurance.json`; its SchemaSpec and
+GeneratorSpec match the database seed. It contains twelve synthetic filing parties
+with twelve initial XLSX files and one restatement. Sheets, header rows, decimal
+separators, date formats and premium headers vary. The twelfth file intentionally
+has a merged header and quarantines. Shared treaty references join across the
+landed tables. The fixed seed produces reproducible cell values; these are
+synthetic evaluation files, not customer submissions or the later full evaluation
+fixture with pools and entitlements.
+
+`POST /provision-demo` uses the existing pinned-mTLS envelope and returns the
+configured Vault reference and database name. It accepts only a configured demo
+reference and a landing zone bound to the request's project/source. It neither
+creates databases nor calls `VaultPort.store`. For spreadsheet templates it only
+publishes files: the unchanged watcher, identification, extraction and landing
+ports do the rest. A `dependsOn` file is withheld until the predecessor's filename
+appears in the durable register. `supersedes` must reference that same dependency
+and the same party/kind/period. The producer never assigns a filing ID or inserts
+landing rows.
+
+File IDs are safe filename components; delivery names are `id_period.xlsx`.
+The corresponding declared SchemaSpec table is `party_kind`; its name indexes
+`rows` and `columns`. The pack helper exports exact identification rules using
+these names, declared sheet/header/locale and `month_end` period interpretation.
+The helper's month-end convention belongs to this pack's deployment metadata,
+not a default added to ingest. The generator refuses missing/ambiguous objects,
+unknown dependencies and cycles before publishing. A template signature and
+prepared workbooks are cached outside the zone; these are delivery artifacts,
+not arrival history. Retries reuse the bytes and never overwrite an existing
+file. Changed templates require a new zone/source. Stale `.provision-lock` recovery
+uses the same operator procedure as the register lock after an unclean shutdown.
+
+The operator configures the demo target in `service.json`:
+
+```json
+"demo": {
+  "database": "opintel_demo",
+  "credentialRef": "vault://demo/postgres"
+}
+```
+
+Provision its matching landing zone, source and tenant rules before requesting
+files. Keep staging and the zone on the same filesystem for atomic no-replace
+publication. PostgreSQL writes use the zone's declared strategy; there is no
+strategy default in the connector. The development pack setup deliberately
+selects `append_as_at` to demonstrate both versions of the restatement.
+
+For the local development workflow, first run `npm run dev:up`; it creates
+`opintel_demo` without application migrations and passes its URL to the sidecar's
+read-only environment Vault adapter. Start with an existing reinsurance project:
+
+```sh
+npm run demo:pack -- prepare PROJECT_ID USER_ID
+# Stop the existing sidecar gracefully so it reloads the prepared configuration.
+npm run dev:up
+npm run dev:api
+# In a second terminal, use the source ID printed by prepare:
+npm run demo:pack -- provision PROJECT_ID USER_ID SOURCE_ID
+```
+
+Preparation creates tenant metadata and an empty zone only. No project implicitly
+connects demo data. Provisioning writes the declared files, waits for ordinary
+arrival notices, then invokes the ordinary `IntrospectionJob` through
+`SidecarSourceConnector`. The API must run for arrival notices and receipts.
+The intentional merged-header quarantine remains visible in the local register.
+A corrected workbook is a new arrival; changed bytes cannot rewrite its history.
+Use the ordinary local retry command for rule corrections, without changing
+attribution. No entitlement is granted by preparation, delivery or introspection;
+the persisted undecided assertion belongs to item 4.1.
+
+Migration 023 refuses to proceed if legacy credential-less demo rows exist. Back
+up the source metadata and provision the real reference, then backfill during a
+maintenance transaction: drop `credential_matches_origin`, update only the
+identified demo rows to their configured references, add the new non-null check
+from 023, and commit. Run migrations normally afterwards. Never invent a reference
+or clear a live credential to make a migration pass. Rolling 023 down while demo
+sources retain real references intentionally refuses rather than erasing them.

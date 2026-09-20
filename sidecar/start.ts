@@ -1,3 +1,5 @@
+import { SpreadsheetDemoProvisioner } from './demo/provision.js';
+import { DemoWorkbookWriter } from './demo/infrastructure/workbook-writer.js';
 import { FilingLander } from './ingest/land.js';
 import { PostgresLanding } from './ingest/infrastructure/postgres-landing.js';
 import { HttpsLandingReceipts } from './ingest/infrastructure/receipt-client.js';
@@ -17,7 +19,7 @@ async function main(): Promise<void> {
   const file = process.argv[2] ?? process.env.SIDECAR_CONFIG_FILE ?? resolve('tmp/sidecar/service.json');
   const {config,tls} = await loadSidecarConfig(file);
   const audit = await FileSamplingAudit.open(config.auditFile);
-  const host = createSidecarServer({config,tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
+  const host = createSidecarServer({config,tls,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   try {
     for (const zone of config.landingZones ?? []) {

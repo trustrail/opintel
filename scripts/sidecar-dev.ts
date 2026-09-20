@@ -32,7 +32,7 @@ export async function prepareSidecarDevelopment(directory=sidecarDevDirectory): 
     }
     await chmod(resolve(tlsDir,'ca.key'),0o600);
   }
-  const service={host:'127.0.0.1',port:3100,tls:{caFile:'tls/ca.pem',certFile:'tls/server.pem',keyFile:'tls/server.key',clientPinFile:'tls/client.pem'},auditFile:'sampling-audit.jsonl',limits:{maxConnectionsPerSource:4,statementTimeoutMs:8000,operationTimeoutMs:9000}};
+  const service={demo:{database:'opintel_demo',credentialRef:'vault://demo/postgres'},host:'127.0.0.1',port:3100,tls:{caFile:'tls/ca.pem',certFile:'tls/server.pem',keyFile:'tls/server.key',clientPinFile:'tls/client.pem'},auditFile:'sampling-audit.jsonl',limits:{maxConnectionsPerSource:4,statementTimeoutMs:8000,operationTimeoutMs:9000}};
   const client={baseUrl:'https://127.0.0.1:3100',caFile:'tls/ca.pem',certFile:'tls/client.pem',keyFile:'tls/client.key',serverPinFile:'tls/server.pem',timeoutMs:9000};
   for(const [name,value]of [['service.json',service],['client.json',client]] as const){
     try{await writeFile(resolve(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600});}

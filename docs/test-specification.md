@@ -142,7 +142,7 @@ Version 1.0 · September 2026
 | E2-011 | D | Inheritance after create | **By reference.** No vocabulary rows copied; assert the row count is unchanged |
 | E2-012 | F | Republish the industry pack after create | Project sees the new terms without a migration |
 | E2-013 | F | A new project with no sources *(needs item 3.11 demo sources)*| No demo source is connected automatically. The offer appears, nothing is provisioned |
-| E2-014 | F | Demo source connected at create *(needs item 3.11)* | Provisioned, introspected, every element undecided. Same connector port as a customer source |
+| E2-014 | F | Demo source connected at create *(3.11 proves provisioning and shared connector; persisted undecided assertion needs 4.1)* | Provisioned, introspected, every element undecided. Same connector port as a customer source |
 | E2-015 | F | Copy settings from another project *(needs item 3.x sources)* | Query, reference, evidence, alert settings copied |
 | E2-016 | D | Copy settings | **Does not** copy entitlements, sources, pools or vocabulary overrides; assert each is empty *(needs item 5.1 pools)* |
 | E2-017 | F | Region defaults from the company | Pre-filled, changeable at create |

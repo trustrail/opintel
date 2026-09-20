@@ -1,0 +1,635 @@
+{
+  "id": "31100000-0000-4000-8000-000000000001",
+  "industrySlug": "reinsurance-treaty",
+  "name": "Bordereaux Store",
+  "kind": "spreadsheet",
+  "packVersion": 1,
+  "narrative": "Twelve synthetic cedants with inconsistent sheet names, header rows and declared locales. One merged header quarantines; one premium filing is restated without replacing its original.",
+  "schemaSpec": {
+    "schemas": [
+      {
+        "name": "bordereaux",
+        "objects": [
+          {
+            "name": "cedant_01_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Written Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_02_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Gross Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_03_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Premium Amount",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_04_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Written Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_05_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Gross Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_06_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Premium Amount",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_07_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Written Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_08_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Gross Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_09_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Premium Amount",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_10_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Written Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_11_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Gross Premium",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          },
+          {
+            "name": "cedant_12_premium",
+            "kind": "table",
+            "columns": [
+              {
+                "name": "Treaty Ref",
+                "type": "text",
+                "nullable": false,
+                "isKey": true
+              },
+              {
+                "name": "Premium Amount",
+                "type": "numeric",
+                "nullable": false
+              },
+              {
+                "name": "Inception Date",
+                "type": "date",
+                "nullable": false
+              },
+              {
+                "name": "Currency",
+                "type": "text",
+                "nullable": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "generatorSpec": {
+    "seed": 3112026,
+    "rows": {
+      "cedant_01_premium": 12,
+      "cedant_02_premium": 12,
+      "cedant_03_premium": 12,
+      "cedant_04_premium": 12,
+      "cedant_05_premium": 12,
+      "cedant_06_premium": 12,
+      "cedant_07_premium": 12,
+      "cedant_08_premium": 12,
+      "cedant_09_premium": 12,
+      "cedant_10_premium": 12,
+      "cedant_11_premium": 12,
+      "cedant_12_premium": 12
+    },
+    "joinKeys": [
+      {
+        "objects": [
+          "cedant_01_premium",
+          "cedant_02_premium",
+          "cedant_03_premium",
+          "cedant_04_premium",
+          "cedant_05_premium",
+          "cedant_06_premium",
+          "cedant_07_premium",
+          "cedant_08_premium",
+          "cedant_09_premium",
+          "cedant_10_premium",
+          "cedant_11_premium",
+          "cedant_12_premium"
+        ],
+        "column": "Treaty Ref",
+        "cardinality": 6
+      }
+    ],
+    "columns": {
+      "cedant_01_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_01_premium.Written Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_02_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_02_premium.Gross Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_03_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_03_premium.Premium Amount": {
+        "distribution": "uniform"
+      },
+      "cedant_04_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_04_premium.Written Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_05_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_05_premium.Gross Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_06_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_06_premium.Premium Amount": {
+        "distribution": "uniform"
+      },
+      "cedant_07_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_07_premium.Written Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_08_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_08_premium.Gross Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_09_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_09_premium.Premium Amount": {
+        "distribution": "uniform"
+      },
+      "cedant_10_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_10_premium.Written Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_11_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_11_premium.Gross Premium": {
+        "distribution": "uniform"
+      },
+      "cedant_12_premium.Currency": {
+        "values": [
+          "USD",
+          "EUR",
+          "GBP"
+        ]
+      },
+      "cedant_12_premium.Premium Amount": {
+        "distribution": "uniform"
+      }
+    },
+    "files": [
+      {
+        "id": "cedant_01_original",
+        "party": "cedant_01",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Bordereaux",
+        "headerRow": 1,
+        "decimalSeparator": ",",
+        "dateFormat": "DD/MM/YYYY"
+      },
+      {
+        "id": "cedant_02_original",
+        "party": "cedant_02",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Premium Statement",
+        "headerRow": 3,
+        "decimalSeparator": ".",
+        "dateFormat": "MM/DD/YYYY"
+      },
+      {
+        "id": "cedant_03_original",
+        "party": "cedant_03",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Treaty Data",
+        "headerRow": 5,
+        "decimalSeparator": ",",
+        "dateFormat": "YYYY-MM-DD"
+      },
+      {
+        "id": "cedant_04_original",
+        "party": "cedant_04",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Quarterly Return",
+        "headerRow": 2,
+        "decimalSeparator": ".",
+        "dateFormat": "DD/MM/YYYY"
+      },
+      {
+        "id": "cedant_05_original",
+        "party": "cedant_05",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Portfolio",
+        "headerRow": 4,
+        "decimalSeparator": ",",
+        "dateFormat": "MM/DD/YYYY"
+      },
+      {
+        "id": "cedant_06_original",
+        "party": "cedant_06",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Risk Register",
+        "headerRow": 1,
+        "decimalSeparator": ".",
+        "dateFormat": "YYYY-MM-DD"
+      },
+      {
+        "id": "cedant_07_original",
+        "party": "cedant_07",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Written Premium",
+        "headerRow": 6,
+        "decimalSeparator": ",",
+        "dateFormat": "DD/MM/YYYY"
+      },
+      {
+        "id": "cedant_08_original",
+        "party": "cedant_08",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Production",
+        "headerRow": 2,
+        "decimalSeparator": ".",
+        "dateFormat": "MM/DD/YYYY"
+      },
+      {
+        "id": "cedant_09_original",
+        "party": "cedant_09",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Treaty Book",
+        "headerRow": 3,
+        "decimalSeparator": ",",
+        "dateFormat": "YYYY-MM-DD"
+      },
+      {
+        "id": "cedant_10_original",
+        "party": "cedant_10",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Declarations",
+        "headerRow": 5,
+        "decimalSeparator": ".",
+        "dateFormat": "DD/MM/YYYY"
+      },
+      {
+        "id": "cedant_11_original",
+        "party": "cedant_11",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Account Current",
+        "headerRow": 4,
+        "decimalSeparator": ",",
+        "dateFormat": "MM/DD/YYYY"
+      },
+      {
+        "id": "cedant_12_original",
+        "party": "cedant_12",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Submission",
+        "headerRow": 2,
+        "decimalSeparator": ".",
+        "dateFormat": "YYYY-MM-DD",
+        "mergedHeader": true
+      },
+      {
+        "id": "cedant_01_restatement",
+        "party": "cedant_01",
+        "kind": "premium",
+        "period": "2026-03",
+        "sheetName": "Bordereaux",
+        "headerRow": 1,
+        "decimalSeparator": ",",
+        "dateFormat": "DD/MM/YYYY",
+        "supersedes": "cedant_01_original",
+        "dependsOn": "cedant_01_original"
+      }
+    ]
+  }
+}
