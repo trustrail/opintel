@@ -163,3 +163,17 @@ EOF
 - Two genuine defects surfaced alongside it: the sidecar ignored SIGTERM and
   needed SIGKILL, and dev:up started a second sidecar on an occupied port.
   Both fixed.
+
+# From the first end-to-end demo run
+
+Getting the pipeline to run once surfaced six defects that tests had not:
+- OPINTEL_SECRET_DEMO_POSTGRES was never set by dev:up or documented
+- reconciliation retried 10x/second with no backoff
+- telemetry stripped every identifying field, making the sidecar
+  undiagnosable
+- errors were discarded at four layers, violating §2.2
+- POST /sources/:id/introspect was specified but never registered
+- failed provisioning had no resume path
+
+All fixed. The lesson: a passing suite does not establish that the
+deployed arrangement starts. Run the thing.

@@ -553,9 +553,9 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ING-24 | D | Strategy stamped on every evidence record | Present on runs touching that source. Persisted evidence assertion belongs to item 5.11; item 3.9 records the source strategy |
 | ING-25 | F | No strategy chosen at connection | Connection refused. There is no default |
 | ING-26 | **S** | **A restatement under either strategy** | **Visibly a restatement. A reserve that moved is traceable to the filing that moved it** |
-| ING-27 | F | Filing register after several filings | What arrived, from whom, when, strategy, what it superseded |
+| ING-27 | F | Filing register after several filings | What arrived, from whom, when, strategy, what it superseded. Item 3.13 shows landed filings in expandable source rows, newest first, with supersession visible |
 | ING-28 | F | Register reconciled against the landing zone | Every file accounted for, including quarantined ones |
-| ING-29 | F | Quarantined file appears in the register | With its reason, and a route to resolve it |
+| ING-29 | F | Quarantined file appears in the register | With its reason locally and category in the application, and a route to resolve it. Item 3.13 surfaces quarantines in Dashboard and Observations with local inspection/retry instructions; never inside a source |
 | ING-30 | D | Landed columns after introspection *(3.10 proves ordinary catalogue handoff; persisted undecided assertion needs entitlement, item 4.1)* | Every one undecided, exactly as a native table |
 | ING-31 | S | Files leaving the customer environment | Never. Asserted on the sidecar's egress |
 | ING-32 | D | File contents in logs or traces | Never. Asserted against the field allowlist |

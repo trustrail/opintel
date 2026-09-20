@@ -27,12 +27,13 @@ async function mock(page:Page){
  });return state;
 }
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
-for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at ${width}`,async({page})=>{
- const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
+for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at ${width}`,async({page:initialPage})=>{
+ let page=initialPage;let state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();await expect(page.getByText('table per filing',{exact:true})).toBeVisible();
  await expect(page).toHaveScreenshot(`sources-ready-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
- await expect(page.getByRole('button',{name:'2 filings ›'})).toBeDisabled();
- state.empty=true;await page.goto('about:blank');await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await expect(page.getByText('Not provisioned for this project.',{exact:false})).toBeVisible();expect(state.creates).toEqual([]);
+ await expect(page.getByRole('button',{name:'2 filings'})).toHaveAttribute('aria-expanded','false');
+ // Give the empty/wizard fixture its own rendering surface after the ready-state axe scan.
+ const context=page.context();await page.close();page=await context.newPage();await page.setViewportSize({width,height:1000});state=await mock(page);state.empty=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await expect(page.getByText('Not provisioned for this project.',{exact:false})).toBeVisible();expect(state.creates).toEqual([]);
  await page.getByRole('button',{name:'Connect a source',exact:true}).focus();
  await expect(page.getByRole('button',{name:'Connect a source',exact:true})).toBeFocused();
  await expect(page).toHaveScreenshot(`sources-empty-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);

@@ -126,7 +126,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27, ING-28, ING-29, ING-31, ING-32 |
 | 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve filing parties, inconsistent formats; resumable provisioning on the reserved source without deleting history | 3.9, 2.1 | `modules/sources/demo` | demo path identical, asserted on the port |
 | 3.12 | Data sources screen, connect wizard, origin badges, demo card; safe persisted failure messages and failed-source retry | 3.6, 1.11 | screens | F-001, F-004, F-007, O-002 |
-| 3.13 | Filings within source detail, expandable per source. Quarantine surfaced on the dashboard and in observations | 3.10, 1.11 | source screen sections | ING-27 to ING-32 |
+| 3.13 | Filings within source detail, expandable per source. Quarantine surfaced on the dashboard and in observations | 3.10, 1.11 | source screen sections | ING-27, ING-28, ING-29, ING-31, ING-32 (ING-30 remains with 4.1) |
 | 3.14 | Schema explorer, virtualised, prefix fetch | 3.1, 1.11 | screen | G-019, G-020, R-001, R-002 |
 | 3.15 | Introspection run and diff screen, live progress | 3.6, 3.16 | screen | G-003 to G-009 |
 | 3.16 | SSE hub, Redis fan-out, snapshot then deltas | 1.2, 1.12 | `platform/sse` | S-008 to S-011 |

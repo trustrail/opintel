@@ -1,3 +1,4 @@
+import { ObservationsScreen } from './filings/screens.js';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { Navigate, Outlet, useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -35,6 +36,7 @@ const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, pat
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
   if (screen === 'data-sources') return <RouteErrorBoundary><SourcesScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
+  if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   return <RouteScreen title={navGroups.flatMap((group) => group.items).find((item) => item.path === `/${screen}`)?.label ?? 'Not found'} />;
 } });

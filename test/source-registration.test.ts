@@ -141,6 +141,16 @@ describe('source registration against real Postgres and the sidecar',()=>{
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(200);expect(await service.idle()).toEqual({ok:true,value:undefined});
   expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM introspection_run'))).toHaveLength(2);
  });
+ it('ING-27/29: source filing counts include landed arrivals only',async()=>{
+  const source=await(await request(path(),'POST',body('Landing',true))).json();await service.idle();
+  await withTenant({projectId,userId},async tx=>{
+   for(const outcome of ['landed','quarantined','pending','duplicate']){
+    const filingId=randomUUID();const payload={filingId,sourceId:source.id,projectId,revision:1,outcome,quarantineCategory:outcome==='quarantined'?'no_rule_matched':null,receivedAt:new Date().toISOString(),fileSha256:'0'.repeat(64),partyCode:null,period:null,kind:null};
+    await tx.query('INSERT INTO arrival_notice(filing_id,project_id,source_id,revision,payload) VALUES($1,$2,$3,1,$4)',[filingId,projectId,source.id,JSON.stringify(payload)]);
+   }
+  });
+  expect((await(await request(path())).json()).items[0]).toMatchObject({id:source.id,filingCount:1});
+ });
  it('generates the source OpenAPI contract from the boundary schemas',()=>{expect(sourceOpenApiDocument().paths['/api/v1/projects/{id}/sources'].post.responses).toHaveProperty('201');});
  it('runs deployment metadata migration up/down/up on a populated table',async()=>{await customer(async db=>{await db.query('BEGIN');try{const namespace='migration_'+randomUUID().replaceAll('-','');await db.query(`CREATE SCHEMA "${namespace}";SET LOCAL search_path TO "${namespace}";CREATE TABLE demo_source_template(id int);INSERT INTO demo_source_template VALUES(1)`);const up=await readFile('migrations/025_demo_deployment.up.sql','utf8');const down=await readFile('migrations/025_demo_deployment.down.sql','utf8');await db.query(up);expect((await db.query('SELECT deployment_ref FROM demo_source_template')).rows).toEqual([{deployment_ref:{}}]);await db.query(down);await db.query(up);}finally{await db.query('ROLLBACK');}});});
 });

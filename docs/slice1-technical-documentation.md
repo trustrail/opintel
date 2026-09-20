@@ -1770,6 +1770,13 @@ type ReconciliationReport = {
 
 **`GET /projects/:id/filings` requires `project#view`.** Cursor paginated.
 
+**Item 3.13 presentation.** The filings pill expands the source row in place and counts only `landed` arrivals. Non-landing sources have no pill or expansion. The client follows register cursors, orders by receipt time (newest first), and shows landed filings for that source, including filing ID, party code, kind, period, receipt time, superseded filing ID and row count. The source's immutable landing strategy explains how versions remain queryable. A missing receipt shows “Awaiting receipt”, never an invented row count. Filenames are not in the application payload.
+
+Quarantines appear in the Dashboard needs-a-decision feed and in Observations, never inside a source. `sourceId` on their notice is the configured zone's transport binding, not evidence that they landed into that source. The feed shows the category, filing ID and receipt time, with local inspection and retry instructions. Detailed reasons stay local. This adds no acknowledge/resolve workflow or attribution override; the observations workflow remains Slice 3. These read-only views refresh the shared filing query every 30 seconds; expansion state is local to project and source.
+
+The console's source expansion selectors are absent from the master stylesheet. Item 3.13 uses existing `toolchip`, `sheetb`, table and `feed` classes; it adds no CSS class or stylesheet changes.
+
+
 
 // POST /provision-demo
 ```ts
