@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FilingId, ProjectId, SourceId } from './kernel/index.js';
+import { FilingId, ProjectId, SourceId } from './kernel/value-objects.js';
 const id = z.uuid().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 export const landingStrategySchema = z.enum(['append_as_at', 'table_per_filing']);
 export const landingReceiptSchema = z.strictObject({

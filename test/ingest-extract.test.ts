@@ -134,7 +134,7 @@ describe('sidecar spreadsheet extraction', () => {
     // Remove only the summary to model an arrival committed before a crash.
     const state = JSON.parse(await readFile(stateFile, 'utf8')) as { filings: Array<{ extraction?: unknown }> };
     delete state.filings[0]!.extraction; await writeFile(stateFile, JSON.stringify(state));
-    watcher = await LandingWatcher.open(zone, undefined, observing); await watcher.scan();
+    watcher = await LandingWatcher.open(zone, undefined, observing); await watcher.reconcile();
     expect(watcher.records()).toHaveLength(1);
     expect(watcher.records()[0]).toMatchObject({ id, extraction: { rowCount: 1 } });
   });

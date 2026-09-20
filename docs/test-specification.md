@@ -175,7 +175,7 @@ Version 1.0 · September 2026
 | F-006 | D | Credentials at rest | Vault reference only; a database scan finds no plaintext |
 | F-007 | A | Member without `bind_source` connects *(needs the connect route, item 3.12)* | 403 |
 | F-008 | F | Delete a source with entitlements *(needs entitlement, item 4.1)* | Confirmation names the dependent entitlements; typed confirmation required |
-| F-009 | F | Two sources of different types in one project *(needs item 3.12)* | Both catalogue independently |
+| F-009 | F | Two sources of different types in one project *(deferred until a second connector exists; not item 3.12)* | Both catalogue independently |
 | F-010 | R | Source becomes unreachable after connection *(3.6 proves source status; query refusal deferred to 5.7)* | Status reflects it; queries refuse rather than serve stale |
 
 ## S1-G · Introspection and catalogue
@@ -198,7 +198,7 @@ Version 1.0 · September 2026
 | G-014 | S | `schema` mode payload | Contains no row data |
 | G-015 | A | Sampling without consent | 403 from the sidecar |
 | G-016 | F | Sampling with consent | Top values returned; call recorded in the audit log |
-| G-017 | F | Introspection fails mid-run | State `failed` with a reason; the previous catalogue is intact |
+| G-017 | F | Introspection fails mid-run | State `failed` with a safe actionable reason preserved unchanged in the source response and UI; retry creates a new run on the same source, retaining history and the previous catalogue |
 | G-018 | R | Introspection cancelled | Session released; no partial catalogue written |
 | G-019 | P | Schema explorer with 5,000 elements | No dropped frames on scroll |
 | G-020 | F | Empty schema | Purposeful empty state, not a blank table |

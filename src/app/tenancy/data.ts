@@ -6,6 +6,7 @@ import { authKeys } from '../guard.js';
 
 export const projectKeys = {
   lists: () => ['project', 'list'] as const,
+  stats: (id:string) => ['project',id,'stats'] as const,
   scope: (id: string) => ['project', id] as const,
   detail: (id: string) => ['project', id, 'detail'] as const,
 };

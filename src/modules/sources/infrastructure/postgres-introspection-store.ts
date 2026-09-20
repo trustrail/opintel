@@ -1,12 +1,12 @@
 import { withTenant, type Tx } from '../../../platform/db/scope.js';
 import { CatalogObject, CatalogElement, CatalogNaming, AsciiTransliterator, reconcileSnapshot, type CatalogObjectState, type ElementState } from '../../catalog/index.js';
-import { DomainError, err, ok, Timestamp, type IdFactory, type RunId, type SourceId, type Result } from '../../../shared/kernel/index.js';
+import { DomainError, err, ok, Timestamp, type ErrorCode, type IdFactory, type RunId, type SourceId, type Result } from '../../../shared/kernel/index.js';
 import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore } from '../application/introspection-store.js';
 import { transitionRun, enforceTransition, type IntrospectionState } from '../domain/introspection-run.js';
 import type { CatalogSnapshot } from '../application/source-connector.js';
 import { snapshotResponse } from '../../../shared/sidecar-contract.js';
 
-const runSelect = `SELECT id, source_id AS "sourceId", state, coalesce((progress->>'adoptRenamedNames')::boolean,false) AS "adoptRenamedNames", include_schemas AS include, diff, error,
+const runSelect = `SELECT id, source_id AS "sourceId", state, coalesce((progress->>'adoptRenamedNames')::boolean,false) AS "adoptRenamedNames", include_schemas AS include, diff, error, progress->>'errorCode' AS "errorCode",
   to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "startedAt",
   to_char(ended_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "endedAt" FROM introspection_run`;
 const missing = () => err(new DomainError('not_found', 'Introspection run or source was not found.'));
@@ -62,13 +62,13 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       return this.readTx(tx,id);
     });
   }
-  fail(ctx: IntrospectionContext,id: RunId,reason: string,unreachable: boolean) {
+  fail(ctx: IntrospectionContext,id: RunId,reason: string,unreachable: boolean,code: ErrorCode = 'dependency_unavailable') {
     return withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
       if (current.value.state === 'cancelled') return current;
       if (!transitionRun(current.value.state,'failed').ok) return conflict();
-      await tx.query("UPDATE introspection_run SET state='failed',error=$2,ended_at=now(),progress=progress || jsonb_build_object('phase','failed') WHERE id=$1",[id,reason]);
+      await tx.query("UPDATE introspection_run SET state='failed',error=$2,ended_at=now(),progress=progress || jsonb_build_object('phase','failed','errorCode',$3::text) WHERE id=$1",[id,reason,code]);
       if (unreachable) await tx.query("UPDATE data_source SET status='unreachable' WHERE id=$1 AND status<>'archived'",[current.value.sourceId]);
       return this.readTx(tx,id);
     });

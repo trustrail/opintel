@@ -154,3 +154,12 @@ EOF
   contact. Both are upgrade shims for sidecars that ran before the rename.
   Nothing outside local development has. Remove them before first
   deployment rather than carrying them forward.
+
+# Test suite timing
+
+- A 3259s suite run was largely macOS sleeping mid-run: 1783s confirmed
+  sleep. Use caffeinate for long runs. A slow suite is not evidence of a
+  slow test until sleep is ruled out.
+- Two genuine defects surfaced alongside it: the sidecar ignored SIGTERM and
+  needed SIGKILL, and dev:up started a second sidecar on an occupied port.
+  Both fixed.

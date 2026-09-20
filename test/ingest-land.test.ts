@@ -157,7 +157,7 @@ describe('landing into customer Postgres', () => {
       expect(landed.every((entry) => entry.landing?.registered === false && entry.landing.error === 'Receipt refused.')).toBe(true);
       const receipt = landed[0]!.landing!.receipt;
       expect(await fixture(async (pg) => (await pg.query(`SELECT "Code" FROM ${receipt.landedTable} ORDER BY "Reserve"`)).rows)).toEqual([{ Code: '1' }, { Code: 'unknown' }, { Code: 'other' }]);
-      await watcher.close(); online = true; watcher = await LandingWatcher.open(zone, undefined, extractor, lander); await watcher.scan();
+      await watcher.close(); online = true; watcher = await LandingWatcher.open(zone, undefined, extractor, lander); await watcher.reconcile();
       expect(watcher.records().every((entry) => entry.landing?.registered)).toBe(true);
       await writeFile(join(zoneDir, '4471_2026-03_b.csv'), 'Reserve,Code\n150,restated\n');
       await watcher.scan(); await watcher.scan();

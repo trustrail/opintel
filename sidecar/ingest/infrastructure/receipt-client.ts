@@ -1,7 +1,7 @@
 import { request } from 'node:https';
 import { checkServerIdentity } from 'node:tls';
 import { X509Certificate } from 'node:crypto';
-import { z } from 'zod';
+import { serviceErrorEnvelope } from '../../../src/shared/error-contract.js';
 import { DomainError, err, ok, type ProjectId, type Result } from '../../../src/shared/kernel/index.js';
 import { arrivalNoticeSchema, reconciliationReportSchema, landingReceiptSchema, type ArrivalNotice, type ReconciliationReport, type LandingReceipt } from '../../../src/shared/landing-contract.js';
 import type { LandingReceiptPort } from '../landing-port.js';
@@ -32,8 +32,8 @@ export class HttpsLandingReceipts implements LandingReceiptPort {
           res.on('end', () => {
             if (res.statusCode === 204) { resolve(ok(undefined)); return; }
             try {
-              const envelope = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).parse(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
-              resolve(err(new DomainError((res.statusCode ?? 500) >= 500 ? 'dependency_unavailable' : 'conflict', envelope.error.message)));
+              const envelope = serviceErrorEnvelope.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
+              resolve(err(new DomainError(envelope.error.code, envelope.error.message, undefined, envelope.error.retryable)));
             } catch { reject(new Error('Invalid receipt response.')); }
           });
         }); req.on('error', reject); req.end(body);

@@ -24,6 +24,7 @@ let url: string;
 let seen: Array<{ path: string; method: string; body: unknown }>;
 let responses: Record<string, unknown>;
 let stall: string | undefined;
+let status: number;
 
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'opintel-sidecar-'));
@@ -40,7 +41,7 @@ beforeAll(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 beforeEach(async () => {
   seen = [];
-  stall = undefined;
+  stall = undefined; status = 200;
   responses = { '/health': { version: '1.0.0', contract: 1, duckdb: '1.4.3' }, '/test-connection': { reachable: true }, '/estimate': { rows: null } };
   server = createServer({ ca: tls.ca, cert: tls.pinnedCertificate, key: readFileSync(join(dir, 'server.key')), requestCert: true, rejectUnauthorized: true }, (req, res) => {
     if ((req.socket as TLSSocket).getPeerCertificate().fingerprint256 !== new X509Certificate(tls.cert).fingerprint256) { req.socket.destroy(); return; }
@@ -51,6 +52,7 @@ beforeEach(async () => {
       const path = req.url ?? '';
       seen.push({ path, method: req.method ?? '', body: text === '' ? undefined : JSON.parse(text) as unknown });
       if (path === stall) return;
+      res.statusCode = path === '/health' ? 200 : status;
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify(responses[path] ?? {}));
     });
@@ -141,6 +143,13 @@ describe('SourceConnector sidecar wire contract', () => {
     expect(await connector.sampleTopValues(ref, [element], 1, controller.signal)).toMatchObject({ ok: false });
     expect(await connector.estimateRowCount(ref, object, controller.signal)).toMatchObject({ ok: false });
     expect(seen).toHaveLength(count);
+  });
+  it.each(['not_found', 'forbidden', 'validation_failed', 'conflict', 'dependency_unavailable'] as const)('preserves the sidecar refusal category %s', async (code) => {
+    status = code === 'dependency_unavailable' ? 503 : 409;
+    responses['/introspect'] = { error: { code, message: 'PRIVATE_VALUE', retryable: code === 'dependency_unavailable', requestId: 'refusal' } };
+    const result = await client().introspect(ref, []);
+    expect(result).toMatchObject({ ok: false, error: { code, retryable: code === 'dependency_unavailable' } });
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_VALUE');
   });
   it('rejects a literal credential before any network request (F-006)', async () => {
     expect(await client().testConnection('postgres://user:secret@host/db' as VaultRef)).toMatchObject({ ok: false });

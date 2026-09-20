@@ -330,7 +330,12 @@ counts and supersession. A refused receipt leaves committed rows intact and the
 local register shows `landing.registered: false` with its error. Notice delivery
 is retried independently of receipt delivery.
 
-Every scan consults customer Postgres commit receipts, repairing local receipt
+Reconciliation runs at startup and every 30 seconds after completion. Failed passes
+retry after 30, 60, 120, 240, then at most 300 seconds; success resets the delay.
+Recovery, existing filing retries, and failed notice delivery run only on this schedule,
+not on the file-scan timer. New arrivals still receive an initial processing/delivery
+attempt. Shutdown clears both timers and waits for in-flight work.
+Reconciliation consults customer Postgres commit receipts, repairing local receipt
 loss without opening or inserting the workbook again. Reconciliation also replays
 delivered receipts idempotently to check and repair the application inbox. Reconciliation counts
 current zone entries against durable registrations, including quarantines and
@@ -356,7 +361,16 @@ filing ID and re-runs identification, extraction and landing; it offers no manua
 attribution. Changed bytes require a new arrival rather than rewriting history.
 Restart the sidecar after the command. Rule edits alone never release quarantine.
 Ingest logs and span attributes use an enforced field allowlist: only a fixed
-event and optional filing UUID. Raw reasons and file values are never logged.
+event, UTC timestamp, source/project/filing UUIDs, fixed error category and attempt count.
+Raw reasons, filenames, column names, file contents and cell values are never logged.
+Delivery attempt counts track consecutive failures, reset on success and restart;
+scan failure counts are cumulative for the running register. Retry state resets on restart.
+Demo preparation uses the normal one-second file scan interval and upgrades its
+legacy 25 ms setting when preparation is rerun; it does not alter other custom intervals.
+
+Receipt and source clients validate and preserve the peer’s error category and
+retryable flag. Invalid envelopes remain transport/protocol failures. Introspection
+records and demo CLI diagnostics retain the category without logging raw peer messages.
 
 ### Reinsurance demo pack (3.11)
 
@@ -401,7 +415,7 @@ The operator configures the demo target in `service.json`:
 }
 ```
 
-Provision its matching landing zone, source and tenant rules before requesting
+Prepare its matching landing zone, reserved source identity and tenant rules before requesting
 files. Keep staging and the zone on the same filesystem for atomic no-replace
 publication. PostgreSQL writes use the zone's declared strategy; there is no
 strategy default in the connector. The development pack setup deliberately
@@ -416,14 +430,18 @@ npm run demo:pack -- prepare PROJECT_ID USER_ID
 # dev:up stops the recorded sidecar before loading the prepared configuration.
 npm run dev:up
 npm run dev:api
-# In a second terminal, use the source ID printed by prepare:
+# Open the project’s Data sources screen and click Connect on its demo card.
+# Alternatively, in a second terminal:
 npm run demo:pack -- provision PROJECT_ID USER_ID SOURCE_ID
 ```
 
-Preparation creates tenant metadata and an empty zone only. No project implicitly
-connects demo data. Provisioning writes the declared files, waits for ordinary
-arrival notices, then invokes the ordinary `IntrospectionJob` through
-`SidecarSourceConnector`. The API must run for arrival notices and receipts.
+Preparation creates tenant rules and an empty zone, reserves the source UUID,
+and publishes `demo_source_template.deployment_ref[projectId]` through the operator
+scope. It inserts no `data_source` row and writes no spreadsheet. Repeating prepare
+reuses the reserved identity. Connect inserts the source and queued run atomically.
+The browser and optional provision command use the same registration service,
+which delivers the declared files, waits for ordinary arrival notices, then invokes
+the ordinary `IntrospectionJob` through `SidecarSourceConnector`. The API must run for arrival notices and receipts.
 The intentional merged-header quarantine remains visible in the local register.
 A corrected workbook is a new arrival; changed bytes cannot rewrite its history.
 Use the ordinary local retry command for rule corrections, without changing
@@ -437,3 +455,17 @@ identified demo rows to their configured references, add the new non-null check
 from 023, and commit. Run migrations normally afterwards. Never invent a reference
 or clear a live credential to make a migration pass. Rolling 023 down while demo
 sources retain real references intentionally refuses rather than erasing them.
+
+### Recovering a failed source
+
+The Data sources screen displays the saved failure message unchanged and offers
+Retry to project administrators. Retry uses `POST /api/v1/sources/:id/introspect`
+with `{ "projectId": "..." }`, authorized by `project#bind_source`. It creates a
+new run on the existing source and preserves prior runs and schema selection.
+For demos, it resumes prepared delivery before introspection. Operators may also
+repeat `demo:pack provision` with the same project, user and reserved source ID.
+An active run is reused; a completed connection is not provisioned again.
+Do not delete a source to recover a failed run. Existing register IDs, hashes,
+landed rows and supersession links remain authoritative. Fix any reported
+preparation mismatch before retrying. The command returns failure if background
+preparation fails, with its safe actionable message.

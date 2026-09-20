@@ -15,7 +15,7 @@ import { SpreadsheetExtractor } from '../sidecar/ingest/extract.js';
 import { LocalWorkbookReader } from '../sidecar/ingest/infrastructure/workbook-reader.js';
 import { HttpsLandingReceipts } from '../sidecar/ingest/infrastructure/receipt-client.js';
 import { PostgresLanding } from '../sidecar/ingest/infrastructure/postgres-landing.js';
-import { ingestAttributes, ingestEvent } from '../sidecar/ingest/telemetry.js';
+import { ingestAttributes, ingestEvent, ingestErrorCategory } from '../sidecar/ingest/telemetry.js';
 import { createLandingReceiptServer } from '../src/modules/ingest/api/landing-receipt-server.js';
 import { registerRoutes } from '../src/modules/ingest/api/register-routes.js';
 import { createHttpServer } from '../src/platform/http/index.js';
@@ -145,6 +145,57 @@ describe('filing register', () => {
   await expect(register!.retry(quarantined.id)).rejects.toThrow('file has changed');
   expect(register!.records().at(-1)).toEqual(quarantined);
  });
+ it('schedules recovery independently of scans, backs off to five minutes, resets and stops', async () => {
+  vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  const scans = vi.spyOn(register!, 'scan').mockResolvedValue(undefined);
+  const recover = vi.spyOn(PostgresLanding.prototype, 'committed');
+  const failure = err(new DomainError('dependency_unavailable', 'Unavailable'));
+  const send = vi.spyOn(delivery, 'reconcile').mockResolvedValue(failure);
+  const original = register!.reconcile.bind(register!);
+  let work: ReturnType<FilingRegister['reconcile']> | undefined;
+  const reconcile = vi.spyOn(register!, 'reconcile').mockImplementation(() => { work = original(); return work; });
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  try {
+   register!.start();
+   const advance = async (ms: number) => { await vi.advanceTimersByTimeAsync(ms); await work; await vi.advanceTimersByTimeAsync(0); };
+   await advance(0); expect(send).toHaveBeenCalledTimes(1);
+   for (const [index, delay] of [30_000,60_000,120_000,240_000,300_000,300_000].entries()) {
+    await advance(delay - 1); expect(send).toHaveBeenCalledTimes(index + 1);
+    await advance(1); expect(send).toHaveBeenCalledTimes(index + 2);
+   }
+   expect(recover).toHaveBeenCalledTimes(7); expect(scans.mock.calls.length).toBeGreaterThan(100);
+   send.mockResolvedValue(ok(undefined));
+   await advance(300_000); expect(send).toHaveBeenCalledTimes(8);
+   await advance(29_999); expect(send).toHaveBeenCalledTimes(8);
+   await advance(1); expect(send).toHaveBeenCalledTimes(9);
+   await register!.close(); register = undefined;
+   await advance(600_000); expect(reconcile).toHaveBeenCalledTimes(9);
+  } finally { vi.useRealTimers(); }
+ });
+ it('ordinary scans do not read committed history or retry failed notice delivery', async () => {
+  const recover = vi.spyOn(PostgresLanding.prototype, 'committed');
+  const notice = vi.spyOn(delivery, 'notice').mockResolvedValue(err(new DomainError('dependency_unavailable', 'Unavailable')));
+  await arrive('unmatched.csv', 'private');
+  expect(notice).toHaveBeenCalledTimes(1);
+  for (let i = 0; i < 5; i += 1) await register!.scan();
+  expect(recover).not.toHaveBeenCalled(); expect(notice).toHaveBeenCalledTimes(1);
+  await register!.reconcile(); expect(recover).toHaveBeenCalledTimes(1); expect(notice).toHaveBeenCalledTimes(2);
+ });
+ it.each(['not_found', 'forbidden', 'validation_failed', 'conflict', 'dependency_unavailable'] as const)('preserves receipt refusal category %s over mTLS', async (code) => {
+  vi.spyOn(repository, 'reconcile').mockResolvedValueOnce(err(new DomainError(code, 'Registration refused.')));
+  expect(await delivery.reconcile({ sourceId: zone.sourceId, checkedAt: new Date().toISOString(), zoneFileCount: 0, registeredCount: 0, unregisteredCount: 0 }, zone.projectId)).toMatchObject({ ok: false, error: { code } });
+ });
+ it('logs reconciliation identity, safe category and attempts, resetting after success', async () => {
+  const logs = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  const failure = err(new DomainError('dependency_unavailable', secret));
+  const send = vi.spyOn(delivery, 'reconcile').mockResolvedValueOnce(failure).mockResolvedValueOnce(failure).mockResolvedValueOnce(ok(undefined)).mockResolvedValueOnce(failure);
+  for (let i = 0; i < 4; i += 1) await register!.reconcile();
+  expect(send).toHaveBeenCalledTimes(4);
+  const records = logs.mock.calls.map(([entry]) => entry).filter(entry => entry.event === 'ingest.reconciliation_failed');
+  expect(records.map(entry => entry.attemptCount)).toEqual([1, 2, 1]);
+  for (const entry of records) expect(entry).toEqual({ event: 'ingest.reconciliation_failed', timestamp: expect.any(String), sourceId: zone.sourceId, projectId: zone.projectId, errorCategory: 'dependency_unavailable', attemptCount: expect.any(Number) });
+  expect(JSON.stringify(records)).not.toContain(secret);
+ });
  it('ING-31/32: real sidecar egress contains only declared metadata and telemetry drops all non-allowlisted fields', async () => {
   const logs = vi.spyOn(console, 'info').mockImplementation(() => undefined);
   rule = { ...rule, verifyColumn: 'owner', verifyValue: 'expected' }; await snapshot();
@@ -159,11 +210,17 @@ describe('filing register', () => {
   }
   expect(JSON.stringify(egress)).not.toContain(secret);
   expect(JSON.stringify(egress)).not.toContain('supplier_2026-03.csv');
-  const injected = { event: 'ingest.quarantined', filingId: filing.id, reason: filing.reason, contents: secret, filename: filing.path };
-  expect(ingestAttributes(injected)).toEqual({ event: 'ingest.quarantined', filingId: filing.id });
+  const injected = { event: 'ingest.quarantined', timestamp: '2026-09-20T00:00:00.000Z', sourceId: zone.sourceId, projectId: zone.projectId, errorCategory: 'conflict', attemptCount: 2, filingId: filing.id, columnName: secret, cellValue: secret, reason: filing.reason, contents: secret, filename: filing.path };
+  expect(ingestErrorCategory({ code: secret, message: secret })).toBe('unknown');
+  expect(ingestErrorCategory(new DomainError('source_unavailable', secret))).toBe('source_unavailable');
+  expect(() => ingestAttributes({ ...injected, errorCategory: secret })).toThrow();
+  expect(ingestAttributes(injected)).toEqual({ event: 'ingest.quarantined', timestamp: injected.timestamp, sourceId: zone.sourceId, projectId: zone.projectId, filingId: filing.id, errorCategory: 'conflict', attemptCount: 2 });
   ingestEvent(injected);
   expect(JSON.stringify(logs.mock.calls)).not.toContain(secret);
-  for (const [entry] of logs.mock.calls) expect(Object.keys(entry as object).sort()).toEqual(['event','filingId']);
+  for (const [entry] of logs.mock.calls) {
+   expect(Object.keys(entry as object).every(key => ['event','timestamp','sourceId','projectId','filingId','errorCategory','attemptCount'].includes(key))).toBe(true);
+   expect(entry).toMatchObject({ timestamp: expect.any(String), sourceId: zone.sourceId, projectId: zone.projectId });
+  }
  });
  it('recovers a committed filing after local receipt loss, even when its file has disappeared; receipt refusal remains visible', async () => {
   await arrive('supplier_2026-03.csv', 'quantity\n100\n');
@@ -195,7 +252,7 @@ describe('filing register', () => {
   expect(pending.deliveredRevision).toBeUndefined();
   send.mockRestore();
   await register.close(); register = undefined;
-  register = await FilingRegister.open(zone,undefined,extractor,lander,delivery); await register.scan();
+  register = await FilingRegister.open(zone,undefined,extractor,lander,delivery); await register.reconcile();
   expect(unwrap(await repository.list(context.projectId,context.userId,null,100))[0]).toMatchObject({ outcome: 'pending', revision: pending.revision });
   const count = egress.length; await register.scan(); expect(egress).toHaveLength(count);
   expect(await delivery.reconcile({ sourceId: zone.sourceId, zoneFileCount: 0, registeredCount: 0, unregisteredCount: 0, checkedAt: new Date().toISOString() },ProjectId(randomUUID()))).toMatchObject({ ok: false });

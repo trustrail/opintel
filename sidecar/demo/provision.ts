@@ -1,3 +1,4 @@
+import { sourceMessages } from '../../src/shared/source-errors.js';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open, readFile, link, lstat, unlink, mkdir, copyFile } from 'node:fs/promises';
@@ -23,7 +24,7 @@ export class SpreadsheetDemoProvisioner {
     const { payload, projectId, sourceId, credentialRef } = request.data;
     const zone = this.zones.find((candidate) => candidate.projectId === projectId && candidate.sourceId === sourceId && resolve(candidate.directory) === resolve(payload.landingZone ?? ''));
     if (!zone?.landing || credentialRef !== this.target.credentialRef || credentialRef !== zone.landing.credentialRef || !payload.generatorSpec.files?.length)
-      return err(new DomainError('validation_failed','Spreadsheet demos require an operator-configured landing zone and credential.'));
+      return err(new DomainError('validation_failed',sourceMessages.deploymentInvalid));
     const files = payload.generatorSpec.files;
     const objects = payload.schemaSpec.schemas.flatMap((schema) => schema.objects);
     for (const file of files) {
@@ -48,7 +49,7 @@ export class SpreadsheetDemoProvisioner {
         try { await handle.writeFile(signature); await handle.sync(); } finally { await handle.close(); }
       } catch (error) {
         if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
-        if (await readFile(manifest,'utf8') !== signature) return err(new DomainError('conflict','This zone already has a different demo template.'));
+        if (await readFile(manifest,'utf8') !== signature) return err(new DomainError('conflict',sourceMessages.templateConflict));
       }
       const rules = identificationRulesSchema.parse(JSON.parse(await readFile(zone.rulesFile,'utf8')) as unknown);
       for (const file of files) {
@@ -56,7 +57,7 @@ export class SpreadsheetDemoProvisioner {
         // Rules are deployment metadata, not inferred by the generator. Refuse
         // an inconsistent fixture rather than editing a customer's rule snapshot.
         if (!party || party.decimalSeparator !== file.decimalSeparator || party.dateFormat !== file.dateFormat)
-          return err(new DomainError('validation_failed','The demo filing party locale must match its provisioned rule snapshot.'));
+          return err(new DomainError('validation_failed',sourceMessages.localeInvalid));
       }
       for (const file of files) {
         if (signal?.aborted) throw new Error('Cancelled');
@@ -85,7 +86,7 @@ export class SpreadsheetDemoProvisioner {
           } finally { await unlink(temporary).catch(() => undefined); }
         }
         if (await exists(path)) {
-          if (!(await readFile(path)).equals(await readFile(prepared))) return err(new DomainError('conflict','A delivery path already contains different bytes.'));
+          if (!(await readFile(path)).equals(await readFile(prepared))) return err(new DomainError('conflict',sourceMessages.deliveryConflict));
           continue;
         }
         // Atomic no-replace publication. Cached artifacts make retries byte-identical;
@@ -104,7 +105,7 @@ export class SpreadsheetDemoProvisioner {
       }
       return ok({ credentialRef: VaultRef(credentialRef), database: this.target.database });
     } catch {
-      return err(new DomainError('dependency_unavailable','Demo delivery failed or was cancelled; existing arrivals remain available for retry.'));
+      return err(new DomainError('dependency_unavailable',sourceMessages.deliveryFailed));
     } finally { if (lock) { await lock.close(); await unlink(lockPath); } }
   }
 }

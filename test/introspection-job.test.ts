@@ -100,7 +100,7 @@ describe('introspection job and persisted catalogue',()=>{
     await run(); const before=await catalog();
     connector.introspect=async()=>err(new DomainError('source_unavailable','postgres://user:SECRET@db'));
     const failed=await run();
-    expect(failed).toMatchObject({state:'failed',diff:[],error:'Source introspection failed.'});
+    expect(failed).toMatchObject({state:'failed',diff:[],error:'The source could not be reached. Check its connection and credentials, then retry.'});
     expect(JSON.stringify(failed)).not.toContain('SECRET');
     expect(await catalog()).toEqual(before);
     expect(unwrap(await job.source(ctx,sourceId)).status).toBe('unreachable');
@@ -159,7 +159,9 @@ describe('introspection job and persisted catalogue',()=>{
     const accepted=queued.find((entry)=>entry.ok); if(accepted===undefined)throw new Error('Missing run');
     const id=unwrap(accepted).id;
     const contact=vi.spyOn(connector,'introspect');
-    await Promise.all([job.execute(ctx,id),new IntrospectionJob(store,()=>connector).execute(ctx,id)]);
+    const prepare=vi.fn(async()=>ok(undefined));
+    await Promise.all([job.execute(ctx,id,undefined,prepare),new IntrospectionJob(store,()=>connector).execute(ctx,id,undefined,prepare)]);
+    expect(prepare).toHaveBeenCalledTimes(1);
     expect(contact).toHaveBeenCalledTimes(1);
   });
   it('partial schema selection leaves other catalogued schemas intact',async()=>{

@@ -259,3 +259,9 @@ The reinsurance demo pack and its local preparation/provisioning commands are
 documented in [the sidecar demo instructions](sidecar/README.md#reinsurance-demo-pack-311).
 `dev:up` also creates the separate `opintel_demo` landing database; application
 migrations run only on the application and test databases.
+
+Open `/projects/<project-id>/data-sources` to test and connect a Vault-backed
+Postgres source. For demo data, run the documented preparation command and
+`dev:up` first, then choose **Connect** on the industry demo card. A prepared
+project remains empty until that action. Unprepared cards explain the required
+operator step.

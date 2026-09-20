@@ -1,3 +1,4 @@
+import { safeSourceMessage } from '../../src/shared/source-errors.js';
 import { provisionDemoResponse } from '../../src/shared/demo-contract.js';
 import { randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:https';
@@ -76,7 +77,7 @@ export function createSidecarServer(options: {
       if (controller.signal.aborted) return;
       if (!result.ok) {
         const code = result.error.code;
-        fail(res,statusFor(code),code,errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable);
+        fail(res,statusFor(code),code,req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable);
         return;
       }
       const response = route.response.safeParse(result.value);

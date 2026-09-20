@@ -1,3 +1,4 @@
+import { safeSourceMessage } from '../../../shared/source-errors.js';
 import { provisionDemoPayload, provisionDemoResponse, type ProvisionDemoPayload } from '../../../shared/demo-contract.js';
 import type { DemoProvisioningPort } from '../application/demo-provisioning.js';
 import { X509Certificate } from 'node:crypto';
@@ -7,6 +8,7 @@ import { z } from 'zod';
 import { DomainError, err, ok, type ElementId, type Result } from '../../../shared/kernel/index.js';
 import type { VaultRef } from '../../../platform/vault/types.js';
 import type { ObjectRef, SourceConnector, SourceConnectorContext, SourceKind, TopValue } from '../application/source-connector.js';
+import { serviceErrorEnvelope } from '../../../shared/error-contract.js';
 import * as wire from './sidecar-wire.js';
 
 export interface SidecarOptions {
@@ -104,7 +106,8 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
       }
       const response = schema.safeParse(await this.post(path, body.data, signal));
       return response.success ? ok(response.data) : this.malformed();
-    } catch {
+    } catch (error) {
+      if (error instanceof DomainError) return err(error);
       return err(new DomainError('source_unavailable', abort?.aborted ? 'Source request cancelled.' : signal.aborted ? 'Source connection timed out.' : 'Sidecar connection failed or returned an invalid response.', undefined, true));
     }
   }
@@ -132,8 +135,17 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
           chunks.push(chunk);
         });
         res.on('end', () => {
-          if (res.statusCode !== 200 || !/^application\/json(?:\s*;|$)/i.test(res.headers['content-type'] ?? '')) { reject(new Error('Invalid sidecar response.')); return; }
-          try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown); } catch { reject(new Error('Invalid sidecar JSON.')); }
+          if (!/^application\/json(?:\s*;|$)/i.test(res.headers['content-type'] ?? '')) { reject(new Error('Invalid sidecar response.')); return; }
+          try {
+            const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            if (res.statusCode !== 200) {
+              const parsed = serviceErrorEnvelope.safeParse(body);
+              if (!parsed.success) { reject(new Error('Invalid sidecar error response.')); return; }
+              reject(new DomainError(parsed.data.error.code, safeSourceMessage(parsed.data.error.code, parsed.data.error.message), undefined, parsed.data.error.retryable));
+              return;
+            }
+            resolve(body);
+          } catch { reject(new Error('Invalid sidecar JSON.')); }
         });
       });
       req.on('error', reject);

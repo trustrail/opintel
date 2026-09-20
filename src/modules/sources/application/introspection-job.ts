@@ -1,3 +1,4 @@
+import { safeSourceMessage } from '../../../shared/source-errors.js';
 import { DomainError, err, type Result, type RunId, type SourceId } from '../../../shared/kernel/index.js';
 import type { AuthorizationPort } from '../../authz/index.js';
 import type { SourceConnector } from './source-connector.js';
@@ -28,17 +29,17 @@ export class IntrospectionJob {
     this.lifecycle(id,'cancelled');
     return this.store.read(ctx,id);
   }
-  execute(ctx: IntrospectionContext,id: RunId,signal?: AbortSignal): Promise<Result<IntrospectionRun>> {
+  execute(ctx: IntrospectionContext,id: RunId,signal?: AbortSignal,prepare?: (signal: AbortSignal) => Promise<Result<void>>): Promise<Result<IntrospectionRun>> {
     if (this.active.has(id)) return Promise.resolve(err(new DomainError('conflict','This worker is already executing the run.')));
     const controller = new AbortController();
-    const done = this.perform(ctx,id,controller,signal).then((result) => {
+    const done = this.perform(ctx,id,controller,signal,prepare).then((result) => {
       if (result.ok) this.lifecycle(id,result.value.state);
       return result;
     }).finally(() => this.active.delete(id));
     this.active.set(id,{controller,done});
     return done;
   }
-  private async perform(ctx: IntrospectionContext,id: RunId,controller: AbortController,signal?: AbortSignal): Promise<Result<IntrospectionRun>> {
+  private async perform(ctx: IntrospectionContext,id: RunId,controller: AbortController,signal?: AbortSignal,prepare?: (signal: AbortSignal) => Promise<Result<void>>): Promise<Result<IntrospectionRun>> {
     let cancellable = true;
     const abort = () => { if (cancellable) controller.abort(); };
     signal?.addEventListener('abort',abort,{once:true});
@@ -68,12 +69,17 @@ export class IntrospectionJob {
       const connector = this.connector(source.value,id);
       const connected = await connector.testConnection(source.value.credentialRef,controller.signal);
       if (controller.signal.aborted) return await this.store.cancel(ctx,id);
-      if (!connected.ok) return await this.store.fail(ctx,id,'Source connection failed.',true);
+      if (!connected.ok) return await this.store.fail(ctx,id,safeSourceMessage(connected.error.code,connected.error.message),connected.error.code === 'source_unavailable',connected.error.code);
+      if (prepare) {
+        const prepared = await prepare(controller.signal);
+        if (controller.signal.aborted) return await this.store.cancel(ctx,id);
+        if (!prepared.ok) return await this.store.fail(ctx,id,safeSourceMessage(prepared.error.code,prepared.error.message),false,prepared.error.code);
+      }
       const reading = await advance('connecting','reading');
       if (!reading.ok) return reading;
       const snapshot = await connector.introspect(source.value.credentialRef,claim.value.include,controller.signal);
       if (controller.signal.aborted) return await this.store.cancel(ctx,id);
-      if (!snapshot.ok) return await this.store.fail(ctx,id,'Source introspection failed.',snapshot.error.code === 'source_unavailable');
+      if (!snapshot.ok) return await this.store.fail(ctx,id,safeSourceMessage(snapshot.error.code,snapshot.error.message),snapshot.error.code === 'source_unavailable',snapshot.error.code);
       if (claim.value.adoptRenamedNames && !await this.canAdopt(ctx)) return await this.store.fail(ctx,id,'Project administration is required to adopt renamed names.',false);
       const diffing = await advance('reading','diffing');
       if (!diffing.ok) return diffing;

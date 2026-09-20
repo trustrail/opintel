@@ -5,7 +5,7 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { arrivalNoticeSchema, quarantineCategorySchema, landingReceiptSchema, landingStrategySchema, type ArrivalNotice, type ReconciliationReport } from '../../src/shared/landing-contract.js';
 import type { RegisterDeliveryPort } from './landing-port.js';
-import { ingestEvent } from './telemetry.js';
+import { ingestEvent, ingestErrorCategory } from './telemetry.js';
 import { VaultRef } from '../../src/platform/vault/types.js';
 import type { FilingLander } from './land.js';
 import { identifyFile, identificationRulesSchema, type PartyId, type FilingPartyRuleId, type FileExtractor, type FilingParty, type FilingPartyRule } from '../../src/modules/ingest/index.js';
@@ -60,15 +60,21 @@ async function containsFiles(directory: string): Promise<boolean> {
 // One serialized writer owns a zone. The durable ready records are the handoff
 // to extraction (3.8). Quarantine is a terminal registration, never a handoff.
 export class FilingRegister {
+  private reconciliationAttempts = 0;
+  private reconciliationFailed = false;
+  private reconciliationDelay = 30_000;
+  private reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconciliationWork: Promise<unknown> | undefined;
+  private noticeAttempts = new Map<string, number>();
   private filings: WatchedFiling[] = [];
   private observed = new Map<string, string>();
   private queue: Promise<void> = Promise.resolve();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
   private tickWork: Promise<unknown> | undefined;
-  private constructor(private readonly zone: LandingZone, private readonly warn: () => void, private readonly extractor?: FileExtractor, private readonly lander?: FilingLander, private readonly delivery?: RegisterDeliveryPort) {}
+  private constructor(private readonly zone: LandingZone, private readonly warn: (error: unknown) => void, private readonly extractor?: FileExtractor, private readonly lander?: FilingLander, private readonly delivery?: RegisterDeliveryPort) {}
 
-  static async open(input: LandingZone, warn: () => void = () => ingestEvent({ event: 'ingest.scan_failed' }), extractor?: FileExtractor, lander?: FilingLander, delivery?: RegisterDeliveryPort): Promise<FilingRegister> {
+  static async open(input: LandingZone, warn?: (error: unknown) => void, extractor?: FileExtractor, lander?: FilingLander, delivery?: RegisterDeliveryPort): Promise<FilingRegister> {
     const zone = landingZoneSchema.parse(input);
     zone.directory = resolve(zone.directory); zone.stateFile = resolve(zone.stateFile); zone.rulesFile = resolve(zone.rulesFile);
     for (const file of [zone.stateFile, zone.rulesFile]) {
@@ -81,7 +87,8 @@ export class FilingRegister {
     const lock = zone.stateFile + '.lock';
     const owner = await open(lock, 'wx', 0o600);
     try { await owner.writeFile(String(process.pid)); await owner.sync(); } finally { await owner.close(); }
-    const watcher = new FilingRegister(zone, warn, extractor, lander, delivery);
+    let scanAttempts = 0;
+    const watcher = new FilingRegister(zone, warn ?? ((error: unknown) => ingestEvent({ event: 'ingest.scan_failed', sourceId: zone.sourceId, projectId: zone.projectId, errorCategory: ingestErrorCategory(error), attemptCount: ++scanAttempts })), extractor, lander, delivery);
     try {
       await watcher.rules();
       try {
@@ -104,7 +111,17 @@ export class FilingRegister {
   records(): readonly WatchedFiling[] { return structuredClone(this.filings); }
   start(): void {
     if (this.timer !== undefined || this.stopped) return;
-    const tick = () => { this.tickWork = this.scan().catch(this.warn).then(() => this.stopped ? undefined : this.reconcile()).catch(this.warn).finally(() => { if (!this.stopped) this.timer = setTimeout(tick, this.zone.pollMs); }); };
+    const tick = () => { this.tickWork = this.scan().catch(this.warn).finally(() => { if (!this.stopped) this.timer = setTimeout(tick, this.zone.pollMs); }); };
+    const reconcile = () => {
+      this.reconciliationWork = this.reconcile().catch(() => undefined).finally(() => {
+        if (this.stopped) return;
+        const delay = this.reconciliationFailed ? this.reconciliationDelay : 30_000;
+        this.reconciliationDelay = this.reconciliationFailed ? Math.min(delay * 2, 300_000) : 30_000;
+        this.reconciliationTimer = setTimeout(reconcile, delay);
+      });
+    };
+    // Recovery precedes scanning after restart, before new arrivals are processed.
+    this.reconciliationTimer = setTimeout(reconcile, 0);
     this.timer = setTimeout(tick, 0);
   }
   scan(): Promise<void> {
@@ -114,7 +131,8 @@ export class FilingRegister {
     return task;
   }
   async close(): Promise<void> {
-    this.stopped = true; clearTimeout(this.timer); await this.tickWork; await this.queue;
+    this.stopped = true; clearTimeout(this.timer); clearTimeout(this.reconciliationTimer);
+    await Promise.all([this.tickWork, this.reconciliationWork]); await this.queue;
     await unlink(this.zone.stateFile + '.lock');
   }
   private async persist(filings: readonly WatchedFiling[]): Promise<void> {
@@ -156,32 +174,66 @@ export class FilingRegister {
       partyCode: filing.landing?.receipt.partyCode ?? filing.partyCode ?? null, kind: filing.kind, period: filing.period,
       quarantineCategory: filing.status === 'quarantined' ? filing.quarantineCategory ?? category(filing.reason) : null });
   }
-  private async publish(): Promise<void> {
+  private async publish(initialOnly = false): Promise<void> {
     if (!this.delivery) return;
     for (let index = 0; index < this.filings.length; index += 1) {
       if (this.stopped) return;
       const filing = this.filings[index]!;
       const notice = this.notice(filing);
-      if (filing.deliveredRevision === notice.revision) continue;
+      if (filing.deliveredRevision === notice.revision || (initialOnly && this.noticeAttempts.has(filing.id))) continue;
+      const attemptCount = (this.noticeAttempts.get(filing.id) ?? 0) + 1;
+      this.noticeAttempts.set(filing.id, attemptCount);
       const result = await this.delivery.notice(notice);
       if (result.ok) {
+        this.noticeAttempts.delete(filing.id);
         const updated = [...this.filings]; updated[index] = { ...filing, deliveredRevision: notice.revision };
         await this.persist(updated); this.filings = updated;
-      } else ingestEvent({ event: 'ingest.notice_failed', filingId: filing.id });
+      } else {
+        this.reconciliationFailed = true;
+        ingestEvent({ event: 'ingest.notice_failed', filingId: filing.id, sourceId: this.zone.sourceId, projectId: this.zone.projectId, errorCategory: ingestErrorCategory(result.error), attemptCount });
+      }
     }
   }
   reconcile(): Promise<ReconciliationReport> {
-    const task = this.queue.then(() => this.reconcileOnce());
+    const task = this.queue.then(async () => {
+      if (this.stopped) return { sourceId: this.zone.sourceId, zoneFileCount: 0, registeredCount: 0, unregisteredCount: 0, checkedAt: new Date().toISOString() };
+      this.reconciliationFailed = false;
+      this.reconciliationAttempts += 1;
+      try {
+        const report = await this.reconcileOnce();
+        if (!this.reconciliationFailed) this.reconciliationAttempts = 0;
+        return report;
+      } catch (error) {
+        this.reconciliationFailed = true;
+        ingestEvent({ event: 'ingest.reconciliation_failed', sourceId: this.zone.sourceId, projectId: this.zone.projectId, errorCategory: ingestErrorCategory(error), attemptCount: this.reconciliationAttempts });
+        throw error;
+      }
+    });
     this.queue = task.then(() => undefined, () => undefined);
     return task;
   }
   private async reconcileOnce(): Promise<ReconciliationReport> {
     await this.recoverCommits();
+    const { filingParties, rules } = await this.rules();
+    // Resume the same durable arrivals after restart; never create a second register.
+    for (let index = 0; index < this.filings.length; index += 1) {
+      if (this.stopped) break;
+      const current = this.filings[index]!;
+      const extracted = current.landing ? current : await this.process(current, filingParties, rules);
+      if (extracted.status === 'ready' && (extracted.reason || extracted.landing?.registered === false)) this.reconciliationFailed = true;
+      if (JSON.stringify(extracted) !== JSON.stringify(current)) extracted.revision = (current.revision ?? 1) + 1;
+      if (JSON.stringify(extracted) !== JSON.stringify(current)) {
+        const updated = [...this.filings]; updated[index] = extracted;
+        await this.persist(updated); this.filings = updated;
+        if (extracted.status === 'quarantined') ingestEvent({ event: 'ingest.quarantined', sourceId: this.zone.sourceId, projectId: this.zone.projectId, filingId: extracted.id });
+      }
+    }
     if (this.lander) {
       for (let index = 0; index < this.filings.length; index += 1) {
         if (this.stopped) break;
         const current = this.filings[index]!;
         const reconciled = await this.lander.reconcile(current);
+        if (reconciled.landing?.registered === false) this.reconciliationFailed = true;
         if (JSON.stringify(current) !== JSON.stringify(reconciled)) {
           const updated = [...this.filings]; updated[index] = { ...reconciled, revision: (current.revision ?? 1) + 1 };
           await this.persist(updated); this.filings = updated;
@@ -205,7 +257,10 @@ export class FilingRegister {
     const report = { sourceId: this.zone.sourceId, zoneFileCount, registeredCount, unregisteredCount: zoneFileCount - registeredCount, checkedAt: new Date().toISOString() };
     if (this.delivery && !this.stopped) {
       const result = await this.delivery.reconcile(report, this.zone.projectId);
-      if (!result.ok) ingestEvent({ event: 'ingest.reconciliation_failed' });
+      if (!result.ok) {
+        this.reconciliationFailed = true;
+        ingestEvent({ event: 'ingest.reconciliation_failed', sourceId: this.zone.sourceId, projectId: this.zone.projectId, errorCategory: ingestErrorCategory(result.error), attemptCount: this.reconciliationAttempts });
+      }
     }
     return report;
   }
@@ -235,7 +290,7 @@ export class FilingRegister {
       }
       const records = [...this.filings]; records[index] = updated;
       await this.persist(records); this.filings = records;
-      await this.scanOnce();
+      await this.reconcileOnce();
     });
     this.queue = task.catch(() => undefined);
     return task;
@@ -243,6 +298,7 @@ export class FilingRegister {
   private async recoverCommits(): Promise<void> {
     if (this.lander) {
       const committed = await this.lander.committed();
+      if (!committed.ok) throw committed.error;
       if (committed.ok) {
         for (const receipt of committed.value) {
           const index = this.filings.findIndex((entry) => entry.id === receipt.filingId);
@@ -259,19 +315,6 @@ export class FilingRegister {
   private async scanOnce(): Promise<void> {
     if (this.stopped) return;
     const { filingParties, rules } = await this.rules();
-    await this.recoverCommits();
-    // Resume the same durable arrivals after restart; never create a second register.
-    for (let index = 0; index < this.filings.length; index += 1) {
-      if (this.stopped) return;
-      const current = this.filings[index]!;
-      const extracted = await this.process(current, filingParties, rules);
-      if (JSON.stringify(extracted) !== JSON.stringify(current)) extracted.revision = (current.revision ?? 1) + 1;
-      if (JSON.stringify(extracted) !== JSON.stringify(current)) {
-        const updated = [...this.filings]; updated[index] = extracted;
-        await this.persist(updated); this.filings = updated;
-        if (extracted.status === 'quarantined') ingestEvent({ event: 'ingest.quarantined', filingId: extracted.id });
-      }
-    }
     const visit = async (directory: string): Promise<void> => {
       for (const entry of await readdir(directory, { withFileTypes: true })) {
         if (this.stopped) return;
@@ -322,11 +365,11 @@ export class FilingRegister {
           const updated = [...this.filings]; updated[updated.length - 1] = extracted;
           await this.persist(updated); this.filings = updated;
         }
-        if (extracted.status === 'quarantined') ingestEvent({ event: 'ingest.quarantined', filingId: base.id });
+        if (extracted.status === 'quarantined') ingestEvent({ event: 'ingest.quarantined', sourceId: this.zone.sourceId, projectId: this.zone.projectId, filingId: base.id });
       }
     };
     await visit(this.zone.directory);
-    await this.publish();
+    await this.publish(true);
   }
 }
 

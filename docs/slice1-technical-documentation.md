@@ -1474,6 +1474,93 @@ const MigrateIndustryPreview = z.object({
 
 **Migration returns 200 with ProjectView**, reflecting the new industry and its inherited term count. The caller already has the project on screen and needs the updated view; a bare 204 would force a refetch.
 
+### Source payloads
+
+```ts
+const TestSourceBody = z.object({
+  kind: z.literal('postgres'),
+  credentialRef: z.string().startsWith('vault://'),
+});
+const TestSourceResponse = z.object({
+  reachable: z.boolean(),
+  reason: z.string().nullable(),
+  schemas: z.array(z.string()),          // populated only when reachable
+});
+
+const CreateSourceBody = z.object({
+  name: z.string().min(1).max(80),
+  kind: z.literal('postgres'),
+  credentialRef: z.string().startsWith('vault://'),
+  includeSchemas: z.array(z.string()),   // empty means every readable schema
+  samplingConsent: z.boolean(),
+  receivesLandings: z.boolean(),
+  landingStrategy: z.enum(['append_as_at', 'table_per_filing']).nullable(),
+});
+
+const SourceListItem = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  kind: z.string(),
+  origin: z.enum(['customer', 'demo']),
+  status: z.string(),
+  error: z.string().nullable(), // latest run’s safe actionable message, rendered unchanged
+  landingStrategy: z.enum(['append_as_at', 'table_per_filing']).nullable(),
+  filingCount: z.number().int().nullable(),
+  elementCount: z.number().int(),
+  undecidedCount: z.number().int(),
+  lastIntrospectedAt: z.string().datetime({ offset: true }).nullable(),
+});
+```
+
+**GET /projects/:id/sources requires project#view**. Creation returns 201 with SourceListItem and queues introspection.
+
+**Source recovery.** `POST /sources/:id/introspect` accepts `{ projectId }` and returns 202 with SourceListItem. The project identifies the tenant scope; `project#bind_source` is checked before the source is read, and a source outside that project returns 404. The source is locked while checking for an active run and enqueueing a new one. Archived sources and duplicate active runs return conflict. Retry keeps the existing schema selection and sampling consent. Queued/active runs appear as pending; a new run clears the displayed error without changing earlier runs.
+
+The failed-source Retry action uses this endpoint. For a demo source it resumes the prepared delivery before introspection. Repeating `POST /projects/:id/sources/from-demo` (or `demo:pack provision`) reuses the reserved source, verifies its project/template/credential/name/strategy binding and preserves prior runs and arrivals. A new source returns 201; resumed or already active work returns 202; an already completed connection returns 200. No deletion is part of recovery. Only one new run is queued. The worker claims the run in Postgres before provisioning, so API and CLI workers cannot prepare the same run concurrently. Sidecar replay keeps file bytes, filing IDs, hashes and provenance unchanged.
+
+`SourceListItem.error` carries the latest run's reviewed, value-free message, or null. Provisioning messages are validated against reviewed text at the sidecar boundary, persisted and rendered unchanged. The declared error code is retained in run progress as `errorCode` for CLI diagnostics. Unknown exception/peer text is replaced by an actionable safe fallback, never copied from SQL, credentials or a stack trace. The CLI exits unsuccessfully when background preparation fails instead of reporting a successful connection.
+
+**undecidedCount equals elementCount until item 4.1**, since undecided is the absence of an entitlement row and no rows can exist yet. The screen shows the real number rather than hiding the column.
+
+**landingStrategy is required when receivesLandings is true**, refused otherwise.
+
+**`demo_source_template.deployment_ref` is a map keyed by project id:**
+
+```ts
+type DeploymentRef = Record<string, {
+  sourceId: SourceId;        // reserved at prepare, inserted at Connect
+  credentialRef: VaultRef;
+  landingZone: string | null;
+  sourceName: string;
+}>;
+```
+
+**Preparation reserves the source id and inserts nothing into `data_source`.** The sidecar binds its landing zone to that project and source at prepare time, because it needs them before any file arrives. The application creates the `data_source` row only when someone clicks Connect.
+
+**A project with a prepared template therefore still has no sources.** The offer is visible, nothing is provisioned, and E2-013 holds. Preparation is deployment work; connection is a decision someone makes.
+
+**A template with no entry for this project is not connectable there.** `POST /sources/from-demo` returns `dependency_unavailable`, and the card says the pack is not provisioned for this project rather than failing on click.
+
+Source listing uses `{ items: SourceListItem[], nextCursor: string | null }`,
+with the standard `cursor` and `limit` query parameters. Counts exclude removed
+catalogue objects/elements; filing counts include every registered outcome.
+`status: introspection_failed` in the list also exposes a failed/cancelled latest
+run without presenting it as still pending. The source’s durable reachability
+status remains separate.
+
+`GET /industries/:id/demo-sources?projectId=...` checks `project#view` and that the
+industry matches the project. It returns `{ id, name, narrative, prepared,
+connected }[]`; deployment references are never sent to the browser. Both connect
+mutations invalidate `dataSource.lists` and `project.stats`.
+
+Source and initial introspection run are saved in one transaction. The run keeps
+the initiating user and explicit sampling-consent decision in its progress
+metadata. The application dispatches it after commit; listing sources resumes
+queued registration work after an application restart. Demo introspection waits
+for ordinary landed/quarantined/duplicate arrival notices so it cannot catalogue
+an empty database before the watcher has processed the pack. Failed preparation
+is recorded on the run; the source row and any landed files remain available.
+
 ## 2.6 The agent interface
 
 Separate from the console API. Streamable HTTP at `/mcp/v1/p/:projectId`, authenticated by the pool key as a bearer token.
@@ -1648,6 +1735,8 @@ type ArrivalNotice = {
 **Opintel receives a category, never a reason**. The full reason may contain a cell value, a column name or a filename fragment, and those are the customer's data. The category is enough to say what to fix; the detail stays local and is read through the local register command by whoever operates it. This is the one place the register is deliberately incomplete, and the console says so rather than appearing to show everything.
 
 **GET /projects/:id/filings** lists the register. Reconciliation is local: the sidecar compares its zone against its own state, and reports a count to Opintel rather than a file list.
+
+**Reconciliation schedule.** Run once at startup, then 30 seconds after each successful pass. Consecutive failed passes retry after 30, 60, 120, 240 and then 300 seconds, capped at five minutes. Success resets the delay; restart resets retry state. Recovery and retries of existing arrivals belong to this schedule, not the file scan loop. New arrivals retain one initial processing/delivery attempt. Demo preparation uses the one-second scan default.
 
 **Reconciliation transport.** `/reconciliation-report` uses the same pinned mTLS as receipts and notices. Its `x-opintel-project-id` header binds the tenant scope; the source must exist in that project. Older `checkedAt` reports are discarded. Counts account for current zone entries matched to the durable register; unregistered includes deliveries still settling or entries that cannot safely be read.
 
@@ -2904,6 +2993,7 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Set entitlement | `entitlement.detail`, `pool.detail`, `catalogElement.lists`, `project.stats` |
 | Bulk set | `entitlement.all`, `pool.lists`, `catalogElement.lists`, `project.stats` |
 | Connect source | `dataSource.lists`, `project.stats` |
+| Retry source / resume demo | `dataSource.lists`, `project.stats` |
 | Introspection completes | `catalogElement.all`, `dataSource.detail`, `entitlement.all` |
 | Delete source | `dataSource.lists`, `catalogElement.all`, `entitlement.all`, `pool.lists` |
 | Create pool | `pool.lists`, `project.stats` |
