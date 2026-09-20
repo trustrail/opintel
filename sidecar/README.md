@@ -114,8 +114,11 @@ handoff and carry no attributed filing party. Retries/restarts retain registrati
 duplicate history. Rule edits do not silently release quarantined registrations;
 resolution and the user-facing register belong to 3.10.
 
-State has an exclusive `.lock` containing the owning PID. Graceful shutdown drains
-scans and removes it. After a crash, verify that PID is no longer running before
+State has an exclusive `.lock` containing the owning PID. SIGTERM stops the batch
+between durable operations, drains current work, flushes audit and exits. The
+process-wide `shutdownTimeoutMs` bounds all cleanup, including outbound receipt
+I/O. Expiry exits nonzero and leaves unfinished locks for operator recovery.
+After a crash or shutdown expiry, verify that PID is no longer running before
 removing the stale lock and restarting. Keep a source bound to the same state
 file: changing it discards its duplicate/restatement history. Watcher failures
 log a fixed warning without paths, file contents, or captured labels.
@@ -410,7 +413,7 @@ read-only environment Vault adapter. Start with an existing reinsurance project:
 
 ```sh
 npm run demo:pack -- prepare PROJECT_ID USER_ID
-# Stop the existing sidecar gracefully so it reloads the prepared configuration.
+# dev:up stops the recorded sidecar before loading the prepared configuration.
 npm run dev:up
 npm run dev:api
 # In a second terminal, use the source ID printed by prepare:

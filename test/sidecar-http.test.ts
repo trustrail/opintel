@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { createServer as createTcpServer } from 'node:net';
+import { fileURLToPath } from 'node:url';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -182,16 +184,29 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(JSON.parse(await readFile(new URL('../sidecar/openapi.json',import.meta.url),'utf8'))).toEqual(specification);
   });
 
-  it('shutdown aborts active HTTP work and releases Postgres before resolving',async()=>{
-    const closing=createSidecarServer({config,tls,connector});
-    const port=await closing.listen();
-    const result=client('slow',{...options,baseUrl:`https://127.0.0.1:${port}`}).sampleTopValues(ref,[elementId],2);
-    await vi.waitFor(async()=>expect((await fixture(async(db)=>(await db.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND state='active' AND query LIKE '%slow%'",[role])).rows)).length).toBe(1));
-    await closing.close();
-    expect(await result).toMatchObject({ok:false});
-    expect(queryFailures).toContain('57014');
-    expect(await fixture(async(db)=>(await db.query('SELECT pid FROM pg_stat_activity WHERE usename=$1',[role])).rows)).toEqual([]);
-  });
+  it('SIGTERM to the real sidecar process cancels active SQL, flushes audit and exits cleanly',async()=>{
+    const reservation=createTcpServer();
+    await new Promise<void>(resolve=>reservation.listen(0,'127.0.0.1',resolve));
+    const address=reservation.address();if(!address||typeof address==='string')throw new Error('No port');
+    const port=address.port;await new Promise<void>(resolve=>reservation.close(()=>resolve()));
+    const file=join(directory,'signal.json');const auditFile=join(directory,'signal-audit.jsonl');
+    await writeFile(file,JSON.stringify({...config,port,auditFile,shutdownTimeoutMs:2000,limits:{...config.limits,statementTimeoutMs:60000,operationTimeoutMs:60000}}));
+    const child=spawn(process.execPath,['--import','tsx',fileURLToPath(new URL('../sidecar/start.ts',import.meta.url)),file],{env:{...process.env,OPINTEL_SECRET_TEST_SOURCE:sourceUrl},stdio:['ignore','pipe','pipe']});
+    let output='';child.stdout.on('data',(chunk:Buffer)=>{output+=chunk.toString();});child.stderr.on('data',(chunk:Buffer)=>{output+=chunk.toString();});
+    const exited=new Promise<{code:number|null;signal:NodeJS.Signals|null}>((resolve,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>resolve({code,signal}));});
+    try{
+      await vi.waitFor(()=>expect(output).toContain('Sidecar ready.'),{timeout:10000});
+      const result=client('slow',{...options,baseUrl:`https://127.0.0.1:${port}`,timeoutMs:9000}).sampleTopValues(ref,[elementId],2);
+      await vi.waitFor(async()=>expect((await fixture(async(db)=>(await db.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND state='active' AND query LIKE '%slow%'",[role])).rows)).length).toBe(1));
+      child.kill('SIGTERM');
+      await vi.waitFor(()=>expect(child.exitCode !== null || child.signalCode !== null).toBe(true),{timeout:4000});
+      await expect(exited).resolves.toEqual({code:0,signal:null});
+      expect(await result).toMatchObject({ok:false});
+      expect(await fixture(async(db)=>(await db.query('SELECT pid FROM pg_stat_activity WHERE usename=$1',[role])).rows)).toEqual([]);
+      const events=(await readFile(auditFile,'utf8')).trim().split('\n').map(line=>JSON.parse(line) as {outcome:string});
+      expect(events.map(event=>event.outcome)).toEqual(['started','failed']);
+    }finally{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await exited;}
+  },15000);
 
   it('validates configuration without reflecting secret values or accepting unknown fields',async()=>{
     expect(sidecarConfigSchema.safeParse({...config,limits:{...config.limits,maxConnectionsPerSource:0}}).success).toBe(false);

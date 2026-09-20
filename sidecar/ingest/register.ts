@@ -144,6 +144,7 @@ export class FilingRegister {
   }
   private async process(filing: WatchedFiling, filingParties: FilingParty[], rules: FilingPartyRule[]): Promise<WatchedFiling> {
     const extracted = filing.landing ? filing : await this.extract(filing, filingParties, rules);
+    if (this.stopped) return extracted;
     return this.lander ? this.lander.process(extracted,
       filingParties.find((entry) => entry.id === filing.partyId && entry.projectId === filing.projectId),
       rules.find((entry) => entry.id === filing.ruleIds[0] && entry.projectId === filing.projectId)) : extracted;
@@ -158,6 +159,7 @@ export class FilingRegister {
   private async publish(): Promise<void> {
     if (!this.delivery) return;
     for (let index = 0; index < this.filings.length; index += 1) {
+      if (this.stopped) return;
       const filing = this.filings[index]!;
       const notice = this.notice(filing);
       if (filing.deliveredRevision === notice.revision) continue;
@@ -177,6 +179,7 @@ export class FilingRegister {
     await this.recoverCommits();
     if (this.lander) {
       for (let index = 0; index < this.filings.length; index += 1) {
+        if (this.stopped) break;
         const current = this.filings[index]!;
         const reconciled = await this.lander.reconcile(current);
         if (JSON.stringify(current) !== JSON.stringify(reconciled)) {
@@ -200,7 +203,7 @@ export class FilingRegister {
     };
     await visit(this.zone.directory);
     const report = { sourceId: this.zone.sourceId, zoneFileCount, registeredCount, unregisteredCount: zoneFileCount - registeredCount, checkedAt: new Date().toISOString() };
-    if (this.delivery) {
+    if (this.delivery && !this.stopped) {
       const result = await this.delivery.reconcile(report, this.zone.projectId);
       if (!result.ok) ingestEvent({ event: 'ingest.reconciliation_failed' });
     }
@@ -254,10 +257,12 @@ export class FilingRegister {
     }
   }
   private async scanOnce(): Promise<void> {
+    if (this.stopped) return;
     const { filingParties, rules } = await this.rules();
     await this.recoverCommits();
     // Resume the same durable arrivals after restart; never create a second register.
     for (let index = 0; index < this.filings.length; index += 1) {
+      if (this.stopped) return;
       const current = this.filings[index]!;
       const extracted = await this.process(current, filingParties, rules);
       if (JSON.stringify(extracted) !== JSON.stringify(current)) extracted.revision = (current.revision ?? 1) + 1;
@@ -269,6 +274,7 @@ export class FilingRegister {
     }
     const visit = async (directory: string): Promise<void> => {
       for (const entry of await readdir(directory, { withFileTypes: true })) {
+        if (this.stopped) return;
         const path = join(directory, entry.name);
         if (entry.isSymbolicLink()) continue;
         if (entry.isDirectory()) { await visit(path); continue; }
@@ -290,6 +296,7 @@ export class FilingRegister {
           if (after.size !== stat.size || after.mtimeNs !== stat.mtimeNs || after.ctimeNs !== stat.ctimeNs) continue;
           digest = hash.digest('hex');
         } finally { await handle.close(); }
+        if (this.stopped) return;
         const identified = identifyFile(this.zone.projectId, basename(path), dirname(name) === '.' ? '' : dirname(name), filingParties, rules);
         const base: WatchedFiling = { id: FilingId(randomUUID()), sourceId: this.zone.sourceId, projectId: this.zone.projectId, path: name, fingerprint, sha256: digest,
           receivedAt: new Date().toISOString(), status: 'quarantined', reason: null, ruleIds: [], partyId: null, period: null, kind: null, supersedes: null, duplicateOf: null };
@@ -308,6 +315,7 @@ export class FilingRegister {
         // Register the arrival before opening the workbook. A crash during
         // extraction resumes this filing ID rather than registering it again.
         await this.save(base);
+        if (this.stopped) return;
         const extracted = await this.process(base, filingParties, rules);
         if (extracted !== base) extracted.revision = (base.revision ?? 1) + 1;
         if (extracted !== base) {

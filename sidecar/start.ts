@@ -21,6 +21,22 @@ async function main(): Promise<void> {
   const audit = await FileSamplingAudit.open(config.auditFile);
   const host = createSidecarServer({config,tls,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
+  let stopping = false;
+  const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    // This deadline covers the entire process, including watcher I/O and audit
+    // flushing. exitCode alone cannot terminate a process with live handles.
+    const deadline = setTimeout(() => {
+      console.error('Sidecar shutdown deadline exceeded. Unfinished register locks require operator recovery.');
+      process.exit(1);
+    }, config.shutdownTimeoutMs);
+    void Promise.all([host.close(), ...watchers.map((watcher) => watcher.close())])
+      .then(() => audit.close())
+      .then(() => { clearTimeout(deadline); process.exit(0); })
+      .catch(() => { console.error('Sidecar shutdown failed.'); process.exit(1); });
+  };
+  process.on('SIGTERM',stop); process.on('SIGINT',stop);
   try {
     for (const zone of config.landingZones ?? []) {
       if (!zone.landing || !config.receiptUrl) throw new Error('Landing requires a source strategy and receipt URL.');
@@ -42,12 +58,5 @@ async function main(): Promise<void> {
     throw new Error('Sidecar startup failed. Check TLS, port, landing paths, rule snapshots and state locks.');
   }
   console.info('Sidecar ready.',{host:config.host,port:config.port});
-  let stopping = false;
-  const stop = () => {
-    if (stopping) return;
-    stopping = true;
-    void Promise.all([host.close(), ...watchers.map((watcher) => watcher.close())]).then(()=>audit.close()).then(()=>{process.exitCode=0;}).catch(()=>{console.error('Sidecar shutdown failed.');process.exitCode=1;});
-  };
-  process.once('SIGTERM',stop); process.once('SIGINT',stop);
 }
-void main().catch((error:unknown)=>{console.error(error instanceof Error ? error.message : 'Sidecar startup failed.');process.exitCode=1;});
+void main().catch((error:unknown)=>{console.error(error instanceof Error ? error.message : 'Sidecar startup failed.');process.exit(1);});

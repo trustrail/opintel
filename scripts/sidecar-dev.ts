@@ -1,6 +1,7 @@
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { access, chmod, mkdir, open, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdir, open, writeFile, unlink } from 'node:fs/promises';
+import { stopRecordedSidecar } from './sidecar-process.js';
 import { resolve } from 'node:path';
 import { request } from 'node:https';
 import { checkServerIdentity } from 'node:tls';
@@ -56,24 +57,32 @@ export async function checkLocalSidecar(file=resolve(sidecarDevDirectory,'client
   });
 }
 
-export async function startDevelopmentSidecar(): Promise<void> {
-  await prepareSidecarDevelopment();
-  try{await checkLocalSidecar();console.info('Local sidecar is already ready.');return;}catch{/* Start below; a port conflict fails without stopping another process. */}
-  const output=await open(resolve(sidecarDevDirectory,'service.log'),'a',0o600);
-  const child=spawn(process.execPath,['--import','tsx',fileURLToPath(new URL('../sidecar/start.ts',import.meta.url)),resolve(sidecarDevDirectory,'service.json')],{
+export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Promise<void> {
+  await prepareSidecarDevelopment(directory);
+  const lockFile=resolve(directory,'startup.lock');
+  const lock=await open(lockFile,'wx',0o600).catch(()=>{throw new Error(`Sidecar startup is locked: ${lockFile}. Check for another dev:up or an interrupted startup before removing the lock.`);});
+  try {
+  const {config}=await loadSidecarConfig(resolve(directory,'service.json'));
+  const entryPoint=fileURLToPath(new URL('../sidecar/start.ts',import.meta.url));
+  const pidFile=resolve(directory,'sidecar.pid');
+  const stop=()=>stopRecordedSidecar({pidFile,entryPoint,host:config.host,port:config.port,timeoutMs:config.shutdownTimeoutMs+2000});
+  await stop();
+  const output=await open(resolve(directory,'service.log'),'a',0o600);
+  const child=spawn(process.execPath,['--import','tsx',entryPoint,resolve(directory,'service.json')],{
     cwd:fileURLToPath(new URL('../',import.meta.url)),detached:true,stdio:['ignore',output.fd,output.fd],env:process.env,
   });
   let failed=false;
   child.on('error',()=>{failed=true;});child.on('exit',()=>{failed=true;});
   await output.close();
   try{
+    if(child.pid!==undefined)await writeFile(pidFile,String(child.pid)+'\n',{mode:0o600});
     for(let attempt=0;attempt<40;attempt++){
       if(failed)throw new Error('Sidecar process exited. Check tmp/sidecar/service.log; another process may own its port.');
-      try{await checkLocalSidecar();if(failed)throw new Error('Sidecar exited');
-        if(child.pid!==undefined)await writeFile(resolve(sidecarDevDirectory,'sidecar.pid'),String(child.pid)+'\n',{mode:0o600});
-        child.unref();console.info('Local sidecar ready. Client configuration: tmp/sidecar/client.json.');return;
+      try{await checkLocalSidecar(resolve(directory,'client.json'));if(failed)throw new Error('Sidecar exited');
+        child.unref();console.info(`Local sidecar ready. Client configuration: ${resolve(directory,'client.json')}.`);return;
       }catch{await delay(250);}
     }
     throw new Error('Local sidecar did not become healthy. Check tmp/sidecar/service.log.');
-  }catch(error:unknown){child.kill('SIGTERM');throw error;}
+  }catch(error:unknown){child.kill('SIGTERM');await stop();throw error;}
+  } finally {await lock.close();await unlink(lockFile);}
 }

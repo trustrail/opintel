@@ -70,9 +70,18 @@ To run in the foreground after stopping the background sidecar with SIGTERM:
 npm run dev:sidecar -- tmp/sidecar/service.json
 ```
 
-The sidecar releases active source operations during shutdown. Inspect the PID
-before signalling it if the PID file may be stale. Configuration changes require
-a restart. The generated certificates last 30 days; to regenerate them, stop the
+`dev:up` restarts the recorded sidecar: it checks the PID's command, sends SIGTERM,
+and waits for process exit and port release before starting a replacement. An
+unresponsive PID or occupied port stops bootstrap with a diagnostic; no second
+sidecar is launched and no unrecorded listener is killed. Concurrent bootstrap
+is guarded by `tmp/sidecar/startup.lock`; remove a stale lock only after verifying
+that the previous `dev:up` has exited.
+
+SIGTERM cancels source requests, drains the current durable ingest operation and
+flushes the audit. `shutdownTimeoutMs` bounds the whole process. If draining fails
+or exceeds it, the sidecar exits nonzero and reports that register locks may need
+operator recovery. Configuration changes take effect on the next `dev:up`.
+The generated certificates last 30 days; to regenerate them, stop the
 sidecar, move `tmp/sidecar/tls` aside, and rerun `dev:up`. Never commit keys.
 
 The startup command accepts a configuration filename; alternatively set
