@@ -113,4 +113,4 @@ it('landing migration expands populated rows safely and rolls down/up', async ()
     await db.query(down); expect((await db.query('SELECT id FROM data_source')).rows).toEqual([{ id }]);
     await db.query(up);
   } finally { await db.query('ROLLBACK'); await db.end(); }
-});
+}, 30_000);

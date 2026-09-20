@@ -9,6 +9,8 @@ type FixtureTable = 'industry' | 'company' | 'user_account' | 'mail_outbox' | 'r
 // Vitest serializes files/tests sharing this database; application transactions
 // and concurrent requests within a test remain real and independent.
 export function resetDatabaseBeforeEach(...tables: [FixtureTable, ...FixtureTable[]]): void {
+  // Reseeding executes real migration SQL; give that work headroom without
+  // changing the timeout of test bodies or unrelated reset hooks.
   beforeEach(async () => {
     if (process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required for database fixtures.');
     await withPlatformAdmin({ actor: { kind: 'system', name: 'test-database-reset' } }, async (tx) => {
@@ -23,5 +25,5 @@ export function resetDatabaseBeforeEach(...tables: [FixtureTable, ...FixtureTabl
         await tx.query(await readFile(new URL('../migrations/024_reinsurance_demo_pack.up.sql', import.meta.url), 'utf8'));
       }
     });
-  });
+  }, tables.includes('industry') ? 30_000 : undefined);
 }

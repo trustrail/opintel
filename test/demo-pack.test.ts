@@ -192,4 +192,4 @@ it('forward demo credential migration rejects NULL/plaintext, preserves referenc
   await db.query(seed); await db.query(unseed); await db.query(seed);
   expect((await db.query('SELECT id FROM demo_source_template')).rows).toEqual([{id:templateId}]);
  } finally { await db.query('ROLLBACK'); await db.end(); }
-});
+}, 30_000);

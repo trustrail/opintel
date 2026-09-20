@@ -323,4 +323,4 @@ it('filing register migration runs up/down/up over existing sources without touc
   await db.query(up); await db.query(down); await db.query(up);
   expect((await db.query('SELECT id FROM data_source')).rows).toEqual([{ id: source }]);
  } finally { await db.query('ROLLBACK'); await db.end(); }
-});
+}, 30_000);

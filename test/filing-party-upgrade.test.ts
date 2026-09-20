@@ -49,7 +49,7 @@ describe('filing party populated upgrades', () => {
       expect((await db.query('SELECT display_name FROM vocabulary_term')).rows).toEqual([{ display_name: 'Supplier' }]);
       await db.query(await migration('021_reinsurance_filing_vocabulary.up'));
     } finally { await db.query('ROLLBACK'); await db.end(); }
-  });
+  }, 30_000);
 
   it('upgrades the populated customer primary key in place and reuses existing table names, receipts and type history', async () => {
     // A private simulated customer database keeps the historical schema fixture
@@ -87,5 +87,5 @@ describe('filing party populated upgrades', () => {
       expect(await upgraded.land({ ...first, filingId: FilingId(randomUUID()), kind: '' }, rows('1'))).toMatchObject({ ok: false });
       await expect(db.query("UPDATE _opintel_landing.groups SET kind='' WHERE party_id=$1", [first.partyId])).rejects.toMatchObject({ code: '23514' });
     } finally { await db?.end(); await owner.query(`DROP DATABASE IF EXISTS "${name}"`); await owner.end(); }
-  });
+  }, 30_000);
 });

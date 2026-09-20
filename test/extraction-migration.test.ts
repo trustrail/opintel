@@ -48,5 +48,5 @@ integration('extraction migration rollout', () => {
       await client.query(up);
       expect((await client.query('SELECT decimal_separator FROM cedant')).rows).toEqual([{ decimal_separator: null }]);
     } finally { await client.query('ROLLBACK'); await client.end(); }
-  });
+  }, 30_000);
 });
