@@ -7,7 +7,7 @@ const otherId='018f8f9d-7f83-7abc-8def-000000000003';
 const prior='018f8f9d-7f83-7abc-8def-000000000004';
 const current='018f8f9d-7f83-7abc-8def-000000000005';
 const held='018f8f9d-7f83-7abc-8def-000000000006';
-const source={id:sourceId,name:'Monthly returns',duckdbAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,lastIntrospectedAt:null};
+const source={id:sourceId,name:'Monthly returns',duckdbAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:null};
 const filing={filingId:prior,sourceId,partyCode:'4471',kind:'monthly return',period:'2026-03',outcome:'landed',quarantineCategory:null,supersedes:null,rowCount:318,receivedAt:'2026-04-01T12:00:00Z',revision:2};
 async function mock(page:Page){
  const state={strategy:'append_as_at',empty:false,error:false,loading:false,cursors:[] as string[]};
@@ -31,6 +31,7 @@ async function accessible(page:Page){await page.addScriptTag({content:axe.source
 for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine surfaces at ${width}`,async({page:initialPage})=>{
  let page=initialPage;
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
+ await expect(page.getByRole('link',{name:'Introspection runs for Monthly returns'})).toHaveText('Runs');
  const pill=page.getByRole('button',{name:'2 filings'});await expect(pill).toHaveAttribute('aria-expanded','false');
  await expect(page.getByRole('row').filter({hasText:'Live database'}).getByRole('button')).toHaveCount(0);
  await pill.click();const detail=page.getByRole('region',{name:'Recent filings into this source'});

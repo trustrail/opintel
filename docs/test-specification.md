@@ -472,7 +472,7 @@ Entities whose behaviour is not covered by the flows above.
 | S-007 | D | Forbidden-optimistic mutations | Show pending and wait; assert no optimistic path exists |
 | S-008 | F | SSE high-frequency delta | Written with `setQueryData`; no refetch |
 | S-009 | F | SSE structural change | Invalidates; Query refetches once, not per event |
-| S-010 | R | SSE reconnect with a small gap | `Last-Event-ID` replays; no duplicates |
+| S-010 | R | SSE reconnect with a small gap | Fresh snapshot names query-key families to refetch; `Last-Event-ID` does not replay missed deltas|
 | S-011 | R | SSE reconnect with a large gap | Fresh snapshot forced |
 | S-012 | D | No duplicate server state in Zustand | Assert by inspection and by a lint rule on store shapes |
 

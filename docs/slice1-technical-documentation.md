@@ -1510,6 +1510,7 @@ const SourceListItem = z.object({
   filingCount: z.number().int().nullable(),
   elementCount: z.number().int(),
   undecidedCount: z.number().int(),
+  latestIntrospectionId: z.string().uuid().nullable(), // same latest run as status/error
   lastIntrospectedAt: z.string().datetime({ offset: true }).nullable(),
 });
 ```
@@ -1551,11 +1552,13 @@ const IntrospectionRunView = z.object({
 
 **Cancel is offered only in queued, connecting and reading**, per the §1.5 state machine.
 
-Item 3.15 links source names to `/projects/:id/sources/:sourceId/introspections`
-and run rows to `/projects/:id/introspections/:runId`. The history API returns
+Item 3.15 links source names and the Last introspected timestamp (or Runs when
+there is no timestamp) to `/projects/:id/sources/:sourceId/introspections`
+and run rows to `/projects/:id/introspections/:runId`. A failed source status links
+directly to `latestIntrospectionId`, the same run that supplies its status and error. The history API returns
 `{ items: IntrospectionRunView[], nextCursor: string | null }`, newest run IDs
-first, with cursors bound to both project and source. Active views poll every
-five seconds pending item 3.16, stopping at terminal state. New persisted diffs
+first, with cursors bound to both project and source. Active views update
+live through item 3.16 project SSE events, with a fresh snapshot on reconnect. New persisted diffs
 retain exposed names and rename before/after facts so subsequent discovery does
 not rewrite historical presentation. Older diffs may lack those optional facts.
 
@@ -1642,7 +1645,7 @@ is recorded on the run; the source row and any landed files remain available.
 
 ### Catalogue tree
 
-The console explorer is at `/projects/:id/catalog`, reached from **Data sources → Explore schema**. Item 3.14 prepares `elementKeys.all(projectId)` for structural invalidation; SSE wiring remains item 3.16.
+The console explorer is at `/projects/:id/catalog`, reached from **Data sources → Explore schema**. Item 3.16 invalidates `elementKeys.all(projectId)` on `catalog.changed` and on connection snapshots.
 
 ```ts
 const CatalogNode = z.object({
@@ -3158,8 +3161,50 @@ useProjectStream(projectId, {
   'run.created':      d => qc.setQueryData(runKeys.detail(projectId, d.id), d),
 });
 ```
-
 Writing directly for everything causes divergence. Invalidating for everything causes a request storm.
+
+
+### The wire contract
+
+`GET /projects/:id/stream`, requiring `project#view`. One connection per project per tab.
+
+```ts
+// First event on every connection, including reconnects
+type SnapshotEvent = {
+  type: 'snapshot';
+  at: string;                        // server time
+  sequence: number;                  // this project's current sequence
+  invalidate: string[];              // query-key families to refetch now
+};
+
+// Subsequent events
+type ChangeEvent =
+  | { type: 'introspection.progress'; sequence: number; runId: string;
+      sourceId: string; state: string; objects: number; total: number | null }
+  | { type: 'introspection.finished'; sequence: number; runId: string;
+      sourceId: string; state: 'complete' | 'failed' | 'cancelled' }
+  | { type: 'catalog.changed'; sequence: number; sourceId: string }
+  | { type: 'source.changed'; sequence: number; sourceId: string }
+  | { type: 'filing.arrived'; sequence: number; sourceId: string; filingId: string };
+```
+**Events carry identifiers and state, never data**. A catalog.changed event says which source changed, not what changed in it. The client invalidates the matching query keys and refetches through the ordinary authorized endpoints, so an event can never widen what a viewer sees.
+
+**The snapshot names what to refetch rather than containing it**. Putting data in the snapshot would duplicate every list endpoint and its authorization.
+
+**Reconnection always produces a fresh snapshot**. There is no replay of missed deltas: the client refetches what the snapshot names, which is correct regardless of what happened while it was away. Replay would need a retained event log per project, and the gain is avoiding a few refetches.
+
+Item 3.16 snapshots name `introspection`, `catalogElement`, `dataSource`, and
+`filing`. Each maps to its project-scoped query-key factory. Progress deltas update
+cached run details and list pages directly; structural invalidations are coalesced
+in a 50ms window. Introspection progress no longer polls. Redis atomically assigns
+a project sequence and publishes each change after its database transaction commits.
+There is no retained event log. Redis subscriber disconnects close the HTTP stream;
+EventSource reconnects and refetches the snapshot families. Heartbeats keep quiet
+streams open, and slow readers reconnect rather than accumulate an unbounded queue.
+The wire schemas also generate the stream OpenAPI document.
+
+
+
 
 ## 5.5 Screen contract
 

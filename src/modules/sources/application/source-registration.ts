@@ -1,3 +1,4 @@
+import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { safeSourceMessage, sourceMessages } from '../../../shared/source-errors.js';
 import type { z } from 'zod';
 import { DomainError, err, ok, type IndustryId, type DemoSourceId, type IdFactory, type ProjectId, type SourceId, type RunId, type UserId, type Result } from '../../../shared/kernel/index.js';
@@ -25,7 +26,7 @@ export class SourceRegistrationService {
  private failure:DomainError|undefined;
  constructor(private readonly repository:SourceRegistrationRepository,private readonly ids:IdFactory,
   private readonly connector:(ctx:SourceContext,id:SourceId)=>SourceConnector & DemoProvisioningPort,
-  private readonly jobs:IntrospectionJob,private readonly fail:(ctx:SourceContext,id:RunId,message:string)=>Promise<void>){}
+  private readonly jobs:IntrospectionJob,private readonly fail:(ctx:SourceContext,id:RunId,message:string)=>Promise<void>,private readonly events?:ProjectEvents){}
  async test(ctx:SourceContext,ref:string){
   const connector=this.connector(ctx,this.ids.create<SourceId>());
   const tested=await connector.testConnection(VaultRef(ref));
@@ -38,7 +39,7 @@ export class SourceRegistrationService {
   const tested=await this.connector(ctx,id).testConnection(VaultRef(input.credentialRef));
   if(!tested.ok)return tested;
   const created=await this.repository.create(ctx,id,this.ids.create<RunId>(),input,null);
-  if(created.ok)await this.resume(ctx);
+  if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created.ok?ok(created.value.source):created;
  }
  async demo(ctx:SourceContext,id:DemoSourceId){
@@ -47,12 +48,12 @@ export class SourceRegistrationService {
   if(!deployment)return err(new DomainError('dependency_unavailable','The industry pack is not provisioned for this project. Ask the deployment operator to prepare it.'));
   const tested=await this.connector(ctx,deployment.sourceId).testConnection(deployment.credentialRef);if(!tested.ok)return tested;
   const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{name:deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
-  if(created.ok)await this.resume(ctx);
+  if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created;
  }
  async retry(ctx:SourceContext,id:SourceId){
   const queued=await this.repository.retry(ctx,id,this.ids.create<RunId>());
-  if(queued.ok)await this.resume(ctx);
+  if(queued.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:id});await this.resume(ctx);}
   return queued;
  }
  async list(ctx:SourceContext,after:SourceId|null,limit:number){await this.resume(ctx);return this.repository.list(ctx,after,limit);}

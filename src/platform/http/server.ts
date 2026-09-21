@@ -34,7 +34,9 @@ export type AuthenticatedRequest<TBody, TQuery = Record<string, never>> = HttpRe
   readonly actor: CurrentUser;
 };
 
-export interface HttpResponse<TBody> {
+export type HttpResponse<TBody> = {
+ readonly stream: (send: (event: TBody | null) => void, signal: AbortSignal) => Promise<void>;
+} | {
   readonly status?: number;
   readonly headers?: Readonly<Record<string, string>>;
   readonly body: TBody;
@@ -300,11 +302,32 @@ export function createHttpServer(
         requestId,
         ...(actor === undefined ? {} : { actor }),
       });
+      if ('stream' in result) {
+        if (response.destroyed) return;
+        const controller = new AbortController();
+        response.once('close', () => controller.abort());
+        const heartbeat = setInterval(() => { if (!response.destroyed && !response.writableEnded && response.headersSent && !response.write(': keepalive\n\n')) { controller.abort(); response.end(); } }, 15000);
+        controller.signal.addEventListener('abort', () => clearInterval(heartbeat), { once: true });
+        try {
+          await result.stream(event => {
+            if (event === null) { controller.abort(); response.end(); return; }
+            if (response.destroyed || response.writableEnded) return;
+            const parsed = matched.route.response.parse(event);
+            if (!response.headersSent) {
+              response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', 'x-accel-buffering': 'no', [requestIdHeader]: requestId });
+            }
+            // A slow reader reconnects for a fresh snapshot instead of accumulating data.
+            if (!response.write(`data: ${JSON.stringify(parsed)}\n\n`)) { controller.abort(); response.end(); }
+          }, controller.signal);
+        } catch (error) { controller.abort(); throw error; }
+        return;
+      }
       const parsedResponse = matched.route.response.safeParse(result.body);
       if (!parsedResponse.success) throw new Error('HTTP response did not pass its boundary schema.');
 
       writeJson(response, result.status ?? 200, requestId, parsedResponse.data, result.headers);
     } catch (error: unknown) {
+      if (response.headersSent) { response.end(); return; }
       if (error instanceof InvalidJsonBody) {
         writeJson(response, 400, requestId, validationFailure(requestId));
         return;

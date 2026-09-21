@@ -7,7 +7,7 @@ const industryId='018f8f9d-7f83-7abc-8def-000000000002';
 const sourceId='018f8f9d-7f83-7abc-8def-000000000003';
 const demoId='018f8f9d-7f83-7abc-8def-000000000004';
 const project={id:projectId,name:'Reporting',company:{id:industryId,name:'Example Company'},industry:{id:industryId,name:'General'},region:'eu-west-1',role:'admin'};
-const source={id:sourceId,name:'Monthly returns',duckdbAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
+const source={id:sourceId,name:'Monthly returns',duckdbAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
 async function mock(page:Page){
  const state={empty:false,error:false,loading:false,prepared:false,canConnect:true,retries:[] as unknown[],failure:null as string|null,creates:[] as Record<string,unknown>[],tests:[] as unknown[]};
  await page.route('**/api/v1/**',async route=>{
@@ -21,7 +21,7 @@ async function mock(page:Page){
   if(path.endsWith('/sources')){
    if(state.loading)await new Promise(resolve=>setTimeout(resolve,3000));
    if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Sources are temporarily unavailable.',requestId:'sources-test',retryable:true}}});
-   return route.fulfill({json:{items:state.empty?[]:[{...source,...(state.failure?{status:'introspection_failed',error:state.failure}:{})},{...source,id:demoId,name:'Demo returns',origin:'demo',landingStrategy:'table_per_filing',filingCount:1}],nextCursor:null}});
+   return route.fulfill({json:{items:state.empty?[]:[{...source,...(state.failure?{status:'introspection_failed',error:state.failure,latestIntrospectionId:industryId}:{})},{...source,id:demoId,name:'Demo returns',origin:'demo',landingStrategy:'table_per_filing',filingCount:1}],nextCursor:null}});
   }
   return route.fulfill({status:404,json:{}});
  });return state;
@@ -62,4 +62,20 @@ for(const width of [390,900,1440])test(`renders the persisted safe provisioning 
  await accessible(page);
  await page.getByRole('button',{name:'Retry',exact:true}).click();
  await expect(page.getByRole('alert')).toHaveCount(0);expect(state.retries).toEqual([{projectId}]);
+});
+
+test('source timestamps open history and failed status opens the exact failing run',async({page})=>{
+ const state=await mock(page);state.failure=sourceMessages.templateConflict;state.canConnect=false;
+ const run={id:industryId,sourceId,state:'failed',progress:{objects:0,total:null},error:state.failure,startedAt:'2026-09-19T12:00:00.000Z',endedAt:'2026-09-19T12:00:01.000Z',diff:null};
+ await page.route('**/api/v1/projects/*/**/introspections**',route=>route.fulfill({json:{items:[run],nextCursor:null}}));
+ await page.route(`**/api/v1/projects/${projectId}/introspections/${industryId}`,route=>route.fulfill({json:run}));
+ await page.goto(`/projects/${projectId}/data-sources`);
+ const history=page.getByRole('link',{name:'Introspection runs for Monthly returns'});
+ await expect(history).toHaveText('2026-09-19 12:00');await history.focus();await page.keyboard.press('Enter');
+ await expect(page).toHaveURL(`/projects/${projectId}/sources/${sourceId}/introspections`);
+ await expect(page.getByRole('heading',{name:'Introspection runs',exact:true})).toBeVisible();
+ await page.goto(`/projects/${projectId}/data-sources`);
+ await page.getByRole('link',{name:'introspection failed',exact:true}).click();
+ await expect(page).toHaveURL(`/projects/${projectId}/introspections/${industryId}`);
+ await expect(page.getByRole('alert')).toHaveText(sourceMessages.templateConflict);
 });

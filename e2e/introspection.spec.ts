@@ -9,6 +9,15 @@ const run={id,sourceId:source,state:'complete',progress:{objects:3,total:null},e
  {change:'added',elementId:id,duckdbName:'new_field',before:null,after:null,breaking:false},
 ]};
 async function mock(page:Page){const state={run:structuredClone(run),error:false,loading:false,empty:false,requests:0,cancels:0,role:'admin',cursor:false};
+ await page.addInitScript(() => {
+  class Stream {
+   onmessage: ((event: MessageEvent<string>) => void) | null = null;
+   private readonly receive = (event: Event) => this.onmessage?.(event as MessageEvent<string>);
+   constructor() { window.addEventListener('test-project-change', this.receive); }
+   close() { window.removeEventListener('test-project-change', this.receive); }
+  }
+  Object.defineProperty(window, 'EventSource', { value: Stream });
+ });
  await page.route('**/api/v1/**',async route=>{const url=new URL(route.request().url());const path=url.pathname;
  if(path.endsWith('/auth/me'))return route.fulfill({json:{id,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
  if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:project,name:'Reporting',company:{id,name:'Example Company'},industry:{id,name:'General'},region:'eu-west-1',role:state.role}],nextCursor:null}});
@@ -40,10 +49,10 @@ test('G-003: loading, unchanged, error and empty history are explicit',async({pa
  state.loading=false;state.error=true;await page.reload();await expect(page.getByText('The run register is temporarily unavailable.')).toBeVisible();state.error=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('No changes since the last introspection.')).toBeVisible();
  state.empty=true;await page.getByRole('link',{name:'All source runs'}).click();await expect(page.getByText('No introspection runs yet')).toBeVisible();await accessible(page);
 });
-test('polls active progress and stops on completion; cancellation is restricted to cancellable states',async({page})=>{
+test('S-008/S-009: live progress and completion use SSE; cancellation is restricted to cancellable states',async({page})=>{
  const state=await mock(page);state.run.state='reading';await page.clock.install();await page.goto(path);await expect(page.getByRole('button',{name:'Cancel introspection'})).toBeVisible();
- state.run.state='diffing';await page.clock.fastForward(5000);await expect(page.getByText('Introspection diffing',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Cancel introspection'})).toHaveCount(0);
- state.run.state='complete';state.run.diff=[];await page.clock.fastForward(5000);await expect(page.getByText('No changes since the last introspection.')).toBeVisible();const count=state.requests;await page.clock.fastForward(15000);expect(state.requests).toBe(count);
+ state.run.state='diffing';await page.evaluate(({runId,sourceId})=>window.dispatchEvent(new MessageEvent('test-project-change',{data:JSON.stringify({type:'introspection.progress',sequence:1,runId,sourceId,state:'diffing',objects:3,total:3})})),{runId:id,sourceId:source});await expect(page.getByText('Introspection diffing',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Cancel introspection'})).toHaveCount(0);
+ state.run.state='complete';state.run.diff=[];await page.evaluate(({runId,sourceId})=>window.dispatchEvent(new MessageEvent('test-project-change',{data:JSON.stringify({type:'introspection.finished',sequence:2,runId,sourceId,state:'complete'})})),{runId:id,sourceId:source});await page.clock.fastForward(50);await expect(page.getByText('No changes since the last introspection.')).toBeVisible();const count=state.requests;await page.clock.fastForward(15000);expect(state.requests).toBe(count);
  for(const phase of ['queued','connecting','reading']){state.run.state=phase;await page.reload();await page.getByRole('button',{name:'Cancel introspection'}).click();await expect(page.getByText('Introspection cancelled',{exact:true})).toHaveCount(2);}
  expect(state.cancels).toBe(3);
  state.role='viewer';state.run.state='reading';await page.reload();await expect(page.getByText('Introspection reading',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Cancel introspection'})).toHaveCount(0);

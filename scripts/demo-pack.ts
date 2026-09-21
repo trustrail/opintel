@@ -60,9 +60,15 @@ async function main(): Promise<void> {
   if (!prepared || prepared.sourceId !== sourceId) throw new Error('Prepare this source before connecting.');
   const { loadSidecarClientOptions } = await import('../src/modules/sources/index.js');
   const { createSourceRuntime } = await import('../src/modules/sources/infrastructure/source-runtime.js');
-  const runtime=createSourceRuntime(await loadSidecarClientOptions(process.env.SIDECAR_CLIENT_CONFIG ?? join(sidecarDevDirectory,'client.json')));
+  const { createRedisConnection } = await import('../src/platform/redis/index.js');
+  const { RedisProjectHub } = await import('../src/platform/sse/redis-hub.js');
+  if (!process.env.REDIS_URL) throw new Error('REDIS_URL is required for project change notifications.');
+  const redis = createRedisConnection({ url: process.env.REDIS_URL });
+  await redis.connect();
+  const hub = new RedisProjectHub(redis.client, process.env.REDIS_URL);
+  const runtime=createSourceRuntime(await loadSidecarClientOptions(process.env.SIDECAR_CLIENT_CONFIG ?? join(sidecarDevDirectory,'client.json')),hub);
   try { const result=await runtime.demo(ctx,templateId);if(!result.ok)throw result.error;const completed=await runtime.idle();if(!completed.ok)throw completed.error; }
-  finally {await runtime.close();}
+  finally {await runtime.close();await hub.close();await redis.close();}
   console.info(`Demo source ${sourceId} connected. Inspect its catalogue and register for outcomes.`);
 }
 void main().catch((error: unknown) => { if (error instanceof DomainError) {console.error({ event: 'demo.command_failed', errorCategory: error.code });process.stderr.write(error.message+'\n');} console.error('Demo command failed. Check the project, source, configured Vault reference, running API/sidecar and local register. No existing arrivals were replaced.'); process.exitCode=1; });

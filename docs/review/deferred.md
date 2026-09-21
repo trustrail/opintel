@@ -207,8 +207,8 @@ deployed arrangement starts. Run the thing.
 
 # From item 3.15 — introspection progress
 
-- Run history and detail poll every five seconds while active and stop on terminal
-  state. Item 3.16 replaces this fallback with SSE snapshot/delta delivery.
+- Resolved by item 3.16: project SSE snapshots/deltas replace the five-second
+  polling fallback for run history and detail.
 - Completion invalidates the catalogue family and source detail. Entitlement
   invalidation and persisted decision deletion attach when item 4.1 introduces
   that entity; this screen displays the recorded type-family invalidation.

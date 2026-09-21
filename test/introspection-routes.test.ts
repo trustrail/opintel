@@ -80,3 +80,21 @@ it.each(['queued','connecting','reading','diffing','complete','failed','cancelle
  if(['queued','connecting','reading'].includes(state)){expect(response.status).toBe(200);expect(IntrospectionRunView.parse(await response.json()).state).toBe('cancelled');}
  else{expect(response.status).toBe(409);expect(await response.json()).toMatchObject({error:{message:`Cannot cancel an introspection run in state ${state}.`}});}
 });
+
+it('3.16: emits state-only notifications after commit, never for a refused transition',async()=>{
+ const observed:Array<{projectId:ProjectId;expected:string;persisted:string|undefined}>=[];
+ const publish=vi.fn(async(projectId:ProjectId,event:import('../src/shared/api/stream.js').ProjectChange)=>{
+  if(event.type==='introspection.progress'||event.type==='introspection.finished'){
+   const [persisted]=await withTenant(ctx,tx=>tx.query<{state:string}>('SELECT state FROM introspection_run WHERE id=$1',[event.runId]));
+   observed.push({projectId,expected:event.state,persisted:persisted?.state}); // A separate scope sees the committed state.
+  }
+ });
+ const emitting=new PostgresIntrospectionStore(new UuidV7IdFactory(),{publish});
+ const live=new IntrospectionJob(emitting,()=>connector);
+ const queued=unwrap(await live.enqueue(ctx,sourceId));
+ unwrap(await live.execute(ctx,queued.id));
+ for(const value of observed){expect(value.projectId).toBe(ctx.projectId);expect(value.persisted).toBe(value.expected);}
+ expect(observed).toHaveLength(5);
+ expect(publish.mock.calls.map(([,event])=>event.type)).toEqual(['introspection.progress','introspection.progress','introspection.progress','introspection.progress','introspection.finished','source.changed','catalog.changed']);
+ publish.mockClear();expect((await emitting.cancel(ctx,queued.id,true)).ok).toBe(false);expect(publish).not.toHaveBeenCalled();
+});

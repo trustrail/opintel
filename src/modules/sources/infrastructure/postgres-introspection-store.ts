@@ -1,3 +1,4 @@
+import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { withTenant, type Tx } from '../../../platform/db/scope.js';
 import { CatalogObject, CatalogElement, CatalogNaming, AsciiTransliterator, reconcileSnapshot, type CatalogObjectState, type ElementState } from '../../catalog/index.js';
 import { DomainError, err, ok, Timestamp, type ErrorCode, type IdFactory, type RunId, type SourceId, type Result } from '../../../shared/kernel/index.js';
@@ -15,7 +16,18 @@ class PublicationRefused { constructor(readonly error: DomainError) {} }
 
 export class PostgresIntrospectionStore implements IntrospectionStore {
   private readonly naming = new CatalogNaming(new AsciiTransliterator());
-  constructor(private readonly ids: IdFactory) {}
+  constructor(private readonly ids: IdFactory, private readonly events?: ProjectEvents) {}
+  private async changed(ctx: IntrospectionContext, work: Promise<Result<IntrospectionRun>>): Promise<Result<IntrospectionRun>> {
+    const result = await work; // withTenant has committed before publication.
+    if (!result.ok) return result;
+    const run = result.value;
+    if (run.state === 'complete' || run.state === 'failed' || run.state === 'cancelled') {
+      await notify(this.events, ctx.projectId, { type: 'introspection.finished', runId: run.id, sourceId: run.sourceId, state: run.state });
+      await notify(this.events, ctx.projectId, { type: 'source.changed', sourceId: run.sourceId });
+      if (run.state === 'complete') await notify(this.events, ctx.projectId, { type: 'catalog.changed', sourceId: run.sourceId });
+    } else await notify(this.events, ctx.projectId, { type: 'introspection.progress', runId: run.id, sourceId: run.sourceId, state: run.state, objects: 0, total: null });
+    return result;
+  }
   private async readTx(tx: Tx, id: RunId, lock = false): Promise<Result<IntrospectionRun>> {
     const [row] = await tx.query<IntrospectionRun>(`${runSelect} WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id]);
     return row === undefined ? missing() : ok(row);
@@ -28,7 +40,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
     });
   }
   enqueue(ctx: IntrospectionContext, sourceId: SourceId, include: string[], adoptRenamedNames = false) {
-    return withTenant(ctx, async (tx): Promise<Result<IntrospectionRun>> => {
+    return this.changed(ctx, withTenant(ctx, async (tx): Promise<Result<IntrospectionRun>> => {
       const [source] = await tx.query<{ status: string }>('SELECT status FROM data_source WHERE id=$1 FOR UPDATE', [sourceId]);
       if (source === undefined) return missing();
       if (source.status === 'archived') return err(new DomainError('conflict', 'An archived source cannot be introspected.'));
@@ -37,23 +49,23 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       const id = this.ids.create<RunId>();
       await tx.query('INSERT INTO introspection_run (id,source_id,project_id,include_schemas,progress) VALUES ($1,$2,$3,$4,$5::jsonb)', [id,sourceId,ctx.projectId,include,JSON.stringify({phase:'queued',adoptRenamedNames})]);
       return this.readTx(tx,id);
-    });
+    }));
   }
   advance(ctx: IntrospectionContext, id: RunId, from: IntrospectionState, to: IntrospectionState) {
     enforceTransition(from,to,process.env.NODE_ENV === 'production',(before,after) => console.info({event:'introspection.invalid_transition',from:before,to:after}));
     const legal = transitionRun(from,to);
     if (!legal.ok) return Promise.resolve(legal);
-    return withTenant(ctx, async (tx): Promise<Result<IntrospectionRun>> => {
+    return this.changed(ctx, withTenant(ctx, async (tx): Promise<Result<IntrospectionRun>> => {
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
       if (current.value.state !== from) return conflict();
       await tx.query(`UPDATE introspection_run SET state=$2, started_at=CASE WHEN $2='connecting' THEN now() ELSE started_at END,
         progress=progress || jsonb_build_object('phase',$2::text) WHERE id=$1`, [id,to]);
       return this.readTx(tx,id);
-    });
+    }));
   }
   cancel(ctx: IntrospectionContext,id: RunId,requireCancellable = false) {
-    return withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
+    return this.changed(ctx, withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
       // Worker cleanup can acknowledge cancellation already persisted by the console.
@@ -61,10 +73,10 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       if (!transitionRun(current.value.state,'cancelled').ok) return err(new DomainError('conflict',`Cannot cancel an introspection run in state ${current.value.state}.`));
       await tx.query("UPDATE introspection_run SET state='cancelled', ended_at=now(), progress=progress || jsonb_build_object('phase','cancelled') WHERE id=$1",[id]);
       return this.readTx(tx,id);
-    });
+    }));
   }
   fail(ctx: IntrospectionContext,id: RunId,reason: string,unreachable: boolean,code: ErrorCode = 'dependency_unavailable') {
-    return withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
+    return this.changed(ctx, withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
       if (current.value.state === 'cancelled') return current;
@@ -72,12 +84,12 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       await tx.query("UPDATE introspection_run SET state='failed',error=$2,ended_at=now(),progress=progress || jsonb_build_object('phase','failed','errorCode',$3::text) WHERE id=$1",[id,reason,code]);
       if (unreachable) await tx.query("UPDATE data_source SET status='unreachable' WHERE id=$1 AND status<>'archived'",[current.value.sourceId]);
       return this.readTx(tx,id);
-    });
+    }));
   }
   async publish(ctx: IntrospectionContext,id: RunId,snapshot: CatalogSnapshot): Promise<Result<IntrospectionRun>> {
     const parsed = snapshotResponse.safeParse({snapshot});
     if (!parsed.success) return err(new DomainError('validation_failed','Invalid catalogue snapshot.'));
-    try { return await withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
+    try { return await this.changed(ctx, withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
       if (current.value.state !== 'diffing') return conflict();
@@ -136,7 +148,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       await tx.query("UPDATE introspection_run SET state='complete',ended_at=now(),progress=progress || jsonb_build_object('phase','complete','objects',$2::int) WHERE id=$1",[id,staged.value.objects.length]);
       await tx.query("UPDATE data_source SET status='connected',last_introspected_at=now() WHERE id=$1",[source.id]);
       return this.readTx(tx,id);
-    }); } catch(error: unknown) {
+    })); } catch(error: unknown) {
       if (error instanceof PublicationRefused) return err(error.error);
       throw error;
     }

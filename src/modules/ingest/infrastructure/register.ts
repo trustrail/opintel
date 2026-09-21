@@ -1,11 +1,13 @@
+import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { withTenant } from '../../../platform/db/scope.js';
 import { DomainError, UserId, err, ok, type Result, type ProjectId, type FilingId } from '../../../shared/kernel/index.js';
 import { filingListItemSchema, type ArrivalNotice, type ReconciliationReport } from '../../../shared/landing-contract.js';
 import type { FilingRegisterRepository, FilingListItem } from '../application/register.js';
 const serviceActor = UserId('00000000-0000-4000-8000-000000000001');
 export class PostgresFilingRegister implements FilingRegisterRepository {
+  constructor(private readonly events?: ProjectEvents) {}
   async notice(notice: ArrivalNotice): Promise<Result<void>> {
-    return withTenant({ projectId: notice.projectId, userId: serviceActor }, async (tx) => {
+    const result = await withTenant({ projectId: notice.projectId, userId: serviceActor }, async (tx) => {
       const [source] = await tx.query<{ receives_landings: boolean }>('SELECT receives_landings FROM data_source WHERE id=$1 FOR UPDATE', [notice.sourceId]);
       if (!source) return err(new DomainError('not_found', 'The source does not exist in this project.'));
       if (!source.receives_landings) return err(new DomainError('conflict', 'This source does not receive landings.'));
@@ -18,6 +20,8 @@ export class PostgresFilingRegister implements FilingRegisterRepository {
       [notice.filingId, notice.projectId, notice.sourceId, notice.revision, JSON.stringify(notice)]);
       return ok(undefined);
     });
+    if (result.ok) await notify(this.events, notice.projectId, { type: 'filing.arrived', sourceId: notice.sourceId, filingId: notice.filingId });
+    return result;
   }
   async reconcile(report: ReconciliationReport, projectId: ProjectId): Promise<Result<void>> {
     return withTenant({ projectId, userId: serviceActor }, async (tx) => {

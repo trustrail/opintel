@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { DemoSourceId, SourceId } from '../kernel/value-objects.js';
+import { DemoSourceId, SourceId, RunId } from '../kernel/value-objects.js';
 import type { VaultRef } from '../../platform/vault/types.js';
 import { landingStrategySchema } from '../landing-contract.js';
 export const TestSourceBody = z.strictObject({ kind: z.literal('postgres'), credentialRef: z.string().startsWith('vault://').min(9) });
 export const TestSourceResponse = z.object({ reachable: z.boolean(), reason: z.string().nullable(), schemas: z.array(z.string()) });
 export const CreateSourceBody = TestSourceBody.extend({ name: z.string().trim().min(1).max(80), includeSchemas: z.array(z.string().min(1)), samplingConsent: z.boolean(), receivesLandings: z.boolean(), landingStrategy: landingStrategySchema.nullable() }).refine(v=>v.receivesLandings ? v.landingStrategy!==null : v.landingStrategy===null,{message:'Choose a landing strategy only for a source receiving landings.',path:['landingStrategy']});
-export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),name:z.string(),duckdbAlias:z.string(),kind:z.string(),origin:z.enum(['customer','demo']),status:z.string(),error:z.string().nullable(),landingStrategy:landingStrategySchema.nullable(),filingCount:z.number().int().nullable(),elementCount:z.number().int(),undecidedCount:z.number().int(),lastIntrospectedAt:z.iso.datetime({offset:true}).nullable() });
+export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),name:z.string(),duckdbAlias:z.string(),kind:z.string(),origin:z.enum(['customer','demo']),status:z.string(),error:z.string().nullable(),landingStrategy:landingStrategySchema.nullable(),filingCount:z.number().int().nullable(),elementCount:z.number().int(),undecidedCount:z.number().int(),latestIntrospectionId:z.uuid().transform(RunId).nullable(),lastIntrospectedAt:z.iso.datetime({offset:true}).nullable() });
 export const SourceListResponse=z.object({items:z.array(SourceListItem),nextCursor:z.string().nullable()});
 export const IntrospectSourceBody=z.strictObject({projectId:z.uuid()});
 export const FromDemoBody=z.strictObject({demoTemplateId:z.uuid().transform(DemoSourceId)});

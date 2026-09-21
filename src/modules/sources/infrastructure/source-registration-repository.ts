@@ -7,6 +7,7 @@ import { DomainError,DemoSourceId,err,ok,type IndustryId,type SourceId,type RunI
 import type { SourceContext,SourceRegistrationRepository,QueuedSource } from '../application/source-registration.js';
 const selection=`SELECT s.id,s.name,s.duckdb_alias AS "duckdbAlias",s.kind,s.origin,CASE WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
  (SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS error,
+ (SELECT r.id FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS "latestIntrospectionId",
  CASE WHEN s.receives_landings THEN (SELECT count(*)::int FROM arrival_notice a WHERE a.source_id=s.id AND a.payload->>'outcome'='landed') ELSE NULL END AS "filingCount",
  (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active') AS "elementCount",
  to_char(s.last_introspected_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "lastIntrospectedAt" FROM data_source s`;

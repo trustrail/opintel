@@ -1,3 +1,5 @@
+import { RedisProjectHub } from '../sse/redis-hub.js';
+import { projectStreamRoutes } from '../sse/routes.js';
 import { introspectionRoutes } from '../../modules/sources/api/introspection-routes.js';
 import { PostgresIntrospectionQuery } from '../../modules/sources/infrastructure/introspection-query.js';
 import { PostgresIntrospectionStore } from '../../modules/sources/infrastructure/postgres-introspection-store.js';
@@ -131,6 +133,7 @@ async function start(): Promise<void> {
   const redis = createRedisConnection({ url: requiredEnvironment('REDIS_URL') });
   await redis.connect();
 
+  const hub = new RedisProjectHub(redis.client, requiredEnvironment('REDIS_URL'));
   const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory());
 
   const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
@@ -140,13 +143,14 @@ async function start(): Promise<void> {
   const currentUsers = new CurrentUserService(sessions, identity);
   const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, delivery);
   const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
-  const register = new PostgresFilingRegister();
+  const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
-  const sources=createSourceRuntime(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json'));
+  const sources=createSourceRuntime(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json'),hub);
   const routes = [
+    ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
     ...sourceRoutes(sources),
-    ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory()))),
+    ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory(),hub))),
     ...registerRoutes(register),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
     ...magicLinkRoutes(magicLinks),
@@ -184,7 +188,7 @@ async function start(): Promise<void> {
       import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
     ]);
     const options = await loadSidecarClientOptions(receiptConfig);
-    receiptServer = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()), register);
+    receiptServer = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository(hub)), register);
     const receiptPort = Number(process.env.LANDING_RECEIPT_PORT ?? '3101');
     if (!Number.isInteger(receiptPort) || receiptPort < 1 || receiptPort > 65535) throw new Error('Invalid landing receipt port.');
     await new Promise<void>((resolve, reject) => {
@@ -197,6 +201,7 @@ async function start(): Promise<void> {
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
     void sources.close();
+    void hub.close();
     receiptServer?.close();
     server.close(() => { authorization.close(); void redis.close(); });
   };

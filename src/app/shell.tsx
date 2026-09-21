@@ -1,3 +1,4 @@
+import { useProjectStream } from './project-stream.js';
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -55,6 +56,8 @@ function TopBar(): ReactNode {
 }
 
 export function AppShell(): ReactNode {
+  const pathname = useRouterState({ select: state => state.location.pathname });
+  useProjectStream(projectIdFromPath(pathname));
   const collapsed = useShellUi((state) => state.collapsed);
   return <AppRoot><ToastHost><div className={collapsed ? 'shell collapsed' : 'shell'}><Drawer /><div className="main"><TopBar /><main className="body"><Outlet /></main></div></div></ToastHost></AppRoot>;
 }
