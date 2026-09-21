@@ -41,6 +41,8 @@ export const navGroups: readonly NavGroup[] = [
 ];
 
 export function labelForPath(pathname: string): string {
+  if (/^\/projects\/[^/]+\/introspections\/[^/]+$/u.test(pathname)) return 'Introspection run';
+  if (/^\/projects\/[^/]+\/sources\/[^/]+\/introspections$/u.test(pathname)) return 'Introspection runs';
   if (pathname === '/catalog') return 'Schema explorer';
   if (pathname === '/') return 'Dashboard';
   if (pathname === '/projects/new') return 'Create project';

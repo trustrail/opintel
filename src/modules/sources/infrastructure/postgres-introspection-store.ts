@@ -52,12 +52,13 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       return this.readTx(tx,id);
     });
   }
-  cancel(ctx: IntrospectionContext,id: RunId) {
+  cancel(ctx: IntrospectionContext,id: RunId,requireCancellable = false) {
     return withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
-      if (current.value.state === 'cancelled') return current;
-      if (!transitionRun(current.value.state,'cancelled').ok) return conflict();
+      // Worker cleanup can acknowledge cancellation already persisted by the console.
+      if (!requireCancellable && current.value.state === 'cancelled') return current;
+      if (!transitionRun(current.value.state,'cancelled').ok) return err(new DomainError('conflict',`Cannot cancel an introspection run in state ${current.value.state}.`));
       await tx.query("UPDATE introspection_run SET state='cancelled', ended_at=now(), progress=progress || jsonb_build_object('phase','cancelled') WHERE id=$1",[id]);
       return this.readTx(tx,id);
     });

@@ -1,3 +1,6 @@
+import { introspectionRoutes } from '../../modules/sources/api/introspection-routes.js';
+import { PostgresIntrospectionQuery } from '../../modules/sources/infrastructure/introspection-query.js';
+import { PostgresIntrospectionStore } from '../../modules/sources/infrastructure/postgres-introspection-store.js';
 import { catalogRoutes } from '../../modules/catalog/api/tree-routes.js';
 import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/tree.js';
 import dotenv from 'dotenv';
@@ -143,6 +146,7 @@ async function start(): Promise<void> {
   const routes = [
     ...catalogRoutes(new PostgresCatalogTreeReader()),
     ...sourceRoutes(sources),
+    ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory()))),
     ...registerRoutes(register),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
     ...magicLinkRoutes(magicLinks),

@@ -1,3 +1,4 @@
+import { IntrospectionListScreen, IntrospectionRunScreen } from './introspection/screens.js';
 import { CatalogScreen } from './catalog/screen.js';
 import { ObservationsScreen } from './filings/screens.js';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
@@ -42,6 +43,8 @@ const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: 
   if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   return <RouteScreen title={navGroups.flatMap((group) => group.items).find((item) => item.path === `/${screen}`)?.label ?? 'Not found'} />;
 } });
+const introspectionListRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/sources/$sourceId/introspections',component:()=>{const params=introspectionListRoute.useParams();return <RouteErrorBoundary><IntrospectionListScreen key={params.projectId+params.sourceId} {...params}/></RouteErrorBoundary>;}});
+const introspectionRunRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/introspections/$runId',component:()=>{const params=introspectionRunRoute.useParams();return <RouteErrorBoundary><IntrospectionRunScreen key={params.projectId+params.runId} {...params}/></RouteErrorBoundary>;}});
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: () => <AuthRoute><SignInScreen /></AuthRoute> });
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
@@ -59,7 +62,7 @@ function routeFor(item: NavItem) {
 }
 
 const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects').map(routeFor));
-const routeTree = rootRoute.addChildren([dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routeTree = rootRoute.addChildren([introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
 
 export const router = createRouter({ routeTree });
 

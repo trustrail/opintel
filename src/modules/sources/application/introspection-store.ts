@@ -12,7 +12,7 @@ export interface IntrospectionStore {
   read(ctx: IntrospectionContext, id: RunId): Promise<Result<IntrospectionRun>>;
   source(ctx: IntrospectionContext, id: SourceId): Promise<Result<IntrospectionSource>>;
   advance(ctx: IntrospectionContext, id: RunId, from: IntrospectionState, to: IntrospectionState): Promise<Result<IntrospectionRun>>;
-  cancel(ctx: IntrospectionContext, id: RunId): Promise<Result<IntrospectionRun>>;
+  cancel(ctx: IntrospectionContext, id: RunId, requireCancellable?: boolean): Promise<Result<IntrospectionRun>>;
   fail(ctx: IntrospectionContext, id: RunId, reason: string, unreachable: boolean, code?: ErrorCode): Promise<Result<IntrospectionRun>>;
   publish(ctx: IntrospectionContext, id: RunId, snapshot: CatalogSnapshot): Promise<Result<IntrospectionRun>>;
 }

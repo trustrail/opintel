@@ -4,11 +4,11 @@ import { CatalogNaming } from './naming.js';
 import { DomainError, ok, err, type IdFactory, type ObjectId, type SourceId, type ProjectId, type Result } from '../../../shared/kernel/index.js';
 import type { CatalogSnapshot } from '../../sources/index.js';
 
-export type IntrospectionDiff = CatalogChange | {
+export type IntrospectionDiff = (CatalogChange | {
   type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementChanged' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
   projectId: ProjectId; objectId: ObjectId; elementId?: CatalogChange['elementId'];
   beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true;
-};
+}) & { duckdbName?: string | null; before?: string | null; after?: string | null };
 function family(type: DuckDbType | null, sourceType: string): string {
   if (type === null) return `unsupported:${sourceType}`;
   if (/^(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT|FLOAT|DOUBLE|DECIMAL)/u.test(type)) return 'number';
@@ -91,6 +91,16 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
     if (old.state.status === 'active') diff.push({ type: 'CatalogObjectRemoved', projectId: source.projectId, objectId: old.state.id });
     diff.push(...changes.value);
     objects.push(copy.value);
+  }
+  // Preserve display facts with the run; later catalogue changes must not rewrite history.
+  for (const entry of diff) {
+    const oldObject = existing.find(object => object.state.id === entry.objectId);
+    const newObject = objects.find(object => object.state.id === entry.objectId);
+    const oldElement = oldObject?.elements.find(element => element.state.id === entry.elementId)?.state;
+    const newElement = newObject?.elements.find(element => element.state.id === entry.elementId)?.state;
+    entry.duckdbName = entry.elementId ? newElement?.duckdbName ?? oldElement?.duckdbName ?? null : newObject?.state.duckdbName ?? oldObject?.state.duckdbName ?? null;
+    if (entry.type === 'CatalogElementRenamed') { entry.before = oldElement?.sourceIdentifier ?? null; entry.after = newElement?.sourceIdentifier ?? null; }
+    if (entry.type === 'CatalogNameAdopted') { entry.before = oldElement?.duckdbName ?? null; entry.after = newElement?.duckdbName ?? null; }
   }
   return ok({ objects, diff });
 }

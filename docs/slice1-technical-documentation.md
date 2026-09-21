@@ -1376,10 +1376,11 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 | POST | `/projects/:id/sources/test` (validates before saving) |
 | GET / PATCH / DELETE | `/sources/:id` |
 | POST | `/sources/:id/introspect` |
-| GET | `/sources/:id/runs` and `/runs/:runId` |
-| GET | `/sources/:id/runs/:runId/diff` |
+| GET | `/projects/:id/sources/:sourceId/introspections` |
+| GET | `/projects/:id/introspections/:runId` (includes the diff) |
 | POST | `/sources/:id/sampling-consent` |
 | GET | `/projects/:id/elements` (cursor, prefix, treatment, undecided filters) |
+| POST | `/projects/:id/introspections/:runId/cancel` |
 | GET | `/elements/:id` |
 | PATCH | `/elements/:id` (description only) |
 
@@ -1515,9 +1516,85 @@ const SourceListItem = z.object({
 
 **GET /projects/:id/sources requires project#view**. Creation returns 201 with SourceListItem and queues introspection.
 
+**Cancelling requires project#bind_source** and returns 200 with the updated IntrospectionRunView. A run not in queued, connecting or reading returns conflict, naming its current state. It invalidates the run detail, the run list and the source list.
+
 **Source recovery.** `POST /sources/:id/introspect` accepts `{ projectId }` and returns 202 with SourceListItem. The project identifies the tenant scope; `project#bind_source` is checked before the source is read, and a source outside that project returns 404. The source is locked while checking for an active run and enqueueing a new one. Archived sources and duplicate active runs return conflict. Retry keeps the existing schema selection and sampling consent. Queued/active runs appear as pending; a new run clears the displayed error without changing earlier runs.
 
 The failed-source Retry action uses this endpoint. For a demo source it resumes the prepared delivery before introspection. Repeating `POST /projects/:id/sources/from-demo` (or `demo:pack provision`) reuses the reserved source, verifies its project/template/credential/name/strategy binding and preserves prior runs and arrivals. A new source returns 201; resumed or already active work returns 202; an already completed connection returns 200. No deletion is part of recovery. Only one new run is queued. The worker claims the run in Postgres before provisioning, so API and CLI workers cannot prepare the same run concurrently. Sidecar replay keeps file bytes, filing IDs, hashes and provenance unchanged.
+
+
+### Introspection run payload
+
+```ts
+const IntrospectionRunView = z.object({
+  id: z.string().uuid(),
+  sourceId: z.string().uuid(),
+  state: z.enum(['queued', 'connecting', 'reading', 'diffing', 'complete', 'failed', 'cancelled']),
+  progress: z.object({ objects: z.number().int(), total: z.number().int().nullable() }),
+  error: z.string().nullable(),
+  startedAt: z.string().datetime({ offset: true }).nullable(),
+  endedAt: z.string().datetime({ offset: true }).nullable(),
+  diff: z.array(z.object({
+    change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'collision']),
+    elementId: z.string().uuid().nullable(),
+    duckdbName: z.string().nullable(),
+    before: z.string().nullable(),
+    after: z.string().nullable(),
+    breaking: z.boolean(),
+  })).nullable(),
+});
+```
+
+**Introspection runs are nested under the project**, so they never collide with query runs at `/runs/:id`.
+
+**An empty diff on a complete run is stated plainly**: "No changes since the last introspection."
+
+**Cancel is offered only in queued, connecting and reading**, per the §1.5 state machine.
+
+Item 3.15 links source names to `/projects/:id/sources/:sourceId/introspections`
+and run rows to `/projects/:id/introspections/:runId`. The history API returns
+`{ items: IntrospectionRunView[], nextCursor: string | null }`, newest run IDs
+first, with cursors bound to both project and source. Active views poll every
+five seconds pending item 3.16, stopping at terminal state. New persisted diffs
+retain exposed names and rename before/after facts so subsequent discovery does
+not rewrite historical presentation. Older diffs may lack those optional facts.
+
+
+
+### Introspection runs
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/projects/:id/sources/:sourceId/introspections` | `project#view` |
+| GET | `/projects/:id/introspections/:runId` | `project#view` |
+
+```ts
+const IntrospectionRunView = z.object({
+  id: z.string().uuid(),
+  sourceId: z.string().uuid(),
+  state: z.enum(['queued', 'connecting', 'reading', 'diffing', 'complete', 'failed', 'cancelled']),
+  progress: z.object({ objects: z.number().int(), total: z.number().int().nullable() }),
+  error: z.string().nullable(),
+  startedAt: z.string().datetime({ offset: true }).nullable(),
+  endedAt: z.string().datetime({ offset: true }).nullable(),
+  diff: z.array(z.object({
+    change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'collision']),
+    elementId: z.string().uuid().nullable(),
+    duckdbName: z.string().nullable(),
+    before: z.string().nullable(),
+    after: z.string().nullable(),
+    breaking: z.boolean(),
+  })).nullable(),
+});
+```
+
+**Introspection runs are nested under the project**, so they never collide with query runs at `/runs/:id`.
+
+**An empty diff on a complete run is stated plainly**: "No changes since the last introspection."
+
+**Cancel is offered only in queued, connecting and reading**, per the §1.5 state machine.
+
+
 
 `SourceListItem.error` carries the latest run's reviewed, value-free message, or null. Provisioning messages are validated against reviewed text at the sidecar boundary, persisted and rendered unchanged. The declared error code is retained in run progress as `errorCode` for CLI diagnostics. Unknown exception/peer text is replaced by an actionable safe fallback, never copied from SQL, credentials or a stack trace. The CLI exits unsuccessfully when background preparation fails instead of reporting a successful connection.
 
@@ -3061,7 +3138,7 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Create company | company.lists, auth.me |
 | Create project | project.lists, company.lists |
 | Rename project | project.lists, project.detail |
-
+| Cancel introspection | `introspection.detail`, `introspection.list`, `source.list` |
 A mutation not in this table is incomplete.
 
 ### Optimistic updates

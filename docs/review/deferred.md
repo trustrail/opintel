@@ -194,3 +194,21 @@ deployed arrangement starts. Run the thing.
   application layout change. Revisit this assertion on a Chromium upgrade;
   restore it against the existing baseline, without regenerating that baseline
   to absorb the stripe.
+
+# Swallowed errors
+
+- Third instance of an exception discarded into a generic message:
+  source-registration.ts ("Source preparation failed"), the sidecar client
+  ("Sidecar request failed"), and provision.ts:107 ("Demo delivery could not
+  finish"). Each cost a debugging cycle because the message named places to
+  look rather than what failed.
+- A catch block that replaces the error with a generic message is a defect
+  unless it maps known causes to specific safe messages first.
+
+# From item 3.15 — introspection progress
+
+- Run history and detail poll every five seconds while active and stop on terminal
+  state. Item 3.16 replaces this fallback with SSE snapshot/delta delivery.
+- Completion invalidates the catalogue family and source detail. Entitlement
+  invalidation and persisted decision deletion attach when item 4.1 introduces
+  that entity; this screen displays the recorded type-family invalidation.
