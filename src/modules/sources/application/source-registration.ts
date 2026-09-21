@@ -27,8 +27,9 @@ export class SourceRegistrationService {
  private failure:DomainError|undefined;
  constructor(private readonly repository:SourceRegistrationRepository,private readonly ids:IdFactory,
   private readonly connector:(ctx:SourceContext,id:SourceId)=>SourceConnector & DemoProvisioningPort,
-  private readonly jobs:IntrospectionJob,private readonly fail:(ctx:SourceContext,id:RunId,message:string)=>Promise<void>,private readonly events?:ProjectEvents){}
+  private readonly jobs:IntrospectionJob,private readonly fail:(ctx:SourceContext,id:RunId,message:string)=>Promise<void>,private readonly events?:ProjectEvents,private readonly custody?:{ensure(ctx:SourceContext):Promise<Result<void>>}){}
  async test(ctx:SourceContext,ref:string){
+  if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const connector=this.connector(ctx,this.ids.create<SourceId>());
   const tested=await connector.testConnection(VaultRef(ref));
   if(!tested.ok)return ok({reachable:false,reason:tested.error.message,schemas:[] as string[]});
@@ -36,6 +37,7 @@ export class SourceRegistrationService {
   return snapshot.ok?ok({reachable:true,reason:null,schemas:[...new Set(snapshot.value.objects.map(o=>o.schema))].sort()}):ok({reachable:false,reason:snapshot.error.message,schemas:[] as string[]});
  }
  async create(ctx:SourceContext,input:NewSource){
+  if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const id=this.ids.create<SourceId>();
   const tested=await this.connector(ctx,id).testConnection(VaultRef(input.credentialRef));
   if(!tested.ok)return tested;
@@ -44,6 +46,7 @@ export class SourceRegistrationService {
   return created.ok?ok(created.value.source):created;
  }
  async demo(ctx:SourceContext,id:DemoSourceId){
+  if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const template=await this.repository.template(ctx,id);if(!template.ok)return template;
   const deployment=template.value.deployment;
   if(!deployment)return err(new DomainError('dependency_unavailable','The industry pack is not provisioned for this project. Ask the deployment operator to prepare it.'));
@@ -58,6 +61,7 @@ export class SourceRegistrationService {
   return result;
  }
  async retry(ctx:SourceContext,id:SourceId){
+  if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const queued=await this.repository.retry(ctx,id,this.ids.create<RunId>());
   if(queued.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:id});await this.resume(ctx);}
   return queued;
@@ -90,6 +94,7 @@ export class SourceRegistrationService {
   return ok(undefined);
  }
  private async execute(ctx:SourceContext,work:QueuedSource):Promise<Result<void>>{
+  if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const prepare=work.templateId?(signal:AbortSignal)=>this.prepareDemo(ctx,work,signal).catch(()=>err(new DomainError('dependency_unavailable',sourceMessages.unexpected))):undefined;
   const result=await this.jobs.execute(ctx,work.runId,this.stop.signal,prepare);
   if(!result.ok&&result.error.code==='conflict')return ok(undefined); // Another worker already claimed this run.

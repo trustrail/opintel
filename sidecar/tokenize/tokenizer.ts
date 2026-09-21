@@ -22,7 +22,7 @@ function crockford(bytes: Uint8Array): string {
 }
 export class TokenizationRun {
     constructor(private readonly key: TokenKey, private readonly zones: ZoneResolver) { }
-    prepare(input: unknown, extension?: Canonicaliser): Result<(value: unknown) => Result<string | null>> {
+    private prepareInternal(input: unknown, extension?: Canonicaliser): Result<(value: unknown) => Result<string | null>> {
         const parsed = validateTokenConfig(input);
         if (!parsed.ok)
             return parsed;
@@ -49,6 +49,14 @@ export class TokenizationRun {
                 payload.fill(0);
             }
         });
+    }
+    prepare(input: unknown, extension?: Canonicaliser) {
+        if (typeof input === 'object' && input !== null && 'domain' in input && input.domain === 'sentinel') return err(new DomainError('validation_failed', 'The sentinel token domain is reserved for key custody.'));
+        return this.prepareInternal(input, extension);
+    }
+    sentinel() {
+        const prepared = this.prepareInternal({domain:'sentinel',canonId:'stdtext1',mode:'text',caseInsensitive:false});
+        return prepared.ok ? prepared.value('opintel-sentinel') : prepared;
     }
     tokenize(value: unknown, config: unknown, extension?: Canonicaliser): Result<string | null> { const prepared = this.prepare(config, extension); return prepared.ok ? prepared.value(value) : prepared; }
 }

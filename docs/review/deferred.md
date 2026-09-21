@@ -246,3 +246,15 @@ deployed arrangement starts. Run the thing.
   treatment strategies, with an optional TokenizerPort nothing implements.
   Under the read-boundary design (A.6) tokenized and masked treatments run
   in the sidecar. Move them with the 4.4 and S2 revisions.
+
+# Item 4.3a — custody implementation boundaries
+
+- K7's key-management screen remains 4.3d; evidence version persistence remains
+  5.11. The existing Observations feed now surfaces failed custody rehearsals.
+- Development primary and escrow adapters are separate resolved directories,
+  not separate disaster domains. Production custody adapters are deployment work.
+- Custody operation intents form the rotation/restore audit trail until general
+  audit infrastructure exists; they contain references and sentinels, never keys.
+- An unclean process exit may leave a custody lock. Recovery instructions in
+  sidecar/tokenize/README.md require stopping all writers before removing the
+  lock. Missing version history never causes automatic reinitialization.

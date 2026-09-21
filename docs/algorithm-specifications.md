@@ -36,7 +36,7 @@ token   = "v1" || "_" || domain || "_" || crockford32( HMAC_SHA256( key(projectI
 
 Where:
 
-- `key(projectId)` is 32 random bytes generated at project creation, stored in the vault as `vault://opintel/token-key/{projectId}`, and never in Postgres. It is used as raw bytes, never as hex or base64 text
+- `key(projectId)` is 32 random bytes generated when the first source connects, stored in the vault as `vault://opintel/token-key/{projectId}`, and never in Postgres. It is used as raw bytes, never as hex or base64 text
 - `canonical_utf8(value)` is the canonical form defined in A.3, encoded as UTF-8
 - `"v1"` is the **envelope version**. It names the construction: HMAC-SHA256, the 128-bit truncation, Crockford encoding and this payload layout. Changing any of them means `v2`
 - `canon_id` names **the canonicaliser and its version** (A.3.2), for example `stdtext1`, `stdnum1`, `stddate1`, `stdtime1` or `addr2`. Changing a canonicaliser changes the element's tokens without changing the envelope
@@ -172,7 +172,7 @@ The token must fit the column it replaces.
 
 | Concern | Rule |
 |---|---|
-| Generation | 32 bytes from a CSPRNG at project creation, before the first source connects |
+| Generation | 32 bytes from a CSPRNG during first-source custody initialization, before contacting the source |
 | Storage | Vault only. Vault only. The application never holds a key, so it cannot scan for one; absence from Postgres is enforced by construction and proven by TOK-14. |
 | Distribution | Resolved through `VaultPort` by the sidecar at execution time, as 32 raw bytes, held in memory, never logged. **Only the sidecar resolves it.** The application process never holds the key and never imports the tokenizer |
 | Rotation | A distinct command with a typed confirmation naming what breaks |
@@ -201,7 +201,7 @@ Rotation is a deliberate act with a known cost. Loss is the same cost, unplanned
 
 | # | Requirement |
 |---|---|
-| K1 | The key is generated once, at project creation, and **backed up before the first source connects**. A project with no verified backup cannot connect a source |
+| K1 | The key is generated once, when the first source connects, and **backed up before the first source connects**. A project with no verified backup cannot connect a source |
 | K2 | Backup is to a second custody location under the customer's control, not a copy in the same vault. A vault failure must not take both |
 | K3 | **Restore is rehearsed, not assumed.** A scheduled job restores the key into an isolated context and re-derives a known sentinel token. A mismatch or a failure raises an observation |
 | K4 | Every superseded key is retained after rotation, never deleted. Old evidence must stay verifiable |
@@ -212,6 +212,17 @@ Rotation is a deliberate act with a known cost. Loss is the same cost, unplanned
 **K3 is the one that matters.** A backup that has never been restored is a hope. The rehearsal is cheap, it runs unattended, and it converts an assumption into a fact somebody can point at.
 
 **K4 changes the mental model of rotation.** Keys are not replaced, they accumulate. The current key produces new tokens; superseded keys remain available for verifying old records. That makes rotation safe to perform and makes the evidence store durable across it.
+
+**Custody uses two ports: KeyStore (primary) and KeyEscrow (backup)**. Both are configured in the sidecar's service.json. At startup the sidecar refuses to run if they resolve to the same backend and location. Development uses two file adapters in separate directories under tmp/sidecar/keys/. That satisfies the separation check, but not K2's intent, and the adapters say so in their names. Production adapters (for example HashiCorp Vault, AWS Secrets Manager or Azure Key Vault) are chosen per deployment and are not part of this item.
+
+**Keys never cross the wire**. Stores and escrow hold 64 lowercase hex characters. Only the sidecar reads or writes them.
+
+**Each key version has a sentinel token**: the token of the fixed input opintel-sentinel under that key. It is computed when the key is created and stored by the application. A sentinel reveals nothing about the key, since it is an HMAC output like any other token, and it lets anyone holding the key prove it is the right one.
+
+**A key is initialised when the project's first source connects**. Connecting calls custody initialisation, which generates the key, writes it to the store and escrow, then reads it back from escrow and checks its sentinel. Only then does the connection proceed. If any step fails, the connection is refused with a message naming the failed step, and project creation is unaffected. Initialisation is idempotent: it never generates a second key for a project that has one.
+
+**Rotation is two-phase**. The new key is written to both store and escrow and verified against its sentinel before it becomes current. A rotation that cannot be verified leaves the old key current.
+
 
 ## A.6 Implementation at the read boundary
 

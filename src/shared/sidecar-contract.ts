@@ -1,3 +1,4 @@
+import { custodyEnvelope,custodyOperations } from './custody-contract.js';
 import { provisionDemoPayload, provisionDemoResponse } from './demo-contract.js';
 import { z } from 'zod';
 import { Timestamp } from './kernel/index.js';
@@ -36,6 +37,7 @@ export const envelope = z.strictObject({
 /** OpenAPI and the client/server boundaries share these exact Zod schemas. */
 export function sidecarOpenApiDocument() {
   const operations = [
+    ...Object.entries(custodyOperations).map(([path,operation])=>['/custody/'+path,custodyEnvelope.extend({payload:operation.request}),operation.response] as const),
     ['/health', null, healthResponse],
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],

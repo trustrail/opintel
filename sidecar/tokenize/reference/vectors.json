@@ -440,6 +440,17 @@
   "token": null
  },
  {
+  "name": "sentinel",
+  "input": "opintel-sentinel",
+  "domain": "sentinel",
+  "canonId": "stdtext1",
+  "caseInsensitive": false,
+  "mode": "text",
+  "declaredZone": null,
+  "expectError": false,
+  "token": "v1_sentinel_T67E8EFBVCC9RHZ3YTYWV7RKPC"
+ },
+ {
   "name": "reject domain with underscore",
   "input": "x",
   "domain": "a_b",

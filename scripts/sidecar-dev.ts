@@ -1,6 +1,6 @@
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { access, chmod, mkdir, open, writeFile, unlink } from 'node:fs/promises';
+import { access, chmod, mkdir, open, readFile, writeFile, unlink } from 'node:fs/promises';
 import { stopRecordedSidecar } from './sidecar-process.js';
 import { resolve } from 'node:path';
 import { request } from 'node:https';
@@ -33,12 +33,14 @@ export async function prepareSidecarDevelopment(directory=sidecarDevDirectory): 
     }
     await chmod(resolve(tlsDir,'ca.key'),0o600);
   }
-  const service={demo:{database:'opintel_demo',credentialRef:'vault://demo/postgres'},host:'127.0.0.1',port:3100,tls:{caFile:'tls/ca.pem',certFile:'tls/server.pem',keyFile:'tls/server.key',clientPinFile:'tls/client.pem'},auditFile:'sampling-audit.jsonl',limits:{maxConnectionsPerSource:4,statementTimeoutMs:8000,operationTimeoutMs:9000}};
+  const service={custody:{keyStore:'keys/development-primary',keyEscrow:'keys/development-escrow'},demo:{database:'opintel_demo',credentialRef:'vault://demo/postgres'},host:'127.0.0.1',port:3100,tls:{caFile:'tls/ca.pem',certFile:'tls/server.pem',keyFile:'tls/server.key',clientPinFile:'tls/client.pem'},auditFile:'sampling-audit.jsonl',limits:{maxConnectionsPerSource:4,statementTimeoutMs:8000,operationTimeoutMs:9000}};
   const client={baseUrl:'https://127.0.0.1:3100',caFile:'tls/ca.pem',certFile:'tls/client.pem',keyFile:'tls/client.key',serverPinFile:'tls/server.pem',timeoutMs:9000};
   for(const [name,value]of [['service.json',service],['client.json',client]] as const){
     try{await writeFile(resolve(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600});}
     catch(error:unknown){if(!(typeof error==='object'&&error!==null&&'code'in error&&error.code==='EEXIST'))throw error;}
   }
+  const existing=JSON.parse(await readFile(resolve(directory,'service.json'),'utf8')) as Record<string,unknown>;
+  if(!existing.custody)await writeFile(resolve(directory,'service.json'),JSON.stringify({...existing,custody:service.custody},null,2)+'\n',{mode:0o600});
   await loadSidecarConfig(resolve(directory,'service.json'));
 }
 

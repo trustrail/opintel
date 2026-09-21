@@ -1,3 +1,4 @@
+import { CustodyObservations } from '../custody/observations.js';
 import { QuarantineFeed } from '../filings/screens.js';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode } from 'react';
@@ -114,5 +115,5 @@ export function ProjectDashboard(): ReactNode {
     <div className="stepcard now"><div className="num">1</div><b>Connect a source</b><p>Opintel introspects it and builds a catalogue. Nothing is readable until you say so.</p><Link className="btn go" to="/projects/$projectId/$screen" params={{ projectId: project.id, screen: 'data-sources' }}>Connect a source</Link></div>
     <div className="stepcard"><div className="num">2</div><b>Create a pool</b><p>Generate a key for your agents. Bind the pool to the sources it may reach.</p><Link className="btn ghost" to="/projects/$projectId/$screen" params={{ projectId: project.id, screen: 'pools' }}>Create a pool</Link></div>
     <div className="stepcard"><div className="num">3</div><b>Decide what it sees</b><p>Set entitlements for the pool. Anything undecided stays out of reach.</p><Link className="btn ghost" to="/projects/$projectId/$screen" params={{ projectId: project.id, screen: 'entitlements' }}>Open entitlements</Link></div>
-  </div><QuarantineFeed projectId={project.id}/></section>;
+  </div><QuarantineFeed projectId={project.id}/><CustodyObservations projectId={project.id}/></section>;
 }

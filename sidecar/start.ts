@@ -1,3 +1,5 @@
+import { FileCustody } from './custody/infrastructure/file-custody.js';
+import { DevelopmentFileKeyStore,DevelopmentFileKeyEscrow } from './custody/infrastructure/development-file-keys.js';
 import { foldingVersion } from './tokenize/unicode/folding.js';
 import { SpreadsheetDemoProvisioner } from './demo/provision.js';
 import { DemoWorkbookWriter } from './demo/infrastructure/workbook-writer.js';
@@ -20,13 +22,16 @@ async function main(): Promise<void> {
   loadEnvironment({path:resolve('.env.sidecar.local')});
   const file = process.argv[2] ?? process.env.SIDECAR_CONFIG_FILE ?? resolve('tmp/sidecar/service.json');
   const {config,tls} = await loadSidecarConfig(file);
+  const custody=config.custody?new FileCustody(await DevelopmentFileKeyStore.open(config.custody.keyStore),await DevelopmentFileKeyEscrow.open(config.custody.keyEscrow)):undefined;
+  await custody?.sweep();
+  const custodyTimer=setInterval(()=>{void custody?.sweep().catch(()=>console.warn({event:'custody.cleanup_failed',category:'storage'}));},60000);custodyTimer.unref();
   const audit = await FileSamplingAudit.open(config.auditFile);
-  const host = createSidecarServer({config,tls,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
+  const host = createSidecarServer({config,tls,custody,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;
   const stop = () => {
     if (stopping) return;
-    stopping = true;
+    stopping = true;clearInterval(custodyTimer);
     // This deadline covers the entire process, including watcher I/O and audit
     // flushing. exitCode alone cannot terminate a process with live handles.
     const deadline = setTimeout(() => {

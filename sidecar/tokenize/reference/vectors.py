@@ -143,6 +143,7 @@ CASES = [
     ("reject missing seconds",            "2026-09-21T15:30", "ts", TS, False, "timestamp", "UTC", True),
     ("reject DST overlap",                "2026-11-01T01:30:00", "ts", TS, False, "timestamp", "America/New_York", True),
     ("reject DST gap",                    "2026-03-08T02:30:00", "ts", TS, False, "timestamp", "America/New_York", True),
+    ("sentinel",                          "opintel-sentinel", "sentinel", T, False, "text", None, False),
     ("reject domain with underscore",     "x", "a_b", T, False, "text", None, True),
     ("reject empty domain",               "x", "", T, False, "text", None, True),
 ]

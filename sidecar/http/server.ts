@@ -1,3 +1,4 @@
+import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
 import { safeSourceMessage } from '../../src/shared/source-errors.js';
 import { provisionDemoResponse } from '../../src/shared/demo-contract.js';
 import { randomUUID, X509Certificate } from 'node:crypto';
@@ -24,6 +25,7 @@ const errorMessages: Readonly<Record<string,string>> = {
 export function createSidecarServer(options: {
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
   demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
+  custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
   build?: typeof sidecarBuild | { version: string; contract: number; duckdb: string };
 }) {
   const build = wire.healthResponse.parse(options.build ?? sidecarBuild);
@@ -36,6 +38,7 @@ export function createSidecarServer(options: {
     '/sample': { permission:'pinned_application_certificate', response:wire.sampleResponse, invoke:(body,signal)=>options.connector.sampleTopValues(body,signal) },
     '/estimate': { permission:'pinned_application_certificate', response:wire.estimateResponse, invoke:(body,signal)=>options.connector.estimateRowCount(body,signal) },
   };
+  for(const operation of Object.keys(custodyOperations) as CustodyOperation[]) routes['/custody/'+operation]={permission:'pinned_application_certificate',response:custodyOperations[operation].response,invoke:async body=>{const request=custodyEnvelope.parse(body);return options.custody?options.custody.invoke(operation,request.projectId,request.payload):{ok:false,error:new DomainError('dependency_unavailable','Token key custody metadata could not be saved or read. Check the sidecar custody directory.')};}};
   for (const route of Object.values(routes)) if (route.permission !== 'pinned_application_certificate') throw new Error('Sidecar route lacks a declared permission.');
   const sockets = new Set<Socket>();
   const active = new Map<AbortController, Promise<void>>();
@@ -69,7 +72,7 @@ export function createSidecarServer(options: {
         if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) { fail(res,415,'validation_failed','A JSON request body is required.',requestId); return; }
         try { body = JSON.parse(bytes.toString('utf8')) as unknown; }
         catch { fail(res,400,'validation_failed','The request body is not valid JSON.',requestId); return; }
-        const parsed = wire.envelope.safeParse(body);
+        const parsed = (path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
       }
@@ -77,7 +80,7 @@ export function createSidecarServer(options: {
       if (controller.signal.aborted) return;
       if (!result.ok) {
         const code = result.error.code;
-        fail(res,statusFor(code),code,req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable);
+        fail(res,statusFor(code),code,path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable);
         return;
       }
       const response = route.response.safeParse(result.value);

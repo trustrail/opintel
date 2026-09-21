@@ -18,7 +18,7 @@ Production Vault implementations must use the same strict hex decoder as the
 development adapter: 64 lowercase hex characters, decoded to 32 bytes.
 The development variable for a project is
 `OPINTEL_SECRET_OPINTEL_TOKEN_KEY_<PROJECT_UUID_WITH_UNDERSCORES>` (uppercase).
-Provisioning, escrow and rotation belong to 4.3a; do not create a fallback key.
+Managed custody now supplies the key (4.3a); never create a fallback key.
 
 Canonicalisation follows algorithm specification A. The committed Unicode 16.0.0
 CaseFolding.txt supplies C/F mappings in unicode/folding.ts; a test compares every
@@ -34,3 +34,35 @@ scan and log capture. Run `npm run test:tokenization-collision` separately for t
 purity enforcement and typed confirmation; this library only invokes a supplied
 trusted canonicaliser. 5.11 owns persisted evidence versions. S2/S4 own the
 DuckDB staging/spill and ephemerality proofs. None is implemented here.
+
+## Key custody (4.3a)
+
+Custody initializes on the first source connection, not at project creation.
+`service.json` configures `custody.keyStore` and `custody.keyEscrow` separately.
+The development adapters resolve their directories and reject an identical
+location, including symlink aliases. Local directories are a development aid;
+they do not satisfy independent disaster custody. Production adapters remain
+out of scope. The environment-variable Vault adapter stays read-only.
+
+`FileCustody` implements binary resolution of the current token-key reference
+for the sidecar tokenizer. Version files are immutable except an explicitly
+confirmed restore. Ordinary tokenization reserves the `sentinel` domain;
+custody derives the fixed case-sensitive `stdtext1` sentinel through a separate
+entry point. Keys never cross HTTP. The application stores and compares only
+sentinels and version metadata.
+
+Rotate and restore prepare an immutable, ten-minute candidate. Commit accepts
+only its ID. The application stores an operation intent before committing, so
+a lost rotation response can be reconciled without generating another key.
+Candidate expiry cleans unpublished keys only; committed versions remain in
+both stores. Missing history alongside existing keys refuses initialization.
+A lock left by an unclean shutdown refuses operations: stop all sidecars using
+that store, verify no operation remains alive, and remove only the project's
+`lock` file. Never remove `state.json` or version files to recover a request.
+
+The API checks rehearsals at startup and hourly, executing each version's
+rehearsal when its last attempt is at least one day old. Initialization and
+rotation rehearse immediately. Reads use only escrow and fresh byte buffers;
+each retained version is compared with the application's recorded sentinel.
+Failures appear in the existing Observations feed for project administrators.
+No general observation workflow or key-management screen is introduced.

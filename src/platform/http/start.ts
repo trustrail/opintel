@@ -1,3 +1,5 @@
+import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../../modules/entitlements/index.js';
+import { keyCustodyRoutes } from '../../modules/entitlements/api/key-custody-routes.js';
 import { RedisProjectHub } from '../sse/redis-hub.js';
 import { projectStreamRoutes } from '../sse/routes.js';
 import { introspectionRoutes } from '../../modules/sources/api/introspection-routes.js';
@@ -146,7 +148,11 @@ async function start(): Promise<void> {
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
   const sources=createSourceRuntime(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json'),hub);
+  const custody=new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json')),authorization);
+  const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
+  rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
   const routes = [
+    ...keyCustodyRoutes(custody),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
     ...sourceRoutes(sources),
@@ -200,6 +206,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
+    clearInterval(rehearsalTimer);
     void sources.close();
     void hub.close();
     receiptServer?.close();

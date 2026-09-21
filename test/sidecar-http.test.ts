@@ -180,7 +180,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await limited.close();}
     const specification=wire.sidecarOpenApiDocument();
-    expect(Object.keys(specification.paths).sort()).toEqual(['/estimate','/health','/introspect','/provision-demo','/sample','/test-connection']);
+    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/health','/introspect','/provision-demo','/sample','/test-connection']);
     expect(JSON.parse(await readFile(new URL('../sidecar/openapi.json',import.meta.url),'utf8'))).toEqual(specification);
   });
 

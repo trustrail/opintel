@@ -11,6 +11,7 @@ export const sidecarConfigSchema = z.strictObject({
   host: z.string().min(1), port: z.number().int().min(0).max(65535),
   tls: z.strictObject({ caFile: z.string().min(1), certFile: z.string().min(1), keyFile: z.string().min(1), clientPinFile: z.string().min(1) }),
   auditFile: z.string().min(1),
+  custody:z.strictObject({keyStore:z.string().min(1),keyEscrow:z.string().min(1)}).optional(),
   limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds }),
   demo: z.strictObject({ database: z.string().min(1), credentialRef: z.string().startsWith('vault://').min(9).transform(VaultRef) }).optional(),
   receiptUrl: z.url().refine((value) => new URL(value).protocol === 'https:').optional(),
@@ -49,5 +50,5 @@ export async function loadSidecarConfig(file: string): Promise<{ config: Sidecar
       if (Date.parse(certificate.validFrom) > Date.now() || Date.parse(certificate.validTo) <= Date.now()) throw new Error('Expired certificate');
     }
   } catch { throw new Error('Sidecar TLS files are missing, invalid, expired, or the server key does not match its certificate.'); }
-  return { config: { ...config, auditFile: resolve(dirname(file), config.auditFile), landingZones: config.landingZones?.map((zone) => ({ ...zone, directory: resolve(dirname(file), zone.directory), stateFile: resolve(dirname(file), zone.stateFile), rulesFile: resolve(dirname(file), zone.rulesFile) })) }, tls };
+  return { config: { ...config, custody:config.custody?{keyStore:resolve(dirname(file),config.custody.keyStore),keyEscrow:resolve(dirname(file),config.custody.keyEscrow)}:undefined, auditFile: resolve(dirname(file), config.auditFile), landingZones: config.landingZones?.map((zone) => ({ ...zone, directory: resolve(dirname(file), zone.directory), stateFile: resolve(dirname(file), zone.stateFile), rulesFile: resolve(dirname(file), zone.rulesFile) })) }, tls };
 }

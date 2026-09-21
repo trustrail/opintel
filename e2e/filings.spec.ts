@@ -15,6 +15,7 @@ async function mock(page:Page){
   const url=new URL(route.request().url());const path=url.pathname;
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id:otherId,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:projectId,name:'Reporting',company:{id:otherId,name:'Example Company'},industry:{id:otherId,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
+  if(path.endsWith('/token-key'))return route.fulfill({json:{currentVersion:null,versions:[]}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[]});
   if(path.endsWith('/sources'))return route.fulfill({json:{items:[{...source,landingStrategy:state.strategy},{...source,id:otherId,name:'Live database',duckdbAlias:'live_database',landingStrategy:null,filingCount:null}],nextCursor:null}});
   if(path.endsWith('/filings')){
@@ -70,4 +71,17 @@ test('ING-27: table-per-filing strategy and local quarantine resolution',async({
  await expect(page.getByText('Under table per filing, each filing lands in its own table.',{exact:false})).toBeVisible();await expect(page.getByText('Restatement',{exact:true})).toBeVisible();
  await page.goto(`/projects/${projectId}/observations`);await page.getByText('Local resolution instructions',{exact:true}).click();
  await expect(page.getByText(`npm run sidecar:register -- show ${sourceId} ${held}`,{exact:true})).toBeVisible();await expect(page.getByText(`npm run sidecar:register -- retry ${sourceId} ${held}`,{exact:true})).toBeVisible();await accessible(page);
+});
+
+for(const width of [390,900,1440])test(`TOK-28: custody observations at ${width}`,async({page})=>{
+ const state=await mock(page);state.empty=true;
+ await page.route('**/api/v1/projects/*/token-key',route=>route.fulfill({json:{currentVersion:2,versions:[
+  {version:2,state:'current',createdAt:'2026-09-21T12:00:00Z',createdBy:null,reason:'Rotation',backupVerifiedAt:null,lastRehearsedAt:'2026-09-22T12:00:00Z',lastRehearsal:'failed'},
+  {version:1,state:'retired',createdAt:'2026-09-20T12:00:00Z',createdBy:null,reason:null,backupVerifiedAt:null,lastRehearsedAt:'2026-09-22T12:00:00Z',lastRehearsal:'mismatch'},
+ ]}}));
+ await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/observations`);
+ await expect(page.getByText('Key version 2: escrow could not be verified')).toBeVisible();
+ await expect(page.getByText('Key version 1: escrow does not match the recorded key')).toBeVisible();
+ await expect(page.getByText('This retained key is needed to verify earlier evidence.',{exact:false})).toBeVisible();
+ await expect(page).toHaveScreenshot(`custody-observations-${width}.png`,{fullPage:true});await accessible(page);
 });

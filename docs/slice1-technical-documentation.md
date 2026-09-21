@@ -1687,6 +1687,34 @@ const CatalogTreeResponse = z.object({
 
 **An unnameable element has no label and no type**. It is listed so an administrator can see it exists and fix the source column or give it an alias. Substituting the source identifier would put an unnormalised string where a DuckDB name belongs and imply the element is addressable.
 
+
+### Token key
+
+| Method | Path | Permission and body |
+|---|---|---|
+| GET  | `/projects/:id/token-key` | `project#administer` |
+| POST | `/projects/:id/token-key/initialize` | `project#bind_source`. Retry after a failed connect |
+| POST | `/projects/:id/token-key/rotate` | `project#administer`. `{ confirmation, reason }`; confirmation is the project name |
+| POST | `/projects/:id/token-key/restore` | `project#administer` and company administration (K6). `{ keyVersion, confirmation }` |
+| POST | `/projects/:id/token-key/rehearse` | `project#administer` |
+
+```ts
+const TokenKeyView = z.object({
+  currentVersion: z.number().int().nullable(),        // null until initialised
+  versions: z.array(z.object({
+    version: z.number().int(),
+    state: z.enum(['current', 'retired']),
+    createdAt: z.string().datetime({ offset: true }),
+    createdBy: z.object({ id: z.string().uuid(), email: z.string() }).nullable(),
+    reason: z.string().nullable(),
+    backupVerifiedAt: z.string().datetime({ offset: true }).nullable(),
+    lastRehearsedAt: z.string().datetime({ offset: true }).nullable(),
+    lastRehearsal: z.enum(['ok', 'mismatch', 'failed']).nullable(),
+  })),
+});
+```
+**Every token key endpoint returns 200 with TokenKeyView**. Rotate takes { confirmation, reason } and restore takes { keyVersion, confirmation }. **In both, the confirmation is the project's name**, the same pattern as industry migration. reason is required, 1 to 500 characters. A rotation whose new key cannot be verified returns dependency_unavailable and the old key stays current. A restore whose derived sentinel differs from the stored one returns conflict, and nothing is written to the store.
+
 ## 2.6 The agent interface
 
 Separate from the console API. Streamable HTTP at `/mcp/v1/p/:projectId`, authenticated by the pool key as a bearer token.
@@ -1723,6 +1751,13 @@ Internal, mutually authenticated, not public.
 | POST | `/sample` | Reads real values. Refuses without the consent flag |
 | POST | `/validate` | Parses and plans against view definitions. Opens no source connection |
 | POST | `/execute` | Governed SQL plus view definitions and limits. Returns rows |
+| POST | `/custody/initialize` | Generate, back up, verify. Idempotent |
+| POST | `/custody/rotate/prepare` | Generate a candidate key, write it to store and escrow, read it back from escrow, return its sentinel. Not yet current |
+| POST | `/custody/rotate/commit` | Make that exact candidate current. Retains the old key (K4) |
+| POST | `/custody/rehearse` | Restore from escrow into an isolated context, check every retained version's sentinel |
+| POST | `/custody/restore/prepare` | Read a version from escrow into an immutable staged candidate, return its sentinel. Writes nothing |
+| POST | `/custody/restore/commit` | Write that exact candidate into the store |
+| POST | `/custody/status` | Versions held in store and escrow, and the current version. Never key material |
 
 `execute` carries an `entitlementContext` field, null in Slices 1 and 2, populated in Slice 3.
 
@@ -1917,6 +1952,47 @@ type ProvisionDemoResponse = { credentialRef: VaultRef; database: string };
 
 **The sidecar provisions demo data because demo data is still the customer's environment**. A spreadsheet template writes files into the landing zone and stops: the watcher picks them up through the ordinary path, with no special provisioning route
 
+
+### Custody payloads
+
+Custody requests use their own envelope. They act on a project, never on a source, so they carry no `sourceId` or `credentialRef`: the key store and escrow come from the sidecar's own configuration.
+
+```ts
+type CustodyRequest<T> = { requestId: string; projectId: ProjectId; payload: T };
+
+type KeyVersionResult = { keyVersion: number; sentinelToken: string };
+type Candidate = { candidateId: string; keyVersion: number; sentinelToken: string };
+
+// POST /custody/initialize
+type InitializePayload  = Record<string, never>;
+type InitializeResponse = KeyVersionResult & { created: boolean };   // false if a key already existed
+
+// POST /custody/rotate/prepare, returns Candidate
+type RotatePreparePayload = { expectedCurrentVersion: number };     // conflict if it has moved
+
+// POST /custody/restore/prepare, returns Candidate
+type RestorePreparePayload = { keyVersion: number };
+
+// POST /custody/rotate/commit and /custody/restore/commit
+type CommitPayload  = { candidateId: string };
+type CommitResponse = KeyVersionResult;
+
+// POST /custody/rehearse
+type RehearsePayload  = Record<string, never>;
+type RehearseResponse = { results: Array
+  | { keyVersion: number; outcome: 'derived'; sentinelToken: string }
+  | { keyVersion: number; outcome: 'failed'; category: 'escrow_unreadable' | 'escrow_missing' | 'malformed' }
+>};
+
+// POST /custody/status
+type StatusPayload  = Record<string, never>;
+type StatusResponse = { currentVersion: number | null;
+  versions: Array<{ keyVersion: number; inStore: boolean; inEscrow: boolean }> };
+```
+
+**The sidecar derives sentinels. The application compares them.** Every custody response returns the sentinel the sidecar computed, and the application checks it against the one it stored when the key was created. A sidecar can therefore never report a rehearsal as passing on its own word: a mismatch is detected by the party that didn't compute it.
+
+**Rotate and restore are prepare, then commit.** Prepare stages an immutable candidate and returns its sentinel. The application compares it, then commits that exact candidate by id. For a restore, the sentinel must equal the one stored for that version, or the application does not commit. For a rotation, there is no earlier sentinel to compare against, so the application records the new one at commit and immediately runs a rehearsal against it. A candidate is single-use and expires after 10 minutes; committing an expired or unknown candidate returns `conflict`. An uncommitted rotation candidate is deleted from store and escrow. That doesn't breach K4, because a key that never became current never produced a token.
 
 ### Bootstrap. Pre-provisioned, not a writable secret store.
 
@@ -2387,6 +2463,21 @@ create table company_idp (
   unique (company_id, provider),
   constraint secret_is_reference check (client_secret_ref like 'vault://%')
 );
+
+create table token_key_version (
+  project_id        uuid not null references project(id) on delete cascade,
+  version           integer not null,
+  sentinel_token    text not null,
+  state             text not null check (state in ('current','retired')),
+  created_at        timestamptz not null default now(),
+  created_by        uuid references user_account(id),
+  reason            text,
+  backup_verified_at timestamptz,
+  last_rehearsed_at timestamptz,
+  last_rehearsal    text check (last_rehearsal in ('ok','mismatch','failed')),
+  primary key (project_id, version)
+);
+create unique index one_current_key on token_key_version (project_id) where state = 'current';
 ```
 **Platform defaults**. Google and Microsoft Entra are available to every company without configuration, using platform-level credentials. company_idp exists for a company bringing its own tenant or a generic OIDC issuer. So /auth/providers returns the platform defaults plus any enabled company_idp rows for the matching domain.
 
@@ -2405,6 +2496,9 @@ create table company_idp (
 **The row is never deleted**, so relationship_outbox is also the audit trail of every authorization change until audit_entry arrives in item 5.10.
 
 **Reconciliation** compares company_member and project_member against SpiceDB nightly and reports divergence. It does not repair automatically: a relationship present in one and not the other is a fault worth a human looking at.
+
+**The rehearsal runs daily, and immediately after initialisation and every rotation**. "Isolated context" means it reads only from escrow, never from the primary store or any in-memory cache, into a fresh buffer it zeroes afterwards. It checks the sentinel for every retained version, not only the current one, because K4 exists to keep old evidence verifiable.
+
 
 ## 4.3 Industry and vocabulary
 

@@ -284,3 +284,10 @@ alias is invented. Once assigned, aliases cannot change with a display-name edit
 browser worker. CI runs it separately from the functional browser suite and database
 tests. Its report attaches refresh and scroll-frame intervals. The functional suite
 also checks bounded DOM size, prefix fetching and keyboard navigation.
+
+Token key custody initializes on the first source connection. `dev:up` configures
+two development-only stores under `tmp/sidecar/keys/`. Never delete those stores
+to retry a connection: they contain retained keys needed to reproduce earlier
+tokens. See [custody operation and recovery notes](sidecar/tokenize/README.md#key-custody-43a).
+These directories are not independent disaster-recovery custody; production
+KeyStore and KeyEscrow adapters must use separately controlled locations.

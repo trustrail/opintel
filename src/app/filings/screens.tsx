@@ -1,3 +1,4 @@
+import { CustodyObservations } from '../custody/observations.js';
 import type { ReactNode } from 'react';
 import { ErrorState, EmptyState, LoadingState } from '../../shared/ui/index.js';
 import { useFilings } from './data.js';
@@ -47,5 +48,5 @@ export function QuarantineFeed({ projectId }: { projectId: string }): ReactNode 
 }
 
 export function ObservationsScreen({ projectId }: { projectId: string }): ReactNode {
-  return <section className="screen on"><h1>Observations</h1><p className="sub">Filings that need attention before they can land. Inspect and resolve them in your environment.</p><QuarantineFeed projectId={projectId} /></section>;
+  return <section className="screen on"><h1>Observations</h1><p className="sub">Filings that need attention before they can land. Inspect and resolve them in your environment.</p><QuarantineFeed projectId={projectId} /><CustodyObservations projectId={projectId}/></section>;
 }

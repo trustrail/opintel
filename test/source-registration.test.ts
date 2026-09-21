@@ -1,3 +1,6 @@
+import { FileCustody } from '../sidecar/custody/infrastructure/file-custody.js';
+import { DevelopmentFileKeyStore,DevelopmentFileKeyEscrow } from '../sidecar/custody/infrastructure/development-file-keys.js';
+import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../src/modules/entitlements/index.js';
 import { sourceMessages } from '../src/shared/source-errors.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -41,7 +44,7 @@ beforeAll(async()=>{
  await customer(async db=>{await db.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${password}';CREATE SCHEMA "${schema}";CREATE SCHEMA "${landed}";CREATE TABLE "${schema}".records(id int,label text);CREATE TABLE "${landed}".filings(amount numeric,_opintel_filing_id uuid,_opintel_as_at date);GRANT USAGE ON SCHEMA "${schema}","${landed}" TO "${role}";GRANT SELECT ON ALL TABLES IN SCHEMA "${schema}","${landed}" TO "${role}"`);});
  const url=new URL(process.env.TEST_DATABASE_URL!);url.username=role;url.password=password;
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
- host=createSidecarServer({demo:{provision:async()=>{if(provisionFailure instanceof Error)throw provisionFailure;return provisionFailure?err(provisionFailure):ok({credentialRef:'vault://test/readonly',database:'prepared_demo'});}},config:{...config,port:0},tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter({OPINTEL_SECRET_TEST_READONLY:url.toString()}),audit:{record:async()=>{}},limits:config.limits})});
+ host=createSidecarServer({custody:new FileCustody(await DevelopmentFileKeyStore.open(config.custody!.keyStore),await DevelopmentFileKeyEscrow.open(config.custody!.keyEscrow)),demo:{provision:async()=>{if(provisionFailure instanceof Error)throw provisionFailure;return provisionFailure?err(provisionFailure):ok({credentialRef:'vault://test/readonly',database:'prepared_demo'});}},config:{...config,port:0},tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter({OPINTEL_SECRET_TEST_READONLY:url.toString()}),audit:{record:async()=>{}},limits:config.limits})});
  const port=await host.listen();options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
 },30000);
 afterAll(async()=>{await host?.close();await customer(async db=>{await db.query(`DROP SCHEMA "${schema}" CASCADE;DROP SCHEMA "${landed}" CASCADE;DROP ROLE "${role}"`);});await rm(directory,{recursive:true,force:true});});
@@ -50,14 +53,20 @@ describe('source registration against real Postgres and the sidecar',()=>{
  resetDatabaseBeforeEach('company','industry');
  beforeEach(async()=>{
   denied=false;provisionDemo=false;provisionFailure=undefined;projectId=ProjectId(randomUUID());connectors.length=0;
-  await withPlatform(async tx=>{const [industry]=await tx.query<{id:string}>("SELECT id FROM industry WHERE slug='reinsurance-treaty'");industryId=industry!.id;const [company]=await tx.query<{id:string}>("INSERT INTO company(name,default_region) VALUES('Sources','eu-west-1') RETURNING id");await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,'Sources','eu-west-1')",[projectId,company!.id,industryId]);});
+  await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[userId,userId+'@source.test']);const [industry]=await tx.query<{id:string}>("SELECT id FROM industry WHERE slug='reinsurance-treaty'");industryId=industry!.id;const [company]=await tx.query<{id:string}>("INSERT INTO company(name,default_region) VALUES('Sources','eu-west-1') RETURNING id");await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,'Sources','eu-west-1')",[projectId,company!.id,industryId]);});
   const ids=new UuidV7IdFactory();const store=new PostgresIntrospectionStore(ids);
   const factory=(ctx:{projectId:ProjectId},id:SourceId)=>{const port=new SidecarSourceConnector('postgres',{projectId:ctx.projectId,sourceId:id,requestId:randomUUID(),sampling:async()=>ok({consentGiven:false,elements:[]})},options);vi.spyOn(port,'testConnection');vi.spyOn(port,'introspect');if(provisionDemo)vi.spyOn(port,'provisionDemo').mockImplementation(async(ref)=>{expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM data_source'))).toHaveLength(1);return ok({credentialRef:ref,database:'prepared_demo'});});connectors.push(port);return port;};
   const jobs=new IntrospectionJob(store,source=>factory(source,source.id));
-  repository=new PostgresSourceRegistrationRepository();service=new SourceRegistrationService(repository,ids,factory,jobs,async(ctx,id,message)=>{await store.advance(ctx,id,'queued','connecting');await store.fail(ctx,id,message,false);});
+  repository=new PostgresSourceRegistrationRepository();service=new SourceRegistrationService(repository,ids,factory,jobs,async(ctx,id,message)=>{await store.advance(ctx,id,'queued','connecting');await store.fail(ctx,id,message,false);},undefined,new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(options),{checkMany:async()=>[]}));
   const unexpected=async():Promise<never>=>{throw new Error('Unexpected auth call');};
   const authorization:AuthorizationPort={check:async request=>({allowed:request.permission==='view'||!denied,token:'test' as import('../src/modules/authz/index.js').ZedToken,checkedAt:Timestamp(new Date()),snapshotAgeMs:0}),checkMany:unexpected,write:unexpected,explain:unexpected};
   api=createHttpServer(sourceRoutes(service),{authorization:{port:authorization,currentUser:async()=>({id:userId,email:'source@example.com',fullName:null,timezone:'UTC',method:'magic_link',sessionCreatedAt:Timestamp(new Date()),deviceConfirmed:true})},logger:{error:()=>{}}});api.listen(0,'127.0.0.1');await once(api,'listening');const address=api.address();if(!address||typeof address==='string')throw new Error();origin=`http://127.0.0.1:${address.port}`;
+ });
+ it('TOK-27: an unverified backup prevents both native and demo source contact',async()=>{
+  const custody=vi.spyOn(SidecarCustodyClient.prototype,'call').mockResolvedValue(err(new DomainError('dependency_unavailable','Token key escrow write failed. Check the configured backup location and retry.')));
+  try{const response=await request(path(),'POST',body());expect(response.status).toBe(503);expect((await response.json()).error.message).toBe('Token key escrow write failed. Check the configured backup location and retry.');expect(connectors).toHaveLength(0);
+   const demo=await service.demo({projectId,userId},'018f8f9d-7f83-7abc-8def-000000000123' as import('../src/shared/kernel/index.js').DemoSourceId);expect(demo.ok).toBe(false);expect(connectors).toHaveLength(0);
+  }finally{custody.mockRestore();}
  });
  it('F-001: tests without saving, then saves and queues the selected schemas through the real connector port',async()=>{
   const tested=await request(path()+'/test','POST',{kind:'postgres',credentialRef:body().credentialRef});expect(tested.status).toBe(200);expect(await tested.json()).toMatchObject({reachable:true,schemas:expect.arrayContaining([schema,landed])});
