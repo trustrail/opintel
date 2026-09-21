@@ -45,7 +45,6 @@ Most rules below exist to protect that sentence.
    | Item | What |
    |---|---|
    | 1.4 | Tenant isolation wrapper |
-   | 4.3 | Tokenization |
    | 4.4 | View compiler |
    | S2 | DuckDB two-session construction |
    | S4 | Ephemerality proof |

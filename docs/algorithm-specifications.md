@@ -2,8 +2,8 @@
 
 **Companion to the Slice 1 technical documentation. These are the parts a code generator must not invent.**
 
-Version 1.2. Current as of the Slice 1 documentation v1.1 and the implementation plan v2.0.
-Consistent with: five treatments in Slice 1 (`reference` is Slice 3), demo sources rather than a sandbox mode, spreadsheet ingest as the second connector, the Slice 1a and 1b split, and the clarification policy in E.8.
+Version 1.3. Current as of the Slice 1 documentation v1.1 and the implementation plan v2.0.
+Consistent with: five treatments in Slice 1 (`reference` is Slice 3), demo sources rather than a sandbox mode, spreadsheet ingest as the second connector, the Slice 1a and 1b split, the clarification policy in E.8, and tokenization at the read boundary in the sidecar (A.6).
 
 Each specification here is precise enough to implement without judgement calls, and each carries the tests that prove it. Where a decision is genuinely open, it says so and names a default rather than leaving silence for someone to fill.
 
@@ -22,26 +22,33 @@ The property the product is sold on: the same input produces the same token in e
 | A3 | Different across projects. The same customer identifier tokenizes differently in two projects | Projects are isolation boundaries |
 | A4 | Stable across time. Rotation is a deliberate, disruptive act, never a side effect | Rotation invalidates every token an agent has seen |
 | A5 | Format-preserving enough to survive the column type | A `varchar(20)` column cannot hold 64 hex characters |
-| A6 | Computable inside DuckDB, in the query path | The view applies it; nothing pre-computes |
+| A6 | Computed per query in the sidecar as rows are read from the source, before anything enters a DuckDB session. Never stored | No persisted copy of treated data; a decision change applies to the next query; one column can carry a different treatment per pool without a copy per pool; plaintext never enters a DuckDB structure or its disk spill, and the key never appears in SQL |
 
 ## A.2 Construction
 
-**HMAC-SHA256 with a per-project secret, truncated and encoded.**
+**HMAC-SHA256 with a per-project key, over a versioned and domain-separated payload, truncated and encoded.**
 
 ```
-token(value, projectId, domain) =
-    prefix(domain) || base32_crockford( HMAC_SHA256( key(projectId), canonical(value) )[0..15] )
+payload = "v1" || 0x00 || canon_id || 0x00 || domain || 0x00 || canonical_utf8(value)
+
+token   = "v1" || "_" || domain || "_" || crockford32( HMAC_SHA256( key(projectId), payload )[0..15] )
 ```
 
 Where:
 
-- `key(projectId)` is 32 random bytes generated at project creation, stored in the vault as `vault://opintel/token-key/{projectId}`, and never in Postgres
-- `canonical(value)` is defined in A.3
-- `[0..15]` takes the first 16 bytes, giving 128 bits before encoding. Truncation to 128 bits is safe for HMAC and keeps the token short
-- Crockford base32 gives 26 characters from 16 bytes, uppercase, no ambiguous letters, safe in URLs and log lines
-- `prefix(domain)` is a short marker so a human reading a result can see what kind of thing it is: `c_` for a customer identifier, `t_` for a transaction, empty by default. The domain comes from the element's configured token domain, defaulting to none
+- `key(projectId)` is 32 random bytes generated at project creation, stored in the vault as `vault://opintel/token-key/{projectId}`, and never in Postgres. It is used as raw bytes, never as hex or base64 text
+- `canonical_utf8(value)` is the canonical form defined in A.3, encoded as UTF-8
+- `"v1"` is the **envelope version**. It names the construction: HMAC-SHA256, the 128-bit truncation, Crockford encoding and this payload layout. Changing any of them means `v2`
+- `canon_id` names **the canonicaliser and its version** (A.3.2), for example `stdtext1`, `stdnum1`, `stddate1`, `stdtime1` or `addr2`. Changing a canonicaliser changes the element's tokens without changing the envelope
+- `domain` is the element's token domain, for example `c` for a customer identifier or `t` for a transaction. **Every tokenized element has one.** It is mixed into the MAC, so the same value in two domains produces unrelated bodies and stripping prefixes cannot join a customer to a transaction
+- `[0..15]` takes the first 16 bytes, giving 128 bits. Truncation to 128 bits is safe for HMAC and keeps the token short
+- Crockford base32 gives 26 characters from 16 bytes: most significant bit first, the final group right-padded with zero bits, alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`
 
-**Result:** `c_9K3M2P0QRSTVWXYZ8H4J6N5B7D` for a domain-tagged column, or the 26 characters alone.
+**`domain` and `canon_id` must match `[a-z0-9]+`.** No underscore, because the token splits on `_`. No null byte, because it delimits the payload. No empty value. An element whose domain or canonicaliser id fails this is refused when the entitlement is set, not at query time.
+
+**The 0x00 delimiters prevent boundary sliding.** Without them, domain `a` with value `bc` and domain `ab` with value `c` would produce the same bytes.
+
+**Result:** `v1_c_AQQBQ9RC399G23350RD6V757AC` for `ACME-001` in domain `c` under the test key in A.8's reference vectors, always `v1_`, then the domain, then `_`, then 26 characters.
 
 **Why not a random surrogate held in a mapping table.** A mapping table is reversible by anyone with database access, has to be replicated to every source, and turns tokenization into a write path. HMAC needs no state beyond the key.
 
@@ -49,29 +56,64 @@ Where:
 
 ## A.3 Canonicalisation
 
-Two records that mean the same customer must tokenize the same, or the join fails. Applied in this order:
+Two records that mean the same customer must tokenize the same, or the join fails. Every tokenized element has a **mode**, taken from its type family: text, number, date or timestamp. The mode decides the canonical form.
 
-1. If the value is `NULL`, the token is `NULL`. Never tokenize a null into a value
-2. Cast to text using the source type's canonical text form. Integers without leading zeros, decimals without trailing zeros, timestamps in RFC 3339 UTC
-3. Trim leading and trailing whitespace
-4. Apply Unicode NFKC normalisation
-5. Case-fold if the element is marked `caseInsensitive`, which defaults **true for text, false for everything else**
+**The input is the source's own text representation of the value**, read as A.6 describes. Never a value a database driver has already parsed into a native number or date: drivers apply host time zones, lose precision and render numbers inconsistently, and each of those changes tokens silently.
+
+**In every mode, `NULL` produces `NULL`.** A null is never tokenized into a value.
+
+**Every rule below is defined explicitly rather than delegated to a language built-in**, because built-ins disagree between languages and versions. The reference vectors in A.8 prove the implementation matches.
+
+### Text mode
+
+Applied in this order:
+
+1. If a domain canonicaliser is registered for the element (A.3.2), apply it
+2. Unicode NFKC normalisation
+3. Trim leading and trailing characters in the **trim set**
+4. If the element is `caseInsensitive`: full Unicode case folding, then NFKC again
+
+**The trim set** is the Unicode `White_Space` property plus U+FEFF: U+0009 to U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F, U+3000 and U+FEFF. It is an explicit list because Python's `strip()` and JavaScript's `trim()` disagree on six of these. U+FEFF matters in practice: it is the byte-order mark Excel writes at the start of CSV exports, so it appears in the first cell of landed spreadsheets.
+
+**NFKC runs before trim** because NFKC turns compatibility spaces such as U+00A0 and U+3000 into U+0020, which trim must then remove.
+
+**Case folding is full folding** (Unicode `CaseFolding.txt`, statuses C and F), so `ß` folds to `ss` and `Straße` matches `STRASSE`. Lowercasing is not case folding. **NFKC is applied again after folding** because folding leaves 26 characters in a form NFKC changes, U+01F0 among them. This is the Unicode standard's form for caseless matching.
+
+**`caseInsensitive` defaults to true for text elements.** It is a per-element setting because it is a data decision, not a technical one. Customer codes are usually case-insensitive. Free-text names usually are not, and folding them creates false joins.
 
 **The empty string tokenizes.** It is a value, not an absence, and collapsing it into `NULL` loses a distinction that matters in reconciliation.
 
-**Step 5 is a per-element setting because it is a data decision, not a technical one.** Customer codes are usually case-insensitive. Free-text names usually are not, and folding them creates false joins.
+### Number mode
+
+Input must match `-?(0|[1-9]\d*)(\.\d+)?`, the form Postgres `numeric::text` emits. The canonical form removes trailing zeros from the fractional part, drops the decimal point when no fraction remains, and turns `-0` into `0`. So `100`, `100.0` and `100.000000` all canonicalise to `100`.
+
+**Numbers are canonicalised as strings, never through arithmetic.** Arithmetic types round: a 28-digit decimal context makes two distinct 40-digit values collide.
+
+**Refused:** exponents (`1e2`), underscores (`1_000`), a leading or trailing decimal point, leading zeros (`007`) and any value that is not a string. Floating-point columns cannot be tokenized; cast them upstream to `numeric` or to integer minor units such as cents.
+
+**Leading zeros belong to text, not numbers.** An integer column never renders `007`. A text column holding `007` is in text mode, where `007` and `7` are different values, unless a domain canonicaliser declares them equal. That is exactly the padded-reference case A.3.2 exists for.
+
+### Date mode
+
+`YYYY-MM-DD`, validated as a real calendar date. `2026-02-30` is refused. A date is never treated as midnight in some zone.
+
+### Timestamp mode
+
+Input grammar: `YYYY-MM-DD[T ]HH:MM:SS[.f{1,6}][Z|±HH[[:]MM]]`. Seconds are required, and a date alone is refused in timestamp mode.
+
+Canonical form: `YYYY-MM-DDTHH:MM:SS.ffffffZ` in UTC, microseconds zero-padded to six digits, always 27 characters. **Never truncated to milliseconds**: two events half a millisecond apart must not join. A.3.1 governs values without a zone.
 
 ### A.3.1 Timestamps must not depend on where the sidecar runs
 
-Casting to RFC 3339 UTC is correct only when the source value carries a zone. Where it does not, a naive cast uses the host's timezone, and **the same value then tokenizes differently depending on which machine executed the query**. That is deterministic token drift and it silently breaks cross-source joins.
+Converting to UTC is correct only when the source value carries a zone. Where it does not, a naive cast uses the host's timezone, and **the same value then tokenizes differently depending on which machine executed the query**. That is deterministic token drift and it silently breaks cross-source joins.
 
 | Source value | Behaviour |
 |---|---|
-| `timestamptz`, or any value with an explicit offset | Cast to UTC, format RFC 3339 |
-| `timestamp` without zone, element has a declared source timezone | Interpret in that zone, cast to UTC |
+| `timestamptz`, or any value with an explicit offset | Convert to UTC, format as the timestamp-mode canonical form |
+| `timestamp` without zone, element or schema has a declared source timezone | Interpret in that zone, convert to UTC. **Refused if the local time is ambiguous or nonexistent in that zone**: during a DST overlap the same wall time happens twice, during a DST gap it never happens, and picking one would be a guess |
 | `timestamp` without zone, **no declared zone** | **Refuse.** The element cannot be tokenized until someone declares its zone |
-| Unix epoch, seconds or milliseconds | Unit declared per element. **No inference from magnitude.** Refuse if undeclared |
-| `date` with no time | Treated as a date, not midnight in some zone. Formatted `YYYY-MM-DD` |
+| Unix epoch, seconds or milliseconds | Unit declared per element. **No inference from magnitude.** Converted to the timestamp-mode canonical form. Refuse if undeclared |
+| `date` with no time | Date mode, never midnight in some zone. Formatted `YYYY-MM-DD` |
 
 **Refusing is the right default and it will be unpopular.** The alternative is a join that works in staging and fails in production because the sidecar moved. The declaration is a one-line setting on the element and it belongs in the six week deployment alongside the other data decisions.
 
@@ -90,12 +132,11 @@ Real cases, all of which break a naive join:
 
 **These cannot be solved generically and must not be guessed at.** A canonicaliser that decides `St` means `Street` is making a claim about the customer's data that may be false.
 
-So: a declared extension point, applied **before** step 1, per element.
+So: a declared extension point, applied as the **first** text-mode step, per element.
 
 ```ts
 interface Canonicaliser {
-  readonly id: string;                 // 'my_address_v2'
-  readonly version: number;            // bumped on any behaviour change
+  readonly canonId: string;            // 'addr2': name and version together, [a-z0-9]+
   canonicalise(raw: string): string;   // pure, deterministic, no I/O
 }
 ```
@@ -104,13 +145,15 @@ interface Canonicaliser {
 |---|---|
 | Registered per element, never global | The same rule is right for one column and wrong for another |
 | Pure and deterministic. No network, no clock, no locale lookup | Anything else reintroduces the drift A.3.1 just closed |
-| Versioned, and the version recorded on the element | Changing a canonicaliser changes every token, exactly like a key rotation |
+| `canonId` carries the version and is recorded on the element. It enters the HMAC payload (A.2) | Changing a canonicaliser changes every token of that element, exactly like a key rotation. Putting the id in the payload guarantees two canonicaliser versions can never produce the same token |
 | Changing it requires the same typed confirmation as key rotation | Because the consequence is the same: joins break |
 | Ships as part of the industry pack where the domain is common | Address and roll-number handling is reusable within a market |
 
 **A canonicaliser is established during the deployment**, alongside vocabulary and landing strategy. It is a data decision made with the customer, not a library choice made by an engineer.
 
-**Where a canonicaliser exists it runs first**, then steps 1 to 5 run on its output. The order matters: normalising Unicode before a domain rule sees the value would hide the distinctions the rule needs.
+**Where a canonicaliser exists it runs first**, then the remaining text-mode steps run on its output. The order matters: normalising Unicode before a domain rule sees the value would hide the distinctions the rule needs.
+
+**Every tokenized element has a `canon_id`, even without a domain canonicaliser.** The built-in ids are `stdtext1`, `stdnum1`, `stddate1` and `stdtime1`, one per mode. A domain canonicaliser replaces `stdtext1` with its own id.
 
 ## A.4 Length and type handling
 
@@ -118,9 +161,9 @@ The token must fit the column it replaces.
 
 | Target type | Behaviour |
 |---|---|
-| `VARCHAR` with no length, `TEXT` | Full 26 characters plus prefix |
-| `VARCHAR(n)` where n >= 26 + prefix | Full token |
-| `VARCHAR(n)` where n < 26 + prefix | **The view widens the column to `VARCHAR`.** Truncating the token would create collisions |
+| `VARCHAR` with no length, `TEXT` | Full token: `v1_`, the domain, `_`, then 26 characters. 30 characters plus the domain's length |
+| `VARCHAR(n)` where n is at least the token length | Full token |
+| `VARCHAR(n)` where n is shorter than the token | **The view widens the column to `VARCHAR`.** Truncating the token would create collisions |
 | Numeric, date, uuid | The view changes the column type to `VARCHAR`, and `describe` reports the post-treatment type |
 
 **`describe` always reports the post-treatment type**, so an agent never writes arithmetic against a token.
@@ -131,10 +174,12 @@ The token must fit the column it replaces.
 |---|---|
 | Generation | 32 bytes from a CSPRNG at project creation, before the first source connects |
 | Storage | Vault only. A key in Postgres fails a startup assertion that scans for it |
-| Distribution | Resolved by the sidecar at execution time, held in memory, never logged |
+| Distribution | Resolved through `VaultPort` by the sidecar at execution time, as 32 raw bytes, held in memory, never logged. **Only the sidecar resolves it.** The application process never holds the key and never imports the tokenizer |
 | Rotation | A distinct command with a typed confirmation naming what breaks |
 | Rotation effect | **Every token changes.** Cached agent results become unjoinable to new results. Prior evidence records remain valid because they record the token as released at the time |
 | Rotation record | Written to the audit log with the reason. The project's `token_key_version` increments and appears in every evidence record from that point |
+
+**Zero key buffers after use, but do not list it as a guarantee.** Node's HMAC copies the key into OpenSSL's memory, and a key delivered as text, for example by the development vault adapter reading an environment variable, exists as an immutable string that cannot be zeroed. The guarantee is that the key never leaves the sidecar process and never appears in a log, span, error message, SQL string or database row.
 
 **Rotation is not a routine hygiene action.** The console says so: rotating breaks joins in any agent that has cached results, and there is no way to translate an old token to a new one.
 
@@ -166,23 +211,41 @@ Rotation is a deliberate act with a known cost. Loss is the same cost, unplanned
 
 **K4 changes the mental model of rotation.** Keys are not replaced, they accumulate. The current key produces new tokens; superseded keys remain available for verifying old records. That makes rotation safe to perform and makes the evidence store durable across it.
 
-## A.6 Implementation in the query path
+## A.6 Implementation at the read boundary
 
-A DuckDB scalar function registered per session, closing over the project's key.
+**Tokenization and masking run in the sidecar's own code, as rows are read from the source, before anything enters a DuckDB session.** DuckDB only ever receives treated values for tokenized and masked columns.
 
-```sql
-CREATE VIEW harvest_ops.warehouse.orders AS
-SELECT
-  order_id,
-  placed_at,
-  opintel_token(customer_id, 'c_')  AS customer_id,
-  opintel_token(email)              AS email
-FROM pg_warehouse.public.orders;
+```
+customer source --plaintext--> sidecar read loop --treated rows--> DuckDB staging
+                                 canonicalise, tokenize or mask
+                                 key held here only
 ```
 
-`opintel_token` is registered by the sidecar before the views are applied, with the key bound in the closure. It is not a SQL macro and its definition is not visible to `duckdb_functions()` output that agents can reach.
+**What this buys**, compared with registering a token function inside DuckDB:
 
-**The function is deterministic and marked as such**, so DuckDB may push it into a hash join and the join executes on tokens without materialising the plaintext.
+- **Plaintext never enters a DuckDB structure**, including DuckDB's temp directory when it spills under memory pressure. Anything spilled is already treated
+- **The key never appears in SQL.** A function registered in DuckDB would carry the key into statement text or a closure inside the SQL engine, where it could surface in query logs, profiling output or error messages
+- **One implementation.** There is no second engine whose Unicode normalisation, case folding or trimming could differ byte for byte from the sidecar's
+
+**Plaintext still passes through sidecar memory** for the instant it takes to canonicalise and hash each value. That is unavoidable, since a value cannot be hashed without reading it, and the ephemerality proof (C.5) covers the sidecar's row buffers as well as DuckDB.
+
+### Reading from the source
+
+- **Tokenized columns are read as the source's own text**, cast to text in the `SELECT` the sidecar issues. Never tokenize a value the driver has parsed: `node-postgres` reads naive timestamps in the host's local time zone, truncates timestamps to milliseconds and renders numerics with the column's scale
+- **The source session's `TimeZone` is set to UTC** before reading, so `timestamptz::text` carries an offset the timestamp grammar accepts
+- **Clear and `aggregate_only` columns carry source values by decision.** A sum over tokens would be meaningless, so `aggregate_only` is protected by query inspection (B.4), not by transformation. The accurate claim is therefore: every tokenized or masked column exists in DuckDB only in treated form
+
+### Consequences
+
+- **Predicates on tokenized columns cannot be pushed to the source.** An agent filtering on a token holds only the token; the source holds only plaintext. The sidecar reads, tokenizes, then filters. This holds for any tokenization design, but it means the `unsupported_pushdown` refusal in C.1 fires more often on tokenized columns
+- **Joins on tokenized keys happen in the agent session, on staged tokens.** Two sources' tokenized columns join because the same canonical value produces the same token (A1)
+
+### Implementation requirements
+
+- **Case folding from a committed table** generated from Unicode's `CaseFolding.txt`, statuses C and F. Node has no case-folding function and `toLowerCase()` is not case folding
+- **Trim with the explicit set in A.3**, never `String.prototype.trim`
+- **Parse by grammar.** No `Date`, no `parseFloat` and no `Number()` anywhere on the canonicalisation path
+- **Record the running Unicode version at sidecar startup.** Unicode's stability policies keep NFKC and case folding fixed for characters already assigned, but a Node upgrade can change tokens for characters assigned after the previously running version
 
 ## A.7 What tokenization does not protect against
 
@@ -206,9 +269,9 @@ Where these matter, the correct treatment is `aggregate_only` or `withheld`, not
 | TOK-06 | `' ACME '` and `'acme'` on a case-insensitive element | Identical token |
 | TOK-07 | The same pair on a case-sensitive element | Different tokens |
 | TOK-08 | Unicode variants normalising to the same NFKC form | Identical token |
-| TOK-09 | Integer `007` and string `'7'` on the same logical key | Identical token after canonicalisation |
+| TOK-09 | Numeric `7`, `7.0` and `7.000` on the same logical key | Identical token. `007` in number mode is refused; in text mode `007` and `7` differ unless a domain canonicaliser declares them equal |
 | TOK-10 | Cross-source join on a tokenized key | Join returns the same row count as on the plaintext key |
-| TOK-11 | Token length | 26 characters plus prefix, always |
+| TOK-11 | Token format | Always `v1_`, the domain, `_`, then 26 Crockford characters |
 | TOK-12 | Collision probe, 10 million distinct inputs | Zero collisions |
 | TOK-13 | Key absent from the vault | Execution refuses. It does not fall back to a hash |
 | TOK-14 | Key present in Postgres | Startup assertion fails |
@@ -220,7 +283,7 @@ Where these matter, the correct treatment is `aggregate_only` or `withheld`, not
 | TOK-20 | Naive timestamp with a declared zone, sidecar running in two different host zones | Identical token from both |
 | TOK-21 | Unix epoch with no declared unit | Refused. No inference from magnitude |
 | TOK-22 | `date` column | Formatted `YYYY-MM-DD`, never midnight in a zone |
-| TOK-23 | Element with a registered canonicaliser | Canonicaliser runs **before** steps 1 to 5 |
+| TOK-23 | Element with a registered canonicaliser | Canonicaliser runs as the **first** text-mode step, and its `canonId` replaces `stdtext1` in the payload |
 | TOK-24 | Canonicaliser attempting I/O or reading the clock | Rejected at registration |
 | TOK-25 | Canonicaliser version bumped | Treated as a token-breaking change, typed confirmation required |
 | TOK-26 | Two address variants under a declared canonicaliser | Identical token. The same pair without it, different tokens |
@@ -228,6 +291,14 @@ Where these matter, the correct treatment is `aggregate_only` or `withheld`, not
 | TOK-28 | Restore rehearsal | Re-derives the sentinel token. A mismatch raises an observation |
 | TOK-29 | Rotation | Superseded key retained, not deleted. Old records still verifiable |
 | TOK-30 | Evidence record | Names the key version that produced its tokens |
+| TOK-31 | Every vector in `sidecar/tokenize/reference/vectors.json` | Exact token match, and each of the 14 rejection vectors refused. The vectors come from an independent implementation; the implementation under test never modifies or regenerates them |
+| TOK-32 | Same value, domains `c` and `t` | Different bodies, not only different prefixes |
+| TOK-33 | Domain or `canonId` containing `_`, a null byte, uppercase, or empty | Refused when the entitlement is set |
+| TOK-34 | Leading U+FEFF, trailing U+0085; trailing U+001F | The first two trim to the plain value's token; U+001F is kept and the token differs |
+| TOK-35 | Naive timestamp in a declared zone during a DST overlap, and during a DST gap | Both refused |
+| TOK-36 | A full tokenization run with log capture | The key, in raw, hex and base64 forms, appears in no log line, span or error |
+| TOK-37 | A tokenized column read through the sidecar | Read as source text; a driver-parsed `Date` or `number` never reaches the canonicaliser |
+| TOK-38 | Staged DuckDB tables and DuckDB's temp directory after a run with tokenized columns | Contain no plaintext value of any tokenized or masked column |
 
 ---
 
@@ -320,6 +391,8 @@ opintel_mask_all("notes")             AS "notes"         -- ••••
 -- aggregate only: plain column, constrained by the query inspector
 "amount"
 ```
+
+> **Superseded for tokenized and masked columns by A.6.** Treatments are now applied in the sidecar as rows are read, before DuckDB, so `opintel_token` and the `opintel_mask_*` functions above are not registered in any DuckDB session. The compiler's output for these columns becomes a read plan telling the sidecar which column receives which treatment, and the view selects the already-treated column. Revise this section with item 4.4 before implementing the compiler.
 
 Identifiers are always double-quoted, and a quote inside an identifier is doubled. The compiler never interpolates a name without passing it through `quoteIdent()`, which is the only place identifier text becomes SQL.
 
@@ -451,6 +524,8 @@ AGENT SESSION (runs agent SQL)
   10. run agent SQL
   11. close, free, release
 ```
+
+> **Superseded in part by A.6.** Step 6 is removed: no token or mask function, and no key, exists in any DuckDB session, and in particular never in the agent session, which runs agent SQL. For objects with a tokenized or masked column, steps 1 and 3 change: instead of attaching the source and running the compiled `SELECT` inside DuckDB, the sidecar reads rows through its source connector, treats them in its own code, and appends them to the staging tables. Objects whose columns are all clear or `aggregate_only` may still use the attach path. Revise this section with item S2.
 
 **Why materialise.** The alternative, a view in the agent session over an attachment, leaves the attachment reachable. Materialising costs memory and a scan; it buys a session where the base catalogs do not exist to be found.
 
