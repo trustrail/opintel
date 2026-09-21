@@ -1,3 +1,4 @@
+import { foldingVersion } from './tokenize/unicode/folding.js';
 import { SpreadsheetDemoProvisioner } from './demo/provision.js';
 import { DemoWorkbookWriter } from './demo/infrastructure/workbook-writer.js';
 import { FilingLander } from './ingest/land.js';
@@ -15,6 +16,7 @@ import { FileSamplingAudit } from './infrastructure/file-sampling-audit.js';
 import { createSidecarServer } from './http/server.js';
 
 async function main(): Promise<void> {
+  console.info({event:'tokenization.unicode', runtime:process.versions.unicode, folding:foldingVersion});
   loadEnvironment({path:resolve('.env.sidecar.local')});
   const file = process.argv[2] ?? process.env.SIDECAR_CONFIG_FILE ?? resolve('tmp/sidecar/service.json');
   const {config,tls} = await loadSidecarConfig(file);

@@ -991,6 +991,7 @@ interface RateLimiter {
 // platform/vault
 interface VaultPort {
   resolve(ref: VaultRef): Promise<string>;   // never logged, never cached to disk
+  resolveBytes(ref: VaultRef): Promise<Uint8Array>; // exactly 64 lowercase hex characters decoded to 32 raw bytes (A.5)
   store(path: string, secret: string): Promise<VaultRef>;
 }
 ```

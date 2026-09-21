@@ -37,6 +37,7 @@ vi.mock('openid-client', () => ({
 import { OpenIdClientAdapter } from '../src/modules/identity/infrastructure/openid-client-adapter.js';
 
 class TestVault implements VaultPort {
+  async resolveBytes(): Promise<Uint8Array> { throw new Error('Not used by this credential fixture.'); }
   async resolve(_ref: import('../src/platform/vault/index.js').VaultRef): Promise<string> { return 'secret'; }
   async store(_path: string, _secret: string): Promise<import('../src/platform/vault/index.js').VaultRef> { return VaultRef('vault://test/stored'); }
 }

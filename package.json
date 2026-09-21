@@ -26,7 +26,8 @@
     "spicedb:schema": "tsx src/modules/authz/infrastructure/load-schema.ts",
     "sidecar:register": "tsx sidecar/ingest/command.ts",
     "test:performance": "tsx scripts/test.ts --config vitest.performance.config.ts",
-    "demo:pack": "tsx scripts/demo-pack.ts"
+    "demo:pack": "tsx scripts/demo-pack.ts",
+    "test:tokenization-collision": "vitest run --config vitest.tokenization.config.ts"
   },
   "dependencies": {
     "@authzed/authzed-node": "^1.6.1",

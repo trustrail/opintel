@@ -224,3 +224,25 @@ deployed arrangement starts. Run the thing.
 - Add tests for each refused and each permitted operation.
 - Draft this with the B.3 and C.1 rewrites for the read boundary, before any
   4.4 code is written.
+
+# Item 4.3 — tokenization integration boundaries
+
+- Key generation, escrow, backup gating, rotation and restore remain 4.3a:
+  TOK-16 and TOK-27–TOK-29. No fallback or development-only generated key.
+- Temporal declarations persist in 4.3b; canonicaliser registration, purity
+  checking and typed version confirmation remain 4.3c (TOK-24/TOK-25).
+- TOK-30 belongs to 5.11 evidence writing. TOK-38 belongs to S2/S4: no DuckDB
+  executor exists here. That executor must consume only treated read-boundary
+  rows and discard partial staging on any refusal.
+- TOK-33 checks identifiers at execution now; item 4.7 must reject invalid
+  domains/canonicaliser IDs while setting persisted entitlements as specified.
+- Unicode folding is pinned to 16.0.0, matching the implementation runtime.
+  Startup records the running Unicode and folding versions; upgrade review
+  must check tokens for newly assigned characters before changing the table.
+
+# From item 4.3
+
+- src/modules/entitlements/application/treatments.ts still holds the five
+  treatment strategies, with an optional TokenizerPort nothing implements.
+  Under the read-boundary design (A.6) tokenized and masked treatments run
+  in the sidecar. Move them with the 4.4 and S2 revisions.

@@ -211,8 +211,8 @@ Version 1.0 · September 2026
 | H-002 | F | Set `clear` | 4.2 preserves the clear value and records who/when; view compilation in handwritten 4.4 and recompilation under 2s in 4.9 |
 | H-003 | F | Set `withheld` | 4.2 returns an omission descriptor; column absent from compiled DDL in handwritten 4.4 |
 | H-004 | D | Undecided element | Absence-of-row prerequisite in 4.1; absent from compiled DDL in handwritten 4.4 |
-| H-005 | F | Set `tokenized` | 4.2 delegates unchanged values to TokenizerPort and declares VARCHAR; column wrapped in the token function in handwritten 4.4 |
-| H-006 | D | Same input tokenized in two sources | 4.2 proves port delegation only; actual identical tokens require handwritten 4.3 |
+| H-005 | F | Set `tokenized` | 4.2 delegates unchanged values to TokenizerPort and declares VARCHAR; 4.3 treats source text before DuckDB, and handwritten 4.4 compiles against treated staging (A.6) |
+| H-006 | D | Same input tokenized in two sources | 4.2 proves port delegation only; 4.3 proves actual identical tokens at the sidecar read boundary |
 | H-007 | F | Set `masked` | Mask applied per the configured form |
 | H-008 | F | Set `aggregate_only` | 4.2 supplies an aggregate-only constraint descriptor; B.2 includes the plain column in the view (4.4), with the constraint enforced during query inspection (4.5) |
 | H-009 | F | Attempt to set an element back to undecided | Domain/schema reject in 4.1; API rejects in 4.7; UI offers no reset in 4.8 |
@@ -892,3 +892,20 @@ Every endpoint in Parts A and D carries at least one contract case (`C`) plus it
 ### Gate
 
 CI generates this matrix from test annotations and compares it against the entity, screen and endpoint inventories in Parts C and D. **Any inventory item with zero cases fails the build.** This is what makes the coverage claim checkable rather than asserted.
+
+## Tokenization execution ownership (algorithm specification A.8)
+
+- Item 4.3: TOK-01–TOK-15, TOK-17–TOK-23, TOK-26, TOK-31–TOK-37.
+  TOK-31 runs every immutable reference vector, including 14 refusals.
+  TOK-12 runs ten million inputs in the isolated `test:tokenization-collision`
+  CI step. TOK-14 scans all text/bytea columns in both the application database
+  and a private customer landing database after actual source-read runs; the
+  key wrapper redacts string, JSON and inspection output. TOK-36 captures logs.
+- Item 4.3a: TOK-16 and TOK-27–TOK-29 (rotation, backup and restore).
+- Item 4.3b: persisted declarations for TOK-19–TOK-22; 4.3 tests execution.
+- Item 4.3c: TOK-24/TOK-25 (registration purity and version confirmation);
+  4.3 tests the supplied canonicaliser extension for TOK-23/TOK-26.
+- Item 5.11: TOK-30, persisted evidence token-key version.
+- S2/S4: TOK-38, treated staging and disk-spill proof.
+- TOK-33 is validated at the execution boundary in 4.3; persisted entitlement
+  declaration validation belongs to the setting route, item 4.7.

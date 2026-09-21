@@ -34,7 +34,7 @@ jobs:
     name: Migrations
     needs: foundation
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     env:
       DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
       MIGRATION_DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
@@ -55,6 +55,8 @@ jobs:
       # Separate process: no functional test workers compete with E-016.
       - name: Isolated E-016 latency budget
         run: npm run test:performance
+      - name: Isolated TOK-12 ten-million-input collision proof
+        run: npm run test:tokenization-collision
       - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:down
       - run: MIGRATION_DATABASE_URL="$TEST_DATABASE_URL" npm run migrate:up
       - run: docker compose down -v

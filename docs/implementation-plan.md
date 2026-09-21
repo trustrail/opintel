@@ -12,7 +12,7 @@ Supersedes v1.0. Six decisions are now settled and applied: Slice 1 splits into 
 
 **No item starts before its dependencies are green.** The order below is a dependency order. It is the only ordering constraint that matters, and it is the reason this plan carries no calendar estimates: sequence is knowable, duration is not.
 
-**Six items are hand-written, never generated.** The tenant wrapper (1.4), tokenization (4.3), the view compiler (4.4), the DuckDB two-session construction (S2), the ephemerality proof (S4), and the bypass suite (C.6). A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
+**Five items are hand-written, never generated.** The tenant wrapper (1.4), the view compiler (4.4), the DuckDB two-session construction (S2), the ephemerality proof (S4), and the bypass suite (C.6). A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
 
 **The stylesheet is not rewritten.** `opintel-master.css` ships unchanged. React components are written to its existing class contract. A class that is not in that file fails the build.
 
@@ -23,7 +23,7 @@ Supersedes v1.0. Six decisions are now settled and applied: Slice 1 splits into 
 | 1 | No calendar estimates. Gates, not weeks | Progress is measured by phase gates passing |
 | 2 | **Slice 1 splits into 1a and 1b.** 1a is complete and shippable without prompt mode; 1b adds language | 1a satisfies four of five pilot criteria on its own |
 | 3 | **Second connector is spreadsheet ingest**, not Parquet | A landing pipeline inside the customer's environment, writing to their Postgres |
-| 4 | Tokenization reviewed by the founder before any dependent code | Blocks item 4.3 until signed off |
+| 4 | Tokenization reviewed by the founder before any dependent code | Construction A v1.3 signed off; 4.3 delegated with immutable reference vectors |
 | 5 | **SpiceDB self-hosted** in Slice 1 | Managed AuthZed remains the SOC 2 trigger, not a Slice 1 decision |
 | 6 | Bordereaux ingestion is in Slice 1 | Reshapes the data phase and the demo pack |
 
@@ -159,10 +159,10 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 (domain/key invariants), I-002 (schema hash-only storage), tenant isolation, E2-027 |
 | 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004 (absence-of-row prerequisite; DDL in 4.4), H-009 (domain/schema rejection; API in 4.7, UI in 4.8), E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff), ING-30 and E2-014 (persisted undecided assertions) |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 (value/provenance), H-003/H-004 (omission descriptors), H-005/H-006 (TokenizerPort delegation only), H-007 (masks), H-008 (constraint descriptor); DDL/recompile assertions deferred to 4.4 and 4.9, real token equality to 4.3 |
-| 4.3 | **Tokenization.** Blocked until the construction is signed off. | 4.2, 1.4, review | `sidecar/tokenize` | TOK-01 to TOK-30, H-006 (actual token equality) |
-| 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |
-| 4.3b | Timestamp and epoch declarations per element, refusing where undeclared | 4.3, 3.1 | `catalog/temporal.ts` | TOK-19 to TOK-22 |
-| 4.3c | Canonicaliser registry, versioned, pure, per element | 4.3 | `entitlements/canonicalise.ts` | TOK-23 to TOK-26 |
+| 4.3 | **Tokenization at the sidecar read boundary.** A v1.3 construction approved for implementation. | 4.2, 1.4, review | `sidecar/tokenize` | TOK-01 to TOK-15, TOK-17 to TOK-23, TOK-26, TOK-31 to TOK-37 (TOK-33 execution validation only), H-006 (actual token equality). TOK-12 runs separately in CI |
+| 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-16, TOK-27 to TOK-29 |
+| 4.3b | Timestamp and epoch declarations per element, refusing where undeclared | 4.3, 3.1 | `catalog/temporal.ts` | TOK-19 to TOK-22 (persisted declarations; execution in 4.3) |
+| 4.3c | Canonicaliser registry, versioned, pure, per element | 4.3 | `entitlements/canonicalise.ts` | TOK-24/TOK-25 (registry/purity/version confirmation); TOK-23/TOK-26 execution in 4.3 |
 | 4.4 | **View compiler**, undecided and withheld distinguished in metadata. **Hand-written** | 4.1, 3.2 | `entitlements/compile.ts` | VC-01 to VC-28, H-003/H-004/H-005 (compiled DDL), H-002 (compilation), H-008 (column plus constraint) |
 | 4.5 | Aggregate-only constraint. **Post-filter cardinality, two stages** | 4.4 | `entitlements/aggregate.ts` | VC-10 to VC-14, VC-23 to VC-28, H-008 (query inspection enforcement) |
 | 4.5a | Identifier resolver returning `object_unavailable`, distinguishing withheld from undecided from absent | 4.4 | `entitlements/resolve.ts` | VC-19 to VC-22 |
@@ -186,7 +186,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 5.8 | **Reduction in the text content the model reads.** Hand-reviewed | 5.7 | `mcp/response.ts` | I-009 |
 | 5.9 | `explain` dry run, no source contact | 5.7 | tool | N-003 |
 | 5.10 | Evidence domain, append-only grants, partitioning | 2.1 | `modules/evidence` | M-001 to M-006 |
-| 5.11 | Record writer: per-element treatment, versions, freshness, landing strategy, synthetic derived | 5.10, 5.7, 3.9 | `evidence/write.ts` | M-002, M-011, M-012; ING-24 persisted landing-strategy evidence |
+| 5.11 | Record writer: per-element treatment, versions, freshness, landing strategy, synthetic derived | 5.10, 5.7, 3.9 | `evidence/write.ts` | M-002, M-011, M-012; ING-24 persisted landing-strategy evidence; TOK-30 persisted token-key version |
 | 5.12 | Activity screen, filters, record detail | 5.10, 1.11 | two screens | M-007, M-013 to M-015 |
 | 5.13 | Export: streaming NDJSON and CSV, synthetic excluded | 5.10 | endpoint | M-008 to M-010 |
 | 5.14 | Pools screens: list, detail with key management, agent twin | 5.2, 5.4 | three screens | I-001 (copy-to-dismiss UI), I-015 to I-022 |
@@ -242,7 +242,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | S2 | **Two-session construction**, hardening with `lock_configuration` last, `/validate`, `/execute`. **Hand-written** | S1, 4.4 | session lifecycle | J-003 to J-018, and the bypass suite against both execution paths |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
 | **S2b** | **Streaming execution path**, condition evaluated conservatively, bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
-| S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019, J-020 |
+| S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019, J-020, TOK-38 (with S2 staging) |
 | S5 | VNet mode, OCI image, egress restricted to declared hosts | S2 | packaging | SD-005 subset |
 
 **The sidecar is the critical path and the highest technical risk.** S1b is new in v2.0 and it is the right home for landing: the sidecar already runs inside the customer's environment, already holds credentials they control, and already sends nothing out. Putting ingest anywhere else would break the claim that files never leave their network.
@@ -379,7 +379,7 @@ The pull request template.
 | Landing strategy as a per-source setting | Both implementations. No default. Stamped on every record |
 | Demo pack reshaped | Twelve reinsurance spreadsheets in inconsistent formats rather than pre-made tables |
 | SpiceDB self-hosted, confirmed | Managed AuthZed remains the SOC 2 trigger, not a Slice 1 decision |
-| Tokenization gated on review | Item 4.3 blocked until the construction is signed off |
+| Tokenization gated on review | A v1.3 construction signed off; immutable vectors gate 4.3 |
 
 ---
 

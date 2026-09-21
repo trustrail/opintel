@@ -109,6 +109,7 @@ describe('sidecar Postgres connector against a read-only source credential', () 
 
   it('F-005: an untrusted vault failure cannot expose a resolved credential in a connector response', async () => {
     const vault: VaultPort = {
+      resolveBytes: async () => { throw new Error('Not used by this credential fixture.'); },
       resolve: async () => { throw new Error(`Vault failed with ${sourceUrl}`); },
       store: async () => { throw new Error('Not used.'); },
     };
