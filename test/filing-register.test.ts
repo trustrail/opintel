@@ -257,7 +257,7 @@ describe('filing register', () => {
   const count = egress.length; await register.scan(); expect(egress).toHaveLength(count);
   expect(await delivery.reconcile({ sourceId: zone.sourceId, zoneFileCount: 0, registeredCount: 0, unregisteredCount: 0, checkedAt: new Date().toISOString() },ProjectId(randomUUID()))).toMatchObject({ ok: false });
  });
- it('ING-30 handoff: landed columns enter ordinary introspection; persisted entitlement assertion belongs to 4.1', async () => {
+ it('ING-30: landed columns enter ordinary introspection with no entitlement rows', async () => {
   await arrive('supplier_2026-03.csv','quantity\n100\n');
   const connector = createPostgresConnector({ vault: new DevelopmentVaultAdapter({ OPINTEL_SECRET_CUSTOMER_REGISTER: process.env.TEST_DATABASE_URL! }),
     audit: { record: async () => undefined }, limits: { maxConnectionsPerSource: 1, statementTimeoutMs: 2000, operationTimeoutMs: 5000 } });
@@ -275,6 +275,10 @@ describe('filing register', () => {
   const run = unwrap(await job.execute(context,queued.id));
   expect(run.state).toBe('complete');
   expect(run.diff.filter((entry) => entry.type === 'CatalogElementAdded')).toHaveLength(6);
+  await withTenant(context,tx=>tx.query("INSERT INTO pool(project_id,name) VALUES($1,'Landing readers')",[context.projectId]));
+  expect(await withTenant(context,tx=>tx.query('SELECT * FROM entitlement'))).toEqual([]);
+  const [undecided]=await withTenant(context,tx=>tx.query<{count:number}>(`SELECT count(*)::int AS count FROM catalog_element e CROSS JOIN pool p WHERE NOT EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.pool_id=p.id)`));
+  expect(undecided?.count).toBe(6);
   const elements = await withTenant(context,(tx) => tx.query('SELECT source_identifier FROM catalog_element ORDER BY source_identifier'));
   expect(elements).toEqual(snapshot.objects[0]!.columns.map((column) => column.sourceIdentifier).sort().map((source_identifier) => ({ source_identifier })));
  });

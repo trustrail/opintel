@@ -133,6 +133,8 @@ describe('reinsurance demo pack through ordinary ingest', () => {
    expect(observedStaleCache).toBe(true);
   } finally { releaseCache(); delayedPersist.mockRestore(); }
   await expect.poll(() => watcher!.records().filter((filing) => filing.landing?.registered).length,{timeout:15000}).toBe(12);
+  // Twelve landings do not imply the thirteenth (quarantined) file has settled.
+  await watcher.scan();
   const records = watcher.records(); expect(records).toHaveLength(13);
   expect(records.filter((record) => record.status==='quarantined')).toEqual([expect.objectContaining({reason:'The declared header row contains a merged cell.'})]);
   expect(workbookSpy).toHaveBeenCalledTimes(13); expect(landingSpy).toHaveBeenCalledTimes(12); expect(extractorSpy).toHaveBeenCalled(); expect(storeSpy).not.toHaveBeenCalled();
@@ -167,6 +169,11 @@ describe('reinsurance demo pack through ordinary ingest', () => {
   for (const spy of [demoCheck,nativeCheck]) expect(spy).toHaveBeenCalledExactlyOnceWith(credentialRef,expect.any(AbortSignal));
   for (const spy of [demoIntrospect,nativeIntrospect]) expect(spy).toHaveBeenCalledExactlyOnceWith(credentialRef,[zone.landing!.name],expect.any(AbortSignal));
   expect(choose).toHaveBeenCalledTimes(2);
+  await withTenant(ctx,tx=>tx.query("INSERT INTO pool(project_id,name) VALUES($1,'Demo readers')",[ctx.projectId]));
+  expect(await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'))).toEqual([]);
+  const undecided=await withTenant(ctx,tx=>tx.query<{source_id:string;elements:number;undecided:number}>(`SELECT o.source_id,count(*)::int AS elements,count(*) FILTER (WHERE NOT EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id))::int AS undecided FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id GROUP BY o.source_id ORDER BY o.source_id`));
+  expect(undecided).toHaveLength(2);
+  for(const row of undecided){expect(row.elements).toBeGreaterThan(0);expect(row.undecided).toBe(row.elements);}
   expect(await withTenant(ctx,(tx)=>tx.query('SELECT DISTINCT source_id FROM catalog_object ORDER BY source_id'))).toEqual([sourceId,nativeId].sort().map((source_id)=>({source_id})));
  },30000);
 });

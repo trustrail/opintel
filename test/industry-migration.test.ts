@@ -91,6 +91,23 @@ integration('industry migration with Postgres', () => {
     expect((await post(undefined, '', null)).status).toBe(401);
   });
 
+  it('E2-026: industry migration preserves every entitlement field, row by row',async()=>{
+    const ctx={projectId:ProjectId(project),userId:actor.id};
+    await scopes.withTenant(ctx,async tx=>{
+      const [source]=await tx.query<{id:string}>("INSERT INTO data_source(project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,'Warehouse','warehouse','postgres','vault://test/source') RETURNING id",[project]);
+      const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[project,source!.id]);
+      for(const treatment of ['clear','tokenized','masked','aggregate_only','withheld']){
+        const [pool]=await tx.query<{id:string}>('INSERT INTO pool(project_id,name) VALUES($1,$2) RETURNING id',[project,treatment]);
+        const [element]=await tx.query<{id:string}>("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,duckdb_name,duckdb_type) VALUES($1,$2,$3,'text',$3,'VARCHAR') RETURNING id",[project,object!.id,treatment]);
+        await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,justification,set_at) VALUES($1,$2,$3,$4,'user',$5,'Keep this decision','2026-01-01')",[pool!.id,element!.id,project,treatment,actor.id]);
+      }
+    });
+    const rows=()=>scopes.withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY pool_id,element_id'));
+    const before=await rows();expect(before).toHaveLength(5);
+    expect((await post(undefined,'?dryRun=true')).status).toBe(200);expect(await rows()).toEqual(before);
+    expect((await post()).status).toBe(200);expect(await rows()).toEqual(before);
+  });
+
   it('E2-027: industry migration preserves every source, pool, key and binding row', async () => {
     await scopes.withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[actor.id,actor.email]));
     const ctx={projectId:ProjectId(project),userId:actor.id};

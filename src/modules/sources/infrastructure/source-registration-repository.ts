@@ -5,15 +5,24 @@ import { DeploymentRef,SourceListItem, type NewSource } from '../../../shared/ap
 import { schemaSpecSchema,generatorSpecSchema } from '../../../shared/demo-contract.js';
 import { DomainError,DemoSourceId,err,ok,type IndustryId,type SourceId,type RunId } from '../../../shared/kernel/index.js';
 import type { SourceContext,SourceRegistrationRepository,QueuedSource } from '../application/source-registration.js';
-const selection=`SELECT s.id,s.name,s.duckdb_alias AS "duckdbAlias",s.kind,s.origin,CASE WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
+const selection=`SELECT s.id,s.name,s.duckdb_alias AS "duckdbAlias",s.kind,s.origin,CASE WHEN s.status='archived' THEN 'archived' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
  (SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS error,
  (SELECT r.id FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS "latestIntrospectionId",
  CASE WHEN s.receives_landings THEN (SELECT count(*)::int FROM arrival_notice a WHERE a.source_id=s.id AND a.payload->>'outcome'='landed') ELSE NULL END AS "filingCount",
  (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active') AS "elementCount",
+ (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active' AND (NOT EXISTS(SELECT 1 FROM pool) OR EXISTS(SELECT 1 FROM pool p WHERE NOT EXISTS(SELECT 1 FROM entitlement t WHERE t.pool_id=p.id AND t.element_id=e.id)))) AS "undecidedCount",
  to_char(s.last_introspected_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "lastIntrospectedAt" FROM data_source s`;
-function item(row:Record<string,unknown>){return SourceListItem.parse({...row,undecidedCount:row.elementCount});}
+function item(row:Record<string,unknown>){return SourceListItem.parse(row);}
 export class PostgresSourceRegistrationRepository implements SourceRegistrationRepository {
- list(ctx:SourceContext,after:SourceId|null,limit:number){return withTenant(ctx,async tx=>ok((await tx.query<Record<string,unknown>>(`${selection} WHERE ($1::uuid IS NULL OR s.id>$1) ORDER BY s.id LIMIT $2`,[after,limit])).map(item)));}
+ list(ctx:SourceContext,after:SourceId|null,limit:number){return withTenant(ctx,async tx=>ok((await tx.query<Record<string,unknown>>(`${selection} WHERE s.status<>'archived' AND ($1::uuid IS NULL OR s.id>$1) ORDER BY s.id LIMIT $2`,[after,limit])).map(item)));}
+ async archive(ctx:SourceContext,id:SourceId,confirmation?:string){return withTenant(ctx,async tx=>{
+  const [source]=await tx.query<{name:string;status:string}>('SELECT name,status FROM data_source WHERE id=$1 FOR UPDATE',[id]);
+  if(!source)return err(new DomainError('not_found','The source was not found in this project.'));
+  const dependencies=await tx.query<{poolId:string;poolName:string;count:number}>(`SELECT p.id AS "poolId",p.name AS "poolName",count(*)::int AS count FROM entitlement t JOIN pool p ON p.id=t.pool_id JOIN catalog_element e ON e.id=t.element_id JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=$1 GROUP BY p.id,p.name ORDER BY p.id`,[id]);
+  if(source.status!=='archived'&&dependencies.length&&confirmation!==source.name)return err(new DomainError('conflict',`Archiving ${source.name} affects ${dependencies.map(p=>`${p.poolName}: ${p.count} entitlement${p.count===1?'':'s'}`).join('; ')}. Type the source name to confirm.`,{confirmationPhrase:source.name,entitlements:dependencies}));
+  await tx.query("UPDATE data_source SET status='archived' WHERE id=$1",[id]);
+  const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
+ });}
  private async pack(ctx:SourceContext){return withPlatform(async tx=>{const [project]=await tx.query<{industry_id:string}>('SELECT industry_id FROM project WHERE id=$1',[ctx.projectId]);return project?.industry_id;});}
  async templates(ctx:SourceContext,industryId:IndustryId){
   const industry=await this.pack(ctx);if(!industry||industry!==industryId)return err(new DomainError('not_found','Project not found.'));
@@ -61,6 +70,6 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   await this.enqueueRetry(tx,ctx,id,runId);
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}
- queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",s.demo_template_id AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE r.state='queued' AND r.progress ? 'userId'`,[]));}
+ queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",s.demo_template_id AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND r.state='queued' AND r.progress ? 'userId'`,[]));}
  settledFilings(ctx:SourceContext,id:SourceId){return withTenant(ctx,async tx=>{const [row]=await tx.query<{count:number}>(`SELECT count(*)::int AS count FROM arrival_notice WHERE source_id=$1 AND payload->>'outcome' IN ('landed','quarantined','duplicate')`,[id]);return row!.count;});}
 }

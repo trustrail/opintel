@@ -1523,6 +1523,16 @@ const SourceListItem = z.object({
 
 The failed-source Retry action uses this endpoint. For a demo source it resumes the prepared delivery before introspection. Repeating `POST /projects/:id/sources/from-demo` (or `demo:pack provision`) reuses the reserved source, verifies its project/template/credential/name/strategy binding and preserves prior runs and arrivals. A new source returns 201; resumed or already active work returns 202; an already completed connection returns 200. No deletion is part of recovery. Only one new run is queued. The worker claims the run in Postgres before provisioning, so API and CLI workers cannot prepare the same run concurrently. Sidecar replay keeps file bytes, filing IDs, hashes and provenance unchanged.
 
+**DELETE /sources/:id archives**. Requires project#bind_source. The source leaves every pool's view immediately and its catalogue and entitlement rows are retained, because historical evidence records reference them and must stay explainable.
+
+**The archive request carries `{ projectId, confirmation? }`**, using the same tenant scope convention as introspection retry. Success returns 200 with SourceListItem (`status: archived`). Archived sources are excluded from the ordinary source list and active entitlement reads; alias reservations remain.
+
+**A source with entitlements requires confirmation**. The first call returns 409 listing the dependent entitlements by pool and count. The second must carry { confirmation } equal to the source's name. The standard error envelope has `details: { confirmationPhrase, entitlements: [{ poolId, poolName, count }] }`.
+
+**An archived source cannot be reconnected under the same alias**, since agents may hold queries addressing it.
+
+**An element is undecided for a pool when that pool has no entitlement row for it**. The source list's undecidedCount counts elements undecided in at least one pool. With no pools, every element is undecided. Per-pool counts belong on the pool screens.
+
 
 ### Introspection run payload
 
@@ -1601,7 +1611,7 @@ const IntrospectionRunView = z.object({
 
 `SourceListItem.error` carries the latest run's reviewed, value-free message, or null. Provisioning messages are validated against reviewed text at the sidecar boundary, persisted and rendered unchanged. The declared error code is retained in run progress as `errorCode` for CLI diagnostics. Unknown exception/peer text is replaced by an actionable safe fallback, never copied from SQL, credentials or a stack trace. The CLI exits unsuccessfully when background preparation fails instead of reporting a successful connection.
 
-**undecidedCount equals elementCount until item 4.1**, since undecided is the absence of an entitlement row and no rows can exist yet. The screen shows the real number rather than hiding the column.
+**undecidedCount counts each active element once if any project pool has no decision for it**. With no pools it equals elementCount. Removed elements are excluded from both counts.
 
 **landingStrategy is required when receivesLandings is true**, refused otherwise.
 
@@ -2671,9 +2681,10 @@ publication starts after the transition to diffing. Workers observe cancellation
 through the persisted run state and abort the connector request.
 
 A type-family diff carries the element identifier, before/after types and
-`requiresEntitlementDeletion: true`. Item 4.1 supplies the deletion after this diff
-is recorded. An unchanged structural snapshot yields an empty diff. Exact schema
+`requiresEntitlementDeletion: true`. Item 4.1 enriches it with before/after type families, `runId`, and `entitlements: [{ poolId, treatment }]` for every old decision. The diff is written before those rows are deleted in the same publication transaction. A failed publication rolls back both the diff and deletion. An unchanged structural snapshot yields an empty diff. Exact schema
 subsets do not mark objects outside that selection removed.
+
+Family labels are `number`, `text`, `boolean`, `date`, `time`, `timestamp`, `uuid`, `json`, `list`, `struct`, and `unsupported`; they are not DuckDB type labels. Numeric widths/precision and timestamp zone variants remain within their respective families. Different unsupported source types continue to invalidate conservatively: a shared `unsupported` label does not establish compatibility.
 
 Explicit `adoptRenamedNames` is recorded in run progress and requires project
 administration at enqueue and again before publication. The default preserves
@@ -2864,6 +2875,8 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 **Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released. A null catalog_element.duckdb_type records this state independently of entitlement. Type-mapping metadata takes precedence over entitlement state, so a tokenized treatment cannot expose an unsupported source type. Exact numeric and money mappings require representable precision and scale; nested arrays and structs require supported child types. The describe metadata helper returns post-treatment types; the agent endpoint and view compiler remain with their owning items.
 
 ## 4.5 Entitlements and pools
+
+Item 4.1 adds entitlement storage in migration 028, with forced tenant RLS and composite project-matching pool/element foreign keys. There is no reset command. Removed elements and archived sources retain decisions; active pool reads exclude them. Treatment execution and compiled views remain items 4.2–4.4.
 
 Item 5.1 stores SHA-256 digests as exactly 32 bytes, with a partial `opk_live_`
 display prefix (fewer than the credential's 22 suffix characters). Neither the

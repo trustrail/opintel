@@ -210,12 +210,12 @@ Version 1.0 · September 2026
 | H-001 | F | New element default | Undecided; counted in the undecided total |
 | H-002 | F | Set `clear` | View recompiles under 2s; who and when recorded |
 | H-003 | F | Set `withheld` | Column absent from the compiled DDL |
-| H-004 | D | Undecided element | Absent from the compiled DDL |
+| H-004 | D | Undecided element | Absence-of-row prerequisite in 4.1; absent from compiled DDL in handwritten 4.4 |
 | H-005 | F | Set `tokenized` | Column present, wrapped in the token function |
 | H-006 | D | Same input tokenized in two sources | Identical output token |
 | H-007 | F | Set `masked` | Mask applied per the configured form |
 | H-008 | F | Set `aggregate_only` | Recorded as a constraint, not a view column |
-| H-009 | F | Attempt to set an element back to undecided | Not offered; API rejects |
+| H-009 | F | Attempt to set an element back to undecided | Domain/schema reject in 4.1; API rejects in 4.7; UI offers no reset in 4.8 |
 | H-010 | F | Bulk set 500 elements | Completes under 3s |
 | H-011 | A | Bulk set to `clear` without justification | 400 |
 | H-012 | F | Bulk set to `clear` with justification | Succeeds; justification in the audit log |

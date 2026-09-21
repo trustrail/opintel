@@ -1,8 +1,8 @@
 import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { withTenant, type Tx } from '../../../platform/db/scope.js';
 import { CatalogObject, CatalogElement, CatalogNaming, AsciiTransliterator, reconcileSnapshot, type CatalogObjectState, type ElementState } from '../../catalog/index.js';
-import { DomainError, err, ok, Timestamp, type ErrorCode, type IdFactory, type RunId, type SourceId, type Result } from '../../../shared/kernel/index.js';
-import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore } from '../application/introspection-store.js';
+import { DomainError, err, ok, Timestamp, type ErrorCode, type IdFactory, type RunId, type SourceId, type ElementId, type Result } from '../../../shared/kernel/index.js';
+import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore, RecordedIntrospectionDiff } from '../application/introspection-store.js';
 import { transitionRun, enforceTransition, type IntrospectionState } from '../domain/introspection-run.js';
 import type { CatalogSnapshot } from '../application/source-connector.js';
 import { snapshotResponse } from '../../../shared/sidecar-contract.js';
@@ -116,8 +116,19 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       const staged = reconcileSnapshot(previous,parsed.data.snapshot,source,this.naming,this.ids,current.value.adoptRenamedNames);
       if (!staged.ok) throw new PublicationRefused(staged.error);
       // The durable invalidation instruction precedes metadata publication.
-      // Item 4.1 will delete entitlements in this transaction after this write.
-      await tx.query('UPDATE introspection_run SET diff=$2::jsonb WHERE id=$1',[id,JSON.stringify(staged.value.diff)]);
+      // Capture every old decision while the source and elements are locked.
+      const diff: RecordedIntrospectionDiff[] = [];
+      const invalidated: ElementId[] = [];
+      for (const entry of staged.value.diff) {
+        if ('requiresEntitlementDeletion' in entry && entry.requiresEntitlementDeletion && entry.elementId) {
+          const entitlements = await tx.query<NonNullable<RecordedIntrospectionDiff['entitlements']>[number]>(
+            'SELECT pool_id AS "poolId", treatment FROM entitlement WHERE element_id=$1 ORDER BY pool_id FOR UPDATE', [entry.elementId]);
+          diff.push({...entry, runId:id, entitlements});
+          invalidated.push(entry.elementId);
+        } else diff.push(entry);
+      }
+      await tx.query('UPDATE introspection_run SET diff=$2::jsonb WHERE id=$1',[id,JSON.stringify(diff)]);
+      await tx.query('DELETE FROM entitlement WHERE element_id=ANY($1::uuid[])',[invalidated]);
       for (const object of staged.value.objects) {
         const s = object.state;
         await tx.query(`INSERT INTO catalog_object(id,source_id,project_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name,name_revision,lineage_known,row_estimate,description,status)

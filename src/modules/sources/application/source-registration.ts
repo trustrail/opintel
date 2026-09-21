@@ -16,6 +16,7 @@ export interface SourceRegistrationRepository {
  templates(ctx:SourceContext,industryId:IndustryId):Promise<Result<Array<z.infer<typeof DemoTemplateItem>>>>;
  template(ctx:SourceContext,id:DemoSourceId):Promise<Result<PreparedTemplate>>;
  create(ctx:SourceContext,id:SourceId,runId:RunId,input:NewSource,templateId:DemoSourceId|null):Promise<Result<{source:SourceItem;created:boolean}>>;
+ archive(ctx:SourceContext,id:SourceId,confirmation?:string):Promise<Result<SourceItem>>;
  retry(ctx:SourceContext,id:SourceId,runId:RunId):Promise<Result<SourceItem>>;
  queued(ctx:SourceContext):Promise<QueuedSource[]>;
  settledFilings(ctx:SourceContext,id:SourceId):Promise<number>;
@@ -50,6 +51,11 @@ export class SourceRegistrationService {
   const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{name:deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created;
+ }
+ async archive(ctx:SourceContext,id:SourceId,confirmation?:string){
+  const result=await this.repository.archive(ctx,id,confirmation);
+  if(result.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:id});await notify(this.events,ctx.projectId,{type:'catalog.changed',sourceId:id});}
+  return result;
  }
  async retry(ctx:SourceContext,id:SourceId){
   const queued=await this.repository.retry(ctx,id,this.ids.create<RunId>());

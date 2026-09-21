@@ -23,9 +23,12 @@ export function sourceOpenApiDocument(){
  const request=(body:z.ZodType,result:z.ZodType,status:string)=>({requestBody:{required:true,content:{'application/json':{schema:z.toJSONSchema(body,{io:'input'})}}},responses:{[status]:response(result),default:failure}});
  return {openapi:'3.1.0',info:{title:'Opintel source registration',version:'1'},components:{securitySchemes:{sessionCookie:{type:'apiKey',in:'cookie',name:'opintel_session'}}},security:[{sessionCookie:[]}],paths:{
   '/api/v1/projects/{id}/sources':{parameters:[id],get:{description:'Requires project#view. Cursor pagination.',parameters:[{name:'cursor',in:'query',schema:{type:'string'}},{name:'limit',in:'query',schema:{type:'integer',minimum:1}}],responses:{'200':response(SourceListResponse),default:failure}},post:{description:'Requires project#bind_source.',...request(CreateSourceBody,SourceListItem,'201')}},
+  '/api/v1/sources/{id}':{parameters:[id],delete:{description:'Requires project#bind_source. Archives and retains all historical rows. Conflicts list dependent pools and counts until confirmed with the source name.',...request(ArchiveSourceBody,SourceListItem,'200')}},
   '/api/v1/sources/{id}/introspect':{parameters:[id],post:{description:'Requires project#bind_source. Source must belong to the submitted project. Reuses stored schema selection.',...request(IntrospectSourceBody,SourceListItem,'202')}},
   '/api/v1/projects/{id}/sources/test':{parameters:[id],post:{description:'Requires project#bind_source.',...request(TestSourceBody,TestSourceResponse,'200')}},
   '/api/v1/projects/{id}/sources/from-demo':{parameters:[id],post:{description:'Requires project#bind_source.',...request(FromDemoBody,SourceListItem,'201'),responses:{'201':response(SourceListItem),'202':response(SourceListItem),'200':response(SourceListItem),default:failure}}},
   '/api/v1/industries/{id}/demo-sources':{parameters:[id],get:{description:'Requires project#view. Industry must match this project. Deployment secrets are omitted.',parameters:[{name:'projectId',in:'query',required:true,schema:{type:'string',format:'uuid'}}],responses:{'200':response(DemoTemplateList),default:failure}}},
  }};
 }
+
+export const ArchiveSourceBody = z.strictObject({projectId:z.uuid(),confirmation:z.string().optional()});

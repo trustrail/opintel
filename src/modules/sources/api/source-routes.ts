@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { defineRoute,errorEnvelopeSchema,cursorPagination } from '../../../platform/http/index.js';
-import { IntrospectSourceBody,CreateSourceBody,TestSourceBody,TestSourceResponse,SourceListItem,SourceListResponse,FromDemoBody,DemoTemplateList } from '../../../shared/api/source-schemas.js';
+import { ArchiveSourceBody,IntrospectSourceBody,CreateSourceBody,TestSourceBody,TestSourceResponse,SourceListItem,SourceListResponse,FromDemoBody,DemoTemplateList } from '../../../shared/api/source-schemas.js';
 import { DomainError,ProjectId,SourceId,IndustryId } from '../../../shared/kernel/index.js';
 import type { SourceRegistrationService } from '../application/source-registration.js';
 const params=z.object({id:z.uuid()});
 const cursor=z.string().max(1024).transform((value,ctx)=>{try{if(!/^[\w-]+$/.test(value))throw new Error();return z.object({project:z.uuid(),source:z.uuid().transform(SourceId)}).parse(JSON.parse(Buffer.from(value,'base64url').toString('utf8')));}catch{ctx.addIssue({code:'custom',message:'Invalid source cursor.'});return z.NEVER;}});
 export function sourceRoutes(service:SourceRegistrationService){return [
+ defineRoute({method:'DELETE',path:'/api/v1/sources/:id',params,request:ArchiveSourceBody,permission:{resource:'project',id:r=>r.body.projectId,permission:'bind_source'},response:z.union([SourceListItem,errorEnvelopeSchema]),handle:async r=>{const result=await service.archive({projectId:ProjectId(r.body.projectId),userId:r.actor.id},SourceId(r.params.id),r.body.confirmation);if(!result.ok)throw result.error;return {status:200,body:result.value};}}),
  defineRoute({method:'POST',path:'/api/v1/sources/:id/introspect',params,request:IntrospectSourceBody,permission:{resource:'project',id:r=>r.body.projectId,permission:'bind_source'},response:z.union([SourceListItem,errorEnvelopeSchema]),handle:async r=>{const result=await service.retry({projectId:ProjectId(r.body.projectId),userId:r.actor.id},SourceId(r.params.id));if(!result.ok)throw result.error;return {status:202,body:result.value};}}),
  defineRoute({method:'GET',path:'/api/v1/projects/:id/sources',params,request:z.undefined(),query:z.object({cursor:cursor.optional(),limit:z.coerce.number().int().positive().optional()}),permission:{resource:'project',id:r=>r.params.id,permission:'view'},response:z.union([SourceListResponse,errorEnvelopeSchema]),handle:async r=>{
   if(r.query.cursor&&r.query.cursor.project!==r.params.id)throw new DomainError('validation_failed','This cursor belongs to a different project.');

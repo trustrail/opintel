@@ -4,18 +4,28 @@ import { CatalogNaming } from './naming.js';
 import { DomainError, ok, err, type IdFactory, type ObjectId, type SourceId, type ProjectId, type Result } from '../../../shared/kernel/index.js';
 import type { CatalogSnapshot } from '../../sources/index.js';
 
+type TypeFamily = 'number' | 'text' | 'boolean' | 'date' | 'time' | 'timestamp' | 'uuid' | 'json' | 'list' | 'struct' | 'unsupported';
+
 export type IntrospectionDiff = (CatalogChange | {
   type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementChanged' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
   projectId: ProjectId; objectId: ObjectId; elementId?: CatalogChange['elementId'];
-  beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true;
+  beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true; beforeFamily?: TypeFamily; afterFamily?: TypeFamily;
 }) & { duckdbName?: string | null; before?: string | null; after?: string | null };
-function family(type: DuckDbType | null, sourceType: string): string {
-  if (type === null) return `unsupported:${sourceType}`;
+function family(type: DuckDbType | null): TypeFamily {
+  if (type === null) return 'unsupported';
   if (/^(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT|FLOAT|DOUBLE|DECIMAL)/u.test(type)) return 'number';
   if (type.startsWith('LIST(')) return 'list';
   if (type.startsWith('STRUCT(')) return 'struct';
-  if (type === 'TIMESTAMPTZ') return 'TIMESTAMP';
-  return type;
+  switch (type) {
+    case 'VARCHAR': return 'text';
+    case 'BOOLEAN': return 'boolean';
+    case 'DATE': return 'date';
+    case 'TIME': return 'time';
+    case 'TIMESTAMP': case 'TIMESTAMPTZ': return 'timestamp';
+    case 'UUID': return 'uuid';
+    case 'JSON': return 'json';
+    default: return 'unsupported';
+  }
 }
 /** Stages the entire catalogue in memory. No caller-owned aggregate is mutated. */
 export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: CatalogSnapshot,
@@ -71,10 +81,15 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
       }
       if (prior.status === 'removed') diff.push({ type: 'CatalogElementRestored', projectId: source.projectId, objectId: object.state.id, elementId: next.id });
       if (prior.sourceType !== next.sourceType || prior.duckdbType !== next.duckdbType) {
-        const changedFamily = family(prior.duckdbType, prior.sourceType) !== family(next.duckdbType, next.sourceType);
+        const beforeFamily = family(prior.duckdbType);
+        const afterFamily = family(next.duckdbType);
+        // Unknown source types are not known to share a family. Preserve the
+        // existing conservative invalidation without using raw types as labels.
+        const changedFamily = beforeFamily !== afterFamily ||
+          (beforeFamily === 'unsupported' && prior.sourceType !== next.sourceType);
         diff.push({ type: changedFamily ? 'CatalogElementTypeFamilyChanged' : 'CatalogElementTypeChanged',
           projectId: source.projectId, objectId: object.state.id, elementId: next.id,
-          beforeType: prior.sourceType, afterType: next.sourceType, ...(changedFamily ? { requiresEntitlementDeletion: true as const } : {}) });
+          beforeType: prior.sourceType, afterType: next.sourceType, ...(changedFamily ? { requiresEntitlementDeletion: true as const, beforeFamily, afterFamily } : {}) });
       }
       if (prior.nullable !== next.nullable || prior.isKey !== next.isKey || prior.description !== next.description) {
         diff.push({ type: 'CatalogElementChanged', projectId: source.projectId, objectId: object.state.id, elementId: next.id });

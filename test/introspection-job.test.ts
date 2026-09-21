@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
+import * as scopes from '../src/platform/db/scope.js';
 import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { IntrospectionJob, PostgresIntrospectionStore, runStates, transitions, transitionRun, enforceTransition, type SourceConnector, type CatalogSnapshot } from '../src/modules/sources/index.js';
 import { ProjectId, UserId, SourceId, Timestamp, UuidV7IdFactory, DomainError, ok, err, type Result } from '../src/shared/kernel/index.js';
@@ -89,12 +90,83 @@ describe('introspection job and persisted catalogue',()=>{
   });
   it('records a type-family invalidation before metadata changes; numeric widening retains its family',async()=>{
     discovery=snapshot('amount','integer'); await run();
+    const pool=randomUUID();
+    await withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'masked','user',$2 FROM catalog_element",[pool,ctx.userId]);
+    });
+    const decisions=()=>withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY pool_id,element_id'));
+    const before=await decisions();
     discovery=snapshot('amount','bigint');
     expect((await run()).diff).toMatchObject([{type:'CatalogElementTypeChanged',beforeType:'integer',afterType:'bigint'}]);
+    expect(await decisions()).toEqual(before);
     discovery=snapshot('amount','text');
     const changed=await run();
-    expect(changed.diff).toMatchObject([{type:'CatalogElementTypeFamilyChanged',beforeType:'bigint',afterType:'text',requiresEntitlementDeletion:true}]);
+    expect(changed.diff).toMatchObject([{type:'CatalogElementTypeFamilyChanged',beforeType:'bigint',afterType:'text',beforeFamily:'number',afterFamily:'text',requiresEntitlementDeletion:true,runId:changed.id,entitlements:[{poolId:pool,treatment:'masked'}]}]);
     expect(unwrap(await job.read(ctx,changed.id)).diff).toEqual(changed.diff);
+    expect(await decisions()).toEqual([]);
+  });
+  it.each([
+    ['varchar(50)','varchar(100)'], ['char(10)','text'], ['integer','double precision'],
+    ['numeric(10,2)','numeric(18,4)'], ['timestamp','timestamptz'],
+    ['json','jsonb'], ['bool','boolean'], ['integer[]','bigint[]'],
+  ])('G-008: %s to %s preserves every decision within its family',async(beforeType,afterType)=>{
+    discovery=snapshot('value',beforeType);await run();
+    const pool=randomUUID();
+    await withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'masked','user',$2 FROM catalog_element",[pool,ctx.userId]);
+    });
+    const decisions=()=>withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY pool_id,element_id'));
+    const before=await decisions();expect(before).toHaveLength(1);
+    discovery=snapshot('value',afterType);
+    expect((await run()).diff).toMatchObject([{type:'CatalogElementTypeChanged',beforeType,afterType}]);
+    expect(await decisions()).toEqual(before);
+  });
+  it.each([
+    ['boolean','integer','boolean','number'], ['date','timestamp','date','timestamp'],
+    ['time','uuid','time','uuid'], ['json','integer[]','json','list'],
+    ['geometry','binary','unsupported','unsupported'],
+  ])('G-009: %s to %s records family names',async(beforeType,afterType,beforeFamily,afterFamily)=>{
+    discovery=snapshot('value',beforeType);await run();
+    discovery=snapshot('value',afterType);
+    expect((await run()).diff).toMatchObject([{type:'CatalogElementTypeFamilyChanged',beforeType,afterType,beforeFamily,afterFamily,requiresEntitlementDeletion:true}]);
+  });
+  it('G-009: records old decisions before deletion and rolls both back if catalogue publication fails',async()=>{
+    discovery=snapshot('amount','integer');await run();
+    const pool=randomUUID();
+    await withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'clear','user',$2 FROM catalog_element",[pool,ctx.userId]);
+    });
+    const before=await catalog();
+    const decisions=await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'));
+    const queued=unwrap(await store.enqueue(ctx,sourceId,[]));
+    for(const [from,to] of [['queued','connecting'],['connecting','reading'],['reading','diffing']] as const)unwrap(await store.advance(ctx,queued.id,from,to));
+    const original=scopes.withTenant;let observed=false;
+    const scope=vi.spyOn(scopes,'withTenant').mockImplementation((context,work)=>original(context,tx=>work({query:async(sql,params)=>{
+      if(sql.startsWith('DELETE FROM entitlement')){
+        const [row]=await tx.query<{diff:unknown[]}>('SELECT diff FROM introspection_run WHERE id=$1',[queued.id]);
+        expect(row?.diff).toMatchObject([{runId:queued.id,entitlements:[{poolId:pool,treatment:'clear'}]}]);observed=true;
+      }
+      if(sql.startsWith('INSERT INTO catalog_object'))throw new Error('Injected publication failure');
+      return tx.query(sql,params);
+    }})));
+    try{await expect(store.publish(ctx,queued.id,snapshot('amount','text'))).rejects.toThrow('Injected publication failure');}finally{scope.mockRestore();}
+    expect(observed).toBe(true);expect(await catalog()).toEqual(before);
+    expect(await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'))).toEqual(decisions);
+    expect(unwrap(await store.read(ctx,queued.id))).toMatchObject({state:'diffing',diff:[]});
+  });
+  it('G-007/G-009: removal and stable-reference rename retain decisions row by row',async()=>{
+    await run(); const pool=randomUUID();
+    await withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'withheld','user',$2 FROM catalog_element",[pool,ctx.userId]);
+    });
+    const decisions=()=>withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'));
+    const before=await decisions();
+    discovery=snapshot('renamed');await run();expect(await decisions()).toEqual(before);
+    discovery={...snapshot(),objects:[]};await run();expect(await decisions()).toEqual(before);
   });
   it('G-017: failure mid-read preserves the previous catalogue and records a safe reason',async()=>{
     await run(); const before=await catalog();

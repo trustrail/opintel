@@ -73,6 +73,27 @@ describe('source registration against real Postgres and the sidecar',()=>{
   const listed=await (await request(path())).json();expect(listed.items).toEqual(expect.arrayContaining([expect.objectContaining({name:'Warehouse',elementCount:2,landingStrategy:null}),expect.objectContaining({name:'Returns',elementCount:3,landingStrategy:'append_as_at',filingCount:0})]));
   const first=await (await request(path()+'?limit=1')).json();expect(first.nextCursor).toBeTruthy();const second=await(await request(path()+'?cursor='+first.nextCursor)).json();expect(second.items).toHaveLength(1);expect(second.items[0].id).not.toBe(first.items[0].id);
  });
+ it('F-008: archive names dependent pools, requires exact confirmation and retains all evidence references',async()=>{
+  const source=await(await request(path(),'POST',body())).json();await service.idle();
+  const pool=randomUUID();const ctx={projectId,userId};
+  await withTenant(ctx,async tx=>{
+   await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,projectId]);
+   await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'masked','user',$2 FROM catalog_element",[pool,userId]);
+  });
+  const retained=()=>withTenant(ctx,async tx=>({elements:await tx.query('SELECT * FROM catalog_element ORDER BY id'),objects:await tx.query('SELECT * FROM catalog_object ORDER BY id'),entitlements:await tx.query('SELECT * FROM entitlement ORDER BY element_id')}));
+  const before=await retained();const endpoint=`/api/v1/sources/${source.id}`;
+  denied=true;expect((await request(endpoint,'DELETE',{projectId})).status).toBe(403);denied=false;
+  expect((await request(endpoint,'DELETE',{projectId:randomUUID()})).status).toBe(404);
+  for(const confirmation of [undefined,'warehouse']){
+   const refused=await request(endpoint,'DELETE',{projectId,confirmation});expect(refused.status).toBe(409);
+   expect((await refused.json()).error).toMatchObject({code:'conflict',details:{confirmationPhrase:'Warehouse',entitlements:[{poolId:pool,poolName:'Reporting',count:2}]}});
+  }
+  expect(await retained()).toEqual(before);
+  const archived=await request(endpoint,'DELETE',{projectId,confirmation:'Warehouse'});expect(archived.status).toBe(200);expect(await archived.json()).toMatchObject({status:'archived'});
+  expect(await retained()).toEqual(before);expect((await(await request(path())).json()).items).toEqual([]);
+  expect((await request(endpoint+'/introspect','POST',{projectId})).status).toBe(409);
+  expect((await request(path(),'POST',body())).status).toBe(409);
+ });
  it('F-007: bind_source denial prevents testing, saving and demo provisioning',async()=>{denied=true;for(const [suffix,payload]of [['',body()],['/test',{kind:'postgres',credentialRef:body().credentialRef}],['/from-demo',{demoTemplateId:templateId}]] as const)expect((await request(path()+suffix,'POST',payload)).status).toBe(403);expect(connectors).toHaveLength(0);});
  it('refuses literal credentials and missing landing strategies at the API boundary',async()=>{expect((await request(path(),'POST',{...body(),credentialRef:'postgres://secret'})).status).toBe(400);expect((await request(path(),'POST',{...body(),receivesLandings:true})).status).toBe(400);expect(connectors).toHaveLength(0);});
  it('E2-013/O-002: an unprepared offer creates nothing, and operator preparation reserves without connecting',async()=>{
