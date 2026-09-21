@@ -212,3 +212,15 @@ deployed arrangement starts. Run the thing.
 - Completion invalidates the catalogue family and source detail. Entitlement
   invalidation and persisted decision deletion attach when item 4.1 introduces
   that entity; this screen displays the recorded type-family invalidation.
+
+# Before item 4.4: ordering on tokenized columns
+
+- Tokens preserve equality only, never order. On a tokenized column, <, >,
+  BETWEEN, ORDER BY, MIN and MAX return confident but arbitrary answers
+  rather than failing.
+- Add to algorithm specifications B.4: the query inspector refuses ordering
+  operations on tokenized columns, with a message saying tokens preserve
+  equality only. Permitted: =, <>, IN, joins, GROUP BY, COUNT(DISTINCT).
+- Add tests for each refused and each permitted operation.
+- Draft this with the B.3 and C.1 rewrites for the read boundary, before any
+  4.4 code is written.

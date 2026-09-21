@@ -173,7 +173,7 @@ The token must fit the column it replaces.
 | Concern | Rule |
 |---|---|
 | Generation | 32 bytes from a CSPRNG at project creation, before the first source connects |
-| Storage | Vault only. A key in Postgres fails a startup assertion that scans for it |
+| Storage | Vault only. Vault only. The application never holds a key, so it cannot scan for one; absence from Postgres is enforced by construction and proven by TOK-14. |
 | Distribution | Resolved through `VaultPort` by the sidecar at execution time, as 32 raw bytes, held in memory, never logged. **Only the sidecar resolves it.** The application process never holds the key and never imports the tokenizer |
 | Rotation | A distinct command with a typed confirmation naming what breaks |
 | Rotation effect | **Every token changes.** Cached agent results become unjoinable to new results. Prior evidence records remain valid because they record the token as released at the time |
@@ -182,6 +182,8 @@ The token must fit the column it replaces.
 **Zero key buffers after use, but do not list it as a guarantee.** Node's HMAC copies the key into OpenSSL's memory, and a key delivered as text, for example by the development vault adapter reading an environment variable, exists as an immutable string that cannot be zeroed. The guarantee is that the key never leaves the sidecar process and never appears in a log, span, error message, SQL string or database row.
 
 **Rotation is not a routine hygiene action.** The console says so: rotating breaks joins in any agent that has cached results, and there is no way to translate an old token to a new one.
+
+**A token key is stored as 64 lowercase hex characters and read with VaultPort.resolveBytes(), which returns 32 bytes**. The value must match [0-9a-f]{64}; anything else is refused with an error naming the reference, never the value. Hex is used rather than base64 because Node's base64 decoder silently skips invalid characters, so a corrupted key could decode without error. The development adapter reads the same format from its environment variable, so development and production share one decode path.
 
 ### A.5.1 Key loss, and why escrow is not optional
 
@@ -274,7 +276,7 @@ Where these matter, the correct treatment is `aggregate_only` or `withheld`, not
 | TOK-11 | Token format | Always `v1_`, the domain, `_`, then 26 Crockford characters |
 | TOK-12 | Collision probe, 10 million distinct inputs | Zero collisions |
 | TOK-13 | Key absent from the vault | Execution refuses. It does not fall back to a hash |
-| TOK-14 | Key present in Postgres | Startup assertion fails |
+| TOK-14 | Known test key, full tokenization runs, then every text and bytea column in the application database and the customer landing database is scanned | The key appears in no column in raw, hex or base64 form. The key is held in a branded type with no serialisation: toString, toJSON and util.inspect return a redacted marker |
 | TOK-15 | Token appears in logs or spans | Never. Asserted against the field allowlist |
 | TOK-16 | Rotation | All tokens change, `token_key_version` increments, audit entry written |
 | TOK-17 | `describe` on a tokenized integer column | Reports `VARCHAR` |

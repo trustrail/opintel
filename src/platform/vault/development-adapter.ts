@@ -1,3 +1,4 @@
+import { decodeVaultBytes } from './bytes.js';
 import { DomainError } from '../../shared/kernel/index.js';
 import type { VaultPort, VaultRef as VaultRefType } from './types.js';
 
@@ -17,6 +18,10 @@ export class DevelopmentVaultAdapter implements VaultPort {
       throw new DomainError('dependency_unavailable', `Secret ${ref} is not configured.`, undefined, true);
     }
     return secret;
+  }
+
+  async resolveBytes(ref: VaultRefType): Promise<Uint8Array> {
+    return decodeVaultBytes(ref, await this.resolve(ref));
   }
 
   async store(path: string, _secret: string): Promise<VaultRefType> {

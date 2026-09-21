@@ -9,5 +9,6 @@ export function VaultRef(raw: string): VaultRef {
 
 export interface VaultPort {
   resolve(ref: VaultRef): Promise<string>;
+  resolveBytes(ref: VaultRef): Promise<Uint8Array>;
   store(path: string, secret: string): Promise<VaultRef>;
 }
