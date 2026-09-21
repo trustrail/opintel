@@ -122,7 +122,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       for (const entry of staged.value.diff) {
         if ('requiresEntitlementDeletion' in entry && entry.requiresEntitlementDeletion && entry.elementId) {
           const entitlements = await tx.query<NonNullable<RecordedIntrospectionDiff['entitlements']>[number]>(
-            'SELECT pool_id AS "poolId", treatment FROM entitlement WHERE element_id=$1 ORDER BY pool_id FOR UPDATE', [entry.elementId]);
+            'SELECT pool_id AS "poolId", treatment, mask_kind AS "maskKind" FROM entitlement WHERE element_id=$1 ORDER BY pool_id FOR UPDATE', [entry.elementId]);
           diff.push({...entry, runId:id, entitlements});
           invalidated.push(entry.elementId);
         } else diff.push(entry);

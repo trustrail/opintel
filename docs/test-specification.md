@@ -208,13 +208,13 @@ Version 1.0 · September 2026
 | ID | Type | Case | Expected |
 |---|---|---|---|
 | H-001 | F | New element default | Undecided; counted in the undecided total |
-| H-002 | F | Set `clear` | View recompiles under 2s; who and when recorded |
-| H-003 | F | Set `withheld` | Column absent from the compiled DDL |
+| H-002 | F | Set `clear` | 4.2 preserves the clear value and records who/when; view compilation in handwritten 4.4 and recompilation under 2s in 4.9 |
+| H-003 | F | Set `withheld` | 4.2 returns an omission descriptor; column absent from compiled DDL in handwritten 4.4 |
 | H-004 | D | Undecided element | Absence-of-row prerequisite in 4.1; absent from compiled DDL in handwritten 4.4 |
-| H-005 | F | Set `tokenized` | Column present, wrapped in the token function |
-| H-006 | D | Same input tokenized in two sources | Identical output token |
+| H-005 | F | Set `tokenized` | 4.2 delegates unchanged values to TokenizerPort and declares VARCHAR; column wrapped in the token function in handwritten 4.4 |
+| H-006 | D | Same input tokenized in two sources | 4.2 proves port delegation only; actual identical tokens require handwritten 4.3 |
 | H-007 | F | Set `masked` | Mask applied per the configured form |
-| H-008 | F | Set `aggregate_only` | Recorded as a constraint, not a view column |
+| H-008 | F | Set `aggregate_only` | 4.2 supplies an aggregate-only constraint descriptor; B.2 includes the plain column in the view (4.4), with the constraint enforced during query inspection (4.5) |
 | H-009 | F | Attempt to set an element back to undecided | Domain/schema reject in 4.1; API rejects in 4.7; UI offers no reset in 4.8 |
 | H-010 | F | Bulk set 500 elements | Completes under 3s |
 | H-011 | A | Bulk set to `clear` without justification | 400 |

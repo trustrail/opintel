@@ -99,7 +99,7 @@ integration('industry migration with Postgres', () => {
       for(const treatment of ['clear','tokenized','masked','aggregate_only','withheld']){
         const [pool]=await tx.query<{id:string}>('INSERT INTO pool(project_id,name) VALUES($1,$2) RETURNING id',[project,treatment]);
         const [element]=await tx.query<{id:string}>("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,duckdb_name,duckdb_type) VALUES($1,$2,$3,'text',$3,'VARCHAR') RETURNING id",[project,object!.id,treatment]);
-        await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,justification,set_at) VALUES($1,$2,$3,$4,'user',$5,'Keep this decision','2026-01-01')",[pool!.id,element!.id,project,treatment,actor.id]);
+        await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,justification,set_at,mask_kind) VALUES($1,$2,$3,$4,'user',$5,'Keep this decision','2026-01-01',$6)",[pool!.id,element!.id,project,treatment,actor.id,treatment==='masked'?'all':null]);
       }
     });
     const rows=()=>scopes.withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY pool_id,element_id'));

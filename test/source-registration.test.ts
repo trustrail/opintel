@@ -78,7 +78,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   const pool=randomUUID();const ctx={projectId,userId};
   await withTenant(ctx,async tx=>{
    await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,projectId]);
-   await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'masked','user',$2 FROM catalog_element",[pool,userId]);
+   await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,mask_kind) SELECT $1,id,project_id,'masked','user',$2,'all' FROM catalog_element",[pool,userId]);
   });
   const retained=()=>withTenant(ctx,async tx=>({elements:await tx.query('SELECT * FROM catalog_element ORDER BY id'),objects:await tx.query('SELECT * FROM catalog_object ORDER BY id'),entitlements:await tx.query('SELECT * FROM entitlement ORDER BY element_id')}));
   const before=await retained();const endpoint=`/api/v1/sources/${source.id}`;

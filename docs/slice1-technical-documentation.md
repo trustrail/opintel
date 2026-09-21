@@ -208,6 +208,7 @@ class Entitlement {
   readonly poolId: PoolId;
   readonly elementId: ElementId;
   treatment: Treatment;
+  maskKind: 'last4' | 'email' | 'year' | 'all' | null; // required exactly for masked
   readonly setBy: ActorRef;          // user or rule
   readonly setAt: Timestamp;
 }
@@ -2681,7 +2682,7 @@ publication starts after the transition to diffing. Workers observe cancellation
 through the persisted run state and abort the connector request.
 
 A type-family diff carries the element identifier, before/after types and
-`requiresEntitlementDeletion: true`. Item 4.1 enriches it with before/after type families, `runId`, and `entitlements: [{ poolId, treatment }]` for every old decision. The diff is written before those rows are deleted in the same publication transaction. A failed publication rolls back both the diff and deletion. An unchanged structural snapshot yields an empty diff. Exact schema
+`requiresEntitlementDeletion: true`. Item 4.1 enriches it with before/after type families, `runId`, and `entitlements: [{ poolId, treatment, maskKind }]` for every old decision. The diff is written before those rows are deleted in the same publication transaction. A failed publication rolls back both the diff and deletion. An unchanged structural snapshot yields an empty diff. Exact schema
 subsets do not mark objects outside that selection removed.
 
 Family labels are `number`, `text`, `boolean`, `date`, `time`, `timestamp`, `uuid`, `json`, `list`, `struct`, and `unsupported`; they are not DuckDB type labels. Numeric widths/precision and timestamp zone variants remain within their respective families. Different unsupported source types continue to invalidate conservatively: a shared `unsupported` label does not establish compatibility.
@@ -2940,6 +2941,8 @@ create table entitlement (
   justification text,                        -- required for bulk -> clear
   set_at      timestamptz not null default now(),
   primary key (pool_id, element_id)
+  mask_kind text check (mask_kind in ('last4','email','year','all')),
+  constraint mask_kind_when_masked check ((treatment = 'masked') = (mask_kind is not null)),
 );
 create index on entitlement (project_id, treatment);
 create index on entitlement (element_id);
@@ -2967,6 +2970,34 @@ create table agent_presence (
   primary key (pool_id, agent_id)
 );
 ```
+Item 4.2 adds `mask_kind` in forward migration 029. There is no default. If existing
+masked rows lack a kind, migration stops and lists their pool/element pairs. Before
+retrying, the operator adds the nullable `mask_kind text` column with
+`ALTER TABLE entitlement ADD COLUMN IF NOT EXISTS mask_kind text`, and the decision
+owner explicitly backfills those rows with compatible kinds. Non-masked rows remain
+NULL. The migration then enforces the allowed kinds and masked/kind equivalence.
+
+Treatment strategies return typed per-element semantics, not SQL. Clear preserves
+the value and type; tokenized delegates unchanged values and project/element IDs to
+`TokenizerPort`, with VARCHAR output; masked returns VARCHAR using its saved kind;
+withheld is an omission descriptor; aggregate-only carries the original column type
+and an element constraint for later query inspection. An absent decision is a distinct
+undecided omission. Unsupported elements stay unexposed. No tokenizer adapter, view
+compiler, UDF registration, or query inspector is supplied by item 4.2.
+
+**The mask kind must suit the element's type family**, checked when the entitlement is set: last4 and email on text, year on date and timestamp, all on anything. An incompatible pairing is refused at decision time rather than discovered at query time.
+
+| Input | Result |
+|---|---|
+| NULL | NULL. Absence is not a secret, and masking it would make null indistinguishable from a value |
+| last4, four characters or fewer | Fully masked. Showing the last four of a four-character value reveals it entirely |
+| email, no @ or empty local part | Fully masked. Guessing at structure could expose the whole string |
+| year | Always valid: a date column cannot hold an invalid date |
+
+
+Valid last4 and email values use the fixed prefixes shown in B.3 (`••••` and `•••`). Mask functions never log inputs. Year masking uses the supplied calendar year for date/timestamp text and UTC for Date objects, never the host locale/timezone; malformed adapter inputs receive full masking.
+
+**Full masking preserves length only where length is already public**, which it never is here, so the result is a fixed ****.
 
 ## 4.6 Evidence
 

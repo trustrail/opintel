@@ -1,9 +1,15 @@
+import type { DuckDbType } from '../../catalog/index.js';
+import { validateMaskType } from '../application/mask-compatibility.js';
 import { withTenant } from '../../../platform/db/scope.js';
-import { DomainError, err, ok, type PoolId, type ElementId } from '../../../shared/kernel/index.js';
+import { DomainError, err, ok, Timestamp, type PoolId, type ElementId } from '../../../shared/kernel/index.js';
 import type { EntitlementRepository, EntitlementContext } from '../application/entitlement-repository.js';
-import type { Entitlement, Treatment } from '../domain/entitlement.js';
+import { Entitlement, type EntitlementState, type Treatment } from '../domain/entitlement.js';
 const active = `FROM entitlement t JOIN catalog_element e ON e.id=t.element_id JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id WHERE t.pool_id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived'`;
 export class PostgresEntitlements implements EntitlementRepository {
+ read(ctx:EntitlementContext,pool:PoolId,element:ElementId){return withTenant(ctx,async tx=>{
+  const [row]=await tx.query<Omit<EntitlementState,'setAt'> & {setAt:Date}>(`SELECT t.pool_id AS "poolId",t.element_id AS "elementId",t.project_id AS "projectId",t.treatment,t.mask_kind AS "maskKind",jsonb_build_object('kind',t.source_kind,'id',t.source_ref) AS "setBy",t.set_at AS "setAt",t.justification ${active} AND t.element_id=$2`,[pool,element]);
+  return row ? Entitlement.decide({...row,setAt:Timestamp(row.setAt)}) : ok(null);
+ });}
  set(ctx: EntitlementContext, decision: Entitlement) {
   const s=decision.state;
   if(s.projectId!==ctx.projectId)return Promise.resolve(err(new DomainError('forbidden','The entitlement belongs to another project.')));
@@ -12,11 +18,12 @@ export class PostgresEntitlements implements EntitlementRepository {
    // old decision cannot race a type-family invalidation or source archive.
    const source=await tx.query(`SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 AND s.status<>'archived' FOR UPDATE OF s`,[s.elementId]);
    if(!source.length)return err(new DomainError('not_found','An active catalogue element is required.'));
-   const rows=await tx.query(`SELECT e.id FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id WHERE e.id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived' FOR UPDATE OF e`,[s.elementId]);
+   const rows=await tx.query<{id:ElementId;duckdb_type:DuckDbType|null}>(`SELECT e.id,e.duckdb_type FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id WHERE e.id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived' FOR UPDATE OF e`,[s.elementId]);
    if(!rows.length)return err(new DomainError('not_found','An active catalogue element is required.'));
+   if(s.maskKind!==null){const valid=validateMaskType(s.maskKind,rows[0]!.duckdb_type);if(!valid.ok)return valid;}
    const pools=await tx.query('SELECT id FROM pool WHERE id=$1',[s.poolId]);
    if(!pools.length)return err(new DomainError('not_found','The pool was not found in this project.'));
-   await tx.query(`INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,justification,set_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(pool_id,element_id) DO UPDATE SET treatment=EXCLUDED.treatment,source_kind=EXCLUDED.source_kind,source_ref=EXCLUDED.source_ref,justification=EXCLUDED.justification,set_at=EXCLUDED.set_at`,[s.poolId,s.elementId,s.projectId,s.treatment,s.setBy.kind,s.setBy.id,s.justification,s.setAt]);
+   await tx.query(`INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,justification,set_at,mask_kind) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(pool_id,element_id) DO UPDATE SET treatment=EXCLUDED.treatment,mask_kind=EXCLUDED.mask_kind,source_kind=EXCLUDED.source_kind,source_ref=EXCLUDED.source_ref,justification=EXCLUDED.justification,set_at=EXCLUDED.set_at`,[s.poolId,s.elementId,s.projectId,s.treatment,s.setBy.kind,s.setBy.id,s.justification,s.setAt,s.maskKind]);
    return ok(undefined);
   });
  }

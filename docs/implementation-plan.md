@@ -158,18 +158,18 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 |---|---|---|---|---|
 | 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 (domain/key invariants), I-002 (schema hash-only storage), tenant isolation, E2-027 |
 | 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004 (absence-of-row prerequisite; DDL in 4.4), H-009 (domain/schema rejection; API in 4.7, UI in 4.8), E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff), ING-30 and E2-014 (persisted undecided assertions) |
-| 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
-| 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
+| 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 (value/provenance), H-003/H-004 (omission descriptors), H-005/H-006 (TokenizerPort delegation only), H-007 (masks), H-008 (constraint descriptor); DDL/recompile assertions deferred to 4.4 and 4.9, real token equality to 4.3 |
+| 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30, H-006 (actual token equality) |
 | 4.3a | **Tokenization key escrow and restore rehearsal.** Not the release key custody of Slice 3: this is the per-project HMAC key. Backup before first source, scheduled sentinel restore, superseded keys retained | 4.3 | `entitlements/token-key.ts` | TOK-27 to TOK-30 |
 | 4.3b | Timestamp and epoch declarations per element, refusing where undeclared | 4.3, 3.1 | `catalog/temporal.ts` | TOK-19 to TOK-22 |
 | 4.3c | Canonicaliser registry, versioned, pure, per element | 4.3 | `entitlements/canonicalise.ts` | TOK-23 to TOK-26 |
-| 4.4 | **View compiler**, undecided and withheld distinguished in metadata. **Hand-written** | 4.1, 3.2 | `entitlements/compile.ts` | VC-01 to VC-28, H-004 (compiled DDL) |
-| 4.5 | Aggregate-only constraint. **Post-filter cardinality, two stages** | 4.4 | `entitlements/aggregate.ts` | VC-10 to VC-14, VC-23 to VC-28 |
+| 4.4 | **View compiler**, undecided and withheld distinguished in metadata. **Hand-written** | 4.1, 3.2 | `entitlements/compile.ts` | VC-01 to VC-28, H-003/H-004/H-005 (compiled DDL), H-002 (compilation), H-008 (column plus constraint) |
+| 4.5 | Aggregate-only constraint. **Post-filter cardinality, two stages** | 4.4 | `entitlements/aggregate.ts` | VC-10 to VC-14, VC-23 to VC-28, H-008 (query inspection enforcement) |
 | 4.5a | Identifier resolver returning `object_unavailable`, distinguishing withheld from undecided from absent | 4.4 | `entitlements/resolve.ts` | VC-19 to VC-22 |
 | 4.6 | Pattern rules, applied at diff time, provenance recorded | 4.1, 3.6 | `entitlements/rules.ts` | H-013, H-014, R-004 to R-007 |
 | 4.7 | Bulk set with justification on clear | 4.1 | endpoint | H-010 to H-012, H-009 (API rejection) |
 | 4.8 | Entitlements screen: virtualised tree, select, bulk bar, chips | 4.1, 1.11 | screen | H-016, H-018, H-009 (UI offers no reset) |
-| 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | VC-17, VC-18, M-005, M-006 |
+| 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | VC-17, VC-18, M-005, M-006, H-002 (recompilation timing) |
 
 **Gate.** A newly landed spreadsheet column is undecided and unreadable. Setting a treatment recompiles in under two seconds. Withheld and undecided both absent from the DDL and distinguishable in metadata. The same filing party identifier tokenizes identically across two sources. Bulk-to-clear without justification returns 400.
 

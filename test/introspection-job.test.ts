@@ -93,7 +93,7 @@ describe('introspection job and persisted catalogue',()=>{
     const pool=randomUUID();
     await withTenant(ctx,async tx=>{
       await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
-      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'masked','user',$2 FROM catalog_element",[pool,ctx.userId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,mask_kind) SELECT $1,id,project_id,'masked','user',$2,'all' FROM catalog_element",[pool,ctx.userId]);
     });
     const decisions=()=>withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY pool_id,element_id'));
     const before=await decisions();
@@ -115,7 +115,7 @@ describe('introspection job and persisted catalogue',()=>{
     const pool=randomUUID();
     await withTenant(ctx,async tx=>{
       await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
-      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'masked','user',$2 FROM catalog_element",[pool,ctx.userId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,mask_kind) SELECT $1,id,project_id,'masked','user',$2,'all' FROM catalog_element",[pool,ctx.userId]);
     });
     const decisions=()=>withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY pool_id,element_id'));
     const before=await decisions();expect(before).toHaveLength(1);
