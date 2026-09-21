@@ -41,6 +41,7 @@ export const navGroups: readonly NavGroup[] = [
 ];
 
 export function labelForPath(pathname: string): string {
+  if (pathname === '/catalog') return 'Schema explorer';
   if (pathname === '/') return 'Dashboard';
   if (pathname === '/projects/new') return 'Create project';
   if (pathname === '/companies/new') return 'Create company';

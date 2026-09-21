@@ -200,7 +200,7 @@ Version 1.0 · September 2026
 | G-016 | F | Sampling with consent | Top values returned; call recorded in the audit log |
 | G-017 | F | Introspection fails mid-run | State `failed` with a safe actionable reason preserved unchanged in the source response and UI; retry creates a new run on the same source, retaining history and the previous catalogue |
 | G-018 | R | Introspection cancelled | Session released; no partial catalogue written |
-| G-019 | P | Schema explorer with 5,000 elements | No dropped frames on scroll |
+| G-019 | P | Schema explorer with 5,000 elements | No dropped frames on scroll; measured in the isolated browser performance suite (`npm run test:visual:performance`) |
 | G-020 | F | Empty schema | Purposeful empty state, not a blank table |
 
 ## S1-H · Entitlements and view compilation

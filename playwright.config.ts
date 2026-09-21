@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/*.performance.spec.ts',
   timeout: 30_000,
   expect: { timeout: 10_000 },
   snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}{ext}',

@@ -7,7 +7,7 @@ const industryId='018f8f9d-7f83-7abc-8def-000000000002';
 const sourceId='018f8f9d-7f83-7abc-8def-000000000003';
 const demoId='018f8f9d-7f83-7abc-8def-000000000004';
 const project={id:projectId,name:'Reporting',company:{id:industryId,name:'Example Company'},industry:{id:industryId,name:'General'},region:'eu-west-1',role:'admin'};
-const source={id:sourceId,name:'Monthly returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
+const source={id:sourceId,name:'Monthly returns',duckdbAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
 async function mock(page:Page){
  const state={empty:false,error:false,loading:false,prepared:false,canConnect:true,retries:[] as unknown[],failure:null as string|null,creates:[] as Record<string,unknown>[],tests:[] as unknown[]};
  await page.route('**/api/v1/**',async route=>{

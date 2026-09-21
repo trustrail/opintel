@@ -265,3 +265,22 @@ Postgres source. For demo data, run the documented preparation command and
 `dev:up` first, then choose **Connect** on the industry demo card. A prepared
 project remains empty until that action. Unprepared cards explain the required
 operator step.
+
+### Catalogue explorer (3.14)
+
+Open **Data sources → Explore schema**. Each expansion fetches one cursor-paginated
+level; the prefix box searches only the selected level. The console shows stored
+DuckDB names and mapped types, including undecided elements. Agent describe still
+omits undecided elements. The catalogue query family is ready for 3.16 invalidation;
+this item does not establish an SSE connection.
+
+Migration 026 backfills source aliases with the pinned Unicode normaliser. Code
+backfills (`.up.ts`) run through the same transactional migration runner and checksum
+ledger as SQL. If an existing name normalises to nothing, the migration aborts and
+lists the source IDs: rename those sources and rerun `npm run dev:up`. No replacement
+alias is invented. Once assigned, aliases cannot change with a display-name edit.
+
+`npm run test:visual:performance` runs G-019's scroll-frame check alone, with one
+browser worker. CI runs it separately from the functional browser suite and database
+tests. Its report attaches refresh and scroll-frame intervals. The functional suite
+also checks bounded DOM size, prefix fetching and keyboard navigation.

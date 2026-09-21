@@ -1,3 +1,5 @@
+import { catalogRoutes } from '../../modules/catalog/api/tree-routes.js';
+import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/tree.js';
 import dotenv from 'dotenv';
 import { existsSync } from 'node:fs';
 
@@ -139,6 +141,7 @@ async function start(): Promise<void> {
   const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
   const sources=createSourceRuntime(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json'));
   const routes = [
+    ...catalogRoutes(new PostgresCatalogTreeReader()),
     ...sourceRoutes(sources),
     ...registerRoutes(register),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),

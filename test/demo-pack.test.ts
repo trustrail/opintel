@@ -69,8 +69,8 @@ describe('reinsurance demo pack through ordinary ingest', () => {
   const metadata = demoIdentification(ctx.projectId,sourceId,template.generatorSpec);
   const nativeId = SourceId(randomUUID());
   await withTenant(ctx,async (tx) => {
-   await tx.query(`INSERT INTO data_source(id,project_id,kind,origin,demo_template_id,name,credential_ref,receives_landings,landing_strategy)
-    VALUES($1,$2,'postgres','demo',$3,'Demo',$4,true,'append_as_at'),($5,$2,'postgres','customer',NULL,'Customer',$4,false,NULL)`,[sourceId,ctx.projectId,templateId,credentialRef,nativeId]);
+   await tx.query(`INSERT INTO data_source(id,project_id,kind,origin,demo_template_id,name,duckdb_alias,credential_ref,receives_landings,landing_strategy)
+    VALUES($1,$2,'postgres','demo',$3,'Demo','demo',$4,true,'append_as_at'),($5,$2,'postgres','customer',NULL,'Customer','customer',$4,false,NULL)`,[sourceId,ctx.projectId,templateId,credentialRef,nativeId]);
   });
   // Tenant-owned deployment metadata, through the same scopes as customer rules.
   for (const party of metadata.filingParties) await withTenant(ctx,async (tx) => {

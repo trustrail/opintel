@@ -26,7 +26,7 @@ export async function checkTestDatabase(connectionString: string): Promise<void>
     const checksums = new Map(applied.rows.map((row) => [row.version, row.checksum]));
     const directory = new URL('../migrations/', import.meta.url);
     const missing: string[] = [];
-    for (const file of (await readdir(directory)).filter((file) => file.endsWith('.up.sql')).sort()) {
+    for (const file of (await readdir(directory)).filter((file) => /\.up\.(sql|ts)$/u.test(file)).sort()) {
       const version = file.split('_')[0];
       const checksum = createHash('sha256').update(await readFile(new URL(file, directory))).digest('hex');
       if (version === undefined || checksums.get(version) !== checksum) missing.push(file);

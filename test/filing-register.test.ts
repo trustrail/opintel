@@ -87,7 +87,7 @@ describe('filing register', () => {
    const [company] = await tx.query<{ id: string }>("INSERT INTO company (name,default_region) VALUES ('Register','eu-west-1') RETURNING id");
    await tx.query("INSERT INTO project (id,company_id,industry_id,name,region) VALUES ($1,$2,$3,'Register','eu-west-1')", [context.projectId,company!.id,industry!.id]);
   });
-  await withTenant(context, (tx) => tx.query("INSERT INTO data_source (id,project_id,kind,name,credential_ref,receives_landings) VALUES ($1,$2,'postgres','Register','vault://customer/register',true)", [sourceId,context.projectId]));
+  await withTenant(context, (tx) => tx.query("INSERT INTO data_source (id,project_id,kind,name,duckdb_alias,credential_ref,receives_landings) VALUES ($1,$2,'postgres','Register','register','vault://customer/register',true)", [sourceId,context.projectId]));
   await openRegister();
  });
  afterEach(async () => { await register?.close(); register = undefined; if (browser) await new Promise<void>((resolve) => browser!.close(() => resolve())); browser = undefined; vi.restoreAllMocks(); });

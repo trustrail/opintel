@@ -1,3 +1,4 @@
+import { CatalogScreen } from './catalog/screen.js';
 import { ObservationsScreen } from './filings/screens.js';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { Navigate, Outlet, useRouterState } from '@tanstack/react-router';
@@ -35,6 +36,7 @@ const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: 
 const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
+  if (screen === 'catalog') return <RouteErrorBoundary><CatalogScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'data-sources') return <RouteErrorBoundary><SourcesScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;

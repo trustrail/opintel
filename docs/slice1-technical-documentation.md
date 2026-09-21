@@ -1500,6 +1500,7 @@ const CreateSourceBody = z.object({
 const SourceListItem = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  duckdbAlias: z.string(),
   kind: z.string(),
   origin: z.enum(['customer', 'demo']),
   status: z.string(),
@@ -1560,6 +1561,39 @@ queued registration work after an application restart. Demo introspection waits
 for ordinary landed/quarantined/duplicate arrival notices so it cannot catalogue
 an empty database before the watcher has processed the pack. Failed preparation
 is recorded on the run; the source row and any landed files remain available.
+
+
+### Catalogue tree
+
+The console explorer is at `/projects/:id/catalog`, reached from **Data sources → Explore schema**. Item 3.14 prepares `elementKeys.all(projectId)` for structural invalidation; SSE wiring remains item 3.16.
+
+```ts
+const CatalogNode = z.object({
+  kind: z.enum(['source', 'schema', 'object', 'element']),
+  id: z.string(),                    // sourceId, "sourceId:schema",
+                                     // objectId, or elementId
+  label: z.string().nullable(),      // null only for unnameable elements
+  childCount: z.number().int().nullable(),   // null for elements
+  duckdbType: z.string().nullable(),         // elements only
+  state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable']).nullable(),
+});
+
+const CatalogTreeResponse = z.object({
+  nodes: z.array(CatalogNode),
+  nextCursor: z.string().nullable(),
+});
+```
+**GET /projects/:id/catalog?parent=&prefix=&cursor= returns one level**. Omitting parent returns the sources. A node's id is opaque to the client and carries its own scoping, so public.orders in two sources are different nodes and never collide.
+
+**prefix filters within the requested level**, not across the tree. Searching at the project level searches sources; searching inside an object searches its elements. Cross-tree search is a different feature and is not in Slice 1.
+
+**Requires project#view**. Cursor paginated at every level, because an object can have two thousand elements.
+
+**The explorer shows the stored DuckDB type for every element, with its state alongside**. An undecided element displays its mapped type and undecided, because an administrator deciding what to release needs to know whether the column is a number or text — that is most of the decision.
+
+**describe is different**. It omits undecided elements entirely, per §4.4, because an agent must not learn that a column exists before someone has decided about it. The console shows what exists; the agent interface shows what was decided. That asymmetry is deliberate and is the reason the two are separate contracts.
+
+**An unnameable element has no label and no type**. It is listed so an administrator can see it exists and fix the source column or give it an alias. Substituting the source identifier would put an unnormalised string where a DuckDB name belongs and imply the element is addressable.
 
 ## 2.6 The agent interface
 
@@ -2442,7 +2476,9 @@ create table data_source (
   constraint credential_matches_origin check (
     credential_ref is not null and credential_ref like 'vault://%' and
     (origin = 'customer' or (origin = 'demo' and demo_template_id is not null))
-  )
+  ),
+  duckdb_alias  text not null,        -- assigned once at creation, immutable
+  unique (project_id, duckdb_alias),
 );
 
 create table introspection_run (
@@ -2536,6 +2572,16 @@ create table filing_party_rule (
   active      boolean not null default true
 );
 ```
+**The alias is assigned once at source creation** by normalising the source name per §4.4, with a numeric suffix on collision within the project. It never changes, for the same reason duckdb_name never changes: agents address it, and renaming it renames a catalog under running agents.
+
+**A source name that normalises to nothing is refused at creation**, naming the rule. Unlike an element, a source with no alias cannot be addressed at all, so there is nothing to catalogue under it.
+
+**The backfill migration aborts on any such name**, listing the affected source ids. An operator renames them and retries. Silently substituting a generated alias would give agents a name nobody chose and nobody can predict.
+
+**SourceListItem includes `duckdbAlias: z.string()`**, the stored alias, alongside `name`. The catalogue source node uses that alias as its label. The console joins the source display name by source ID.
+
+**Renaming a source changes its display name only**. The console shows both when they differ, so someone who renamed "Bordereaux Store" to "Cedant Filings" can see that agents still address bordereaux_store.
+
 Item 3.6 persists the requested schema selection and the diff on `introspection_run`.
 Only one queued or active run per source is allowed. Catalogue reconciliation is
 staged in memory; the diff, all catalogue changes, source status and run completion

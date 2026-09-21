@@ -27,6 +27,8 @@ jobs:
       - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
       - run: npx playwright install --with-deps chrome
       - run: npm run test:visual
+      - name: Isolated G-019 scroll frames
+        run: npm run test:visual:performance
 
   migrations:
     name: Migrations

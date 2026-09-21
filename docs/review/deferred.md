@@ -177,3 +177,20 @@ Getting the pipeline to run once surfaced six defects that tests had not:
 
 All fixed. The lesson: a passing suite does not establish that the
 deployed arrangement starts. Run the thing.
+
+# Observations visual assertion quarantine — 2026-09-20
+
+- Only `filings-observations-390.png` in `e2e/filings.spec.ts` is skipped,
+  using a skipped step so the rest of the test, including axe, still runs.
+  The 900px and 1440px snapshots remain active. No baseline was regenerated.
+- Reproduction captured four failures and two passes in six runs. The failure
+  is a solid plum stripe at x=79-81, y=66-1007: exactly 2826 pixels. It persisted
+  in a second screenshot requested 501ms later without navigation.
+- The four failed hypotheses were a focus ring, drawer state, a scrollbar,
+  and an element in the tree. Passing and failing captures had identical DOM,
+  bounding boxes and computed styles for every element overlapping the stripe,
+  including pseudo-element styles. No element was identified as painting it.
+- Evidence points to a headless Chromium compositor artifact, rather than an
+  application layout change. Revisit this assertion on a Chromium upgrade;
+  restore it against the existing baseline, without regenerating that baseline
+  to absorb the stripe.

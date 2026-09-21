@@ -1,4 +1,4 @@
-import { appendFile, cp, mkdtemp, rm } from 'node:fs/promises';
+import { appendFile, cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -88,6 +88,21 @@ afterEach(async () => {
 });
 
 describe('migration runner', () => {
+  it('runs code backfills in the transaction, checksums them, and rolls down', async () => {
+    const client = new FakeMigrationClient();
+    const directory = await copiedFixture('success');
+    const filename = path.join(directory, '002_backfill.up.ts');
+    await writeFile(filename, "export default async function up(client) { await client.query('SELECT 1'); }\n");
+    await writeFile(path.join(directory, '002_backfill.down.sql'), 'SELECT 1');
+    expect(await migrateUp(client, directory, silentReporter)).toHaveLength(2);
+    expect(await migrateUp(client, directory, silentReporter)).toHaveLength(0);
+    await appendFile(filename, '// modified\n');
+    await expect(migrateUp(client, directory, silentReporter)).rejects.toThrow('Checksum mismatch');
+    await writeFile(filename, "export default async function up(client) { await client.query('SELECT 1'); }\n");
+    await migrateDown(client, directory, silentReporter);
+    expect(await migrationStatus(client)).toHaveLength(1);
+  });
+
   it('applies a migration once and treats a second up as a no-op', async () => {
     const client = new FakeMigrationClient();
     const directory = await copiedFixture('success');

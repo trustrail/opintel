@@ -3,7 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config as loadEnvironmentFile } from 'dotenv';
 import { Client } from 'pg';
 
@@ -53,7 +53,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const migrationsDirectory = path.join(repositoryRoot, 'migrations');
 
-const migrationFilename = /^(?<version>\d+)_(?<name>[a-z0-9_]+)\.(?<direction>up|down)\.sql$/u;
+const migrationFilename = /^(?<version>\d+)_(?<name>[a-z0-9_]+)\.(?<direction>up|down)\.(?:sql|ts)$/u;
 
 async function migrationsIn(directory: string): Promise<Migration[]> {
   const files = await readdir(directory);
@@ -70,8 +70,14 @@ async function migrationsIn(directory: string): Promise<Migration[]> {
     if (entry.name !== name) {
       throw new Error(`Migration version ${version} has more than one name.`);
     }
-    if (direction === 'up') entry.upPath = path.join(directory, file);
-    if (direction === 'down') entry.downPath = path.join(directory, file);
+    if (direction === 'up') {
+      if (entry.upPath) throw new Error(`Duplicate up migration ${version}.`);
+      entry.upPath = path.join(directory, file);
+    }
+    if (direction === 'down') {
+      if (entry.downPath) throw new Error(`Duplicate down migration ${version}.`);
+      entry.downPath = path.join(directory, file);
+    }
     parts.set(version, entry);
   }
 
@@ -154,6 +160,17 @@ async function inTransaction<T>(client: MigrationClient, work: () => Promise<T>)
   }
 }
 
+// Code migrations support backfills requiring the pinned Unicode transliterator.
+// They run under the same transaction and checksum ledger as SQL migrations.
+async function executeMigration(client: MigrationClient, filename: string): Promise<void> {
+  if (filename.endsWith('.sql')) { await client.query(await readFile(filename, 'utf8')); return; }
+  const migration: unknown = await import(pathToFileURL(filename).href);
+  if (typeof migration !== 'object' || migration === null || !('default' in migration) || typeof migration.default !== 'function') {
+    throw new Error(`Migration ${filename} must export a default function.`);
+  }
+  await migration.default(client);
+}
+
 export async function migrateUp(
   client: MigrationClient,
   directory = migrationsDirectory,
@@ -166,9 +183,8 @@ export async function migrateUp(
 
   for (const migration of pending) {
     const startedAt = performance.now();
-    const statement = await readFile(migration.upPath, 'utf8');
     await inTransaction(client, async () => {
-      await client.query(statement);
+      await executeMigration(client, migration.upPath);
       await client.query(
         'INSERT INTO schema_migration (version, name, checksum) VALUES ($1, $2, $3)',
         [migration.version, migration.name, migration.checksum],
@@ -200,9 +216,8 @@ export async function migrateDown(
   }
 
   const startedAt = performance.now();
-  const statement = await readFile(migration.downPath, 'utf8');
   await inTransaction(client, async () => {
-    await client.query(statement);
+    await executeMigration(client, migration.downPath);
     await client.query('DELETE FROM schema_migration WHERE version = $1', [migration.version]);
   });
   reporter.reverted(migration, Math.round(performance.now() - startedAt));

@@ -25,8 +25,8 @@ integration('catalogue schema with Postgres', () => {
         ($1, $3, $4, 'Catalogue A', 'eu-west-1'), ($2, $3, $4, 'Catalogue B', 'eu-west-1')`, [projectId, otherProject, company.id, industry.id]);
     });
     await scope(async (tx) => {
-      await tx.query(`INSERT INTO data_source (id, project_id, kind, name, credential_ref)
-        VALUES ($1, $2, 'postgres', 'Warehouse', 'vault://test/warehouse')`, [source, projectId]);
+      await tx.query(`INSERT INTO data_source (id, project_id, kind, name, duckdb_alias, credential_ref)
+        VALUES ($1, $2, 'postgres', 'Warehouse', 'warehouse', 'vault://test/warehouse')`, [source, projectId]);
       await tx.query(`INSERT INTO catalog_object (id, source_id, project_id, schema_name, object_name, object_kind, duckdb_schema, duckdb_name)
         VALUES ($1, $2, $3, 'public', 'Orders', 'table', 'public', 'orders')`, [object, source, projectId]);
       await tx.query(`INSERT INTO catalog_element (id, object_id, project_id, source_identifier, duckdb_name, stable_ref, source_type, duckdb_type)
@@ -120,8 +120,8 @@ integration('catalogue schema with Postgres', () => {
   it('F-006: stores only a vault reference and rejects plaintext credentials', async () => {
     const plaintext = 'postgres://customer:plaintext-password@customer-db/customer';
     for (const credential of [null, 'literal-secret', plaintext]) {
-      await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, credential_ref)
-        VALUES ($1, 'postgres', 'Invalid', $2)`, [projectId, credential])))
+      await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, duckdb_alias, credential_ref)
+        VALUES ($1, 'postgres', 'Invalid', 'invalid', $2)`, [projectId, credential])))
         .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });
       await expect(scope((tx) => tx.query('UPDATE data_source SET credential_ref = $1 WHERE id = $2', [credential, source])))
         .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });

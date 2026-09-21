@@ -10,6 +10,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "sidecar/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "sidecar/**/*.ts", "migrations/**/*.ts"],
   "exclude": ["node_modules", "dist", "coverage"]
 }
