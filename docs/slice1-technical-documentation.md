@@ -234,12 +234,12 @@ class Pool {
   modes: { query: boolean; prompt: boolean };
   clarificationPolicy: 'pause' | 'refuse';   // unattended callers set refuse
   budgets: PoolBudgets;
-  keys: PoolKey[];                   // at most two: current and retiring
+  keys: KeyRecord[];                 // hash/prefix metadata; at most one current and one retiring
 }
 ```
 
 **Invariants**
-- At most one key is `current`. A rotation creates a second in `retiring` with a grace expiry
+- At most one key is `current`, and at most one is `retiring`. Rotation retires the previous current key with a grace expiry and installs a new current key. Retiring keys are usable strictly before that expiry; equality is expired. Terminal metadata (`revoked`/`expired`) can remain for history and does not occupy a live key slot.
 - A pool with no bound sources can exist. It resolves to an empty namespace, which is correct and not an error
 - **Agents are not members of this aggregate.** The key is the membership. `agentId` is observational and appears only in presence and evidence
 
@@ -2865,6 +2865,18 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 
 ## 4.5 Entitlements and pools
 
+Item 5.1 stores SHA-256 digests as exactly 32 bytes, with a partial `opk_live_`
+display prefix (fewer than the credential's 22 suffix characters). Neither the
+aggregate nor the schema contains a plaintext credential. Retiring and expired
+metadata requires a grace expiry after creation; current/revoked metadata has no
+grace expiry. The domain's time predicate stops accepting a retiring record at
+its deadline even before a later worker persists `expired`. Credential generation,
+hashing, verification and rotation/revocation orchestration are item 5.2.
+Migration 027 adds forced tenant RLS, role grants, and composite project-matching
+foreign keys for keys and source bindings. The binding table is structural only;
+SpiceDB binding orchestration remains item 5.3. Agent presence remains item 5.4.
+
+
 ```sql
 create table pool (
   id          uuid primary key default gen_random_uuid(),
@@ -2892,6 +2904,8 @@ create table pool_key (
 );
 create unique index one_current_key_per_pool
   on pool_key (pool_id) where state = 'current';
+create unique index one_retiring_key_per_pool
+  on pool_key (pool_id) where state = 'retiring';
 
 create table pool_source_binding (
   pool_id    uuid not null references pool(id) on delete cascade,

@@ -155,7 +155,7 @@ Version 1.0 · September 2026
 | E2-024 | F | Migrate dry run | Reports shadowed terms and, in Slice 1b, prompts in the last 30 days using terms unique to the old industry. **Protocols do not exist until Slice 3**, so nothing is reported about them |
 | E2-025 | F | Migrate without typed confirmation | Rejected |
 | E2-026 | D | After migration, entitlements *(needs entitlement, item 4.1)* | **Every entitlement unchanged**; assert row-by-row |
-| E2-027 | D | After migration, sources, pools *(needs data_source item 3.1, pool item 5.1)* , keys | Unchanged |
+| E2-027 | D | After migration, sources, pools, keys (proved in item 5.1) | Unchanged |
 | E2-028 | D | After migration, project-scope terms | Retained and still overriding |
 | E2-031 | F | After migration, observation *(needs the observations register, Slice 3)* | Lists terms that no longer resolve |
 | E2-032 | D | Historical evidence after migration *(needs evidence records, item 5.10)* | Still explains itself against its original vocabulary version |
@@ -230,9 +230,9 @@ Version 1.0 · September 2026
 
 | ID | Type | Case | Expected |
 |---|---|---|---|
-| I-001 | F | Create a pool | Key shown once, prefixed, copy required to dismiss |
-| I-002 | D | Key at rest | Hash only; plaintext irrecoverable |
-| I-003 | F | Key shown a second time | Not possible through any route |
+| I-001 | F | Create a pool | Item 5.1: pool/key invariants, one current and one retiring key, grace boundary, tenant isolation. Item 5.2: generation and prefixed key shown once. Item 5.14: copy required to dismiss |
+| I-002 | D | Key at rest | Item 5.1: schema stores only a 32-byte digest and partial display prefix, rejecting a plaintext pool credential. Item 5.2: hashing and plaintext irrecoverability |
+| I-003 | F | Key shown a second time | Not possible through any route (item 5.2; deferred from 5.1) |
 | I-004 | F | Agent connects with a valid key | Tools listed |
 | I-005 | S | Agent connects with an invalid key | 401, no detail about which pool exists |
 | I-006 | S | Agent connects with a revoked key | 401 |

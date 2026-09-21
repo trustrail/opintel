@@ -53,7 +53,7 @@ afterEach(async () => {
 });
 
 integration('industry migration with Postgres', () => {
-  resetDatabaseBeforeEach('industry', 'company');
+  resetDatabaseBeforeEach('industry', 'company', 'user_account');
   beforeEach(async () => {
     await scopes.withPlatformAdmin({ actor: { kind: 'system', name: 'migration-fixtures' } }, async (tx) => {
       await tx.query(`INSERT INTO industry (id, slug, name, vocabulary_version) VALUES
@@ -89,6 +89,24 @@ integration('industry migration with Postgres', () => {
     check.mockResolvedValue(checked(false));
     expect((await post()).status).toBe(404);
     expect((await post(undefined, '', null)).status).toBe(401);
+  });
+
+  it('E2-027: industry migration preserves every source, pool, key and binding row', async () => {
+    await scopes.withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[actor.id,actor.email]));
+    const ctx={projectId:ProjectId(project),userId:actor.id};
+    const source=randomUUID();const pool=randomUUID();
+    await scopes.withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/warehouse')",[source,project]);
+      await tx.query(`INSERT INTO pool(id,project_id,name,mode_prompt,clarification_policy,budgets) VALUES($1,$2,'Reporting',false,'refuse','{"rowsPerDay":1000}')`,[pool,project]);
+      for(const [index,state] of ['current','retiring','expired','revoked'].entries()) await tx.query(`INSERT INTO pool_key(pool_id,project_id,key_hash,key_prefix,state,grace_until,created_at,created_by) VALUES($1,$2,$3,'opk_live_example',$4,$5,'2026-01-01',$6)`,[pool,project,Buffer.alloc(32,index+1),state,state==='retiring'||state==='expired'?'2030-01-01':null,actor.id]);
+      await tx.query('INSERT INTO pool_source_binding(pool_id,source_id,project_id) VALUES($1,$2,$3)',[pool,source,project]);
+    });
+    const rows=()=>scopes.withTenant(ctx,async tx=>({sources:await tx.query('SELECT * FROM data_source ORDER BY id'),pools:await tx.query('SELECT * FROM pool ORDER BY id'),keys:await tx.query('SELECT * FROM pool_key ORDER BY id'),bindings:await tx.query('SELECT * FROM pool_source_binding ORDER BY pool_id,source_id')}));
+    const before=await rows();
+    expect((await post(undefined,'?dryRun=true')).status).toBe(200);expect(await rows()).toEqual(before);
+    const response=await post();expect(response.status).toBe(200);
+    expect(ProjectView.parse(await response.json()).industry.id).toBe(newIndustry);
+    expect(await rows()).toEqual(before);
   });
 
   it('E2-024: previews without writing and ignores the confirmation value', async () => {

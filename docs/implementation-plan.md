@@ -156,7 +156,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 to I-003, E2-027 |
+| 5.1 | Pool domain and schema, one current key, grace window | 2.1, 1.6 | `modules/pools` | I-001 (domain/key invariants), I-002 (schema hash-only storage), tenant isolation, E2-027 |
 | 4.1 | Entitlement domain. **Undecided is the absence of a row** | 3.1, 5.1  | `modules/entitlements` | H-001, H-004, H-009, E2-026, F-008, G-009 (entitlement deletion after the recorded type-family diff), ING-30 and E2-014 (persisted undecided assertions) |
 | 4.2 | Five treatment strategies | 4.1 | `entitlements/treatments` | H-002 to H-008 |
 | 4.3 | **Tokenization.** Blocked until the construction is signed off. **Hand-written** | 4.2, 1.4, review | `entitlements/token.ts` | TOK-01 to TOK-30 |
@@ -177,7 +177,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 5.2 | Key generation, hashing, shown once, rotation and revocation | 5.1 | `pools/keys.ts` | I-015 to I-017, I-002 |
+| 5.2 | Key generation, hashing, shown once, rotation and revocation | 5.1 | `pools/keys.ts` | I-001 (generation and shown once), I-002 (hashing), I-003 (route check), I-015 to I-017 |
 | 5.3 | Pool to source binding in SpiceDB, two-check resolution | 5.1, 2.2 | `pools/binding.ts` | I-005, I-006 |
 | 5.4 | Agent presence state machine, never silently removed | 5.1, 3.16 | `pools/presence.ts` | I-018 to I-021 |
 | 5.5 | MCP server, key auth, tool listing driven by pool config | 5.2, 4.4 | `modules/mcp` | I-004, I-013, I-014, I-023 |
@@ -189,7 +189,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 5.11 | Record writer: per-element treatment, versions, freshness, landing strategy, synthetic derived | 5.10, 5.7, 3.9 | `evidence/write.ts` | M-002, M-011, M-012; ING-24 persisted landing-strategy evidence |
 | 5.12 | Activity screen, filters, record detail | 5.10, 1.11 | two screens | M-007, M-013 to M-015 |
 | 5.13 | Export: streaming NDJSON and CSV, synthetic excluded | 5.10 | endpoint | M-008 to M-010 |
-| 5.14 | Pools screens: list, detail with key management, agent twin | 5.2, 5.4 | three screens | I-015 to I-022 |
+| 5.14 | Pools screens: list, detail with key management, agent twin | 5.2, 5.4 | three screens | I-001 (copy-to-dismiss UI), I-015 to I-022 |
 | 5.15 | Dashboard: ratio, spectrum, tiles, feed, pool shields, empty when clean | 4.9, 5.4 | screen | O-001 to O-004 |
 | 5.16 | Settings: project and personal pages | all above | screens | Q-001 to Q-038 |
 | 5.17 | Retention and redaction jobs | 5.10 | jobs | Q-025 to Q-027 |
