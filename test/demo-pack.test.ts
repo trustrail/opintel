@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { filingSchema, type WatchedFiling } from '../sidecar/ingest/register.js';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -87,11 +89,28 @@ describe('reinsurance demo pack through ordinary ingest', () => {
   const extractorSpy = vi.spyOn(extractor,'inspect');
   const storeSpy = vi.spyOn(vault,'store');
   watcher = await LandingWatcher.open(zone,undefined,extractor,new FilingLander(zone.directory,{...zone.landing!,sourceId,projectId:ctx.projectId},writer,extractor,{send:async()=>ok(undefined)}));
+  // Hold the cache update after durable persistence until the dependent write.
+  // This deterministically reproduces the scheduling gap found under suite load.
+  let releaseCache = () => {};
+  const cacheGate = new Promise<void>(resolve => { releaseCache = resolve; });
+  const register = watcher as unknown as { persist(filings: readonly WatchedFiling[]): Promise<void> };
+  const persist = register.persist.bind(register);
+  const delayedPersist = vi.spyOn(register,'persist').mockImplementation(async filings => {
+   await persist(filings);
+   if (filings.length === 1) await cacheGate;
+  });
+  let observedStaleCache = false;
   const workbook = new DemoWorkbookWriter();
   const workbookWrite = workbook.write.bind(workbook);
   const workbookSpy = vi.spyOn(workbook,'write').mockImplementation(async (...args) => {
    const file = args[1];
-   if (file.dependsOn) expect(watcher!.records()).toEqual(expect.arrayContaining([expect.objectContaining({ path:`${file.dependsOn}_${file.period}.xlsx` })]));
+   if (file.dependsOn) {
+    try {
+     const durable = z.object({filings:z.array(filingSchema)}).parse(JSON.parse(await readFile(zone.stateFile,'utf8')) as unknown);
+     expect(durable.filings).toEqual(expect.arrayContaining([expect.objectContaining({ path:`${file.dependsOn}_${file.period}.xlsx` })]));
+     observedStaleCache = watcher!.records().length === 0;
+    } finally { releaseCache(); }
+   }
    return workbookWrite(...args);
   });
   const provision = new SpreadsheetDemoProvisioner([zone],{database:new URL(process.env.TEST_DATABASE_URL!).pathname.slice(1),credentialRef},workbook);
@@ -109,7 +128,10 @@ describe('reinsurance demo pack through ordinary ingest', () => {
   await expect.poll(() => workbookSpy.mock.calls.length).toBe(12);
   expect((await readdir(zone.directory)).some((name) => name.includes('restatement'))).toBe(false);
   watcher.start();
-  expect(unwrap(await pending)).toEqual({credentialRef,database:new URL(process.env.TEST_DATABASE_URL!).pathname.slice(1)});
+  try {
+   expect(unwrap(await pending)).toEqual({credentialRef,database:new URL(process.env.TEST_DATABASE_URL!).pathname.slice(1)});
+   expect(observedStaleCache).toBe(true);
+  } finally { releaseCache(); delayedPersist.mockRestore(); }
   await expect.poll(() => watcher!.records().filter((filing) => filing.landing?.registered).length,{timeout:15000}).toBe(12);
   const records = watcher.records(); expect(records).toHaveLength(13);
   expect(records.filter((record) => record.status==='quarantined')).toEqual([expect.objectContaining({reason:'The declared header row contains a merged cell.'})]);
