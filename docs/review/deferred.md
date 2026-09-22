@@ -229,8 +229,9 @@ deployed arrangement starts. Run the thing.
 
 - Key generation, escrow, backup gating, rotation and restore remain 4.3a:
   TOK-16 and TOK-27–TOK-29. No fallback or development-only generated key.
-- Temporal declarations persist in 4.3b; canonicaliser registration, purity
-  checking and typed version confirmation remain 4.3c (TOK-24/TOK-25).
+- Resolved by 4.3b and 4.3c: temporal declarations, canonicaliser registration,
+  reviewed-code lint/determinism/vector checks, and typed version confirmation
+  (TOK-24/TOK-25). Read-plan integration remains 4.4.
 - TOK-30 belongs to 5.11 evidence writing. TOK-38 belongs to S2/S4: no DuckDB
   executor exists here. That executor must consume only treated read-boundary
   rows and discard partial staging on any refusal.

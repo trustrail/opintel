@@ -952,12 +952,20 @@
                     },
                     "duckdb": {
                       "type": "string"
+                    },
+                    "canonicalisers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9]+$(?![\\s\\S])"
+                      }
                     }
                   },
                   "required": [
                     "version",
                     "contract",
-                    "duckdb"
+                    "duckdb",
+                    "canonicalisers"
                   ],
                   "additionalProperties": false
                 }

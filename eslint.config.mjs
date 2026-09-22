@@ -28,6 +28,25 @@ function moduleLocation(filePath) {
 
 const localRules = {
   rules: {
+    'canonicaliser-purity': {
+      meta: { type: 'problem', schema: [], messages: { forbidden: 'Canonicalisers use only local helpers and deterministic operations; {{name}} is forbidden.' } },
+      create(context) {
+        const forbidden = new Set(['Date', 'process', 'globalThis', 'fetch', 'eval', 'Function', 'require']);
+        const report = (node, name) => context.report({node, messageId: 'forbidden', data: {name}});
+        const imported = node => { if (node.source && !/^\.{1,2}\//u.test(node.source.value)) report(node, 'non-local import'); };
+        return {
+          ImportDeclaration: imported, ExportNamedDeclaration: imported, ExportAllDeclaration: imported,
+          ImportExpression(node) { report(node, 'dynamic import'); },
+          TSImportEqualsDeclaration(node) { report(node, 'require import'); },
+          Identifier(node) { if (forbidden.has(node.name)) report(node, node.name); },
+          MemberExpression(node) {
+            if (node.object.type === 'Identifier' && node.object.name === 'Math' &&
+              (!node.computed && node.property.name === 'random' || node.computed && node.property.value === 'random')) report(node, 'Math.random');
+          },
+          VariableDeclarator(node) { if (node.id.type === 'ObjectPattern' && node.init?.type === 'Identifier' && node.init.name === 'Math' && node.id.properties.some(p => p.key?.name === 'random' || p.key?.value === 'random')) report(node, 'Math.random'); }
+        };
+      }
+    },
     'module-boundary': {
       meta: {
         type: 'problem',
@@ -121,7 +140,7 @@ export default [
   { ignores: ['node_modules/**', 'dist/**', 'coverage/**'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts', 'sidecar/**/*.ts', 'test/fixtures/module-boundary/**/src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts', 'sidecar/**/*.ts', 'test/fixtures/module-boundary/**/src/**/*.{ts,tsx}', 'test/fixtures/canonicalisers/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       globals: { ...globals.node, ...globals.browser },
@@ -142,5 +161,6 @@ export default [
       'opintel/module-boundary': 'error',
       'opintel/no-raw-style-values': 'error'
     }
-  }
+  },
+  { files: ['sidecar/tokenize/canonicalisers/**/*.ts', 'test/fixtures/canonicalisers/**/*.ts'], rules: { 'opintel/canonicaliser-purity': 'error' } }
 ];

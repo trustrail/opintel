@@ -136,6 +136,9 @@ Real cases, all of which break a naive join:
 
 So: a declared extension point, applied as the **first** text-mode step, per element.
 
+**Purity is established by review, lint and tests, not proven**. Canonicalisers are code shipped with the sidecar, never registered at runtime, so there is no untrusted submission to defend against. The canonicaliser directory is linted to forbid imports other than local helpers, Date, Math.random, process, globalThis, fetch, eval and Function. Every canonicaliser has a determinism test, repeated runs and a fresh process giving identical output, and ships with fixed vectors in the same change.
+
+
 ```ts
 interface Canonicaliser {
   readonly canonId: string;            // 'addr2': name and version together, [a-z0-9]+
@@ -148,7 +151,7 @@ interface Canonicaliser {
 | Registered per element, never global | The same rule is right for one column and wrong for another |
 | Pure and deterministic. No network, no clock, no locale lookup | Anything else reintroduces the drift A.3.1 just closed |
 | `canonId` carries the version and is recorded on the element. It enters the HMAC payload (A.2) | Changing a canonicaliser changes every token of that element, exactly like a key rotation. Putting the id in the payload guarantees two canonicaliser versions can never produce the same token |
-| Changing it requires the same typed confirmation as key rotation | Because the consequence is the same: joins break |
+| Assigning or changing it on an element with a tokenized entitlement requires the project name as typed confirmation | Because the consequence is the same: joins break |
 | Ships as part of the industry pack where the domain is common | Address and roll-number handling is reusable within a market |
 
 **A canonicaliser is established during the deployment**, alongside vocabulary and landing strategy. It is a data decision made with the customer, not a library choice made by an engineer.

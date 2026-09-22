@@ -121,3 +121,20 @@ it('TOK-14: full runs leave no raw, hex or base64 key in any application or cust
     }
   } finally { await landing.query('ROLLBACK'); }
 }, 60000);
+
+it('resolves compiled canonicalisers at the read boundary and refuses unregistered ids before source contact', async () => {
+  const { canonicalisers, createCanonicaliserRegistry } = await import('../sidecar/tokenize/canonicalisers/index.js');
+  const { fixture1 } = await import('./fixtures/canonicalisers/reviewed.js');
+  await landing.query("CREATE TABLE canonical_input(value text); INSERT INTO canonical_input VALUES ('AB-12'),('AB12')");
+  const boundary = new TokenizedSourceReader(scope, new SidecarTokenizer(vault,new IanaZoneResolver()),createCanonicaliserRegistry([...canonicalisers.entries,fixture1]));
+  const input = {...request('canonical_input'),columns:[{name:'value',config:{domain:'c',canonId:'fixture1',mode:'text'}}]};
+  const tokens:(string|null)[]=[];
+  expect(await boundary.read(input,async row=>{tokens.push(row.value!);})).toEqual({ok:true,value:2});
+  expect(tokens[0]).toBe(tokens[1]);
+  const sourceContact = vi.spyOn(scope,'run');
+  try {
+    const consume=vi.fn();
+    expect(await reader.read(input,consume)).toMatchObject({ok:false,error:{code:'validation_failed'}});
+    expect(sourceContact).not.toHaveBeenCalled();expect(consume).not.toHaveBeenCalled();
+  } finally {sourceContact.mockRestore();}
+},30000);

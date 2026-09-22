@@ -909,6 +909,11 @@ CI generates this matrix from test annotations and compares it against the entit
   IANA validation, typed confirmation, and tenant isolation.
 - Item 4.3c: TOK-24/TOK-25 (registration purity and version confirmation);
   4.3 tests the supplied canonicaliser extension for TOK-23/TOK-26.
+  TOK-24 is review plus directory-scoped lint (including a failing Date fixture),
+  fixed vectors for every registry entry, and generated-input determinism across
+  repeated runs and a fresh process. This is not a purity proof or sandbox.
+  TOK-25 covers persisted assignments, pinned health discovery, and confirmation
+  for first assignment and version changes on tokenized elements.
 - Item 5.11: TOK-30, persisted evidence token-key version.
 - S2/S4: TOK-38, treated staging and disk-spill proof.
 - TOK-33 is validated at the execution boundary in 4.3; persisted entitlement

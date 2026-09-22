@@ -7,10 +7,19 @@ import { custodyEnvelope,custodyOperations,safeCustodyMessage,type CustodyOperat
 import { healthResponse } from '../../../shared/sidecar-contract.js';
 import { serviceErrorEnvelope } from '../../../shared/error-contract.js';
 import type { SidecarOptions } from '../../sources/index.js';
+import type { CanonicaliserCatalog } from '../application/canonicalisers.js';
 import type { CustodyPort } from '../application/key-custody.js';
-export class SidecarCustodyClient implements CustodyPort {
+export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
  private checked=false;private readonly pin:string;private readonly url:URL;
  constructor(private readonly options:SidecarOptions){this.url=new URL(options.baseUrl);if(this.url.protocol!=='https:'||this.url.username||this.url.password)throw new Error('Custody requires a pinned HTTPS sidecar.');this.pin=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;}
+ async canonicalisers():Promise<Result<readonly string[]>> {
+  try {
+   // Refresh discovery for assignment: a cached manifest must not hide a deployment.
+   const health=healthResponse.parse(await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??9000)));
+   if(health.contract!==1)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: canonicaliser discovery requires contract 1.'));
+   return ok(health.canonicalisers);
+  }catch{return err(new DomainError('dependency_unavailable','Canonicaliser discovery failed. Check the pinned sidecar connection and its health contract before assigning a canonicaliser.',undefined,true));}
+ }
  async call<K extends CustodyOperation>(projectId:ProjectId,operation:K,payload:z.input<(typeof custodyOperations)[K]['request']>):Promise<Result<CustodyResponse<K>>>{
   const parsed=custodyOperations[operation].request.safeParse(payload);if(!parsed.success)return err(new DomainError('validation_failed','Invalid custody request.'));
   const signal=AbortSignal.timeout(this.options.timeoutMs??9000);

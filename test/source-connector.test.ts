@@ -42,7 +42,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 beforeEach(async () => {
   seen = [];
   stall = undefined; status = 200;
-  responses = { '/health': { version: '1.0.0', contract: 1, duckdb: '1.4.3' }, '/test-connection': { reachable: true }, '/estimate': { rows: null } };
+  responses = { '/health': { version: '1.0.0', contract: 1, duckdb: '1.4.3', canonicalisers: ['stdtext1','stdnum1','stddate1','stdtime1'] }, '/test-connection': { reachable: true }, '/estimate': { rows: null } };
   server = createServer({ ca: tls.ca, cert: tls.pinnedCertificate, key: readFileSync(join(dir, 'server.key')), requestCert: true, rejectUnauthorized: true }, (req, res) => {
     if ((req.socket as TLSSocket).getPeerCertificate().fingerprint256 !== new X509Certificate(tls.cert).fingerprint256) { req.socket.destroy(); return; }
     const chunks: Buffer[] = [];
@@ -78,7 +78,7 @@ describe('SourceConnector sidecar wire contract', () => {
     expect(seen[1]).toEqual({ path: '/test-connection', method: 'POST', body: { requestId: context.requestId, projectId: context.projectId, sourceId: context.sourceId, credentialRef: ref, payload: {} } });
   });
   it.each([0, 2])('refuses contract %s without contacting the source', async (contract) => {
-    responses['/health'] = { version: '1.0.0', contract, duckdb: '1.4.3' };
+    responses['/health'] = { version: '1.0.0', contract, duckdb: '1.4.3', canonicalisers: ['stdtext1','stdnum1','stddate1','stdtime1'] };
     expect(await client().testConnection(ref)).toMatchObject({ ok: false, error: { code: 'dependency_unavailable', message: expect.stringContaining('contract 1') } });
     expect(seen.map(({ path }) => path)).toEqual(['/health']);
   });

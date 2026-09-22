@@ -1,3 +1,4 @@
+import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
 import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
 import { safeSourceMessage } from '../../src/shared/source-errors.js';
 import { provisionDemoResponse } from '../../src/shared/demo-contract.js';
@@ -12,7 +13,7 @@ import * as wire from '../../src/shared/sidecar-contract.js';
 import type { SidecarConnector } from '../application/source-connector.js';
 import type { SidecarConfig, SidecarTls } from '../config.js';
 
-export const sidecarBuild = { version: '0.1.0', contract: 1, duckdb: 'not-loaded' } as const;
+export const sidecarBuild = { version: '0.1.0', contract: 1, duckdb: 'not-loaded', canonicalisers: canonicalisers.ids } as const;
 type Route = { permission: 'pinned_application_certificate'; invoke: (body: unknown, signal: AbortSignal) => Promise<Result<unknown>>; response: z.ZodType };
 const statusFor = (code: string) => code === 'forbidden' ? 403 : code === 'validation_failed' ? 400 : code === 'conflict' ? 409 : code === 'object_unavailable' ? 404 : code === 'budget_exceeded' ? 429 : 503;
 const errorMessages: Readonly<Record<string,string>> = {
@@ -26,9 +27,10 @@ export function createSidecarServer(options: {
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
   demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
   custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
+  canonicalisers?: CanonicaliserRegistry;
   build?: typeof sidecarBuild | { version: string; contract: number; duckdb: string };
 }) {
-  const build = wire.healthResponse.parse(options.build ?? sidecarBuild);
+  const build = wire.healthResponse.parse({ ...(options.build ?? sidecarBuild), canonicalisers: (options.canonicalisers ?? canonicalisers).ids });
   const pin = new X509Certificate(options.tls.clientPin).fingerprint256;
   const routes: Record<string, Route> = {
     ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),

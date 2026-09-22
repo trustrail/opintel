@@ -1,9 +1,10 @@
+import { canonicalisers, type CanonicaliserRegistry } from '../canonicalisers/index.js';
 import { z } from 'zod';
 import { DomainError, ProjectId, err, ok, type Result } from '../../../src/shared/kernel/index.js';
 import { VaultRef } from '../../../src/platform/vault/index.js';
 import type { PostgresSourceScope } from '../../infrastructure/postgres-source-scope.js';
 import type { SidecarTokenizer } from '../tokenizer.js';
-import { tokenConfigSchema, type Canonicaliser } from '../config.js';
+import { tokenConfigSchema } from '../config.js';
 
 const identifier = z.string().min(1).refine(value => !value.includes('\0'));
 const readSchema = z.strictObject({
@@ -26,15 +27,20 @@ const refused = () => err(new DomainError('validation_failed',
  * the consumer; no DuckDB session or SQL function receives the key or plaintext.
  * The existing source scope owns credentials, read-only transactions and aborts. */
 export class TokenizedSourceReader {
-  constructor(private readonly scope: Pick<PostgresSourceScope, 'run'>, private readonly tokenizer: SidecarTokenizer) {}
+  constructor(private readonly scope: Pick<PostgresSourceScope, 'run'>, private readonly tokenizer: SidecarTokenizer, private readonly registry: CanonicaliserRegistry = canonicalisers) {}
 
   async read(input: unknown, consume: (row: Readonly<Record<string, string | null>>) => Promise<void>,
-    signal?: AbortSignal, extensions: ReadonlyMap<string, Canonicaliser> = new Map()): Promise<Result<number>> {
+    signal?: AbortSignal): Promise<Result<number>> {
     const parsed = readSchema.safeParse(input);
     if (!parsed.success) return err(new DomainError('validation_failed', 'The tokenized source read declaration is invalid.'));
     const request = parsed.data;
     return this.tokenizer.run(ProjectId(request.projectId), async run => {
-      const prepared = request.columns.map(column => run.prepare(column.config, extensions.get(column.name)));
+      const prepared = request.columns.map(column => {
+        const registered = this.registry.get(column.config.canonId);
+        if (!registered || registered.mode !== column.config.mode) return err(new DomainError('validation_failed', 'The requested canonicaliser is not registered for this tokenization mode.'));
+        const builtin = ['stdtext1','stdnum1','stddate1','stdtime1'].includes(registered.canonId);
+        return run.prepare(column.config, builtin ? undefined : registered);
+      });
       for (const result of prepared) if (!result.ok) return result;
       return this.scope.run(request.sourceId, VaultRef(request.credentialRef), async session => {
         await session.query("SELECT set_config('TimeZone', 'UTC', true), set_config('DateStyle', 'ISO, YMD', true)");

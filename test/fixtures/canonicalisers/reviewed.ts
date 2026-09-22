@@ -1,0 +1,2 @@
+export const fixture1 = { canonId: 'fixture1', mode: 'text' as const, canonicalise: (raw: string) => raw.replaceAll('-', ''), vectors: [{input:'AB-12',output:'AB12'},{input:'',output:''}] };
+export const fixture2 = { canonId: 'fixture2', mode: 'text' as const, canonicalise: (raw: string) => raw.replaceAll('-', '').replaceAll(' ', ''), vectors: [{input:'AB- 12',output:'AB12'},{input:'',output:''}] };

@@ -30,10 +30,32 @@ Run `npm test` for vectors, execution, real Postgres reads, the two-database key
 scan and log capture. Run `npm run test:tokenization-collision` separately for the
 10-million-input collision proof; CI runs it separately too.
 
-4.3b owns persisted temporal declarations. 4.3c owns canonicaliser registration,
-purity enforcement and typed confirmation; this library only invokes a supplied
-trusted canonicaliser. 5.11 owns persisted evidence versions. S2/S4 own the
-DuckDB staging/spill and ephemerality proofs. None is implemented here.
+4.3b persists temporal declarations; their read-plan integration remains 4.4.
+5.11 owns persisted evidence versions. S2/S4 own DuckDB staging/spill and the
+ephemerality proofs.
+
+## Reviewed canonicalisers (4.3c)
+
+`canonicalisers/index.ts` lists the compiled registry. Slice 1 includes only
+stdtext1, stdnum1, stddate1 and stdtime1. A domain extension is reviewed code,
+not a runtime upload: add its versioned lowercase alphanumeric id, implementation
+and fixed input-to-output vectors together. Never replace behavior under an
+existing id. Helpers must also be reviewed for purity; lint and determinism
+checks are safeguards, not a proof or a sandbox.
+
+The directory lint rule forbids non-local imports, clock, randomness, process,
+globalThis, fetch, eval and Function. Registry-wide tests execute every fixed
+vector and generated inputs repeatedly and in a fresh process. Test-only
+extensions live under test/fixtures, never in the product registry.
+
+Health advertises only registered ids. Application assignment discovers them
+through pinned mTLS and persists only the selected id. First assignment or a
+version change on a tokenized element needs the project name as confirmation.
+Without an explicit assignment the element uses its mode's fixed version-1
+built-in; a new built-in version must be explicitly assigned, never substituted
+by changing that fallback. The read boundary resolves registered text extensions
+before source contact, applies them before standard text normalization, and
+refuses unknown ids. The application never imports these implementations.
 
 ## Key custody (4.3a)
 

@@ -1,3 +1,4 @@
+import { validateCanonicaliserType } from '../application/canonicalisers.js';
 import { validateTokenizedTemporal, type TemporalDeclarations, type DuckDbType } from '../../catalog/index.js';
 import { validateMaskType } from '../application/mask-compatibility.js';
 import { withTenant } from '../../../platform/db/scope.js';
@@ -18,8 +19,9 @@ export class PostgresEntitlements implements EntitlementRepository {
    // old decision cannot race a type-family invalidation or source archive.
    const source=await tx.query(`SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 AND s.status<>'archived' FOR UPDATE OF s`,[s.elementId]);
    if(!source.length)return err(new DomainError('not_found','An active catalogue element is required.'));
-   const rows=await tx.query<{id:ElementId;duckdb_type:DuckDbType|null;sourceTimezone:string|null;epochUnit:TemporalDeclarations['epochUnit']}>(`SELECT e.id,e.duckdb_type,COALESCE(e.source_timezone,d.source_timezone) AS "sourceTimezone",e.epoch_unit AS "epochUnit" FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id LEFT JOIN catalog_schema_temporal d ON d.source_id=o.source_id AND d.schema_name=o.schema_name WHERE e.id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived' FOR UPDATE OF e`,[s.elementId]);
+   const rows=await tx.query<{id:ElementId;canon_id:string|null;duckdb_type:DuckDbType|null;sourceTimezone:string|null;epochUnit:TemporalDeclarations['epochUnit']}>(`SELECT e.id,e.canon_id,e.duckdb_type,COALESCE(e.source_timezone,d.source_timezone) AS "sourceTimezone",e.epoch_unit AS "epochUnit" FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id LEFT JOIN catalog_schema_temporal d ON d.source_id=o.source_id AND d.schema_name=o.schema_name WHERE e.id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived' FOR UPDATE OF e`,[s.elementId]);
    if(!rows.length)return err(new DomainError('not_found','An active catalogue element is required.'));
+   if(s.treatment==='tokenized' && rows[0]!.canon_id!==null){const valid=validateCanonicaliserType(rows[0]!.canon_id!,rows[0]!.duckdb_type,rows[0]!.epochUnit);if(!valid.ok)return valid;}
    if(s.treatment==='tokenized'){const valid=validateTokenizedTemporal(rows[0]!.duckdb_type,rows[0]!);if(!valid.ok)return valid;}
    if(s.maskKind!==null){const valid=validateMaskType(s.maskKind,rows[0]!.duckdb_type);if(!valid.ok)return valid;}
    const pools=await tx.query('SELECT id FROM pool WHERE id=$1',[s.poolId]);

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { Timestamp } from './kernel/index.js';
 
 const count = z.number().int().nonnegative().safe();
-export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, duckdb: z.string() });
+export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, duckdb: z.string(), canonicalisers: z.array(z.string().regex(/^[a-z0-9]+$(?![\s\S])/u)).refine(ids => new Set(ids).size === ids.length) });
 export const connectionResponse = z.union([
   z.strictObject({ reachable: z.literal(true) }),
   z.strictObject({ reachable: z.literal(false), reason: z.string().min(1) }),

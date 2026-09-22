@@ -1782,6 +1782,7 @@ type HealthResponse = {
   version: string;                // semver of the sidecar
   contract: number;               // wire contract version, currently 1
   duckdb: string;
+  canonicalisers: string[];        // compiled, versioned canonIds; no code crosses the wire
 };
 
 // POST /test-connection -> testConnection
@@ -2707,6 +2708,7 @@ create table catalog_element (
   name_revision     integer not null default 0, -- explicit adoption advances once
   stable_ref        text,                   -- attnum / field id where available
   source_type       text not null,
+  canon_id          text,                   -- explicit override; otherwise the mode's built-in
   source_timezone   text,                   -- explicit IANA zone; otherwise schema inheritance
   epoch_unit        text check (epoch_unit in ('seconds','milliseconds')),
   duckdb_type       text,                   -- null means unsupported type
@@ -2723,6 +2725,18 @@ create index on catalog_element (project_id, status);
 create index on catalog_element (object_id) include (duckdb_name, duckdb_type);
 
 ```
+
+**Canonicaliser assignments (4.3c).** `catalog_element.canon_id` stores an
+optional explicit id, constrained to `[a-z0-9]+`. Without an override the element
+uses its mode's built-in (`stdtext1`, `stdnum1`, `stddate1`, `stdtime1`); epoch
+units select timestamp mode. The assignment command discovers available ids from
+pinned sidecar `/health` before writing, validates mode compatibility, and locks
+the source with the entitlement-setting path. Domain extensions apply only to
+text. Assigning an id for the first time, or changing it, on an element with a
+tokenized entitlement requires the project name exactly; an unchanged explicit
+assignment does not. No application code imports a canonicaliser. There is no
+runtime code-registration endpoint. Entitlement-setting rechecks compatibility
+against the current catalogue type and declarations.
 
 **Temporal declarations (4.3b).** `catalog_element.source_timezone` and
 `catalog_element.epoch_unit` are nullable, with no defaults. `epoch_unit` is
