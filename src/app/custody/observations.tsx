@@ -1,13 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { createApiClient,type AppError } from '../../shared/api/index.js';
-import { TokenKeyView } from '../../shared/custody-contract.js';
-import { projectKeys } from '../tenancy/data.js';
 import { ErrorState } from '../../shared/ui/index.js';
-const api=createApiClient();
-export const custodyKeys={status:(projectId:string)=>[...projectKeys.scope(projectId),'token-key'] as const};
+import { useTokenKey } from './data.js';
+export { custodyKeys } from './data.js';
 /** Read-only custody failures; no general observation workflow or key screen. */
 export function CustodyObservations({projectId}:{projectId:string}){
- const query=useQuery<TokenKeyView,AppError>({queryKey:custodyKeys.status(projectId),queryFn:async()=>{const result=await api.request({path:`/api/v1/projects/${projectId}/token-key`,response:TokenKeyView});if(!result.ok)throw result.error;return result.value;},retry:false,refetchInterval:30000});
+ const query=useTokenKey(projectId);
  if(query.isPending)return null;
  // Key status is administrator-only; other project members see no key metadata.
  if(query.isError)return query.error.code==='forbidden'?null:<ErrorState title="Key custody status could not be loaded" description={query.error.message} retry={()=>{void query.refetch();}}/>;

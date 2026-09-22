@@ -34,7 +34,7 @@ function Drawer(): ReactNode {
     void navigate({ to: '/projects/$projectId/$screen', params: { projectId: id, screen: path.slice(1) } });
   };
   const section = pathname.split('/')[3];
-  const activePath = id === null ? pathname : ['sources','introspections'].includes(section ?? '') ? '/data-sources' : `/${section ?? 'dashboard'}`;
+  const activePath = id === null ? pathname : section === 'token-key' ? '/access' : ['sources','introspections'].includes(section ?? '') ? '/data-sources' : `/${section ?? 'dashboard'}`;
   return <aside className="drawer" id="application-drawer">
     <div className="dhead"><img className="logo" src="/opintel-logo.png" srcSet="/opintel-logo@2x.png 2x, /opintel-logo@3x.png 3x" alt="Opintel" /><span className="nm">Opintel</span><button aria-controls="application-drawer" aria-expanded={!ui.collapsed} className="dtoggle" aria-label={ui.collapsed ? 'Expand menu' : 'Collapse menu'} onClick={ui.toggle}>‹</button></div>
     <div className="ctx" ref={context} onKeyDown={(event) => { if (event.key === 'Escape') { ui.open(false); trigger.current?.focus(); } }}><div className="ctxlabel" style={{ color: 'var(--rule-2)' }}>Project</div><button ref={trigger} className="projbtn" type="button" aria-label={active === undefined ? 'Choose a project' : `Switch project: ${active.name}`} aria-expanded={ui.switcherOpen} aria-controls="project-switcher" onClick={() => ui.open(!ui.switcherOpen)}><span className="sq" aria-hidden="true">{active?.name.slice(0, 2).toUpperCase() ?? '◫'}</span><span className="tx"><b>{active?.name ?? 'Choose a project'}</b><span>{active?.company.name ?? 'Your workspace'}</span></span><span className="cv" aria-hidden="true">▾</span></button>

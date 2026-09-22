@@ -27,7 +27,7 @@ async function mock(page:Page){
  });return state;
 }
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
-for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at ${width}`,async({page:initialPage})=>{
+for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at ${width}`, { tag: '@visual' },async({page:initialPage})=>{
  let page=initialPage;let state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();await expect(page.getByText('table per filing',{exact:true})).toBeVisible();
  await expect(page).toHaveScreenshot(`sources-ready-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
@@ -53,7 +53,7 @@ test('O-002: loading and error can recover, viewers cannot connect, and demos re
  await page.getByRole('button',{name:'Connect',exact:true}).click();await expect(page.getByText('Already connected to this project')).toBeVisible();expect(state.creates).toEqual([{demoTemplateId:demoId}]);
 });
 
-for(const width of [390,900,1440])test(`renders the persisted safe provisioning failure unchanged at ${width}`,async({page})=>{
+for(const width of [390,900,1440])test(`renders the persisted safe provisioning failure unchanged at ${width}`, { tag: '@visual' },async({page})=>{
  await page.setViewportSize({width,height:1000});
  const state=await mock(page);state.failure=sourceMessages.templateConflict;
  await page.goto(`/projects/${projectId}/data-sources`);

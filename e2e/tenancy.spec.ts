@@ -43,7 +43,7 @@ async function api(page: Page, options: { empty?: boolean; noAdmin?: boolean; fa
 
 for (const [path, title, slug] of [['/projects', 'Your projects', 'chooser'], ['/projects/new', 'Create project', 'create-project'], ['/companies/new', 'Create company', 'create-company']] as const) {
   for (const width of [390, 900, 1440]) {
-    test(`E2-022: ${slug} keyboard, axe and snapshot at ${width}`, async ({ page }) => {
+    test(`E2-022: ${slug} keyboard, axe and snapshot at ${width}`, { tag: '@visual' }, async ({ page }) => {
       await api(page);
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(path);

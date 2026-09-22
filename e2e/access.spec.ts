@@ -51,7 +51,7 @@ async function api(page: Page) {
 }
 
 for (const width of [390, 900, 1440]) {
-  test(`E-009: Access keyboard, axe and snapshot at ${width}`, async ({ page }) => {
+  test(`E-009: Access keyboard, axe and snapshot at ${width}`, { tag: '@visual' }, async ({ page }) => {
     const state = await api(page);
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(`/projects/${projectId}/access`);

@@ -6,7 +6,7 @@ const source='018f8f9d-7f83-7abc-8def-000000000002';
 const object='018f8f9d-7f83-7abc-8def-000000000003';
 const schema=source+':public';
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
-for(const width of [390,900,1440])test(`schema explorer states, types and aliases at ${width}`,async({page})=>{
+for(const width of [390,900,1440])test(`schema explorer states, types and aliases at ${width}`, { tag: '@visual' },async({page})=>{
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/catalog`);await expand(page);
  await expect(page.getByText('Renamed Warehouse',{exact:true})).toBeVisible();
  await expect(page.getByText('INTEGER',{exact:true})).toBeVisible();await expect(page.getByText('Unsupported type',{exact:true})).toBeVisible();await expect(page.getByText('Unnameable element',{exact:true})).toBeVisible();

@@ -29,7 +29,7 @@ async function mock(page:Page){
  });return state;
 }
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
-for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine surfaces at ${width}`,async({page:initialPage})=>{
+for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine surfaces at ${width}`, { tag: '@visual' },async({page:initialPage})=>{
  let page=initialPage;
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByRole('link',{name:'Introspection runs for Monthly returns'})).toHaveText('Runs');
@@ -48,15 +48,7 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText('A filing landed against the wrong party is worse than one that did not land.',{exact:false})).toBeVisible();
  await expect(page).toHaveScreenshot(`filings-dashboard-${width}.png`,{fullPage:true});await accessible(page);
  await page.goto(`/projects/${projectId}/observations`);await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText('Attribution is checked again; it cannot be overridden.',{exact:false})).toBeVisible();
- await test.step(`filings-observations-${width} snapshot`,async step=>{
-  // Quarantined 2026-09-20; revisit on a Chromium upgrade. Intermittent plum
-  // stripe: x=79-81, y=66-1007, 2826 pixels, unchanged after 500ms.
-  // Failed hypotheses: focus ring, drawer state, scrollbar, element in the tree.
-  // Passing/failing DOM, bounding boxes and computed styles were identical;
-  // evidence points to a headless Chromium compositor artifact. See deferred.md.
-  step.skip(width===390,'Quarantined Chromium rendering artifact; docs/review/deferred.md');
-  await expect(page).toHaveScreenshot(`filings-observations-${width}.png`,{fullPage:true});
- });
+ await expect(page).toHaveScreenshot(`filings-observations-${width}.png`,{fullPage:true});
  await accessible(page);
 });
 test('ING-29: loading, empty and error states recover without exposing local details',async({page})=>{
@@ -73,7 +65,7 @@ test('ING-27: table-per-filing strategy and local quarantine resolution',async({
  await expect(page.getByText(`npm run sidecar:register -- show ${sourceId} ${held}`,{exact:true})).toBeVisible();await expect(page.getByText(`npm run sidecar:register -- retry ${sourceId} ${held}`,{exact:true})).toBeVisible();await accessible(page);
 });
 
-for(const width of [390,900,1440])test(`TOK-28: custody observations at ${width}`,async({page})=>{
+for(const width of [390,900,1440])test(`TOK-28: custody observations at ${width}`, { tag: '@visual' },async({page})=>{
  const state=await mock(page);state.empty=true;
  await page.route('**/api/v1/projects/*/token-key',route=>route.fulfill({json:{currentVersion:2,versions:[
   {version:2,state:'current',createdAt:'2026-09-21T12:00:00Z',createdBy:null,reason:'Rotation',backupVerifiedAt:null,lastRehearsedAt:'2026-09-22T12:00:00Z',lastRehearsal:'failed'},

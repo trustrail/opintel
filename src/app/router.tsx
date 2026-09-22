@@ -1,3 +1,4 @@
+import { TokenKeyScreen } from './custody/screen.js';
 import { IntrospectionListScreen, IntrospectionRunScreen } from './introspection/screens.js';
 import { CatalogScreen } from './catalog/screen.js';
 import { ObservationsScreen } from './filings/screens.js';
@@ -37,6 +38,7 @@ const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: 
 const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
+  if (screen === 'token-key') return <RouteErrorBoundary><TokenKeyScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'catalog') return <RouteErrorBoundary><CatalogScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'data-sources') return <RouteErrorBoundary><SourcesScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;

@@ -32,7 +32,7 @@ async function mock(page:Page){const state={run:structuredClone(run),error:false
 const path=`/projects/${project}/introspections/${id}`;
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
 test.use({reducedMotion:'reduce'});
-for(const width of [390,900,1440])test(`G-003 to G-009: run diff and history at ${width}`,async({page})=>{
+for(const width of [390,900,1440])test(`G-003 to G-009: run diff and history at ${width}`, { tag: '@visual' },async({page})=>{
  await mock(page);await page.setViewportSize({width,height:1000});await page.goto(path);
  await expect(page.getByText('Reverts to undecided',{exact:true})).toBeVisible();await expect(page.getByText('Breaking change',{exact:true})).toHaveCount(1);
  await expect(page.getByRole('row').filter({hasText:'description'})).toContainText('Decision retained.');

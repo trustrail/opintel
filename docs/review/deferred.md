@@ -178,11 +178,11 @@ Getting the pipeline to run once surfaced six defects that tests had not:
 All fixed. The lesson: a passing suite does not establish that the
 deployed arrangement starts. Run the thing.
 
-# Observations visual assertion quarantine — 2026-09-20
+# Visual rendering artifact — retry policy restored coverage 2026-09-22
 
-- Only `filings-observations-390.png` in `e2e/filings.spec.ts` is skipped,
-  using a skipped step so the rest of the test, including axe, still runs.
-  The 900px and 1440px snapshots remain active. No baseline was regenerated.
+- `filings-observations-390.png` was quarantined on 2026-09-20 and restored
+  on 2026-09-22. All widths and axe checks are active. No baseline or threshold
+  was changed.
 - Reproduction captured four failures and two passes in six runs. The failure
   is a solid plum stripe at x=79-81, y=66-1007: exactly 2826 pixels. It persisted
   in a second screenshot requested 501ms later without navigation.
@@ -191,9 +191,17 @@ deployed arrangement starts. Run the thing.
   bounding boxes and computed styles for every element overlapping the stripe,
   including pseudo-element styles. No element was identified as painting it.
 - Evidence points to a headless Chromium compositor artifact, rather than an
-  application layout change. Revisit this assertion on a Chromium upgrade;
-  restore it against the existing baseline, without regenerating that baseline
-  to absorb the stripe.
+  application layout change. Revisit on a Chromium upgrade without regenerating
+  baselines to absorb the stripe.
+- 2026-09-22, during 4.3d regression checks: `filings-dashboard-390.png`
+  also differed only by the 2826-pixel drawer-edge stripe. Its isolated rerun
+  passed without changes. The Dashboard assertion remains active and its
+  baseline is unchanged; no new DOM comparison was performed for this capture.
+- Snapshot tests carry `@visual` and run only in Playwright's `visual-snapshots`
+  project with one retry. Functional tests run in `functional` with zero retries;
+  the separate performance config also retains zero retries. The explicit `list`
+  reporter names every retry-only pass as **flaky** in the final run summary,
+  keeping recurrences visible. A failure on both attempts still fails the run.
 
 # Swallowed errors
 
@@ -250,8 +258,8 @@ deployed arrangement starts. Run the thing.
 
 # Item 4.3a — custody implementation boundaries
 
-- K7's key-management screen remains 4.3d; evidence version persistence remains
-  5.11. The existing Observations feed now surfaces failed custody rehearsals.
+- K7's key-management screen is implemented in 4.3d; evidence version persistence
+  remains 5.11. The key screen and Observations share custody status and failures.
 - Development primary and escrow adapters are separate resolved directories,
   not separate disaster domains. Production custody adapters are deployment work.
 - Custody operation intents form the rotation/restore audit trail until general

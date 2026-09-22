@@ -1713,6 +1713,15 @@ const TokenKeyView = z.object({
   })),
 });
 ```
+**Browser screen (4.3d):** `/projects/:id/token-key`, linked from Access for
+project administrators. It shows the current and retained versions, backup and
+rehearsal outcomes, and the K7 loss warning. Failed or mismatched rehearsals have
+a prominent explanation above the version table. Rotate and restore explain
+their effects before requesting the project name; rotation also requires a
+reason. Restore controls require company administration as well as project
+administration; the server remains authoritative. An uninitialized project
+explains first-source initialization and offers no rotation/restore actions.
+
 **Every token key endpoint returns 200 with TokenKeyView**. Rotate takes { confirmation, reason } and restore takes { keyVersion, confirmation }. **In both, the confirmation is the project's name**, the same pattern as industry migration. reason is required, 1 to 500 characters. A rotation whose new key cannot be verified returns dependency_unavailable and the old key stays current. A restore whose derived sentinel differs from the stored one returns conflict, and nothing is written to the store.
 
 ## 2.6 The agent interface
@@ -3321,7 +3330,8 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Introspection completes | `catalogElement.all`, `dataSource.detail`, `entitlement.all` |
 | Delete source | `dataSource.lists`, `catalogElement.all`, `entitlement.all`, `pool.lists` |
 | Create pool | `pool.lists`, `project.stats` |
-| Rotate key | `pool.detail` only |
+| Rotate pool key | `pool.detail` only |
+| Rotate or restore token key; rehearse now | `custody.status(projectId)` after success or refusal; shared by the key screen and custody observations |
 | Bind source | `pool.detail`, `entitlement.all` for that pool |
 | Accept invite | `member.lists`, `project.lists`, `auth.me` |
 | Change role | `member.lists`, `auth.me` if self |

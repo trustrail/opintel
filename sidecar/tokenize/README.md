@@ -87,4 +87,4 @@ rehearsal when its last attempt is at least one day old. Initialization and
 rotation rehearse immediately. Reads use only escrow and fresh byte buffers;
 each retained version is compared with the application's recorded sentinel.
 Failures appear in the existing Observations feed for project administrators.
-No general observation workflow or key-management screen is introduced.
+The key-management screen is item 4.3d. No general observation workflow is introduced.

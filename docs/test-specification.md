@@ -918,3 +918,12 @@ CI generates this matrix from test annotations and compares it against the entit
 - S2/S4: TOK-38, treated staging and disk-spill proof.
 - TOK-33 is validated at the execution boundary in 4.3; persisted entitlement
   declaration validation belongs to the setting route, item 4.7.
+
+## Token key screen (4.3d, K7)
+
+`e2e/token-key.spec.ts` covers the K7 loss warning, prominent failed/mismatched
+rehearsals, current and retained versions, exact project-name confirmation for
+rotate/restore, company-administrator gating, rotation reasons and retry
+idempotency, unchanged API error messages, cache refresh, and all four screen
+states. The screen and confirmation form have axe checks and visual baselines
+at 390, 900 and 1440 pixels. Access provides its entry point.
