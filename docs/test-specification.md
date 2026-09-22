@@ -903,6 +903,10 @@ CI generates this matrix from test annotations and compares it against the entit
   key wrapper redacts string, JSON and inspection output. TOK-36 captures logs.
 - Item 4.3a: TOK-16 and TOK-27–TOK-29 (rotation, backup and restore).
 - Item 4.3b: persisted declarations for TOK-19–TOK-22; 4.3 tests execution.
+  `temporal-declarations.test.ts` proves decision-time refusal for undeclared
+  naive timestamps, schema inheritance and element overrides, integer-only
+  epoch declarations (undeclared integers remain numbers), date independence,
+  IANA validation, typed confirmation, and tenant isolation.
 - Item 4.3c: TOK-24/TOK-25 (registration purity and version confirmation);
   4.3 tests the supplied canonicaliser extension for TOK-23/TOK-26.
 - Item 5.11: TOK-30, persisted evidence token-key version.

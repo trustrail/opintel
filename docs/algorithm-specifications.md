@@ -112,12 +112,14 @@ Converting to UTC is correct only when the source value carries a zone. Where it
 | `timestamptz`, or any value with an explicit offset | Convert to UTC, format as the timestamp-mode canonical form |
 | `timestamp` without zone, element or schema has a declared source timezone | Interpret in that zone, convert to UTC. **Refused if the local time is ambiguous or nonexistent in that zone**: during a DST overlap the same wall time happens twice, during a DST gap it never happens, and picking one would be a guess |
 | `timestamp` without zone, **no declared zone** | **Refuse.** The element cannot be tokenized until someone declares its zone |
-| Unix epoch, seconds or milliseconds | Unit declared per element. **No inference from magnitude.** Converted to the timestamp-mode canonical form. Refuse if undeclared |
+| Integer with epochUnit declared as seconds or milliseconds | Converted to the timestamp-mode canonical form. Without epochUnit it remains a number. **No inference from magnitude.** |
 | `date` with no time | Date mode, never midnight in some zone. Formatted `YYYY-MM-DD` |
 
 **Refusing is the right default and it will be unpopular.** The alternative is a join that works in staging and fails in production because the sidecar moved. The declaration is a one-line setting on the element and it belongs in the six week deployment alongside the other data decisions.
 
-`sourceTimezone` and `epochUnit` are per-element settings. Neither has a default.
+`sourceTimezone` and `epochUnit` are per-element settings. Neither has a default. A schema may declare `sourceTimezone` as an inherited default; an element declaration overrides it. Zone names must be valid IANA names, checked when set. Changing an existing declaration affecting an element with a tokenized entitlement requires the project name as typed confirmation. Setting a declaration for the first time does not.
+
+**epochUnit is the epoch declaration**. Setting it marks the element as a Unix epoch and names its unit in one act, so there is no state in which an element is known to be an epoch but its unit is not. It may only be set on an integer column. An integer column without it is a number and tokenizes in number mode, **never inferred to be an epoch from its magnitude**.
 
 ### A.3.2 Domain canonicalisation
 
@@ -294,7 +296,7 @@ Where these matter, the correct treatment is `aggregate_only` or `withheld`, not
 | TOK-18 | Dictionary attack on a 3-value column without the key | Fails. The test computes all three candidate tokens with a wrong key and asserts no match |
 | TOK-19 | Naive timestamp, no declared zone | **Refused.** Not cast using the host timezone |
 | TOK-20 | Naive timestamp with a declared zone, sidecar running in two different host zones | Identical token from both |
-| TOK-21 | Unix epoch with no declared unit | Refused. No inference from magnitude |
+| TOK-21 | Integer column of millisecond-epoch values with no epochUnit | Tokenized in number mode. Never interpreted as a timestamp from its magnitude. Setting epochUnit on a non-integer column is refused |
 | TOK-22 | `date` column | Formatted `YYYY-MM-DD`, never midnight in a zone |
 | TOK-23 | Element with a registered canonicaliser | Canonicaliser runs as the **first** text-mode step, and its `canonId` replaces `stdtext1` in the payload |
 | TOK-24 | Canonicaliser attempting I/O or reading the clock | Rejected at registration |

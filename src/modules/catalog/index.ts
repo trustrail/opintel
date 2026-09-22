@@ -8,3 +8,6 @@ export { describeElement } from './domain/describe-element.js';
 export { exposedObjectName } from './domain/namespace.js';
 export { reconcileSnapshot, type IntrospectionDiff } from './application/introspection-diff.js';
 export { AsciiTransliterator } from './infrastructure/ascii-transliterator.js';
+export { PostgresTemporalRepository } from './infrastructure/temporal.js';
+export { validateTokenizedTemporal } from './application/temporal.js';
+export type { TemporalRepository, TemporalDeclarations, TemporalView, TemporalContext } from './application/temporal.js';

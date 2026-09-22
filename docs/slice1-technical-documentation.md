@@ -2707,6 +2707,8 @@ create table catalog_element (
   name_revision     integer not null default 0, -- explicit adoption advances once
   stable_ref        text,                   -- attnum / field id where available
   source_type       text not null,
+  source_timezone   text,                   -- explicit IANA zone; otherwise schema inheritance
+  epoch_unit        text check (epoch_unit in ('seconds','milliseconds')),
   duckdb_type       text,                   -- null means unsupported type
   nullable          boolean not null default true,
   is_key            boolean not null default false,
@@ -2720,6 +2722,28 @@ create table catalog_element (
 create index on catalog_element (project_id, status);
 create index on catalog_element (object_id) include (duckdb_name, duckdb_type);
 
+```
+
+**Temporal declarations (4.3b).** `catalog_element.source_timezone` and
+`catalog_element.epoch_unit` are nullable, with no defaults. `epoch_unit` is
+`seconds` or `milliseconds`; declaring it requires an integer catalogue type.
+An integer without it remains a number. `catalog_schema_temporal` stores an
+optional IANA timezone per `(source_id, schema_name)`, with `project_id` in its
+source foreign key and forced tenant RLS. An element timezone overrides this
+schema default. Zone names are validated when declared.
+
+The catalogue temporal repository exposes read, element declaration and schema
+declaration commands. Entitlement writes resolve the effective zone in their
+transaction and refuse tokenized naive timestamps without `sourceTimezone`.
+Changing an existing declaration affecting a tokenized element requires the
+project name; this includes replacing an inherited zone with a different
+override and changing a schema default used by such an element. First declarations
+and unchanged values need no confirmation. Removing the last effective zone
+cannot leave a tokenized naive timestamp. Writes share the source lock with
+entitlement setting and introspection. The read-plan integration belongs to 4.4;
+these commands add no routes or sidecar read-path wiring.
+
+```sql
 create table element_stats (
   element_id  uuid primary key references catalog_element(id) on delete cascade,
   top_values  jsonb not null default '[]',   -- [{value, frequency}]
