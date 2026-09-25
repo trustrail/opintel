@@ -11,7 +11,7 @@ jobs:
   foundation:
     name: Foundation gates
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,10 +25,12 @@ jobs:
       # The full test suite runs below after service bootstrap.
       - run: npm run build
       - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
-      - run: npx playwright install --with-deps chrome
-      - run: npm run test:visual
+      - name: Functional browser tests in pinned Playwright image
+        run: npm run test:visual:docker -- --project=functional
+      - name: Visual snapshots in pinned Playwright image
+        run: npm run test:visual:docker
       - name: Isolated G-019 scroll frames
-        run: npm run test:visual:performance
+        run: npm run test:visual:docker -- --config=playwright.performance.config.ts
 
   migrations:
     name: Migrations

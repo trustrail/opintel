@@ -18,6 +18,7 @@
     "lint": "eslint src scripts sidecar --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",
     "test": "tsx scripts/test.ts",
     "test:visual": "playwright test",
+    "test:visual:docker": "node scripts/visual-docker.mjs",
     "test:visual:performance": "playwright test --config playwright.performance.config.ts",
     "test:visual:update": "playwright test --update-snapshots",
     "migrate:up": "tsx src/platform/db/migrate.ts up",

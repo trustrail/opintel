@@ -65,6 +65,9 @@ for (const width of [390, 900, 1440]) {
     await expect(page.getByRole('region', { name: 'Allowed · Inherited from Harbor Re' })).toContainText('Set entitlements');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.getByRole('heading', { name: 'Access', exact: true }).click();
+    // Establish the capture origin explicitly, as the tenancy visual tests do.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     await expect(page).toHaveScreenshot(`access-${width}.png`, { animations: 'disabled', fullPage: true });
     await page.addScriptTag({ content: axe.source });
     expect(await page.evaluate(async () => (await axe.run()).violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => ({ target: node.target, message: node.failureSummary })) })))).toEqual([]);

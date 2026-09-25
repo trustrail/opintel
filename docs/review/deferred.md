@@ -76,6 +76,11 @@ EOF
 
 # From item 1.14
 
+- Resolved 2026-09-25: local and CI visual tests now use the same official
+  Linux Playwright image via `npm run test:visual:docker`. Its exact version
+  tag is derived from package-lock.json. Mac-generated baselines are no longer
+  the reference for Linux CI; baseline migration is reviewed separately.
+
 - --ink-3 was #8B7E9B, 3.78:1 on white, failing WCAG AA. The first
   correction to #756784 was measured against white and surface-2 only and
   still failed on green-bg (4.44) and surface-3 (4.33). Now #675878, which
@@ -256,6 +261,20 @@ deployed arrangement starts. Run the thing.
 - Unicode folding is pinned to 16.0.0, matching the implementation runtime.
   Startup records the running Unicode and folding versions; upgrade review
   must check tokens for newly assigned characters before changing the table.
+
+# Visual baseline policy — 2026-09-25
+
+- The visual suite must use Playwright's bundled Chromium, pinned by the
+  Playwright version in package-lock.json, never auto-updating installed Chrome.
+  Run `npm run test:visual:docker`; the runner derives the official Noble image
+  tag from the lockfile and installs Linux dependencies in an isolated volume.
+- Test startup reports the resolved browser version. Browser upgrades require
+  inspection of every image difference before accepting new baselines.
+- Regenerate baselines only in isolated, baseline-only commits whose messages
+  name the cause (including the browser version when it changes). Configuration,
+  application code and documentation changes belong in separate commits.
+- The macOS 13 bundled-browser installation blocker is resolved by running
+  inside the Linux image, rather than using a different browser on the host.
 
 # From item 4.3
 

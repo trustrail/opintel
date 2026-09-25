@@ -280,7 +280,18 @@ ledger as SQL. If an existing name normalises to nothing, the migration aborts a
 lists the source IDs: rename those sources and rerun `npm run dev:up`. No replacement
 alias is invented. Once assigned, aliases cannot change with a display-name edit.
 
-`npm run test:visual:performance` runs G-019's scroll-frame check alone, with one
+`npm run test:visual:docker` runs the visual snapshot project in the official
+Playwright Linux amd64 image pinned to package-lock.json, exactly as CI does. Docker
+must be running. The repository is mounted for reports and screenshots, while
+Linux dependencies are installed in a separate disposable volume. A single browser
+worker keeps captures and axe checks from competing with each other. Startup prints
+the image tag and actual Chromium version. Do not generate baselines with host
+Chrome. After reviewing differences, use
+`npm run test:visual:docker -- --update-snapshots=all`; commit only the baselines
+in that commit, naming the rendering change that required them.
+
+`npm run test:visual:docker -- --config=playwright.performance.config.ts`
+runs G-019's scroll-frame check alone, with one
 browser worker. CI runs it separately from the functional browser suite and database
 tests. Its report attaches refresh and scroll-frame intervals. The functional suite
 also checks bounded DOM size, prefix fetching and keyboard navigation.
