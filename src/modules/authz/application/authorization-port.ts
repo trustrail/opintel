@@ -1,6 +1,6 @@
 import type { CompanyId, PoolId, Timestamp, UserId } from '../../../shared/kernel/index.js';
 
-export type ZedToken = string & { readonly __brand: 'ZedToken' };
+export type AuthorizationRevision = string & { readonly __brand: 'AuthorizationRevision' };
 
 export type CheckRequest = {
   resource: { type: 'company' | 'project' | 'pool' | 'datasource'; id: string };
@@ -13,7 +13,7 @@ export type PermissionTrace = { path: string[] };
 export type CheckResult = {
   allowed: boolean;
   checkedAt: Timestamp;
-  token: ZedToken;
+  token: AuthorizationRevision;
   snapshotAgeMs: number;
   explanation?: PermissionTrace;
 };
@@ -31,6 +31,6 @@ export type RelationshipUpdate = {
 export interface AuthorizationPort {
   check(request: CheckRequest): Promise<CheckResult>;
   checkMany(requests: CheckRequest[], options?: { withTracing: boolean }): Promise<CheckResult[]>;
-  write(updates: RelationshipUpdate[]): Promise<ZedToken>;
+  write(updates: RelationshipUpdate[]): Promise<AuthorizationRevision>;
   explain(request: CheckRequest): Promise<{ allowed: boolean; path: string[] }>;
 }

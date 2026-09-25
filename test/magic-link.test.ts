@@ -2,7 +2,7 @@ import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { InvitationService } from '../src/modules/tenancy/application/invitations.js';
 import { PostgresInvitationRepository } from '../src/modules/tenancy/infrastructure/invitation-repository.js';
 import { RelationshipOutbox } from '../src/modules/tenancy/application/relationship-outbox.js';
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
@@ -46,8 +46,8 @@ integration('magic links', () => {
     clock = new TestClock(new Date('2026-01-01T00:00:00.000Z'));
     const outbox = new RelationshipOutbox();
     const authorization: AuthorizationPort = {
-      check: async () => ({ allowed: true, checkedAt: clock.now(), token: 'test' as ZedToken, snapshotAgeMs: 0 }),
-      checkMany: async () => [], write: async () => 'test' as ZedToken, explain: async () => ({ allowed: true, path: [] }),
+      check: async () => ({ allowed: true, checkedAt: clock.now(), token: 'test' as AuthorizationRevision, snapshotAgeMs: 0 }),
+      checkMany: async () => [], write: async () => 'test' as AuthorizationRevision, explain: async () => ({ allowed: true, path: [] }),
     };
     const invitations = new InvitationService(new PostgresInvitationRepository(outbox), outbox, authorization, clock, { dispatch: async () => {} });
     const repository = new PostgresIdentityRepository(clock, invitations);

@@ -2,7 +2,7 @@ import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 import type { CurrentUser } from '../src/modules/identity/application/current-user.js';
 import { ProjectView, UpdateProjectBody, projectUpdateRoutes } from '../src/modules/tenancy/api/project-routes.js';
 import { UpdateProjectService } from '../src/modules/tenancy/application/update-project.js';
@@ -13,7 +13,7 @@ import { Timestamp, UserId } from '../src/shared/kernel/index.js';
 
 const databaseDescribe = process.env.DATABASE_URL === undefined && process.env.REQUIRE_DB_TESTS !== '1' ? describe.skip : describe;
 const servers: ReturnType<typeof createHttpServer>[] = [];
-const token = 'project-update-token' as ZedToken;
+const token = 'project-update-token' as AuthorizationRevision;
 const check = vi.fn<AuthorizationPort['check']>();
 const write = vi.fn<AuthorizationPort['write']>();
 const unexpectedCall = async (): Promise<never> => { throw new Error('Unexpected authorization call.'); };

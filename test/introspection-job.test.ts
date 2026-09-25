@@ -6,7 +6,7 @@ import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { IntrospectionJob, PostgresIntrospectionStore, runStates, transitions, transitionRun, enforceTransition, type SourceConnector, type CatalogSnapshot } from '../src/modules/sources/index.js';
 import { ProjectId, UserId, SourceId, Timestamp, UuidV7IdFactory, DomainError, ok, err, type Result } from '../src/shared/kernel/index.js';
 
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 
 const ctx = { userId: UserId(randomUUID()), projectId: ProjectId(randomUUID()) };
 const sourceId = SourceId(randomUUID());
@@ -74,8 +74,8 @@ describe('introspection job and persisted catalogue',()=>{
     discovery=snapshot('renamed');
     expect(await job.enqueue(ctx,sourceId,[],{adoptRenamedNames:true})).toMatchObject({ok:false,error:{code:'forbidden'}});
     let allowed=true;
-    const check=vi.fn(async()=>({allowed,checkedAt:Timestamp(new Date()),token:'test' as ZedToken,snapshotAgeMs:0}));
-    const authorization:AuthorizationPort={check,checkMany:async()=>[],write:async()=>'test' as ZedToken,explain:async()=>({allowed:false,path:[]})};
+    const check=vi.fn(async()=>({allowed,checkedAt:Timestamp(new Date()),token:'test' as AuthorizationRevision,snapshotAgeMs:0}));
+    const authorization:AuthorizationPort={check,checkMany:async()=>[],write:async()=>'test' as AuthorizationRevision,explain:async()=>({allowed:false,path:[]})};
     const admin=new IntrospectionJob(store,()=>connector,()=>{},authorization);
     const queued=unwrap(await admin.enqueue(ctx,sourceId,[],{adoptRenamedNames:true}));
     const done=unwrap(await admin.execute(ctx,queued.id));

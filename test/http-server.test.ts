@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { Timestamp, UserId } from '../src/shared/kernel/index.js';
-import type { AuthorizationPort, CheckRequest, CheckResult, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, CheckRequest, CheckResult, RelationshipUpdate, AuthorizationRevision } from '../src/modules/authz/index.js';
 import type { CurrentUser } from '../src/modules/identity/application/current-user.js';
 import { createHttpServer, defineRoute, requestIdHeader, type HttpServerOptions } from '../src/platform/http/index.js';
 
@@ -47,7 +47,7 @@ class TestAuthorizationPort implements AuthorizationPort {
     return {
       allowed: this.allowedPermissions.has(request.permission),
       checkedAt: Timestamp(new Date('2026-01-01T00:00:00.000Z')),
-      token: 'test-zed-token' as ZedToken,
+      token: 'test-zed-token' as AuthorizationRevision,
       snapshotAgeMs: 0,
     };
   }
@@ -56,8 +56,8 @@ class TestAuthorizationPort implements AuthorizationPort {
     return Promise.all(requests.map(async (request) => this.check(request)));
   }
 
-  async write(_updates: RelationshipUpdate[]): Promise<ZedToken> {
-    return 'test-zed-token' as ZedToken;
+  async write(_updates: RelationshipUpdate[]): Promise<AuthorizationRevision> {
+    return 'test-zed-token' as AuthorizationRevision;
   }
 
   async explain(request: CheckRequest): Promise<{ allowed: boolean; path: string[] }> {

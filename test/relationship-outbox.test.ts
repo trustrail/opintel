@@ -1,7 +1,7 @@
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../src/modules/authz/index.js';
 import { RelationshipOutbox } from '../src/modules/tenancy/index.js';
 import { withPlatform } from '../src/platform/db/scope.js';
 import { UserId } from '../src/shared/kernel/index.js';
@@ -10,7 +10,7 @@ const databaseDescribe = process.env.DATABASE_URL === undefined && process.env.R
   ? describe.skip
   : describe;
 
-const token = 'relationship-outbox-test-token' as ZedToken;
+const token = 'relationship-outbox-test-token' as AuthorizationRevision;
 
 function authorizationStub() {
   const write = vi.fn<AuthorizationPort['write']>().mockResolvedValue(token);
@@ -38,11 +38,11 @@ function relationship(): RelationshipUpdate {
 function storedEntries(id: bigint) {
   return withPlatform((tx) => tx.query<{
     written_at: Date | null;
-    zed_token: string | null;
+    authorization_revision: string | null;
     attempts: number;
     last_error: string | null;
   }>(
-    'SELECT written_at, zed_token, attempts, last_error FROM relationship_outbox WHERE id = $1',
+    'SELECT written_at, authorization_revision, attempts, last_error FROM relationship_outbox WHERE id = $1',
     [id.toString()],
   ));
 }
@@ -71,7 +71,7 @@ databaseDescribe('relationship outbox with Postgres', () => {
     expect(await storedEntries(id)).toEqual([]);
   });
 
-  it('writes a committed entry to SpiceDB and retains its returned ZedToken', async () => {
+  it('writes a committed entry to SpiceDB and retains its returned AuthorizationRevision', async () => {
     const outbox = new RelationshipOutbox();
     const { authorization, write } = authorizationStub();
     const update = relationship();
@@ -82,7 +82,7 @@ databaseDescribe('relationship outbox with Postgres', () => {
     expect(write).toHaveBeenCalledExactlyOnceWith([update]);
     expect(await storedEntries(id)).toEqual([{
       written_at: expect.any(Date),
-      zed_token: token,
+      authorization_revision: token,
       attempts: 1,
       last_error: null,
     }]);
@@ -100,9 +100,9 @@ databaseDescribe('relationship outbox with Postgres', () => {
     expect(write).toHaveBeenCalledExactlyOnceWith([update]);
     expect(await storedEntries(id)).toEqual([{
       written_at: null,
-      zed_token: null,
+      authorization_revision: null,
       attempts: 1,
-      last_error: 'SpiceDB write failed.',
+      last_error: 'Authorization relationship write failed.',
     }]);
 
     expect(await outbox.dispatchOne(authorization, id)).toBe(token);
@@ -110,7 +110,7 @@ databaseDescribe('relationship outbox with Postgres', () => {
     expect(write).toHaveBeenLastCalledWith([update]);
     expect(await storedEntries(id)).toEqual([{
       written_at: expect.any(Date),
-      zed_token: token,
+      authorization_revision: token,
       attempts: 2,
       last_error: null,
     }]);

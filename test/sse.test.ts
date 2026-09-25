@@ -7,7 +7,7 @@ import { RedisProjectHub } from '../src/platform/sse/redis-hub.js';
 import { projectStreamRoutes } from '../src/platform/sse/routes.js';
 import { createHttpServer } from '../src/platform/http/index.js';
 import { ProjectId, UserId, SourceId, RunId, FilingId, Timestamp } from '../src/shared/kernel/index.js';
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 import { streamEventSchema, streamFamilies, streamOpenApiDocument, type StreamEvent } from '../src/shared/api/stream.js';
 import { projectStreamCache } from '../src/app/stream-cache.js';
 import { introspectionKeys } from '../src/app/introspection/data.js';
@@ -59,7 +59,7 @@ it.each([1,250])('S-010/S-011: reconnect after %i changes returns a fresh snapsh
  const publisher=new RedisProjectHub(producer.client,url);const hub=new RedisProjectHub(consumer.client,url);
  const p=ProjectId(randomUUID());let authenticated=true;let allowed=true;
  const unexpected=async():Promise<never>=>{throw new Error('Unexpected authorization call');};
- const port:AuthorizationPort={check:async request=>{expect(request.resource.id).toBe(p);expect(request.permission).toBe('view');return {allowed,token:'test' as ZedToken,checkedAt:Timestamp(new Date()),snapshotAgeMs:0};},checkMany:unexpected,explain:unexpected,write:unexpected};
+ const port:AuthorizationPort={check:async request=>{expect(request.resource.id).toBe(p);expect(request.permission).toBe('view');return {allowed,token:'test' as AuthorizationRevision,checkedAt:Timestamp(new Date()),snapshotAgeMs:0};},checkMany:unexpected,explain:unexpected,write:unexpected};
  const server=createHttpServer(projectStreamRoutes(hub),{authorization:{port,currentUser:async()=>authenticated?{id:UserId(randomUUID()),email:'test@example.com',fullName:null,timezone:'UTC',method:'magic_link',sessionCreatedAt:Timestamp(new Date()),deviceConfirmed:true}:null}});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');const endpoint=`http://127.0.0.1:${address.port}/api/v1/projects/${p}/stream`;
  const readers:ReadableStreamDefaultReader<Uint8Array>[]=[];

@@ -2,7 +2,7 @@ import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../src/modules/authz/index.js';
 import type { CurrentUser } from '../src/modules/identity/application/current-user.js';
 import { ProjectView, projectRoutes } from '../src/modules/tenancy/api/project-routes.js';
 import { CreateProjectService } from '../src/modules/tenancy/application/create-project.js';
@@ -14,7 +14,7 @@ import { Timestamp, UserId } from '../src/shared/kernel/index.js';
 
 const databaseDescribe = process.env.DATABASE_URL === undefined && process.env.REQUIRE_DB_TESTS !== '1' ? describe.skip : describe;
 const servers: ReturnType<typeof createHttpServer>[] = [];
-const token = 'project-create-token' as ZedToken;
+const token = 'project-create-token' as AuthorizationRevision;
 const write = vi.fn<AuthorizationPort['write']>();
 const check = vi.fn<AuthorizationPort['check']>();
 const unexpectedCall = async (): Promise<never> => { throw new Error('Unexpected authorization call.'); };
@@ -105,11 +105,11 @@ databaseDescribe('POST /projects with Postgres', () => {
       [[{ operation: 'touch', resource: { type: 'project', id: project.id }, relation: 'admin', subject: { type: 'user', id: actor.id } }]],
     ]);
     const records = await withPlatform(async (tx) => ({
-      outbox: await tx.query('SELECT zed_token, written_at FROM relationship_outbox WHERE resource_id = $1', [project.id]),
+      outbox: await tx.query('SELECT authorization_revision, written_at FROM relationship_outbox WHERE resource_id = $1', [project.id]),
       vocabulary: await tx.query('SELECT scope FROM vocabulary_term WHERE industry_id = $1 OR project_id = $2', [industryId, project.id]),
       project: await tx.query('SELECT industry_id, region FROM project WHERE id = $1', [project.id]),
     }));
-    expect(records.outbox).toEqual(Array.from({ length: 2 }, () => ({ zed_token: token, written_at: expect.any(Date) })));
+    expect(records.outbox).toEqual(Array.from({ length: 2 }, () => ({ authorization_revision: token, written_at: expect.any(Date) })));
     expect(records.vocabulary).toEqual([{ scope: 'industry' }, { scope: 'industry' }]);
     expect(records.project).toEqual([{ industry_id: industryId, region: body.region }]);
   });
@@ -154,12 +154,12 @@ databaseDescribe('POST /projects with Postgres', () => {
     const response = await post(input());
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: { code: 'dependency_unavailable', retryable: true } });
-    const rows = await withPlatform((tx) => tx.query<{ relation: string; written_at: Date | null; zed_token: string | null; attempts: number }>(
-      `SELECT o.relation, o.written_at, o.zed_token, o.attempts FROM relationship_outbox o
+    const rows = await withPlatform((tx) => tx.query<{ relation: string; written_at: Date | null; authorization_revision: string | null; attempts: number }>(
+      `SELECT o.relation, o.written_at, o.authorization_revision, o.attempts FROM relationship_outbox o
        JOIN project p ON p.id::text = o.resource_id WHERE p.company_id = $1`, [companyId],
     ));
     expect(rows).toHaveLength(2);
-    expect(rows.find((row) => row.relation === failedRelation)).toEqual({ relation: failedRelation, written_at: null, zed_token: null, attempts: 1 });
+    expect(rows.find((row) => row.relation === failedRelation)).toEqual({ relation: failedRelation, written_at: null, authorization_revision: null, attempts: 1 });
     expect(rows.find((row) => row.relation !== failedRelation)?.written_at).toBeInstanceOf(Date);
   });
 

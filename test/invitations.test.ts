@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompanyId, InviteId, ProjectId, SessionId, TestClock, UserId } from '../src/shared/kernel/index.js';
-import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../src/modules/authz/index.js';
 import { RelationshipOutbox } from '../src/modules/tenancy/application/relationship-outbox.js';
 import { InvitationService } from '../src/modules/tenancy/application/invitations.js';
 import { PostgresInvitationRepository } from '../src/modules/tenancy/infrastructure/invitation-repository.js';
@@ -46,7 +46,7 @@ integration('invitations', () => {
       await tx.query("INSERT INTO project (id,company_id,industry_id,name,region) SELECT $1,$2,id,'Second','us-east-1' FROM industry LIMIT 1", [otherProject,company]);
     });
     const authorization: AuthorizationPort = {
-      check: async () => ({ allowed, checkedAt: clock.now(), token: 'test' as ZedToken, snapshotAgeMs: 0 }),
+      check: async () => ({ allowed, checkedAt: clock.now(), token: 'test' as AuthorizationRevision, snapshotAgeMs: 0 }),
       checkMany: async () => [], explain: async () => ({ allowed, path: [] }),
       write: async (updates) => {
         if (failWrite) throw new Error('SpiceDB unavailable');
@@ -55,7 +55,7 @@ integration('invitations', () => {
           const rows = await withPlatform(tx => tx.query('SELECT user_id FROM project_member WHERE project_id=$1 AND user_id=$2', [update.resource.id, update.subject.id]));
           expect(rows).toHaveLength(1);
         }
-        written.push(...updates); return 'invitation-zed-token' as ZedToken;
+        written.push(...updates); return 'invitation-zed-token' as AuthorizationRevision;
       },
     };
     outbox = new RelationshipOutbox();
@@ -95,13 +95,13 @@ integration('invitations', () => {
     expect(await withPlatform(tx => tx.query('SELECT * FROM relationship_outbox'))).toEqual([]);
   });
 
-  it('E-011: acceptance commits membership, marks accepted and records the returned ZedToken', async () => {
+  it('E-011: acceptance commits membership, marks accepted and records the returned AuthorizationRevision', async () => {
     const { invitation, token } = await invite();
     expect(await accept(token)).toMatchObject({ kind: 'session' });
     expect(written).toHaveLength(1); expect(written[0]).toMatchObject({ resource: { type: 'project', id: project }, relation: 'operator' });
     const rows = await withPlatform(tx => tx.query<{ accepted_at: Date | null }>('SELECT accepted_at FROM pending_invite WHERE id=$1', [invitation.id]));
     expect(rows[0]?.accepted_at).not.toBeNull();
-    expect(await withPlatform(tx => tx.query('SELECT zed_token FROM relationship_outbox'))).toEqual([{ zed_token: 'invitation-zed-token' }]);
+    expect(await withPlatform(tx => tx.query('SELECT authorization_revision FROM relationship_outbox'))).toEqual([{ authorization_revision: 'invitation-zed-token' }]);
   });
 
   it('accepts the invitation attached to the token when the address has two outstanding invitations', async () => {

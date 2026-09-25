@@ -1,4 +1,4 @@
-import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../../authz/index.js';
+import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../../authz/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { CompanyId, PoolId, UserId } from '../../../shared/kernel/index.js';
 
@@ -9,7 +9,7 @@ export type RelationshipOutboxEntry = RelationshipUpdate & { readonly id: bigint
 type TransactionScope = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
 type DispatchOutcome =
-  | { readonly ok: true; readonly token: ZedToken | null }
+  | { readonly ok: true; readonly token: AuthorizationRevision | null }
   | { readonly ok: false; readonly error: unknown };
 
 type Row = {
@@ -59,10 +59,10 @@ export class RelationshipOutbox {
     };
   }
 
-  async markWritten(tx: RelationshipOutboxTx, id: bigint, token: ZedToken): Promise<void> {
+  async markWritten(tx: RelationshipOutboxTx, id: bigint, token: AuthorizationRevision): Promise<void> {
     await tx.query(
       `UPDATE relationship_outbox
-       SET written_at = now(), zed_token = $2, attempts = attempts + 1, last_error = NULL
+       SET written_at = now(), authorization_revision = $2, attempts = attempts + 1, last_error = NULL
        WHERE id = $1 AND written_at IS NULL`,
       [id.toString(), token],
     );
@@ -70,12 +70,12 @@ export class RelationshipOutbox {
 
   // Call after the transaction that enqueued the relationship has committed.
   // A separate scope sees only committed entries and owns the dispatch lock.
-  async dispatchOne(authorization: AuthorizationPort, id: bigint): Promise<ZedToken | null> {
+  async dispatchOne(authorization: AuthorizationPort, id: bigint): Promise<AuthorizationRevision | null> {
     const outcome = await this.inPlatformScope<DispatchOutcome>(async (tx) => {
       const entry = await this.read(tx, id);
       if (entry === null) return { ok: true, token: null };
 
-      let token: ZedToken;
+      let token: AuthorizationRevision;
       try {
         token = await authorization.write([{
           operation: entry.operation,
@@ -88,7 +88,7 @@ export class RelationshipOutbox {
           `UPDATE relationship_outbox
            SET attempts = attempts + 1, last_error = $2
            WHERE id = $1 AND written_at IS NULL`,
-          [id.toString(), 'SpiceDB write failed.'],
+          [id.toString(), 'Authorization relationship write failed.'],
         );
         return { ok: false, error };
       }

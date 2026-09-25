@@ -59,7 +59,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   const jobs=new IntrospectionJob(store,source=>factory(source,source.id));
   repository=new PostgresSourceRegistrationRepository();service=new SourceRegistrationService(repository,ids,factory,jobs,async(ctx,id,message)=>{await store.advance(ctx,id,'queued','connecting');await store.fail(ctx,id,message,false);},undefined,new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(options),{checkMany:async()=>[]}));
   const unexpected=async():Promise<never>=>{throw new Error('Unexpected auth call');};
-  const authorization:AuthorizationPort={check:async request=>({allowed:request.permission==='view'||!denied,token:'test' as import('../src/modules/authz/index.js').ZedToken,checkedAt:Timestamp(new Date()),snapshotAgeMs:0}),checkMany:unexpected,write:unexpected,explain:unexpected};
+  const authorization:AuthorizationPort={check:async request=>({allowed:request.permission==='view'||!denied,token:'test' as import('../src/modules/authz/index.js').AuthorizationRevision,checkedAt:Timestamp(new Date()),snapshotAgeMs:0}),checkMany:unexpected,write:unexpected,explain:unexpected};
   api=createHttpServer(sourceRoutes(service),{authorization:{port:authorization,currentUser:async()=>({id:userId,email:'source@example.com',fullName:null,timezone:'UTC',method:'magic_link',sessionCreatedAt:Timestamp(new Date()),deviceConfirmed:true})},logger:{error:()=>{}}});api.listen(0,'127.0.0.1');await once(api,'listening');const address=api.address();if(!address||typeof address==='string')throw new Error();origin=`http://127.0.0.1:${address.port}`;
  });
  it('TOK-27: an unverified backup prevents both native and demo source contact',async()=>{

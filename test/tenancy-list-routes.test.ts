@@ -2,7 +2,7 @@ import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 import type { CurrentUser } from '../src/modules/identity/application/current-user.js';
 import { CompanyListResponse, ProjectListResponse, tenancyListRoutes } from '../src/modules/tenancy/api/list-routes.js';
 import { TenancyListService } from '../src/modules/tenancy/application/list-tenancy.js';
@@ -82,7 +82,7 @@ databaseDescribe('tenancy lists with Postgres', () => {
     permissions.clear();
     checkMany.mockReset().mockImplementation(async (requests) => requests.map((request) => ({
       allowed: request.subject.id === actor.id && (permissions.get(`${request.resource.type}:${request.resource.id}`)?.has(request.permission) ?? false),
-      token: 'list-token' as ZedToken, checkedAt: Timestamp(new Date()), snapshotAgeMs: 0,
+      token: 'list-token' as AuthorizationRevision, checkedAt: Timestamp(new Date()), snapshotAgeMs: 0,
     })));
   });
 

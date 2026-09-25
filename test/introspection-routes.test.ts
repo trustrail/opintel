@@ -10,7 +10,7 @@ import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { IntrospectionJob, PostgresIntrospectionStore, runStates, transitions, transitionRun, enforceTransition, type SourceConnector, type CatalogSnapshot } from '../src/modules/sources/index.js';
 import { ProjectId, UserId, SourceId, Timestamp, UuidV7IdFactory, DomainError, ok, err, type Result } from '../src/shared/kernel/index.js';
 
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 
 const ctx = { userId: UserId(randomUUID()), projectId: ProjectId(randomUUID()) };
 const sourceId = SourceId(randomUUID());
@@ -49,7 +49,7 @@ beforeEach(async () => {
 let server:ReturnType<typeof createHttpServer>;let origin:string;let allowed=true;let canCancel=true;let checked:string[]=[];
 beforeEach(async()=>{
  allowed=true;canCancel=true;checked=[];const unexpected=async():Promise<never>=>{throw new Error('Unexpected authorization call');};
- const authorization:AuthorizationPort={check:async request=>{checked.push(request.permission);expect(['view','bind_source']).toContain(request.permission);return {allowed:allowed&&(request.permission==='view'||canCancel),token:'test' as ZedToken,checkedAt:Timestamp(new Date()),snapshotAgeMs:0};},checkMany:unexpected,write:unexpected,explain:unexpected};
+ const authorization:AuthorizationPort={check:async request=>{checked.push(request.permission);expect(['view','bind_source']).toContain(request.permission);return {allowed:allowed&&(request.permission==='view'||canCancel),token:'test' as AuthorizationRevision,checkedAt:Timestamp(new Date()),snapshotAgeMs:0};},checkMany:unexpected,write:unexpected,explain:unexpected};
  server=createHttpServer(introspectionRoutes(new PostgresIntrospectionQuery(store)),{authorization:{port:authorization,currentUser:async()=>({id:ctx.userId,email:'test@example.com',fullName:null,timezone:'UTC',method:'magic_link',sessionCreatedAt:Timestamp(new Date()),deviceConfirmed:true})},logger:{error:()=>{}}});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error();origin=`http://127.0.0.1:${address.port}`;
 });

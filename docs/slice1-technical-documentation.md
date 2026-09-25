@@ -684,7 +684,7 @@ type ProjectRole = 'admin' | 'operator' | 'viewer';
 interface AuthorizationPort {
   check(req: CheckRequest): Promise<CheckResult>;
   checkMany(reqs: CheckRequest[], options?: { withTracing: boolean }): Promise<CheckResult[]>;
-  write(updates: RelationshipUpdate[]): Promise<ZedToken>;
+  write(updates: RelationshipUpdate[]): Promise<AuthorizationRevision>;
   explain(req: CheckRequest): Promise<{ allowed: boolean; path: string[] }>;
 }
 type CheckRequest = {
@@ -695,11 +695,11 @@ type CheckRequest = {
 type CheckResult = {
   allowed: boolean;
   checkedAt: Timestamp;
-  token: ZedToken;         // stamped on the evidence record
+  token: AuthorizationRevision;         // stamped on the evidence record
   snapshotAgeMs: number;   // beyond the staleness ceiling, the caller refuses
   explanation?: { path: string[] }; // requested with withTracing
 };
-type ZedToken = string & { readonly __brand: 'ZedToken' };
+type AuthorizationRevision = string & { readonly __brand: 'AuthorizationRevision' };
 type RelationshipUpdate = {
   operation: 'touch' | 'delete';
   resource: CheckRequest['resource'];
@@ -1330,7 +1330,7 @@ const ExplainResponse = z.object({
   companyRole: z.enum(['admin', 'member']).nullable(),
   permissions: z.array(PermissionExplanation),
   checkedAt: z.string().datetime({ offset: true }),
-  token: z.string(),              // the ZedToken the checks ran against
+  token: z.string(),              // the AuthorizationRevision the checks ran against
 });
 ```
 **via is the field the screen actually uses**. A permission held through company administration looks identical to one granted on the project until you ask why, and that difference is what someone reviewing access needs to see. For an allowed check, an existing project_member row yields project; otherwise a company_member admin row yields company. All other cases yield none. The verdict comes from SpiceDB, and via comes from membership rows, never trace branches.
@@ -2426,7 +2426,7 @@ create table relationship_outbox (
   subject_id   text not null,
   created_at   timestamptz not null default now(),
   written_at   timestamptz,
-  zed_token    text,
+  authorization_revision    text,
   attempts     integer not null default 0,
   last_error   text
 );
@@ -2499,7 +2499,7 @@ create unique index one_current_key on token_key_version (project_id) where stat
 
 **Neither table is tenant-scoped for RLS purposes**. project_member is read before a project is selected, and company_member has no project at all. Both are protected by route permissions.
 
-**The pattern is the mail outbox's, applied to authorization**. The membership row and its outbox entry are written in one transaction; a dispatcher writes to SpiceDB after commit and records the returned ZedToken. A crash between them leaves an unwritten entry, which the dispatcher retries.
+**The pattern is the mail outbox's, applied to authorization**. The membership row and its outbox entry are written in one transaction; a dispatcher writes to SpiceDB after commit and records the returned AuthorizationRevision. A crash between them leaves an unwritten entry, which the dispatcher retries.
 
 **Dispatch is in-process and immediate**, as magic link mail is. A membership that takes seconds to become effective is a support call, so the command awaits the write and reports failure to the caller rather than succeeding optimistically.
 

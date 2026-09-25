@@ -10,7 +10,7 @@ import { PostgresCatalogTreeReader } from '../src/modules/catalog/infrastructure
 import { PostgresSourceRegistrationRepository } from '../src/modules/sources/infrastructure/source-registration-repository.js';
 import { CatalogNaming, AsciiTransliterator } from '../src/modules/catalog/index.js';
 import { ProjectId, UserId, SourceId, RunId, Timestamp, ExposedName } from '../src/shared/kernel/index.js';
-import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import upgrade from '../migrations/026_source_alias.up.js';
 import { CatalogTreeResponse, catalogOpenApiDocument } from '../src/shared/api/catalog.js';
@@ -41,7 +41,7 @@ describe('catalogue tree scoped to real Postgres', () => {
         ($1,$2,'Source Unsupported','stored_unsupported','geometry',NULL),($1,$2,'---',NULL,'text','VARCHAR')`,[objectId,projectId]);
     });
     const unexpected = async (): Promise<never> => { throw new Error('Unexpected authorization operation'); };
-    const authorization: AuthorizationPort = { check:async request => { expect(request.permission).toBe('view'); return {allowed, token:'test' as ZedToken,checkedAt:Timestamp(new Date()),snapshotAgeMs:0}; },checkMany:unexpected,write:unexpected,explain:unexpected };
+    const authorization: AuthorizationPort = { check:async request => { expect(request.permission).toBe('view'); return {allowed, token:'test' as AuthorizationRevision,checkedAt:Timestamp(new Date()),snapshotAgeMs:0}; },checkMany:unexpected,write:unexpected,explain:unexpected };
     server = createHttpServer(catalogRoutes(new PostgresCatalogTreeReader()), { authorization: {port:authorization,currentUser:async()=>({id:userId,email:'catalog@example.com',fullName:null,timezone:'UTC',method:'magic_link',sessionCreatedAt:Timestamp(new Date()),deviceConfirmed:true})},logger:{error:()=>{}} });
     server.listen(0,'127.0.0.1'); await once(server,'listening'); const address = server.address(); if(!address||typeof address==='string')throw new Error(); origin=`http://127.0.0.1:${address.port}`;
   });

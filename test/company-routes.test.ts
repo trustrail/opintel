@@ -2,7 +2,7 @@ import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthorizationPort, RelationshipUpdate, ZedToken } from '../src/modules/authz/index.js';
+import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../src/modules/authz/index.js';
 import type { CurrentUser } from '../src/modules/identity/application/current-user.js';
 import { CompanyView, companyRoutes } from '../src/modules/tenancy/api/company-routes.js';
 import { CreateCompanyService } from '../src/modules/tenancy/application/create-company.js';
@@ -14,7 +14,7 @@ import { Timestamp, UserId } from '../src/shared/kernel/index.js';
 
 const databaseDescribe = process.env.DATABASE_URL === undefined && process.env.REQUIRE_DB_TESTS !== '1' ? describe.skip : describe;
 const servers: ReturnType<typeof createHttpServer>[] = [];
-const token = 'company-create-token' as ZedToken;
+const token = 'company-create-token' as AuthorizationRevision;
 const write = vi.fn<AuthorizationPort['write']>();
 const unexpectedCall = async (): Promise<never> => { throw new Error('Unexpected authorization read.'); };
 const authorization: AuthorizationPort = { write, check: unexpectedCall, checkMany: unexpectedCall, explain: unexpectedCall };
@@ -85,10 +85,10 @@ databaseDescribe('POST /companies with Postgres', () => {
       operation: 'touch', resource: { type: 'company', id: company.id },
       relation: 'admin', subject: { type: 'user', id: actor.id },
     }]);
-    const rows = await withPlatform((tx) => tx.query<{ zed_token: string; written_at: Date }>(
-      'SELECT zed_token, written_at FROM relationship_outbox WHERE resource_id = $1', [company.id],
+    const rows = await withPlatform((tx) => tx.query<{ authorization_revision: string; written_at: Date }>(
+      'SELECT authorization_revision, written_at FROM relationship_outbox WHERE resource_id = $1', [company.id],
     ));
-    expect(rows).toEqual([{ zed_token: token, written_at: expect.any(Date) }]);
+    expect(rows).toEqual([{ authorization_revision: token, written_at: expect.any(Date) }]);
   });
 
   it('returns 503 and retains the committed company and pending grant when SpiceDB fails', async () => {
@@ -98,11 +98,11 @@ databaseDescribe('POST /companies with Postgres', () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: { code: 'dependency_unavailable', retryable: true } });
     const rows = await withPlatform((tx) => tx.query(
-      `SELECT m.role, o.written_at, o.zed_token, o.attempts FROM company c
+      `SELECT m.role, o.written_at, o.authorization_revision, o.attempts FROM company c
        JOIN company_member m ON m.company_id = c.id
        JOIN relationship_outbox o ON o.resource_id = c.id::text WHERE c.name = $1`, [body.name],
     ));
-    expect(rows).toEqual([{ role: 'admin', written_at: null, zed_token: null, attempts: 1 }]);
+    expect(rows).toEqual([{ role: 'admin', written_at: null, authorization_revision: null, attempts: 1 }]);
   });
 
   it('rolls back all three records and never dispatches if the transaction fails', async () => {

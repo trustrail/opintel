@@ -5,7 +5,7 @@ import type {
   CheckRequest,
   CheckResult,
   RelationshipUpdate,
-  ZedToken,
+  AuthorizationRevision,
 } from '../application/authorization-port.js';
 
 type Snapshot = CheckResult & { capturedAtMs: number };
@@ -32,12 +32,12 @@ function cacheKey(request: CheckRequest): string {
   return `${request.resource.type}:${request.resource.id}#${request.permission}@${request.subject.type}:${request.subject.id}`;
 }
 
-function zedToken(token: v1.ZedToken | undefined): ZedToken {
+function zedToken(token: v1.ZedToken | undefined): AuthorizationRevision {
   if (token === undefined || token.token.length === 0) throw new Error('SpiceDB returned no ZedToken.');
-  return token.token as ZedToken;
+  return token.token as AuthorizationRevision;
 }
 
-function consistency(token: ZedToken | undefined): v1.Consistency {
+function consistency(token: AuthorizationRevision | undefined): v1.Consistency {
   return v1.Consistency.create({
     requirement: token === undefined
       ? { oneofKind: 'fullyConsistent', fullyConsistent: true }
@@ -151,7 +151,7 @@ export class SpiceDbAuthorizationPort implements AuthorizationPort {
     });
   }
 
-  async write(updates: RelationshipUpdate[]): Promise<ZedToken> {
+  async write(updates: RelationshipUpdate[]): Promise<AuthorizationRevision> {
     const response = await this.client.writeRelationships(v1.WriteRelationshipsRequest.create({
       updates: updates.map((update) => v1.RelationshipUpdate.create({
         operation: update.operation === 'touch'

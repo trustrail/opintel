@@ -4,5 +4,5 @@ export type {
   CheckResult,
   PermissionTrace,
   RelationshipUpdate,
-  ZedToken,
+  AuthorizationRevision,
 } from './application/authorization-port.js';
