@@ -8,9 +8,9 @@ import type { TLSSocket } from 'node:tls';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidecarSourceConnector, type SourceConnectorContext, type SidecarOptions } from '../src/modules/sources/index.js';
 import { ElementId, ObjectId, ProjectId, SourceId, ok } from '../src/shared/kernel/index.js';
-import { VaultRef } from '../src/platform/vault/types.js';
+import { SecretRef } from '../src/platform/secrets/types.js';
 
-const ref = VaultRef('vault://customer/warehouse');
+const ref = SecretRef('secret://customer/warehouse');
 const element = ElementId(randomUUID());
 const context: SourceConnectorContext = {
   projectId: ProjectId(randomUUID()), sourceId: SourceId(randomUUID()), requestId: 'request-123',
@@ -69,7 +69,7 @@ afterEach(async () => {
 const client = (options: Partial<SidecarOptions> = {}, ctx = context) => new SidecarSourceConnector('postgres', ctx, { baseUrl: url, tls, ...options });
 
 describe('SourceConnector sidecar wire contract', () => {
-  it('uses pinned mutual TLS and checks contract once before source contact; only sends a vault reference', async () => {
+  it('uses pinned mutual TLS and checks contract once before source contact; only sends a secrets reference', async () => {
     const connector = client();
     expect(await connector.testConnection(ref)).toEqual(ok(undefined));
     expect(await connector.testConnection(ref)).toEqual(ok(undefined));
@@ -152,7 +152,7 @@ describe('SourceConnector sidecar wire contract', () => {
     expect(JSON.stringify(result)).not.toContain('PRIVATE_VALUE');
   });
   it('rejects a literal credential before any network request (F-006)', async () => {
-    expect(await client().testConnection('postgres://user:secret@host/db' as VaultRef)).toMatchObject({ ok: false });
+    expect(await client().testConnection('postgres://user:secret@host/db' as SecretRef)).toMatchObject({ ok: false });
     expect(seen).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AsciiTransliterator, CatalogNaming } from '../../../src/modules/catalog/index.js';
 import { DomainError, ExposedName, err, ok, type Result } from '../../../src/shared/kernel/index.js';
 import { landingReceiptSchema, type LandingReceipt } from '../../../src/shared/landing-contract.js';
-import type { VaultPort } from '../../../src/platform/vault/index.js';
+import type { SecretStorePort } from '../../../src/platform/secrets/index.js';
 import type { LandingInput, LandingPort, LandingSource } from '../landing-port.js';
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
@@ -18,11 +18,11 @@ const metadata = '_opintel_landing';
  * Commit receipts live in the SAME transaction as DDL and rows. They are replay
  * protection, not a second register of arrivals/quarantines (item 3.10). */
 export class PostgresLanding implements LandingPort {
-  constructor(private readonly vault: Pick<VaultPort, 'resolve'>, private readonly statementTimeoutMs = 30_000) {}
+  constructor(private readonly secrets: Pick<SecretStorePort, 'resolve'>, private readonly statementTimeoutMs = 30_000) {}
   private async scope<T>(source: LandingSource, work: (db: Client, schema: string) => Promise<T>): Promise<Result<T>> {
     let db: Client | undefined;
     try {
-      const credential = await this.vault.resolve(source.credentialRef);
+      const credential = await this.secrets.resolve(source.credentialRef);
       db = new Client({ connectionString: credential, connectionTimeoutMillis: 5000, statement_timeout: this.statementTimeoutMs, application_name: 'opintel-sidecar-landing' });
       db.on('error', () => {});
       await db.connect(); await db.query('BEGIN');

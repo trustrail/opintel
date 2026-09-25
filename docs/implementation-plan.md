@@ -70,7 +70,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.5a | HTTP server, Zod validation at the boundary, error envelope, request id | 1.3, 1.15 | platform/http | error envelope shape, validation rejects at the boundary |
 | 1.5b | Redis client and connection lifecycle | 1.2 | platform/redis | connects, reconnects, closes cleanly |
 | 1.5c | HTTP routing: a registry mapping method and path to a validated handler | 1.5a | platform/http/router.ts | three handlers on one server, 404 for unknown paths |
-| 1.5d | Vault port, development environment adapter | 1.3 | platform/vault | resolve returns the secret, a missing one refuses, the secret never reaches a log |
+| 1.5d | Secret-store port, environment adapter | 1.3 | platform/secrets | resolve returns the secret, a missing one refuses, the secret never reaches a log |
 | 1.6 | Identity domain and schema | 1.2, 1.3, 2.1  | `modules/identity` | domain invariants |
 | 1.8 | Sessions: Redis, cookie, timeouts, revocation | 1.6 | session store | D-001 to D-011 |
 | 1.7 | Magic link: request, callback, device nonce, rate limits, single use | 1.4, 1.5, 1.5a, 1.5b, 1.6, 1.8 | endpoints | B-001 to B-015, A-005, A-006 |
@@ -118,7 +118,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | 3.2 | Namespace and type mapping, normalisation recorded once | 3.1 | `catalog/naming.ts` | G-010 to G-013, R-003 |
 | 3.3 | `SourceConnector` port. **All source contact goes through the sidecar** | 3.1, S1 | `modules/sources` | F-002, F-003, F-005, F-006 |
 | 3.4 | Postgres connector: test, introspect, sample, estimate | 3.3, S1 | adapter | G-001 to G-005, G-014 to G-016 |
-| 3.5 | Vault integration, literal-secret constraint | 3.3 | `platform/vault` | F-005, F-006 |
+| 3.5 | Secret-store integration, literal-secret constraint | 3.3 | `platform/secrets` | F-005, F-006 |
 | 3.6 | Introspection job, state machine, diff, cancel; permission-checked re-run route on an existing source | 3.4 | `jobs/introspect` | G-017, G-018, R-023, F-010 (source status); G-009 diff only |
 | **3.7** | **Ingest: watch and identify.** A landing zone in the customer's environment. Identify filing party, period, kind, and whether this is a new filing or a restatement | S1, 3.3 | `modules/ingest` | ING-01 to ING-08 (ING-02 filename/folder only; ING-07 detection and registration only) |
 | **3.8** | **Ingest: extract.** Sheet selection, header row detection, merged cells, type inference, malformed file handling | 3.7 | `ingest/extract.ts` | ING-09 to ING-18; ING-02 content inspection |
@@ -324,7 +324,7 @@ Ranked by expected cost.
 | 2 | **Real bordereaux break the ingest assumptions** | Every filing party differs, and the messiness is the problem rather than an edge case | The first real file, in P2 | Get real files before P2 completes. Quarantine rather than guess. Expect the long tail to continue past the gate |
 | 3 | **Introspection meets a real schema and breaks** | Views without lineage, quoted identifiers, vendor types, very wide tables | First real connection | A real Postgres before P2. Budget for the tail |
 | 4 | **Landing strategy chosen wrongly for a customer** | It is a judgement call made early, and it changes what every number means | A customer asking why two periods disagree | No default. A consultant chooses deliberately. Strategy stamped on every record so a wrong choice is at least visible |
-| 5 | **Tokenization key management is fiddlier than specified** | Vault, per-project keys, sidecar resolution at execution, rotation semantics | P3 | Prototype early, ahead of need. Blocked on review anyway |
+| 5 | **Tokenization key management is fiddlier than specified** | Secret storage, per-project keys, sidecar resolution at execution, rotation semantics | P3 | Prototype early, ahead of need. Blocked on review anyway |
 | 6 | **The frontend drifts from the master stylesheet** | A generator or a hurried engineer adds a class rather than reusing one | New classes outside `opintel-master.css` | Lint rule: a class not in the master file fails the build |
 | 7 | **Classification is not reproducible enough** *(1b)* | Determinism at temperature 0 is assumed, not guaranteed, across provider updates | CLS-01 flaky | Pin the model. Store the prompt. If it flakes, the record must state the model version and reproducibility becomes best-effort |
 | 8 | **SpiceDB operational burden** | Self-hosting an unfamiliar system while building everything else | Time lost in P1 | Timebox. Managed AuthZed is the fallback and the SOC 2 trigger anyway |

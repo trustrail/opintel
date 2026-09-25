@@ -1,8 +1,8 @@
-import type { VaultRef } from '../../src/platform/vault/index.js';
+import type { SecretRef } from '../../src/platform/secrets/index.js';
 import type { Result, SourceId, ProjectId, FilingId } from '../../src/shared/kernel/index.js';
 import type { LandingReceipt } from '../../src/shared/landing-contract.js';
 import type { PartyId, ExtractedColumn, LandingStrategy } from '../../src/modules/ingest/index.js';
-export type LandingSource = { sourceId: SourceId; projectId: ProjectId; name: string; credentialRef: VaultRef; strategy: LandingStrategy };
+export type LandingSource = { sourceId: SourceId; projectId: ProjectId; name: string; credentialRef: SecretRef; strategy: LandingStrategy };
 export type LandingInput = { source: LandingSource; filingId: FilingId; partyId: PartyId; partyCode: string; kind: string;
   period: string; asAt: string | null; receivedAt: string; fileSha256: string; supersedes: FilingId | null; columns: ExtractedColumn[] };
 export interface LandingPort {

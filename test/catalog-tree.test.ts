@@ -32,7 +32,7 @@ describe('catalogue tree scoped to real Postgres', () => {
       await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$3,$4,'A','eu-west-1'),($2,$3,$4,'B','eu-west-1')", [projectId,otherProject,company!.id,industry!.id]);
     });
     for (const [project, id] of [[projectId, sourceId],[otherProject, otherSource]] as const) await withTenant({projectId:project,userId}, async tx => {
-      await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref) VALUES($1,$2,'Renamed Warehouse','original_warehouse','postgres','vault://test/catalog')",[id,project]);
+      await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref) VALUES($1,$2,'Renamed Warehouse','original_warehouse','postgres','secret://test/catalog')",[id,project]);
     });
     await withTenant(ctx, async tx => {
       await tx.query("INSERT INTO catalog_object(id,source_id,project_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,$3,'Source Schema','Source Table','table','public','stored_table')",[objectId,sourceId,projectId]);
@@ -81,7 +81,7 @@ describe('catalogue tree scoped to real Postgres', () => {
 
   it('paginates sources, schemas and objects without normalising stored names again', async () => {
     await withTenant(ctx, async tx => {
-      await tx.query("INSERT INTO data_source(project_id,name,exposed_alias,kind,credential_ref) VALUES($1,'Second','second','postgres','vault://test/catalog')",[projectId]);
+      await tx.query("INSERT INTO data_source(project_id,name,exposed_alias,kind,credential_ref) VALUES($1,'Second','second','postgres','secret://test/catalog')",[projectId]);
       await tx.query(`INSERT INTO catalog_object(source_id,project_id,schema_name,object_name,object_kind,exposed_schema,exposed_name)
         VALUES($1,$2,'Other','Order','table','z_schema','order_col'),($1,$2,'Source Schema','Other','view','public','other')`,[sourceId,projectId]);
     });
@@ -94,7 +94,7 @@ describe('catalogue tree scoped to real Postgres', () => {
 
   it('assigns collision-safe aliases concurrently, refuses unnameable creation and guards renames', async () => {
     const repository=new PostgresSourceRegistrationRepository();
-    const create=(name:string)=>repository.create(ctx,SourceId(randomUUID()),RunId(randomUUID()),{name,kind:'postgres',credentialRef:'vault://test/catalog',includeSchemas:[],samplingConsent:false,receivesLandings:false,landingStrategy:null},null);
+    const create=(name:string)=>repository.create(ctx,SourceId(randomUUID()),RunId(randomUUID()),{name,kind:'postgres',credentialRef:'secret://test/catalog',includeSchemas:[],samplingConsent:false,receivesLandings:false,landingStrategy:null},null);
     const results=await Promise.all(['Größe','Grosse','Grosse!'].map(create));expect(results.every(r=>r.ok)).toBe(true);
     expect(results.flatMap(r=>r.ok?[r.value.source.exposedAlias]:[]).sort()).toEqual(['grosse','grosse_2','grosse_3']);
     expect(await create('---')).toMatchObject({ok:false,error:{code:'validation_failed'}});

@@ -39,7 +39,7 @@ beforeEach(async () => {
     if (industry===undefined || company===undefined) throw new Error('Missing fixture.');
     await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$3,$4,'Source A','eu-west-1'),($2,$3,$4,'Source B','eu-west-1')",[ctx.projectId,otherProject,company.id,industry.id]);
   });
-  await withTenant(ctx,(tx) => tx.query("INSERT INTO data_source(id,project_id,kind,name,credential_ref,status,exposed_alias) VALUES($1,$2,'postgres','Warehouse','vault://test/source','connected','warehouse')",[sourceId,ctx.projectId]));
+  await withTenant(ctx,(tx) => tx.query("INSERT INTO data_source(id,project_id,kind,name,credential_ref,status,exposed_alias) VALUES($1,$2,'postgres','Warehouse','secret://test/source','connected','warehouse')",[sourceId,ctx.projectId]));
   discovery=snapshot();
   connector={kind:'postgres',testConnection:async()=>ok(undefined),introspect:async()=>ok(discovery),sampleTopValues:async()=>ok(new Map()),estimateRowCount:async()=>ok(null)};
   job=new IntrospectionJob(store,()=>connector);

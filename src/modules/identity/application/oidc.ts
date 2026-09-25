@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { DomainError, Timestamp, type Clock, type CompanyId, type InviteId, type SessionId } from '../../../shared/kernel/index.js';
-import type { VaultRef } from '../../../platform/vault/index.js';
+import type { SecretRef } from '../../../platform/secrets/index.js';
 import type { AccountRepository, InviteRepository } from './magic-link.js';
 import type { SessionPort } from './session.js';
 
@@ -19,7 +19,7 @@ export type OidcProviderConfiguration = {
   provider: string;
   issuer: string;
   clientId: string;
-  clientSecretRef: VaultRef;
+  clientSecretRef: SecretRef;
   discoveryUrl: string | null;
 };
 

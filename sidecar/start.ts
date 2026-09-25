@@ -11,7 +11,7 @@ import { SpreadsheetExtractor } from './ingest/extract.js';
 import { LocalWorkbookReader } from './ingest/infrastructure/workbook-reader.js';
 import { LandingWatcher, MissingLandingStateError } from './ingest/watch.js';
 import { config as loadEnvironment } from 'dotenv';
-import { DevelopmentVaultAdapter } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore } from '../src/platform/secrets/index.js';
 import { loadSidecarConfig } from './config.js';
 import { createPostgresConnector } from './create-postgres-connector.js';
 import { FileSamplingAudit } from './infrastructure/file-sampling-audit.js';
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   await custody?.sweep();
   const custodyTimer=setInterval(()=>{void custody?.sweep().catch(()=>console.warn({event:'custody.cleanup_failed',category:'storage'}));},60000);custodyTimer.unref();
   const audit = await FileSamplingAudit.open(config.auditFile);
-  const host = createSidecarServer({config,tls,custody,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter(),audit,limits:config.limits})});
+  const host = createSidecarServer({config,tls,custody,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets:new EnvironmentSecretStore(),audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;
   const stop = () => {
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
     for (const zone of config.landingZones ?? []) {
       if (!zone.landing || !config.receiptUrl) throw new Error('Landing requires a source strategy and receipt URL.');
       const source = { ...zone.landing, sourceId: zone.sourceId, projectId: zone.projectId };
-      const writer = new PostgresLanding(new DevelopmentVaultAdapter(), config.limits.statementTimeoutMs);
+      const writer = new PostgresLanding(new EnvironmentSecretStore(), config.limits.statementTimeoutMs);
       const connected = await writer.connect(source);
       if (!connected.ok) throw new Error(connected.error.message);
       const extractor = new SpreadsheetExtractor(new LocalWorkbookReader());

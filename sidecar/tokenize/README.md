@@ -1,6 +1,6 @@
 # Tokenization read boundary
 
-`SidecarTokenizer.run(projectId, work)` resolves a 32-byte key through VaultPort,
+`SidecarTokenizer.run(projectId, work)` resolves a 32-byte key through SecretStorePort,
 uses it for one run and disposes its buffer. `TokenKey` has no raw-byte accessor
 and redacts string, JSON and inspection output. Zeroing is best effort, not a
 claim about immutable environment strings or OpenSSL copies.
@@ -14,7 +14,7 @@ The future query executor supplies an authorized selection and discards partial
 results on refusal. This library adds no endpoint, query planner or DuckDB session.
 
 The application does not import this implementation or resolve token keys.
-Production Vault implementations must use the same strict hex decoder as the
+Production secret-store implementations must use the same strict hex decoder as the
 development adapter: 64 lowercase hex characters, decoded to 32 bytes.
 The development variable for a project is
 `OPINTEL_SECRET_OPINTEL_TOKEN_KEY_<PROJECT_UUID_WITH_UNDERSCORES>` (uppercase).
@@ -64,7 +64,7 @@ Custody initializes on the first source connection, not at project creation.
 The development adapters resolve their directories and reject an identical
 location, including symlink aliases. Local directories are a development aid;
 they do not satisfy independent disaster custody. Production adapters remain
-out of scope. The environment-variable Vault adapter stays read-only.
+out of scope. The environment secret store stays read-only.
 
 `FileCustody` implements binary resolution of the current token-key reference
 for the sidecar tokenizer. Version files are immutable except an explicitly

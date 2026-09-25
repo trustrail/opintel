@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 import type { SourceCredentialResolver } from '../application/source-connector.js';
-import type { VaultRef } from '../../src/platform/vault/types.js';
+import type { SecretRef } from '../../src/platform/secrets/types.js';
 
 export interface SourceSession {
   query(sql: string, values?: unknown[]): Promise<unknown[]>;
@@ -24,7 +24,7 @@ export class PostgresSourceScope {
     }
   }
 
-  async run<T>(sourceKey: string, ref: VaultRef, work: (session: SourceSession) => Promise<T>, signal?: AbortSignal): Promise<T> {
+  async run<T>(sourceKey: string, ref: SecretRef, work: (session: SourceSession) => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (signal?.aborted) throw new SourceCancelled();
     const count = this.active.get(sourceKey) ?? 0;
     if (count >= this.limits.maxConnectionsPerSource) throw new SourceBusy();

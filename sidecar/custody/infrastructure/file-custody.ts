@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ProjectId, DomainError, ok, err, type Result } from '../../../src/shared/kernel/index.js';
-import { VaultRef } from '../../../src/platform/vault/index.js';
+import { SecretRef } from '../../../src/platform/secrets/index.js';
 import { custodyOperations, custodyMessages, type CustodyOperation } from '../../../src/shared/custody-contract.js';
 import { TokenKey, TokenizationRun, IanaZoneResolver } from '../../tokenize/index.js';
 import type { KeyStore, KeyEscrow } from '../ports.js';
@@ -12,13 +12,13 @@ const stateSchema=z.object({current:version.nullable(),versions:z.array(version)
  candidates:z.record(z.string(),z.object({kind:z.enum(['rotate','restore']),version,expected:version,expires:z.number(),sentinel:z.string(),committed:z.boolean(),cleanup:z.boolean().optional()})),
 });
 type State=z.infer<typeof stateSchema>;
-const ref=(name:string)=>VaultRef('vault://custody/'+name);
+const ref=(name:string)=>SecretRef('secret://custody/'+name);
 function derive(bytes:Uint8Array):string {const key=TokenKey.take(bytes);if(!key.ok)throw key.error;try{const value=new TokenizationRun(key.value,new IanaZoneResolver()).sentinel();if(!value.ok||value.value===null)throw new Error('Sentinel derivation failed.');return value.value;}finally{key.value.dispose();}}
 export class FileCustody {
  constructor(private readonly store:KeyStore,private readonly escrow:KeyEscrow,private readonly now:()=>number=Date.now){if(store.location===escrow.location)throw new Error('KeyStore and KeyEscrow must resolve to different locations.');}
  async sweep(){for(const entry of await readdir(this.store.location,{withFileTypes:true})){if(entry.isDirectory()&&/^[0-9a-f-]{36}$/u.test(entry.name))await this.invoke('status',entry.name,{});}}
- async resolveBytes(reference:import('../../../src/platform/vault/index.js').VaultRef):Promise<Uint8Array>{
-  const match=/^vault:\/\/opintel\/token-key\/([0-9a-f-]{36})$/u.exec(reference);
+ async resolveBytes(reference:import('../../../src/platform/secrets/index.js').SecretRef):Promise<Uint8Array>{
+  const match=/^secret:\/\/opintel\/token-key\/([0-9a-f-]{36})$/u.exec(reference);
   if(!match)throw new DomainError('dependency_unavailable','Unknown token key reference.');
   const project=ProjectId(match[1]!);const state=stateSchema.parse(JSON.parse(await readFile(join(this.store.location,project,'state.json'),'utf8')));
   if(state.current===null)throw new DomainError('dependency_unavailable','Token key custody has not been initialized.');

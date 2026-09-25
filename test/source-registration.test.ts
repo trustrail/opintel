@@ -23,7 +23,7 @@ import { createSidecarServer } from '../sidecar/http/server.js';
 import { createPostgresConnector } from '../sidecar/create-postgres-connector.js';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
-import { DevelopmentVaultAdapter } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore } from '../src/platform/secrets/index.js';
 import { ProjectId,UserId,SourceId,Timestamp,UuidV7IdFactory,ok,err,DomainError } from '../src/shared/kernel/index.js';
 import type { AuthorizationPort } from '../src/modules/authz/index.js';
 import { sourceOpenApiDocument } from '../src/shared/api/source-schemas.js';
@@ -36,7 +36,7 @@ const suffix=randomUUID().replaceAll('-','');const schema='source_'+suffix;const
 let options:Awaited<ReturnType<typeof loadSidecarClientOptions>>;
 const connectors:SidecarSourceConnector[]=[];
 async function customer<T>(fn:(db:Client)=>Promise<T>){const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();try{return await fn(db);}finally{await db.end();}}
-const body=(name='Warehouse',receivesLandings=false)=>({name,kind:'postgres',credentialRef:'vault://test/readonly',includeSchemas:[receivesLandings?landed:schema],samplingConsent:false,receivesLandings,landingStrategy:receivesLandings?'append_as_at':null});
+const body=(name='Warehouse',receivesLandings=false)=>({name,kind:'postgres',credentialRef:'secret://test/readonly',includeSchemas:[receivesLandings?landed:schema],samplingConsent:false,receivesLandings,landingStrategy:receivesLandings?'append_as_at':null});
 async function request(path:string,method='GET',payload?:unknown){return fetch(origin+path,{method,headers:payload?{'content-type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});}
 const path=()=>`/api/v1/projects/${projectId}/sources`;
 beforeAll(async()=>{
@@ -44,7 +44,7 @@ beforeAll(async()=>{
  await customer(async db=>{await db.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${password}';CREATE SCHEMA "${schema}";CREATE SCHEMA "${landed}";CREATE TABLE "${schema}".records(id int,label text);CREATE TABLE "${landed}".filings(amount numeric,_opintel_filing_id uuid,_opintel_as_at date);GRANT USAGE ON SCHEMA "${schema}","${landed}" TO "${role}";GRANT SELECT ON ALL TABLES IN SCHEMA "${schema}","${landed}" TO "${role}"`);});
  const url=new URL(process.env.TEST_DATABASE_URL!);url.username=role;url.password=password;
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
- host=createSidecarServer({custody:new FileCustody(await DevelopmentFileKeyStore.open(config.custody!.keyStore),await DevelopmentFileKeyEscrow.open(config.custody!.keyEscrow)),demo:{provision:async()=>{if(provisionFailure instanceof Error)throw provisionFailure;return provisionFailure?err(provisionFailure):ok({credentialRef:'vault://test/readonly',database:'prepared_demo'});}},config:{...config,port:0},tls,connector:createPostgresConnector({vault:new DevelopmentVaultAdapter({OPINTEL_SECRET_TEST_READONLY:url.toString()}),audit:{record:async()=>{}},limits:config.limits})});
+ host=createSidecarServer({custody:new FileCustody(await DevelopmentFileKeyStore.open(config.custody!.keyStore),await DevelopmentFileKeyEscrow.open(config.custody!.keyEscrow)),demo:{provision:async()=>{if(provisionFailure instanceof Error)throw provisionFailure;return provisionFailure?err(provisionFailure):ok({credentialRef:'secret://test/readonly',database:'prepared_demo'});}},config:{...config,port:0},tls,connector:createPostgresConnector({secrets:new EnvironmentSecretStore({OPINTEL_SECRET_TEST_READONLY:url.toString()}),audit:{record:async()=>{}},limits:config.limits})});
  const port=await host.listen();options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
 },30000);
 afterAll(async()=>{await host?.close();await customer(async db=>{await db.query(`DROP SCHEMA "${schema}" CASCADE;DROP SCHEMA "${landed}" CASCADE;DROP ROLE "${role}"`);});await rm(directory,{recursive:true,force:true});});
@@ -118,7 +118,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  },25000);
  it('Connect inserts the reserved demo source and uses the same connector port for introspection',async()=>{
   const reserved=randomUUID();provisionDemo=true;
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'vault://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   vi.spyOn(repository,'settledFilings').mockResolvedValue(13);
   expect((await(await request(path())).json()).items).toEqual([]);
   const response=await request(path()+'/from-demo','POST',{demoTemplateId:templateId});expect(response.status).toBe(201);expect(await response.json()).toMatchObject({id:reserved,origin:'demo'});
@@ -129,7 +129,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  it.each([false,true])('persists the exact safe provisioning message and exposes it in the source response (unexpected=%s)',async(unexpected)=>{
   const reserved=randomUUID();
   provisionFailure=unexpected?new Error('SELECT password FROM credentials: SECRET'):new DomainError('conflict',sourceMessages.templateConflict);
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'vault://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);
   const result=await service.idle();expect(result).toMatchObject({ok:false,error:{code:unexpected?'dependency_unavailable':'conflict'}});
   const listed=await(await request(path())).json();
@@ -157,7 +157,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  });
  it.each(['connect','retry'] as const)('resumes failed demo provisioning through %s without replacing identity or history',async(entry)=>{
   const reserved=randomUUID();provisionFailure=new DomainError('conflict',sourceMessages.templateConflict);
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'vault://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);expect((await service.idle()).ok).toBe(false);
   const before=await withTenant({projectId,userId},tx=>tx.query('SELECT id,state,error FROM introspection_run'));
   const filingId=randomUUID();const payload={filingId,sourceId:reserved,projectId,revision:1,outcome:'quarantined',quarantineCategory:'merged_header',receivedAt:new Date().toISOString(),fileSha256:'0'.repeat(64),partyCode:null,period:null,kind:null};

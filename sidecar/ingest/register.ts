@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { arrivalNoticeSchema, quarantineCategorySchema, landingReceiptSchema, landingStrategySchema, type ArrivalNotice, type ReconciliationReport } from '../../src/shared/landing-contract.js';
 import type { RegisterDeliveryPort } from './landing-port.js';
 import { ingestEvent, ingestErrorCategory } from './telemetry.js';
-import { VaultRef } from '../../src/platform/vault/types.js';
+import { SecretRef } from '../../src/platform/secrets/types.js';
 import type { FilingLander } from './land.js';
 import { identifyFile, identificationRulesSchema, type PartyId, type FilingPartyRuleId, type FileExtractor, type FilingParty, type FilingPartyRule } from '../../src/modules/ingest/index.js';
 import { ProjectId, SourceId, FilingId } from '../../src/shared/kernel/index.js';
@@ -14,7 +14,7 @@ import { ProjectId, SourceId, FilingId } from '../../src/shared/kernel/index.js'
 export const landingZoneSchema = z.strictObject({
   projectId: z.uuid().transform(ProjectId), sourceId: z.uuid().transform(SourceId),
   directory: z.string().min(1), stateFile: z.string().min(1), rulesFile: z.string().min(1),
-  landing: z.strictObject({ name: z.string().min(1), credentialRef: z.string().startsWith('vault://').min(9).transform(VaultRef), strategy: landingStrategySchema }).optional(),
+  landing: z.strictObject({ name: z.string().min(1), credentialRef: z.string().startsWith('secret://').min(10).transform(SecretRef), strategy: landingStrategySchema }).optional(),
   pollMs: z.number().int().min(10).max(60_000).default(1000),
 });
 export type LandingZone = z.infer<typeof landingZoneSchema>;

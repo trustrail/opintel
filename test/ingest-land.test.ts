@@ -6,7 +6,7 @@ import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 import { periodAsAt, type FilingParty, type PartyId, type FilingPartyRule, type FilingPartyRuleId, type LandingStrategy } from '../src/modules/ingest/index.js';
 import { DomainError, FilingId, ProjectId, SourceId, err, ok, type Result } from '../src/shared/kernel/index.js';
-import { VaultRef } from '../src/platform/vault/index.js';
+import { SecretRef } from '../src/platform/secrets/index.js';
 import { PostgresLanding } from '../sidecar/ingest/infrastructure/postgres-landing.js';
 import type { LandingInput, LandingSource } from '../sidecar/ingest/landing-port.js';
 import { LandingWatcher } from '../sidecar/ingest/watch.js';
@@ -23,7 +23,7 @@ async function fixture<T>(work: (db: Client) => Promise<T>): Promise<T> {
 const writer = () => new PostgresLanding({ resolve: async () => process.env.TEST_DATABASE_URL! });
 const unwrap = <T>(result: Result<T>): T => { if (!result.ok) throw new Error(result.error.message); return result.value; };
 function source(strategy: LandingStrategy): LandingSource {
-  const value = { sourceId: SourceId(randomUUID()), projectId: ProjectId(randomUUID()), name: `landing_${randomUUID().replaceAll('-', '')}`, credentialRef: VaultRef('vault://test/customer-landing'), strategy };
+  const value = { sourceId: SourceId(randomUUID()), projectId: ProjectId(randomUUID()), name: `landing_${randomUUID().replaceAll('-', '')}`, credentialRef: SecretRef('secret://test/customer-landing'), strategy };
   sources.push(value); return value;
 }
 function input(value: LandingSource): LandingInput {

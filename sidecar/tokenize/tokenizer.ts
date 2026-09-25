@@ -1,5 +1,5 @@
 import { DomainError, err, ok, type Result, type ProjectId } from '../../src/shared/kernel/index.js';
-import { VaultRef, type VaultPort } from '../../src/platform/vault/types.js';
+import { SecretRef, type SecretStorePort } from '../../src/platform/secrets/types.js';
 import { canonicalise } from './canonicalise.js';
 import { validateTokenConfig, type Canonicaliser, type ZoneResolver } from './config.js';
 import { TokenKey } from './infrastructure/token-key.js';
@@ -61,15 +61,15 @@ export class TokenizationRun {
     tokenize(value: unknown, config: unknown, extension?: Canonicaliser): Result<string | null> { const prepared = this.prepare(config, extension); return prepared.ok ? prepared.value(value) : prepared; }
 }
 export class SidecarTokenizer {
-    constructor(private readonly vault: Pick<VaultPort, 'resolveBytes'>, private readonly zones: ZoneResolver, private readonly audit: TokenAudit = consoleTokenAudit) { }
+    constructor(private readonly secrets: Pick<SecretStorePort, 'resolveBytes'>, private readonly zones: ZoneResolver, private readonly audit: TokenAudit = consoleTokenAudit) { }
     async run<T>(projectId: ProjectId, work: (run: TokenizationRun) => Promise<Result<T>> | Result<T>): Promise<Result<T>> {
-        const ref = VaultRef(`vault://opintel/token-key/${projectId}`);
+        const ref = SecretRef(`secret://opintel/token-key/${projectId}`);
         let key: TokenKey | undefined;
         try {
             this.audit.record({ event: 'tokenization.started', projectId });
-            const resolved = TokenKey.take(await this.vault.resolveBytes(ref));
+            const resolved = TokenKey.take(await this.secrets.resolveBytes(ref));
             if (!resolved.ok) {
-                this.audit.record({ event: 'tokenization.refused', projectId, category: 'vault' });
+                this.audit.record({ event: 'tokenization.refused', projectId, category: 'key_resolution' });
                 return err(new DomainError('dependency_unavailable', `Token key ${ref} must contain exactly 32 raw bytes.`));
             }
             key = resolved.value;
@@ -78,7 +78,7 @@ export class SidecarTokenizer {
             return result;
         }
         catch {
-            this.audit.record({ event: 'tokenization.refused', projectId, category: key ? 'execution' : 'vault' });
+            this.audit.record({ event: 'tokenization.refused', projectId, category: key ? 'execution' : 'key_resolution' });
             return err(new DomainError('dependency_unavailable', `Tokenization could not complete using ${ref}. Check the source and Vault configuration.`));
         }
         finally {

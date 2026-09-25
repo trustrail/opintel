@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const tokenEventSchema = z.strictObject({
   event: z.enum(['tokenization.started', 'tokenization.complete', 'tokenization.refused']),
   projectId: z.uuid(),
-  category: z.enum(['declaration', 'vault', 'execution']).optional(),
+  category: z.enum(['declaration', 'key_resolution', 'execution']).optional(),
 });
 export type TokenEvent = z.infer<typeof tokenEventSchema>;
 export interface TokenAudit { record(event: TokenEvent): void }

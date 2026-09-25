@@ -1,9 +1,9 @@
 import type { DomainError, ElementId, ProjectId, Result, SourceId } from '../../src/shared/kernel/index.js';
-import type { VaultPort } from '../../src/platform/vault/types.js';
+import type { SecretStorePort } from '../../src/platform/secrets/types.js';
 import type { CatalogSnapshot, TopValue } from '../../src/modules/sources/index.js';
 
-/** Read-only capability of the existing vault port, used only in the sidecar. */
-export type SourceCredentialResolver = Pick<VaultPort, 'resolve'>;
+/** Read-only capability of the existing secrets port, used only in the sidecar. */
+export type SourceCredentialResolver = Pick<SecretStorePort, 'resolve'>;
 export type SamplingAudit = {
   requestId: string; projectId: ProjectId; sourceId: SourceId; elementIds: ElementId[];
   consentGiven: boolean; outcome: 'started' | 'completed' | 'refused' | 'failed';

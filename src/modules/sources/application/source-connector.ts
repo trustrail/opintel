@@ -1,5 +1,5 @@
 import type { DomainError, ElementId, ObjectId, ProjectId, Result, SourceId, Timestamp } from '../../../shared/kernel/index.js';
-import type { VaultRef } from '../../../platform/vault/types.js';
+import type { SecretRef } from '../../../platform/secrets/types.js';
 
 export type SourceKind = 'postgres' | 'demo';
 export type ObjectRef = { id: ObjectId; sourceId: SourceId; schema: string; name: string };
@@ -18,10 +18,10 @@ export type CatalogSnapshot = {
 
 export interface SourceConnector {
   readonly kind: SourceKind;
-  testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
-  introspect(ref: VaultRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
-  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
-  estimateRowCount(ref: VaultRef, object: ObjectRef, signal?: AbortSignal): Promise<Result<number | null, DomainError>>;
+  testConnection(ref: SecretRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
+  introspect(ref: SecretRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
+  sampleTopValues(ref: SecretRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
+  estimateRowCount(ref: SecretRef, object: ObjectRef, signal?: AbortSignal): Promise<Result<number | null, DomainError>>;
 }
 
 // The application binds a connector to a source and supplies current consent

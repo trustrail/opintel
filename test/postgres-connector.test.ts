@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PostgresConnector, PostgresSourceScope, createPostgresConnector, type SidecarConnector, type SamplingAudit } from '../sidecar/index.js';
-import { DevelopmentVaultAdapter, type VaultPort } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore, type SecretStorePort } from '../src/platform/secrets/index.js';
 import { CatalogObject, describeElement, mapSourceType } from '../src/modules/catalog/index.js';
 import { ExposedName, ElementId, ObjectId, ProjectId, SourceId, ok, type Result } from '../src/shared/kernel/index.js';
 import type { CatalogSnapshot } from '../src/modules/sources/index.js';
@@ -14,7 +14,7 @@ const role = `connector_${suffix}`;
 const password = randomUUID();
 const secret = 'ROW_VALUE_SENTINEL';
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
-const envelope = { requestId: 'connector-test', projectId: ProjectId(randomUUID()), sourceId: SourceId(randomUUID()), credentialRef: 'vault://test/customer' };
+const envelope = { requestId: 'connector-test', projectId: ProjectId(randomUUID()), sourceId: SourceId(randomUUID()), credentialRef: 'secret://test/customer' };
 const element = ElementId(randomUUID());
 let sourceUrl: string;
 const events: SamplingAudit[] = [];
@@ -53,7 +53,7 @@ beforeAll(async () => {
     const url = new URL(base); url.username = role; url.password = password; sourceUrl = url.toString();
   });
   connector = createPostgresConnector({
-    vault: new DevelopmentVaultAdapter({ OPINTEL_SECRET_TEST_CUSTOMER: sourceUrl }),
+    secrets: new EnvironmentSecretStore({ OPINTEL_SECRET_TEST_CUSTOMER: sourceUrl }),
     limits: { maxConnectionsPerSource: 2, statementTimeoutMs: 2000, operationTimeoutMs: 5000 },
     audit: { record: async (event) => { events.push(event); } },
   });
@@ -66,13 +66,13 @@ afterAll(async () => {
 });
 
 describe('sidecar Postgres connector against a read-only source credential', () => {
-  it('F-005/F-006: resolves source references through VaultPort on each call without returning or logging credentials', async () => {
+  it('F-005/F-006: resolves source references through SecretStorePort on each call without returning or logging credentials', async () => {
     const environment: Record<string, string | undefined> = { OPINTEL_SECRET_TEST_CUSTOMER: sourceUrl };
-    const vault = new DevelopmentVaultAdapter(environment);
-    const resolve = vi.spyOn(vault, 'resolve');
-    const store = vi.spyOn(vault, 'store');
+    const secrets = new EnvironmentSecretStore(environment);
+    const resolve = vi.spyOn(secrets, 'resolve');
+    const store = vi.spyOn(secrets, 'store');
     const logs = [vi.spyOn(console, 'log'), vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')];
-    const source = createPostgresConnector({ vault,
+    const source = createPostgresConnector({ secrets,
       limits: { maxConnectionsPerSource: 1, statementTimeoutMs: 1000, operationTimeoutMs: 3000 },
       audit: { record: async (event) => { events.push(event); } },
     });
@@ -107,13 +107,13 @@ describe('sidecar Postgres connector against a read-only source credential', () 
     }
   });
 
-  it('F-005: an untrusted vault failure cannot expose a resolved credential in a connector response', async () => {
-    const vault: VaultPort = {
+  it('F-005: an untrusted secrets failure cannot expose a resolved credential in a connector response', async () => {
+    const secrets: SecretStorePort = {
       resolveBytes: async () => { throw new Error('Not used by this credential fixture.'); },
       resolve: async () => { throw new Error(`Vault failed with ${sourceUrl}`); },
       store: async () => { throw new Error('Not used.'); },
     };
-    const source = createPostgresConnector({ vault,
+    const source = createPostgresConnector({ secrets,
       limits: { maxConnectionsPerSource: 1, statementTimeoutMs: 1000, operationTimeoutMs: 3000 },
       audit: { record: async () => {} },
     });
@@ -212,8 +212,8 @@ describe('sidecar Postgres connector against a read-only source credential', () 
 
   it('C.4: scope enforces read-only, statement timeout and closes every connection', async () => {
     const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 50, operationTimeoutMs: 1000 });
-    const { VaultRef } = await import('../src/platform/vault/types.js');
-    const ref = VaultRef(envelope.credentialRef);
+    const { SecretRef } = await import('../src/platform/secrets/types.js');
+    const ref = SecretRef(envelope.credentialRef);
     expect(await scope.run('test', ref, (session) => session.query('SHOW transaction_read_only'))).toEqual([{ transaction_read_only: 'on' }]);
     await expect(scope.run('test', ref, (session) => session.query('SELECT pg_sleep(1)'))).rejects.toMatchObject({ code: '57014' });
     await expect(scope.run('test', ref, (session) => session.query(`INSERT INTO ${quote(schema)}.t0 VALUES (9,'write')`))).rejects.toMatchObject({ code: '25006' });
@@ -221,13 +221,13 @@ describe('sidecar Postgres connector against a read-only source credential', () 
   });
 
   it('G-018: request abort cancels the source backend and releases its connection', async () => {
-    const { VaultRef } = await import('../src/platform/vault/types.js');
+    const { SecretRef } = await import('../src/platform/secrets/types.js');
     const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 5000, operationTimeoutMs: 6000 });
     const controller = new AbortController();
     let started!: () => void;
     const ready = new Promise<void>((resolve) => { started = resolve; });
     let code: unknown;
-    const running = scope.run('cancel-test', VaultRef(envelope.credentialRef), async (session) => {
+    const running = scope.run('cancel-test', SecretRef(envelope.credentialRef), async (session) => {
       started();
       try { await session.query('SELECT pg_sleep(5)'); }
       catch (error: unknown) { if (typeof error === 'object' && error !== null && 'code' in error) code = error.code; throw error; }
@@ -243,9 +243,9 @@ describe('sidecar Postgres connector against a read-only source credential', () 
   });
 
   it('C.4: bounds total wall time, refuses excess connections, and releases the slot', async () => {
-    const { VaultRef } = await import('../src/platform/vault/types.js');
+    const { SecretRef } = await import('../src/platform/secrets/types.js');
     const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 5000, operationTimeoutMs: 100 });
-    const ref = VaultRef(envelope.credentialRef);
+    const ref = SecretRef(envelope.credentialRef);
     let started!: () => void;
     const ready = new Promise<void>((resolve) => { started = resolve; });
     const running = scope.run('test', ref, async (session) => { started(); return session.query('SELECT pg_sleep(5)'); });

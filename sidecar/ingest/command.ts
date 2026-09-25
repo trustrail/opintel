@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { config as loadEnvironment } from 'dotenv';
 import { z } from 'zod';
 import { loadSidecarConfig } from '../config.js';
-import { DevelopmentVaultAdapter } from '../../src/platform/vault/index.js';
+import { EnvironmentSecretStore } from '../../src/platform/secrets/index.js';
 import { FilingId } from '../../src/shared/kernel/index.js';
 import { FilingRegister } from './register.js';
 import { PostgresLanding } from './infrastructure/postgres-landing.js';
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   const { config, tls } = await loadSidecarConfig(configFile ?? process.env.SIDECAR_CONFIG_FILE ?? resolve('tmp/sidecar/service.json'));
   const zone = config.landingZones?.find((entry) => entry.sourceId === source);
   if (!zone?.landing || !config.receiptUrl) throw new Error('The configured landing source does not exist.');
-  const writer = new PostgresLanding(new DevelopmentVaultAdapter(), config.limits.statementTimeoutMs);
+  const writer = new PostgresLanding(new EnvironmentSecretStore(), config.limits.statementTimeoutMs);
   const extractor = new SpreadsheetExtractor(new LocalWorkbookReader());
   const delivery = new HttpsLandingReceipts(config.receiptUrl, { ca: tls.ca, cert: tls.cert, key: tls.key, pinnedCertificate: tls.clientPin });
   const lander = new FilingLander(zone.directory, { ...zone.landing, projectId: zone.projectId, sourceId: zone.sourceId }, writer, extractor, delivery);

@@ -164,7 +164,7 @@ databaseIntegration('provider resolution persistence', () => {
       await tx.query(
         `INSERT INTO company_idp (company_id, provider, display_name, issuer, client_id, client_secret_ref)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [created.id, 'oidc:acme', 'Acme SSO', 'https://idp.example', 'client', 'vault://opintel/idp/acme/client'],
+        [created.id, 'oidc:acme', 'Acme SSO', 'https://idp.example', 'client', 'secret://opintel/idp/acme/client'],
       );
       return created.id;
     });

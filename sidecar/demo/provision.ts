@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { DomainError, err, ok, type Result } from '../../src/shared/kernel/index.js';
 import { provisionDemoPayload, type ProvisionDemoResponse } from '../../src/shared/demo-contract.js';
 import { envelope } from '../../src/shared/sidecar-contract.js';
-import { VaultRef } from '../../src/platform/vault/types.js';
+import { SecretRef } from '../../src/platform/secrets/types.js';
 import { identificationRulesSchema } from '../../src/modules/ingest/index.js';
 import { filingSchema, type LandingZone } from '../ingest/register.js';
 import { z } from 'zod';
@@ -17,7 +17,7 @@ import { generateRows } from './generate.js';
 // Only operator-configured zones and references are accepted. Provisioning does
 // not connect to Postgres, create a database, store a secret, or call a watcher.
 export class SpreadsheetDemoProvisioner {
-  constructor(private readonly zones: readonly LandingZone[], private readonly target: { database: string; credentialRef: VaultRef }, private readonly writer: DemoWorkbookPort) {}
+  constructor(private readonly zones: readonly LandingZone[], private readonly target: { database: string; credentialRef: SecretRef }, private readonly writer: DemoWorkbookPort) {}
   async provision(body: unknown, signal?: AbortSignal): Promise<Result<ProvisionDemoResponse>> {
     const request = envelope.extend({ payload: provisionDemoPayload }).safeParse(body);
     if (!request.success) return err(new DomainError('validation_failed','Invalid demo provisioning request.'));
@@ -110,7 +110,7 @@ export class SpreadsheetDemoProvisioner {
           } finally { await unlink(delivery).catch(() => undefined); }
           const directory = await open(zone.directory,'r'); try { await directory.sync(); } finally { await directory.close(); }
         }
-        return ok({ credentialRef: VaultRef(credentialRef), database: this.target.database });
+        return ok({ credentialRef: SecretRef(credentialRef), database: this.target.database });
       } catch (error) {
         if (phase === 'rules') return err(new DomainError('validation_failed', sourceMessages.demoRulesInvalid));
         if (phase === 'dependency' && signal?.aborted) return err(new DomainError('dependency_unavailable', sourceMessages.demoDependencyPending));

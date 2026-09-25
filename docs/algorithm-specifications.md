@@ -36,7 +36,7 @@ token   = "v1" || "_" || domain || "_" || crockford32( HMAC_SHA256( key(projectI
 
 Where:
 
-- `key(projectId)` is 32 random bytes generated when the first source connects, stored in the vault as `vault://opintel/token-key/{projectId}`, and never in Postgres. It is used as raw bytes, never as hex or base64 text
+- `key(projectId)` is 32 random bytes generated when the first source connects, stored in the secret store as `secret://opintel/token-key/{projectId}`, and never in Postgres. It is used as raw bytes, never as hex or base64 text
 - `canonical_utf8(value)` is the canonical form defined in A.3, encoded as UTF-8
 - `"v1"` is the **envelope version**. It names the construction: HMAC-SHA256, the 128-bit truncation, Crockford encoding and this payload layout. Changing any of them means `v2`
 - `canon_id` names **the canonicaliser and its version** (A.3.2), for example `stdtext1`, `stdnum1`, `stddate1`, `stdtime1` or `addr2`. Changing a canonicaliser changes the element's tokens without changing the envelope
@@ -178,17 +178,17 @@ The token must fit the column it replaces.
 | Concern | Rule |
 |---|---|
 | Generation | 32 bytes from a CSPRNG during first-source custody initialization, before contacting the source |
-| Storage | Vault only. Vault only. The application never holds a key, so it cannot scan for one; absence from Postgres is enforced by construction and proven by TOK-14. |
-| Distribution | Resolved through `VaultPort` by the sidecar at execution time, as 32 raw bytes, held in memory, never logged. **Only the sidecar resolves it.** The application process never holds the key and never imports the tokenizer |
+| Storage | Secret store only. The application never holds a key, so it cannot scan for one; absence from Postgres is enforced by construction and proven by TOK-14. |
+| Distribution | Resolved through `SecretStorePort` by the sidecar at execution time, as 32 raw bytes, held in memory, never logged. **Only the sidecar resolves it.** The application process never holds the key and never imports the tokenizer |
 | Rotation | A distinct command with a typed confirmation naming what breaks |
 | Rotation effect | **Every token changes.** Cached agent results become unjoinable to new results. Prior evidence records remain valid because they record the token as released at the time |
 | Rotation record | Written to the audit log with the reason. The project's `token_key_version` increments and appears in every evidence record from that point |
 
-**Zero key buffers after use, but do not list it as a guarantee.** Node's HMAC copies the key into OpenSSL's memory, and a key delivered as text, for example by the development vault adapter reading an environment variable, exists as an immutable string that cannot be zeroed. The guarantee is that the key never leaves the sidecar process and never appears in a log, span, error message, SQL string or database row.
+**Zero key buffers after use, but do not list it as a guarantee.** Node's HMAC copies the key into OpenSSL's memory, and a key delivered as text, for example by the environment secret store reading an environment variable, exists as an immutable string that cannot be zeroed. The guarantee is that the key never leaves the sidecar process and never appears in a log, span, error message, SQL string or database row.
 
 **Rotation is not a routine hygiene action.** The console says so: rotating breaks joins in any agent that has cached results, and there is no way to translate an old token to a new one.
 
-**A token key is stored as 64 lowercase hex characters and read with VaultPort.resolveBytes(), which returns 32 bytes**. The value must match [0-9a-f]{64}; anything else is refused with an error naming the reference, never the value. Hex is used rather than base64 because Node's base64 decoder silently skips invalid characters, so a corrupted key could decode without error. The development adapter reads the same format from its environment variable, so development and production share one decode path.
+**A token key is stored as 64 lowercase hex characters and read with SecretStorePort.resolveBytes(), which returns 32 bytes**. The value must match [0-9a-f]{64}; anything else is refused with an error naming the reference, never the value. Hex is used rather than base64 because Node's base64 decoder silently skips invalid characters, so a corrupted key could decode without error. The development adapter reads the same format from its environment variable, so development and production share one decode path.
 
 ### A.5.1 Key loss, and why escrow is not optional
 
@@ -207,7 +207,7 @@ Rotation is a deliberate act with a known cost. Loss is the same cost, unplanned
 | # | Requirement |
 |---|---|
 | K1 | The key is generated once, when the first source connects, and **backed up before the first source connects**. A project with no verified backup cannot connect a source |
-| K2 | Backup is to a second custody location under the customer's control, not a copy in the same vault. A vault failure must not take both |
+| K2 | Backup is to a second custody location under the customer's control, not a copy in the same secret store. A secret-store failure must not take both |
 | K3 | **Restore is rehearsed, not assumed.** A scheduled job restores the key into an isolated context and re-derives a known sentinel token. A mismatch or a failure raises an observation |
 | K4 | Every superseded key is retained after rotation, never deleted. Old evidence must stay verifiable |
 | K5 | The key version is recorded on the project and on every evidence record, so a record names which key produced its tokens |
@@ -291,7 +291,7 @@ Where these matter, the correct treatment is `aggregate_only` or `withheld`, not
 | TOK-10 | Cross-source join on a tokenized key | Join returns the same row count as on the plaintext key |
 | TOK-11 | Token format | Always `v1_`, the domain, `_`, then 26 Crockford characters |
 | TOK-12 | Collision probe, 10 million distinct inputs | Zero collisions |
-| TOK-13 | Key absent from the vault | Execution refuses. It does not fall back to a hash |
+| TOK-13 | Key absent from the secret store | Execution refuses. It does not fall back to a hash |
 | TOK-14 | Known test key, full tokenization runs, then every text and bytea column in the application database and the customer landing database is scanned | The key appears in no column in raw, hex or base64 form. The key is held in a branded type with no serialisation: toString, toJSON and util.inspect return a redacted marker |
 | TOK-15 | Token appears in logs or spans | Never. Asserted against the field allowlist |
 | TOK-16 | Rotation | All tokens change, `token_key_version` increments, audit entry written |

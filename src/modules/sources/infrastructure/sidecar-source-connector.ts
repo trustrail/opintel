@@ -6,7 +6,7 @@ import { request } from 'node:https';
 import { checkServerIdentity } from 'node:tls';
 import { z } from 'zod';
 import { DomainError, err, ok, type ElementId, type Result } from '../../../shared/kernel/index.js';
-import type { VaultRef } from '../../../platform/vault/types.js';
+import type { SecretRef } from '../../../platform/secrets/types.js';
 import type { ObjectRef, SourceConnector, SourceConnectorContext, SourceKind, TopValue } from '../application/source-connector.js';
 import { serviceErrorEnvelope } from '../../../shared/error-contract.js';
 import * as wire from './sidecar-wire.js';
@@ -34,11 +34,11 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     this.fingerprint = new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
   }
 
-  async provisionDemo(ref: VaultRef, payload: ProvisionDemoPayload, signal?: AbortSignal) {
+  async provisionDemo(ref: SecretRef, payload: ProvisionDemoPayload, signal?: AbortSignal) {
     const parsed = provisionDemoPayload.safeParse(payload);
     return parsed.success ? this.call('/provision-demo', ref, parsed.data, provisionDemoResponse, signal) : this.invalid();
   }
-  async testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void>> {
+  async testConnection(ref: SecretRef, signal?: AbortSignal): Promise<Result<void>> {
     const response = await this.call('/test-connection', ref, {}, wire.connectionResponse, signal);
     if (!response.ok) return response;
     // A peer's arbitrary reason can contain a connection string or password.
@@ -52,14 +52,14 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     return ok(undefined);
   }
 
-  async introspect(ref: VaultRef, include: string[], signal?: AbortSignal) {
+  async introspect(ref: SecretRef, include: string[], signal?: AbortSignal) {
     const parsed = wire.introspectPayload.safeParse({ include });
     if (!parsed.success) return this.invalid();
     const result = await this.call('/introspect', ref, parsed.data, wire.snapshotResponse, signal);
     return result.ok ? ok(result.value.snapshot) : result;
   }
 
-  async sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>>> {
+  async sampleTopValues(ref: SecretRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>>> {
     if (signal?.aborted) return err(new DomainError('source_unavailable', 'Source request cancelled.'));
     const resolution = await this.context.sampling(elements);
     if (!resolution.ok) return resolution;
@@ -80,7 +80,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     return ok(values);
   }
 
-  async estimateRowCount(ref: VaultRef, object: ObjectRef, signal?: AbortSignal) {
+  async estimateRowCount(ref: SecretRef, object: ObjectRef, signal?: AbortSignal) {
     if (object.sourceId !== this.context.sourceId) return this.invalid();
     const parsed = wire.estimatePayload.safeParse({ object: { schema: object.schema, name: object.name } });
     if (!parsed.success) return this.invalid();
@@ -91,7 +91,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
   private invalid(): Result<never> { return err(new DomainError('validation_failed', 'Invalid sidecar request.')); }
   private malformed(): Result<never> { return err(new DomainError('dependency_unavailable', 'Sidecar returned an invalid response.')); }
 
-  private async call<T>(path: string, ref: VaultRef, payload: unknown, schema: z.ZodType<T>, abort?: AbortSignal): Promise<Result<T>> {
+  private async call<T>(path: string, ref: SecretRef, payload: unknown, schema: z.ZodType<T>, abort?: AbortSignal): Promise<Result<T>> {
     const body = wire.envelope.safeParse({ requestId: this.context.requestId, projectId: this.context.projectId, sourceId: this.context.sourceId, credentialRef: ref, payload });
     if (!body.success) return this.invalid();
     const timeout = AbortSignal.timeout(this.timeoutMs);

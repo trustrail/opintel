@@ -1,14 +1,14 @@
 import { canonicalisers, type CanonicaliserRegistry } from '../canonicalisers/index.js';
 import { z } from 'zod';
 import { DomainError, ProjectId, err, ok, type Result } from '../../../src/shared/kernel/index.js';
-import { VaultRef } from '../../../src/platform/vault/index.js';
+import { SecretRef } from '../../../src/platform/secrets/index.js';
 import type { PostgresSourceScope } from '../../infrastructure/postgres-source-scope.js';
 import type { SidecarTokenizer } from '../tokenizer.js';
 import { tokenConfigSchema } from '../config.js';
 
 const identifier = z.string().min(1).refine(value => !value.includes('\0'));
 const readSchema = z.strictObject({
-  projectId: z.uuid(), sourceId: z.uuid(), credentialRef: z.string().startsWith('vault://'),
+  projectId: z.uuid(), sourceId: z.uuid(), credentialRef: z.string().startsWith('secret://'),
   schema: identifier, object: identifier,
   columns: z.array(z.strictObject({ name: identifier, config: tokenConfigSchema })).min(1)
     .refine(columns => new Set(columns.map(column => column.name)).size === columns.length),
@@ -42,7 +42,7 @@ export class TokenizedSourceReader {
         return run.prepare(column.config, builtin ? undefined : registered);
       });
       for (const result of prepared) if (!result.ok) return result;
-      return this.scope.run(request.sourceId, VaultRef(request.credentialRef), async session => {
+      return this.scope.run(request.sourceId, SecretRef(request.credentialRef), async session => {
         await session.query("SELECT set_config('TimeZone', 'UTC', true), set_config('DateStyle', 'ISO, YMD', true)");
         // Inspect base types as well as domains. A float's text rendering is not
         // an exact numeric input, even if that particular value looks integral.

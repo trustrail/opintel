@@ -172,7 +172,7 @@ Version 1.0 · September 2026
 | F-003 | F | Connect to an unreachable host | Fails with a timeout message inside 10s |
 | F-004 | F | Connect a second Postgres source that receives landed spreadsheets *(needs item 3.12)* | Succeeds; landed tables catalogued like any other |
 | F-005 | S | Credentials in an API response | Absent from every payload |
-| F-006 | D | Credentials at rest | Vault reference only; a database scan finds no plaintext |
+| F-006 | D | Credentials at rest | Secret reference only; a database scan finds no plaintext |
 | F-007 | A | Member without `bind_source` connects *(needs the connect route, item 3.12)* | 403 |
 | F-008 | F | Delete a source with entitlements *(needs entitlement, item 4.1)* | Confirmation names the dependent entitlements; typed confirmation required |
 | F-009 | F | Two sources of different types in one project *(deferred until a second connector exists; not item 3.12)* | Both catalogue independently |

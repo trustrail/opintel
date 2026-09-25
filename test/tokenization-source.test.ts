@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { ProjectId, SourceId } from '../src/shared/kernel/index.js';
-import { DevelopmentVaultAdapter, environmentVariableFor, VaultRef } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore, environmentVariableFor, SecretRef } from '../src/platform/secrets/index.js';
 import { PostgresSourceScope } from '../sidecar/infrastructure/postgres-source-scope.js';
 import { IanaZoneResolver, SidecarTokenizer } from '../sidecar/tokenize/index.js';
 import { TokenizedSourceReader } from '../sidecar/tokenize/infrastructure/source-reader.js';
@@ -14,11 +14,11 @@ const customer = new URL(process.env.TEST_DATABASE_URL!); customer.pathname = '/
 const owner = new Client({ connectionString: process.env.TEST_DATABASE_URL });
 let landing: Client;
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
-const credential = VaultRef('vault://test/token-source');
-const keyRef = VaultRef(`vault://opintel/token-key/${projectId}`);
-const vault = new DevelopmentVaultAdapter({ OPINTEL_SECRET_TEST_TOKEN_SOURCE: customer.toString(), [environmentVariableFor(keyRef)]: key.toString('hex') });
-const scope = new PostgresSourceScope(vault, { maxConnectionsPerSource: 2, statementTimeoutMs: 5000, operationTimeoutMs: 15000 });
-const reader = new TokenizedSourceReader(scope, new SidecarTokenizer(vault, new IanaZoneResolver()));
+const credential = SecretRef('secret://test/token-source');
+const keyRef = SecretRef(`secret://opintel/token-key/${projectId}`);
+const secrets = new EnvironmentSecretStore({ OPINTEL_SECRET_TEST_TOKEN_SOURCE: customer.toString(), [environmentVariableFor(keyRef)]: key.toString('hex') });
+const scope = new PostgresSourceScope(secrets, { maxConnectionsPerSource: 2, statementTimeoutMs: 5000, operationTimeoutMs: 15000 });
+const reader = new TokenizedSourceReader(scope, new SidecarTokenizer(secrets, new IanaZoneResolver()));
 const config = { domain: 'c', canonId: 'stdnum1', mode: 'number' as const };
 const request = (object: string) => ({ projectId, sourceId: SourceId(randomUUID()), credentialRef: credential, schema: 'public', object, columns: [{ name: 'id', config }] });
 
@@ -56,7 +56,7 @@ it('TOK-37: actual Postgres reads retain numeric precision, timestamp microsecon
     if (sql.startsWith('FETCH')) observed.push(...structuredClone(rows));
     return rows;
   } }), signal) };
-  const boundary = new TokenizedSourceReader(wrapped, new SidecarTokenizer(vault, new IanaZoneResolver()));
+  const boundary = new TokenizedSourceReader(wrapped, new SidecarTokenizer(secrets, new IanaZoneResolver()));
   const columns = [
     { name: 'n', config },
     { name: 'ts', config: { domain: 'c', canonId: 'stdtime1', mode: 'timestamp' } },
@@ -126,7 +126,7 @@ it('resolves compiled canonicalisers at the read boundary and refuses unregister
   const { canonicalisers, createCanonicaliserRegistry } = await import('../sidecar/tokenize/canonicalisers/index.js');
   const { fixture1 } = await import('./fixtures/canonicalisers/reviewed.js');
   await landing.query("CREATE TABLE canonical_input(value text); INSERT INTO canonical_input VALUES ('AB-12'),('AB12')");
-  const boundary = new TokenizedSourceReader(scope, new SidecarTokenizer(vault,new IanaZoneResolver()),createCanonicaliserRegistry([...canonicalisers.entries,fixture1]));
+  const boundary = new TokenizedSourceReader(scope, new SidecarTokenizer(secrets,new IanaZoneResolver()),createCanonicaliserRegistry([...canonicalisers.entries,fixture1]));
   const input = {...request('canonical_input'),columns:[{name:'value',config:{domain:'c',canonId:'fixture1',mode:'text'}}]};
   const tokens:(string|null)[]=[];
   expect(await boundary.read(input,async row=>{tokens.push(row.value!);})).toEqual({ok:true,value:2});

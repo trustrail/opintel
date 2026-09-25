@@ -7,16 +7,16 @@ connector logic. See [START-HERE.md](../START-HERE.md#local-sidecar-s1) for loca
 startup and application client configuration. Application code contacts this
 runtime through `SidecarSourceConnector`; it never imports the Postgres adapter.
 
-Use `createPostgresConnector({ vault, audit, limits })` once per host. Supply the
-existing `VaultPort`: `DevelopmentVaultAdapter` in development, or a production
-secret manager adapter. For example, `vault://customer/warehouse` resolves from
+Use `createPostgresConnector({ secrets, audit, limits })` once per host. Supply the
+existing `SecretStorePort`: `EnvironmentSecretStore` in development, or a production
+secret manager adapter. For example, `secret://customer/warehouse` resolves from
 `OPINTEL_SECRET_CUSTOMER_WAREHOUSE` in the sidecar's development environment.
 Provision credentials in that environment or secret manager; the application
 receives only the reference. This wiring never calls `store`, persists a resolved
 credential, or caches one between operations. A missing reference refuses with
 `dependency_unavailable` and a credential-safe message.
 
-The factory constructs one `PostgresSourceScope` with the vault's read capability
+The factory constructs one `PostgresSourceScope` with the secret store's read capability
 and explicit `maxConnectionsPerSource`, `statementTimeoutMs`, and
 `operationTimeoutMs` limits. Share the connector across requests so calls for
 the same project/source share a connection ceiling. Excess calls are refused
@@ -28,7 +28,7 @@ remain separate and unchanged.
 Supply a `SamplingAuditPort` that persists identifier-only events.
 The connector consumes the §2.7 request envelopes, with
 Zod validation, and returns `Result` values. The host maps `forbidden` to HTTP
-403; successful values have the declared wire response shape. The HTTP host serves `/health` without source contact and reports contract 1. Resolve vault references only
+403; successful values have the declared wire response shape. The HTTP host serves `/health` without source contact and reports contract 1. Resolve secret references only
 inside this runtime. Do not log raw driver exceptions or resolved credentials.
 
 Sampling records `started` before source contact and `completed` or `failed`
@@ -208,7 +208,7 @@ Add the following to the service configuration (IDs/paths are illustrative):
     "rulesFile": "/customer/config/rules.json",
     "landing": {
       "name": "Bordereaux",
-      "credentialRef": "vault://customer/landing-postgres",
+      "credentialRef": "secret://customer/landing-postgres",
       "strategy": "append_as_at"
     }
   }]
@@ -223,7 +223,7 @@ empty/duplicate headers use extraction's established names. A header using the
 reserved `_opintel_` prefix, containing NUL, or exceeding PostgreSQL's 63-byte
 identifier limit refuses rather than silently truncating or overwriting it.
 
-Resolve the Vault reference to a customer-managed Postgres credential permitted
+Resolve the Secret reference to a customer-managed Postgres credential permitted
 to create schemas/tables and insert/alter landing tables. The existing source
 connector remains read-only; the landing writer uses a separate write scope.
 Each filing commits all its DDL, rows, column-type history, and commit receipt in
@@ -385,9 +385,9 @@ synthetic evaluation files, not customer submissions or the later full evaluatio
 fixture with pools and entitlements.
 
 `POST /provision-demo` uses the existing pinned-mTLS envelope and returns the
-configured Vault reference and database name. It accepts only a configured demo
+configured Secret reference and database name. It accepts only a configured demo
 reference and a landing zone bound to the request's project/source. It neither
-creates databases nor calls `VaultPort.store`. For spreadsheet templates it only
+creates databases nor calls `SecretStorePort.store`. For spreadsheet templates it only
 publishes files: the unchanged watcher, identification, extraction and landing
 ports do the rest. A `dependsOn` file is withheld until the predecessor's filename
 appears in the durable register. `supersedes` must reference that same dependency
@@ -411,7 +411,7 @@ The operator configures the demo target in `service.json`:
 ```json
 "demo": {
   "database": "opintel_demo",
-  "credentialRef": "vault://demo/postgres"
+  "credentialRef": "secret://demo/postgres"
 }
 ```
 
@@ -423,7 +423,7 @@ selects `append_as_at` to demonstrate both versions of the restatement.
 
 For the local development workflow, first run `npm run dev:up`; it creates
 `opintel_demo` without application migrations and passes its URL to the sidecar's
-read-only environment Vault adapter. Start with an existing reinsurance project:
+read-only environment secret store. Start with an existing reinsurance project:
 
 ```sh
 npm run demo:pack -- prepare PROJECT_ID USER_ID

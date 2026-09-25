@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { VaultRef, type VaultPort } from '../src/platform/vault/index.js';
+import { SecretRef, type SecretStorePort } from '../src/platform/secrets/index.js';
 import type { OidcFlowState, OidcProviderConfiguration } from '../src/modules/identity/application/oidc.js';
 
 const oidcMock = vi.hoisted(() => ({
@@ -36,15 +36,15 @@ vi.mock('openid-client', () => ({
 
 import { OpenIdClientAdapter } from '../src/modules/identity/infrastructure/openid-client-adapter.js';
 
-class TestVault implements VaultPort {
+class TestSecretStore implements SecretStorePort {
   async resolveBytes(): Promise<Uint8Array> { throw new Error('Not used by this credential fixture.'); }
-  async resolve(_ref: import('../src/platform/vault/index.js').VaultRef): Promise<string> { return 'secret'; }
-  async store(_path: string, _secret: string): Promise<import('../src/platform/vault/index.js').VaultRef> { return VaultRef('vault://test/stored'); }
+  async resolve(_ref: import('../src/platform/secrets/index.js').SecretRef): Promise<string> { return 'secret'; }
+  async store(_path: string, _secret: string): Promise<import('../src/platform/secrets/index.js').SecretRef> { return SecretRef('secret://test/stored'); }
 }
 
 const configuration: OidcProviderConfiguration = {
   provider: 'google', issuer: 'https://idp.example', clientId: 'client',
-  clientSecretRef: VaultRef('vault://opintel/idp/google/client'), discoveryUrl: null,
+  clientSecretRef: SecretRef('secret://opintel/idp/google/client'), discoveryUrl: null,
 };
 
 const flow: OidcFlowState = {
@@ -68,7 +68,7 @@ describe('OIDC ID-token algorithms', () => {
       status: 200,
       headers: { 'content-type': 'application/json' },
     })));
-    const adapter = new OpenIdClientAdapter(new TestVault());
+    const adapter = new OpenIdClientAdapter(new TestSecretStore());
 
     const rejection = adapter.exchange(
       configuration,

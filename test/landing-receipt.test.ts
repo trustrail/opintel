@@ -44,7 +44,7 @@ describe('landing receipt over pinned mutual TLS', () => {
       const [company] = await tx.query<{ id: string }>("INSERT INTO company (name,default_region) VALUES ('Landing receipts','eu-west-1') RETURNING id");
       await tx.query("INSERT INTO project (id,company_id,industry_id,name,region) VALUES ($1,$2,$3,'Landing','eu-west-1')", [context.projectId, company!.id, industry!.id]);
     });
-    await withTenant(context, (tx) => tx.query("INSERT INTO data_source (id,project_id,kind,name,exposed_alias,credential_ref,receives_landings) VALUES ($1,$2,'postgres','Landings','landings','vault://test/customer',true)", [sourceId, context.projectId]));
+    await withTenant(context, (tx) => tx.query("INSERT INTO data_source (id,project_id,kind,name,exposed_alias,credential_ref,receives_landings) VALUES ($1,$2,'postgres','Landings','landings','secret://test/customer',true)", [sourceId, context.projectId]));
   });
   afterAll(async () => { await new Promise<void>((resolve) => server?.close(() => resolve())); await rm(directory, { recursive: true, force: true }); });
   it('ING-23: first receipt durably fixes strategy; retry is idempotent; a different strategy names both and changes nothing', async () => {
@@ -86,7 +86,7 @@ describe('landing receipt over pinned mutual TLS', () => {
     await expect(withTenant(context, (tx) => tx.query("UPDATE data_source SET status='connected' WHERE id=$1", [sourceId]))).rejects.toMatchObject({ code: '23514' });
     await withTenant(context, (tx) => tx.query("UPDATE data_source SET receives_landings=false,status='connected' WHERE id=$1", [sourceId]));
     expect(await client.send(receipt())).toMatchObject({ ok: false, error: { message: 'This source does not receive landings.' } });
-    expect(sidecarConfigSchema.safeParse({ ...(await loadSidecarConfig(join(directory, 'service.json'))).config, receiptUrl: url, landingZones: [{ sourceId, projectId: context.projectId, directory: '/zone', rulesFile: '/rules', stateFile: '/state', landing: { name: 'land', credentialRef: 'vault://test/source' } }] }).success).toBe(false);
+    expect(sidecarConfigSchema.safeParse({ ...(await loadSidecarConfig(join(directory, 'service.json'))).config, receiptUrl: url, landingZones: [{ sourceId, projectId: context.projectId, directory: '/zone', rulesFile: '/rules', stateFile: '/state', landing: { name: 'land', credentialRef: 'secret://test/source' } }] }).success).toBe(false);
   });
   it('rejects the wrong certificate on either end and a receipt for a foreign project', async () => {
     const options = await loadSidecarClientOptions(join(directory, 'client.json'));

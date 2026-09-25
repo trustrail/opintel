@@ -35,7 +35,7 @@ it('bounds real SIGTERM shutdown while a watcher is waiting on a receipt',async(
  const address=receiver.address();if(!address||typeof address==='string')throw new Error('No port');
  const zone=join(directory,'zone');await mkdir(zone);const rules=join(directory,'rules.json');await writeFile(rules,JSON.stringify({filingParties:[],rules:[]}));
  const sourceId=randomUUID();const stateFile=join(directory,'register.json');const file=join(directory,'watcher.json');
- await writeFile(file,JSON.stringify({...config,port:0,shutdownTimeoutMs:300,auditFile:join(directory,'watcher-audit.jsonl'),receiptUrl:`https://127.0.0.1:${address.port}`,landingZones:[{directory:zone,stateFile,rulesFile:rules,projectId:randomUUID(),sourceId,pollMs:10,landing:{name:'shutdown_'+sourceId.replaceAll('-',''),credentialRef:'vault://test/shutdown',strategy:'append_as_at'}}]}));
+ await writeFile(file,JSON.stringify({...config,port:0,shutdownTimeoutMs:300,auditFile:join(directory,'watcher-audit.jsonl'),receiptUrl:`https://127.0.0.1:${address.port}`,landingZones:[{directory:zone,stateFile,rulesFile:rules,projectId:randomUUID(),sourceId,pollMs:10,landing:{name:'shutdown_'+sourceId.replaceAll('-',''),credentialRef:'secret://test/shutdown',strategy:'append_as_at'}}]}));
  const process=launch(file,{...globalThis.process.env,OPINTEL_SECRET_TEST_SHUTDOWN:globalThis.process.env.TEST_DATABASE_URL});
  try{
   await vi.waitFor(()=>expect(process.output()).toContain('Sidecar ready.'),{timeout:10000});

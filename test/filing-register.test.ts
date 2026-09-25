@@ -24,7 +24,7 @@ import { PostgresLandingReceiptRepository } from '../src/modules/ingest/infrastr
 import { PostgresFilingRegister } from '../src/modules/ingest/infrastructure/register.js';
 import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { ProjectId, SourceId, UserId, FilingId, SystemClock, UuidV7IdFactory, DomainError, err, ok, type Result } from '../src/shared/kernel/index.js';
-import { VaultRef, DevelopmentVaultAdapter } from '../src/platform/vault/index.js';
+import { SecretRef, EnvironmentSecretStore } from '../src/platform/secrets/index.js';
 import { arrivalNoticeSchema, reconciliationReportSchema, filingListResponseSchema, type LandingReceipt } from '../src/shared/landing-contract.js';
 import type { FilingParty, FilingPartyRule, PartyId, FilingPartyRuleId } from '../src/modules/ingest/index.js';
 import type { AuthorizationPort } from '../src/modules/authz/index.js';
@@ -77,7 +77,7 @@ describe('filing register', () => {
   const sourceId = SourceId(randomUUID()); sources.push(sourceId);
   const root = join(directory, sourceId); await mkdir(root); await mkdir(join(root, 'zone'));
   zone = { projectId: context.projectId, sourceId, directory: join(root, 'zone'), stateFile: join(root, 'state.json'), rulesFile: join(root, 'rules.json'), pollMs: 1000,
-   landing: { name: `register_${sourceId.replaceAll('-', '')}`, credentialRef: VaultRef('vault://customer/register'), strategy: 'append_as_at' } };
+   landing: { name: `register_${sourceId.replaceAll('-', '')}`, credentialRef: SecretRef('secret://customer/register'), strategy: 'append_as_at' } };
   party = { id: randomUUID() as PartyId, projectId: context.projectId, code: 'supplier', name: 'Supplier', active: true, decimalSeparator: '.', dateFormat: 'YYYY-MM-DD' };
   rule = { id: randomUUID() as FilingPartyRuleId, projectId: context.projectId, partyId: party.id, active: true, matchKind: 'filename_regex',
    pattern: '^supplier_(?<period>2026-03)(?:_v[0-9]+)?\\.csv$', kind: 'inventory', periodGroup: 'period', priority: 1, sheetIndex: 1, headerRow: 1, periodAsAtFormat: 'month_end' };
@@ -87,7 +87,7 @@ describe('filing register', () => {
    const [company] = await tx.query<{ id: string }>("INSERT INTO company (name,default_region) VALUES ('Register','eu-west-1') RETURNING id");
    await tx.query("INSERT INTO project (id,company_id,industry_id,name,region) VALUES ($1,$2,$3,'Register','eu-west-1')", [context.projectId,company!.id,industry!.id]);
   });
-  await withTenant(context, (tx) => tx.query("INSERT INTO data_source (id,project_id,kind,name,exposed_alias,credential_ref,receives_landings) VALUES ($1,$2,'postgres','Register','register','vault://customer/register',true)", [sourceId,context.projectId]));
+  await withTenant(context, (tx) => tx.query("INSERT INTO data_source (id,project_id,kind,name,exposed_alias,credential_ref,receives_landings) VALUES ($1,$2,'postgres','Register','register','secret://customer/register',true)", [sourceId,context.projectId]));
   await openRegister();
  });
  afterEach(async () => { await register?.close(); register = undefined; if (browser) await new Promise<void>((resolve) => browser!.close(() => resolve())); browser = undefined; vi.restoreAllMocks(); });
@@ -259,7 +259,7 @@ describe('filing register', () => {
  });
  it('ING-30: landed columns enter ordinary introspection with no entitlement rows', async () => {
   await arrive('supplier_2026-03.csv','quantity\n100\n');
-  const connector = createPostgresConnector({ vault: new DevelopmentVaultAdapter({ OPINTEL_SECRET_CUSTOMER_REGISTER: process.env.TEST_DATABASE_URL! }),
+  const connector = createPostgresConnector({ secrets: new EnvironmentSecretStore({ OPINTEL_SECRET_CUSTOMER_REGISTER: process.env.TEST_DATABASE_URL! }),
     audit: { record: async () => undefined }, limits: { maxConnectionsPerSource: 1, statementTimeoutMs: 2000, operationTimeoutMs: 5000 } });
   const snapshot = unwrap(await connector.introspect({ requestId: 'filing-introspection', projectId: zone.projectId, sourceId: zone.sourceId,
     credentialRef: zone.landing!.credentialRef, payload: { include: [zone.landing!.name] } })).snapshot;

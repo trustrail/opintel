@@ -93,9 +93,9 @@ Keep `client.json` in sync when changing the server's address or identity.
 
 Source credentials belong to the sidecar. In development, supply them through
 its environment or ignored `.env.sidecar.local`. For example, the reference
-`vault://customer/warehouse` resolves from `OPINTEL_SECRET_CUSTOMER_WAREHOUSE`.
+`secret://customer/warehouse` resolves from `OPINTEL_SECRET_CUSTOMER_WAREHOUSE`.
 The value is the customer Postgres connection URI. The application sends only
-the vault reference. The programmatic host accepts a `VaultPort` for a production
+the secret reference. The programmatic host accepts a `SecretStorePort` for a production
 secret manager; the CLI uses the existing development environment adapter.
 
 Application-side setup uses the existing connector:
@@ -260,7 +260,7 @@ documented in [the sidecar demo instructions](sidecar/README.md#reinsurance-demo
 `dev:up` also creates the separate `opintel_demo` landing database; application
 migrations run only on the application and test databases.
 
-Open `/projects/<project-id>/data-sources` to test and connect a Vault-backed
+Open `/projects/<project-id>/data-sources` to test and connect a secret-store-backed
 Postgres source. For demo data, run the documented preparation command and
 `dev:up` first, then choose **Connect** on the industry demo card. A prepared
 project remains empty until that action. Unprepared cards explain the required
@@ -302,3 +302,12 @@ to retry a connection: they contain retained keys needed to reproduce earlier
 tokens. See [custody operation and recovery notes](sidecar/tokenize/README.md#key-custody-43a).
 These directories are not independent disaster-recovery custody; production
 KeyStore and KeyEscrow adapters must use separately controlled locations.
+
+Secret-reference upgrade (migration 036): stop the application and sidecar together,
+apply the forward migration, and change credential references in the operator's
+sidecar `service.json` (`demo.credentialRef` and
+`landingZones[].landing.credentialRef`) from `vault://` to `secret://` before
+restarting both. The migration rewrites source, identity-provider and demo
+preparation references in the application database. It never resolves a secret.
+Keep the reference path, `OPINTEL_SECRET_*` environment keys, custody directories
+and filing registers unchanged; no key or arrival history is regenerated.

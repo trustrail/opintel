@@ -10,7 +10,7 @@ import { FileCustody } from '../sidecar/custody/infrastructure/file-custody.js';
 import { DevelopmentFileKeyStore,DevelopmentFileKeyEscrow } from '../sidecar/custody/infrastructure/development-file-keys.js';
 import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../src/modules/entitlements/index.js';
 import { SidecarTokenizer,IanaZoneResolver,TokenKey,TokenizationRun } from '../sidecar/tokenize/index.js';
-import { VaultRef } from '../src/platform/vault/index.js';
+import { SecretRef } from '../src/platform/secrets/index.js';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
 import { loadSidecarClientOptions } from '../src/modules/sources/index.js';
@@ -55,10 +55,10 @@ beforeEach(async()=>{
 it('TOK-27: initialization verifies backup, is durable/idempotent, and never replaces a key on retry',async()=>{
  expect((await keys())).toEqual([]);
  const first=unwrap(await initialize());expect(first).toMatchObject({currentVersion:1,versions:[{backupVerifiedAt:expect.any(String),lastRehearsal:'ok'}]});
- const original=await store.resolveBytes(VaultRef(`vault://custody/${ctx.projectId}/v1`));
+ const original=await store.resolveBytes(SecretRef(`secret://custody/${ctx.projectId}/v1`));
  const restarted=new FileCustody(store,escrow);
  expect(unwrap(await restarted.invoke('initialize',ctx.projectId,{}))).toMatchObject({keyVersion:1,created:false});
- expect(await restarted.resolveBytes(VaultRef(`vault://opintel/token-key/${ctx.projectId}`))).toEqual(original);original.fill(0);
+ expect(await restarted.resolveBytes(SecretRef(`secret://opintel/token-key/${ctx.projectId}`))).toEqual(original);original.fill(0);
  expect(unwrap(await initialize()).versions).toHaveLength(1);
  expect(await withPlatform(tx=>tx.query('SELECT token_key_version FROM project WHERE id=$1',[ctx.projectId]))).toEqual([{token_key_version:1}]);
 },30000);
@@ -84,7 +84,7 @@ it('TOK-16/TOK-29: rotation changes tokens, records reason/actor/version, and re
  unwrap(await initialize());const before=await token();const original=(await keys())[0]!.sentinel_token;
  const view=unwrap(await rotate());expect(view).toMatchObject({currentVersion:2,versions:[{version:2,reason:'Deliberate test rotation',lastRehearsal:'ok'},{version:1,state:'retired',lastRehearsal:'ok'}]});
  expect(await token()).not.toBe(before);
- const old=unwrap(TokenKey.take(await store.resolveBytes(VaultRef(`vault://custody/${ctx.projectId}/v1`))));
+ const old=unwrap(TokenKey.take(await store.resolveBytes(SecretRef(`secret://custody/${ctx.projectId}/v1`))));
  try{const run=new TokenizationRun(old,new IanaZoneResolver());expect(unwrap(run.sentinel())).toBe(original);expect(unwrap(run.tokenize('same customer',{domain:'c',canonId:'stdtext1',mode:'text'}))).toBe(before);}finally{old.dispose();}
  expect(await escrow.exists(ctx.projectId+'/v1')).toBe(true);
  expect(await withTenant(ctx,tx=>tx.query("SELECT kind,reason,completed_at IS NOT NULL AS done FROM token_key_operation WHERE kind='rotate'"))).toEqual([{kind:'rotate',reason:'Deliberate test rotation',done:true}]);
@@ -163,6 +163,6 @@ it('custody never sends generated key bytes in responses, database metadata or l
   responses.push(await withTenant(ctx,tx=>tx.query('SELECT row_to_json(v) FROM token_key_version v')));
   responses.push(await withTenant(ctx,tx=>tx.query('SELECT row_to_json(o) FROM token_key_operation o')));
   const rendered=JSON.stringify({output,responses});
-  for(const v of [1,2]){const bytes=await store.resolveBytes(VaultRef(`vault://custody/${ctx.projectId}/v${v}`));try{for(const value of [Buffer.from(bytes).toString('hex'),Buffer.from(bytes).toString('base64'),Buffer.from(bytes).toString('utf8')])expect(rendered).not.toContain(value);}finally{bytes.fill(0);}}
+  for(const v of [1,2]){const bytes=await store.resolveBytes(SecretRef(`secret://custody/${ctx.projectId}/v${v}`));try{for(const value of [Buffer.from(bytes).toString('hex'),Buffer.from(bytes).toString('base64'),Buffer.from(bytes).toString('utf8')])expect(rendered).not.toContain(value);}finally{bytes.fill(0);}}
  }finally{logs.forEach(log=>log.mockRestore());}
 },30000);

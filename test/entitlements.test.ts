@@ -22,7 +22,7 @@ describe('entitlement domain and persisted decisions',()=>{
    for(const project of [ctx.projectId,other.projectId])await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,$4,'eu-west-1')",[project,company!.id,industry!.id,project===ctx.projectId?'Decisions':'Other decisions']);
   });
   await withTenant(ctx,async tx=>{
-   await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/source','connected')",[source,ctx.projectId]);
+   await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,'Warehouse','warehouse','postgres','secret://test/source','connected')",[source,ctx.projectId]);
    const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[ctx.projectId,source]);
    await tx.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,'quantity','integer','quantity','INTEGER')",[element,ctx.projectId,object!.id]);
   });

@@ -31,7 +31,7 @@ export const introspectPayload = z.strictObject({ include: z.array(z.string()) }
 export const estimatePayload = z.strictObject({ object: z.strictObject({ schema: z.string(), name: z.string() }) });
 export const envelope = z.strictObject({
   requestId: z.string().min(1), projectId: z.uuid(), sourceId: z.uuid(),
-  credentialRef: z.string().startsWith('vault://').min(9), payload: z.unknown(),
+  credentialRef: z.string().startsWith('secret://').min(10), payload: z.unknown(),
 });
 
 /** OpenAPI and the client/server boundaries share these exact Zod schemas. */

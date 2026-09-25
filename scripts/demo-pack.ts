@@ -6,7 +6,7 @@ import { prepareSidecarDevelopment, sidecarDevDirectory } from './sidecar-dev.js
 import { loadSidecarConfig } from '../sidecar/config.js';
 import { demoIdentification } from '../src/modules/sources/demo/metadata.js';
 import { ProjectId, UserId, SourceId, DemoSourceId, IndustryId, DomainError } from '../src/shared/kernel/index.js';
-import { VaultRef } from '../src/platform/vault/types.js';
+import { SecretRef } from '../src/platform/secrets/types.js';
 
 async function main(): Promise<void> {
   loadDevEnvironment();
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
   const serviceFile = process.env.SIDECAR_CONFIG_FILE ?? join(sidecarDevDirectory,'service.json');
   if (command === 'prepare') {
     await prepareSidecarDevelopment(dirname(serviceFile));
-    const credentialRef = VaultRef('vault://demo/postgres');
+    const credentialRef = SecretRef('secret://demo/postgres');
     const sourceName = `demo_${sourceId.replaceAll('-','')}`;
     const metadata = demoIdentification(ctx.projectId,sourceId,template.generatorSpec);
     for (const party of metadata.filingParties) await withTenant(ctx,async (tx) => {

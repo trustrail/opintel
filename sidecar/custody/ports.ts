@@ -1,6 +1,6 @@
-import type { VaultPort } from '../../src/platform/vault/index.js';
+import type { SecretStorePort } from '../../src/platform/secrets/index.js';
 /** Separate configured custody locations. Only the sidecar receives key material. */
-export interface KeyStore extends VaultPort {
+export interface KeyStore extends SecretStorePort {
  readonly location:string;
  write(name:string,hex:string,replace?:boolean):Promise<void>;
  exists(name:string):Promise<boolean>;

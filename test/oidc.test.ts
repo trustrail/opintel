@@ -10,7 +10,7 @@ import {
   type Timestamp as TimestampType,
   type UserId as UserIdType,
 } from '../src/shared/kernel/index.js';
-import { VaultRef } from '../src/platform/vault/index.js';
+import { SecretRef } from '../src/platform/secrets/index.js';
 import {
   OidcService,
   type OidcConfigurationRepository,
@@ -119,7 +119,7 @@ class TestProvider implements OidcProviderPort {
 class TestConfigurations implements OidcConfigurationRepository {
   readonly configuration: OidcProviderConfiguration = {
     provider: 'google', issuer: 'https://idp.example', clientId: 'client',
-    clientSecretRef: VaultRef('vault://opintel/idp/google/client'), discoveryUrl: null,
+    clientSecretRef: SecretRef('secret://opintel/idp/google/client'), discoveryUrl: null,
   };
   async find(provider: string): Promise<OidcProviderConfiguration | null> { return provider === 'google' || provider === 'entra' ? { ...this.configuration, provider } : null; }
 }

@@ -2,7 +2,7 @@ import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { safeSourceMessage, sourceMessages } from '../../../shared/source-errors.js';
 import type { z } from 'zod';
 import { DomainError, err, ok, type IndustryId, type DemoSourceId, type IdFactory, type ProjectId, type SourceId, type RunId, type UserId, type Result } from '../../../shared/kernel/index.js';
-import { VaultRef } from '../../../platform/vault/types.js';
+import { SecretRef } from '../../../platform/secrets/types.js';
 import type { Deployment, DemoTemplateItem, NewSource, SourceItem } from '../../../shared/api/source-schemas.js';
 import type { GeneratorSpec, SchemaSpec } from '../../../shared/demo-contract.js';
 import type { SourceConnector } from './source-connector.js';
@@ -31,15 +31,15 @@ export class SourceRegistrationService {
  async test(ctx:SourceContext,ref:string){
   if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const connector=this.connector(ctx,this.ids.create<SourceId>());
-  const tested=await connector.testConnection(VaultRef(ref));
+  const tested=await connector.testConnection(SecretRef(ref));
   if(!tested.ok)return ok({reachable:false,reason:tested.error.message,schemas:[] as string[]});
-  const snapshot=await connector.introspect(VaultRef(ref),[]);
+  const snapshot=await connector.introspect(SecretRef(ref),[]);
   return snapshot.ok?ok({reachable:true,reason:null,schemas:[...new Set(snapshot.value.objects.map(o=>o.schema))].sort()}):ok({reachable:false,reason:snapshot.error.message,schemas:[] as string[]});
  }
  async create(ctx:SourceContext,input:NewSource){
   if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const id=this.ids.create<SourceId>();
-  const tested=await this.connector(ctx,id).testConnection(VaultRef(input.credentialRef));
+  const tested=await this.connector(ctx,id).testConnection(SecretRef(input.credentialRef));
   if(!tested.ok)return tested;
   const created=await this.repository.create(ctx,id,this.ids.create<RunId>(),input,null);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}

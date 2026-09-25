@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DemoSourceId } from './kernel/index.js';
-import { VaultRef } from '../platform/vault/types.js';
+import { SecretRef } from '../platform/secrets/types.js';
 const name = z.string().min(1).max(63);
 export const schemaSpecSchema = z.strictObject({ schemas: z.array(z.strictObject({ name,
   objects: z.array(z.strictObject({ name, kind: z.enum(['table', 'view']), columns: z.array(z.strictObject({
@@ -30,7 +30,7 @@ export const generatorSpecSchema = z.strictObject({ seed: z.number().int().safe(
   }
 });
 export const provisionDemoPayload = z.strictObject({ templateId: z.uuid().transform(DemoSourceId), schemaSpec: schemaSpecSchema, generatorSpec: generatorSpecSchema, landingZone: z.string().min(1).nullable() });
-export const provisionDemoResponse = z.strictObject({ credentialRef: z.string().startsWith('vault://').min(9).transform(VaultRef), database: z.string().min(1) });
+export const provisionDemoResponse = z.strictObject({ credentialRef: z.string().startsWith('secret://').min(10).transform(SecretRef), database: z.string().min(1) });
 export type SchemaSpec = z.infer<typeof schemaSpecSchema>;
 export type GeneratorSpec = z.infer<typeof generatorSpecSchema>;
 export type ProvisionDemoPayload = z.infer<typeof provisionDemoPayload>;

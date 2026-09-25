@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { inspect } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
-import { DevelopmentVaultAdapter, VaultRef, environmentVariableFor } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore, SecretRef, environmentVariableFor } from '../src/platform/secrets/index.js';
 import { ProjectId, ok, type Result } from '../src/shared/kernel/index.js';
 import { IanaZoneResolver, SidecarTokenizer, TokenKey, TokenizationRun } from '../sidecar/tokenize/index.js';
 import { tokenEventSchema } from '../sidecar/tokenize/telemetry.js';
@@ -13,8 +13,8 @@ import { describeElement } from '../src/modules/catalog/index.js';
 const bytes = () => Uint8Array.from({ length: 32 }, (_, index) => index);
 const hex = Buffer.from(bytes()).toString('hex');
 const projectId = ProjectId(randomUUID());
-const ref = VaultRef(`vault://opintel/token-key/${projectId}`);
-const vault = (value = hex) => new DevelopmentVaultAdapter({ [environmentVariableFor(ref)]: value });
+const ref = SecretRef(`secret://opintel/token-key/${projectId}`);
+const secrets = (value = hex) => new EnvironmentSecretStore({ [environmentVariableFor(ref)]: value });
 const text = { domain: 'c', canonId: 'stdtext1', mode: 'text' };
 const number = { domain: 'c', canonId: 'stdnum1', mode: 'number' };
 const timestamp = { domain: 'c', canonId: 'stdtime1', mode: 'timestamp' };
@@ -62,10 +62,10 @@ describe('tokenization execution contract', () => {
     const dictionary = async (id: typeof projectId) => unwrap(await tokenizer.run(id, run => ok(['a', 'b', 'c'].map(value => unwrap(run.tokenize(value, text))))));
     const first = await dictionary(projectId); const second = await dictionary(other);
     expect(first.every(value => !second.includes(value))).toBe(true);
-    expect(requested).toEqual([ref, `vault://opintel/token-key/${other}`]);
+    expect(requested).toEqual([ref, `secret://opintel/token-key/${other}`]);
   });
   it('TOK-13: no key means refusal, never an unkeyed fallback', async () => {
-    const work = vi.fn(); const tokenizer = new SidecarTokenizer(new DevelopmentVaultAdapter({}), new IanaZoneResolver());
+    const work = vi.fn(); const tokenizer = new SidecarTokenizer(new EnvironmentSecretStore({}), new IanaZoneResolver());
     expect(await tokenizer.run(projectId, work)).toMatchObject({ ok: false, error: { code: 'dependency_unavailable' } });
     expect(work).not.toHaveBeenCalled();
   });
@@ -78,9 +78,9 @@ describe('tokenization execution contract', () => {
     key.dispose(); expect(key.digest(Buffer.from('x')).ok).toBe(false);
   });
   it('strict Vault decoding names only the reference', async () => {
-    expect(await vault().resolveBytes(ref)).toEqual(Buffer.from(bytes()));
+    expect(await secrets().resolveBytes(ref)).toEqual(Buffer.from(bytes()));
     for (const value of [hex.toUpperCase(), hex + '00', hex.slice(2), 'g'.repeat(64), Buffer.from(bytes()).toString('base64'), '', ' ' + hex, hex + '\n', hex + '\r\n']) {
-      await expect(vault(value).resolveBytes(ref)).rejects.toMatchObject({ message: `Secret ${ref} must contain exactly 64 lowercase hexadecimal characters.` });
+      await expect(secrets(value).resolveBytes(ref)).rejects.toMatchObject({ message: `Secret ${ref} must contain exactly 64 lowercase hexadecimal characters.` });
     }
   });
   it('TOK-15/TOK-36: full runs capture every console channel and stdout/stderr without key or token leakage', async () => {
@@ -91,7 +91,7 @@ describe('tokenization execution contract', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => { output.push(Buffer.from(chunk).toString()); return true; });
     let produced: string | null = null;
     try {
-      const tokenizer = new SidecarTokenizer(vault(), new IanaZoneResolver());
+      const tokenizer = new SidecarTokenizer(secrets(), new IanaZoneResolver());
       const response = await tokenizer.run(projectId, run => run.tokenize('SECRET SOURCE VALUE', text));
       produced = unwrap(response);
       await tokenizer.run(projectId, run => run.tokenize(12, number));

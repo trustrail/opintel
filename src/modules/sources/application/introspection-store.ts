@@ -3,10 +3,10 @@ import type { CatalogSnapshot, SourceKind } from './source-connector.js';
 import type { IntrospectionState } from '../domain/introspection-run.js';
 import type { IntrospectionDiff } from '../../catalog/index.js';
 import type { Treatment, MaskKind } from '../../entitlements/index.js';
-import type { VaultRef } from '../../../platform/vault/types.js';
+import type { SecretRef } from '../../../platform/secrets/types.js';
 export type IntrospectionContext = { projectId: ProjectId; userId: UserId };
 export type SourceStatus = 'pending' | 'testing' | 'connected' | 'unreachable' | 'archived';
-export type IntrospectionSource = { id: SourceId; projectId: ProjectId; kind: SourceKind; credentialRef: VaultRef; status: SourceStatus; receivesLandings?: boolean; landingStrategy?: string | null };
+export type IntrospectionSource = { id: SourceId; projectId: ProjectId; kind: SourceKind; credentialRef: SecretRef; status: SourceStatus; receivesLandings?: boolean; landingStrategy?: string | null };
 export type RecordedIntrospectionDiff = IntrospectionDiff & { runId?: RunId; entitlements?: Array<{poolId:PoolId;treatment:Treatment;maskKind?:MaskKind|null}> };
 export type IntrospectionRun = { id: RunId; sourceId: SourceId; state: IntrospectionState; adoptRenamedNames: boolean; include: string[]; diff: RecordedIntrospectionDiff[]; error: string | null; errorCode?: ErrorCode | null; startedAt: Timestamp | null; endedAt: Timestamp | null };
 export interface IntrospectionStore {

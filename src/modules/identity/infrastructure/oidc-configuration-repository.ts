@@ -1,5 +1,5 @@
 import { withPlatform } from '../../../platform/db/scope.js';
-import { VaultRef } from '../../../platform/vault/index.js';
+import { SecretRef } from '../../../platform/secrets/index.js';
 import type { OidcConfigurationRepository, OidcProviderConfiguration } from '../application/oidc.js';
 
 type IdpRow = {
@@ -24,7 +24,7 @@ export class PostgresOidcConfigurationRepository implements OidcConfigurationRep
       provider: row.provider,
       issuer: row.issuer,
       clientId: row.client_id,
-      clientSecretRef: VaultRef(row.client_secret_ref),
+      clientSecretRef: SecretRef(row.client_secret_ref),
       discoveryUrl: row.discovery_url,
     };
   }

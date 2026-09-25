@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DomainError, ElementId, ProjectId, SourceId, Timestamp, err, ok, type Result } from '../../src/shared/kernel/index.js';
-import { VaultRef } from '../../src/platform/vault/types.js';
+import { SecretRef } from '../../src/platform/secrets/types.js';
 import * as wire from '../../src/shared/sidecar-contract.js';
 import type { CatalogSnapshot, TopValue } from '../../src/modules/sources/index.js';
 import type { SamplingAudit, SamplingAuditPort, SidecarConnector } from '../application/source-connector.js';
@@ -131,7 +131,7 @@ export class PostgresConnector implements SidecarConnector {
     const parsed = wire.envelope.extend({ payload: schema }).safeParse(request);
     if (!parsed.success) return invalid();
     try {
-      const value = await this.scope.run(`${parsed.data.projectId}:${parsed.data.sourceId}`, VaultRef(parsed.data.credentialRef),
+      const value = await this.scope.run(`${parsed.data.projectId}:${parsed.data.sourceId}`, SecretRef(parsed.data.credentialRef),
         (session) => work(session, parsed.data.payload), signal);
       return ok(value);
     } catch (error: unknown) {

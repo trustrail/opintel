@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { DemoSourceId, IndustryId, ProjectId, SourceId, UserId, UuidV7IdFactory, ok, type Result } from '../src/shared/kernel/index.js';
-import { DevelopmentVaultAdapter, VaultRef } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore, SecretRef } from '../src/platform/secrets/index.js';
 import { generatorSpecSchema, provisionDemoPayload } from '../src/shared/demo-contract.js';
 import { demoIdentification } from '../src/modules/sources/demo/metadata.js';
 import { readDemoTemplate } from '../src/modules/sources/demo/templates.js';
@@ -33,8 +33,8 @@ let watcher: LandingWatcher | undefined;
 let host: ReturnType<typeof createSidecarServer> | undefined;
 const sourceId = SourceId(randomUUID());
 const ctx = { projectId: ProjectId(randomUUID()), userId: UserId(randomUUID()) };
-const credentialRef = VaultRef('vault://demo/postgres');
-const vault = new DevelopmentVaultAdapter({ OPINTEL_SECRET_DEMO_POSTGRES: process.env.TEST_DATABASE_URL });
+const credentialRef = SecretRef('secret://demo/postgres');
+const secrets = new EnvironmentSecretStore({ OPINTEL_SECRET_DEMO_POSTGRES: process.env.TEST_DATABASE_URL });
 async function customer<T>(work: (db: Client) => Promise<T>) {
   const db = new Client({ connectionString: process.env.TEST_DATABASE_URL }); await db.connect();
   try { return await work(db); } finally { await db.end(); }
@@ -84,10 +84,10 @@ describe('reinsurance demo pack through ordinary ingest', () => {
    landing:{name:`demo_${sourceId.replaceAll('-','')}`,credentialRef,strategy:'append_as_at'} };
   await mkdir(zone.directory); await writeFile(zone.rulesFile,JSON.stringify(metadata));
   const extractor = new SpreadsheetExtractor(new LocalWorkbookReader());
-  const writer = new PostgresLanding(vault);
+  const writer = new PostgresLanding(secrets);
   const landingSpy = vi.spyOn(writer,'land');
   const extractorSpy = vi.spyOn(extractor,'inspect');
-  const storeSpy = vi.spyOn(vault,'store');
+  const storeSpy = vi.spyOn(secrets,'store');
   watcher = await LandingWatcher.open(zone,undefined,extractor,new FilingLander(zone.directory,{...zone.landing!,sourceId,projectId:ctx.projectId},writer,extractor,{send:async()=>ok(undefined)}));
   // Hold the cache update after durable persistence until the dependent write.
   // This deterministically reproduces the scheduling gap found under suite load.
@@ -115,7 +115,7 @@ describe('reinsurance demo pack through ordinary ingest', () => {
   });
   const provision = new SpreadsheetDemoProvisioner([zone],{database:new URL(process.env.TEST_DATABASE_URL!).pathname.slice(1),credentialRef},workbook);
   const { config,tls } = await loadSidecarConfig(join(directory,'service.json'));
-  host = createSidecarServer({config:{...config,port:0},tls,connector:createPostgresConnector({vault,audit:{record:async()=>undefined},limits:config.limits}),demo:provision});
+  host = createSidecarServer({config:{...config,port:0},tls,connector:createPostgresConnector({secrets,audit:{record:async()=>undefined},limits:config.limits}),demo:provision});
   const port = await host.listen();
   const options = await loadSidecarClientOptions(join(directory,'client.json')); options.baseUrl=`https://127.0.0.1:${port}`;
   const connector = (id: SourceId) => new SidecarSourceConnector('postgres',{sourceId:id,projectId:ctx.projectId,requestId:randomUUID(),sampling:async()=>ok({consentGiven:false,elements:[]})},options);

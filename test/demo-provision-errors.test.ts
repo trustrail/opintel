@@ -10,7 +10,7 @@ import { provisionDemoPayload } from '../src/shared/demo-contract.js';
 import { sourceMessages, safeSourceMessage } from '../src/shared/source-errors.js';
 import { demoIdentification } from '../src/modules/sources/demo/metadata.js';
 import { ProjectId, SourceId } from '../src/shared/kernel/index.js';
-import { VaultRef } from '../src/platform/vault/types.js';
+import { SecretRef } from '../src/platform/secrets/types.js';
 import type { LandingZone } from '../sidecar/ingest/watch.js';
 
 vi.mock('node:timers/promises', async importOriginal => {
@@ -27,7 +27,7 @@ it.each([
 ] as const)('demo provisioning reports a safe specific %s failure', async (kind, code, message) => {
  const directory = await mkdtemp(join(tmpdir(),'opintel-demo-errors-'));
  const projectId = ProjectId(randomUUID()); const sourceId = SourceId(randomUUID());
- const credentialRef = VaultRef('vault://demo/postgres');
+ const credentialRef = SecretRef('secret://demo/postgres');
  const zone: LandingZone = { projectId,sourceId,directory:join(directory,'zone'),stateFile:join(directory,'register.json'),rulesFile:join(directory,'rules.json'),pollMs:10,
   landing:{name:'demo',credentialRef,strategy:'append_as_at'} };
  const controller = new AbortController();

@@ -1047,9 +1047,9 @@
                   },
                   "credentialRef": {
                     "type": "string",
-                    "minLength": 9,
+                    "minLength": 10,
                     "format": "starts_with",
-                    "pattern": "^vault:\\/\\/.*"
+                    "pattern": "^secret:\\/\\/.*"
                   },
                   "payload": {
                     "type": "object",
@@ -1188,9 +1188,9 @@
                   },
                   "credentialRef": {
                     "type": "string",
-                    "minLength": 9,
+                    "minLength": 10,
                     "format": "starts_with",
-                    "pattern": "^vault:\\/\\/.*"
+                    "pattern": "^secret:\\/\\/.*"
                   },
                   "payload": {
                     "type": "object",
@@ -1445,9 +1445,9 @@
                   },
                   "credentialRef": {
                     "type": "string",
-                    "minLength": 9,
+                    "minLength": 10,
                     "format": "starts_with",
-                    "pattern": "^vault:\\/\\/.*"
+                    "pattern": "^secret:\\/\\/.*"
                   },
                   "payload": {
                     "type": "object",
@@ -1636,9 +1636,9 @@
                   },
                   "credentialRef": {
                     "type": "string",
-                    "minLength": 9,
+                    "minLength": 10,
                     "format": "starts_with",
-                    "pattern": "^vault:\\/\\/.*"
+                    "pattern": "^secret:\\/\\/.*"
                   },
                   "payload": {
                     "type": "object",
@@ -1947,9 +1947,9 @@
                   "properties": {
                     "credentialRef": {
                       "type": "string",
-                      "minLength": 9,
+                      "minLength": 10,
                       "format": "starts_with",
-                      "pattern": "^vault:\\/\\/.*"
+                      "pattern": "^secret:\\/\\/.*"
                     },
                     "database": {
                       "type": "string",
@@ -2040,9 +2040,9 @@
                   },
                   "credentialRef": {
                     "type": "string",
-                    "minLength": 9,
+                    "minLength": 10,
                     "format": "starts_with",
-                    "pattern": "^vault:\\/\\/.*"
+                    "pattern": "^secret:\\/\\/.*"
                   },
                   "payload": {
                     "type": "object",

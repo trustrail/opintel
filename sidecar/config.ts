@@ -1,4 +1,4 @@
-import { VaultRef } from '../src/platform/vault/types.js';
+import { SecretRef } from '../src/platform/secrets/types.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { createPrivateKey, X509Certificate } from 'node:crypto';
@@ -13,7 +13,7 @@ export const sidecarConfigSchema = z.strictObject({
   auditFile: z.string().min(1),
   custody:z.strictObject({keyStore:z.string().min(1),keyEscrow:z.string().min(1)}).optional(),
   limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds }),
-  demo: z.strictObject({ database: z.string().min(1), credentialRef: z.string().startsWith('vault://').min(9).transform(VaultRef) }).optional(),
+  demo: z.strictObject({ database: z.string().min(1), credentialRef: z.string().startsWith('secret://').min(10).transform(SecretRef) }).optional(),
   receiptUrl: z.url().refine((value) => new URL(value).protocol === 'https:').optional(),
   landingZones: z.array(landingZoneSchema).optional(),
   maxRequestBytes: z.number().int().min(1).max(16 * 1024 * 1024).default(1024 * 1024),

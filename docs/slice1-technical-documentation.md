@@ -164,7 +164,7 @@ class DataSource {
   readonly origin: 'customer' | 'demo';
   readonly demoTemplateId: DemoSourceId | null;   // set when origin is demo
   name: SourceName;
-  credentialRef: VaultRef;           // required for every source, including demo
+  credentialRef: SecretRef;           // required for every source, including demo
   samplingConsent: boolean;
   status: SourceStatus;
   freshness: Freshness;
@@ -172,7 +172,7 @@ class DataSource {
 ```
 
 **Invariants**
-- `credentialRef` is a non-null vault reference for every origin. A literal secret fails construction
+- `credentialRef` is a non-null secret reference for every origin. A literal secret fails construction
 - `origin` is immutable. A demo source never becomes a customer source, and the reverse is meaningless
 - Deleting a source requires that its dependent entitlements be enumerated to the caller first
 - `samplingConsent` defaults false and can only be set by an explicit command with an audit entry
@@ -772,13 +772,13 @@ type RunOutcome =
 type Timestamp = string & { readonly __brand: 'Timestamp' };
 const Timestamp = (d: Date): Timestamp => d.toISOString() as Timestamp;
 
-// platform/vault: a reference, never a secret. Construction validates the
+// platform/secrets: a reference, never a secret. Construction validates the
 // scheme, which is what makes the "no literal secret" constraint enforceable
 // in code as well as in the database.
-type VaultRef = string & { readonly __brand: 'VaultRef' };
-const VaultRef = (raw: string): VaultRef => {
-  if (!raw.startsWith('vault://')) throw new InvariantViolation('VaultRef', raw);
-  return raw as VaultRef;
+type SecretRef = string & { readonly __brand: 'SecretRef' };
+const SecretRef = (raw: string): SecretRef => {
+  if (!raw.startsWith('secret://')) throw new InvariantViolation('SecretRef', raw);
+  return raw as SecretRef;
 };
 
 // modules/sources: lightweight references passed across module boundaries.
@@ -875,11 +875,11 @@ interface IdFactory {
 // both call it SourceConnector; ConnectorPort is not a second thing.
 interface SourceConnector {
   readonly kind: SourceKind;
-  testConnection(ref: VaultRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
-  introspect(ref: VaultRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
-  sampleTopValues(ref: VaultRef, elements: ElementId[], limit: number, signal?: AbortSignal):
+  testConnection(ref: SecretRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
+  introspect(ref: SecretRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
+  sampleTopValues(ref: SecretRef, elements: ElementId[], limit: number, signal?: AbortSignal):
     Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;
-  estimateRowCount(ref: VaultRef, object: ObjectRef, signal?: AbortSignal): Promise<Result<number | null, DomainError>>;
+  estimateRowCount(ref: SecretRef, object: ObjectRef, signal?: AbortSignal): Promise<Result<number | null, DomainError>>;
 }
 type TopValue = { value: string; frequency: number };
 
@@ -988,16 +988,16 @@ interface RateLimiter {
     Promise<{ allowed: boolean; retryAfterSeconds: number }>;
 }
 
-// platform/vault
-interface VaultPort {
-  resolve(ref: VaultRef): Promise<string>;   // never logged, never cached to disk
-  resolveBytes(ref: VaultRef): Promise<Uint8Array>; // exactly 64 lowercase hex characters decoded to 32 raw bytes (A.5)
-  store(path: string, secret: string): Promise<VaultRef>;
+// platform/secrets
+interface SecretStorePort {
+  resolve(ref: SecretRef): Promise<string>;   // never logged, never cached to disk
+  resolveBytes(ref: SecretRef): Promise<Uint8Array>; // exactly 64 lowercase hex characters decoded to 32 raw bytes (A.5)
+  store(path: string, secret: string): Promise<SecretRef>;
 }
 ```
 CheckRequest and RelationshipUpdate have different subject types on purpose. Only a user or a pool asks an authorization question. A company appears as the subject of project#company@company, which is how a project inherits from its company, and is never itself a caller.
 
-**The development adapter reads from environment variables**. A reference vault://opintel/idp/{companyId}/{provider} resolves to OPINTEL_SECRET_<uppercased path>. Production uses a real secret manager behind the same port. A resolved secret is held in memory for the duration of the call and never written anywhere.
+**The development adapter reads from environment variables**. A reference secret://opintel/idp/{companyId}/{provider} resolves to OPINTEL_SECRET_<uppercased path>. Production uses a real secret manager behind the same port. A resolved secret is held in memory for the duration of the call and never written anywhere.
 
 **The callback consumes only on a nonce match. consume includes the nonce in its WHERE clause, so a link opened in a different browser leaves the row untouched and available. The callback then calls peek to tell apart a nonce mismatch, which offers confirmation, from an expired or already-used link, which does not.
 
@@ -1482,7 +1482,7 @@ const MigrateIndustryPreview = z.object({
 ```ts
 const TestSourceBody = z.object({
   kind: z.literal('postgres'),
-  credentialRef: z.string().startsWith('vault://'),
+  credentialRef: z.string().startsWith('secret://'),
 });
 const TestSourceResponse = z.object({
   reachable: z.boolean(),
@@ -1493,7 +1493,7 @@ const TestSourceResponse = z.object({
 const CreateSourceBody = z.object({
   name: z.string().min(1).max(80),
   kind: z.literal('postgres'),
-  credentialRef: z.string().startsWith('vault://'),
+  credentialRef: z.string().startsWith('secret://'),
   includeSchemas: z.array(z.string()),   // empty means every readable schema
   samplingConsent: z.boolean(),
   receivesLandings: z.boolean(),
@@ -1622,7 +1622,7 @@ const IntrospectionRunView = z.object({
 ```ts
 type DeploymentRef = Record<string, {
   sourceId: SourceId;        // reserved at prepare, inserted at Connect
-  credentialRef: VaultRef;
+  credentialRef: SecretRef;
   landingZone: string | null;
   sourceName: string;
 }>;
@@ -1754,7 +1754,7 @@ Internal, mutually authenticated, not public.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/health` | Sidecar and contract versions; no request body or source contact |
-| POST | `/test-connection` | Test a source through its vault reference |
+| POST | `/test-connection` | Test a source through its secret reference |
 | POST | `/estimate` | Source row estimate, or null when unavailable |
 | POST | `/introspect` | Structure only. Returns no row data in schema mode |
 | POST | `/sample` | Reads real values. Refuses without the consent flag |
@@ -1782,7 +1782,7 @@ type SidecarRequest<T> = {
   requestId: string;              // the application's request id, for correlation
   projectId: ProjectId;
   sourceId: SourceId;
-  credentialRef: VaultRef;        // the sidecar resolves it, the application never holds the secret
+  credentialRef: SecretRef;        // the sidecar resolves it, the application never holds the secret
   payload: T;
 };
 
@@ -1840,7 +1840,7 @@ response schemas, the application client and `sidecar/openapi.json` share the
 Zod wire definitions. Sampling consent refusal maps to HTTP 403. Audit records
 are append-only, fsynced local JSONL containing identifiers, consent and outcome;
 no source values or resolved credentials enter them. The development CLI uses
-`DevelopmentVaultAdapter`; the host accepts an injected `VaultPort`.
+`EnvironmentSecretStore`; the host accepts an injected `SecretStorePort`.
 
 S1 reports `duckdb: "not-loaded"` in health because it does not create a DuckDB
 engine. `/validate` and `/execute` belong to S2 and are not mounted by S1.
@@ -1957,7 +1957,7 @@ type ProvisionDemoPayload = {
   generatorSpec: GeneratorSpec;
   landingZone: string | null;      // set for spreadsheet templates
 };
-type ProvisionDemoResponse = { credentialRef: VaultRef; database: string };
+type ProvisionDemoResponse = { credentialRef: SecretRef; database: string };
 ```
 
 **The sidecar provisions demo data because demo data is still the customer's environment**. A spreadsheet template writes files into the landing zone and stops: the watcher picks them up through the ordinary path, with no special provisioning route
@@ -2008,7 +2008,7 @@ type StatusResponse = { currentVersion: number | null;
 
 **The sidecar does not create databases**. /provision-demo writes schema and rows into a database that already exists, whose credential the operator configured at the same time as everything else in service.json. Creating databases would need an administrative credential in the sidecar, which is a larger privilege than anything else it holds, for a convenience.
 
-**In development the demo database is a second database on the Compose Postgres**, created by dev:up, with its reference in the development vault adapter. In a deployment it is whatever the customer provisions, and the six-week engagement configures it.
+**In development the demo database is a second database on the Compose Postgres**, created by dev:up, with its reference in the environment secret store. In a deployment it is whatever the customer provisions, and the six-week engagement configures it.
 
 ### Item 3.11 implementation: demo delivery
 
@@ -2466,12 +2466,12 @@ create table company_idp (
   display_name  text not null,            -- shown on the sign-in screen
   issuer        text not null,
   client_id     text not null,
-  client_secret_ref text not null,        -- vault://... never a literal
+  client_secret_ref text not null,        -- secret://... never a literal
   discovery_url text,                     -- null when issuer is well known
   enabled       boolean not null default true,
   created_at    timestamptz not null default now(),
   unique (company_id, provider),
-  constraint secret_is_reference check (client_secret_ref like 'vault://%')
+  constraint secret_is_reference check (client_secret_ref like 'secret://%')
 );
 
 create table token_key_version (
@@ -2659,7 +2659,7 @@ create table data_source (
   origin         text not null default 'customer' check (origin in ('customer','demo')),
   demo_template_id uuid references demo_source_template(id) on delete restrict,
   name           text not null,
-  credential_ref text,                             -- required vault://... for every origin
+  credential_ref text,                             -- required secret://... for every origin
   sampling_consent boolean not null default false,
   receives_landings boolean not null default false,
   landing_strategy text check (landing_strategy in ('append_as_at','table_per_filing')),
@@ -2670,7 +2670,7 @@ create table data_source (
   created_at     timestamptz not null default now(),
   unique (project_id, lower(name)),
   constraint credential_matches_origin check (
-    credential_ref is not null and credential_ref like 'vault://%' and
+    credential_ref is not null and credential_ref like 'secret://%' and
     (origin = 'customer' or (origin = 'demo' and demo_template_id is not null))
   ),
   exposed_alias  text not null,        -- assigned once at creation, immutable
@@ -2838,7 +2838,7 @@ Source connection failure sets status to `unreachable`; successful publication
 sets it to `connected`. Item 3.6 exposes this status through its application service.
 F-010 query-path refusal is implemented and verified in item 5.7.
 
-**A demo source holds a real Vault reference to a real Postgres**. It is a database Opintel provisioned rather than one the customer owns, and that is the only difference. Making it credential-less would mean a second code path through introspection, and a demo that proves nothing about the product. The origin column says it is generated; nothing else does.
+**A demo source holds a real Secret reference to a real Postgres**. It is a database Opintel provisioned rather than one the customer owns, and that is the only difference. Making it credential-less would mean a second code path through introspection, and a demo that proves nothing about the product. The origin column says it is generated; nothing else does.
 
 
 **Rules are established during the six-week deployment**, one set per filing party, and are data rather than code. A new filing party is a row, not a release.
@@ -3832,7 +3832,7 @@ The API declares a minimum sidecar version and refuses to dispatch below it, wit
 | Customer data in flight | Interception | TLS 1.3 everywhere, including to the sidecar |
 | Customer data at rest, in Opintel | There is none | Opintel persists no customer rows. The query path holds results in memory and releases them after the response |
 | Customer data at rest, in the customer's environment | Landed spreadsheets are written to the customer's own Postgres | This is a copy, and it is theirs. It is made by software they run, inside their network, from a file they already had. **Opintel never receives the file** |
-| Source credentials | Theft | Vault references only. A literal in the database fails a constraint |
+| Source credentials | Theft | Secret references only. A literal in the database fails a constraint |
 | Pool keys | Leak or misplacement | Hashed at rest, shown once, rotatable with a grace window, narrow pools bound to few sources |
 | Evidence | Tampering | Append-only enforced by grant, not convention |
 | The authorization graph | Privilege escalation | Route-level declarations, startup assertion, RLS and scope filters behind it |

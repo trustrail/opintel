@@ -10,7 +10,7 @@ import {
   type Configuration,
   type ExportedJWKSCache,
 } from 'openid-client';
-import { type VaultPort } from '../../../platform/vault/index.js';
+import { type SecretStorePort } from '../../../platform/secrets/index.js';
 import type { OidcFlowState, OidcProviderConfiguration, OidcProviderPort, VerifiedOidcIdentity } from '../application/oidc.js';
 
 const acceptedAlgorithms = new Set(['RS256', 'ES256']);
@@ -60,7 +60,7 @@ function identityFromClaims(claims: Record<string, unknown>): VerifiedOidcIdenti
 export class OpenIdClientAdapter implements OidcProviderPort {
   private readonly jwksCaches = new Map<string, ExportedJWKSCache>();
 
-  constructor(private readonly vault: VaultPort) {}
+  constructor(private readonly secrets: SecretStorePort) {}
 
   async authorizationUrl(configuration: OidcProviderConfiguration, state: string, flow: OidcFlowState): Promise<string> {
     const client = await this.client(configuration);
@@ -92,7 +92,7 @@ export class OpenIdClientAdapter implements OidcProviderPort {
   }
 
   private async client(configuration: OidcProviderConfiguration): Promise<Configuration> {
-    const secret = await this.vault.resolve(configuration.clientSecretRef);
+    const secret = await this.secrets.resolve(configuration.clientSecretRef);
     const discoveryTarget = new URL(configuration.discoveryUrl ?? configuration.issuer);
     const client = await discovery(discoveryTarget, configuration.clientId, {
       client_secret: secret,

@@ -4,7 +4,7 @@ import { Client } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { PostgresLanding } from '../sidecar/ingest/infrastructure/postgres-landing.js';
 import { FilingId, ProjectId, SourceId, ok } from '../src/shared/kernel/index.js';
-import { VaultRef } from '../src/platform/vault/index.js';
+import { SecretRef } from '../src/platform/secrets/index.js';
 import type { PartyId } from '../src/modules/ingest/index.js';
 import type { LandingInput } from '../sidecar/ingest/landing-port.js';
 
@@ -62,7 +62,7 @@ describe('filing party populated upgrades', () => {
       await owner.query(`CREATE DATABASE "${name}"`);
       db = new Client({ connectionString: url.toString() }); await db.connect();
       const writer = new PostgresLanding({ resolve: async () => url.toString() });
-      const first: LandingInput = { source: { sourceId: SourceId(randomUUID()), projectId: ProjectId(randomUUID()), name: 'Original source', credentialRef: VaultRef('vault://test/landing'), strategy: 'append_as_at' },
+      const first: LandingInput = { source: { sourceId: SourceId(randomUUID()), projectId: ProjectId(randomUUID()), name: 'Original source', credentialRef: SecretRef('secret://test/landing'), strategy: 'append_as_at' },
         filingId: FilingId(randomUUID()), partyId: randomUUID() as PartyId, partyCode: '4471', kind: 'premium', period: '2026-03', asAt: '2026-03-31', receivedAt: '2026-04-01T00:00:00.000Z', fileSha256: 'a'.repeat(64), supersedes: null,
         columns: [{ name: 'Amount', header: 'Amount', type: 'NUMERIC' }] };
       async function* rows(value: string) { yield ok([value]); }

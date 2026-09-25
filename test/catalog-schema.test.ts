@@ -26,7 +26,7 @@ integration('catalogue schema with Postgres', () => {
     });
     await scope(async (tx) => {
       await tx.query(`INSERT INTO data_source (id, project_id, kind, name, exposed_alias, credential_ref)
-        VALUES ($1, $2, 'postgres', 'Warehouse', 'warehouse', 'vault://test/warehouse')`, [source, projectId]);
+        VALUES ($1, $2, 'postgres', 'Warehouse', 'warehouse', 'secret://test/warehouse')`, [source, projectId]);
       await tx.query(`INSERT INTO catalog_object (id, source_id, project_id, schema_name, object_name, object_kind, exposed_schema, exposed_name)
         VALUES ($1, $2, $3, 'public', 'Orders', 'table', 'public', 'orders')`, [object, source, projectId]);
       await tx.query(`INSERT INTO catalog_element (id, object_id, project_id, source_identifier, exposed_name, stable_ref, source_type, exposed_type)
@@ -117,7 +117,7 @@ integration('catalogue schema with Postgres', () => {
       .rejects.toMatchObject({ code: '23503' });
   });
 
-  it('F-006: stores only a vault reference and rejects plaintext credentials', async () => {
+  it('F-006: stores only a secrets reference and rejects plaintext credentials', async () => {
     const plaintext = 'postgres://customer:plaintext-password@customer-db/customer';
     for (const credential of [null, 'literal-secret', plaintext]) {
       await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, exposed_alias, credential_ref)
@@ -130,7 +130,7 @@ integration('catalogue schema with Postgres', () => {
       'SELECT credential_ref, row_to_json(data_source)::text AS stored FROM data_source',
     ));
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.credential_ref).toBe('vault://test/warehouse');
+    expect(rows[0]?.credential_ref).toBe('secret://test/warehouse');
     expect(rows.every((row) => !row.stored.includes('literal-secret'))).toBe(true);
     expect(rows.every((row) => !row.stored.includes('plaintext-password'))).toBe(true);
   });

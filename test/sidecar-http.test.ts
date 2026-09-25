@@ -14,7 +14,7 @@ import { createSidecarServer, sidecarBuild } from '../sidecar/http/server.js';
 import { FileSamplingAudit } from '../sidecar/infrastructure/file-sampling-audit.js';
 import { PostgresConnector } from '../sidecar/infrastructure/postgres-connector.js';
 import { PostgresSourceScope, type SourceSession } from '../sidecar/infrastructure/postgres-source-scope.js';
-import { DevelopmentVaultAdapter, VaultRef } from '../src/platform/vault/index.js';
+import { EnvironmentSecretStore, SecretRef } from '../src/platform/secrets/index.js';
 import { SidecarSourceConnector, loadSidecarClientOptions, type SidecarOptions } from '../src/modules/sources/index.js';
 import { ElementId, ObjectId, ProjectId, SourceId, ok } from '../src/shared/kernel/index.js';
 import * as wire from '../src/shared/sidecar-contract.js';
@@ -24,7 +24,7 @@ const schema=`sidecar_${suffix}`;
 const role=`sidecar_${suffix}`;
 const password=randomUUID();
 const sentinel='SOURCE_ROW_SENTINEL';
-const ref=VaultRef('vault://test/source');
+const ref=SecretRef('secret://test/source');
 const sourceId=SourceId(randomUUID());
 const projectId=ProjectId(randomUUID());
 const elementId=ElementId(randomUUID());
@@ -37,12 +37,12 @@ let options:SidecarOptions;
 let audit:FileSamplingAudit;
 let host:ReturnType<typeof createSidecarServer>;
 let connector:PostgresConnector;
-let vault:DevelopmentVaultAdapter;
-let resolveSpy:MockInstance<DevelopmentVaultAdapter['resolve']>;
+let secrets:EnvironmentSecretStore;
+let resolveSpy:MockInstance<EnvironmentSecretStore['resolve']>;
 let alternate:{cert:string;key:string};
 const queryFailures:unknown[]=[];
 class ObservedScope extends PostgresSourceScope {
-  override run<T>(key:string,credential:VaultRef,work:(session:SourceSession)=>Promise<T>,signal?:AbortSignal):Promise<T>{
+  override run<T>(key:string,credential:SecretRef,work:(session:SourceSession)=>Promise<T>,signal?:AbortSignal):Promise<T>{
     return super.run(key,credential,(session)=>work({query:async(sql,values)=>{
       try{return await session.query(sql,values);}catch(error:unknown){
         if(typeof error==='object'&&error!==null&&'code'in error)queryFailures.push(error.code);
@@ -89,10 +89,10 @@ beforeAll(async()=>{
     const base=process.env.TEST_DATABASE_URL;if(base===undefined)throw new Error('Missing database');
     const url=new URL(base);url.username=role;url.password=password;sourceUrl=url.toString();
   });
-  vault=new DevelopmentVaultAdapter({OPINTEL_SECRET_TEST_SOURCE:sourceUrl});
-  resolveSpy=vi.spyOn(vault,'resolve');
+  secrets=new EnvironmentSecretStore({OPINTEL_SECRET_TEST_SOURCE:sourceUrl});
+  resolveSpy=vi.spyOn(secrets,'resolve');
   audit=await FileSamplingAudit.open(config.auditFile);
-  connector=new PostgresConnector(new ObservedScope(vault,config.limits),audit);
+  connector=new PostgresConnector(new ObservedScope(secrets,config.limits),audit);
   host=createSidecarServer({config,tls,connector});
   const port=await host.listen();
   options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
@@ -125,7 +125,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(via.value.objects.find((entry)=>entry.name==='records')?.columns.map((entry)=>entry.sourceIdentifier)).toEqual(columns.map((entry: {column_name:string})=>entry.column_name));
     expect(JSON.stringify(via)).not.toContain(sentinel);expect(JSON.stringify(via)).not.toContain(password);
   });
-  it.each([false,undefined])('G-015: consent %s is refused with 403 before vault resolution and is audited',async(consentGiven)=>{
+  it.each([false,undefined])('G-015: consent %s is refused with 403 before secrets resolution and is audited',async(consentGiven)=>{
     const result=await json('/sample',body({consentGiven,elements:[{elementId,schema,object:'records',column:'label'}],limit:2}));
     expect(result).toMatchObject({status:403,value:{error:{code:'forbidden',requestId:'wire-test',retryable:false}}});
     expect(resolveSpy).not.toHaveBeenCalled();expect((await auditRows()).at(-1)).toMatchObject({outcome:'refused',consentGiven:false});
