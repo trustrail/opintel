@@ -110,7 +110,7 @@ describe('sidecar Postgres connector against a read-only source credential', () 
   it('F-005: an untrusted secrets failure cannot expose a resolved credential in a connector response', async () => {
     const secrets: SecretStorePort = {
       resolveBytes: async () => { throw new Error('Not used by this credential fixture.'); },
-      resolve: async () => { throw new Error(`Vault failed with ${sourceUrl}`); },
+      resolve: async () => { throw new Error(`Secret resolution failed with ${sourceUrl}`); },
       store: async () => { throw new Error('Not used.'); },
     };
     const source = createPostgresConnector({ secrets,

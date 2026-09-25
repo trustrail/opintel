@@ -1789,8 +1789,8 @@ type SidecarRequest<T> = {
 // POST /health  -> no body
 type HealthResponse = {
   version: string;                // semver of the sidecar
-  contract: number;               // wire contract version, currently 1
-  duckdb: string;
+  contract: number;               // wire contract version, currently 2
+  queryEngineVersion: string;
   canonicalisers: string[];        // compiled, versioned canonIds; no code crosses the wire
 };
 
@@ -1842,9 +1842,9 @@ are append-only, fsynced local JSONL containing identifiers, consent and outcome
 no source values or resolved credentials enter them. The development CLI uses
 `EnvironmentSecretStore`; the host accepts an injected `SecretStorePort`.
 
-S1 reports `duckdb: "not-loaded"` in health because it does not create a DuckDB
+S1 reports `queryEngineVersion: "not-loaded"` in health because it does not create a DuckDB
 engine. `/validate` and `/execute` belong to S2 and are not mounted by S1.
-The built wire contract is 1 and the independently reported sidecar version
+The built wire contract is 2 and the independently reported sidecar version
 starts at 0.1.0. Local bootstrap creates expiring development certificates and
 starts the host; it does not build the S5 deployment package.
 

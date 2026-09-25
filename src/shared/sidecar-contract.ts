@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { Timestamp } from './kernel/index.js';
 
 const count = z.number().int().nonnegative().safe();
-export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, duckdb: z.string(), canonicalisers: z.array(z.string().regex(/^[a-z0-9]+$(?![\s\S])/u)).refine(ids => new Set(ids).size === ids.length) });
+export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, queryEngineVersion: z.string(), canonicalisers: z.array(z.string().regex(/^[a-z0-9]+$(?![\s\S])/u)).refine(ids => new Set(ids).size === ids.length) });
+// Read the version before interpreting a version-specific health payload.
+export const healthContract = healthResponse.pick({ contract: true }).strip();
 export const connectionResponse = z.union([
   z.strictObject({ reachable: z.literal(true) }),
   z.strictObject({ reachable: z.literal(false), reason: z.string().min(1) }),
@@ -47,7 +49,7 @@ export function sidecarOpenApiDocument() {
   ] as const;
   const error = z.strictObject({error:z.strictObject({code:z.string(),message:z.string(),requestId:z.string(),retryable:z.boolean()})});
   return {
-    openapi:'3.1.0',info:{title:'Opintel sidecar',version:'1'},
+    openapi:'3.1.0',info:{title:'Opintel sidecar',version:'2'},
     components:{securitySchemes:{applicationCertificate:{type:'mutualTLS'}}},
     paths:Object.fromEntries(operations.map(([path,body,response])=>[path,{post:{
       security:[{applicationCertificate:[]}],

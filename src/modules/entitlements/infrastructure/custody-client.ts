@@ -4,7 +4,7 @@ import { checkServerIdentity } from 'node:tls';
 import { z } from 'zod';
 import { DomainError,err,ok,type ProjectId,type Result } from '../../../shared/kernel/index.js';
 import { custodyEnvelope,custodyOperations,safeCustodyMessage,type CustodyOperation,type CustodyResponse } from '../../../shared/custody-contract.js';
-import { healthResponse } from '../../../shared/sidecar-contract.js';
+import { healthResponse, healthContract } from '../../../shared/sidecar-contract.js';
 import { serviceErrorEnvelope } from '../../../shared/error-contract.js';
 import type { SidecarOptions } from '../../sources/index.js';
 import type { CanonicaliserCatalog } from '../application/canonicalisers.js';
@@ -15,16 +15,16 @@ export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
  async canonicalisers():Promise<Result<readonly string[]>> {
   try {
    // Refresh discovery for assignment: a cached manifest must not hide a deployment.
-   const health=healthResponse.parse(await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??9000)));
-   if(health.contract!==1)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: canonicaliser discovery requires contract 1.'));
-   return ok(health.canonicalisers);
+   const response=await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??9000));
+   if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: canonicaliser discovery requires contract 2.'));
+   return ok(healthResponse.parse(response).canonicalisers);
   }catch{return err(new DomainError('dependency_unavailable','Canonicaliser discovery failed. Check the pinned sidecar connection and its health contract before assigning a canonicaliser.',undefined,true));}
  }
  async call<K extends CustodyOperation>(projectId:ProjectId,operation:K,payload:z.input<(typeof custodyOperations)[K]['request']>):Promise<Result<CustodyResponse<K>>>{
   const parsed=custodyOperations[operation].request.safeParse(payload);if(!parsed.success)return err(new DomainError('validation_failed','Invalid custody request.'));
   const signal=AbortSignal.timeout(this.options.timeoutMs??9000);
   try{
-   if(!this.checked){const health=healthResponse.parse(await this.post('/health',undefined,signal));if(health.contract!==1)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: custody requires contract 1.'));this.checked=true;}
+   if(!this.checked){const response=await this.post('/health',undefined,signal);if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: custody requires contract 2.'));healthResponse.parse(response);this.checked=true;}
    const body=custodyEnvelope.parse({requestId:randomUUID(),projectId,payload:parsed.data});
    const value=custodyOperations[operation].response.parse(await this.post('/custody/'+operation,body,signal));
    return ok(value as CustodyResponse<K>);

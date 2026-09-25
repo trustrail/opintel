@@ -38,7 +38,7 @@ for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at 
  await page.getByRole('button',{name:'Connect a source',exact:true}).focus();
  await expect(page.getByRole('button',{name:'Connect a source',exact:true})).toBeFocused();
  await expect(page).toHaveScreenshot(`sources-empty-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
- await page.getByRole('button',{name:'Connect a source',exact:true}).click();await page.getByLabel('Source name',{exact:true}).fill('Reporting');await page.getByLabel('Vault reference',{exact:true}).fill('secret://test/reporting');
+ await page.getByRole('button',{name:'Connect a source',exact:true}).click();await page.getByLabel('Source name',{exact:true}).fill('Reporting');await page.getByLabel('Secret reference',{exact:true}).fill('secret://test/reporting');
  await page.getByRole('button',{name:'Test connection',exact:true}).click();await expect(page.getByText('Connection passed.',{exact:false})).toBeVisible();
  await page.getByLabel('This source receives landed spreadsheets').check();
  await expect(page).toHaveScreenshot(`sources-wizard-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);

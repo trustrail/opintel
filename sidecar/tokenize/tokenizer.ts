@@ -79,7 +79,7 @@ export class SidecarTokenizer {
         }
         catch {
             this.audit.record({ event: 'tokenization.refused', projectId, category: key ? 'execution' : 'key_resolution' });
-            return err(new DomainError('dependency_unavailable', `Tokenization could not complete using ${ref}. Check the source and Vault configuration.`));
+            return err(new DomainError('dependency_unavailable', `Tokenization could not complete using ${ref}. Check the source and secret-store configuration.`));
         }
         finally {
             key?.dispose();

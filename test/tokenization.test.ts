@@ -77,7 +77,7 @@ describe('tokenization execution contract', () => {
     expect(inspect(key)).toBe('[REDACTED TOKEN KEY]');
     key.dispose(); expect(key.digest(Buffer.from('x')).ok).toBe(false);
   });
-  it('strict Vault decoding names only the reference', async () => {
+  it('strict secret decoding names only the reference', async () => {
     expect(await secrets().resolveBytes(ref)).toEqual(Buffer.from(bytes()));
     for (const value of [hex.toUpperCase(), hex + '00', hex.slice(2), 'g'.repeat(64), Buffer.from(bytes()).toString('base64'), '', ' ' + hex, hex + '\n', hex + '\r\n']) {
       await expect(secrets(value).resolveBytes(ref)).rejects.toMatchObject({ message: `Secret ${ref} must contain exactly 64 lowercase hexadecimal characters.` });

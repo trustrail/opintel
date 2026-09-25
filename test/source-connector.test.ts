@@ -42,7 +42,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 beforeEach(async () => {
   seen = [];
   stall = undefined; status = 200;
-  responses = { '/health': { version: '1.0.0', contract: 1, duckdb: '1.4.3', canonicalisers: ['stdtext1','stdnum1','stddate1','stdtime1'] }, '/test-connection': { reachable: true }, '/estimate': { rows: null } };
+  responses = { '/health': { version: '1.0.0', contract: 2, queryEngineVersion: '1.4.3', canonicalisers: ['stdtext1','stdnum1','stddate1','stdtime1'] }, '/test-connection': { reachable: true }, '/estimate': { rows: null } };
   server = createServer({ ca: tls.ca, cert: tls.pinnedCertificate, key: readFileSync(join(dir, 'server.key')), requestCert: true, rejectUnauthorized: true }, (req, res) => {
     if ((req.socket as TLSSocket).getPeerCertificate().fingerprint256 !== new X509Certificate(tls.cert).fingerprint256) { req.socket.destroy(); return; }
     const chunks: Buffer[] = [];
@@ -77,9 +77,14 @@ describe('SourceConnector sidecar wire contract', () => {
     expect(seen[0]).toEqual({ path: '/health', method: 'POST', body: undefined });
     expect(seen[1]).toEqual({ path: '/test-connection', method: 'POST', body: { requestId: context.requestId, projectId: context.projectId, sourceId: context.sourceId, credentialRef: ref, payload: {} } });
   });
-  it.each([0, 2])('refuses contract %s without contacting the source', async (contract) => {
-    responses['/health'] = { version: '1.0.0', contract, duckdb: '1.4.3', canonicalisers: ['stdtext1','stdnum1','stddate1','stdtime1'] };
-    expect(await client().testConnection(ref)).toMatchObject({ ok: false, error: { code: 'dependency_unavailable', message: expect.stringContaining('contract 1') } });
+  it.each([0, 1, 3])('refuses contract %s without contacting the source', async (contract) => {
+    responses['/health'] = { version: '1.0.0', contract, queryEngineVersion: '1.4.3', canonicalisers: ['stdtext1','stdnum1','stddate1','stdtime1'] };
+    expect(await client().testConnection(ref)).toMatchObject({ ok: false, error: { code: 'dependency_unavailable', message: expect.stringContaining('contract 2') } });
+    expect(seen.map(({ path }) => path)).toEqual(['/health']);
+  });
+  it('refuses the original contract-1 health payload before source contact', async () => {
+    responses['/health'] = { version: '1.0.0', contract: 1, duckdb: '1.4.3', canonicalisers: ['stdtext1'] };
+    expect(await client().testConnection(ref)).toMatchObject({ ok: false, error: { message: 'Sidecar contract mismatch: this application requires contract 2.' } });
     expect(seen.map(({ path }) => path)).toEqual(['/health']);
   });
   it('rejects an unpinned server even when its CA is trusted', async () => {

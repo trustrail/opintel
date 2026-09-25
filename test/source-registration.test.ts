@@ -133,7 +133,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);
   const result=await service.idle();expect(result).toMatchObject({ok:false,error:{code:unexpected?'dependency_unavailable':'conflict'}});
   const listed=await(await request(path())).json();
-  const expected=unexpected?'A source dependency is unavailable. Check the sidecar, Vault configuration and receipt listener, then retry.':sourceMessages.templateConflict;
+  const expected=unexpected?'A source dependency is unavailable. Check the sidecar, secret-store configuration and receipt listener, then retry.':sourceMessages.templateConflict;
   expect(listed.items[0]).toMatchObject({id:reserved,status:'introspection_failed',error:expected});
   const [failedRun]=await withTenant({projectId,userId},tx=>tx.query<{id:string}>('SELECT id FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[reserved]));
   expect(listed.items[0].latestIntrospectionId).toBe(failedRun?.id);

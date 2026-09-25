@@ -22,7 +22,7 @@ const fallback: Partial<Record<ErrorCode,string>> = {
   conflict: 'The source operation conflicts with existing state. Ask the deployment operator to inspect the source and local register before retrying.',
   not_found: 'The source or demo preparation was not found. Check the project preparation before retrying.',
   source_unavailable: 'The source could not be reached. Check its connection and credentials, then retry.',
-  dependency_unavailable: 'A source dependency is unavailable. Check the sidecar, Vault configuration and receipt listener, then retry.',
+  dependency_unavailable: 'A source dependency is unavailable. Check the sidecar, secret-store configuration and receipt listener, then retry.',
   object_unavailable: 'The source object is unavailable. Check the selected schemas and source permissions, then retry.',
   budget_exceeded: 'The source connection limit was reached. Wait for active operations to finish, then retry.',
 };

@@ -87,7 +87,7 @@ test('E-009: distinguishes three people, both survives revocation, and thin trac
   await page.getByRole('button', { name: /Dara Okafor/ }).click();
   await expect(page.getByText('Removing the project grant would not remove company access.', { exact: false })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Allowed · Direct project grant' })).toContainText('Set entitlements');
-  await page.getByText('SpiceDB trace', { exact: true }).click();
+  await page.getByText('Authorization trace', { exact: true }).click();
   await expect(page.getByText('No additional trace detail returned.').first()).toBeVisible();
   expect(state.explanations).toEqual(ids);
   await page.getByLabel('Show', { exact: true }).selectOption('project');

@@ -53,7 +53,7 @@ export async function checkLocalSidecar(file=resolve(sidecarDevDirectory,'client
       let body='';
       res.on('error',reject);
       res.on('data',(chunk:Buffer)=>{body+=chunk.toString('utf8');if(body.length>8192)res.destroy(new Error('Invalid health response.'));});
-      res.on('end',()=>{try{const health=healthResponse.parse(JSON.parse(body) as unknown);if(res.statusCode!==200||health.contract!==1)throw new Error('Contract mismatch');resolve();}catch{reject(new Error('Local sidecar has an invalid health response or contract mismatch.'));}});
+      res.on('end',()=>{try{const health=healthResponse.parse(JSON.parse(body) as unknown);if(res.statusCode!==200||health.contract!==2)throw new Error('Contract mismatch');resolve();}catch{reject(new Error('Local sidecar has an invalid health response or contract mismatch.'));}});
     });
     req.on('error',reject);req.end();
   });

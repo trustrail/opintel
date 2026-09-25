@@ -99,9 +99,10 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     if (signal.aborted) return err(new DomainError('source_unavailable', 'Source request cancelled.'));
     try {
       if (!this.contractChecked) {
-        const health = wire.healthResponse.safeParse(await this.post('/health', undefined, signal));
-        if (!health.success) return this.malformed();
-        if (health.data.contract !== 1) return err(new DomainError('dependency_unavailable', 'Sidecar contract mismatch: this application requires contract 1.'));
+        const response = await this.post('/health', undefined, signal);
+        const version = wire.healthContract.safeParse(response);
+        if (version.success && version.data.contract !== 2) return err(new DomainError('dependency_unavailable', 'Sidecar contract mismatch: this application requires contract 2.'));
+        if (!wire.healthResponse.safeParse(response).success) return this.malformed();
         this.contractChecked = true;
       }
       const response = schema.safeParse(await this.post(path, body.data, signal));

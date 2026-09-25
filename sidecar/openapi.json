@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Opintel sidecar",
-    "version": "1"
+    "version": "2"
   },
   "components": {
     "securitySchemes": {
@@ -950,7 +950,7 @@
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
-                    "duckdb": {
+                    "queryEngineVersion": {
                       "type": "string"
                     },
                     "canonicalisers": {
@@ -964,7 +964,7 @@
                   "required": [
                     "version",
                     "contract",
-                    "duckdb",
+                    "queryEngineVersion",
                     "canonicalisers"
                   ],
                   "additionalProperties": false

@@ -28,7 +28,7 @@ remain separate and unchanged.
 Supply a `SamplingAuditPort` that persists identifier-only events.
 The connector consumes the §2.7 request envelopes, with
 Zod validation, and returns `Result` values. The host maps `forbidden` to HTTP
-403; successful values have the declared wire response shape. The HTTP host serves `/health` without source contact and reports contract 1. Resolve secret references only
+403; successful values have the declared wire response shape. The HTTP host serves `/health` without source contact and reports contract 2. Resolve secret references only
 inside this runtime. Do not log raw driver exceptions or resolved credentials.
 
 Sampling records `started` before source contact and `completed` or `failed`

@@ -55,7 +55,7 @@ as a substitute for this preflight. CI uses the same bootstrap and checks.
 `npm run dev:up` generates a local CA and separate server/client certificates
 under ignored `tmp/sidecar/tls/`, then starts the sidecar as a background Node
 process at **https://127.0.0.1:3100**. It waits for an authenticated, pinned
-`POST /health` with contract 1. A healthy existing process is reused. This is a
+`POST /health` with contract 2. A healthy existing process is reused. This is a
 local development process, not a container image or deployment package.
 
 - Server configuration: `tmp/sidecar/service.json`.
@@ -110,7 +110,7 @@ const connector = new SidecarSourceConnector('postgres', sourceContext, options)
 `sourceContext` supplies the request, project and source IDs and the existing
 sampling-consent/catalogue resolver. The client pins the server; the server pins
 the application certificate. There is no bearer token. `/health` reports
-`duckdb: "not-loaded"` until the separately implemented S2 runtime exists.
+`queryEngineVersion: "not-loaded"` until the separately implemented S2 runtime exists.
 
 The five POST routes are `/health`, `/test-connection`, `/introspect`, `/sample`
 and `/estimate`. `/health` has no body; the other routes use §2.7's envelope.

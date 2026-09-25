@@ -71,4 +71,4 @@ async function main(): Promise<void> {
   finally {await runtime.close();await hub.close();await redis.close();}
   console.info(`Demo source ${sourceId} connected. Inspect its catalogue and register for outcomes.`);
 }
-void main().catch((error: unknown) => { if (error instanceof DomainError) {console.error({ event: 'demo.command_failed', errorCategory: error.code });process.stderr.write(error.message+'\n');} console.error('Demo command failed. Check the project, source, configured Vault reference, running API/sidecar and local register. No existing arrivals were replaced.'); process.exitCode=1; });
+void main().catch((error: unknown) => { if (error instanceof DomainError) {console.error({ event: 'demo.command_failed', errorCategory: error.code });process.stderr.write(error.message+'\n');} console.error('Demo command failed. Check the project, source, configured Secret reference, running API/sidecar and local register. No existing arrivals were replaced.'); process.exitCode=1; });
