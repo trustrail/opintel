@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, vi } from 'vitest';
 import { Entitlement, TreatmentStrategies, type Treatment, type MaskKind, type TokenizerPort } from '../src/modules/entitlements/index.js';
-import type { DuckDbType } from '../src/modules/catalog/index.js';
+import type { ExposedType } from '../src/modules/catalog/index.js';
 import { DomainError, ElementId, ProjectId, PoolId, UserId, Timestamp, ok, err, type Result } from '../src/shared/kernel/index.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw new Error(r.error.message);return r.value;};
 const element=ElementId(randomUUID()),project=ProjectId(randomUUID()),pool=PoolId(randomUUID()),user=UserId(randomUUID());
@@ -56,7 +56,7 @@ describe('4.2 treatment strategies',()=>{
   ['year','TIMESTAMP','1978-12-31 25:00:00','****'],['year','DATE',new Date('invalid'),'****'],
   ['year','TIMESTAMPTZ',new Date('2001-01-01T01:00:00Z'),'2001'],
  ] as const)('H-007: %s on %s masks safely (%#)',async(kind,type,value,expected)=>{
-  const strategy=unwrap(new TreatmentStrategies().resolve({id:element,type:type as DuckDbType},decision('masked',kind)));
+  const strategy=unwrap(new TreatmentStrategies().resolve({id:element,type:type as ExposedType},decision('masked',kind)));
   if(strategy.kind!=='masked')throw new Error();expect(strategy.outputType).toBe('VARCHAR');
   expect(unwrap(await strategy.apply(value))).toBe(expected);expect(unwrap(await strategy.apply(null))).toBeNull();
  });

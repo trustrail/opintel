@@ -18,7 +18,7 @@ integration('pool schema with real Postgres',()=>{
   });
   await scope(async tx=>{
    await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,projectId]);
-   await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/warehouse')",[source,projectId]);
+   await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/warehouse')",[source,projectId]);
    await tx.query('INSERT INTO pool_source_binding(pool_id,source_id,project_id) VALUES($1,$2,$3)',[pool,source,projectId]);
   });
  });

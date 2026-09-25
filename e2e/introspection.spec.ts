@@ -3,11 +3,11 @@ import {expect,type Page } from '@playwright/test';
 import axe from 'axe-core';
 const project='018f8f9d-7f83-7abc-8def-000000000001';const source='018f8f9d-7f83-7abc-8def-000000000002';const id='018f8f9d-7f83-7abc-8def-000000000003';
 const run={id,sourceId:source,state:'complete',progress:{objects:3,total:null},error:null as string|null,startedAt:'2026-09-20T10:00:00Z',endedAt:'2026-09-20T10:00:04Z',diff:[
- {change:'type_changed',elementId:id,duckdbName:'written_amount',before:'integer',after:'varchar',breaking:true},
- {change:'type_changed',elementId:id,duckdbName:'description',before:'varchar(50)',after:'varchar(100)',breaking:false},
- {change:'renamed',elementId:id,duckdbName:'original_name',before:'Original Name',after:'New Name',breaking:false},
- {change:'removed',elementId:id,duckdbName:'retired_field',before:null,after:null,breaking:false},
- {change:'added',elementId:id,duckdbName:'new_field',before:null,after:null,breaking:false},
+ {change:'type_changed',elementId:id,exposedName:'written_amount',before:'integer',after:'varchar',breaking:true},
+ {change:'type_changed',elementId:id,exposedName:'description',before:'varchar(50)',after:'varchar(100)',breaking:false},
+ {change:'renamed',elementId:id,exposedName:'original_name',before:'Original Name',after:'New Name',breaking:false},
+ {change:'removed',elementId:id,exposedName:'retired_field',before:null,after:null,breaking:false},
+ {change:'added',elementId:id,exposedName:'new_field',before:null,after:null,breaking:false},
 ]};
 async function mock(page:Page){const state={run:structuredClone(run),error:false,loading:false,empty:false,requests:0,cancels:0,role:'admin',cursor:false};
  await page.addInitScript(() => {

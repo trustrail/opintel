@@ -3,7 +3,7 @@ import {
   CompanyId,
   DemoSourceId,
   DomainError,
-  DuckDbName,
+  ExposedName,
   ElementId,
   err,
   FilingId,
@@ -45,7 +45,7 @@ describe('shared kernel value objects', () => {
     }
 
     for (const [factory, malformed] of [
-      [DuckDbName, 'select'],
+      [ExposedName, 'select'],
       [IndustrySlug, 'Reinsurance Treaty'],
       [PoolKey, 'opk_live_short'],
       [ProjectName, ''],

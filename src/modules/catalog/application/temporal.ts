@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DomainError, err, ok, type Result, type ElementId, type ProjectId, type SourceId, type UserId } from '../../../shared/kernel/index.js';
-import type { DuckDbType } from '../domain/type-mapping.js';
+import type { ExposedType } from '../domain/type-mapping.js';
 
 export const sourceTimezone = z.string().refine(value => {
   // Reject offset strings: declarations name an IANA zone, never a host default.
@@ -22,13 +22,13 @@ export interface TemporalRepository {
   setElement(ctx: TemporalContext, element: ElementId, input: unknown): Promise<Result<TemporalView>>;
   setSchema(ctx: TemporalContext, source: SourceId, schema: string, input: unknown): Promise<Result<void>>;
 }
-export function validateTemporalType(type: DuckDbType | null, declarations: TemporalDeclarations): Result<void> {
+export function validateTemporalType(type: ExposedType | null, declarations: TemporalDeclarations): Result<void> {
   if (declarations.epochUnit !== null && (type === null || !['TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(type))) {
     return err(new DomainError('validation_failed', 'epochUnit may only be declared on an integer column.'));
   }
   return ok(undefined);
 }
-export function validateTokenizedTemporal(type: DuckDbType | null, declarations: TemporalDeclarations): Result<void> {
+export function validateTokenizedTemporal(type: ExposedType | null, declarations: TemporalDeclarations): Result<void> {
   const valid = validateTemporalType(type, declarations);
   if (!valid.ok) return valid;
   if (type === 'TIMESTAMP' && declarations.sourceTimezone === null) {

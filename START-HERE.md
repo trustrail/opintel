@@ -270,7 +270,7 @@ operator step.
 
 Open **Data sources → Explore schema**. Each expansion fetches one cursor-paginated
 level; the prefix box searches only the selected level. The console shows stored
-DuckDB names and mapped types, including undecided elements. Agent describe still
+exposed names and mapped types, including undecided elements. Agent describe still
 omits undecided elements. The catalogue query family is ready for 3.16 invalidation;
 this item does not establish an SSE connection.
 

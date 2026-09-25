@@ -39,7 +39,7 @@ beforeEach(async () => {
     if (industry===undefined || company===undefined) throw new Error('Missing fixture.');
     await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$3,$4,'Source A','eu-west-1'),($2,$3,$4,'Source B','eu-west-1')",[ctx.projectId,otherProject,company.id,industry.id]);
   });
-  await withTenant(ctx,(tx) => tx.query("INSERT INTO data_source(id,project_id,kind,name,credential_ref,status,duckdb_alias) VALUES($1,$2,'postgres','Warehouse','vault://test/source','connected','warehouse')",[sourceId,ctx.projectId]));
+  await withTenant(ctx,(tx) => tx.query("INSERT INTO data_source(id,project_id,kind,name,credential_ref,status,exposed_alias) VALUES($1,$2,'postgres','Warehouse','vault://test/source','connected','warehouse')",[sourceId,ctx.projectId]));
   discovery=snapshot();
   connector={kind:'postgres',testConnection:async()=>ok(undefined),introspect:async()=>ok(discovery),sampleTopValues:async()=>ok(new Map()),estimateRowCount:async()=>ok(null)};
   job=new IntrospectionJob(store,()=>connector);
@@ -59,11 +59,11 @@ async function view(id:string){const response=await request(`/introspections/${i
 it('G-003 to G-009: exposes durable diff facts, empty reruns and type-family breaking changes',async()=>{
  const first=await run();expect((await view(first.id)).diff?.some(d=>d.change==='added')).toBe(true);
  expect((await view((await run()).id)).diff).toEqual([]);
- discovery=snapshot('renamed');const renamed=await run();expect((await view(renamed.id)).diff).toContainEqual(expect.objectContaining({change:'renamed',duckdbName:'label',before:'label',after:'renamed',breaking:false}));
+ discovery=snapshot('renamed');const renamed=await run();expect((await view(renamed.id)).diff).toContainEqual(expect.objectContaining({change:'renamed',exposedName:'label',before:'label',after:'renamed',breaking:false}));
  discovery=snapshot('renamed','varchar(50)');await run();discovery=snapshot('renamed','varchar(100)');const widened=await view((await run()).id);expect(widened.diff).toContainEqual(expect.objectContaining({change:'type_changed',before:'varchar(50)',after:'varchar(100)',breaking:false}));
  discovery=snapshot('renamed','integer');const changed=await view((await run()).id);expect(changed.diff).toContainEqual(expect.objectContaining({change:'type_changed',before:'varchar(100)',after:'integer',breaking:true}));
  discovery=snapshot('again','integer');discovery.objects[0]!.columns[0]!.stableRef=null;const replaced=await view((await run()).id);expect(replaced.diff?.map(d=>d.change)).toEqual(expect.arrayContaining(['removed','added']));
- expect((await view(renamed.id)).diff).toContainEqual(expect.objectContaining({before:'label',after:'renamed',duckdbName:'label'}));
+ expect((await view(renamed.id)).diff).toContainEqual(expect.objectContaining({before:'label',after:'renamed',exposedName:'label'}));
 });
 it('scopes reads, checks permissions, and binds cursor pagination to project and source',async()=>{
  const first=await run();await run();const response=await request(`/sources/${sourceId}/introspections?limit=1`);const page=IntrospectionRunList.parse(await response.json());expect(page.items).toHaveLength(1);expect(page.nextCursor).not.toBeNull();

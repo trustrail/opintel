@@ -9,12 +9,12 @@ export async function mock(page:Page){
   const url=new URL(route.request().url());const path=url.pathname;
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id:object,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:project,name:'Reporting',company:{id:object,name:'Example Company'},industry:{id:object,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
-  if(path.endsWith('/sources'))return route.fulfill({json:{items:[{id:source,name:'Renamed Warehouse',duckdbAlias:'warehouse',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:null,filingCount:null,elementCount:5000,undecidedCount:5000,latestIntrospectionId:null,lastIntrospectedAt:null}],nextCursor:null}});
+  if(path.endsWith('/sources'))return route.fulfill({json:{items:[{id:source,name:'Renamed Warehouse',exposedAlias:'warehouse',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:null,filingCount:null,elementCount:5000,undecidedCount:5000,latestIntrospectionId:null,lastIntrospectedAt:null}],nextCursor:null}});
   if(path.endsWith('/catalog')){
    const parent=url.searchParams.get('parent')??'';const prefix=url.searchParams.get('prefix')??'';const cursor=url.searchParams.get('cursor');state.requests.push({parent,prefix,cursor});
    if(state.loading)await new Promise(resolve=>setTimeout(resolve,1000));
    if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'The catalogue is temporarily unavailable. Try again.',requestId:'catalog-test',retryable:true}}});
-   const base={childCount:1,duckdbType:null,state:null};
+   const base={childCount:1,exposedType:null,state:null};
    let nodes:unknown[];let nextCursor:string|null=null;
    if(state.empty)nodes=[];
    else if(!parent)nodes=prefix&&!('warehouse'.startsWith(prefix))?[]:[{...base,id:source,kind:'source',label:'warehouse'}];
@@ -23,9 +23,9 @@ export async function mock(page:Page){
    else if(state.large){
     // Each request is still one bounded page. The test drives every page explicitly.
     const start=Number(cursor??0);const count=50;
-    nodes=Array.from({length:Math.min(count,5000-start)},(_,i)=>({id:`element-${start+i}`,kind:'element',label:`field_${String(start+i).padStart(4,'0')}`,childCount:null,duckdbType:'VARCHAR',state:'undecided'}));
+    nodes=Array.from({length:Math.min(count,5000-start)},(_,i)=>({id:`element-${start+i}`,kind:'element',label:`field_${String(start+i).padStart(4,'0')}`,childCount:null,exposedType:'VARCHAR',state:'undecided'}));
     nextCursor=start+count<5000?String(start+count):null;
-   }else nodes=[{id:'number',label:'record_id',duckdbType:'INTEGER',state:'undecided'},{id:'text',label:'record_name',duckdbType:'VARCHAR',state:'undecided'},{id:'unsupported',label:'location',duckdbType:null,state:'unsupported'},{id:'unnameable',label:null,duckdbType:null,state:'unnameable'}].filter(n=>!prefix||n.label?.startsWith(prefix)).map(n=>({...n,kind:'element',childCount:null}));
+   }else nodes=[{id:'number',label:'record_id',exposedType:'INTEGER',state:'undecided'},{id:'text',label:'record_name',exposedType:'VARCHAR',state:'undecided'},{id:'unsupported',label:'location',exposedType:null,state:'unsupported'},{id:'unnameable',label:null,exposedType:null,state:'unnameable'}].filter(n=>!prefix||n.label?.startsWith(prefix)).map(n=>({...n,kind:'element',childCount:null}));
    return route.fulfill({json:{nodes,nextCursor}});
   }
   return route.fulfill({status:404,json:{}});

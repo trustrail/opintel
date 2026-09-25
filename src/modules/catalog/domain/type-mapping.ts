@@ -1,4 +1,4 @@
-export type DuckDbType =
+export type ExposedType =
   | 'BOOLEAN' | 'TINYINT' | 'SMALLINT' | 'INTEGER' | 'BIGINT' | 'HUGEINT'
   | 'FLOAT' | 'DOUBLE' | `DECIMAL(${number},${number})`
   | 'VARCHAR' | 'DATE' | 'TIME' | 'TIMESTAMP' | 'TIMESTAMPTZ'
@@ -10,7 +10,7 @@ export type SourceTypeSpec = string
   | { kind: 'array'; element: SourceTypeSpec }
   | { kind: 'struct'; fields: readonly { name: string; type: SourceTypeSpec }[] };
 
-const simpleTypes: Readonly<Record<string, DuckDbType>> = {
+const simpleTypes: Readonly<Record<string, ExposedType>> = {
   bool: 'BOOLEAN', boolean: 'BOOLEAN', tinyint: 'TINYINT', smallint: 'SMALLINT', int2: 'SMALLINT',
   int: 'INTEGER', integer: 'INTEGER', int4: 'INTEGER', bigint: 'BIGINT', int8: 'BIGINT', hugeint: 'HUGEINT',
   real: 'FLOAT', float4: 'FLOAT', float: 'FLOAT', float8: 'DOUBLE', double: 'DOUBLE', 'double precision': 'DOUBLE',
@@ -23,7 +23,7 @@ const simpleTypes: Readonly<Record<string, DuckDbType>> = {
 
 // Null is an unsupported type, never an undecided entitlement. Unknown widths,
 // precision and nested fields are not guessed or silently narrowed.
-export function mapSourceType(source: SourceTypeSpec): DuckDbType | null {
+export function mapSourceType(source: SourceTypeSpec): ExposedType | null {
   if (typeof source !== 'string') {
     switch (source.kind) {
       case 'uuid': return source.wellFormed ? 'UUID' : 'VARCHAR';
@@ -58,7 +58,7 @@ export function mapSourceType(source: SourceTypeSpec): DuckDbType | null {
 }
 
 export type Treatment = 'clear' | 'tokenized' | 'masked' | 'aggregate_only' | 'withheld';
-export function postTreatmentType(type: DuckDbType | null, treatment: Treatment | null): DuckDbType | null {
+export function postTreatmentType(type: ExposedType | null, treatment: Treatment | null): ExposedType | null {
   if (type === null || treatment === null || treatment === 'withheld') return null;
   return treatment === 'tokenized' || treatment === 'masked' ? 'VARCHAR' : type;
 }

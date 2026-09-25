@@ -96,14 +96,14 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       const [source] = await tx.query<IntrospectionSource>('SELECT id,project_id AS "projectId",status FROM data_source WHERE id=$1 FOR UPDATE',[current.value.sourceId]);
       if (source === undefined || source.status === 'archived') return conflict();
       const states = await tx.query<CatalogObjectState>(`SELECT id,source_id AS "sourceId",project_id AS "projectId",schema_name AS "schemaName",
-        object_name AS "objectName",object_kind AS kind,duckdb_schema AS "duckdbSchema",duckdb_name AS "duckdbName",name_revision AS "nameRevision",
+        object_name AS "objectName",object_kind AS kind,exposed_schema AS "exposedSchema",exposed_name AS "exposedName",name_revision AS "nameRevision",
         lineage_known AS "lineageKnown",row_estimate::float8 AS "rowEstimate",description,status FROM catalog_object WHERE source_id=$1
         AND (CASE WHEN cardinality($2::text[])=0 THEN schema_name <> 'information_schema' AND left(schema_name,3) <> 'pg_' ELSE schema_name=ANY($2::text[]) END) FOR UPDATE`,[source.id,current.value.include]);
       const previous: CatalogObject[] = [];
       for (const state of states) {
         const elements = await tx.query<Omit<ElementState, 'discoveredAt' | 'removedAt'> & { discoveredAt: Date; removedAt: Date | null }>(`SELECT id,object_id AS "objectId",project_id AS "projectId",
-          source_identifier AS "sourceIdentifier",stable_ref AS "stableRef",source_type AS "sourceType",duckdb_type AS "duckdbType",
-          duckdb_name AS "duckdbName",name_revision AS "nameRevision",nullable,is_key AS "isKey",description,status,
+          source_identifier AS "sourceIdentifier",stable_ref AS "stableRef",source_type AS "sourceType",exposed_type AS "exposedType",
+          exposed_name AS "exposedName",name_revision AS "nameRevision",nullable,is_key AS "isKey",description,status,
           discovered_at AS "discoveredAt",removed_at AS "removedAt" FROM catalog_element WHERE object_id=$1 FOR UPDATE`,[state.id]);
         const aggregate = CatalogObject.create(state,elements.map((element) => new CatalogElement({...element,discoveredAt:Timestamp(element.discoveredAt),removedAt:element.removedAt===null?null:Timestamp(element.removedAt)})));
         if (!aggregate.ok) throw new PublicationRefused(aggregate.error);
@@ -131,10 +131,10 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       await tx.query('DELETE FROM entitlement WHERE element_id=ANY($1::uuid[])',[invalidated]);
       for (const object of staged.value.objects) {
         const s = object.state;
-        await tx.query(`INSERT INTO catalog_object(id,source_id,project_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name,name_revision,lineage_known,row_estimate,description,status)
+        await tx.query(`INSERT INTO catalog_object(id,source_id,project_id,schema_name,object_name,object_kind,exposed_schema,exposed_name,name_revision,lineage_known,row_estimate,description,status)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(id) DO UPDATE SET
           object_kind=EXCLUDED.object_kind,row_estimate=EXCLUDED.row_estimate,status=EXCLUDED.status`,
-          [s.id,s.sourceId,s.projectId,s.schemaName,s.objectName,s.kind,s.duckdbSchema,s.duckdbName,s.nameRevision??0,s.lineageKnown,s.rowEstimate,s.description,s.status]);
+          [s.id,s.sourceId,s.projectId,s.schemaName,s.objectName,s.kind,s.exposedSchema,s.exposedName,s.nameRevision??0,s.lineageKnown,s.rowEstimate,s.description,s.status]);
         // Stable-reference renames can exchange two source names. Vacate those
         // names inside this transaction before applying the final snapshot;
         // intermediate identifiers are never visible to catalogue readers.
@@ -149,11 +149,11 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
           await tx.query('UPDATE catalog_element SET source_identifier=$2 WHERE id=$1',[element.id,temporary]);
         }
         for (const {state:e} of object.elements) {
-          await tx.query(`INSERT INTO catalog_element(id,object_id,project_id,source_identifier,stable_ref,source_type,duckdb_type,duckdb_name,name_revision,nullable,is_key,description,status,discovered_at,removed_at)
+          await tx.query(`INSERT INTO catalog_element(id,object_id,project_id,source_identifier,stable_ref,source_type,exposed_type,exposed_name,name_revision,nullable,is_key,description,status,discovered_at,removed_at)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(id) DO UPDATE SET
-            duckdb_name=EXCLUDED.duckdb_name,name_revision=EXCLUDED.name_revision,source_identifier=EXCLUDED.source_identifier,stable_ref=EXCLUDED.stable_ref,source_type=EXCLUDED.source_type,duckdb_type=EXCLUDED.duckdb_type,
+            exposed_name=EXCLUDED.exposed_name,name_revision=EXCLUDED.name_revision,source_identifier=EXCLUDED.source_identifier,stable_ref=EXCLUDED.stable_ref,source_type=EXCLUDED.source_type,exposed_type=EXCLUDED.exposed_type,
             nullable=EXCLUDED.nullable,is_key=EXCLUDED.is_key,description=EXCLUDED.description,status=EXCLUDED.status,removed_at=EXCLUDED.removed_at`,
-            [e.id,e.objectId,e.projectId,e.sourceIdentifier,e.stableRef,e.sourceType,e.duckdbType,e.duckdbName,e.nameRevision??0,e.nullable,e.isKey,e.description,e.status,e.discoveredAt,e.removedAt]);
+            [e.id,e.objectId,e.projectId,e.sourceIdentifier,e.stableRef,e.sourceType,e.exposedType,e.exposedName,e.nameRevision??0,e.nullable,e.isKey,e.description,e.status,e.discoveredAt,e.removedAt]);
         }
       }
       await tx.query("UPDATE introspection_run SET state='complete',ended_at=now(),progress=progress || jsonb_build_object('phase','complete','objects',$2::int) WHERE id=$1",[id,staged.value.objects.length]);

@@ -107,7 +107,7 @@ describe('tokenization execution contract', () => {
     for (const field of ['token', 'key', 'value', 'sql', 'exception']) expect(tokenEventSchema.safeParse({ ...allowed, [field]: 'sensitive' }).success).toBe(false);
   });
   it('TOK-17: describe declares VARCHAR for a tokenized integer', () => {
-    expect(describeElement({ id: 'element', sourceIdentifier: 'id', sourceType: 'integer', duckdbName: 'id', duckdbType: 'INTEGER', status: 'active' } as Parameters<typeof describeElement>[0], 'tokenized').declaredType).toBe('VARCHAR');
+    expect(describeElement({ id: 'element', sourceIdentifier: 'id', sourceType: 'integer', exposedName: 'id', exposedType: 'INTEGER', status: 'active' } as Parameters<typeof describeElement>[0], 'tokenized').declaredType).toBe('VARCHAR');
   });
   it('TOK-19/TOK-21/TOK-22/TOK-35: temporal declarations, grammar and DST refusal', () => {
     for (const input of ['2026-09-21T11:30:00', '1790000000', '2026-09-21', '2026-09-21T00:00:00Z\n']) expect(withRun(run => run.tokenize(input, timestamp)).ok).toBe(false);

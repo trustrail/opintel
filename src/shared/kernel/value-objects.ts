@@ -18,7 +18,7 @@ export type FilingId = Brand<'FilingId'>;
 export type SessionId = Brand<'SessionId'>;
 export type InviteId = Brand<'InviteId'>;
 
-export type DuckDbName = Brand<'DuckDbName'>;
+export type ExposedName = Brand<'ExposedName'>;
 export type IndustrySlug = Brand<'IndustrySlug'>;
 export type PoolKey = Brand<'PoolKey'>;
 export type ProjectName = Brand<'ProjectName'>;
@@ -30,7 +30,7 @@ export type Region = 'eu-west-1' | 'us-east-1' | 'ap-southeast-1' | 'ap-southeas
 export type GrainRule = 'sum' | 'sum_over_sum' | 'avg_of_ratio' | 'none';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-const duckDbReservedWords = new Set([
+const reservedExposedNames = new Set([
   // DuckDB v1.4.3 parser/kwlist.hpp reserved entries, plus the existing
   // conservative identifier restrictions below. This is a discovery-time list.
   'analyse', 'analyze', 'any', 'array', 'asymmetric', 'both', 'collate',
@@ -78,11 +78,11 @@ export const FilingId = uuidFactory('FilingId');
 export const SessionId = uuidFactory('SessionId');
 export const InviteId = uuidFactory('InviteId');
 
-export const isDuckDbReservedWord = (raw: string): boolean => duckDbReservedWords.has(raw.toLowerCase());
+export const isReservedExposedName = (raw: string): boolean => reservedExposedNames.has(raw.toLowerCase());
 
-export const DuckDbName = textFactory(
-  'DuckDbName',
-  (raw) => /^[a-z_][a-z0-9_]{0,62}$/u.test(raw) && !isDuckDbReservedWord(raw),
+export const ExposedName = textFactory(
+  'ExposedName',
+  (raw) => /^[a-z_][a-z0-9_]{0,62}$/u.test(raw) && !isReservedExposedName(raw),
 );
 export const IndustrySlug = textFactory('IndustrySlug', (raw) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(raw));
 export const PoolKey = textFactory('PoolKey', (raw) => /^opk_live_[A-Za-z0-9]{22}$/u.test(raw));

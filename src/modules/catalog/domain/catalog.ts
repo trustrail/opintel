@@ -1,15 +1,15 @@
 import {
-  DomainError, err, ok, type DuckDbName, type ElementId, type ObjectId,
+  DomainError, err, ok, type ExposedName, type ElementId, type ObjectId,
   type ProjectId, type Result, type SourceId, type Timestamp,
 } from '../../../shared/kernel/index.js';
-import type { DuckDbType } from './type-mapping.js';
+import type { ExposedType } from './type-mapping.js';
 
 export type ElementDiscovery = Readonly<{
-  sourceIdentifier: string; stableRef: string | null; sourceType: string; duckdbType: DuckDbType | null;
+  sourceIdentifier: string; stableRef: string | null; sourceType: string; exposedType: ExposedType | null;
   nullable: boolean; isKey: boolean; description: string | null;
 }>;
 export type ElementState = ElementDiscovery & Readonly<{
-  id: ElementId; objectId: ObjectId; projectId: ProjectId; duckdbName: DuckDbName | null; nameRevision?: number;
+  id: ElementId; objectId: ObjectId; projectId: ProjectId; exposedName: ExposedName | null; nameRevision?: number;
   status: 'active' | 'removed'; discoveredAt: Timestamp; removedAt: Timestamp | null;
 }>;
 
@@ -23,7 +23,7 @@ export class CatalogElement {
 export type CatalogObjectState = Readonly<{
   id: ObjectId; sourceId: SourceId; projectId: ProjectId;
   schemaName: string; objectName: string; kind: 'table' | 'view' | 'fileset';
-  duckdbSchema: DuckDbName; duckdbName: DuckDbName; nameRevision?: number;
+  exposedSchema: ExposedName; exposedName: ExposedName; nameRevision?: number;
   lineageKnown: boolean; rowEstimate: number | null; description: string | null;
   status: 'active' | 'removed';
 }>;
@@ -33,8 +33,8 @@ export type CatalogChange = Readonly<{
   projectId: ProjectId; objectId: ObjectId; elementId?: ElementId; breaking?: true;
 }>;
 export type AssignElementIdentity = (
-  discovery: ElementDiscovery, reservedNames: readonly DuckDbName[],
-) => Result<{ id: ElementId; duckdbName: DuckDbName | null; collision?: boolean }, DomainError>;
+  discovery: ElementDiscovery, reservedNames: readonly ExposedName[],
+) => Result<{ id: ElementId; exposedName: ExposedName | null; collision?: boolean }, DomainError>;
 
 export class CatalogObject {
   private objectState: CatalogObjectState;
@@ -65,19 +65,19 @@ export class CatalogObject {
 
   // Only this explicit command changes an existing exposed name. Item 3.6
   // authorizes the administrator and persists this revision with its diff.
-  adoptRenamedName(name: DuckDbName, elementId?: ElementId): Result<readonly CatalogChange[], DomainError> {
+  adoptRenamedName(name: ExposedName, elementId?: ElementId): Result<readonly CatalogChange[], DomainError> {
     if (elementId === undefined) {
-      if (name === this.state.duckdbName) return ok([]);
-      this.objectState = Object.freeze({ ...this.state, duckdbName: name, nameRevision: (this.state.nameRevision ?? 0) + 1 });
+      if (name === this.state.exposedName) return ok([]);
+      this.objectState = Object.freeze({ ...this.state, exposedName: name, nameRevision: (this.state.nameRevision ?? 0) + 1 });
     } else {
       const element = this.current.find((entry) => entry.state.id === elementId);
       if (element === undefined) return err(new DomainError('not_found', 'The catalogue element does not exist.'));
-      if (element.state.duckdbName === name) return ok([]);
-      if (this.current.some((entry) => entry.state.duckdbName === name)) {
+      if (element.state.exposedName === name) return ok([]);
+      if (this.current.some((entry) => entry.state.exposedName === name)) {
         return err(new DomainError('conflict', 'The exposed name is already assigned to another element.'));
       }
       this.current = Object.freeze(this.current.map((entry) => entry !== element ? entry : new CatalogElement({
-        ...entry.state, duckdbName: name, nameRevision: (entry.state.nameRevision ?? 0) + 1,
+        ...entry.state, exposedName: name, nameRevision: (entry.state.nameRevision ?? 0) + 1,
       })));
     }
     return ok([{ type: 'CatalogNameAdopted', projectId: this.state.projectId, objectId: this.state.id,
@@ -92,7 +92,7 @@ export class CatalogObject {
     const matched = new Set<ElementId>();
     const changes: CatalogChange[] = [];
     const next: CatalogElement[] = [];
-    const reservedNames = this.current.flatMap((element) => element.state.duckdbName === null ? [] : [element.state.duckdbName]);
+    const reservedNames = this.current.flatMap((element) => element.state.exposedName === null ? [] : [element.state.exposedName]);
     const change = (type: CatalogChange['type'], elementId: ElementId): void => {
       changes.push({ type, projectId: this.state.projectId, objectId: this.state.id, elementId });
     };
@@ -114,17 +114,17 @@ export class CatalogObject {
         // drift when a naming algorithm changes or a source column is renamed.
         const identity = assign(discovery, Object.freeze([...reservedNames]));
         if (!identity.ok) return identity;
-        if (this.current.some((element) => element.state.id === identity.value.id) || (identity.value.duckdbName !== null && reservedNames.includes(identity.value.duckdbName))) {
+        if (this.current.some((element) => element.state.id === identity.value.id) || (identity.value.exposedName !== null && reservedNames.includes(identity.value.exposedName))) {
           return err(new DomainError('conflict', 'A new element must have a new identity and an unused exposed name.'));
         }
-        if (identity.value.duckdbName !== null) reservedNames.push(identity.value.duckdbName);
+        if (identity.value.exposedName !== null) reservedNames.push(identity.value.exposedName);
         next.push(new CatalogElement({
-          ...discovery, id: identity.value.id, duckdbName: identity.value.duckdbName, objectId: this.state.id, projectId: this.state.projectId,
+          ...discovery, id: identity.value.id, exposedName: identity.value.exposedName, objectId: this.state.id, projectId: this.state.projectId,
           status: 'active', discoveredAt: now, removedAt: null,
         }));
         change('CatalogElementAdded', identity.value.id);
         if (identity.value.collision) change('CatalogNameCollision', identity.value.id);
-        if (identity.value.duckdbName === null) change('CatalogElementUnnameable', identity.value.id);
+        if (identity.value.exposedName === null) change('CatalogElementUnnameable', identity.value.id);
       }
     }
     for (const element of this.current) {
@@ -141,16 +141,16 @@ export class CatalogObject {
 
 function validateElements(elements: readonly CatalogElement[]): Result<void, DomainError> {
   const ids = new Set<ElementId>();
-  const names = new Set<DuckDbName>();
+  const names = new Set<ExposedName>();
   const identifiers = new Set<string>();
   const refs = new Set<string>();
   for (const { state } of elements) {
-    if (ids.has(state.id) || (state.duckdbName !== null && names.has(state.duckdbName)) || identifiers.has(state.sourceIdentifier)
+    if (ids.has(state.id) || (state.exposedName !== null && names.has(state.exposedName)) || identifiers.has(state.sourceIdentifier)
       || (state.stableRef !== null && refs.has(state.stableRef))) {
       return err(new DomainError('conflict', 'Catalogue element identities and names must be unique within an object.'));
     }
     ids.add(state.id);
-    if (state.duckdbName !== null) names.add(state.duckdbName);
+    if (state.exposedName !== null) names.add(state.exposedName);
     identifiers.add(state.sourceIdentifier);
     if (state.stableRef !== null) refs.add(state.stableRef);
   }

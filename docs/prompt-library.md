@@ -259,7 +259,7 @@ Done when a test proves a row value cannot be logged.
 ```
 3.1  Read: technical documentation §1.2 CatalogElement and §4.3b sources and catalog.
      Tests: G-006, G-007, G-012.
-     duckdb_name is assigned once and never recomputed.
+     exposed_name is assigned once and never recomputed.
 
 3.2  Read: technical documentation §4.4 the exposed namespace and type mapping.
      Tests: G-010 to G-013, R-003.

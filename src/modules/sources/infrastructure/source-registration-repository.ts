@@ -1,11 +1,11 @@
 import { CatalogNaming, AsciiTransliterator } from '../../catalog/index.js';
-import { DuckDbName } from '../../../shared/kernel/index.js';
+import { ExposedName } from '../../../shared/kernel/index.js';
 import { withTenant,withPlatform,type Tx } from '../../../platform/db/scope.js';
 import { DeploymentRef,SourceListItem, type NewSource } from '../../../shared/api/source-schemas.js';
 import { schemaSpecSchema,generatorSpecSchema } from '../../../shared/demo-contract.js';
 import { DomainError,DemoSourceId,err,ok,type IndustryId,type SourceId,type RunId } from '../../../shared/kernel/index.js';
 import type { SourceContext,SourceRegistrationRepository,QueuedSource } from '../application/source-registration.js';
-const selection=`SELECT s.id,s.name,s.duckdb_alias AS "duckdbAlias",s.kind,s.origin,CASE WHEN s.status='archived' THEN 'archived' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
+const selection=`SELECT s.id,s.name,s.exposed_alias AS "exposedAlias",s.kind,s.origin,CASE WHEN s.status='archived' THEN 'archived' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
  (SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS error,
  (SELECT r.id FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS "latestIntrospectionId",
  CASE WHEN s.receives_landings THEN (SELECT count(*)::int FROM arrival_notice a WHERE a.source_id=s.id AND a.payload->>'outcome'='landed') ELSE NULL END AS "filingCount",
@@ -39,10 +39,10 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   try{return await withTenant(ctx,async tx=>{
    // Serialize alias assignment within a project, including concurrent connects.
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',[ctx.projectId]);
-   const occupied=await tx.query<{duckdb_alias:string}>('SELECT duckdb_alias FROM data_source');
-   const alias=new CatalogNaming(new AsciiTransliterator()).assign(input.name,occupied.map(row=>DuckDbName(row.duckdb_alias))).name;
+   const occupied=await tx.query<{exposed_alias:string}>('SELECT exposed_alias FROM data_source');
+   const alias=new CatalogNaming(new AsciiTransliterator()).assign(input.name,occupied.map(row=>ExposedName(row.exposed_alias))).name;
    if(alias===null)return err(new DomainError('validation_failed','The source name normalises to nothing. Choose a name containing letters or numbers with an ASCII transliteration.'));
-   const inserted=await tx.query<{id:string}>(`INSERT INTO data_source(id,project_id,name,kind,origin,demo_template_id,credential_ref,sampling_consent,receives_landings,landing_strategy,duckdb_alias) VALUES($1,$2,$3,'postgres',$4,$5,$6,$7,$8,$9,$10) ${templateId?'ON CONFLICT(id) DO NOTHING':''} RETURNING id`,[id,ctx.projectId,input.name,templateId?'demo':'customer',templateId,input.credentialRef,input.samplingConsent,input.receivesLandings,input.landingStrategy,alias]);
+   const inserted=await tx.query<{id:string}>(`INSERT INTO data_source(id,project_id,name,kind,origin,demo_template_id,credential_ref,sampling_consent,receives_landings,landing_strategy,exposed_alias) VALUES($1,$2,$3,'postgres',$4,$5,$6,$7,$8,$9,$10) ${templateId?'ON CONFLICT(id) DO NOTHING':''} RETURNING id`,[id,ctx.projectId,input.name,templateId?'demo':'customer',templateId,input.credentialRef,input.samplingConsent,input.receivesLandings,input.landingStrategy,alias]);
    if(!inserted.length){
     const [existing]=await tx.query<{origin:string;demo_template_id:string|null;credential_ref:string;name:string;status:string;receives_landings:boolean;landing_strategy:string}>('SELECT origin,demo_template_id,credential_ref,name,status,receives_landings,landing_strategy FROM data_source WHERE id=$1 FOR UPDATE',[id]);
     if(!existing||existing.origin!=='demo'||existing.demo_template_id!==templateId||existing.credential_ref!==input.credentialRef||existing.name!==input.name||!existing.receives_landings||existing.landing_strategy!==input.landingStrategy)

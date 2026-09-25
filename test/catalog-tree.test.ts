@@ -9,7 +9,7 @@ import { catalogRoutes } from '../src/modules/catalog/api/tree-routes.js';
 import { PostgresCatalogTreeReader } from '../src/modules/catalog/infrastructure/tree.js';
 import { PostgresSourceRegistrationRepository } from '../src/modules/sources/infrastructure/source-registration-repository.js';
 import { CatalogNaming, AsciiTransliterator } from '../src/modules/catalog/index.js';
-import { ProjectId, UserId, SourceId, RunId, Timestamp, DuckDbName } from '../src/shared/kernel/index.js';
+import { ProjectId, UserId, SourceId, RunId, Timestamp, ExposedName } from '../src/shared/kernel/index.js';
 import type { AuthorizationPort, ZedToken } from '../src/modules/authz/index.js';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import upgrade from '../migrations/026_source_alias.up.js';
@@ -32,11 +32,11 @@ describe('catalogue tree scoped to real Postgres', () => {
       await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$3,$4,'A','eu-west-1'),($2,$3,$4,'B','eu-west-1')", [projectId,otherProject,company!.id,industry!.id]);
     });
     for (const [project, id] of [[projectId, sourceId],[otherProject, otherSource]] as const) await withTenant({projectId:project,userId}, async tx => {
-      await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,$2,'Renamed Warehouse','original_warehouse','postgres','vault://test/catalog')",[id,project]);
+      await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref) VALUES($1,$2,'Renamed Warehouse','original_warehouse','postgres','vault://test/catalog')",[id,project]);
     });
     await withTenant(ctx, async tx => {
-      await tx.query("INSERT INTO catalog_object(id,source_id,project_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name) VALUES($1,$2,$3,'Source Schema','Source Table','table','public','stored_table')",[objectId,sourceId,projectId]);
-      await tx.query(`INSERT INTO catalog_element(object_id,project_id,source_identifier,duckdb_name,source_type,duckdb_type) VALUES
+      await tx.query("INSERT INTO catalog_object(id,source_id,project_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,$3,'Source Schema','Source Table','table','public','stored_table')",[objectId,sourceId,projectId]);
+      await tx.query(`INSERT INTO catalog_element(object_id,project_id,source_identifier,exposed_name,source_type,exposed_type) VALUES
         ($1,$2,'Source Number','stored_number','int4','INTEGER'),($1,$2,'Source Text','stored_text','text','VARCHAR'),
         ($1,$2,'Source Unsupported','stored_unsupported','geometry',NULL),($1,$2,'---',NULL,'text','VARCHAR')`,[objectId,projectId]);
     });
@@ -48,15 +48,15 @@ describe('catalogue tree scoped to real Postgres', () => {
   afterEach(async () => { if(server)await new Promise<void>(resolve=>server.close(()=>resolve())); });
 
   it('R-001: fetches exactly one level, uses stored exposed names and types, and scopes every branch', async () => {
-    expect((await page()).nodes).toEqual([{kind:'source',id:sourceId,label:'original_warehouse',childCount:1,duckdbType:null,state:null}]);
-    const schemas = await page(`?parent=${sourceId}`); expect(schemas.nodes).toEqual([{kind:'schema',id:`${sourceId}:public`,label:'public',childCount:1,duckdbType:null,state:null}]);
+    expect((await page()).nodes).toEqual([{kind:'source',id:sourceId,label:'original_warehouse',childCount:1,exposedType:null,state:null}]);
+    const schemas = await page(`?parent=${sourceId}`); expect(schemas.nodes).toEqual([{kind:'schema',id:`${sourceId}:public`,label:'public',childCount:1,exposedType:null,state:null}]);
     expect((await page(`?parent=${schemas.nodes[0]!.id}`)).nodes[0]).toMatchObject({kind:'object',label:'stored_table',childCount:4});
     const elements = (await page(`?parent=${objectId}`)).nodes;
     expect(elements).toEqual(expect.arrayContaining([
-      expect.objectContaining({label:'stored_number',duckdbType:'INTEGER',state:'undecided'}),
-      expect.objectContaining({label:'stored_text',duckdbType:'VARCHAR',state:'undecided'}),
-      expect.objectContaining({label:'stored_unsupported',duckdbType:null,state:'unsupported'}),
-      expect.objectContaining({label:null,duckdbType:null,state:'unnameable'}),
+      expect.objectContaining({label:'stored_number',exposedType:'INTEGER',state:'undecided'}),
+      expect.objectContaining({label:'stored_text',exposedType:'VARCHAR',state:'undecided'}),
+      expect.objectContaining({label:'stored_unsupported',exposedType:null,state:'unsupported'}),
+      expect.objectContaining({label:null,exposedType:null,state:'unnameable'}),
     ]));
     expect(JSON.stringify(elements)).not.toContain('Source Number');
     expect((await page(`?parent=${objectId}&prefix=stored_n`)).nodes).toHaveLength(1);
@@ -69,7 +69,7 @@ describe('catalogue tree scoped to real Postgres', () => {
   });
 
   it('R-002: 50,000 elements remain bounded, cursor paginated, and cannot cross scope or prefix', async () => {
-    await withTenant(ctx,tx=>tx.query(`INSERT INTO catalog_element(object_id,project_id,source_identifier,duckdb_name,source_type,duckdb_type)
+    await withTenant(ctx,tx=>tx.query(`INSERT INTO catalog_element(object_id,project_id,source_identifier,exposed_name,source_type,exposed_type)
       SELECT $1,$2,'Column '||n,'column_'||n,'int4','INTEGER' FROM generate_series(1,50000) n`,[objectId,projectId]));
     const first = await page(`?parent=${objectId}`); expect(first.nodes).toHaveLength(50); expect(first.nextCursor).not.toBeNull();
     const second = await page(`?parent=${objectId}&cursor=${first.nextCursor}`); expect(second.nodes).toHaveLength(50);
@@ -81,8 +81,8 @@ describe('catalogue tree scoped to real Postgres', () => {
 
   it('paginates sources, schemas and objects without normalising stored names again', async () => {
     await withTenant(ctx, async tx => {
-      await tx.query("INSERT INTO data_source(project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,'Second','second','postgres','vault://test/catalog')",[projectId]);
-      await tx.query(`INSERT INTO catalog_object(source_id,project_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name)
+      await tx.query("INSERT INTO data_source(project_id,name,exposed_alias,kind,credential_ref) VALUES($1,'Second','second','postgres','vault://test/catalog')",[projectId]);
+      await tx.query(`INSERT INTO catalog_object(source_id,project_id,schema_name,object_name,object_kind,exposed_schema,exposed_name)
         VALUES($1,$2,'Other','Order','table','z_schema','order_col'),($1,$2,'Source Schema','Other','view','public','other')`,[sourceId,projectId]);
     });
     for(const parent of ['',sourceId,`${sourceId}:public`]){
@@ -96,11 +96,11 @@ describe('catalogue tree scoped to real Postgres', () => {
     const repository=new PostgresSourceRegistrationRepository();
     const create=(name:string)=>repository.create(ctx,SourceId(randomUUID()),RunId(randomUUID()),{name,kind:'postgres',credentialRef:'vault://test/catalog',includeSchemas:[],samplingConsent:false,receivesLandings:false,landingStrategy:null},null);
     const results=await Promise.all(['Größe','Grosse','Grosse!'].map(create));expect(results.every(r=>r.ok)).toBe(true);
-    expect(results.flatMap(r=>r.ok?[r.value.source.duckdbAlias]:[]).sort()).toEqual(['grosse','grosse_2','grosse_3']);
+    expect(results.flatMap(r=>r.ok?[r.value.source.exposedAlias]:[]).sort()).toEqual(['grosse','grosse_2','grosse_3']);
     expect(await create('---')).toMatchObject({ok:false,error:{code:'validation_failed'}});
     await withTenant(ctx,tx=>tx.query("UPDATE data_source SET name='Display changed' WHERE id=$1",[sourceId]));
     expect((await page()).nodes.find(n=>n.id===sourceId)?.label).toBe('original_warehouse');
-    await expect(withTenant(ctx,tx=>tx.query("UPDATE data_source SET duckdb_alias='changed' WHERE id=$1",[sourceId]))).rejects.toMatchObject({code:'23514'});
+    await expect(withTenant(ctx,tx=>tx.query("UPDATE data_source SET exposed_alias='changed' WHERE id=$1",[sourceId]))).rejects.toMatchObject({code:'23514'});
   });
 });
 
@@ -117,7 +117,7 @@ it('026 upgrades populated sources atomically, rejects all unnameable IDs, and r
     const names=['Größe','Grosse','Grosse!','select','123 Sales','a'.repeat(80),'a'.repeat(79)+'b'];
     for(const [index,name] of names.entries())await db.query('INSERT INTO data_source VALUES($1,$2,$3,to_timestamp($4))',[randomUUID(),project,name,index]);
     await upgrade(db);
-    const naming=new CatalogNaming(new AsciiTransliterator());const reserved:DuckDbName[]=[];
+    const naming=new CatalogNaming(new AsciiTransliterator());const reserved:ExposedName[]=[];
     const expected=names.map(name=>{const alias=naming.assign(name,reserved).name!;reserved.push(alias);return alias;});
     expect((await db.query('SELECT duckdb_alias FROM data_source ORDER BY created_at')).rows.map(r=>r.duckdb_alias)).toEqual(expected);
     await db.query(await readFile(new URL('../migrations/026_source_alias.down.sql',import.meta.url),'utf8'));await upgrade(db);

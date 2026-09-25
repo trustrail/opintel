@@ -1,5 +1,5 @@
 import { CatalogObject, type CatalogChange } from '../domain/catalog.js';
-import { mapSourceType, type DuckDbType } from '../domain/type-mapping.js';
+import { mapSourceType, type ExposedType } from '../domain/type-mapping.js';
 import { CatalogNaming } from './naming.js';
 import { DomainError, ok, err, type IdFactory, type ObjectId, type SourceId, type ProjectId, type Result } from '../../../shared/kernel/index.js';
 import type { CatalogSnapshot } from '../../sources/index.js';
@@ -10,8 +10,8 @@ export type IntrospectionDiff = (CatalogChange | {
   type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementChanged' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
   projectId: ProjectId; objectId: ObjectId; elementId?: CatalogChange['elementId'];
   beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true; beforeFamily?: TypeFamily; afterFamily?: TypeFamily;
-}) & { duckdbName?: string | null; before?: string | null; after?: string | null };
-function family(type: DuckDbType | null): TypeFamily {
+}) & { exposedName?: string | null; before?: string | null; after?: string | null };
+function family(type: ExposedType | null): TypeFamily {
   if (type === null) return 'unsupported';
   if (/^(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT|FLOAT|DOUBLE|DECIMAL)/u.test(type)) return 'number';
   if (type.startsWith('LIST(')) return 'list';
@@ -35,7 +35,7 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
   const diff: IntrospectionDiff[] = [];
   const seen = new Set<ObjectId>();
   const staged = new Set<string>();
-  const schemaNames = new Map(existing.map((object) => [object.state.schemaName, object.state.duckdbSchema]));
+  const schemaNames = new Map(existing.map((object) => [object.state.schemaName, object.state.exposedSchema]));
   for (const discovered of snapshot.objects) {
     const key = JSON.stringify([discovered.schema, discovered.name]);
     if (staged.has(key)) return err(new DomainError('validation_failed', 'Duplicate catalogue object in snapshot.'));
@@ -52,18 +52,18 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
       const schema = schemaNames.get(discovered.schema) ?? naming.assign(discovered.schema, [...schemaNames.values()]).name;
       if (schema === null) return err(new DomainError('validation_failed', 'A source schema has no usable exposed name.'));
       schemaNames.set(discovered.schema, schema);
-      const reserved = [...existing, ...objects].filter((entry) => entry.state.duckdbSchema === schema).map((entry) => entry.state.duckdbName);
+      const reserved = [...existing, ...objects].filter((entry) => entry.state.exposedSchema === schema).map((entry) => entry.state.exposedName);
       const name = naming.assign(discovered.name, reserved);
       if (name.name === null) return err(new DomainError('validation_failed', 'A source object has no usable exposed name.'));
       const created = CatalogObject.create({ id: ids.create<ObjectId>(), sourceId: source.id, projectId: source.projectId,
-        schemaName: discovered.schema, objectName: discovered.name, kind: discovered.kind, duckdbSchema: schema,
-        duckdbName: name.name, lineageKnown: discovered.kind === 'table', rowEstimate: discovered.rowEstimate, description: null, status: 'active' });
+        schemaName: discovered.schema, objectName: discovered.name, kind: discovered.kind, exposedSchema: schema,
+        exposedName: name.name, lineageKnown: discovered.kind === 'table', rowEstimate: discovered.rowEstimate, description: null, status: 'active' });
       if (!created.ok) return created;
       object = created.value;
       diff.push({ type: 'CatalogObjectAdded', projectId: source.projectId, objectId: object.state.id });
       if (name.collision) diff.push({ type: 'CatalogNameCollision', projectId: source.projectId, objectId: object.state.id });
     }
-    const changes = object.reconcile(discovered.columns.map((column) => ({ ...column, duckdbType: mapSourceType(column.sourceType) })), naming.elementIdentity(ids), snapshot.takenAt);
+    const changes = object.reconcile(discovered.columns.map((column) => ({ ...column, exposedType: mapSourceType(column.sourceType) })), naming.elementIdentity(ids), snapshot.takenAt);
     if (!changes.ok) return changes;
     diff.push(...changes.value);
     for (const current of object.elements) {
@@ -72,7 +72,7 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
       if (prior === undefined || next.status === 'removed') continue;
       if (adoptRenamedNames && prior.sourceIdentifier !== next.sourceIdentifier) {
         const assigned = naming.assign(next.sourceIdentifier, object.elements.flatMap((element) =>
-          element.state.id !== next.id && element.state.duckdbName !== null ? [element.state.duckdbName] : []));
+          element.state.id !== next.id && element.state.exposedName !== null ? [element.state.exposedName] : []));
         if (assigned.name === null) return err(new DomainError('validation_failed', 'The renamed element has no usable exposed name.'));
         const adopted = object.adoptRenamedName(assigned.name, next.id);
         if (!adopted.ok) return adopted;
@@ -80,9 +80,9 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
         if (assigned.collision) diff.push({ type: 'CatalogNameCollision', projectId: source.projectId, objectId: object.state.id, elementId: next.id });
       }
       if (prior.status === 'removed') diff.push({ type: 'CatalogElementRestored', projectId: source.projectId, objectId: object.state.id, elementId: next.id });
-      if (prior.sourceType !== next.sourceType || prior.duckdbType !== next.duckdbType) {
-        const beforeFamily = family(prior.duckdbType);
-        const afterFamily = family(next.duckdbType);
+      if (prior.sourceType !== next.sourceType || prior.exposedType !== next.exposedType) {
+        const beforeFamily = family(prior.exposedType);
+        const afterFamily = family(next.exposedType);
         // Unknown source types are not known to share a family. Preserve the
         // existing conservative invalidation without using raw types as labels.
         const changedFamily = beforeFamily !== afterFamily ||
@@ -113,9 +113,9 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
     const newObject = objects.find(object => object.state.id === entry.objectId);
     const oldElement = oldObject?.elements.find(element => element.state.id === entry.elementId)?.state;
     const newElement = newObject?.elements.find(element => element.state.id === entry.elementId)?.state;
-    entry.duckdbName = entry.elementId ? newElement?.duckdbName ?? oldElement?.duckdbName ?? null : newObject?.state.duckdbName ?? oldObject?.state.duckdbName ?? null;
+    entry.exposedName = entry.elementId ? newElement?.exposedName ?? oldElement?.exposedName ?? null : newObject?.state.exposedName ?? oldObject?.state.exposedName ?? null;
     if (entry.type === 'CatalogElementRenamed') { entry.before = oldElement?.sourceIdentifier ?? null; entry.after = newElement?.sourceIdentifier ?? null; }
-    if (entry.type === 'CatalogNameAdopted') { entry.before = oldElement?.duckdbName ?? null; entry.after = newElement?.duckdbName ?? null; }
+    if (entry.type === 'CatalogNameAdopted') { entry.before = oldElement?.exposedName ?? null; entry.after = newElement?.exposedName ?? null; }
   }
   return ok({ objects, diff });
 }

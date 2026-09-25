@@ -1,23 +1,23 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { CatalogObject, type ElementDiscovery, type AssignElementIdentity } from '../src/modules/catalog/index.js';
-import { DuckDbName, ElementId, ObjectId, ProjectId, SourceId, Timestamp, ok } from '../src/shared/kernel/index.js';
+import { ExposedName, ElementId, ObjectId, ProjectId, SourceId, Timestamp, ok } from '../src/shared/kernel/index.js';
 
 const now = Timestamp(new Date('2026-01-01T00:00:00Z'));
 const later = Timestamp(new Date('2026-01-02T00:00:00Z'));
 const column = (name: string, stableRef: string | null = '1'): ElementDiscovery => ({
-  sourceIdentifier: name, stableRef, sourceType: 'text', duckdbType: 'VARCHAR', nullable: true, isKey: false, description: null,
+  sourceIdentifier: name, stableRef, sourceType: 'text', exposedType: 'VARCHAR', nullable: true, isKey: false, description: null,
 });
 function object() {
   const result = CatalogObject.create({
     id: ObjectId(randomUUID()), sourceId: SourceId(randomUUID()), projectId: ProjectId(randomUUID()),
-    schemaName: 'public', objectName: 'Orders', kind: 'table', duckdbSchema: DuckDbName('public'),
-    duckdbName: DuckDbName('orders'), lineageKnown: true, rowEstimate: null, description: null, status: 'active',
+    schemaName: 'public', objectName: 'Orders', kind: 'table', exposedSchema: ExposedName('public'),
+    exposedName: ExposedName('orders'), lineageKnown: true, rowEstimate: null, description: null, status: 'active',
   });
   if (!result.ok) throw result.error;
   return result.value;
 }
-const identity = (name: string) => ({ id: ElementId(randomUUID()), duckdbName: DuckDbName(name) });
+const identity = (name: string) => ({ id: ElementId(randomUUID()), exposedName: ExposedName(name) });
 
 describe('catalogue aggregate identity', () => {
   it('G-006: stable-reference rename retains identity and exposed name, and emits an identifier-only observation event', () => {
@@ -58,7 +58,7 @@ describe('catalogue aggregate identity', () => {
     expect(catalog.reconcile([column('Gross Written Premium (€)')], assign, later)).toEqual(ok([]));
     expect(assign).toHaveBeenCalledTimes(1);
     expect(catalog.elements).toEqual(before);
-    expect(catalog.elements[0]?.state.duckdbName).toBe('gross_written_premium');
+    expect(catalog.elements[0]?.state.exposedName).toBe('gross_written_premium');
   });
 
   it('retains removed rows and reserves their exposed names without repeatedly emitting removal', () => {
@@ -69,7 +69,7 @@ describe('catalogue aggregate identity', () => {
     const before = catalog.elements;
     const assign = vi.fn<AssignElementIdentity>().mockReturnValue(ok(identity('reserved')));
     expect(catalog.reconcile([column('New', null)], assign, later).ok).toBe(false);
-    expect(assign.mock.calls[0]?.[1]).toContain(old.duckdbName);
+    expect(assign.mock.calls[0]?.[1]).toContain(old.exposedName);
     expect(catalog.elements).toEqual(before);
     expect(catalog.reconcile([], assign, later)).toEqual(ok([]));
     expect(catalog.elements).toEqual(before);

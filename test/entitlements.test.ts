@@ -22,9 +22,9 @@ describe('entitlement domain and persisted decisions',()=>{
    for(const project of [ctx.projectId,other.projectId])await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,$4,'eu-west-1')",[project,company!.id,industry!.id,project===ctx.projectId?'Decisions':'Other decisions']);
   });
   await withTenant(ctx,async tx=>{
-   await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref,status) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/source','connected')",[source,ctx.projectId]);
-   const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[ctx.projectId,source]);
-   await tx.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,duckdb_name,duckdb_type) VALUES($1,$2,$3,'quantity','integer','quantity','INTEGER')",[element,ctx.projectId,object!.id]);
+   await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/source','connected')",[source,ctx.projectId]);
+   const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[ctx.projectId,source]);
+   await tx.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,'quantity','integer','quantity','INTEGER')",[element,ctx.projectId,object!.id]);
   });
  });
  it('H-001/H-004: native columns start absent, count undecided with no pools and remain absent from pool decisions',async()=>{
@@ -57,7 +57,7 @@ describe('entitlement domain and persisted decisions',()=>{
   await withTenant(ctx,tx=>tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]));
   const at=Timestamp(new Date('2026-09-21T10:00:00.000Z'));
   for(const [kind,type,allowed] of [['last4','VARCHAR',true],['email','VARCHAR',true],['year','DATE',true],['year','TIMESTAMP',true],['year','TIMESTAMPTZ',true],['all','INTEGER',true],['last4','INTEGER',false],['email','DATE',false],['year','VARCHAR',false]] as const){
-   await withTenant(ctx,tx=>tx.query('UPDATE catalog_element SET duckdb_type=$2 WHERE id=$1',[element,type]));
+   await withTenant(ctx,tx=>tx.query('UPDATE catalog_element SET exposed_type=$2 WHERE id=$1',[element,type]));
    const value=unwrap(Entitlement.decide({...unwrap(decision()).state,setAt:at,maskKind:kind}));
    const before=await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'));
    const result=await repository.set(ctx,value);expect(result.ok).toBe(allowed);

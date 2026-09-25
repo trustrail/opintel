@@ -366,7 +366,7 @@ for each bound source S:
                       aggs.push(E)
     if cols is empty:
       emit a view with zero columns? NO -> omit the object entirely
-    emit CREATE VIEW <pool>.<S.alias>.<O.duckdbName> AS SELECT <cols> FROM <base>
+    emit CREATE VIEW <pool>.<S.alias>.<O.exposedName> AS SELECT <cols> FROM <base>
 ```
 
 **Three rules that are easy to get wrong.**

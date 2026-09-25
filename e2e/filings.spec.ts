@@ -8,7 +8,7 @@ const otherId='018f8f9d-7f83-7abc-8def-000000000003';
 const prior='018f8f9d-7f83-7abc-8def-000000000004';
 const current='018f8f9d-7f83-7abc-8def-000000000005';
 const held='018f8f9d-7f83-7abc-8def-000000000006';
-const source={id:sourceId,name:'Monthly returns',duckdbAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:null};
+const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:null};
 const filing={filingId:prior,sourceId,partyCode:'4471',kind:'monthly return',period:'2026-03',outcome:'landed',quarantineCategory:null,supersedes:null,rowCount:318,receivedAt:'2026-04-01T12:00:00Z',revision:2};
 async function mock(page:Page){
  const state={strategy:'append_as_at',empty:false,error:false,loading:false,cursors:[] as string[]};
@@ -18,7 +18,7 @@ async function mock(page:Page){
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:projectId,name:'Reporting',company:{id:otherId,name:'Example Company'},industry:{id:otherId,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
   if(path.endsWith('/token-key'))return route.fulfill({json:{currentVersion:null,versions:[]}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[]});
-  if(path.endsWith('/sources'))return route.fulfill({json:{items:[{...source,landingStrategy:state.strategy},{...source,id:otherId,name:'Live database',duckdbAlias:'live_database',landingStrategy:null,filingCount:null}],nextCursor:null}});
+  if(path.endsWith('/sources'))return route.fulfill({json:{items:[{...source,landingStrategy:state.strategy},{...source,id:otherId,name:'Live database',exposedAlias:'live_database',landingStrategy:null,filingCount:null}],nextCursor:null}});
   if(path.endsWith('/filings')){
    if(state.loading)await new Promise(resolve=>setTimeout(resolve,1500));
    if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'The filing register is temporarily unavailable.',requestId:'filings-test',retryable:true}}});

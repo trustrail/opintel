@@ -36,10 +36,10 @@ describe('4.3c canonicaliser assignments',()=>{
     await withTenant(ctx, async tx => {
       await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Analysis')", [pool, ctx.projectId]);
       for (const s of [source, second]) {
-        await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref,status) VALUES($1,$2,$3,$3,'postgres','vault://test/source','connected')", [s, ctx.projectId, s === source ? 'warehouse' : 'other_warehouse']);
-        const [object] = await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id", [ctx.projectId,s]);
+        await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,$3,$3,'postgres','vault://test/source','connected')", [s, ctx.projectId, s === source ? 'warehouse' : 'other_warehouse']);
+        const [object] = await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id", [ctx.projectId,s]);
         const elements = s === source ? [['naive','timestamp','TIMESTAMP'],['zoned','timestamptz','TIMESTAMPTZ'],['date','date','DATE'],['integer','bigint','BIGINT'],['decimal','numeric(12,2)','DECIMAL(12,2)']] as const : [['otherSource','timestamp','TIMESTAMP']] as const;
-        for (const [name,type,duck] of elements) await tx.query('INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,duckdb_name,duckdb_type) VALUES($1,$2,$3,$4,$5,$4,$6)', [ids[name],ctx.projectId,object!.id,name,type,duck]);
+        for (const [name,type,duck] of elements) await tx.query('INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,$4,$5,$4,$6)', [ids[name],ctx.projectId,object!.id,name,type,duck]);
       }
     });
   });
@@ -56,7 +56,7 @@ describe('4.3c canonicaliser assignments',()=>{
 
   it('TOK-25: discovers ids over pinned mTLS and requires confirmation for first assignment and a version change on a tokenized element',async()=>{
     expect(unwrap(await client.canonicalisers())).toEqual(['fixture1','fixture2',...canonicalisers.ids].sort());
-    await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET source_type='text',duckdb_type='VARCHAR' WHERE id=$1",[ids.integer]));
+    await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET source_type='text',exposed_type='VARCHAR' WHERE id=$1",[ids.integer]));
     unwrap(await decide(ids.integer));
     expect(unwrap(await assignments.read(ctx,ids.integer))).toEqual({canonId:'stdtext1'});
     expect(await assignments.assign(ctx,ids.integer,{canonId:'fixture1'})).toMatchObject({ok:false,error:{code:'conflict'}});

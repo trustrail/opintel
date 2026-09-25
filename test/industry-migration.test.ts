@@ -94,11 +94,11 @@ integration('industry migration with Postgres', () => {
   it('E2-026: industry migration preserves every entitlement field, row by row',async()=>{
     const ctx={projectId:ProjectId(project),userId:actor.id};
     await scopes.withTenant(ctx,async tx=>{
-      const [source]=await tx.query<{id:string}>("INSERT INTO data_source(project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,'Warehouse','warehouse','postgres','vault://test/source') RETURNING id",[project]);
-      const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[project,source!.id]);
+      const [source]=await tx.query<{id:string}>("INSERT INTO data_source(project_id,name,exposed_alias,kind,credential_ref) VALUES($1,'Warehouse','warehouse','postgres','vault://test/source') RETURNING id",[project]);
+      const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[project,source!.id]);
       for(const treatment of ['clear','tokenized','masked','aggregate_only','withheld']){
         const [pool]=await tx.query<{id:string}>('INSERT INTO pool(project_id,name) VALUES($1,$2) RETURNING id',[project,treatment]);
-        const [element]=await tx.query<{id:string}>("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,duckdb_name,duckdb_type) VALUES($1,$2,$3,'text',$3,'VARCHAR') RETURNING id",[project,object!.id,treatment]);
+        const [element]=await tx.query<{id:string}>("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,'text',$3,'VARCHAR') RETURNING id",[project,object!.id,treatment]);
         await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,justification,set_at,mask_kind) VALUES($1,$2,$3,$4,'user',$5,'Keep this decision','2026-01-01',$6)",[pool!.id,element!.id,project,treatment,actor.id,treatment==='masked'?'all':null]);
       }
     });
@@ -113,7 +113,7 @@ integration('industry migration with Postgres', () => {
     const ctx={projectId:ProjectId(project),userId:actor.id};
     const source=randomUUID();const pool=randomUUID();
     await scopes.withTenant(ctx,async tx=>{
-      await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/warehouse')",[source,project]);
+      await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref) VALUES($1,$2,'Warehouse','warehouse','postgres','vault://test/warehouse')",[source,project]);
       await tx.query(`INSERT INTO pool(id,project_id,name,mode_prompt,clarification_policy,budgets) VALUES($1,$2,'Reporting',false,'refuse','{"rowsPerDay":1000}')`,[pool,project]);
       for(const [index,state] of ['current','retiring','expired','revoked'].entries()) await tx.query(`INSERT INTO pool_key(pool_id,project_id,key_hash,key_prefix,state,grace_until,created_at,created_by) VALUES($1,$2,$3,'opk_live_example',$4,$5,'2026-01-01',$6)`,[pool,project,Buffer.alloc(32,index+1),state,state==='retiring'||state==='expired'?'2030-01-01':null,actor.id]);
       await tx.query('INSERT INTO pool_source_binding(pool_id,source_id,project_id) VALUES($1,$2,$3)',[pool,source,project]);

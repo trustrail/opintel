@@ -184,18 +184,18 @@ class CatalogElement {
   readonly id: ElementId;
   readonly objectId: ObjectId;
   readonly sourceIdentifier: string;   // as the source names it
-  readonly duckdbName: string | null;  // assigned once; null means unnameable
+  readonly exposedName: string | null;  // assigned once; null means unnameable
   nameRevision: number;               // incremented only by explicit adoption
   readonly stableRef: string | null;   // attnum, field id, if the source has one
   type: SourceType;
-  duckdbType: DuckDbType | null;       // null means unsupported type
+  exposedType: ExposedType | null;       // null means unsupported type
   status: 'active' | 'removed';
 }
 ```
 
 **Invariants**
-- `duckdbName` is assigned at first discovery and is immutable. Recomputing it would rename tables under running agents
-- Two elements in one object cannot share a `duckdbName`. Collisions get a numeric suffix and raise a catalog diff entry
+- `exposedName` is assigned at first discovery and is immutable. Recomputing it would rename tables under running agents
+- Two elements in one object cannot share a `exposedName`. Collisions get a numeric suffix and raise a catalog diff entry
 - An element marked `removed` keeps its entitlements for evidence reproducibility
 
 ### Entitlement (root: `Entitlement`, keyed by pool and element)
@@ -287,7 +287,7 @@ type FilingId     = string & { readonly __brand: 'FilingId' };
 type SessionId   = string & { readonly __brand: 'SessionId' };
 
 // Branded strings with a shape rule, validated on construction.
-type DuckDbName    = string & { readonly __brand: 'DuckDbName' };
+type ExposedName    = string & { readonly __brand: 'ExposedName' };
   // lowercase snake case, not a DuckDB reserved word, 63 characters or fewer
 type IndustrySlug  = string & { readonly __brand: 'IndustrySlug' };
   // lowercase kebab case, for example 'reinsurance-treaty'
@@ -316,11 +316,11 @@ export const ProjectId = (raw: string): ProjectId => {
   return raw as ProjectId;
 };
 
-export const DuckDbName = (raw: string): DuckDbName => {
+export const ExposedName = (raw: string): ExposedName => {
   if (!/^[a-z_][a-z0-9_]{0,62}$/.test(raw) || RESERVED.has(raw)) {
-    throw new InvariantViolation('DuckDbName', raw);
+    throw new InvariantViolation('ExposedName', raw);
   }
-  return raw as DuckDbName;
+  return raw as ExposedName;
 };
 ```
 
@@ -476,9 +476,9 @@ class InvariantViolation extends Error {
 
 // modules/catalog: two type families, kept apart on purpose. A source type is
 // whatever the source called it, verbatim, so a diff can detect a change. A
-// DuckDB type is what the agent sees, after treatment.
+// Exposed type is what the agent sees, after treatment.
 type SourceType = string & { readonly __brand: 'SourceType' };   // 'character varying(40)'
-type DuckDbType =
+type ExposedType =
   | 'BOOLEAN' | 'TINYINT' | 'SMALLINT' | 'INTEGER' | 'BIGINT' | 'HUGEINT'
   | 'FLOAT' | 'DOUBLE' | `DECIMAL(${number},${number})`
   | 'VARCHAR' | 'DATE' | 'TIME' | 'TIMESTAMP' | 'TIMESTAMPTZ'
@@ -715,8 +715,8 @@ type ElementRef = {
   id: ElementId;
   objectId: ObjectId;
   projectId: ProjectId;
-  duckdbName: DuckDbName;
-  duckdbType: DuckDbType;
+  exposedName: ExposedName;
+  exposedType: ExposedType;
 };
 interface CatalogQuery {
   element(id: ElementId): Promise<ElementRef | null>;
@@ -724,7 +724,7 @@ interface CatalogQuery {
   byPrefix(project: ProjectId, prefix: string, cursor?: string):
     Promise<{ items: ElementRef[]; nextCursor: string | null }>;
   undecidedCount(project: ProjectId): Promise<number>;
-  resolve(project: ProjectId, duckdbName: DuckDbName): Promise<ElementRef | null>;
+  resolve(project: ProjectId, exposedName: ExposedName): Promise<ElementRef | null>;
 }
 
 // entitlements
@@ -754,7 +754,7 @@ type RunStage = {
 
 type ElementDelivery = {
   elementId: ElementId | null;      // null when the agent named something unknown
-  duckdbName: DuckDbName;
+  exposedName: ExposedName;
   treatment: Treatment | null;      // null when it was never entitled
   state: 'released' | 'withheld' | 'undecided' | 'aggregated';
   withheldReason: string | null;
@@ -763,7 +763,7 @@ type ElementDelivery = {
 type RunOutcome =
   | { kind: 'answered'; rowCount: number; truncated: boolean }
   | { kind: 'reduced';  rowCount: number; truncated: boolean; withheld: number }
-  | { kind: 'refused';  code: ErrorCode; element: DuckDbName | null; stage: RunStage['stage'] }
+  | { kind: 'refused';  code: ErrorCode; element: ExposedName | null; stage: RunStage['stage'] }
   | { kind: 'clarify';  items: number; resumedAs: RunId | null }
   | { kind: 'failed';   code: ErrorCode; retryable: boolean };
 
@@ -788,7 +788,7 @@ type SourceRef = {
   id: SourceId;
   projectId: ProjectId;
   kind: SourceKind;
-  alias: DuckDbName;              // the catalog name agents address it by
+  alias: ExposedName;              // the catalog name agents address it by
 };
 type ObjectRef = {
   id: ObjectId;
@@ -805,8 +805,8 @@ class CatalogObject {
   readonly schemaName: string;
   readonly objectName: string;
   readonly kind: 'table' | 'view' | 'fileset';
-  duckdbSchema: DuckDbName;
-  duckdbName: DuckDbName;         // assigned once, never recomputed
+  exposedSchema: ExposedName;
+  exposedName: ExposedName;         // assigned once, never recomputed
   lineageKnown: boolean;          // false for a view with no traceable columns
   rowEstimate: number | null;
   description: string | null;
@@ -844,9 +844,9 @@ type CatalogSnapshot = {
 // from the SELECT, and describe and the evidence record need to tell them apart.
 type CompiledColumn = {
   elementId: ElementId;
-  duckdbName: DuckDbName;
+  exposedName: ExposedName;
   sourceIdentifier: string;
-  declaredType: DuckDbType;        // POST-treatment: a tokenized int is VARCHAR
+  declaredType: ExposedType;        // POST-treatment: a tokenized int is VARCHAR
   state: 'emitted' | 'withheld' | 'undecided';
   treatment: Treatment | null;     // null when undecided
   expression: string | null;       // the SELECT expression, when emitted
@@ -856,8 +856,8 @@ type CompiledColumn = {
 // the DDL and is enforced by inspecting the parsed query.
 type AggregateOnly = {
   elementId: ElementId;
-  duckdbName: DuckDbName;
-  object: DuckDbName;
+  exposedName: ExposedName;
+  object: ExposedName;
   minGroupSize: number;            // from ProjectSettings.query
 };
 
@@ -1503,7 +1503,7 @@ const CreateSourceBody = z.object({
 const SourceListItem = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  duckdbAlias: z.string(),
+  exposedAlias: z.string(),
   kind: z.string(),
   origin: z.enum(['customer', 'demo']),
   status: z.string(),
@@ -1550,7 +1550,7 @@ const IntrospectionRunView = z.object({
   diff: z.array(z.object({
     change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'collision']),
     elementId: z.string().uuid().nullable(),
-    duckdbName: z.string().nullable(),
+    exposedName: z.string().nullable(),
     before: z.string().nullable(),
     after: z.string().nullable(),
     breaking: z.boolean(),
@@ -1595,7 +1595,7 @@ const IntrospectionRunView = z.object({
   diff: z.array(z.object({
     change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'collision']),
     elementId: z.string().uuid().nullable(),
-    duckdbName: z.string().nullable(),
+    exposedName: z.string().nullable(),
     before: z.string().nullable(),
     after: z.string().nullable(),
     breaking: z.boolean(),
@@ -1666,7 +1666,7 @@ const CatalogNode = z.object({
                                      // objectId, or elementId
   label: z.string().nullable(),      // null only for unnameable elements
   childCount: z.number().int().nullable(),   // null for elements
-  duckdbType: z.string().nullable(),         // elements only
+  exposedType: z.string().nullable(),         // elements only
   state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable']).nullable(),
 });
 
@@ -1681,11 +1681,11 @@ const CatalogTreeResponse = z.object({
 
 **Requires project#view**. Cursor paginated at every level, because an object can have two thousand elements.
 
-**The explorer shows the stored DuckDB type for every element, with its state alongside**. An undecided element displays its mapped type and undecided, because an administrator deciding what to release needs to know whether the column is a number or text — that is most of the decision.
+**The explorer shows the stored exposed type for every element, with its state alongside**. An undecided element displays its mapped type and undecided, because an administrator deciding what to release needs to know whether the column is a number or text — that is most of the decision.
 
 **describe is different**. It omits undecided elements entirely, per §4.4, because an agent must not learn that a column exists before someone has decided about it. The console shows what exists; the agent interface shows what was decided. That asymmetry is deliberate and is the reason the two are separate contracts.
 
-**An unnameable element has no label and no type**. It is listed so an administrator can see it exists and fix the source column or give it an alias. Substituting the source identifier would put an unnormalised string where a DuckDB name belongs and imply the element is addressable.
+**An unnameable element has no label and no type**. It is listed so an administrator can see it exists and fix the source column or give it an alias. Substituting the source identifier would put an unnormalised string where an exposed name belongs and imply the element is addressable.
 
 
 ### Token key
@@ -2295,7 +2295,7 @@ A scope filter is a predicate the API appends to the outermost query before disp
 
 ```ts
 type ScopeFilter = {
-  object: DuckDbName;        // the object it constrains
+  object: ExposedName;        // the object it constrains
   predicate: string;         // parameterised, never interpolated from input
   params: readonly unknown[];
 };
@@ -2673,8 +2673,8 @@ create table data_source (
     credential_ref is not null and credential_ref like 'vault://%' and
     (origin = 'customer' or (origin = 'demo' and demo_template_id is not null))
   ),
-  duckdb_alias  text not null,        -- assigned once at creation, immutable
-  unique (project_id, duckdb_alias),
+  exposed_alias  text not null,        -- assigned once at creation, immutable
+  unique (project_id, exposed_alias),
 );
 
 create table introspection_run (
@@ -2698,8 +2698,8 @@ create table catalog_object (
   schema_name text not null,
   object_name text not null,
   object_kind text not null check (object_kind in ('table','view','fileset')),
-  duckdb_schema text not null,
-  duckdb_name   text not null,
+  exposed_schema text not null,
+  exposed_name   text not null,
   name_revision integer not null default 0,
   lineage_known boolean not null default false,
   row_estimate  bigint,
@@ -2713,25 +2713,25 @@ create table catalog_element (
   object_id         uuid not null references catalog_object(id) on delete cascade,
   project_id        uuid not null references project(id) on delete cascade,
   source_identifier text not null,
-  duckdb_name       text,                   -- assigned once; null means unnameable
+  exposed_name       text,                   -- assigned once; null means unnameable
   name_revision     integer not null default 0, -- explicit adoption advances once
   stable_ref        text,                   -- attnum / field id where available
   source_type       text not null,
   canon_id          text,                   -- explicit override; otherwise the mode's built-in
   source_timezone   text,                   -- explicit IANA zone; otherwise schema inheritance
   epoch_unit        text check (epoch_unit in ('seconds','milliseconds')),
-  duckdb_type       text,                   -- null means unsupported type
+  exposed_type       text,                   -- null means unsupported type
   nullable          boolean not null default true,
   is_key            boolean not null default false,
   description       text,
   status            text not null default 'active',
   discovered_at     timestamptz not null default now(),
   removed_at        timestamptz,
-  unique (object_id, duckdb_name),
+  unique (object_id, exposed_name),
   unique (object_id, source_identifier)
 );
 create index on catalog_element (project_id, status);
-create index on catalog_element (object_id) include (duckdb_name, duckdb_type);
+create index on catalog_element (object_id) include (exposed_name, exposed_type);
 
 ```
 
@@ -2805,13 +2805,13 @@ create table filing_party_rule (
   active      boolean not null default true
 );
 ```
-**The alias is assigned once at source creation** by normalising the source name per §4.4, with a numeric suffix on collision within the project. It never changes, for the same reason duckdb_name never changes: agents address it, and renaming it renames a catalog under running agents.
+**The alias is assigned once at source creation** by normalising the source name per §4.4, with a numeric suffix on collision within the project. It never changes, for the same reason exposed_name never changes: agents address it, and renaming it renames a catalog under running agents.
 
 **A source name that normalises to nothing is refused at creation**, naming the rule. Unlike an element, a source with no alias cannot be addressed at all, so there is nothing to catalogue under it.
 
 **The backfill migration aborts on any such name**, listing the affected source ids. An operator renames them and retries. Silently substituting a generated alias would give agents a name nobody chose and nobody can predict.
 
-**SourceListItem includes `duckdbAlias: z.string()`**, the stored alias, alongside `name`. The catalogue source node uses that alias as its label. The console joins the source display name by source ID.
+**SourceListItem includes `exposedAlias: z.string()`**, the stored alias, alongside `name`. The catalogue source node uses that alias as its label. The console joins the source display name by source ID.
 
 **Renaming a source changes its display name only**. The console shows both when they differ, so someone who renamed "Bordereaux Store" to "Cedant Filings" can see that agents still address bordereaux_store.
 
@@ -2942,11 +2942,11 @@ re-exported rule snapshots; see `sidecar/README.md` for the sequence.
 
 ## 4.4 The exposed namespace and type mapping
 
-The catalogue guard rejects ordinary updates to `duckdb_name` on objects and elements and to `duckdb_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. The catalogue tables and filing-party identification tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
+The catalogue guard rejects ordinary updates to `exposed_name` on objects and elements and to `exposed_schema` on objects. Explicit adoption changes the name and increments `name_revision` by exactly one in the same update; advancing the revision without a name change is also rejected. This is an invariant guard, not an authorization check. Item 3.2 provides the explicit domain command and its breaking-change diff only; item 3.6 supplies administrator authorization and the persisted application path. No session flag bypasses the guard. Composite foreign keys include `project_id` so a tenant-scoped child cannot name another project's source or object. Exposed object names are unique within a source and DuckDB schema. The catalogue tables and filing-party identification tables in §4.3b have forced RLS; `element_stats` derives its scope through its parent element. Tenant roles have SELECT, INSERT, UPDATE and DELETE grants; platform scope has none. Platform administration has maintenance grants but remains subject to RLS.
 
 Item 3.1's pure catalogue aggregate accepts assigned names for new identities and never invokes name assignment for an existing identity. It retains removed entities and emits identifier-only addition, rename and removal events. Item 3.2 supplies normalization and collision suffixes; later introspection work persists and publishes the changes. Entitlement preservation is verified against entitlement rows when item 4.1 introduces that table.
 
-Agents address data by a DuckDB name, not a source name. The mapping is part of the contract: the agent writes it, `describe` returns it, and every evidence record carries both.
+Agents address data by an exposed name, not a source name. The mapping is part of the contract: the agent writes it, `describe` returns it, and every evidence record carries both.
 
 **A pool is a DuckDB session.** Only that pool's bound sources are attached, so the pool never appears in a name. Within the session the mapping is three-level:
 
@@ -2976,7 +2976,7 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 | Punctuation and spaces | Collapsed to a single underscore, leading and trailing removed |
 | Leading digit | Prefixed with n_. 123 Sales becomes n_123_sales |
 | DuckDB reserved word | Suffixed with _col. select becomes select_col |
-| Normalises to nothing | Refused. The element is catalogued with duckdb_name null and reported as unnameable, which is an administrator's problem to solve by renaming the source column or giving it an alias |
+| Normalises to nothing | Refused. The element is catalogued with exposed_name null and reported as unnameable, which is an administrator's problem to solve by renaming the source column or giving it an alias |
 | Longer than 63 characters | Truncated to 57, then suffixed with _ and the first 5 hex characters of the SHA-256 of the original identifier, so two long names that share a prefix do not collide |
 
 **Collision suffixes start at _2**. The first occupant keeps the unsuffixed name; the second becomes name_2. A collision raises a diff entry, because two source columns normalising to one name usually means they should not share a namespace.
@@ -2990,7 +2990,7 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 
 
 
-**Source renames.** Where a rename is detected against a stable underlying identifier, the entitlement carries over but **the exposed DuckDB name does not change by default.** Changing it would break every agent referencing it. The console shows the divergence and an administrator can adopt the new name deliberately, which is a breaking change and is labelled as one.
+**Source renames.** Where a rename is detected against a stable underlying identifier, the entitlement carries over but **the exposed name does not change by default.** Changing it would break every agent referencing it. The console shows the divergence and an administrator can adopt the new name deliberately, which is a breaking change and is labelled as one.
 
 **Nothing withheld or undecided appears in the namespace.** The view for a pool contains only entitled columns, so an undecided element is not addressable, not merely refused.
 
@@ -3015,7 +3015,7 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 
 **Treatments constrain the mapping.** A tokenized column is always `VARCHAR` regardless of its source type, because a token is not an integer. `describe` reports the **post-treatment** type, since that is what the agent receives. Reporting the source type would make the agent write arithmetic against a token.
 
-**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released. A null catalog_element.duckdb_type records this state independently of entitlement. Type-mapping metadata takes precedence over entitlement state, so a tokenized treatment cannot expose an unsupported source type. Exact numeric and money mappings require representable precision and scale; nested arrays and structs require supported child types. The describe metadata helper returns post-treatment types; the agent endpoint and view compiler remain with their owning items.
+**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released. A null catalog_element.exposed_type records this state independently of entitlement. Type-mapping metadata takes precedence over entitlement state, so a tokenized treatment cannot expose an unsupported source type. Exact numeric and money mappings require representable precision and scale; nested arrays and structs require supported child types. The describe metadata helper returns post-treatment types; the agent endpoint and view compiler remain with their owning items.
 
 ## 4.5 Entitlements and pools
 
@@ -3174,7 +3174,7 @@ create table run_element (
   run_id     uuid not null,
   started_at timestamptz not null,
   element_id uuid,
-  duckdb_name text not null,
+  exposed_name text not null,
   treatment  text not null,
   withheld_reason text
 ) partition by range (started_at);

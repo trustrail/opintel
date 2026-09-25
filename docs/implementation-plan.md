@@ -114,7 +114,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
-| 3.1 | Catalogue domain and schema, element identity, `duckdb_name` immutable | 2.1 | `modules/catalog` | G-006, G-007, G-012 |
+| 3.1 | Catalogue domain and schema, element identity, `exposed_name` immutable | 2.1 | `modules/catalog` | G-006, G-007, G-012 |
 | 3.2 | Namespace and type mapping, normalisation recorded once | 3.1 | `catalog/naming.ts` | G-010 to G-013, R-003 |
 | 3.3 | `SourceConnector` port. **All source contact goes through the sidecar** | 3.1, S1 | `modules/sources` | F-002, F-003, F-005, F-006 |
 | 3.4 | Postgres connector: test, introspect, sample, estimate | 3.3, S1 | adapter | G-001 to G-005, G-014 to G-016 |

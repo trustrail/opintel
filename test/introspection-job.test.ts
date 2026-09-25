@@ -35,7 +35,7 @@ beforeEach(async () => {
     if (industry===undefined || company===undefined) throw new Error('Missing fixture.');
     await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$3,$4,'Source A','eu-west-1'),($2,$3,$4,'Source B','eu-west-1')",[ctx.projectId,otherProject,company.id,industry.id]);
   });
-  await withTenant(ctx,(tx) => tx.query("INSERT INTO data_source(id,project_id,kind,name,credential_ref,status,duckdb_alias) VALUES($1,$2,'postgres','Warehouse','vault://test/source','connected','warehouse')",[sourceId,ctx.projectId]));
+  await withTenant(ctx,(tx) => tx.query("INSERT INTO data_source(id,project_id,kind,name,credential_ref,status,exposed_alias) VALUES($1,$2,'postgres','Warehouse','vault://test/source','connected','warehouse')",[sourceId,ctx.projectId]));
   discovery=snapshot();
   connector={kind:'postgres',testConnection:async()=>ok(undefined),introspect:async()=>ok(discovery),sampleTopValues:async()=>ok(new Map()),estimateRowCount:async()=>ok(null)};
   job=new IntrospectionJob(store,()=>connector);
@@ -52,8 +52,8 @@ describe('introspection job and persisted catalogue',()=>{
     expect(await catalog()).toEqual(before);
     discovery=snapshot('renamed');
     expect((await run()).diff.map((entry)=>entry.type)).toEqual(['CatalogElementRenamed']);
-    const rows=await withTenant(ctx,(tx)=>tx.query<{id:string;duckdb_name:string;source_identifier:string}>('SELECT id,duckdb_name,source_identifier FROM catalog_element'));
-    expect(rows[0]).toMatchObject({duckdb_name:'label',source_identifier:'renamed'});
+    const rows=await withTenant(ctx,(tx)=>tx.query<{id:string;exposed_name:string;source_identifier:string}>('SELECT id,exposed_name,source_identifier FROM catalog_element'));
+    expect(rows[0]).toMatchObject({exposed_name:'label',source_identifier:'renamed'});
     expect((await catalog()).elements[0]).toMatchObject({id:rows[0]?.id});
     expect(before.elements[0]).toMatchObject({id:rows[0]?.id});
   });
@@ -61,12 +61,12 @@ describe('introspection job and persisted catalogue',()=>{
     const first=snapshot();
     first.objects[0]!.columns.push({...first.objects[0]!.columns[0]!,sourceIdentifier:'other',stableRef:'2',ordinal:2});
     discovery=first; await run();
-    const before=await withTenant(ctx,(tx)=>tx.query<{id:string;source_identifier:string;duckdb_name:string;stable_ref:string}>('SELECT id,source_identifier,duckdb_name,stable_ref FROM catalog_element ORDER BY stable_ref'));
+    const before=await withTenant(ctx,(tx)=>tx.query<{id:string;source_identifier:string;exposed_name:string;stable_ref:string}>('SELECT id,source_identifier,exposed_name,stable_ref FROM catalog_element ORDER BY stable_ref'));
     discovery=structuredClone(first);
     discovery.objects[0]!.columns[0]!.sourceIdentifier='other';
     discovery.objects[0]!.columns[1]!.sourceIdentifier='label';
     expect((await run()).diff.map((entry)=>entry.type)).toEqual(['CatalogElementRenamed','CatalogElementRenamed']);
-    const after=await withTenant(ctx,(tx)=>tx.query('SELECT id,source_identifier,duckdb_name,stable_ref FROM catalog_element ORDER BY stable_ref'));
+    const after=await withTenant(ctx,(tx)=>tx.query('SELECT id,source_identifier,exposed_name,stable_ref FROM catalog_element ORDER BY stable_ref'));
     expect(after).toEqual(before.map((element)=>({...element,source_identifier:element.stable_ref==='1'?'other':'label'})));
   });
   it('G-011: explicit name adoption requires project administration and persists a breaking diff and revision',async()=>{
@@ -80,13 +80,13 @@ describe('introspection job and persisted catalogue',()=>{
     const queued=unwrap(await admin.enqueue(ctx,sourceId,[],{adoptRenamedNames:true}));
     const done=unwrap(await admin.execute(ctx,queued.id));
     expect(done.diff).toEqual(expect.arrayContaining([expect.objectContaining({type:'CatalogNameAdopted',breaking:true})]));
-    expect(await withTenant(ctx,(tx)=>tx.query('SELECT duckdb_name,name_revision FROM catalog_element'))).toEqual([{duckdb_name:'renamed',name_revision:1}]);
+    expect(await withTenant(ctx,(tx)=>tx.query('SELECT exposed_name,name_revision FROM catalog_element'))).toEqual([{exposed_name:'renamed',name_revision:1}]);
     expect(check).toHaveBeenCalledWith({resource:{type:'project',id:ctx.projectId},permission:'administer',subject:{type:'user',id:ctx.userId}});
     discovery=snapshot('changed_again');
     const revoked=unwrap(await admin.enqueue(ctx,sourceId,[],{adoptRenamedNames:true}));
     allowed=false;
     expect(unwrap(await admin.execute(ctx,revoked.id)).state).toBe('failed');
-    expect(await withTenant(ctx,(tx)=>tx.query('SELECT duckdb_name,name_revision FROM catalog_element'))).toEqual([{duckdb_name:'renamed',name_revision:1}]);
+    expect(await withTenant(ctx,(tx)=>tx.query('SELECT exposed_name,name_revision FROM catalog_element'))).toEqual([{exposed_name:'renamed',name_revision:1}]);
   });
   it('records a type-family invalidation before metadata changes; numeric widening retains its family',async()=>{
     discovery=snapshot('amount','integer'); await run();

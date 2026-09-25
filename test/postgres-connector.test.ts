@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PostgresConnector, PostgresSourceScope, createPostgresConnector, type SidecarConnector, type SamplingAudit } from '../sidecar/index.js';
 import { DevelopmentVaultAdapter, type VaultPort } from '../src/platform/vault/index.js';
 import { CatalogObject, describeElement, mapSourceType } from '../src/modules/catalog/index.js';
-import { DuckDbName, ElementId, ObjectId, ProjectId, SourceId, ok, type Result } from '../src/shared/kernel/index.js';
+import { ExposedName, ElementId, ObjectId, ProjectId, SourceId, ok, type Result } from '../src/shared/kernel/index.js';
 import type { CatalogSnapshot } from '../src/modules/sources/index.js';
 
 const suffix = randomUUID().replaceAll('-', '');
@@ -160,13 +160,13 @@ describe('sidecar Postgres connector against a read-only source credential', () 
   it('G-003/G-004/G-005: repeated snapshots reconcile cleanly; additions allocate identity, removals retain it', async () => {
     const initial = await introspect();
     const catalog = unwrap(CatalogObject.create({ id: ObjectId(randomUUID()), projectId: envelope.projectId, sourceId: envelope.sourceId,
-      schemaName: schema, objectName: 't2', kind: 'table', duckdbSchema: DuckDbName('source'), duckdbName: DuckDbName('t2'),
+      schemaName: schema, objectName: 't2', kind: 'table', exposedSchema: ExposedName('source'), exposedName: ExposedName('t2'),
       lineageKnown: true, rowEstimate: null, description: null, status: 'active' }));
     const reconcile = (snapshot: CatalogSnapshot) => {
       const columns = snapshot.objects.find((object) => object.name === 't2')?.columns;
       if (columns === undefined) throw new Error('Missing fixture object.');
-      return unwrap(catalog.reconcile(columns.map((column) => ({ ...column, duckdbType: mapSourceType(column.sourceType) })),
-        (column) => ok({ id: ElementId(randomUUID()), duckdbName: DuckDbName(column.sourceIdentifier) }), snapshot.takenAt));
+      return unwrap(catalog.reconcile(columns.map((column) => ({ ...column, exposedType: mapSourceType(column.sourceType) })),
+        (column) => ok({ id: ElementId(randomUUID()), exposedName: ExposedName(column.sourceIdentifier) }), snapshot.takenAt));
     };
     expect(reconcile(initial).map((event) => event.type)).toEqual(['CatalogElementAdded', 'CatalogElementAdded']);
     expect(catalog.elements.every((element) => describeElement(element.state, null).status === 'undecided')).toBe(true);
@@ -178,7 +178,7 @@ describe('sidecar Postgres connector against a read-only source credential', () 
     if (added !== undefined) expect(describeElement(added, null).status).toBe('undecided');
     await fixture((db) => db.query(`ALTER TABLE ${quote(schema)}.t2 DROP COLUMN added`));
     expect(reconcile(await introspect()).map((event) => event.type)).toEqual(['CatalogElementRemoved']);
-    expect(catalog.elements.find((entry) => entry.state.id === added?.id)?.state).toMatchObject({ status: 'removed', duckdbName: added?.duckdbName });
+    expect(catalog.elements.find((entry) => entry.state.id === added?.id)?.state).toMatchObject({ status: 'removed', exposedName: added?.exposedName });
     expect(reconcile(await introspect())).toEqual([]);
   });
 

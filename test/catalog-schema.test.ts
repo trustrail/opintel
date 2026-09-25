@@ -25,11 +25,11 @@ integration('catalogue schema with Postgres', () => {
         ($1, $3, $4, 'Catalogue A', 'eu-west-1'), ($2, $3, $4, 'Catalogue B', 'eu-west-1')`, [projectId, otherProject, company.id, industry.id]);
     });
     await scope(async (tx) => {
-      await tx.query(`INSERT INTO data_source (id, project_id, kind, name, duckdb_alias, credential_ref)
+      await tx.query(`INSERT INTO data_source (id, project_id, kind, name, exposed_alias, credential_ref)
         VALUES ($1, $2, 'postgres', 'Warehouse', 'warehouse', 'vault://test/warehouse')`, [source, projectId]);
-      await tx.query(`INSERT INTO catalog_object (id, source_id, project_id, schema_name, object_name, object_kind, duckdb_schema, duckdb_name)
+      await tx.query(`INSERT INTO catalog_object (id, source_id, project_id, schema_name, object_name, object_kind, exposed_schema, exposed_name)
         VALUES ($1, $2, $3, 'public', 'Orders', 'table', 'public', 'orders')`, [object, source, projectId]);
-      await tx.query(`INSERT INTO catalog_element (id, object_id, project_id, source_identifier, duckdb_name, stable_ref, source_type, duckdb_type)
+      await tx.query(`INSERT INTO catalog_element (id, object_id, project_id, source_identifier, exposed_name, stable_ref, source_type, exposed_type)
         VALUES ($1, $2, $3, 'Customer Name', 'customer_name', '1', 'text', 'VARCHAR')`, [element, object, projectId]);
       await tx.query('INSERT INTO element_stats (element_id, cardinality) VALUES ($1, 5)', [element]);
     });
@@ -41,10 +41,10 @@ integration('catalogue schema with Postgres', () => {
       await tx.query("UPDATE catalog_object SET object_name = 'Renamed Orders' WHERE id = $1", [object]);
     });
     for (let run = 0; run < 2; run += 1) {
-      expect(await scope((tx) => tx.query('SELECT id, source_identifier, duckdb_name, stable_ref FROM catalog_element WHERE id = $1', [element])))
-        .toEqual([{ id: element, source_identifier: 'Account Holder', duckdb_name: 'customer_name', stable_ref: '1' }]);
+      expect(await scope((tx) => tx.query('SELECT id, source_identifier, exposed_name, stable_ref FROM catalog_element WHERE id = $1', [element])))
+        .toEqual([{ id: element, source_identifier: 'Account Holder', exposed_name: 'customer_name', stable_ref: '1' }]);
     }
-    for (const [table, id, field] of [['catalog_element', element, 'duckdb_name'], ['catalog_object', object, 'duckdb_name'], ['catalog_object', object, 'duckdb_schema']] as const) {
+    for (const [table, id, field] of [['catalog_element', element, 'exposed_name'], ['catalog_object', object, 'exposed_name'], ['catalog_object', object, 'exposed_schema']] as const) {
       await expect(scope((tx) => tx.query(`UPDATE ${table} SET ${field} = 'changed' WHERE id = $1`, [id])))
         .rejects.toMatchObject({ code: '23514' });
     }
@@ -52,14 +52,14 @@ integration('catalogue schema with Postgres', () => {
 
   it('G-011: permits explicit adoption with one name revision, but rejects ordinary and malformed updates', async () => {
     for (const [table, id] of [['catalog_object', object], ['catalog_element', element]] as const) {
-      await expect(scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'adopted' WHERE id = $1`, [id])))
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET exposed_name = 'adopted' WHERE id = $1`, [id])))
         .rejects.toMatchObject({ code: '23514' });
-      await expect(scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'adopted', name_revision = name_revision + 2 WHERE id = $1`, [id])))
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET exposed_name = 'adopted', name_revision = name_revision + 2 WHERE id = $1`, [id])))
         .rejects.toMatchObject({ code: '23514' });
-      expect(await scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'adopted', name_revision = name_revision + 1 WHERE id = $1
-        RETURNING duckdb_name, name_revision`, [id])))
-        .toEqual([{ duckdb_name: 'adopted', name_revision: 1 }]);
-      await expect(scope((tx) => tx.query(`UPDATE ${table} SET duckdb_name = 'ordinary' WHERE id = $1`, [id])))
+      expect(await scope((tx) => tx.query(`UPDATE ${table} SET exposed_name = 'adopted', name_revision = name_revision + 1 WHERE id = $1
+        RETURNING exposed_name, name_revision`, [id])))
+        .toEqual([{ exposed_name: 'adopted', name_revision: 1 }]);
+      await expect(scope((tx) => tx.query(`UPDATE ${table} SET exposed_name = 'ordinary' WHERE id = $1`, [id])))
         .rejects.toMatchObject({ code: '23514' });
       await expect(scope((tx) => tx.query(`UPDATE ${table} SET name_revision = name_revision + 1 WHERE id = $1`, [id])))
         .rejects.toMatchObject({ code: '23514' });
@@ -69,27 +69,27 @@ integration('catalogue schema with Postgres', () => {
   it('retains unnameable and unsupported elements, and does not permit implicit assignment on rediscovery', async () => {
     const id = randomUUID();
     await scope((tx) => tx.query(`INSERT INTO catalog_element
-      (id, object_id, project_id, source_identifier, duckdb_name, source_type, duckdb_type)
+      (id, object_id, project_id, source_identifier, exposed_name, source_type, exposed_type)
       VALUES ($1, $2, $3, '😀', NULL, 'geometry', NULL)`, [id, object, projectId]));
-    expect(await scope((tx) => tx.query('SELECT duckdb_name, duckdb_type, source_type FROM catalog_element WHERE id = $1', [id])))
-      .toEqual([{ duckdb_name: null, duckdb_type: null, source_type: 'geometry' }]);
-    await expect(scope((tx) => tx.query("UPDATE catalog_element SET duckdb_name = 'alias' WHERE id = $1", [id])))
+    expect(await scope((tx) => tx.query('SELECT exposed_name, exposed_type, source_type FROM catalog_element WHERE id = $1', [id])))
+      .toEqual([{ exposed_name: null, exposed_type: null, source_type: 'geometry' }]);
+    await expect(scope((tx) => tx.query("UPDATE catalog_element SET exposed_name = 'alias' WHERE id = $1", [id])))
       .rejects.toMatchObject({ code: '23514' });
-    await scope((tx) => tx.query("UPDATE catalog_element SET duckdb_name = 'alias', name_revision = name_revision + 1 WHERE id = $1", [id]));
+    await scope((tx) => tx.query("UPDATE catalog_element SET exposed_name = 'alias', name_revision = name_revision + 1 WHERE id = $1", [id]));
   });
 
   it('G-007: retains the removed row and its statistics beside the new identity', async () => {
     const fresh = randomUUID();
     await scope(async (tx) => {
       await tx.query("UPDATE catalog_element SET stable_ref = NULL, status = 'removed', removed_at = now() WHERE id = $1", [element]);
-      await tx.query(`INSERT INTO catalog_element (id, object_id, project_id, source_identifier, duckdb_name, source_type, duckdb_type)
+      await tx.query(`INSERT INTO catalog_element (id, object_id, project_id, source_identifier, exposed_name, source_type, exposed_type)
         VALUES ($1, $2, $3, 'New Name', 'new_name', 'text', 'VARCHAR')`, [fresh, object, projectId]);
     });
     expect(await scope((tx) => tx.query('SELECT id, status FROM catalog_element ORDER BY status')))
       .toEqual([{ id: fresh, status: 'active' }, { id: element, status: 'removed' }]);
     expect(await scope((tx) => tx.query('SELECT element_id FROM element_stats'))).toEqual([{ element_id: element }]);
     await expect(scope((tx) => tx.query(`INSERT INTO catalog_element
-      (object_id, project_id, source_identifier, duckdb_name, source_type, duckdb_type)
+      (object_id, project_id, source_identifier, exposed_name, source_type, exposed_type)
       VALUES ($1, $2, 'Collision', 'customer_name', 'text', 'VARCHAR')`, [object, projectId])))
       .rejects.toMatchObject({ code: '23505' });
   });
@@ -107,12 +107,12 @@ integration('catalogue schema with Postgres', () => {
       'INSERT INTO element_stats (element_id) VALUES ($1)', [element],
     ))).rejects.toMatchObject({ code: '42501' });
     await expect(withTenant({ userId, projectId: otherProject }, (tx) => tx.query(`INSERT INTO catalog_element
-      (object_id, project_id, source_identifier, duckdb_name, source_type, duckdb_type)
+      (object_id, project_id, source_identifier, exposed_name, source_type, exposed_type)
       VALUES ($1, $2, 'Forbidden', 'forbidden', 'text', 'VARCHAR')`, [object, projectId])))
       .rejects.toMatchObject({ code: '42501' });
     // An own-project row must not point to a parent from another project.
     await expect(withTenant({ userId, projectId: otherProject }, (tx) => tx.query(`INSERT INTO catalog_element
-      (object_id, project_id, source_identifier, duckdb_name, source_type, duckdb_type)
+      (object_id, project_id, source_identifier, exposed_name, source_type, exposed_type)
       VALUES ($1, $2, 'Forbidden', 'forbidden', 'text', 'VARCHAR')`, [object, otherProject])))
       .rejects.toMatchObject({ code: '23503' });
   });
@@ -120,7 +120,7 @@ integration('catalogue schema with Postgres', () => {
   it('F-006: stores only a vault reference and rejects plaintext credentials', async () => {
     const plaintext = 'postgres://customer:plaintext-password@customer-db/customer';
     for (const credential of [null, 'literal-secret', plaintext]) {
-      await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, duckdb_alias, credential_ref)
+      await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, exposed_alias, credential_ref)
         VALUES ($1, 'postgres', 'Invalid', 'invalid', $2)`, [projectId, credential])))
         .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });
       await expect(scope((tx) => tx.query('UPDATE data_source SET credential_ref = $1 WHERE id = $2', [credential, source])))

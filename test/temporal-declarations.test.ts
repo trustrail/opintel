@@ -25,10 +25,10 @@ describe('4.3b persisted temporal declarations', () => {
     await withTenant(ctx, async tx => {
       await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Analysis')", [pool, ctx.projectId]);
       for (const s of [source, second]) {
-        await tx.query("INSERT INTO data_source(id,project_id,name,duckdb_alias,kind,credential_ref,status) VALUES($1,$2,$3,$3,'postgres','vault://test/source','connected')", [s, ctx.projectId, s === source ? 'warehouse' : 'other_warehouse']);
-        const [object] = await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,duckdb_schema,duckdb_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id", [ctx.projectId,s]);
+        await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,$3,$3,'postgres','vault://test/source','connected')", [s, ctx.projectId, s === source ? 'warehouse' : 'other_warehouse']);
+        const [object] = await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id", [ctx.projectId,s]);
         const elements = s === source ? [['naive','timestamp','TIMESTAMP'],['zoned','timestamptz','TIMESTAMPTZ'],['date','date','DATE'],['integer','bigint','BIGINT'],['decimal','numeric(12,2)','DECIMAL(12,2)']] as const : [['otherSource','timestamp','TIMESTAMP']] as const;
-        for (const [name,type,duck] of elements) await tx.query('INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,duckdb_name,duckdb_type) VALUES($1,$2,$3,$4,$5,$4,$6)', [ids[name],ctx.projectId,object!.id,name,type,duck]);
+        for (const [name,type,duck] of elements) await tx.query('INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,$4,$5,$4,$6)', [ids[name],ctx.projectId,object!.id,name,type,duck]);
       }
     });
   });
@@ -67,7 +67,7 @@ describe('4.3b persisted temporal declarations', () => {
   it('TOK-22: a date can be tokenized with neither temporal declaration and retains DATE', async () => {
     unwrap(await decide(ids.date));
     expect(unwrap(await temporal.read(ctx,ids.date))).toEqual({sourceTimezone:null,epochUnit:null,schemaTimezone:null,effectiveSourceTimezone:null});
-    expect(await withTenant(ctx,tx=>tx.query('SELECT duckdb_type FROM catalog_element WHERE id=$1',[ids.date]))).toEqual([{duckdb_type:'DATE'}]);
+    expect(await withTenant(ctx,tx=>tx.query('SELECT exposed_type FROM catalog_element WHERE id=$1',[ids.date]))).toEqual([{exposed_type:'DATE'}]);
   });
   it('validates IANA zones when set; does not accept offsets, unknown zones or extra fields', async () => {
     for (const zone of ['Not/AZone','+01:00','', ' Europe/Paris']) {
@@ -99,7 +99,7 @@ describe('4.3b persisted temporal declarations', () => {
     expect(await temporal.setSchema(other,source,'public',{sourceTimezone:'Europe/Paris'})).toMatchObject({ok:false,error:{code:'not_found'}});
     expect(await withTenant(other,tx=>tx.query('SELECT * FROM catalog_schema_temporal'))).toEqual([]);
     unwrap(await temporal.setElement(ctx,ids.integer,{epochUnit:'seconds'}));
-    await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET duckdb_type='VARCHAR',source_type='text' WHERE id=$1",[ids.integer]));
+    await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET exposed_type='VARCHAR',source_type='text' WHERE id=$1",[ids.integer]));
     expect(await decide(ids.integer)).toMatchObject({ok:false,error:{message:expect.stringContaining('integer')}});
   });
 });

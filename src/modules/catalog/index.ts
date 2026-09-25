@@ -3,7 +3,7 @@ export type { AssignElementIdentity, CatalogChange, CatalogObjectState, ElementD
 export { CatalogNaming } from './application/naming.js';
 export type { AssignedName, IdentifierTransliterator } from './application/naming.js';
 export { mapSourceType, postTreatmentType } from './domain/type-mapping.js';
-export type { DuckDbType, SourceTypeSpec, Treatment } from './domain/type-mapping.js';
+export type { ExposedType, SourceTypeSpec, Treatment } from './domain/type-mapping.js';
 export { describeElement } from './domain/describe-element.js';
 export { exposedObjectName } from './domain/namespace.js';
 export { reconcileSnapshot, type IntrospectionDiff } from './application/introspection-diff.js';

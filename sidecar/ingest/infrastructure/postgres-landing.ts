@@ -1,7 +1,7 @@
 import { Client } from 'pg';
 import { z } from 'zod';
 import { AsciiTransliterator, CatalogNaming } from '../../../src/modules/catalog/index.js';
-import { DomainError, DuckDbName, err, ok, type Result } from '../../../src/shared/kernel/index.js';
+import { DomainError, ExposedName, err, ok, type Result } from '../../../src/shared/kernel/index.js';
 import { landingReceiptSchema, type LandingReceipt } from '../../../src/shared/landing-contract.js';
 import type { VaultPort } from '../../../src/platform/vault/index.js';
 import type { LandingInput, LandingPort, LandingSource } from '../landing-port.js';
@@ -54,7 +54,7 @@ export class PostgresLanding implements LandingPort {
       if (existing.rows[0]?.strategy && existing.rows[0].strategy !== source.strategy) throw new DomainError('conflict', `Landing strategy is ${existing.rows[0].strategy}; received ${source.strategy}.`);
       if (!schema) {
         const occupied = await db.query<{ nspname: string }>('SELECT nspname FROM pg_namespace');
-        schema = naming.assign(source.name, occupied.rows.map((row) => DuckDbName(row.nspname))).name ?? undefined;
+        schema = naming.assign(source.name, occupied.rows.map((row) => ExposedName(row.nspname))).name ?? undefined;
         if (!schema) throw new DomainError('validation_failed', 'The source name cannot name a landing schema.');
         await db.query(`CREATE SCHEMA ${quote(schema)}`);
         await db.query(`INSERT INTO ${qualified(metadata, 'sources')} VALUES ($1,$2,$3,NULL)`, [source.sourceId, source.projectId, schema]);
@@ -106,7 +106,7 @@ export class PostgresLanding implements LandingPort {
       let base = previous?.table_name;
       if (!base) {
         const occupied = await db.query<{ table_name: string }>(`SELECT table_name FROM ${qualified(metadata, 'groups')} WHERE source_id=$1`, [input.source.sourceId]);
-        base = naming.assign(`${input.partyCode}_${input.kind}`, occupied.rows.map((row) => DuckDbName(row.table_name))).name ?? undefined;
+        base = naming.assign(`${input.partyCode}_${input.kind}`, occupied.rows.map((row) => ExposedName(row.table_name))).name ?? undefined;
         if (!base) throw new DomainError('validation_failed', 'The filing party code cannot name a landing table.');
       }
       const table = input.source.strategy === 'append_as_at' ? base : `${base.slice(0, 30)}_${input.filingId.replaceAll('-', '')}`;

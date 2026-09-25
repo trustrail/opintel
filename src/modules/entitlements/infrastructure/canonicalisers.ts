@@ -1,16 +1,16 @@
 import { withPlatform, withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, type ElementId } from '../../../shared/kernel/index.js';
-import type { DuckDbType } from '../../catalog/index.js';
+import type { ExposedType } from '../../catalog/index.js';
 import { canonicaliserAssignment, standardCanonId, validateCanonicaliserType, type CanonicaliserAssignments, type CanonicaliserCatalog } from '../application/canonicalisers.js';
 import type { EntitlementContext } from '../application/entitlement-repository.js';
-type Row = { canon_id: string | null; duckdb_type: DuckDbType | null; epoch_unit: string | null; tokenized: boolean };
-const select = `SELECT e.canon_id,e.duckdb_type,e.epoch_unit,EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS tokenized FROM catalog_element e WHERE e.id=$1`;
+type Row = { canon_id: string | null; exposed_type: ExposedType | null; epoch_unit: string | null; tokenized: boolean };
+const select = `SELECT e.canon_id,e.exposed_type,e.epoch_unit,EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS tokenized FROM catalog_element e WHERE e.id=$1`;
 const missing = () => err(new DomainError('not_found', 'The catalogue element was not found in this project.'));
 export class PostgresCanonicaliserAssignments implements CanonicaliserAssignments {
   constructor(private readonly catalog: CanonicaliserCatalog) {}
   read(ctx: EntitlementContext, element: ElementId) { return withTenant(ctx, async tx => {
     const [row] = await tx.query<Row>(select, [element]);
-    return row ? ok({canonId: row.canon_id ?? standardCanonId(row.duckdb_type,row.epoch_unit)}) : missing();
+    return row ? ok({canonId: row.canon_id ?? standardCanonId(row.exposed_type,row.epoch_unit)}) : missing();
   }); }
   async assign(ctx: EntitlementContext, element: ElementId, input: unknown) {
     const parsed = canonicaliserAssignment.safeParse(input);
@@ -23,7 +23,7 @@ export class PostgresCanonicaliserAssignments implements CanonicaliserAssignment
       if (!locked.length) return missing();
       const [row] = await tx.query<Row>(select + ' FOR UPDATE OF e',[element]);
       if (!row) return missing();
-      const valid = validateCanonicaliserType(parsed.data.canonId,row.duckdb_type,row.epoch_unit);
+      const valid = validateCanonicaliserType(parsed.data.canonId,row.exposed_type,row.epoch_unit);
       if (!valid.ok) return valid;
       if (row.tokenized && row.canon_id !== parsed.data.canonId) {
         const [project] = await withPlatform(p => p.query<{name:string}>('SELECT name FROM project WHERE id=$1',[ctx.projectId]));

@@ -1,12 +1,12 @@
 import { withPlatform, withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, type ElementId, type SourceId } from '../../../shared/kernel/index.js';
 import { temporalPatch, schemaTimezonePatch, validateTemporalType, validateTokenizedTemporal, type TemporalContext, type TemporalRepository, type TemporalView } from '../application/temporal.js';
-import type { DuckDbType } from '../domain/type-mapping.js';
+import type { ExposedType } from '../domain/type-mapping.js';
 
-type Row = TemporalView & { duckdbType: DuckDbType | null; tokenized: boolean };
+type Row = TemporalView & { exposedType: ExposedType | null; tokenized: boolean };
 const select = `SELECT e.source_timezone AS "sourceTimezone", e.epoch_unit AS "epochUnit",
  d.source_timezone AS "schemaTimezone", COALESCE(e.source_timezone,d.source_timezone) AS "effectiveSourceTimezone",
- e.duckdb_type AS "duckdbType", EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS tokenized
+ e.exposed_type AS "exposedType", EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS tokenized
  FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id
  LEFT JOIN catalog_schema_temporal d ON d.source_id=o.source_id AND d.schema_name=o.schema_name`;
 const view = (row: Row): TemporalView => ({ sourceTimezone: row.sourceTimezone, epochUnit: row.epochUnit, schemaTimezone: row.schemaTimezone, effectiveSourceTimezone: row.effectiveSourceTimezone });
@@ -35,7 +35,7 @@ export class PostgresTemporalRepository implements TemporalRepository {
       const [row] = await tx.query<Row>(select + ' WHERE e.id=$1 FOR UPDATE OF e', [element]);
       if (!row) return missing();
       const next = { sourceTimezone: patch.sourceTimezone === undefined ? row.sourceTimezone : patch.sourceTimezone, epochUnit: patch.epochUnit === undefined ? row.epochUnit : patch.epochUnit };
-      const valid = validateTemporalType(row.duckdbType, next);
+      const valid = validateTemporalType(row.exposedType, next);
       if (!valid.ok) return valid;
       const effective = next.sourceTimezone ?? row.schemaTimezone;
       const changing = (row.sourceTimezone !== null && next.sourceTimezone !== row.sourceTimezone)
@@ -43,7 +43,7 @@ export class PostgresTemporalRepository implements TemporalRepository {
         || (row.epochUnit !== null && next.epochUnit !== row.epochUnit);
       if (row.tokenized && changing && !await confirmed(ctx, patch.confirmation)) return confirmationRequired();
       if (row.tokenized) {
-        const validDecision = validateTokenizedTemporal(row.duckdbType, { ...next, sourceTimezone: effective });
+        const validDecision = validateTokenizedTemporal(row.exposedType, { ...next, sourceTimezone: effective });
         if (!validDecision.ok) return validDecision;
       }
       await tx.query('UPDATE catalog_element SET source_timezone=$2,epoch_unit=$3 WHERE id=$1', [element, next.sourceTimezone, next.epochUnit]);
@@ -63,7 +63,7 @@ export class PostgresTemporalRepository implements TemporalRepository {
       const affected = await tx.query<Row>(select + ' WHERE o.source_id=$1 AND o.schema_name=$2 AND e.source_timezone IS NULL', [source, schema]);
       if (old && old.zone !== next && affected.some(row => row.tokenized) && !await confirmed(ctx, parsed.data.confirmation)) return confirmationRequired();
       for (const row of affected.filter(row => row.tokenized)) {
-        const valid = validateTokenizedTemporal(row.duckdbType, { sourceTimezone: next, epochUnit: row.epochUnit });
+        const valid = validateTokenizedTemporal(row.exposedType, { sourceTimezone: next, epochUnit: row.epochUnit });
         if (!valid.ok) return valid;
       }
       if (next === null) await tx.query('DELETE FROM catalog_schema_temporal WHERE source_id=$1 AND schema_name=$2', [source, schema]);

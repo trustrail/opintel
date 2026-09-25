@@ -191,7 +191,7 @@ Version 1.0 · September 2026
 | G-007 | F | Column renamed, no stable id | Treated as removal plus addition; new element undecided |
 | G-008 | F | Type widened within family (`varchar(50)`→`varchar(100)`) | Entitlement carries |
 | G-009 | F | Type family changed (`integer`→`varchar`) | Item 3.6 records the type-family diff and required invalidation. Item 4.1 deletes the entitlement row after the diff is recorded, restoring undecided |
-| G-010 | F | Table renamed | Objects re-map; exposed DuckDB name unchanged by default |
+| G-010 | F | Table renamed | Objects re-map; exposed name unchanged by default |
 | G-011 | F | "Adopt renamed names" enabled | Name changes; labelled a breaking change |
 | G-012 | D | Identifier requiring normalisation | Normalised name recorded once; identical across two runs |
 | G-013 | F | Two identifiers colliding after normalisation | Suffix applied; observation raised |
@@ -404,7 +404,7 @@ Every setting in C.4 has a case. A setting with no case is a coverage gap.
 | Q-013 | F | Discovery: type-family change = revert | Element reverts; observation raised |
 | Q-014 | F | Discovery: type-family change = carry over | Entitlement retained; observation still raised |
 | Q-015 | F | Discovery: rename = treat as new | Element becomes undecided |
-| Q-016 | F | Discovery: adopt renamed names on | DuckDB name changes; labelled a breaking change; agents referencing the old name fail clearly |
+| Q-016 | F | Discovery: adopt renamed names on | Exposed name changes; labelled a breaking change; agents referencing the old name fail clearly |
 | Q-017 | F | Discovery: sampling off | `/sample` returns 403 even with per-source consent |
 | Q-018 | F | Query: timeout | Enforced at the sidecar; a longer query is cancelled |
 | Q-019 | F | Query: row limit | `truncated: true` returned, never a silent cut |
@@ -436,7 +436,7 @@ Entities whose behaviour is not covered by the flows above.
 |---|---|---|---|
 | R-001 | F | `catalogElement` fetched by prefix | Only that subtree returned; never the whole catalogue |
 | R-002 | P | `catalogElement` list, 50k elements | Paginated; no unbounded response |
-| R-003 | D | `catalogElement.duckdbName` | Stable across two introspections; recorded at first discovery |
+| R-003 | D | `catalogElement.exposedName` | Stable across two introspections; recorded at first discovery |
 | R-004 | F | `patternRule` created | Applies only to elements discovered after it |
 | R-005 | F | `patternRule` priority | Highest priority wins on multiple matches |
 | R-006 | F | `patternRule` deleted | Existing entitlements it set are retained |
