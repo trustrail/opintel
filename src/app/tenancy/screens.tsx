@@ -1,6 +1,6 @@
 import { CustodyObservations } from '../custody/observations.js';
 import { QuarantineFeed } from '../filings/screens.js';
-import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { Link, useSearch, useNavigate, useRouterState } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode } from 'react';
 import { Button, Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
 import { CreateCompanyBody, CreateProjectBody, RegionSchema } from '../../shared/api/tenancy-schemas.js';
@@ -13,7 +13,11 @@ export function projectIdFromPath(path: string): string | null {
 }
 
 export function ProjectChooser(): ReactNode {
+  const search = useSearch({from:'/projects'});
+  const companyId = 'companyId' in search ? search.companyId : undefined;
+  const navigate = useNavigate();
   const projects = useProjects();
+  const visible = projects.data?.filter(project => !companyId || project.company.id === companyId) ?? [];
   const companies = useCompanies();
   const admin = companies.data?.some((company) => company.role === 'admin') ?? false;
   const error = projects.error ?? companies.error;
@@ -21,8 +25,9 @@ export function ProjectChooser(): ReactNode {
     {error !== null ? <ErrorState title="Projects could not be loaded" description={error.message} retry={() => { void projects.refetch(); void companies.refetch(); }} />
       : projects.isPending || companies.isPending ? <LoadingState /> : <>
         <div className="pgrow" style={{ marginBottom: 14 }}><Link className="btn go" to={admin ? '/projects/new' : '/companies/new'}>{admin ? 'Create project' : 'Create company'}</Link>{admin ? <Link className="btn ghost" to="/companies/new">Create company</Link> : null}</div>
-        {(projects.data ?? []).length === 0 ? <EmptyState icon="◫" title="No projects yet" description={admin ? 'Create a project to choose an industry and region, then connect your first source.' : 'Create a company first. You will become its administrator and can create a project.'} />
-          : <div className="pgrid">{(projects.data ?? []).map((project) => <Link className="pcard" key={project.id} to="/projects/$projectId/dashboard" params={{ projectId: project.id }} aria-labelledby={`project-${project.id}`} style={{ color: 'inherit', textDecoration: 'none', padding: 12, alignSelf: 'start' }}>
+        <div className="filters"><span className="pick"><label htmlFor="company-filter">Company</label><select id="company-filter" value={companyId ?? ''} onChange={event => {void navigate({to:'/projects',search:event.target.value ? {companyId:event.target.value} : {}});}}><option value="">All companies</option>{(companies.data ?? []).map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></span></div>
+        {visible.length === 0 ? <EmptyState icon="◫" title={companyId ? "No projects in this company" : "No projects yet"} description={companyId ? "Choose another company or All companies to see your other projects." : admin ? 'Create a project to choose an industry and region, then connect your first source.' : 'Create a company first. You will become its administrator and can create a project.'} />
+          : <div className="pgrid">{visible.map((project) => <Link className="pcard" key={project.id} to="/projects/$projectId/dashboard" params={{ projectId: project.id }} aria-labelledby={`project-${project.id}`} style={{ color: 'inherit', textDecoration: 'none', padding: 12, alignSelf: 'start' }}>
             <div className="ph2" style={{ marginBottom: 6 }}><span className="sq" aria-hidden="true">{project.name.slice(0, 2).toUpperCase()}</span><div><h4 id={`project-${project.id}`} aria-level={2}>{project.name}</h4><span className="co2">{project.company.name}</span></div></div>
             <div className="pbarleg" style={{ marginTop: 0 }}>{project.industry.name} · {project.region} · {project.role}</div>
           </Link>)}</div>}
@@ -71,7 +76,7 @@ export function CreateProjectScreen(): ReactNode {
               <RegionPicker value={form.region} onChange={(region) => form.set({ region })} />
               <IndustryPicker items={industries.data ?? []} value={form.industryId} onChange={(industryId) => form.set({ industryId })} />
               {mutation.error === null ? null : <div className="fld err" role="alert"><p className="err-msg">{mutation.error.message}</p></div>}
-              <div className="pgrow"><Button variant="go" type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Creating project…' : 'Create project'}</Button><Link className="btn ghost" to="/projects">Cancel</Link></div>
+              <div className="pgrow"><Button variant="go" type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Creating project…' : 'Create project'}</Button></div>
             </form></Card>}
   </section>;
 }
@@ -98,7 +103,7 @@ export function CreateCompanyScreen(): ReactNode {
         <RegionPicker value={form.region} onChange={(region) => form.set({ region })} />
         {(industries.data ?? []).length === 0 ? <p className="note">No industry packs are available yet. You can create a company without a default industry.</p> : <IndustryPicker optional items={industries.data ?? []} value={form.industryId} onChange={(industryId) => form.set({ industryId })} />}
         {mutation.error === null ? null : <div className="fld err" role="alert"><p className="err-msg">{mutation.error.message}</p></div>}
-        <div className="pgrow"><Button type="submit" variant="go" disabled={mutation.isPending}>{mutation.isPending ? 'Creating company…' : 'Create company'}</Button><Link className="btn ghost" to="/projects">Cancel</Link></div>
+        <div className="pgrow"><Button type="submit" variant="go" disabled={mutation.isPending}>{mutation.isPending ? 'Creating company…' : 'Create company'}</Button></div>
       </form></Card>}
   </section>;
 }
@@ -110,7 +115,7 @@ export function ProjectDashboard(): ReactNode {
   if (projects.isPending) return <LoadingState />;
   if (projects.isError) return <ErrorState title="Project could not be loaded" description={projects.error.message} retry={() => { void projects.refetch(); }} />;
   const project = projects.data.find((item) => item.id === id);
-  if (project === undefined) return <EmptyState icon="◫" title="Project unavailable" description="Choose a project you can reach."><Link className="btn go" to="/projects">View projects</Link></EmptyState>;
+  if (project === undefined) return <EmptyState icon="◫" title="Project unavailable" description="Choose a project you can reach using All projects in the breadcrumb."/>;
   return <section className="screen on"><h1>{project.name}</h1><p className="sub">Three steps to set up your project.</p><div className="setup">
     <div className="stepcard now"><div className="num">1</div><b>Connect a source</b><p>Opintel introspects it and builds a catalogue. Nothing is readable until you say so.</p><Link className="btn go" to="/projects/$projectId/$screen" params={{ projectId: project.id, screen: 'data-sources' }}>Connect a source</Link></div>
     <div className="stepcard"><div className="num">2</div><b>Create a pool</b><p>Generate a key for your agents. Bind the pool to the sources it may reach.</p><Link className="btn ghost" to="/projects/$projectId/$screen" params={{ projectId: project.id, screen: 'pools' }}>Create a pool</Link></div>

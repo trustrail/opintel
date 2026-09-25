@@ -1,4 +1,5 @@
-import { test,expect,type Page } from '@playwright/test';
+import {test} from './fixtures.js';
+import {expect,type Page } from '@playwright/test';
 import axe from 'axe-core';
 const project='018f8f9d-7f83-7abc-8def-000000000001';const source='018f8f9d-7f83-7abc-8def-000000000002';const id='018f8f9d-7f83-7abc-8def-000000000003';
 const run={id,sourceId:source,state:'complete',progress:{objects:3,total:null},error:null as string|null,startedAt:'2026-09-20T10:00:00Z',endedAt:'2026-09-20T10:00:04Z',diff:[
@@ -41,13 +42,13 @@ for(const width of [390,900,1440])test(`G-003 to G-009: run diff and history at 
  await expect(page.getByRole('row').filter({hasText:'new_field'})).toContainText('Needs a decision');
  await expect(page.getByRole('button',{name:'Cancel introspection'})).toHaveCount(0);
  await expect(page).toHaveScreenshot(`introspection-diff-${width}.png`,{fullPage:true});await accessible(page);
- await page.getByRole('link',{name:'All source runs'}).click();await expect(page.getByRole('heading',{name:'Introspection runs',exact:true})).toBeVisible();
+ await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'Introspection runs',exact:true}).click();await expect(page.getByRole('heading',{name:'Introspection runs',exact:true})).toBeVisible();
  await expect(page).toHaveScreenshot(`introspection-history-${width}.png`,{fullPage:true});await accessible(page);
 });
 test('G-003: loading, unchanged, error and empty history are explicit',async({page})=>{
  const state=await mock(page);state.loading=true;state.run.diff=[];await page.goto(path);await expect(page.getByText('Preparing this view')).toBeVisible();await expect(page.getByText('No changes since the last introspection.')).toBeVisible();await accessible(page);
  state.loading=false;state.error=true;await page.reload();await expect(page.getByText('The run register is temporarily unavailable.')).toBeVisible();state.error=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('No changes since the last introspection.')).toBeVisible();
- state.empty=true;await page.getByRole('link',{name:'All source runs'}).click();await expect(page.getByText('No introspection runs yet')).toBeVisible();await accessible(page);
+ state.empty=true;await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'Introspection runs',exact:true}).click();await expect(page.getByText('No introspection runs yet')).toBeVisible();await accessible(page);
 });
 test('S-008/S-009: live progress and completion use SSE; cancellation is restricted to cancellable states',async({page})=>{
  const state=await mock(page);state.run.state='reading';await page.clock.install();await page.goto(path);await expect(page.getByRole('button',{name:'Cancel introspection'})).toBeVisible();
@@ -59,5 +60,5 @@ test('S-008/S-009: live progress and completion use SSE; cancellation is restric
 });
 test('failed message is unchanged and history uses cursor pagination',async({page})=>{
  const state=await mock(page);state.run.state='failed';state.run.error='Source authentication failed.';await page.goto(path);await expect(page.getByRole('alert')).toHaveText(state.run.error);await accessible(page);
- await page.getByRole('link',{name:'All source runs'}).click();await page.getByRole('button',{name:'Load more runs'}).click();expect(state.cursor).toBe(true);
+ await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'Introspection runs',exact:true}).click();await page.getByRole('button',{name:'Load more runs'}).click();expect(state.cursor).toBe(true);
 });

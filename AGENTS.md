@@ -93,6 +93,16 @@ Most rules below exist to protect that sentence.
 - Every query key comes from its entity's key factory
 - Every screen renders loading, empty, error and ready
 - Every mutation invalidates exactly what the matrix says
+- Navigation: a project-level destination screen is a drawer sub-item under
+  its parent, shown when the parent is active. It is never only a link on
+  the parent's screen. Links that carry a specific object (a source's runs,
+  a failing run, a superseded filing) stay in context. See §5.5.
+- Breadcrumbs: every segment except the current page is a link to that
+  scope. At narrow widths, show only the parent as a back link. See §5.5.
+- Drawer items with sub-items carry a disclosure chevron: right when
+  collapsed, down when expanded.
+- No screen renders its own back link or button. The breadcrumb is the only
+  back affordance. See §5.5.
 
 **Failure**
 - Fail closed. If an entitlement cannot be resolved, refuse

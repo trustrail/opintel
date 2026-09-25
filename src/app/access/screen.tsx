@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Button, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
@@ -59,7 +59,6 @@ export function AccessScreen({ projectId }: { projectId: string }): ReactNode {
   const filter = ui.projectId === projectId ? ui.filter : 'all';
   const visible = members.data?.filter((member) => filter === 'all' || member.via === filter || member.via === 'both') ?? [];
   return <section className="screen on"><h1>Access</h1><p className="sub">Who can reach this project and what each person may do. Select someone to see their permissions and why they have them.</p>
-    {project?.role==='admin'?<p className="note"><Link to="/projects/$projectId/$screen" params={{projectId,screen:'token-key'}}>Manage token key</Link></p>:null}
     <div className="filters"><span className="pick"><label htmlFor="access-project">Project</label><select id="access-project" value={projectId} onChange={(event) => {
       const nextId = event.target.value;
       cache.removeQueries({ queryKey: projectKeys.scope(projectId) });

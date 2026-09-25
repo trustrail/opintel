@@ -89,6 +89,24 @@
 #opintel-app .dnav button:hover{color:#fff;background:var(--plum-2)}
 #opintel-app .dnav button:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
 #opintel-app .dnav button[aria-current="true"]{color:#fff;background:var(--plum-2);border-left-color:var(--green);font-weight:700}
+#opintel-app .dnav button[data-active="true"]{color:var(--surface);background:var(--plum-2);border-left-color:var(--green);font-weight:700}
+#opintel-app .dnav [data-nav-row]{display:flex;border-left:2px solid transparent;font-weight:500;transition:background .14s}
+#opintel-app .dnav [data-nav-row]:hover, #opintel-app .dnav [data-nav-row]:focus-within, #opintel-app .dnav [data-nav-row][data-active="true"]{background:var(--plum-2)}
+#opintel-app .dnav [data-nav-row][data-active="true"]{border-left-color:var(--green);font-weight:700}
+#opintel-app .dnav [data-nav-row]>button{background:transparent;border-left:0}
+#opintel-app .dnav [data-nav-row]>button:first-child{flex:1;min-width:0;font-weight:inherit}
+#opintel-app .dnav [data-nav-row]:hover>button:first-child, #opintel-app .dnav [data-nav-row]:focus-within>button:first-child, #opintel-app .dnav [data-nav-row][data-active="true"]>button:first-child{color:var(--surface)}
+#opintel-app .dnav button[data-disclosure]{width:36px;flex:none;padding:7px 10px;border-left:0;justify-content:center;color:var(--rule-2);font-weight:500}
+#opintel-app .dnav button[data-disclosure] span{display:block;transform:rotate(0deg)}
+#opintel-app .dnav button[data-disclosure][aria-expanded="true"] span{transform:rotate(90deg)}
+#opintel-app .collapsed .dnav button[data-disclosure]{display:none}
+@media(max-width:820px){#opintel-app .dnav button[data-disclosure]{display:none}}
+#opintel-app .dnav ul{list-style:none;margin:0;padding:0}
+#opintel-app .dnav ul[hidden], #opintel-app .collapsed .dnav ul{display:none}
+#opintel-app .dnav li a{display:block;padding:7px 18px 7px 49px;color:var(--rule-2);font-size:13px;text-decoration:none;border-left:2px solid transparent}
+#opintel-app .dnav li a:hover{background:var(--plum-2);color:var(--surface)}
+#opintel-app .dnav li a[aria-current="page"]{background:var(--plum-3);color:var(--surface);border-left-color:var(--green);font-weight:700}
+#opintel-app .dnav li a:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
 #opintel-app .dnav .ic{width:20px;text-align:center;font-size:17px;line-height:1;flex-shrink:0;opacity:.95}
 #opintel-app .dnav .lb{flex:1;white-space:nowrap}
 #opintel-app .dnav .pill{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;background:var(--yellow);color:var(--plum);border-radius:9px;padding:1px 6px}
@@ -124,6 +142,18 @@
 #opintel-app .crumbs .sl{color:var(--rule-2)}
 #opintel-app .crumbs .pr{font-weight:700;white-space:nowrap}
 #opintel-app .crumbs .cur{font-weight:700;letter-spacing:-.02em;font-size:14.5px;white-space:nowrap}
+#opintel-app .crumbs ol{display:flex;align-items:center;gap:8px;list-style:none;margin:0;padding:0;min-width:0}
+#opintel-app .crumbs li{display:flex;align-items:center;gap:8px;min-width:0}
+#opintel-app .crumbs a{color:var(--ink-2);font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#opintel-app .crumbs a:hover{text-decoration:underline}
+#opintel-app .crumbs a:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+#opintel-app .crumbs .cur{overflow:hidden;text-overflow:ellipsis}
+@media(max-width:820px){
+  #opintel-app .dnav ul{display:none}
+  #opintel-app .crumbs li{display:none}
+  #opintel-app .crumbs li:nth-last-child(2){display:flex}
+  #opintel-app .crumbs li:nth-last-child(2)::before{content:'‹';color:var(--ink-2)}
+}
 #opintel-app .search{margin-left:auto;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:7px 10px;width:216px}
 #opintel-app .search input{border:none;background:none;outline:none;font-family:inherit;font-size:13px;width:100%;color:var(--ink)}
 #opintel-app .search input::placeholder{color:var(--ink-3)}

@@ -29,7 +29,7 @@ export function SourcesScreen({projectId}:{projectId:string}):ReactNode{
  const expansion=useFilingExpansion();
  const projects=useProjects();const sources=useSources(projectId);const project=projects.data?.find(p=>p.id===projectId);const industryId=project?.industry.id??'';
  const demos=useDemos(projectId,industryId);const connect=useConnectSource(projectId,industryId);const ui=useSourceUi();const open=ui.open&&ui.projectId===projectId;const canConnect=project?.role==='admin';
- return <section className="screen on"><h1>Data sources</h1><Link className="btn ghost" to="/projects/$projectId/$screen" params={{projectId,screen:'catalog'}}>Explore schema</Link><p className="sub">Systems Opintel sits in front of for this project. Agents never reach these directly; every request is planned and executed here first.</p>
+ return <section className="screen on"><h1>Data sources</h1><p className="sub">Systems Opintel sits in front of for this project. Agents never reach these directly; every request is planned and executed here first.</p>
  {projects.isError?<ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>{void projects.refetch();}}/>:null}
  {retry.isError?<p className="note" role="alert">{retry.error.message}</p>:null}
  {open?<Wizard key={projectId} projectId={projectId} industryId={industryId}/>:null}

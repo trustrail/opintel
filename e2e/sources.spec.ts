@@ -1,5 +1,6 @@
+import {test} from './fixtures.js';
 import { sourceMessages } from '../src/shared/source-errors.js';
-import { expect,test,type Page } from '@playwright/test';
+import { expect,type Page } from '@playwright/test';
 import axe from 'axe-core';
 test.use({ reducedMotion: 'reduce' });
 const projectId='018f8f9d-7f83-7abc-8def-000000000001';

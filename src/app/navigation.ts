@@ -9,6 +9,7 @@ export type NavItem = {
   readonly icon: string;
   readonly count?: string;
   readonly dim?: boolean;
+  readonly children?: readonly {label: string; screen: string; adminOnly?: boolean}[];
 };
 
 export type NavGroup = { readonly label: string; readonly items: readonly NavItem[] };
@@ -22,7 +23,7 @@ export const navGroups: readonly NavGroup[] = [
   ] },
   { label: 'Work', items: [{ label: 'Workbench', path: '/workbench', icon: '▶' }] },
   { label: 'Understand', items: [
-    { label: 'Data sources', path: '/data-sources', icon: '⛁' },
+    { label: 'Data sources', path: '/data-sources', icon: '⛁', children: [{label: 'Explore schema', screen: 'catalog'}] },
     { label: 'Vocabulary', path: '/vocabulary', icon: '❋' },
     { label: 'Source of truth', path: '/source-of-truth', icon: '◉' },
     { label: 'Relationships', path: '/relationships', icon: '⇄' },
@@ -31,7 +32,7 @@ export const navGroups: readonly NavGroup[] = [
   { label: 'Govern', items: [
     { label: 'Entitlements', path: '/entitlements', icon: '⊟' },
     { label: 'Pools', path: '/pools', icon: '◇' },
-    { label: 'Access', path: '/access', icon: '◉' },
+    { label: 'Access', path: '/access', icon: '◉', children: [{label: 'Token key', screen: 'token-key', adminOnly: true}] },
     { label: 'Audit log', path: '/audit-log', icon: '⧉' },
   ] },
   { label: 'Manage', items: [
@@ -44,7 +45,7 @@ export function labelForPath(pathname: string): string {
   if (/^\/projects\/[^/]+\/introspections\/[^/]+$/u.test(pathname)) return 'Introspection run';
   if (/^\/projects\/[^/]+\/sources\/[^/]+\/introspections$/u.test(pathname)) return 'Introspection runs';
   if (pathname === '/token-key') return 'Token key';
-  if (pathname === '/catalog') return 'Schema explorer';
+  if (pathname === '/catalog') return 'Explore schema';
   if (pathname === '/') return 'Dashboard';
   if (pathname === '/projects/new') return 'Create project';
   if (pathname === '/companies/new') return 'Create company';

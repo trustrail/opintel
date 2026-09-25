@@ -2,7 +2,6 @@ import { useMemo, useRef, type KeyboardEvent, type RefObject } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { Link } from '@tanstack/react-router';
 import { Button, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
 import type { CatalogNode } from '../../shared/api/catalog.js';
 import type { AppError } from '../../shared/api/index.js';
@@ -43,7 +42,7 @@ export function CatalogScreen({ projectId }: { projectId: string }) {
   const prefix = state.branches[state.searchParent]?.prefix ?? '';
   return <section className="screen on"><h1>Schema explorer</h1><p className="sub">The DuckDB names and types agents address, with each element's decision state. Undecided elements are visible here and omitted from the agent's describe response.</p>
     {sources.isError ? <ErrorState title="Source display names could not be loaded" description={sources.error.message} retry={() => { void sources.refetch(); }} /> : null}
-    <div className="filters" style={{alignItems:'end'}}><Link className="btn ghost" to="/projects/$projectId/$screen" params={{ projectId, screen: 'data-sources' }}>Data sources</Link>
+    <div className="filters" style={{alignItems:'end'}}>
       <span className="pick"><label htmlFor="catalog-level">Search within</label><select id="catalog-level" value={state.searchParent} onChange={event => state.select(event.target.value)}>{branches.map(branch => <option key={branch.parent} value={branch.parent}>{labels.get(branch.parent) ?? branch.parent}</option>)}</select></span>
       <div className="fld" style={{marginBottom:0,maxWidth:'100%'}}><label htmlFor="catalog-prefix">Name prefix</label><input id="catalog-prefix" value={prefix} maxLength={63} onChange={event => { state.search(state.searchParent, event.target.value); if (viewport.current) viewport.current.scrollTop = 0; }} /></div>
     </div>

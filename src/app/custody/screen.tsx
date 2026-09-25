@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, type FormEvent } from 'react';
 import { Button, Card, CardHeader, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
 import { useCompanies, useProjects } from '../tenancy/data.js';
@@ -26,7 +25,6 @@ export function TokenKeyScreen({projectId}:{projectId:string}) {
   const failures=query.data?.versions.filter(v=>v.lastRehearsal==='failed'||v.lastRehearsal==='mismatch')??[];
   return <section className="screen on">
     <h1>Token key</h1><p className="sub">The key that makes tokens reproducible across sources and over time. {project?.name}</p>
-    <p className="note"><Link to="/projects/$projectId/$screen" params={{projectId,screen:'access'}}>Back to Access</Link></p>
     <section className="dangerzone" aria-label="Key custody responsibility"><div><b>Opintel cannot recover a lost key.</b><span>You hold the key and its escrow copy in your environment. If both are lost, earlier tokens cannot be reproduced and historical evidence cannot be verified. Keep every retained version and verify its backup.</span></div></section>
     {query.isPending||projects.isPending?<LoadingState/>:query.isError?<ErrorState title="Token key could not be loaded" description={query.error.message} retry={()=>{void query.refetch();}}/>
     :projects.isError?<ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>{void projects.refetch();}}/>

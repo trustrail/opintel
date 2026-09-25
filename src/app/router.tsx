@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { TokenKeyScreen } from './custody/screen.js';
 import { IntrospectionListScreen, IntrospectionRunScreen } from './introspection/screens.js';
 import { CatalogScreen } from './catalog/screen.js';
@@ -32,7 +33,7 @@ function AuthRoute({ children }: { readonly children: ReactNode }): ReactNode {
 
 const rootRoute = createRootRoute({ component: RootLayout });
 const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => <Navigate to="/projects" replace /> });
-const chooserRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects', component: ProjectChooser });
+const chooserRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects', validateSearch: (search) => z.object({companyId:z.string().uuid().optional().catch(undefined)}).parse(search), component: ProjectChooser });
 const createProjectRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/new', component: CreateProjectScreen });
 const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: '/companies/new', component: CreateCompanyScreen });
 const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });

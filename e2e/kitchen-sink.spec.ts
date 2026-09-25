@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import {test} from './fixtures.js';
+import { expect} from '@playwright/test';
 import axe from 'axe-core';
 
 const treatmentLabels = ['In the clear', 'Tokenized', 'Masked', 'By reference', 'Aggregate only', 'Withheld', 'Needs a decision'];

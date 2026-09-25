@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import {test} from './fixtures.js';
+import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
 test.use({reducedMotion:'reduce'});
 const projectId='018f8f9d-7f83-7abc-8def-000000000001',companyId='018f8f9d-7f83-7abc-8def-000000000002';
@@ -33,7 +34,7 @@ async function accessible(page:Page){await page.addScriptTag({content:axe.source
 for(const width of [390,900,1440])test(`K7: token key and confirmation at ${width}`, { tag: '@visual' },async({page})=>{
  await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/token-key`);
  await expect(page.getByRole('heading',{name:'Current version · 2'})).toBeVisible();
- await expect(page.getByRole('button',{name:'Access',exact:true})).toHaveAttribute('aria-current','true');
+ await expect(page.getByRole('button',{name:'Access',exact:true})).toHaveAttribute('data-active','true');
  await expect(page.getByText('Opintel cannot recover a lost key.',{exact:true})).toBeVisible();
  const failure=page.getByRole('alert',{name:'Rehearsal failure'});await expect(failure).toContainText('Version 1: escrow does not match');await expect(failure).toContainText('Version 2: escrow could not be verified');
  await accessible(page);await expect(page).toHaveScreenshot(`token-key-${width}.png`,{fullPage:true});
@@ -67,8 +68,8 @@ test('company administration gates restore; loading, empty, error and forbidden 
  state.loadError=true;await page.reload();await expect(page.getByText('Custody metadata could not be read.',{exact:true})).toBeVisible();state.loadError=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('No token key yet',{exact:true})).toBeVisible();
  state.forbidden=true;await page.reload();await expect(page.getByText('You must administer this project.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Rehearse now'})).toHaveCount(0);
 });
-test('Access links to the token key screen',async({page})=>{
- await mock(page);await page.goto(`/projects/${projectId}/access`);await page.getByRole('link',{name:'Manage token key'}).click();await expect(page.getByRole('heading',{name:'Token key',exact:true})).toBeVisible();
+test('Access drawer sub-item opens the token key screen',async({page})=>{
+ await mock(page);await page.goto(`/projects/${projectId}/access`);await page.getByRole('navigation',{name:'Primary navigation'}).getByRole('link',{name:'Token key',exact:true}).click();await expect(page.getByRole('heading',{name:'Token key',exact:true})).toBeVisible();
 });
 
 test('a completed rehearsal with failures stays prominent; failed company checks do not enable restore',async({page})=>{

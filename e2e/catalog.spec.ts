@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import {test} from './fixtures.js';
+import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
 test.use({reducedMotion:'reduce'});
 import { project, mock, expand } from './catalog-fixture.js';

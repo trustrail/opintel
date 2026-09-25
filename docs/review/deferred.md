@@ -202,6 +202,14 @@ deployed arrangement starts. Run the thing.
   the separate performance config also retains zero retries. The explicit `list`
   reporter names every retry-only pass as **flaky** in the final run summary,
   keeping recurrences visible. A failure on both attempts still fails the run.
+- 2026-09-22 navigation change: the clean baseline was updated for the requested
+  parent-only breadcrumb (see `navigation-snapshots.md`). Subsequent verification
+  failed on both attempts for `filings-observations-390.png`. Pixel-by-pixel PNG
+  comparison found exactly 2826 changed pixels, bounded by x=79–81, y=66–1007,
+  on each attempt and no changes elsewhere. One retry does not eliminate every
+  recurrence. The clean baseline, threshold and retry count were left intact.
+- The same exact stripe recurred on both verification attempts for the subsequent
+  disclosure/back-affordance corrections; see `navigation-corrections.md`.
 
 # Swallowed errors
 

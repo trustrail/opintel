@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import {test} from './fixtures.js';
+import { expect } from '@playwright/test';
 import { project, mock, expand } from './catalog-fixture.js';
 test('G-019: scrolling 5,000 loaded elements misses no refresh frames', async ({page},testInfo) => {
   test.setTimeout(60_000);

@@ -1713,7 +1713,7 @@ const TokenKeyView = z.object({
   })),
 });
 ```
-**Browser screen (4.3d):** `/projects/:id/token-key`, linked from Access for
+**Browser screen (4.3d):** `/projects/:id/token-key`, a drawer sub-item under Access for
 project administrators. It shows the current and retained versions, backup and
 rehearsal outcomes, and the K7 loss warning. Failed or mismatched rehearsals have
 a prominent explanation above the version table. Rotate and restore explain
@@ -3418,6 +3418,16 @@ type ScreenState<T> =
 ```
 
 Rendering an empty table with no explanation is a defect. Every screen has a purposeful empty state naming the next action.
+
+
+**Destinations are drawer sub-items; contextual links stay in context**. A screen scoped to the whole project that belongs under a drawer item, such as Explore schema under Data sources or Token key under Access, appears as a sub-item of that item. Its section defaults to expanded when active; an explicit drawer toggle overrides that default until toggled again. It is not reached only by a link on the parent's screen. A link that carries a specific object, such as a source's introspection runs, a failed source's failing run, or a filing's superseded filing, stays where the object is shown. The active sub-item is highlighted and its parent shows as the active section. In the collapsed drawer, sub-items are hidden. The breadcrumb includes the sub-item.
+
+**Every breadcrumb segment except the current page is a link to that scope**. The company goes to All projects filtered to that company, until the company screen in item 5.16 exists. The project goes to its dashboard, and a section to its screen. The current page is not a link and carries aria-current="page". The breadcrumb is a nav labelled "Breadcrumb" containing an ordered list, with decorative separators hidden from assistive technology. At narrow widths only the parent segment shows, as a back link.
+
+**No screen renders its own back link or button**. The breadcrumb's parent segment is the back affordance, everywhere, and at narrow widths it is the only segment shown, prefixed with a left chevron: ‹ Data sources. A screen that invents its own "Back to X" produces a different affordance on every screen and leaves people guessing which one a given screen has.
+
+**A drawer item with sub-items carries a separate disclosure button**, a sibling of its navigation control. The label navigates; the disclosure only toggles, with manual overrides in the drawer store rather than the URL. Its accessible name is Show/Hide sub-items of X and aria-expanded reports the state. Enter and Space toggle. One decorative right-chevron icon rotates 90 degrees when expanded, using the same colour token and weight in both states. Hover, focus-within and active backgrounds belong to the shared row; both controls stay transparent. Focus rings belong only to the focused control. + is not used, because in this console it means create.
+
 
 ## 5.6 Slice 1 screens
 

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import {test} from './fixtures.js';
+import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
 import { z } from 'zod';
 import { ExplainResponse, ProjectMemberListItem } from '../src/shared/api/tenancy-schemas.js';
