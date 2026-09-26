@@ -1,6 +1,8 @@
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
 import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
+import { McpAccess, McpHttpServer, PostgresMcpConfiguration } from '../../modules/mcp/index.js';
+import { PostgresKeyVerifier } from '../../modules/pools/index.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
 import { PostgresEntitlementReader } from '../../modules/entitlements/index.js';
 import { BulkEntitlementService, PostgresBulkEntitlements } from '../../modules/entitlements/index.js';
@@ -210,7 +212,10 @@ async function start(): Promise<void> {
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),
     ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
+  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration());
+  mcp.start();
   const server = createHttpServer(routes, {
+    agentInterface: mcp,
     authorization: {
       port: authorization,
       currentUser: async (headers) => {
@@ -249,6 +254,7 @@ async function start(): Promise<void> {
     clearInterval(rehearsalTimer);
     clearInterval(completionTimer);
     void sources.close();
+    void mcp.close();
     void hub.close();
     receiptServer?.close();
     server.close(() => { authorization.close(); void redis.close(); });

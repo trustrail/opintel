@@ -582,7 +582,8 @@ interface KeyVerifier {
   verify(presented: string): Promise<KeyVerdict>;
 }
 type KeyVerdict =
-  | { ok: true;  pool: PoolRef; keyPrefix: string; keyState: 'current' | 'retiring' }
+  | { ok: true;  pool: PoolRef; keyPrefix: string; keyState: 'current' | 'retiring';
+      keyVersion: PoolKeyId; scopeUserId: UserId } // internal presence/scoping, not agent-supplied
   | { ok: false; reason: 'unknown' | 'revoked' | 'expired' | 'malformed' };
 // A failed verdict never says which of the four it was to the caller. The
 // distinction is recorded, not returned, because it is an oracle otherwise.
@@ -1819,6 +1820,90 @@ Tool availability is driven by pool configuration and a `notifications/tools/lis
 ```
 
 If a withheld field is merely absent from the JSON, the model concludes the data does not exist and reasons confidently over a partial picture. Everything else in the system degrades visibly. This degrades silently, which is why it is a contract and not a nicety.
+
+### Tool availability
+
+| Tool | Available when |
+|---|---|
+| describe | Always |
+| explain | Always |
+| query | The pool has query mode enabled |
+| ask | The pool has prompt mode enabled |
+| respond_clarification | The pool has prompt mode enabled |
+
+**describe and explain are always available because neither reads data**. describe returns decisions already made, and explain is a dry run that contacts no source. An agent that can connect can always discover what it may ask and check a question before asking it.
+
+**A tool not listed is not callable**. Calling it returns the same error as a tool that does not exist, so a pool without prompt mode is indistinguishable from a deployment where prompt mode was never built.
+
+
+### Wire contracts
+
+
+```ts
+// describe
+type DescribeInput  = { object?: string };        // absent lists every object
+type DescribeOutput = {
+  objects: Array<{
+    name: string;                                  // three-part exposed name
+    columns: Array<{
+      name: string;
+      type: string;                                // post-treatment
+      treatment: 'clear' | 'tokenized' | 'masked' | 'aggregate_only';
+    }>;
+    withheld: string[];                            // named, not described
+  }>;
+};
+
+// explain
+type ExplainInput  = { sql: string };
+type ExplainOutput =
+  | { permitted: true;  objects: string[]; columns: string[]; notes: string[] }
+  | { permitted: false; reason: string; code: string };
+
+// query
+type QueryInput  = { sql: string; maxRows?: number };
+type QueryOutput = {
+  columns: Array<{ name: string; type: string }>;
+  rows: unknown[][];
+  truncated: boolean;
+  evidenceId: string;                              // every answer names its record
+};
+```
+**ask and respond_clarification belong to Slice 1b** and are specified with prompt mode. This item lists them as unavailable when prompt mode is off, and builds neither.
+
+**Undecided columns appear nowhere**, including in withheld. Naming them would tell an agent a column exists before anyone decided about it.
+
+**Item 5.5 implementation.** The MCP SDK's stateful Streamable HTTP transport is
+mounted separately from console routes at `/mcp/v1/p/:projectId`, with an explicit
+`pool-key` permission declaration. Every POST, GET and DELETE authenticates the
+bearer against current committed state and requires `X-Opintel-Agent-Id`.
+Malformed, unknown, revoked, expired and wrong-project credentials all return
+401 with `unauthenticated`, `The pool key is not valid.`, the request id and
+`retryable: false`. Sessions are bound to project and pool, never to a claimed
+agent id; a session id is not a credential. Browser-origin requests are refused.
+
+`describe` and `explain` are listed unconditionally; `query` follows query mode.
+Their Zod input/output contracts generate the advertised JSON Schemas and the
+transport OpenAPI components. Until 5.6, 5.7 and 5.9 respectively, valid calls
+return an MCP error result with `dependency_unavailable` and a readable
+unavailable message. Prompt tools are not registered before Slice 1b. A hidden
+tool and an unknown name return the same JSON-RPC `-32602`, `Unknown tool.`.
+This item implements no data reads or tool result generation.
+
+Active sessions poll committed configuration once per second and emit
+`notifications/tools/list_changed` on mode changes, including changes made by
+another host. Request-time listing and calling use freshly authenticated modes,
+independently of that notification delay. Sessions are process-local; a restart
+requires initialization again. No plaintext credential is retained in sessions.
+
+Migration 045 extends the narrow digest lookup with the key version and key
+creator's id for tenant-scope attribution. The creator is not an authorization
+subject for agent requests. These trusted identifiers wire item 5.4's presence
+service; a caller cannot supply them. Initialization records connecting,
+requests record activity, and authenticated ping responses record liveness.
+Server pings use the project's heartbeat interval; merely sending one does not
+mark an agent present. Revoked/expired sessions and failed heartbeat exchanges
+close their transport while retaining the durable presence record.
 
 ## 2.7 The sidecar contract
 

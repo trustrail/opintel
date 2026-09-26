@@ -84,12 +84,20 @@ export interface HttpLogger {
 }
 
 export interface HttpServerOptions {
+  readonly agentInterface?: PoolKeyHttpEndpoint;
   readonly requestIdFactory?: () => string;
   readonly logger?: HttpLogger;
   readonly authorization?: {
     readonly currentUser: (headers: IncomingHttpHeaders) => Promise<CurrentUser | null>;
     readonly port?: AuthorizationPort;
   };
+}
+
+/** Separate protocol boundary: its handler must authenticate the pool key on
+ * every request. Console session authorization does not apply to MCP. */
+export interface PoolKeyHttpEndpoint {
+  readonly permission: 'pool-key';
+  handle(request: IncomingMessage, response: ServerResponse, requestId: string): Promise<void>;
 }
 
 class InvalidJsonBody extends Error {
@@ -220,12 +228,17 @@ export function createHttpServer(
   const requestIdFactory = options.requestIdFactory ?? randomUUID;
   const logger = options.logger ?? defaultLogger;
   assertRoutePermissions(routes, options.authorization);
+  if (options.agentInterface && options.agentInterface.permission !== 'pool-key') throw new Error('The agent interface must declare pool-key permission.');
 
   return createServer(async (request, response) => {
     const requestId = requestIdFactory();
     try {
       const url = new URL(request.url ?? '/', 'http://localhost');
       const path = url.pathname;
+      if (options.agentInterface && path.startsWith('/mcp/')) {
+        await options.agentInterface.handle(request, response, requestId);
+        return;
+      }
       const matchingPaths = routes.flatMap((route) => {
         const params = routeMatch(path, route);
         return params === null ? [] : [{ route, params }];

@@ -32,5 +32,5 @@ export class PoolKeyService {
   return {ok:true as const,value:{...key.value,...agents.value}};
  }
 }
-export type KeyVerdict = {ok:true;pool:{id:PoolId;projectId:ProjectId;name:string;modes:{query:boolean;prompt:boolean};clarificationPolicy:'pause'|'refuse'};keyPrefix:string;keyState:'current'|'retiring'} | {ok:false;reason:'unknown'|'revoked'|'expired'|'malformed'};
+export type KeyVerdict = {ok:true;pool:{id:PoolId;projectId:ProjectId;name:string;modes:{query:boolean;prompt:boolean};clarificationPolicy:'pause'|'refuse'};keyPrefix:string;keyState:'current'|'retiring';keyVersion:PoolKeyId;scopeUserId:UserId} | {ok:false;reason:'unknown'|'revoked'|'expired'|'malformed'};
 export interface KeyVerifier { verify(presented:string):Promise<KeyVerdict>; }
