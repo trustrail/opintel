@@ -1,7 +1,7 @@
 import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { withTenant, type Tx } from '../../../platform/db/scope.js';
-import { CatalogObject, CatalogElement, CatalogNaming, AsciiTransliterator, reconcileSnapshot, type CatalogObjectState, type ElementState } from '../../catalog/index.js';
-import { DomainError, err, ok, Timestamp, type ErrorCode, type IdFactory, type RunId, type SourceId, type ElementId, type Result } from '../../../shared/kernel/index.js';
+import { type CatalogObject, CatalogNaming, AsciiTransliterator, reconcileSnapshot, hydrateCatalogObject, type CatalogObjectRow, type CatalogElementRow } from '../../catalog/index.js';
+import { DomainError, err, ok, type ErrorCode, type IdFactory, type RunId, type SourceId, type ElementId, type Result } from '../../../shared/kernel/index.js';
 import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore, RecordedIntrospectionDiff } from '../application/introspection-store.js';
 import { transitionRun, enforceTransition, type IntrospectionState } from '../domain/introspection-run.js';
 import type { CatalogSnapshot } from '../application/source-connector.js';
@@ -95,17 +95,17 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       if (current.value.state !== 'diffing') return conflict();
       const [source] = await tx.query<IntrospectionSource>('SELECT id,project_id AS "projectId",status FROM data_source WHERE id=$1 FOR UPDATE',[current.value.sourceId]);
       if (source === undefined || source.status === 'archived') return conflict();
-      const states = await tx.query<CatalogObjectState>(`SELECT id,source_id AS "sourceId",project_id AS "projectId",schema_name AS "schemaName",
+      const states = await tx.query<CatalogObjectRow>(`SELECT id,source_id AS "sourceId",project_id AS "projectId",schema_name AS "schemaName",
         object_name AS "objectName",object_kind AS kind,exposed_schema AS "exposedSchema",exposed_name AS "exposedName",name_revision AS "nameRevision",
         lineage_known AS "lineageKnown",row_estimate::float8 AS "rowEstimate",description,status FROM catalog_object WHERE source_id=$1
         AND (CASE WHEN cardinality($2::text[])=0 THEN schema_name <> 'information_schema' AND left(schema_name,3) <> 'pg_' ELSE schema_name=ANY($2::text[]) END) FOR UPDATE`,[source.id,current.value.include]);
       const previous: CatalogObject[] = [];
       for (const state of states) {
-        const elements = await tx.query<Omit<ElementState, 'discoveredAt' | 'removedAt'> & { discoveredAt: Date; removedAt: Date | null }>(`SELECT id,object_id AS "objectId",project_id AS "projectId",
+        const elements = await tx.query<CatalogElementRow>(`SELECT id,object_id AS "objectId",project_id AS "projectId",
           ordinal,token_domain AS "tokenDomain",case_insensitive AS "caseInsensitive",canon_id AS "canonId",source_timezone AS "sourceTimezone",epoch_unit AS "epochUnit",source_identifier AS "sourceIdentifier",stable_ref AS "stableRef",source_type AS "sourceType",exposed_type AS "exposedType",
           exposed_name AS "exposedName",name_revision AS "nameRevision",nullable,is_key AS "isKey",description,status,
           discovered_at AS "discoveredAt",removed_at AS "removedAt" FROM catalog_element WHERE object_id=$1 FOR UPDATE`,[state.id]);
-        const aggregate = CatalogObject.create(state,elements.map((element) => new CatalogElement({...element,discoveredAt:Timestamp(element.discoveredAt),removedAt:element.removedAt===null?null:Timestamp(element.removedAt)})));
+        const aggregate = hydrateCatalogObject(state,elements);
         if (!aggregate.ok) throw new PublicationRefused(aggregate.error);
         previous.push(aggregate.value);
       }

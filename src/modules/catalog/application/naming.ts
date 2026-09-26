@@ -15,7 +15,7 @@ export class CatalogNaming {
     if (isReservedExposedName(base)) base += '_col';
     const hashSuffix = base.length > 63 ? `_${createHash('sha256').update(original).digest('hex').slice(0, 5)}` : '';
     if (hashSuffix) base = `${base.slice(0, 57)}${hashSuffix}`;
-    const occupied = new Set<string>(reserved);
+    const occupied = new Set<string>(reserved.map(name => name.toLowerCase()));
     let candidate = base;
     let suffix = 2;
     while (occupied.has(candidate)) {

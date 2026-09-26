@@ -30,6 +30,14 @@ describe('catalogue naming', () => {
     expect(naming.assign(input)).toEqual({ name: expected, collision: false });
   });
 
+  it.each([
+    ['AccountRef', 'accountref'],
+    ['accountref', 'AccountRef'],
+  ])('reserves case-insensitively: %s collides with %s', (original, reserved) => {
+    // Include malformed historical input without going through the brand constructor.
+    expect(naming.assign(original, [reserved as ExposedName])).toEqual({name:'accountref_2',collision:true});
+  });
+
   it('hashes the original long identifier, and keeps collision suffixes within 63 characters', () => {
     const original = 'A'.repeat(70);
     const expected = `${'a'.repeat(57)}_${createHash('sha256').update(original).digest('hex').slice(0, 5)}`;

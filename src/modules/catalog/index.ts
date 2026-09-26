@@ -14,3 +14,4 @@ export type { TemporalRepository, TemporalDeclarations, TemporalView, TemporalCo
 export { PostgresTokenDeclarations } from './infrastructure/token-declarations.js';
 export { validateTokenDeclarations } from './application/token-declarations.js';
 export type { TokenDeclarationRepository, TokenDeclarations } from './application/token-declarations.js';
+export { hydrateCatalogObject, type CatalogObjectRow, type CatalogElementRow } from './infrastructure/hydration.js';

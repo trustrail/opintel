@@ -386,6 +386,12 @@ for each bound source S:
     emit the read plan for <O> from plan
 ```
 
+The compiler refuses non-lowercase exposed names and case-insensitive collisions
+within a project’s source aliases, a source’s exposed object addresses, or an
+object’s columns. It names the conflicting address rather than renaming it.
+This validation includes withheld and undecided columns; a supplied snapshot
+is not trusted merely because its TypeScript fields carry brands.
+
 **Three rules that are easy to get wrong.**
 
 **Undecided and withheld both omit, and they are not the same thing.** Undecided means nobody has decided. Withheld means someone decided no. They produce identical DDL and different behaviour everywhere else: `describe` lists withheld columns marked as such and omits undecided ones entirely, and a query naming each gets a different error code. The compiler must record which is which in `columns` even though neither appears in the `SELECT`.

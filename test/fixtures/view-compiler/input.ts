@@ -11,7 +11,7 @@ export type ColumnSpec = {
   name: string; source?: string; treatment: Treatment | null; ordinal?: number;
   type?: ExposedType; declarations?: Partial<Pick<ElementState,'tokenDomain'|'caseInsensitive'|'canonId'|'sourceTimezone'|'schemaTimezone'|'epochUnit'>>;
 };
-export type ObjectSpec = {name:string; schema?:string; alias?:string; columns:ColumnSpec[]};
+export type ObjectSpec = {name:string; schema?:string; alias?:string; columns:ColumnSpec[]; exposedName?:string; exposedSchema?:string};
 export function fixture(specs: readonly ObjectSpec[]): CompileInput {
   let next=1;
   const id=()=>`00000000-0000-7000-8000-${String(next++).padStart(12,'0')}`;
@@ -34,14 +34,14 @@ export function fixture(specs: readonly ObjectSpec[]): CompileInput {
       elements.push(element);return element;
     });
     objects.push(unwrap(CatalogObject.create({id:objectId,sourceId:source.id,projectId,schemaName:spec.schema??'fixture_schema',objectName:spec.name,
-      exposedSchema:(spec.schema??'fixture_schema') as ExposedName,exposedName:spec.name as ExposedName,kind:'table',lineageKnown:true,
+      exposedSchema:(spec.exposedSchema??spec.schema??'fixture_schema') as ExposedName,exposedName:(spec.exposedName??spec.name) as ExposedName,kind:'table',lineageKnown:true,
       rowEstimate:null,description:null,status:'active'},columns)));
   }
   return {poolId,boundSources:[...sources.values()],objects,elements,entitlements,aggregateMinGroupSize:7,policyVersion:1};
 }
 
 // Reproducible generated inputs; seed appears in every failing test's name.
-export function generated(seed:number):CompileInput {
+export function generated(seed:number, options:{lowercaseExposedNames?:boolean}={}):CompileInput {
   let state=seed>>>0;
   const draw=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state;};
   const fragments=['select','FROM','quote"here','"; DROP VIEW x; --','Größe','東京','é','e\u0301','🚀','a.b','line\nbreak','slash\\tail','/* comment */',' space '];
@@ -60,5 +60,17 @@ export function generated(seed:number):CompileInput {
     {name:'fully_undecided',columns:[{name:'only_denied_undecided_marker',treatment:null}]},
     {name:'mixed_omission',columns:[{name:'only_denied_mixed_w_marker',treatment:'withheld'},{name:'only_denied_mixed_u_marker',treatment:null}]},
   );
-  return fixture(specs);
+  return fixture(options.lowercaseExposedNames ? specs.map(spec=>({...spec,
+    alias:spec.alias?.toLowerCase(),exposedName:spec.name.toLowerCase(),
+    exposedSchema:(spec.schema??'fixture_schema').toLowerCase(),
+    columns:spec.columns.map(column=>({...column,name:column.name.toLowerCase()})),
+  })) : specs);
+}
+
+// Input-only predicate: native identifiers and source types are deliberately excluded.
+export function hasUppercaseExposedName(input:CompileInput):boolean {
+  const names=[...input.boundSources.map(source=>source.alias),
+    ...input.objects.flatMap(object=>[object.state.exposedSchema,object.state.exposedName]),
+    ...input.elements.flatMap(element=>element.state.exposedName===null?[]:[element.state.exposedName])];
+  return names.some(name=>name!==name.toLowerCase());
 }

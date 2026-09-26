@@ -2995,6 +2995,12 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 | Normalises to nothing | Refused. The element is catalogued with exposed_name null and reported as unnameable, which is an administrator's problem to solve by renaming the source column or giving it an alias |
 | Longer than 63 characters | Truncated to 57, then suffixed with _ and the first 5 hex characters of the SHA-256 of the original identifier, so two long names that share a prefix do not collide |
 
+Reserved-name and collision comparisons are case-insensitive. Catalogue element
+names and object schema/name fields have lowercase CHECK constraints and
+case-insensitive unique indexes within their scopes. Hydration revalidates
+the ExposedName brand; compilation independently refuses non-lowercase names
+and ambiguous namespaces.
+
 **Collision suffixes start at _2**. The first occupant keeps the unsuffixed name; the second becomes name_2. A collision raises a diff entry, because two source columns normalising to one name usually means they should not share a namespace.
 
 **Every rule is applied at first discovery only**, and the result is stored, including a null result for an unnameable identifier. Changing a rule later does not rename anything already assigned. Explicit adoption is the deliberate exception. Collision suffixes reserve space within 63 characters, retaining the five-character hash for long identifiers. Removed elements continue to reserve their assigned names. Unicode transliteration is provided by a pinned local adapter; the naming and adoption domain do not depend on a connector.

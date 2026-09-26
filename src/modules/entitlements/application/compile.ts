@@ -71,8 +71,26 @@ function tokenDeclaration(element: CatalogElement): Result<TokenDeclaration> {
 export function compileViews(input: CompileInput): Result<CompileResult> {
   if (!Number.isSafeInteger(input.policyVersion) || input.policyVersion < 0 || !Number.isSafeInteger(input.aggregateMinGroupSize) || input.aggregateMinGroupSize < 1) return invalid('Compilation requires a valid policyVersion and a positive aggregateMinGroupSize.');
   const sources = new Map(input.boundSources.map(source => [source.id, source]));
-  if (sources.size !== input.boundSources.length || new Set(input.boundSources.map(source => source.alias)).size !== sources.size || new Set(input.boundSources.map(source => source.projectId)).size > 1) return invalid('Bound sources must have distinct identities and aliases in one project.');
+  if (sources.size !== input.boundSources.length || new Set(input.boundSources.map(source => source.projectId)).size > 1) return invalid('Bound sources must have distinct identities and aliases in one project.');
+  const aliases = new Map<string, string>();
+  for (const source of input.boundSources) {
+    const key = source.alias.toLowerCase(), prior = aliases.get(key);
+    if (prior !== undefined) return invalid(`Source aliases "${prior}" and "${source.alias}" collide case-insensitively in the project namespace.`);
+    aliases.set(key, source.alias);
+  }
+  for (const source of input.boundSources) {
+    if (source.alias !== source.alias.toLowerCase()) return invalid(`Source alias "${source.alias}" is not lowercase. Compilation requires an already-normalised namespace.`);
+  }
   const objects = input.objects.filter(object => object.state.status === 'active' && sources.has(object.state.sourceId));
+  const objectNames = new Map<string, string>();
+  for (const {state:o} of objects) {
+    const alias = sources.get(o.sourceId)!.alias;
+    const address = `${alias}.${o.exposedSchema}.${o.exposedName}`;
+    const key = JSON.stringify([alias, o.exposedSchema, o.exposedName].map(name => name.toLowerCase()));
+    const prior = objectNames.get(key);
+    if (prior !== undefined) return invalid(`Objects "${prior}" and "${address}" collide case-insensitively in the exposed namespace.`);
+    objectNames.set(key, address);
+  }
   const objectIds = new Set(objects.map(object => object.state.id));
   if (objectIds.size !== objects.length) return invalid('A catalogue object appears more than once in the compilation snapshot.');
   const elements = new Map<string, CatalogElement[]>();
@@ -92,10 +110,18 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
     const o = object.state, source = sources.get(o.sourceId)!;
     const address = { catalog: source.alias, schema: o.exposedSchema, name: o.exposedName };
     if (source.projectId !== o.projectId || ![address.catalog,address.schema,address.name,o.schemaName,o.objectName].every(validIdentifier)) return invalid('A catalogue object has an invalid address or belongs to another project.');
+    if (o.exposedSchema !== o.exposedSchema.toLowerCase() || o.exposedName !== o.exposedName.toLowerCase()) return invalid(`Object "${address.catalog}.${address.schema}.${address.name}" has a non-lowercase exposed schema or name. Compilation requires an already-normalised namespace.`);
     const key = JSON.stringify(address), staged = `${address.catalog}__${address.schema}__${address.name}`;
     if (addresses.has(key) || stagedNames.has(staged)) return invalid('Catalogue objects collide in the exposed or staging namespace.');
     addresses.add(key); stagedNames.add(staged);
     const group = elements.get(o.id) ?? [];
+    const foldedNames = new Map<string, string>();
+    for (const {state:e} of group) {
+      if (e.exposedName === null) continue;
+      const key = e.exposedName.toLowerCase(), prior = foldedNames.get(key);
+      if (prior !== undefined) return invalid(`Columns "${prior}" and "${e.exposedName}" collide case-insensitively in object "${address.catalog}.${address.schema}.${address.name}".`);
+      foldedNames.set(key, e.exposedName);
+    }
     const ordinals = new Set<number>(), names = new Set<string>();
     for (const { state: e } of group) {
       if (e.projectId !== o.projectId) return invalid('A catalogue element belongs to another project.');
@@ -103,6 +129,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
       if (ordinals.has(e.ordinal)) return invalid('Source column ordinals must be distinct within an object.');
       ordinals.add(e.ordinal);
       if (e.exposedName !== null) {
+        if (e.exposedName !== e.exposedName.toLowerCase()) return invalid(`Column "${e.exposedName}" in object "${address.catalog}.${address.schema}.${address.name}" is not lowercase. Compilation requires an already-normalised namespace.`);
         if (!validIdentifier(e.exposedName) || names.has(e.exposedName)) return invalid('Exposed column names must be valid and distinct within an object.');
         names.add(e.exposedName);
       }

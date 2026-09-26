@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CatalogElement } from '../src/modules/catalog/index.js';
 import { compileViews, type CompileInput, type CompileResult } from '../src/modules/entitlements/index.js';
-import { fixture, generated, unwrap, type ColumnSpec } from './fixtures/view-compiler/input.js';
+import { fixture, generated, hasUppercaseExposedName, unwrap, type ColumnSpec } from './fixtures/view-compiler/input.js';
 import { identifierKey, parseProjection } from './fixtures/view-compiler/ddl-oracle.js';
 
 function inspect(input:CompileInput,result:CompileResult):void {
@@ -57,7 +57,13 @@ function inspect(input:CompileInput,result:CompileResult):void {
 
 describe('view compiler invariants derived from B.1–B.4a',()=>{
  it.each(Array.from({length:64},(_,i)=>i+1))('VC-01/02/05/06/07/31: full DDL, resolution and read-plan equality, seed %i',seed=>{
-  const input=generated(seed);inspect(input,unwrap(compileViews(input)));
+  const input=generated(seed),result=compileViews(input);
+  if(hasUppercaseExposedName(input))expect(result.ok).toBe(false);
+  else inspect(input,unwrap(result));
+ });
+ it.each(Array.from({length:64},(_,i)=>i+1))('VC-01/02/05/06/07/31: lowercase full DDL, resolution and read-plan equality, seed %i',seed=>{
+  const input=generated(seed,{lowercaseExposedNames:true});
+  inspect(input,unwrap(compileViews(input)));
  });
  it('the independent SQL oracle rejects expressions, comments, wildcards and trailing SQL',()=>{
   for(const sql of [
@@ -92,8 +98,12 @@ describe('view compiler invariants derived from B.1–B.4a',()=>{
  });
  it.each(['select','FROM','order','group','a"b','"; DROP VIEW x; --','東京','Größe','é','e\u0301','🚀','a.b','line\nbreak',' spaced name '])('VC-06/07: hostile stored identifier %j round-trips without becoming syntax',name=>{
   const input=fixture([{alias:'catalog"quote',schema:'schema.東京',name:'object"; --',columns:[{name,treatment:'clear'}]}]);
-  const result=unwrap(compileViews(input));inspect(input,result);
-  expect(parseProjection(result.views[0]!.ddl).columns).toEqual([name]);
+  const result=compileViews(input);
+  if(name!==name.toLowerCase())expect(result.ok).toBe(false);
+  else {
+   const compiled=unwrap(result);inspect(input,compiled);
+   expect(parseProjection(compiled.views[0]!.ddl).columns).toEqual([name]);
+  }
  });
  it.each(['catalog','schema','object'] as const)('case-only %s addresses cannot alias separate objects',level=>{
   const address=(upper:boolean)=>({alias:level==='catalog'?(upper?'Warehouse':'warehouse'):'fixture_catalog',
@@ -145,7 +155,7 @@ describe('view compiler invariants derived from B.1–B.4a',()=>{
  it('VC-16: repeated runs and fresh processes produce byte-identical complete output',async()=>{
   const run=promisify(execFile);
   for(const seed of [1,19,64]){
-   const input=generated(seed),before=JSON.stringify({...input,entitlements:[...input.entitlements]}),bytes=JSON.stringify(compileViews(input));
+   const input=generated(seed,{lowercaseExposedNames:true}),before=JSON.stringify({...input,entitlements:[...input.entitlements]}),bytes=JSON.stringify(compileViews(input));
    for(let i=0;i<10;i++)expect(JSON.stringify(compileViews(input))).toBe(bytes);
    expect(JSON.stringify({...input,entitlements:[...input.entitlements]})).toBe(before);
    const child=await run(process.execPath,['--import','tsx',fileURLToPath(new URL('./fixtures/view-compiler/fresh-process.ts',import.meta.url)),String(seed)],
