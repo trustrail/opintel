@@ -16,3 +16,4 @@ export type { CompileInput, CompileResult, ViewDefinition, CompiledColumn, ReadP
 export { QueryPreFilter, type QueryPreFilterInput, type QueryPreFilterOutcome } from './application/aggregate.js';
 export type { QueryParserPort } from './application/query-parser-port.js';
 export { DuckDBQueryParser } from './infrastructure/duckdb-query-parser.js';
+export { resolveIdentifier, type ObjectIdentifier } from './application/resolve.js';

@@ -949,6 +949,12 @@ separately; implementation work must not generate it.
 - VC-17 and VC-18 belong to S2 session creation, with 4.9 policy-version
   invalidation. They are not assertions about the pure compiler.
 - VC-19–VC-22 belong to 4.5a's resolver, consuming `CompileResult.omitted`.
+  `test/identifier-resolver.test.ts` proves withheld, undecided, mixed and absent
+  outcomes, successful view lookup, namespace separation and ambiguous-match
+  refusal. VC-22 executes the compiler's DDL over a synthetic staging table in
+  one empty DuckDB database, then checks real `DESCRIBE` and `duckdb_columns()`
+  output as well as existing describe metadata for dummy `_opintel_*` artifacts.
+  It does not implement an MCP describe handler or S2 session construction.
 - Persistence coverage in 4.4 includes nullable legacy ordinals, startup
   introspection repair, old/new ordinal diffs with retained decisions, and
   entitlement-time token declarations with typed confirmation.

@@ -166,7 +166,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 4.3d | Token key screen: key status, rotate, restore, rehearse now, and the K7 warning that a lost key cannot be recovered | 4.3a, 1.12 | `app/custody/screen.tsx` | K7 |
 | 4.4 | **Pure view compiler**, emitting read plans, projection-only views and metadata distinguishing undecided from withheld. Approved for implementation | 4.1, 4.2, 4.3b, 4.3c, 3.2 | `entitlements/application/compile.ts` | VC-01 to VC-09, VC-15, VC-16, VC-31 to VC-33, H-003, H-005 |
 | 4.5 | Application query-inspection **pre-filter only**, using DuckDB's parse per C.3.1; may refuse, never authorise | 4.4 | `entitlements/application/aggregate.ts`, parser port and infrastructure adapter | VC-10 to VC-13, VC-27, VC-29/VC-30 and H-008 (application pre-filter assertions only); cardinality and authoritative enforcement belong to S2 |
-| 4.5a | Identifier resolver returning `object_unavailable`, distinguishing withheld from undecided from absent | 4.4 | `entitlements/resolve.ts` | VC-19 to VC-22 |
+| 4.5a | Identifier resolver consuming `CompileResult.omitted`, returning `object_unavailable` with withheld, undecided or mixed reason; absent is `not_found` | 4.4 | `entitlements/application/resolve.ts` | VC-19 to VC-22 |
 | 4.6 | Pattern rules, applied at diff time, provenance recorded | 4.1, 3.6 | `entitlements/rules.ts` | H-013, H-014, R-004 to R-007 |
 | 4.7 | Bulk set with justification on clear | 4.1 | endpoint | H-010 to H-012, H-009 (API rejection) |
 | 4.8 | Entitlements screen: virtualised tree, select, bulk bar, chips | 4.1, 1.11 | screen | H-016, H-018, H-009 (UI offers no reset) |
