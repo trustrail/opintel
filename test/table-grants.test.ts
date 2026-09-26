@@ -24,9 +24,10 @@ const platformManaged: GrantContract = {
 // Explicit contracts, not an exclusion list: discovery below fails on every new
 // public table until its owning scope and privileges have been reviewed.
 const contracts: Record<string, GrantContract> = {
-  ...Object.fromEntries(['pattern_rule', 'introspection_completed', 'pattern_rule_application', 'entitlement', 'pool', 'pool_key', 'pool_source_binding', 'data_source', 'introspection_run', 'catalog_object', 'catalog_schema_temporal', 'catalog_element', 'element_stats', 'filing_party', 'filing_party_rule'].map((table) => [table, {
+  ...Object.fromEntries(['bulk_entitlement_request', 'pattern_rule', 'introspection_completed', 'pattern_rule_application', 'entitlement', 'pool', 'pool_key', 'pool_source_binding', 'data_source', 'introspection_run', 'catalog_object', 'catalog_schema_temporal', 'catalog_element', 'element_stats', 'filing_party', 'filing_party_rule'].map((table) => [table, {
     opintel_app: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], opintel_platform: [], opintel_platform_admin: manage,
   } satisfies GrantContract])),
+  bulk_decision: {opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['SELECT','INSERT','TRUNCATE']},
   token_key_version: {opintel_app:['SELECT','INSERT','UPDATE'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
   token_key_operation: {opintel_app:['SELECT','INSERT','UPDATE'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
   arrival_notice: { opintel_app: ['SELECT', 'INSERT', 'UPDATE'], opintel_platform: [], opintel_platform_admin: manage },

@@ -1418,6 +1418,40 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 | GET | `/pools/:id/view-definition` (the compiled DDL, admin only) |
 | GET / POST / DELETE | `/projects/:id/pattern-rules[/:ruleId]` |
 
+**Bulk entitlement command (4.7).** `POST /pools/:id/entitlements/bulk`
+requires `Idempotency-Key` and project `set_entitlement`. Its strict body is
+`{ projectId, elementIds, treatment, maskKind?, justification? }`: a non-empty
+selection of distinct element UUIDs, one of the five treatments, and a mask kind
+exactly for `masked`. Bulk `clear` requires a non-whitespace justification; malformed
+commands, missing keys and attempts to use `undecided` return 400. There is no reset
+or deletion route. As with source commands, `projectId` supplies tenant context;
+the repository verifies the pool belongs to that project before applying changes.
+
+The batch is all-or-nothing, in one transaction over the entitlement aggregate
+type. All selected elements are locked and validated before any decision write.
+A 422 lists every invalid element in `error.details.invalidElements`, each with
+its `elementId` and `reasons`; no entitlement or bulk-decision history is written.
+Validation checks tenant ownership, active catalogue/source state, source binding,
+exposed metadata and the existing mask/token-declaration compatibility rules.
+Withholding remains possible for unsupported or unnameable elements.
+
+Successful commands persist the justification on every entitlement and append
+one `bulk_decision` row containing actor, pool, treatment, mask kind, count,
+justification and time. These writes commit together. Item 5.10's audit log will
+read these rows rather than record the same facts again. Application grants allow
+only INSERT and SELECT on this history; later decisions never rewrite it.
+The 200 response is `{ decisionId, poolId, treatment, count, decidedAt }`.
+
+Migration 040 also adds tenant-scoped `bulk_entitlement_request` receipts, keyed
+by project, actor, concrete route and Idempotency-Key. The validated command hash
+and original successful response are retained for a 24-hour replay window. Concurrent
+retries serialize; a different command under an unexpired key returns
+`409 idempotency_key_reused`. The all-or-nothing validation rule takes precedence
+for 422 responses: a rejected selection writes nothing, including no request
+receipt or key reservation. A corrected selection may therefore reuse that key.
+Expired receipts are replaced on reuse; they are not the audit history. The current permission is checked before
+replay. Cache invalidation and policy-version changes remain item 4.9.
+
 ### pools
 
 | Method | Path |
@@ -1477,6 +1511,19 @@ const MigrateIndustryPreview = z.object({
 **Migration increments the project revision**. EffectiveVocabulary.version is industryVersion + projectRevision, and without the bump a cached effective vocabulary from the old industry would still look current. The increment happens regardless of whether the two industries' vocabulary versions differ, because the merged result changed either way.
 
 **Migration returns 200 with ProjectView**, reflecting the new industry and its inherited term count. The caller already has the project on screen and needs the updated view; a bare 204 would force a refetch.
+
+
+**Bulk set is all-or-nothing**. If any element in the selection is invalid, nothing is written and the response names every invalid element with its reason. A partial result would leave an administrator believing a decision was applied while some columns remained readable, and "483 of 500 applied" is not a decision anyone made.
+
+**Validation happens before any write**, so the failure is a 422 listing the problems rather than a partial commit. The common causes are the ones item 4.6 already names: a tokenized treatment on an element with no declared token domain, timezone or epoch unit, and a mask kind that does not suit the type family.
+
+**This is one transaction over one aggregate type**, so it does not need an exception to the transaction rule.
+
+**The justification is recorded on the entitlement**, in the existing justification column, not in a separate bulk record. It is a property of the decision, and it must survive being read back per element rather than only as part of a batch.
+
+**A bulk command also writes one bulk_decision row** carrying the actor, the pool, the element count, the treatment, the justification and the time — append-only, never updated or deleted. Item 5.10's audit log subsumes it by reading these rows, and creating a second record of the same facts there would let the two diverge.
+
+
 
 ### Source payloads
 
@@ -2261,7 +2308,7 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 
 **The agent interface at `/mcp/v1/p/:projectId` is not in this table.** It authenticates by pool key rather than by session, and every authorization question there is answered against the pool.
 
-**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_element, run_stage, synonym_candidate.
+**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, bulk_decision, bulk_entitlement_request, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_element, run_stage, synonym_candidate.
 
 **Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp.
 

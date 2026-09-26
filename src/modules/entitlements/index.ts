@@ -19,3 +19,6 @@ export { DuckDBQueryParser } from './infrastructure/duckdb-query-parser.js';
 export { resolveIdentifier, type ObjectIdentifier } from './application/resolve.js';
 export { patternRuleInput, matchesPatternRule, selectPatternRule, validateRuleTreatment, type PatternRule, type RuleElement } from './application/rules.js';
 export { PostgresPatternRules } from './infrastructure/pattern-rules.js';
+
+export { BulkEntitlementService, type BulkEntitlementRepository } from './application/bulk.js';
+export { PostgresBulkEntitlements } from './infrastructure/bulk-entitlements.js';

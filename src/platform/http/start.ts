@@ -1,3 +1,5 @@
+import { BulkEntitlementService, PostgresBulkEntitlements } from '../../modules/entitlements/index.js';
+import { bulkEntitlementRoutes } from '../../modules/entitlements/api/bulk-routes.js';
 import { PostgresOrdinalRepair } from '../../modules/sources/infrastructure/ordinal-repair.js';
 import { recoverIntrospectionCompletions } from '../../modules/sources/infrastructure/introspection-completion-recovery.js';
 import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../../modules/entitlements/index.js';
@@ -172,6 +174,7 @@ async function start(): Promise<void> {
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
   const routes = [
     ...keyCustodyRoutes(custody),
+    ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
     ...sourceRoutes(sources),

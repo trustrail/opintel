@@ -994,3 +994,16 @@ startup/timer scan or delivery of other event types.
 
 `test/pattern-rule-migration.test.ts` runs migration 039 up/down/up in a
 rollback-only private schema, checks masked-only mask kinds and forced RLS.
+
+## Bulk entitlement ownership — item 4.7
+
+`test/bulk-entitlements.test.ts` proves H-009 at the API, H-011 and H-012,
+including per-element justification and append-only bulk history. It covers
+all-or-nothing validation, aggregated element failures, transaction rollback,
+idempotency replay/conflict/expiry/concurrency, tenant and permission checks,
+and shared OpenAPI/client schemas. Item 5.10 consumes the bulk history.
+
+H-010's HTTP-to-commit timing assertion lives only in
+`test/performance/bulk-entitlements.test.ts`: 500 elements, real Postgres and
+SpiceDB, under 3 seconds, run separately from the functional suite.
+`test/bulk-entitlement-migration.test.ts` verifies migration 040 up/down/up.
