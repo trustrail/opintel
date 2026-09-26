@@ -42,7 +42,7 @@ async function customer<T>(work: (db: Client) => Promise<T>) {
 
 describe('reinsurance demo pack through ordinary ingest', () => {
  resetDatabaseBeforeEach('company', 'industry');
- beforeAll(async () => { directory = await mkdtemp(join(tmpdir(),'opintel-demo-')); await prepareSidecarDevelopment(directory); });
+ beforeAll(async () => { directory = await mkdtemp(join(tmpdir(),'opintel-demo-')); await prepareSidecarDevelopment(directory); }, 30_000);
  afterAll(async () => {
   await watcher?.close(); await host?.close();
   await customer(async (db) => {

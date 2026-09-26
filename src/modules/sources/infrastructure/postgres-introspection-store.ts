@@ -6,6 +6,9 @@ import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, Intro
 import { transitionRun, enforceTransition, type IntrospectionState } from '../domain/introspection-run.js';
 import type { CatalogSnapshot } from '../application/source-connector.js';
 import { snapshotResponse } from '../../../shared/sidecar-contract.js';
+import { PostgresPatternRules } from '../../entitlements/index.js';
+import type { IntrospectionCompletedHandler } from '../application/introspection-completed.js';
+import { recordIntrospectionCompleted, dispatchIntrospectionCompleted } from './introspection-completed.js';
 
 const runSelect = `SELECT id, source_id AS "sourceId", state, coalesce((progress->>'adoptRenamedNames')::boolean,false) AS "adoptRenamedNames", include_schemas AS include, diff, error, progress->>'errorCode' AS "errorCode",
   to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "startedAt",
@@ -16,11 +19,17 @@ class PublicationRefused { constructor(readonly error: DomainError) {} }
 
 export class PostgresIntrospectionStore implements IntrospectionStore {
   private readonly naming = new CatalogNaming(new AsciiTransliterator());
-  constructor(private readonly ids: IdFactory, private readonly events?: ProjectEvents) {}
+  constructor(private readonly ids: IdFactory, private readonly events?: ProjectEvents,
+    private readonly completed: IntrospectionCompletedHandler = new PostgresPatternRules(ids)) {}
+  dispatchCompleted(ctx: IntrospectionContext): Promise<void> { return dispatchIntrospectionCompleted(ctx,this.completed); }
   private async changed(ctx: IntrospectionContext, work: Promise<Result<IntrospectionRun>>): Promise<Result<IntrospectionRun>> {
     const result = await work; // withTenant has committed before publication.
     if (!result.ok) return result;
     const run = result.value;
+    if (run.state === 'complete') {
+      try { await this.dispatchCompleted(ctx); }
+      catch { console.warn({event:'introspection.rules_delivery_pending',projectId:ctx.projectId,runId:run.id}); }
+    }
     if (run.state === 'complete' || run.state === 'failed' || run.state === 'cancelled') {
       await notify(this.events, ctx.projectId, { type: 'introspection.finished', runId: run.id, sourceId: run.sourceId, state: run.state });
       await notify(this.events, ctx.projectId, { type: 'source.changed', sourceId: run.sourceId });
@@ -158,6 +167,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       }
       await tx.query("UPDATE introspection_run SET state='complete',ended_at=now(),progress=progress || jsonb_build_object('phase','complete','objects',$2::int) WHERE id=$1",[id,staged.value.objects.length]);
       await tx.query("UPDATE data_source SET status='connected',last_introspected_at=now() WHERE id=$1",[source.id]);
+      await recordIntrospectionCompleted(tx,ctx,id,source.id);
       return this.readTx(tx,id);
     })); } catch(error: unknown) {
       if (error instanceof PublicationRefused) return err(error.error);

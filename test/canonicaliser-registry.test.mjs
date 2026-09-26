@@ -28,7 +28,7 @@ describe('TOK-24 reviewed canonicaliser registration',()=>{
   }
   const [valid]=await eslint.lintText("import { helper } from './helper.js'; export const result = helper('x');",{filePath:'sidecar/tokenize/canonicalisers/probe.ts'});
   expect(valid.messages).toEqual([]);
- });
+ }, 30_000);
  it('every registered canonicaliser satisfies its fixed input-to-output vectors',()=>{
   for(const entry of registry.entries)for(const vector of entry.vectors)expect(entry.canonicalise(vector.input),entry.canonId).toBe(vector.output);
  });

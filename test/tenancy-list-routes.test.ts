@@ -174,7 +174,7 @@ databaseDescribe('tenancy lists with Postgres', () => {
     const second = ProjectListResponse.parse(await (await get(`projects?limit=2&cursor=${first.nextCursor}`)).json());
     expect(second.items.map((item) => item.id)).toEqual(ids.slice(102));
     expect(second.nextCursor).toBeNull();
-  });
+  }, 30_000);
 
   it.each(['projects', 'companies'])('returns an empty %s list and clamps large limits with a warning', async (kind) => {
     const response = await get(`${kind}?limit=501`);

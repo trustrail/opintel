@@ -29,7 +29,7 @@ const run = async () => {
 const catalog = () => withTenant(ctx,async (tx) => ({
   objects:await tx.query('SELECT * FROM catalog_object ORDER BY id'), elements:await tx.query('SELECT * FROM catalog_element ORDER BY id'),
 }));
-resetDatabaseBeforeEach('company');
+resetDatabaseBeforeEach('company','user_account');
 beforeEach(async () => {
   await withPlatform(async (tx) => {
     const [industry] = await tx.query<{id:string}>('SELECT id FROM industry LIMIT 1');

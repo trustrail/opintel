@@ -1,4 +1,5 @@
 import { PostgresOrdinalRepair } from '../../modules/sources/infrastructure/ordinal-repair.js';
+import { recoverIntrospectionCompletions } from '../../modules/sources/infrastructure/introspection-completion-recovery.js';
 import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../../modules/entitlements/index.js';
 import { keyCustodyRoutes } from '../../modules/entitlements/api/key-custody-routes.js';
 import { RedisProjectHub } from '../sse/redis-hub.js';
@@ -155,6 +156,17 @@ async function start(): Promise<void> {
     for (const ctx of await new PostgresOrdinalRepair(new UuidV7IdFactory()).queue()) await sources.resume(ctx);
   };
   void repair().catch(() => console.warn({event:'catalog.ordinal_repair_failed',category:'dependency_unavailable'}));
+  const completionStore = new PostgresIntrospectionStore(new UuidV7IdFactory(),hub);
+  let deliveringCompletions = false;
+  const deliverCompletions = () => {
+    if (deliveringCompletions) return;
+    deliveringCompletions = true;
+    void recoverIntrospectionCompletions(ctx=>completionStore.dispatchCompleted(ctx))
+      .catch(()=>console.warn({event:'introspection.rules_delivery_pending',category:'dependency_unavailable'}))
+      .finally(()=>{deliveringCompletions=false;});
+  };
+  deliverCompletions();
+  const completionTimer = setInterval(deliverCompletions,30000); completionTimer.unref();
   const custody=new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json')),authorization);
   const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
@@ -214,6 +226,7 @@ async function start(): Promise<void> {
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
     clearInterval(rehearsalTimer);
+    clearInterval(completionTimer);
     void sources.close();
     void hub.close();
     receiptServer?.close();

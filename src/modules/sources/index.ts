@@ -9,3 +9,4 @@ export { loadSidecarClientOptions } from './infrastructure/sidecar-client-config
 export type { DemoProvisioningPort } from './application/demo-provisioning.js';
 
 export type { SourceRef } from './application/source-connector.js';
+export type { IntrospectionCompleted, IntrospectionCompletedHandler } from './application/introspection-completed.js';

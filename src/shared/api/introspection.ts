@@ -4,6 +4,7 @@ export const IntrospectionRunView = z.object({
  progress:z.object({objects:z.number().int().nonnegative(),total:z.number().int().nonnegative().nullable()}),error:z.string().nullable(),
  startedAt:z.iso.datetime({offset:true}).nullable(),endedAt:z.iso.datetime({offset:true}).nullable(),
  diff:z.array(z.object({change:z.enum(['added','removed','renamed','type_changed','ordinal_changed','collision']),elementId:z.uuid().nullable(),exposedName:z.string().nullable(),before:z.string().nullable(),after:z.string().nullable(),breaking:z.boolean()})).nullable(),
+ ruleObservations:z.array(z.object({poolId:z.uuid(),elementId:z.uuid(),elementName:z.string().nullable(),ruleIds:z.array(z.uuid()),message:z.string()})).default([]),
 });
 export const IntrospectionRunList = z.object({items:z.array(IntrospectionRunView),nextCursor:z.string().nullable()});
 export type RunView = z.infer<typeof IntrospectionRunView>;

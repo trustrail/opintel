@@ -17,3 +17,5 @@ export { QueryPreFilter, type QueryPreFilterInput, type QueryPreFilterOutcome } 
 export type { QueryParserPort } from './application/query-parser-port.js';
 export { DuckDBQueryParser } from './infrastructure/duckdb-query-parser.js';
 export { resolveIdentifier, type ObjectIdentifier } from './application/resolve.js';
+export { patternRuleInput, matchesPatternRule, selectPatternRule, validateRuleTreatment, type PatternRule, type RuleElement } from './application/rules.js';
+export { PostgresPatternRules } from './infrastructure/pattern-rules.js';

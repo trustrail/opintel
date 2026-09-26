@@ -441,6 +441,9 @@ Entities whose behaviour is not covered by the flows above.
 | R-005 | F | `patternRule` priority | Highest priority wins on multiple matches |
 | R-006 | F | `patternRule` deleted | Existing entitlements it set are retained |
 | R-007 | D | `patternRule` provenance | Entitlements it sets record `source: rule`, distinct from `user` |
+| R-025 | F | Two `patternRule`s match one element at the same priority | No entitlement created; an observation names both rules and the element |
+| R-026 | F | Tokenized rule matches an element with no declared token domain | No entitlement created; element stays undecided; an observation names the rule, the element and the missing declaration |
+| R-027 | F | Masked rule whose kind does not suit the element's type family | No entitlement created; observation names the mismatch |
 | R-008 | F | `subject` with aliases | Each alias classifies to the canonical subject |
 | R-009 | F | `operation` result shape | Drives the result renderer; a mismatch is a defect |
 | R-010 | D | `sotCoverage` | Recomputed on entry change; matches an independent count |
@@ -814,7 +817,7 @@ Generated from test metadata at CI time, not maintained by hand. The table below
 | `introspectionRun` | G-001…G-020, R-023, Q-010 |
 | `catalogElement` | G-001…G-016, R-001…R-003, H-001, H-018 |
 | `entitlement` | H-001…H-018, E2-026, K-001, K-004…K-006, TF-002 |
-| `patternRule` | H-013, H-014, R-004…R-007, Q-012 |
+| `patternRule` | H-013, H-014, R-004…R-007, R-025…R-027, Q-012 |
 | `pool` | I-001…I-023, K-002, Q-020, Q-024, TF-005 |
 | `agent` | I-018…I-022, SA-003 |
 | `effectiveVocabulary` | L-003, L-022, L-023, R-018, R-021, E2-028 |
@@ -974,3 +977,20 @@ statistics or post-filter counts in the application. A separate test checks that
 a changed threshold appears in an early refusal's reason; it does not close VC-28.
 The pre-filter suite is not C.6's bypass suite and proves neither binding nor
 isolation. No S2, S4 or C.6 implementation is supplied by 4.5.
+
+## Pattern rule ownership — item 4.6
+
+`test/pattern-rules.test.ts` covers H-013, H-014, R-004–R-007 and R-025–R-027
+through real introspection publication, tenant-scoped rules, insert-only
+entitlements and persisted run observations. It also verifies strict discovery
+timestamps, both user and rule decisions, all bound pools, exposed-metadata
+matching, delivery interruption/replay, concurrent handlers, no late-binding
+backfill, no fallback from an invalid winning rule and no regrant after a
+type-family invalidation. Missing token domain, timezone and epoch declarations
+remain undecided, and completed runs expose the reason. Durable pending work and
+idempotent rule handling belong to 4.6. Pending completion replay also exercises
+the dispatcher used by 4.9a; these tests do not separately prove its project-wide
+startup/timer scan or delivery of other event types.
+
+`test/pattern-rule-migration.test.ts` runs migration 039 up/down/up in a
+rollback-only private schema, checks masked-only mask kinds and forced RLS.

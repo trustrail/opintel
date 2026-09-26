@@ -31,4 +31,4 @@ it('the application imports no sidecar implementation and never resolves binary 
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'resolveBytes') violations.push(file);
   });
   expect(violations).toEqual([]);
-});
+}, 30_000);

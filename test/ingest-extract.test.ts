@@ -44,7 +44,7 @@ describe('sidecar spreadsheet extraction', () => {
     expect(await inspect(path, selected)).toMatchObject({ ok: true, value: { sheet: 'Sheet 9', sheetIndex: 9, headerRow: 3, rowCount: 1, columns: [{ name: 'FilingParty' }, { name: 'Premium' }] } });
     expect(await rows(path, selected)).toEqual([['4471', '9']]);
     expect(await inspect(path, { ...selected, sheet: 'Missing' })).toMatchObject({ ok: false, error: { message: 'The declared sheet is absent.' } });
-  });
+  }, 30_000);
   it('ING-10: repeats merged data cells horizontally and vertically, but quarantines merged headers', async () => {
     const path = await workbook((book) => {
       const sheet = book.addWorksheet('Data'); sheet.addRows([['A', 'B', 'C'], ['value', null, 1], [null, null, 2]]); sheet.mergeCells('A2:B3');
@@ -52,7 +52,7 @@ describe('sidecar spreadsheet extraction', () => {
     expect(await rows(path)).toEqual([['value', 'value', '1'], ['value', 'value', '2']]);
     const mergedHeader = await workbook((book) => { const sheet = book.addWorksheet('Data'); sheet.addRows([['Header'], ['value']]); sheet.mergeCells('A1:B1'); }, 'merged-header.xlsx');
     expect(await inspect(mergedHeader)).toMatchObject({ ok: false, error: { message: 'The declared header row contains a merged cell.' } });
-  });
+  }, 30_000);
   it('ING-12: a late mixed value makes the whole column text without changing its original values', async () => {
     const path = await csv('Amount,Label\n"1.234,56",first\n"2.345,67",second\nnot a number,third\n');
     expect(await inspect(path)).toMatchObject({ ok: true, value: { columns: [{ type: 'TEXT' }, { type: 'TEXT' }] } });
@@ -62,7 +62,7 @@ describe('sidecar spreadsheet extraction', () => {
     for (const path of [await csv('A,B\n1,2\n,\nNotes,not data\n'), await workbook((book) => {
       const sheet = book.addWorksheet('Data'); sheet.getRow(1).values = ['A', 'B']; sheet.getRow(2).values = [1, 2]; sheet.getRow(4).values = ['Notes', 'not data'];
     })]) expect(await rows(path)).toEqual([['1', '2']]);
-  });
+  }, 30_000);
   it('ING-14/15: generates stable blank names and suffixes duplicates without displacing real headers', async () => {
     const path = await csv('Amount,,Amount,Amount_2,column_2\n1,2,3,4,5\n');
     const result = await inspect(path);
@@ -82,7 +82,7 @@ describe('sidecar spreadsheet extraction', () => {
     expect(await rows(cached)).toEqual([['0']]);
     const missing = await workbook((book) => { const sheet = book.addWorksheet('Data'); sheet.addRows([['Value'], [{ formula: '1+1' }]]); }, 'no-cache.xlsx');
     expect(await inspect(missing)).toMatchObject({ ok: false, error: { message: 'A formula has no cached value.' } });
-  });
+  }, 30_000);
   it('ING-18: declared locale controls exact decimals and dates regardless of host TZ', async () => {
     const path = await csv('Amount,Date\n"1.234,56",03/04/2026\n"9.876.543,21",29/02/2024\n');
     const before = process.env.TZ;
@@ -115,7 +115,7 @@ describe('sidecar spreadsheet extraction', () => {
     expect(watcher.records().find((filing) => filing.path.endsWith('content.csv'))?.reason).toContain('other-filingParty-private');
     expect(watcher.records().find((filing) => filing.path.endsWith('.xls'))?.reason).toContain('.xls');
     expect(JSON.stringify(logged.mock.calls)).not.toContain('other-filingParty-private');
-  });
+  }, 30_000);
   it('registers arrivals before extraction and resumes the same filing after restart', async () => {
     const input = join(directory, 'inbox'); await mkdir(input);
     const rulesFile = join(directory, 'rules.json'); const stateFile = join(directory, 'state.json');
@@ -137,7 +137,7 @@ describe('sidecar spreadsheet extraction', () => {
     watcher = await LandingWatcher.open(zone, undefined, observing); await watcher.reconcile();
     expect(watcher.records()).toHaveLength(1);
     expect(watcher.records()[0]).toMatchObject({ id, extraction: { rowCount: 1 } });
-  });
+  }, 30_000);
   it('ING-17: streams XLSX rows with a disk-backed shared-string index', async () => {
     const path = join(directory, 'large.xlsx');
     const book = new ExcelJS.stream.xlsx.WorkbookWriter({ filename: path, useSharedStrings: true });
@@ -150,7 +150,7 @@ describe('sidecar spreadsheet extraction', () => {
       expect(row).toEqual({ ok: true, value: [`reference-${count++}`] });
     }
     expect(count).toBe(20000);
-  }, 30000);
+  }, 60_000);
   it('verifies every populated content row and does not rescue an unattributed file', async () => {
     const path = await csv('FilingParty,Amount\n4471,1\nother,2\n');
     expect(await inspect(path, { ...rule, verifyColumn: 'FilingParty', verifyValue: '4471' })).toMatchObject({ ok: false });

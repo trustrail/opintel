@@ -2261,7 +2261,7 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 
 **The agent interface at `/mcp/v1/p/:projectId` is not in this table.** It authenticates by pool key rather than by session, and every authorization question there is answered against the pool.
 
-**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, pattern_rule, agent_presence, query_run, run_element, run_stage, synonym_candidate.
+**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_element, run_stage, synonym_candidate.
 
 **Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp.
 
@@ -3120,7 +3120,9 @@ create table pattern_rule (
   treatment  text not null,
   priority   integer not null default 100,
   active     boolean not null default true,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  mask_kind  text check (mask_kind in ('last4','email','year','all')),
+  constraint rule_mask_kind_when_masked check ((treatment = 'masked') = (mask_kind is not null))
 );
 
 create table agent_presence (
@@ -3135,6 +3137,48 @@ create table agent_presence (
   primary key (pool_id, agent_id)
 );
 ```
+**matcher is interpreted by match_kind**: name_glob matches the element's exposed name with * and ? wildcards, case-insensitively, since exposed names are lowercase; type matches the element's exposed type exactly, so a rule written for a source type does not silently apply after a type change; schema matches the object's exposed schema exactly. Matching the exposed name rather than the source identifier means a rule survives a source-side rename, which is the same reason duckdb_name is immutable.
+
+**A rule applies to every pool in the project** that is bound to the element's source. A rule is a project-level policy — "customer identifiers are always tokenized" — and restricting it to one pool would mean the same policy written repeatedly and diverging. A pool that should differ gets an explicit entitlement, which wins over any rule (H-014).
+
+**Two matching rules at the same priority create nothing** and raise an observation naming both and the element. Priority is how an administrator resolves an overlap deliberately; equal priority means they have not, and picking one would let creation order decide what an agent sees.
+
+**Item 4.6 persistence and delivery.** Forward migration 039 creates `pattern_rule`
+with `mask_kind` and the same masked-only constraint as `entitlement`; no mask is
+defaulted. The repository accepts validated creation and deletion commands.
+Deletion removes only the rule, retaining entitlements and historical rule IDs.
+Rules are project-scoped with forced RLS. Matching uses exposed metadata, numeric
+priority descending, and literal `*`/`?` glob semantics for names. Existing
+entitlements are left untouched regardless of provenance; writes use
+`ON CONFLICT DO NOTHING`, never the manual-decision upsert.
+
+Catalogue publication records an identifier-only `IntrospectionCompleted` outbox
+entry, keyed by run ID, and fixes the newly added element/bound-pool targets in the
+same transaction as the diff. Rule age is compared to `discovered_at` in Postgres,
+strictly, without losing timestamp precision in JavaScript. Renames, restores,
+type-family invalidations, later pool bindings and ordinary re-introspection do
+not count as new discovery. Delivery follows commit. Each target has a durable
+receipt, processed with one entitlement per transaction; partial retries cannot
+overwrite decisions or duplicate observations. This outbox and idempotent handler
+belong to item 4.6 under the domain-event contract. Rule validation failure does
+not fail an introspection run or fall back to a lower-priority rule.
+
+**Item 4.9a recovery.** Pending delivery resumes on source activity and through
+a project-wide scan at startup and every 30 seconds. This general domain-event
+recovery mechanism is retained as the current implementation of 4.9a, presently
+wired only to `IntrospectionCompleted`. The relationship and mail outboxes have
+their own dispatchers; whether all three should converge is an open question for
+4.9a, not part of pattern-rule matching.
+
+`pattern_rule_application` stores refusal observations with run, pool, element,
+rule IDs and a human-readable reason, and the existing introspection run response
+exposes them as `ruleObservations`. Missing token declarations, incompatible
+canonicalisation or mask/type mismatches create no entitlement. Refusals are
+logged at info using identifiers and a reason category only. These are read-only
+run findings, not an observations workflow/register. Rule management routes,
+screens and policy-version invalidation are not introduced by item 4.6.
+
+
 Item 4.2 adds `mask_kind` in forward migration 029. There is no default. If existing
 masked rows lack a kind, migration stops and lists their pool/element pairs. Before
 retrying, the operator adds the nullable `mask_kind text` column with
@@ -3192,6 +3236,15 @@ or evidence writer is introduced by 4.5.
 Valid last4 and email values use the fixed prefixes shown in B.3 (`••••` and `•••`). Mask functions never log inputs. Year masking uses the supplied calendar year for date/timestamp text and UTC for Date objects, never the host locale/timezone; malformed adapter inputs receive full masking.
 
 **Full masking preserves length only where length is already public**, which it never is here, so the result is a fixed ****.
+
+**A rule that cannot be applied creates nothing and raises an observation** naming the rule, the element and what is missing. Three cases: a tokenized rule matching an element with no declared token domain, or a naive timestamp with no declared zone, or an epoch column with no declared unit; and a masked rule whose kind does not suit the element's type family, such as year on text.
+
+**The element stays undecided**, which is the correct state: nobody has decided. Applying a fallback treatment would be the rule deciding something its author did not write, and silently skipping would leave an administrator wondering why a rule they wrote did nothing.
+
+**A rule that cannot apply is not an error in the introspection run**. The run completes, its diff is recorded, and the observation carries the problem. Introspection should not fail because a rule needs a declaration.
+
+
+
 
 ## 4.6 Evidence
 

@@ -20,7 +20,8 @@ export class PostgresIntrospectionQuery implements IntrospectionQuery {
     before:entry.before??('beforeType'in entry?entry.beforeType:null)??null,after:entry.after??('afterType'in entry?entry.afterType:null)??null,
     breaking:('requiresEntitlementDeletion'in entry&&entry.requiresEntitlementDeletion===true)||('breaking'in entry&&entry.breaking===true)};
   }):null;
-  return IntrospectionRunView.parse({...row,startedAt:row.startedAt?.toISOString()??null,endedAt:row.endedAt?.toISOString()??null,progress:{objects:row.progress.objects??0,total:row.progress.total??null},diff});
+  const ruleObservations=await tx.query(`SELECT pool_id AS "poolId",element_id AS "elementId",element_name AS "elementName",rule_ids AS "ruleIds",message FROM pattern_rule_application WHERE run_id=$1 AND message IS NOT NULL ORDER BY pool_id,element_id`,[row.id]);
+  return IntrospectionRunView.parse({...row,startedAt:row.startedAt?.toISOString()??null,endedAt:row.endedAt?.toISOString()??null,progress:{objects:row.progress.objects??0,total:row.progress.total??null},diff,ruleObservations});
  }
  read(ctx:IntrospectionContext,id:RunId):Promise<Result<RunView>>{return withTenant(ctx,async tx=>{const [row]=await tx.query<Row>(`${select} WHERE id=$1`,[id]);return row?ok(await this.view(tx,row)):missing();});}
  list(ctx:IntrospectionContext,source:SourceId,after:RunId|null,limit:number):Promise<Result<RunView[]>>{return withTenant(ctx,async tx=>{

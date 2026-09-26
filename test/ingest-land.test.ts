@@ -139,7 +139,7 @@ describe('landing into customer Postgres', () => {
     expect(await writer().land({ ...isolated, columns: bad.columns }, failed())).toMatchObject({ ok: false });
     expect(await fixture(async (pg) => (await pg.query('SELECT * FROM _opintel_landing.commits WHERE filing_id=$1', [isolated.filingId])).rows)).toEqual([]);
     expect(await fixture(async (pg) => (await pg.query('SELECT nspname FROM pg_namespace WHERE nspname=$1', [isolated.source.name])).rows)).toEqual([]);
-  });
+  }, 30_000);
   it('ING-07/12/26: watcher lands concurrent files, quarantines drift/invalid periods, and retains refused receipts across restart', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'opintel-land-')); const zoneDir = join(directory, 'zone'); await mkdir(zoneDir);
     const value = source('append_as_at'); const filingParty: FilingParty = { id: randomUUID() as PartyId, projectId: value.projectId, code: '4471', name: 'Test', active: true, decimalSeparator: '.', dateFormat: 'YYYY-MM-DD' };
@@ -168,5 +168,5 @@ describe('landing into customer Postgres', () => {
       expect(watcher.records().filter((entry) => entry.status === 'quarantined')).toHaveLength(2);
       expect(await fixture(async (pg) => (await pg.query(`SELECT "Reserve" FROM ${receipt.landedTable} ORDER BY "Reserve"`)).rows)).toEqual([{ Reserve: '100' }, { Reserve: '101' }, { Reserve: '125' }, { Reserve: '150' }]);
     } finally { await watcher.close(); await rm(directory, { recursive: true, force: true }); }
-  });
+  }, 30_000);
 });

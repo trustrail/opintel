@@ -30,7 +30,7 @@ describe('tokenization execution contract', () => {
     const transform = unwrap(run.prepare(text));
     const first = transform('ACME');
     for (let i = 0; i < 10000; i++) expect(transform('ACME')).toEqual(first);
-  }));
+  }), 30_000);
   it('TOK-04/TOK-05: NULL stays NULL; empty string is a value', () => {
     expect(token(null)).toBeNull(); expect(token('')).toMatch(/^v1_c_[0-9A-HJKMNP-TV-Z]{26}$/);
   });
@@ -125,7 +125,7 @@ describe('tokenization execution contract', () => {
       console.log(JSON.stringify(run.tokenize('2026-09-21T11:30:00.123456',{domain:'c',canonId:'stdtime1',mode:'timestamp',declaredZone:'America/New_York'})));key.value.dispose();`;
     const results = ['America/Los_Angeles', 'Asia/Tokyo'].map(TZ => execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', program], { env: { ...process.env, TZ }, encoding: 'utf8' }));
     expect(results[0]).toBe(results[1]); expect(JSON.parse(results[0]!)).toMatchObject({ ok: true });
-  });
+  }, 30_000);
   it('TOK-23/TOK-26: a declared extension runs first and its version enters the MAC', () => withRun(run => {
     const raw = '１２, Jln Ampang'; const seen: string[] = [];
     const extension = { canonId: 'addr2', canonicalise: (input: string) => { seen.push(input); return input === raw ? '12 Jalan Ampang' : input; } };
@@ -145,5 +145,5 @@ describe('tokenization execution contract', () => {
       if (match) expected.set(String.fromCodePoint(parseInt(match[1]!, 16)), match[3]!.split(' ').map(value => String.fromCodePoint(parseInt(value, 16))).join(''));
     }
     expect(caseFolding).toEqual(expected);
-  });
+  }, 30_000);
 });

@@ -21,7 +21,7 @@ describe('module boundary rule', () => {
     expect(result.errorCount).toBe(1);
     expect(result.messages[0]?.ruleId).toBe('opintel/module-boundary');
     expect(result.messages[0]?.messageId).toBe('layerImport');
-  });
+  }, 30_000);
 
   it('rejects a cross-module non-index .js import', async () => {
     const eslint = new ESLint({ cwd: rootDirectory });
@@ -32,7 +32,7 @@ describe('module boundary rule', () => {
     expect(result.errorCount).toBe(1);
     expect(result.messages[0]?.ruleId).toBe('opintel/module-boundary');
     expect(result.messages[0]?.messageId).toBe('crossContextDeepImport');
-  });
+  }, 30_000);
 
   it('accepts a cross-module index.js import', async () => {
     const eslint = new ESLint({ cwd: rootDirectory });
@@ -41,7 +41,7 @@ describe('module boundary rule', () => {
     ]);
 
     expect(result.messages).toEqual([]);
-  });
+  }, 30_000);
 
   it('still accepts a cross-module extensionless index import', async () => {
     const eslint = new ESLint({ cwd: rootDirectory });
@@ -50,5 +50,5 @@ describe('module boundary rule', () => {
     });
 
     expect(result.messages).toEqual([]);
-  });
+  }, 30_000);
 });

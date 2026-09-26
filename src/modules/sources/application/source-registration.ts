@@ -69,6 +69,7 @@ export class SourceRegistrationService {
  async list(ctx:SourceContext,after:SourceId|null,limit:number){await this.resume(ctx);return this.repository.list(ctx,after,limit);}
  templates(ctx:SourceContext,industryId:IndustryId){return this.repository.templates(ctx,industryId);}
  async resume(ctx:SourceContext){
+  await this.jobs.dispatchCompleted(ctx);
   for(const work of await this.repository.queued(ctx)){
    if(this.active.has(work.runId)||this.stop.signal.aborted)continue;
    const owner={...ctx,userId:work.userId};

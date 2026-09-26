@@ -10,6 +10,7 @@ export type IntrospectionSource = { id: SourceId; projectId: ProjectId; kind: So
 export type RecordedIntrospectionDiff = IntrospectionDiff & { runId?: RunId; entitlements?: Array<{poolId:PoolId;treatment:Treatment;maskKind?:MaskKind|null}> };
 export type IntrospectionRun = { id: RunId; sourceId: SourceId; state: IntrospectionState; adoptRenamedNames: boolean; include: string[]; diff: RecordedIntrospectionDiff[]; error: string | null; errorCode?: ErrorCode | null; startedAt: Timestamp | null; endedAt: Timestamp | null };
 export interface IntrospectionStore {
+  dispatchCompleted?(ctx: IntrospectionContext): Promise<void>;
   enqueue(ctx: IntrospectionContext, sourceId: SourceId, include: string[], adoptRenamedNames?: boolean): Promise<Result<IntrospectionRun>>;
   read(ctx: IntrospectionContext, id: RunId): Promise<Result<IntrospectionRun>>;
   source(ctx: IntrospectionContext, id: SourceId): Promise<Result<IntrospectionSource>>;

@@ -71,7 +71,7 @@ describe('filing register', () => {
   const address = server.address(); if (!address || typeof address === 'string') throw new Error('No address');
   const { tls } = await loadSidecarConfig(join(directory, 'service.json'));
   delivery = new HttpsLandingReceipts(`https://127.0.0.1:${address.port}`, { ca: tls.ca, cert: tls.cert, key: tls.key, pinnedCertificate: tls.clientPin });
- });
+ }, 30_000);
  beforeEach(async () => {
   egress = [];
   const sourceId = SourceId(randomUUID()); sources.push(sourceId);

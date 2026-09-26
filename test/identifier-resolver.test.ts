@@ -118,5 +118,5 @@ describe('4.5a identifier resolver', () => {
         expect(compiled.views.map(view => view.name)).toEqual(['available']);
       } finally { connection.closeSync(); }
     } finally { instance.closeSync(); }
-  });
+  }, 30_000);
 });

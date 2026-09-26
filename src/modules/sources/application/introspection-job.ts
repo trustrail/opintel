@@ -19,6 +19,7 @@ export class IntrospectionJob {
     return (await this.authorization.check({ resource:{type:'project',id:ctx.projectId}, permission:'administer', subject:{type:'user',id:ctx.userId} })).allowed;
   }
   read(ctx: IntrospectionContext, id: RunId) { return this.store.read(ctx,id); }
+  async dispatchCompleted(ctx: IntrospectionContext): Promise<void> { await this.store.dispatchCompleted?.(ctx); }
   source(ctx: IntrospectionContext, id: SourceId) { return this.store.source(ctx,id); }
   async cancel(ctx: IntrospectionContext,id: RunId) {
     const cancelled = await this.store.cancel(ctx,id);

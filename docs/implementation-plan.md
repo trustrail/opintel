@@ -167,10 +167,70 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 4.4 | **Pure view compiler**, emitting read plans, projection-only views and metadata distinguishing undecided from withheld. Approved for implementation | 4.1, 4.2, 4.3b, 4.3c, 3.2 | `entitlements/application/compile.ts` | VC-01 to VC-09, VC-15, VC-16, VC-31 to VC-33, H-003, H-005 |
 | 4.5 | Application query-inspection **pre-filter only**, using DuckDB's parse per C.3.1; may refuse, never authorise | 4.4 | `entitlements/application/aggregate.ts`, parser port and infrastructure adapter | VC-10 to VC-13, VC-27, VC-29/VC-30 and H-008 (application pre-filter assertions only); cardinality and authoritative enforcement belong to S2 |
 | 4.5a | Identifier resolver consuming `CompileResult.omitted`, returning `object_unavailable` with withheld, undecided or mixed reason; absent is `not_found` | 4.4 | `entitlements/application/resolve.ts` | VC-19 to VC-22 |
-| 4.6 | Pattern rules, applied at diff time, provenance recorded | 4.1, 3.6 | `entitlements/rules.ts` | H-013, H-014, R-004 to R-007 |
+| 4.6 | Pattern rules, applied at diff time, provenance recorded | 4.1, 3.6 | `entitlements/rules.ts` | H-013, H-014, R-004 to R-007, R-025 to R-027 |
 | 4.7 | Bulk set with justification on clear | 4.1 | endpoint | H-010 to H-012, H-009 (API rejection) |
 | 4.8 | Entitlements screen: virtualised tree, select, bulk bar, chips | 4.1, 1.11 | screen | H-016, H-018, H-009 (UI offers no reset) |
 | 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | M-005, M-006 (session cache assertions VC-17/VC-18 belong to S2), H-002 (recompilation timing) |
+| 4.9a | Domain event outbox recovery: scan, retry and dispatch for pending events | 4.6 | Existing completion recovery scan, startup/30-second dispatch and source-request integration; implementation and open question below | Pending completion replay and idempotent/concurrent delivery in `test/pattern-rules.test.ts`; broader event coverage remains open |
+
+**4.6 / 4.9a ownership.** The domain-event contract requires an outbox and
+idempotent handlers. Item 4.6 owns durable `IntrospectionCompleted` pending work,
+committed with the catalogue diff, and the rule handler's per-target processing
+receipts. Without that durable work, a crash after publication could skip rule
+application permanently because the elements would no longer be newly discovered.
+These are required correctness within 4.6.
+
+**4.9a implementation recorded.** Retain the recovery mechanism already built:
+`sources/infrastructure/introspection-completion-recovery.ts` enumerates projects and selects an available project/company administrator
+for tenant-scoped dispatch; `platform/http/start.ts` runs it at startup and every
+30 seconds with an in-process overlap guard; `sources/application/source-registration.ts`
+invokes pending dispatch during source-request resume. The dispatcher in
+`sources/infrastructure/introspection-completed.ts` reads pending events in batches
+of 100, invokes the handler and acknowledges delivery only after it finishes.
+Failures leave work pending for retry. This is general domain-event outbox
+recovery, applicable to every domain event, rather than rule matching. The current
+implementation handles `IntrospectionCompleted` only; recording it here does not
+claim that every domain event is already wired, or that scheduled recovery has
+separate test coverage.
+
+**4.9a convergence decision: two delivery patterns.** The relationship outbox
+(2.6a) and mail outbox (1.5) already have their own dispatch. Their common pattern
+holds a pending-row lock (`FOR UPDATE SKIP LOCKED`) while performing the external
+write/send and recording its acknowledgement in that same database transaction.
+Relationship dispatch handles a specific row; mail handles a batch or specific
+key. There is no separate database transaction between the dispatch attempt and
+its acknowledgement, and the lock prevents concurrent dispatch of that row.
+This does **not** make the external effect atomic with the database commit:
+SpiceDB or the mail provider can accept work before a crash or commit failure
+leaves the outbox row pending. Replay still needs an idempotent external operation
+or a delivery idempotency key; the lock alone cannot guarantee exactly-once effects.
+
+Completion delivery uses a different pattern: it reads pending events, commits
+individual target outcomes and their processing receipts, then acknowledges the
+event in a separate transaction after all targets finish. A crash can leave some
+or all target work committed while the event remains pending. On replay, the
+handler skips targets whose receipts are already committed and resumes unfinished
+targets. Each entitlement or refusal and its receipt commit together, so there is
+no gap between a target's database effect and its replay protection.
+
+**This difference is essential under the current aggregate boundaries.** One
+introspection event can apply rules to many elements across many pools. That is
+many entitlement aggregates, not one atomic act; the repository requires one
+aggregate per transaction. Wrapping the whole event in a single transaction to
+imitate single-row dispatch would violate that boundary. Holding an event lock
+across separate target transactions would still leave committed partial work on
+a crash, so it would not remove the need for receipts. Item 4.9a therefore retains
+two delivery patterns with this written reason: locked external-operation
+dispatch, and multi-aggregate completion with durable per-target receipts and a
+separate event acknowledgement. Other domain events must be classified by their
+work and transaction boundaries rather than automatically using either pattern.
+
+**Remaining convergence question for 4.9a:** which scanning, scheduling, retry and
+dispatch interfaces should the three implementations share while preserving those
+two correctness patterns? The project-wide scan, 30-second timer and source-request
+trigger are recovery orchestration choices; they do not justify a third delivery
+pattern. The current completion implementation is retained, not generalized by
+this documentation change.
 
 **4.5 / S2 ownership (C.3.1).** Item 4.5 performs early refusal only; acceptance is never evidence of permission and the application uses no different parser library. S2 independently enforces C.3, B.4 and B.4a against the sidecar's own parse and binding in `/validate` and `/execute`, using the request's read plan and entitlements. S2 owns both stages of B.4's post-filter cardinality enforcement, including whole-result refusal before release. `/validate` opens no source connection and cannot stand in for the execution-time checks. S3's resource-governance estimates do not defer S2's disclosure checks or create a dependency cycle.
 

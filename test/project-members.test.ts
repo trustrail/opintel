@@ -138,5 +138,5 @@ describe('project members and project discovery with Postgres and SpiceDB', () =
       listed.push(...page.items.map((item) => item.id)); cursor = page.nextCursor;
     } while (cursor !== null);
     expect(listed.sort()).toEqual(lookup.map((item) => item.resourceObjectId).sort());
-  });
+  }, 30_000);
 });

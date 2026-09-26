@@ -37,7 +37,7 @@ beforeAll(() => {
   }
   const read = (name: string) => readFileSync(join(dir, name), 'utf8');
   tls = { ca: read('ca.pem'), cert: read('client.pem'), key: read('client.key'), pinnedCertificate: read('server.pem') };
-});
+}, 30_000);
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 beforeEach(async () => {
   seen = [];

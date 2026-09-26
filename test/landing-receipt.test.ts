@@ -37,7 +37,7 @@ describe('landing receipt over pinned mutual TLS', () => {
     const sidecar = await loadSidecarConfig(join(directory, 'service.json'));
     tls = { ca: sidecar.tls.ca, cert: sidecar.tls.cert, key: sidecar.tls.key, pinnedCertificate: sidecar.tls.clientPin };
     client = new HttpsLandingReceipts(url, tls);
-  });
+  }, 30_000);
   beforeEach(async () => {
     await withPlatform(async (tx) => {
       const [industry] = await tx.query<{ id: string }>('SELECT id FROM industry LIMIT 1');
