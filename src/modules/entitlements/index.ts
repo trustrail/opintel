@@ -13,3 +13,6 @@ export type { CanonicaliserCatalog, CanonicaliserAssignments } from './applicati
 
 export { compileViews, quoteIdent } from './application/compile.js';
 export type { CompileInput, CompileResult, ViewDefinition, CompiledColumn, ReadPlan, ReadColumn, TokenDeclaration, AggregateOnly, OmittedObject } from './application/compile.js';
+export { QueryPreFilter, type QueryPreFilterInput, type QueryPreFilterOutcome } from './application/aggregate.js';
+export type { QueryParserPort } from './application/query-parser-port.js';
+export { DuckDBQueryParser } from './infrastructure/duckdb-query-parser.js';

@@ -335,3 +335,19 @@ deployed arrangement starts. Run the thing.
 - When using this arrangement again, in particular for S2's bypass suite,
   confirm the implementation session's own tests exist and pass before the
   second session starts.
+
+# S2 — parse and binding
+
+- DuckDB's `json_serialize_sql` carries no binding: nonexistent tables and
+  columns serialise successfully. Verified against v1.4.3. The JSON is a
+  syntax tree, not a resolved statement, so C.3.1's binding requirement
+  needs another route.
+- Three candidates: use `PREPARE` to prove identifiers resolve, then catalogue
+  inspection to learn what they resolved to; rely on the agent session
+  containing only the pool's staged tables, so syntax-level resolution is
+  binding; or use DuckDB's binder through the extension interface.
+- The second makes the bypass suite load-bearing for binding as well as
+  isolation. That is an argument for it rather than against: both rest on
+  the same proof.
+- Decide at S2, with the bypass suite written first. Item 4.5 remains the
+  application's refusal-only pre-filter and does not settle this decision.

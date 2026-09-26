@@ -410,7 +410,8 @@ type ErrorCode =
   | 'entitlement_missing' | 'element_withheld' | 'object_unavailable'
   | 'term_unresolved' | 'clarification_required' | 'domain_knowledge_gap'
   | 'sources_cannot_be_joined' | 'large_result_confirmation' | 'budget_exceeded'
-  | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown';
+  | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown'
+  | 'unsupported_on_token';
 
 // platform/db: the transaction handle a scope hands to its callback.
 // It exposes query and nothing else. No commit, no rollback, no release:
@@ -3148,6 +3149,35 @@ withheld is an omission descriptor; aggregate-only carries the original column t
 and an element constraint for later query inspection. An absent decision is a distinct
 undecided omission. Unsupported elements stay unexposed. No tokenizer adapter, view
 compiler, UDF registration, or query inspector is supplied by item 4.2.
+
+**Item 4.5 is the application pre-filter only (algorithm C.3.1).**
+`QueryPreFilter.inspect` takes SQL, the compiled views and the sidecar's exact
+engine build identity. `QueryParserPort` is implemented by `DuckDBQueryParser`
+in infrastructure, pinned to `@duckdb/node-api` 1.4.3-r.3. The adapter reports
+`library_version/source_id` (`v1.4.3/d1dc88f950`), not just a semver. Agent SQL is
+only a bound VARCHAR argument to `json_serialize_sql` in an empty in-memory
+instance; it is never submitted for execution. Connections and instances close
+in `finally`. No source is attached or contacted, and SQL/values are not logged.
+
+The pre-filter validates the full JSON shapes with Zod, performs conservative
+syntax-level lookup against emitted columns, and refuses aggregate-only and
+token-operation violations. It handles ordinary SELECT, nonrecursive CTEs,
+FROM subqueries, explicit ON joins, plain stars, VALUES and object DESCRIBE.
+Projection aliases and ordinals retain token restrictions. This lookup is not
+DuckDB binding. Uninterpreted constructs refuse with `sql_not_permitted`,
+including set operations, scalar/correlated subqueries, casts, CASE, window
+execution, aggregate FILTER/ORDER BY, USING/NATURAL joins and star modifiers.
+Unknown JSON fields also refuse; there is no raw-text fallback. Recognised
+protected references in windows produce the treatment-specific refusal.
+
+Success is only `{ kind: 'requires_sidecar_inspection' }`, with no rewritten SQL,
+bound statement or execution permit. Build mismatch refuses. Statistics,
+both cardinality stages, authoritative binding and execution remain S2;
+the unresolved binding choice is in `docs/review/deferred.md`. Item 5.7 must
+call this pre-filter before dispatch and still send the original statement for
+independent S2 inspection. Refusals return their reason and application stage
+to the caller; run/evidence persistence belongs to 5.11. No route, dispatch path
+or evidence writer is introduced by 4.5.
 
 **The mask kind must suit the element's type family**, checked when the entitlement is set: last4 and email on text, year on date and timestamp, all on anything. An incompatible pairing is refused at decision time rather than discovered at query time.
 

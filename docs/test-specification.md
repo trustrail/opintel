@@ -214,7 +214,7 @@ Version 1.0 · September 2026
 | H-005 | F | Set `tokenized` | 4.2 delegates unchanged values to TokenizerPort and declares VARCHAR; 4.3 treats source text before DuckDB, and 4.4 compiles against treated staging (A.6) |
 | H-006 | D | Same input tokenized in two sources | 4.2 proves port delegation only; 4.3 proves actual identical tokens at the sidecar read boundary |
 | H-007 | F | Set `masked` | Mask applied per the configured form |
-| H-008 | F | Set `aggregate_only` | 4.2 supplies an aggregate-only constraint descriptor; B.2 includes the plain column in the view (4.4), with the constraint enforced during query inspection (4.5) |
+| H-008 | F | Set `aggregate_only` | 4.2 supplies an aggregate-only constraint descriptor; B.2 includes the plain column in the view (4.4); 4.5 pre-filters and S2 authoritatively enforces the constraint against its own parse and binding |
 | H-009 | F | Attempt to set an element back to undecided | Domain/schema reject in 4.1; API rejects in 4.7; UI offers no reset in 4.8 |
 | H-010 | F | Bulk set 500 elements | Completes under 3s |
 | H-011 | A | Bulk set to `clear` without justification | 400 |
@@ -944,10 +944,27 @@ separately; implementation work must not generate it.
 - `test/compiler-declaration-migration.test.ts`: declaration migration
   coverage; it is not a direct compiler VC test.
 
-- VC-10–VC-14 and VC-23–VC-30 belong to 4.5 query inspection.
+- VC-10–VC-14 and VC-23–VC-30 require authoritative S2 query inspection.
+  Item 4.5 owns only the application pre-filter assertions described below.
 - VC-17 and VC-18 belong to S2 session creation, with 4.9 policy-version
   invalidation. They are not assertions about the pure compiler.
 - VC-19–VC-22 belong to 4.5a's resolver, consuming `CompileResult.omitted`.
 - Persistence coverage in 4.4 includes nullable legacy ordinals, startup
   introspection repair, old/new ordinal diffs with retained decisions, and
   entitlement-time token declarations with typed confirmation.
+
+## Application query pre-filter ownership — item 4.5
+
+`test/query-pre-filter.test.ts` exercises the real pinned DuckDB parser and the
+application pre-filter. VC-10–VC-13, VC-27, VC-29/VC-30 and H-008 have early-refusal
+or pass-through assertions here. A pass returns only `requires_sidecar_inspection`;
+it is not the authoritative “allowed” result in B.6. The tests cover aliases,
+ordinal ordering/grouping, joins, CTEs, FROM subqueries, stars, object DESCRIBE,
+VALUES, build mismatch, malformed/unknown syntax, and the token refusal envelope.
+
+VC-14, VC-23–VC-26 and VC-28's execution/evidence assertions remain S2 work.
+The VC-23-shaped query intentionally passes this pre-filter: there are no
+statistics or post-filter counts in the application. A separate test checks that
+a changed threshold appears in an early refusal's reason; it does not close VC-28.
+The pre-filter suite is not C.6's bypass suite and proves neither binding nor
+isolation. No S2, S4 or C.6 implementation is supplied by 4.5.

@@ -716,6 +716,24 @@ Checked twice: in the API before dispatch, and in the sidecar before execution. 
 
 **Identifier check.** Every table reference in the parsed statement must resolve to a three-part name the pool owns. A reference to anything else fails with `sql_not_permitted` naming the construct, so the agent can rewrite rather than guess.
 
+
+## C.3.1 One parser, and where each check binds
+
+**The sidecar's parse is authoritative**. It is the process that executes, so its interpretation is the only one that can be wrong in a way that matters. The application does not parse with a different library.
+
+**The application's check is a strict pre-filter, never a permission**. It may refuse, and it may never authorise. It runs before dispatch so an obviously bad statement fails fast with a useful message, and so a malformed request never reaches the sidecar. **A statement it accepts is not thereby permitted**, and nothing downstream may treat the application's acceptance as evidence.
+
+**The sidecar enforces every treatment restriction itself**, against its own parse and its own binding: the subset check (C.3), aggregate-only (B.4) and token operations (B.4a). It receives the read plan and the entitlements with the request and does not trust any inspection performed elsewhere.
+
+**Binding is part of the check, not a step after it**. Each identifier must resolve to exactly one element of the pool's namespace, and a statement whose identifiers do not all bind is refused with sql_not_permitted. Two inspections agreeing on a tree while binding differently would be two checks of different statements.
+
+**What is executed is what was inspected**. The sidecar inspects the statement it is about to execute, in the same session, after binding, with no rewriting between. Any transformation the engine applies after inspection, including a LIMIT injected for C.4, is applied to the inspected statement and re-inspected.
+
+**A construct either side cannot interpret is a refusal**. No fallback to raw text, no regular expression, no partial inspection. The refusal names the construct.
+
+**A parser and engine version mismatch is a refusal**. The sidecar records its queryEngineVersion on every run, and an inspection performed under a different build is not evidence about this one.
+
+
 ## C.4 Resource governance
 
 | Limit | Enforcement |
