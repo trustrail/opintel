@@ -171,7 +171,7 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 4.7 | Bulk set with justification on clear | 4.1 | endpoint | H-010 to H-012, H-009 (API rejection) |
 | 4.8 | Entitlements screen: virtualised tree, select, bulk bar, chips | 4.1, 1.11 | screen | H-016, H-018, H-009 (UI offers no reset) |
 | 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | M-005, M-006 (session cache assertions VC-17/VC-18 belong to S2), H-002 (recompilation timing) |
-| 4.9a | Domain event outbox recovery: scan, retry and dispatch for pending events | 4.6 | Existing completion recovery scan, startup/30-second dispatch and source-request integration; implementation and open question below | Pending completion replay and idempotent/concurrent delivery in `test/pattern-rules.test.ts`; broader event coverage remains open |
+| 4.9a | Domain event outbox recovery: scan, retry and dispatch for pending events | 4.6 | Existing completion recovery scan, startup/30-second dispatch and source-request integration; implementation and resolved delivery-pattern decision below | Pending completion replay and idempotent/concurrent delivery in `test/pattern-rules.test.ts`; broader event coverage remains open |
 
 **4.6 / 4.9a ownership.** The domain-event contract requires an outbox and
 idempotent handlers. Item 4.6 owns durable `IntrospectionCompleted` pending work,
@@ -225,12 +225,15 @@ dispatch, and multi-aggregate completion with durable per-target receipts and a
 separate event acknowledgement. Other domain events must be classified by their
 work and transaction boundaries rather than automatically using either pattern.
 
-**Remaining convergence question for 4.9a:** which scanning, scheduling, retry and
-dispatch interfaces should the three implementations share while preserving those
-two correctness patterns? The project-wide scan, 30-second timer and source-request
-trigger are recovery orchestration choices; they do not justify a third delivery
-pattern. The current completion implementation is retained, not generalized by
-this documentation change.
+**4.9a answer: retain two patterns; the convergence question is closed.** Use
+locked dispatch for the relationship and mail outboxes, and independently
+committed target work with receipts followed by event acknowledgement for
+completion delivery. A shared scanner, scheduler or retry interface could reduce
+duplication, but would not merge these transaction and replay guarantees. The
+project-wide scan, 30-second timer and source-request trigger are incidental
+recovery orchestration choices, not a third delivery pattern. No unification of
+those interfaces is required to complete 4.9a; this decision retains the implemented
+dispatchers and does not generalize them.
 
 **4.5 / S2 ownership (C.3.1).** Item 4.5 performs early refusal only; acceptance is never evidence of permission and the application uses no different parser library. S2 independently enforces C.3, B.4 and B.4a against the sidecar's own parse and binding in `/validate` and `/execute`, using the request's read plan and entitlements. S2 owns both stages of B.4's post-filter cardinality enforcement, including whole-result refusal before release. `/validate` opens no source connection and cannot stand in for the execution-time checks. S3's resource-governance estimates do not defer S2's disclosure checks or create a dependency cycle.
 
