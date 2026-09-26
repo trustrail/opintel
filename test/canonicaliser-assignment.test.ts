@@ -39,7 +39,7 @@ describe('4.3c canonicaliser assignments',()=>{
         await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,$3,$3,'postgres','secret://test/source','connected')", [s, ctx.projectId, s === source ? 'warehouse' : 'other_warehouse']);
         const [object] = await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id", [ctx.projectId,s]);
         const elements = s === source ? [['naive','timestamp','TIMESTAMP'],['zoned','timestamptz','TIMESTAMPTZ'],['date','date','DATE'],['integer','bigint','BIGINT'],['decimal','numeric(12,2)','DECIMAL(12,2)']] as const : [['otherSource','timestamp','TIMESTAMP']] as const;
-        for (const [name,type,duck] of elements) await tx.query('INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,$4,$5,$4,$6)', [ids[name],ctx.projectId,object!.id,name,type,duck]);
+        for (const [name,type,duck] of elements) await tx.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,token_domain) VALUES($1,$2,$3,$4,$5,$4,$6,'value1')", [ids[name],ctx.projectId,object!.id,name,type,duck]);
       }
     });
   });

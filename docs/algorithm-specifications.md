@@ -331,10 +331,11 @@ compileViews(input: {
   poolId: PoolId;
   boundSources: SourceRef[];
   objects: CatalogObject[];          // active only
-  elements: CatalogElement[];        // active only
+  elements: CatalogElement[];        // active only, carrying ordinal and declarations
   entitlements: Map<ElementId, Entitlement>;
+  aggregateMinGroupSize: number;     // project setting, B.4
   policyVersion: number;
-}): ViewDefinition[]
+}): Result<CompileResult, DomainError>
 
 type ViewDefinition = {
   catalog: string;      // source alias
@@ -343,8 +344,21 @@ type ViewDefinition = {
   ddl: string;
   columns: CompiledColumn[];         // for describe and for evidence
   constraints: AggregateOnly[];      // enforced at query inspection, not in DDL
+  readPlan: ReadPlan;                // how the sidecar reads and treats the rows (B.3)
+};
+
+type CompileResult = {
+  views: ViewDefinition[];
+  omitted: Array<{
+    catalog: string; schema: string; name: string;
+    reason: 'all_withheld' | 'all_undecided' | 'mixed_withheld_undecided';
+  }>;
 };
 ```
+
+**Omitted objects are returned**, not dropped. The resolver needs them to distinguish withheld from undecided from nonexistent, and ViewDefinition[] alone cannot carry an object that produced no view. mixed_withheld_undecided exists because an object can be omitted for both reasons at once, and the error should say so rather than pick one.
+
+
 
 ## B.2 Algorithm
 
@@ -353,20 +367,23 @@ for each bound source S:
   for each active object O in S:
     cols  := []
     aggs  := []
+    plan  := []                                     // the read plan, B.3
     for each active element E in O, in ordinal order:
       ent := entitlements.get(E.id)
       if ent is absent:            continue        // UNDECIDED: omit entirely
       switch ent.treatment:
         'withheld':                continue        // omit entirely
-        'clear':      cols.push(identifier(E))
-        'tokenized':  cols.push(tokenExpr(E))
-        'masked':     cols.push(maskExpr(E))
+        'clear':      cols.push(identifier(E)); plan.push(read(E, 'clear'))
+        'tokenized':  cols.push(identifier(E)); plan.push(read(E, 'tokenized'))
+        'masked':     cols.push(identifier(E)); plan.push(read(E, 'masked'))
         'aggregate_only':
                       cols.push(identifier(E))      // present, constrained at query time
+                      plan.push(read(E, 'clear'))
                       aggs.push(E)
     if cols is empty:
       emit a view with zero columns? NO -> omit the object entirely
-    emit CREATE VIEW <pool>.<S.alias>.<O.exposedName> AS SELECT <cols> FROM <base>
+    emit CREATE VIEW <S.alias>.<O.exposedSchema>.<O.exposedName> AS SELECT <cols> FROM <staged>
+    emit the read plan for <O> from plan
 ```
 
 **Three rules that are easy to get wrong.**
@@ -389,28 +406,67 @@ But omission alone degrades the error. An agent querying an omitted object gets 
 
 **This distinguishes three states an agent needs to tell apart:** the object does not exist, the object exists but nothing in it was decided, and the object exists but everything in it was withheld. The middle case is an administrator's task; the last is a deliberate decision; the first is the agent's mistake. One generic error would collapse all three.
 
+**Every present column is a plain identifier.** Since A.6, the treatment is applied to the rows before they reach DuckDB, so the view selects the already-treated column rather than wrapping it in a function. The compiler's second output, the read plan, is what carries the treatment.
+
+The staging address is derived as `__staging.<catalog>__<schema>__<object>`
+from the exposed object address (C.1). Each identifier is quoted; collisions
+in that derived namespace are refused. The pool supplies the isolated session,
+not an extra namespace component.
+
+Unknown ordinals produce a domain refusal naming the object and requiring
+source re-introspection. Legacy rows are repaired automatically on application
+startup; compilation stays pure and never queues its own repair.
+
 **Ordinal order, not alphabetical.** `SELECT *` should return columns in the order the source has them, or agents that positionally index results break.
 
-## B.3 Expression forms
+## B.3 The read plan and the view
 
-```sql
--- clear
-"customer_id"
+The compiler emits two things per object: a **read plan** telling the sidecar how to read each column from the source and what to do to it, and a **view** over the resulting staged rows.
 
--- tokenized
-opintel_token("customer_id", 'c_') AS "customer_id"
+### The read plan
 
--- masked, by mask kind on the entitlement
-opintel_mask_last4("card_number")     AS "card_number"   -- ••••1234
-opintel_mask_email("email")           AS "email"         -- •••@example.com
-opintel_mask_year("birth_date")       AS "birth_date"    -- 1978
-opintel_mask_all("notes")             AS "notes"         -- ••••
-
--- aggregate only: plain column, constrained by the query inspector
-"amount"
+```ts
+type ReadPlan = {
+  catalog: string;                    // source alias
+  schema: string;
+  object: string;
+  columns: Array<{
+    sourceIdentifier: string;         // as the source names it
+    exposedName: string;              // as the agent addresses it (A.4)
+    exposedType: string;              // after treatment: a tokenized integer is VARCHAR
+    treatment: 'clear' | 'tokenized' | 'masked' | 'aggregate_only';
+    readAs: 'text' | 'native';        // tokenized and masked columns read as source text (A.6)
+    token?: {                         // present only for 'tokenized'
+      domain: string;                 // [a-z0-9]+
+      canonId: string;                // stdtext1, stdnum1, stddate1, stdtime1 or a domain canonicaliser
+      mode: 'text' | 'number' | 'date' | 'timestamp';
+      caseInsensitive: boolean;
+      sourceTimezone?: string;        // IANA name, A.3.1
+      epochUnit?: 'seconds' | 'milliseconds';
+    };
+    mask?: { kind: 'last4' | 'email' | 'year' | 'all' };
+  }>;
+};
 ```
 
-> **Superseded for tokenized and masked columns by A.6.** Treatments are now applied in the sidecar as rows are read, before DuckDB, so `opintel_token` and the `opintel_mask_*` functions above are not registered in any DuckDB session. The compiler's output for these columns becomes a read plan telling the sidecar which column receives which treatment, and the view selects the already-treated column. Revise this section with item 4.4 before implementing the compiler.
+**Withheld and undecided columns are absent from the read plan**, as they are from the view. The sidecar never reads a column nobody decided about, so an undecided value is not merely hidden from the agent: it is never fetched from the source at all.
+
+**`readAs` is `text` for every tokenized and masked column**, so the sidecar canonicalises the source's own text rather than a driver-parsed value (A.6). Clear and aggregate-only columns are read natively, since their values pass through unchanged.
+
+**The read plan carries the element's declarations**, not a reference to them. The sidecar resolves nothing: everything it needs to treat a column travels with the plan, so a treatment can never be applied with stale declarations from a different `policyVersion`.
+
+### The view
+
+```sql
+-- every present column, whatever its treatment
+"customer_id",
+"amount",
+"card_number"
+```
+
+**The view contains no treatment expressions**, because the staged rows already hold treated values. That moves the enforcement point: a view is no longer what makes a token a token. The staged table is.
+
+**Two consequences follow, and both are load-bearing.** The agent session must never reach a base catalog, since the staging table is the only treated copy: that is what C.1 guarantees. And the streaming path in C.1.1, which attaches the source directly, stays permitted only where every column in the object is clear, since there is no treatment in the view to protect anything.
 
 Identifiers are always double-quoted, and a quote inside an identifier is doubled. The compiler never interpolates a name without passing it through `quoteIdent()`, which is the only place identifier text becomes SQL.
 
@@ -465,6 +521,27 @@ Refusal code: `entitlement_missing`, naming the element, the threshold and which
 
 **`aggregateMinGroupSize` defaults to 5 and is a project setting.** It is a disclosure-risk judgement, not a technical constant, and it belongs with the customer.
 
+## B.4a Tokens preserve equality, not order
+
+A token is an HMAC output, so its ordering is arbitrary with respect to the value it stands for. `tokenized(5)` may sort before or after `tokenized(900)`, and neither tells you anything. **Order-preserving tokens would be a disclosure control that discloses**: anyone could recover the values by sorting.
+
+The danger is that these queries do not fail. `MIN(customer_id)` over tokens returns a token, and an agent asking which building has the highest arrears would get a confident, arbitrary answer and report it.
+
+```
+for each tokenized element E referenced in the query:
+  refuse if E appears in: ORDER BY, <, <=, >, >=, BETWEEN,
+                          MIN(), MAX(), LIKE, a range window frame,
+                          or any arithmetic operator
+  permit:  =, <>, IN, NOT IN, IS NULL, joins, GROUP BY,
+           COUNT(), COUNT(DISTINCT)
+```
+
+**Equality against a literal is permitted**, since an agent holding a token from an earlier result must be able to filter on it. That is the property tokenization exists to provide.
+
+**`LIKE` is refused** because a prefix or substring of a token means nothing about the value: Crockford base32 of an HMAC shares no structure with its input.
+
+Refusal code: `unsupported_on_token`, naming the element and the operation, and stating that tokens preserve equality only. An agent can then rewrite the question, or an administrator can decide that the column needs a different treatment. **Where order genuinely matters, the treatment is wrong, not the query.** A date whose ordering is needed can be masked to the year, which preserves ordering at year granularity; an identifier whose ordering is needed was never an identifier.
+
 ## B.5 When views are recompiled
 
 | Trigger | Scope |
@@ -511,6 +588,11 @@ Compilation is pure and fast, so views are compiled **on demand at session creat
 | VC-26 | Result with some groups compliant and some not | **Whole result refused.** Compliant groups are not returned |
 | VC-27 | Predicate on an aggregate-only column | Refused before planning |
 | VC-28 | Threshold changed on the project | Takes effect on the next execution, recorded on the run |
+| VC-29 | Tokenized element in `ORDER BY`, `<`, `BETWEEN`, `MIN()`, `MAX()`, `LIKE` or arithmetic | Each refused with `unsupported_on_token` naming the element and the operation |
+| VC-30 | Tokenized element in `=`, `IN`, a join, `GROUP BY`, `COUNT(DISTINCT)` | Each allowed |
+| VC-31 | Read plan for an object with clear, tokenized, masked, aggregate-only, withheld and undecided columns | Withheld and undecided absent; tokenized and masked carry `readAs: 'text'` and their declarations; exposed types are post-treatment |
+| VC-32 | View DDL for a tokenized column | A plain quoted identifier. No treatment expression anywhere in the DDL |
+| VC-33 | An element whose declarations change | The next `policyVersion` produces a read plan carrying the new declarations; no plan references an element's declarations indirectly |
 
 ---
 
@@ -524,30 +606,43 @@ The control the entire entitlement model rests on. If agent SQL can reach a base
 
 ```
 PRIVILEGED SESSION (never runs agent SQL)
-  1. ATTACH each bound source read-only, under an internal alias
-  2. apply hardening (C.2), leaving external access ON for the scanners
-  3. for each view definition:
+  1. apply hardening (C.2), leaving external access ON for the scanners
+  2. for each view definition, stage its rows by one of two paths:
+
+     ALL COLUMNS CLEAR OR AGGREGATE-ONLY  (nothing to treat)
+       ATTACH the source read-only under an internal alias
        CREATE TABLE __staging.<catalog>__<schema>__<object> AS
-         SELECT ... FROM <internal alias>...        -- the compiled SELECT
-     (materialised, so the agent session needs no source access)
-  4. export the staged tables to the agent session
+         SELECT <cols> FROM <internal alias>...     -- pushdown where supported
+
+     ANY COLUMN TOKENIZED OR MASKED
+       the sidecar reads the rows through its own source connector,
+       applying the read plan (B.3) as each row arrives, and appends
+       the treated rows into __staging.<catalog>__<schema>__<object>
+       No ATTACH. The source is never reachable from DuckDB for this object
+
+  3. export the staged tables to the agent session
 
 AGENT SESSION (runs agent SQL)
-  5. no ATTACH of any source. No internal alias exists in this catalog
-  6. register opintel_token and the mask functions, key bound in closure
-  7. create the pool's schema and expose the staged tables under their
+  4. no ATTACH of any source. No internal alias exists in this catalog.
+     No key, no token function, no mask function: none exists in any
+     DuckDB session (A.6)
+  5. create the pool's schema and expose the staged tables under their
      three-part names: <source_alias>.<schema>.<object>
-  8. apply hardening (C.2)
-  9. SET lock_configuration = true            <- MUST BE LAST
-  10. run agent SQL
-  11. close, free, release
+  6. apply hardening (C.2)
+  7. SET lock_configuration = true            <- MUST BE LAST
+  8. run agent SQL
+  9. close, free, release
 ```
 
-> **Superseded in part by A.6.** Step 6 is removed: no token or mask function, and no key, exists in any DuckDB session, and in particular never in the agent session, which runs agent SQL. For objects with a tokenized or masked column, steps 1 and 3 change: instead of attaching the source and running the compiled `SELECT` inside DuckDB, the sidecar reads rows through its source connector, treats them in its own code, and appends them to the staging tables. Objects whose columns are all clear or `aggregate_only` may still use the attach path. Revise this section with item S2.
+**The treated staging table is the enforcement point**, not the view. Since A.6 the view carries no treatment expression, so an agent that reached a base catalog would not merely bypass a projection: it would find untreated values. That is why step 4 holds without exception, and why the streaming path in C.1.1 is confined to objects whose columns are all clear.
+
+**Plaintext for a treated object never enters DuckDB at all.** It exists in the sidecar's row buffer for the instant between reading and treating, which C.5 covers, and nothing written to a DuckDB structure, including its temp directory, holds it.
+
+**Pushdown is weaker on the treated path.** A predicate on a tokenized column cannot be evaluated by the source, which holds only plaintext (A.6), so the sidecar reads, treats, then filters. Predicates on clear columns in the same object still push down. Where an object is large and its predicates are all on tokenized columns, the execution refuses with `unsupported_pushdown` rather than reading it whole.
 
 **Why materialise.** The alternative, a view in the agent session over an attachment, leaves the attachment reachable. Materialising costs memory and a scan; it buys a session where the base catalogs do not exist to be found.
 
-**The cost is real and must be bounded.** Materialisation happens per execution against the query's predicates pushed down where the scanner supports it, not a full table copy. Where pushdown is unsupported and the object is large, the execution refuses with `unsupported_pushdown` rather than materialising a hundred million rows.
+**The cost is real and must be bounded.** Staging happens per execution against the query's predicates, pushed down where the path and the scanner support it, not a full table copy. Where pushdown is unsupported and the object is large, the execution refuses with `unsupported_pushdown` rather than staging a hundred million rows.
 
 ### C.1.1 The streaming path, and its exact condition
 
@@ -570,7 +665,7 @@ streamingPermitted(query, pool) =
 
 That is conservative, and it should be. A wrong answer here reopens the isolation hole that C.1 exists to close, and the failure would be silent.
 
-**When permitted**, the agent session attaches the source read-only under the pool's own namespace, runs the query with pushdown, and streams results. Hardening and `lock_configuration` still apply, the SQL subset still applies, and the bypass suite must pass against this path too.
+**When permitted**, the agent session attaches the source read-only under the pool's own namespace, runs the query with pushdown, and streams results. Nothing is treated on this path, which is exactly why the condition requires every column in the object to be clear. Hardening and `lock_configuration` still apply, the SQL subset still applies, and the bypass suite must pass against this path too.
 
 **When not permitted**, the two-session construction runs as specified.
 

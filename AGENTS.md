@@ -40,12 +40,11 @@ Most rules below exist to protect that sentence.
 
 ## Never do these
 
-1. **Never write code for these six items.** They are hand-written:
+1. **Never write code for these four items.** They are hand-written:
 
    | Item | What |
    |---|---|
    | 1.4 | Tenant isolation wrapper |
-   | 4.4 | View compiler |
    | S2 | DuckDB two-session construction |
    | S4 | Ephemerality proof |
    | C.6 | The bypass suite |

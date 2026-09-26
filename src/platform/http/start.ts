@@ -1,3 +1,4 @@
+import { PostgresOrdinalRepair } from '../../modules/sources/infrastructure/ordinal-repair.js';
 import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../../modules/entitlements/index.js';
 import { keyCustodyRoutes } from '../../modules/entitlements/api/key-custody-routes.js';
 import { RedisProjectHub } from '../sse/redis-hub.js';
@@ -148,6 +149,12 @@ async function start(): Promise<void> {
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
   const sources=createSourceRuntime(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json'),hub);
+  // Durable startup repair runs through the ordinary worker, without waiting
+  // for source contact before serving the API. Unknown ordinals still fail closed.
+  const repair = async () => {
+    for (const ctx of await new PostgresOrdinalRepair(new UuidV7IdFactory()).queue()) await sources.resume(ctx);
+  };
+  void repair().catch(() => console.warn({event:'catalog.ordinal_repair_failed',category:'dependency_unavailable'}));
   const custody=new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json')),authorization);
   const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();

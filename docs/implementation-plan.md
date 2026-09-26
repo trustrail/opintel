@@ -12,7 +12,7 @@ Supersedes v1.0. Six decisions are now settled and applied: Slice 1 splits into 
 
 **No item starts before its dependencies are green.** The order below is a dependency order. It is the only ordering constraint that matters, and it is the reason this plan carries no calendar estimates: sequence is knowable, duration is not.
 
-**Five items are hand-written, never generated.** The tenant wrapper (1.4), the view compiler (4.4), the DuckDB two-session construction (S2), the ephemerality proof (S4), and the bypass suite (C.6). A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
+**Four items are hand-written, never generated.** The tenant wrapper (1.4), the DuckDB two-session construction (S2), the ephemerality proof (S4), and the bypass suite (C.6). A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
 
 **The stylesheet is not rewritten.** `opintel-master.css` ships unchanged. React components are written to its existing class contract. A class that is not in that file fails the build.
 
@@ -164,13 +164,13 @@ Recorded on the source **and stamped on every evidence record**, because a numbe
 | 4.3b | Timestamp and epoch declarations per element, schema timezone inheritance, and decision-time validation | 4.3, 3.1 | `catalog/application/temporal.ts`, `catalog/infrastructure/temporal.ts` | TOK-19 to TOK-22 (persisted declarations; execution in 4.3) |
 | 4.3c | Canonicaliser registry, versioned, pure, per element | 4.3 | `sidecar/tokenize/canonicalisers/`, `entitlements/canonicalisers` | TOK-24/TOK-25 (registry/purity/version confirmation); TOK-23/TOK-26 execution in 4.3 |
 | 4.3d | Token key screen: key status, rotate, restore, rehearse now, and the K7 warning that a lost key cannot be recovered | 4.3a, 1.12 | `app/custody/screen.tsx` | K7 |
-| 4.4 | **View compiler**, undecided and withheld distinguished in metadata. **Hand-written** | 4.1, 3.2 | `entitlements/compile.ts` | VC-01 to VC-28, H-003/H-004/H-005 (compiled DDL), H-002 (compilation), H-008 (column plus constraint) |
-| 4.5 | Aggregate-only constraint. **Post-filter cardinality, two stages** | 4.4 | `entitlements/aggregate.ts` | VC-10 to VC-14, VC-23 to VC-28, H-008 (query inspection enforcement) |
+| 4.4 | **Pure view compiler**, emitting read plans, projection-only views and metadata distinguishing undecided from withheld. Approved for implementation | 4.1, 4.2, 4.3b, 4.3c, 3.2 | `entitlements/application/compile.ts` | VC-01 to VC-09, VC-15, VC-16, VC-31 to VC-33, H-003, H-005 |
+| 4.5 | Aggregate-only and tokenized-operation query inspection. **Post-filter cardinality, two stages** | 4.4 | `entitlements/aggregate.ts` | VC-10 to VC-14, VC-23 to VC-30, H-008 (query inspection enforcement) |
 | 4.5a | Identifier resolver returning `object_unavailable`, distinguishing withheld from undecided from absent | 4.4 | `entitlements/resolve.ts` | VC-19 to VC-22 |
 | 4.6 | Pattern rules, applied at diff time, provenance recorded | 4.1, 3.6 | `entitlements/rules.ts` | H-013, H-014, R-004 to R-007 |
 | 4.7 | Bulk set with justification on clear | 4.1 | endpoint | H-010 to H-012, H-009 (API rejection) |
 | 4.8 | Entitlements screen: virtualised tree, select, bulk bar, chips | 4.1, 1.11 | screen | H-016, H-018, H-009 (UI offers no reset) |
-| 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | VC-17, VC-18, M-005, M-006, H-002 (recompilation timing) |
+| 4.9 | Policy version bump and cache invalidation | 4.4 | `entitlements/version.ts` | M-005, M-006 (session cache assertions VC-17/VC-18 belong to S2), H-002 (recompilation timing) |
 
 **Gate.** A newly landed spreadsheet column is undecided and unreadable. Setting a treatment recompiles in under two seconds. Withheld and undecided both absent from the DDL and distinguishable in metadata. The same filing party identifier tokenizes identically across two sources. Bulk-to-clear without justification returns 400.
 
@@ -240,7 +240,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 |---|---|---|---|---|
 | S1 | Runnable host, validated config, pinned mutual TLS; `/health`, `/test-connection`, `/introspect`, `/sample` with consent, `/estimate`; audit and disconnect cancellation | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
 | **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-23, ING-25, ING-26 (ING-24: 5.11) |
-| S2 | **Two-session construction**, hardening with `lock_configuration` last, `/validate`, `/execute`. **Hand-written** | S1, 4.4 | session lifecycle | J-003 to J-018, and the bypass suite against both execution paths |
+| S2 | **Two-session construction**, hardening with `lock_configuration` last, `/validate`, `/execute`. **Hand-written** | S1, 4.4 | session lifecycle | J-003 to J-018, VC-17/VC-18 (session compilation cache, with 4.9), and the bypass suite against both execution paths |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
 | **S2b** | **Streaming execution path**, condition evaluated conservatively, bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
 | S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019, J-020, TOK-38 (with S2 staging) |

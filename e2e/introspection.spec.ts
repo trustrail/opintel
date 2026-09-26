@@ -62,3 +62,12 @@ test('failed message is unchanged and history uses cursor pagination',async({pag
  const state=await mock(page);state.run.state='failed';state.run.error='Source authentication failed.';await page.goto(path);await expect(page.getByRole('alert')).toHaveText(state.run.error);await accessible(page);
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'Introspection runs',exact:true}).click();await page.getByRole('button',{name:'Load more runs'}).click();expect(state.cursor).toBe(true);
 });
+test('ordinal changes show old and new positions without implying a discarded decision',async({page})=>{
+ const state=await mock(page);
+ state.run.diff=[{change:'ordinal_changed',elementId:id,exposedName:'moved_column',before:'2',after:'3',breaking:true}];
+ await page.setViewportSize({width:390,height:1000});await page.goto(path);
+ const row=page.getByRole('row').filter({hasText:'moved_column'});
+ await expect(row).toContainText('ordinal changed');await expect(row).toContainText('Column position changed. Decision retained.');
+ await expect(row.getByRole('cell',{name:'2',exact:true})).toBeVisible();await expect(row.getByRole('cell',{name:'3',exact:true})).toBeVisible();
+ await expect(page.getByText('Reverts to undecided',{exact:true})).toHaveCount(0);await accessible(page);
+});

@@ -102,7 +102,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       const previous: CatalogObject[] = [];
       for (const state of states) {
         const elements = await tx.query<Omit<ElementState, 'discoveredAt' | 'removedAt'> & { discoveredAt: Date; removedAt: Date | null }>(`SELECT id,object_id AS "objectId",project_id AS "projectId",
-          source_identifier AS "sourceIdentifier",stable_ref AS "stableRef",source_type AS "sourceType",exposed_type AS "exposedType",
+          ordinal,token_domain AS "tokenDomain",case_insensitive AS "caseInsensitive",canon_id AS "canonId",source_timezone AS "sourceTimezone",epoch_unit AS "epochUnit",source_identifier AS "sourceIdentifier",stable_ref AS "stableRef",source_type AS "sourceType",exposed_type AS "exposedType",
           exposed_name AS "exposedName",name_revision AS "nameRevision",nullable,is_key AS "isKey",description,status,
           discovered_at AS "discoveredAt",removed_at AS "removedAt" FROM catalog_element WHERE object_id=$1 FOR UPDATE`,[state.id]);
         const aggregate = CatalogObject.create(state,elements.map((element) => new CatalogElement({...element,discoveredAt:Timestamp(element.discoveredAt),removedAt:element.removedAt===null?null:Timestamp(element.removedAt)})));
@@ -149,11 +149,11 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
           await tx.query('UPDATE catalog_element SET source_identifier=$2 WHERE id=$1',[element.id,temporary]);
         }
         for (const {state:e} of object.elements) {
-          await tx.query(`INSERT INTO catalog_element(id,object_id,project_id,source_identifier,stable_ref,source_type,exposed_type,exposed_name,name_revision,nullable,is_key,description,status,discovered_at,removed_at)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(id) DO UPDATE SET
+          await tx.query(`INSERT INTO catalog_element(id,object_id,project_id,source_identifier,stable_ref,source_type,exposed_type,exposed_name,name_revision,nullable,is_key,description,status,discovered_at,removed_at,ordinal)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(id) DO UPDATE SET
             exposed_name=EXCLUDED.exposed_name,name_revision=EXCLUDED.name_revision,source_identifier=EXCLUDED.source_identifier,stable_ref=EXCLUDED.stable_ref,source_type=EXCLUDED.source_type,exposed_type=EXCLUDED.exposed_type,
-            nullable=EXCLUDED.nullable,is_key=EXCLUDED.is_key,description=EXCLUDED.description,status=EXCLUDED.status,removed_at=EXCLUDED.removed_at`,
-            [e.id,e.objectId,e.projectId,e.sourceIdentifier,e.stableRef,e.sourceType,e.exposedType,e.exposedName,e.nameRevision??0,e.nullable,e.isKey,e.description,e.status,e.discoveredAt,e.removedAt]);
+            ordinal=EXCLUDED.ordinal,nullable=EXCLUDED.nullable,is_key=EXCLUDED.is_key,description=EXCLUDED.description,status=EXCLUDED.status,removed_at=EXCLUDED.removed_at`,
+            [e.id,e.objectId,e.projectId,e.sourceIdentifier,e.stableRef,e.sourceType,e.exposedType,e.exposedName,e.nameRevision??0,e.nullable,e.isKey,e.description,e.status,e.discoveredAt,e.removedAt,e.ordinal??null]);
         }
       }
       await tx.query("UPDATE introspection_run SET state='complete',ended_at=now(),progress=progress || jsonb_build_object('phase','complete','objects',$2::int) WHERE id=$1",[id,staged.value.objects.length]);

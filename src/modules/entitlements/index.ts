@@ -10,3 +10,6 @@ export { SidecarCustodyClient } from './infrastructure/custody-client.js';
 
 export { PostgresCanonicaliserAssignments } from './infrastructure/canonicalisers.js';
 export type { CanonicaliserCatalog, CanonicaliserAssignments } from './application/canonicalisers.js';
+
+export { compileViews, quoteIdent } from './application/compile.js';
+export type { CompileInput, CompileResult, ViewDefinition, CompiledColumn, ReadPlan, ReadColumn, TokenDeclaration, AggregateOnly, OmittedObject } from './application/compile.js';

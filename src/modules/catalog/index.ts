@@ -11,3 +11,6 @@ export { AsciiTransliterator } from './infrastructure/ascii-transliterator.js';
 export { PostgresTemporalRepository } from './infrastructure/temporal.js';
 export { validateTokenizedTemporal } from './application/temporal.js';
 export type { TemporalRepository, TemporalDeclarations, TemporalView, TemporalContext } from './application/temporal.js';
+export { PostgresTokenDeclarations } from './infrastructure/token-declarations.js';
+export { validateTokenDeclarations } from './application/token-declarations.js';
+export type { TokenDeclarationRepository, TokenDeclarations } from './application/token-declarations.js';

@@ -7,3 +7,5 @@ export { runStates, transitions, transitionRun, enforceTransition, type Introspe
 export { loadSidecarClientOptions } from './infrastructure/sidecar-client-config.js';
 
 export type { DemoProvisioningPort } from './application/demo-provisioning.js';
+
+export type { SourceRef } from './application/source-connector.js';

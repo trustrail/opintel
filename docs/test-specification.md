@@ -208,10 +208,10 @@ Version 1.0 · September 2026
 | ID | Type | Case | Expected |
 |---|---|---|---|
 | H-001 | F | New element default | Undecided; counted in the undecided total |
-| H-002 | F | Set `clear` | 4.2 preserves the clear value and records who/when; view compilation in handwritten 4.4 and recompilation under 2s in 4.9 |
-| H-003 | F | Set `withheld` | 4.2 returns an omission descriptor; column absent from compiled DDL in handwritten 4.4 |
-| H-004 | D | Undecided element | Absence-of-row prerequisite in 4.1; absent from compiled DDL in handwritten 4.4 |
-| H-005 | F | Set `tokenized` | 4.2 delegates unchanged values to TokenizerPort and declares VARCHAR; 4.3 treats source text before DuckDB, and handwritten 4.4 compiles against treated staging (A.6) |
+| H-002 | F | Set `clear` | 4.2 preserves the clear value and records who/when; view compilation in 4.4 and recompilation under 2s in 4.9 |
+| H-003 | F | Set `withheld` | 4.2 returns an omission descriptor; column absent from compiled DDL in 4.4 |
+| H-004 | D | Undecided element | Absence-of-row prerequisite in 4.1; absent from compiled DDL in 4.4 |
+| H-005 | F | Set `tokenized` | 4.2 delegates unchanged values to TokenizerPort and declares VARCHAR; 4.3 treats source text before DuckDB, and 4.4 compiles against treated staging (A.6) |
 | H-006 | D | Same input tokenized in two sources | 4.2 proves port delegation only; 4.3 proves actual identical tokens at the sidecar read boundary |
 | H-007 | F | Set `masked` | Mask applied per the configured form |
 | H-008 | F | Set `aggregate_only` | 4.2 supplies an aggregate-only constraint descriptor; B.2 includes the plain column in the view (4.4), with the constraint enforced during query inspection (4.5) |
@@ -927,3 +927,18 @@ rotate/restore, company-administrator gating, rotation reasons and retry
 idempotency, unchanged API error messages, cache refresh, and all four screen
 states. The screen and confirmation form have axe checks and visual baselines
 at 390, 900 and 1440 pixels. Access provides its entry point.
+
+## View compiler ownership — item 4.4
+
+The VC cases are specified in algorithm specifications B.6. Item 4.4 proves
+VC-01–VC-09, VC-15, VC-16 and VC-31–VC-33, plus H-003 and H-005's compiled
+projection/read-plan assertions. The compiler invariant suite is authored
+separately; implementation work must not generate it.
+
+- VC-10–VC-14 and VC-23–VC-30 belong to 4.5 query inspection.
+- VC-17 and VC-18 belong to S2 session creation, with 4.9 policy-version
+  invalidation. They are not assertions about the pure compiler.
+- VC-19–VC-22 belong to 4.5a's resolver, consuming `CompileResult.omitted`.
+- Persistence coverage in 4.4 includes nullable legacy ordinals, startup
+  introspection repair, old/new ordinal diffs with retained decisions, and
+  entitlement-time token declarations with typed confirmation.

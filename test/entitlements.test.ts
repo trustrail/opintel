@@ -24,7 +24,7 @@ describe('entitlement domain and persisted decisions',()=>{
   await withTenant(ctx,async tx=>{
    await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,'Warehouse','warehouse','postgres','secret://test/source','connected')",[source,ctx.projectId]);
    const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','records','table','public','records') RETURNING id",[ctx.projectId,source]);
-   await tx.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,$3,'quantity','integer','quantity','INTEGER')",[element,ctx.projectId,object!.id]);
+   await tx.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,token_domain) VALUES($1,$2,$3,'quantity','integer','quantity','INTEGER','quantity')",[element,ctx.projectId,object!.id]);
   });
  });
  it('H-001/H-004: native columns start absent, count undecided with no pools and remain absent from pool decisions',async()=>{

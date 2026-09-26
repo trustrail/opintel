@@ -844,9 +844,9 @@ type CatalogSnapshot = {
 // from the SELECT, and describe and the evidence record need to tell them apart.
 type CompiledColumn = {
   elementId: ElementId;
-  exposedName: ExposedName;
+  exposedName: ExposedName | null;
   sourceIdentifier: string;
-  declaredType: ExposedType;        // POST-treatment: a tokenized int is VARCHAR
+  declaredType: ExposedType | null;        // POST-treatment: a tokenized int is VARCHAR
   state: 'emitted' | 'withheld' | 'undecided';
   treatment: Treatment | null;     // null when undecided
   expression: string | null;       // the SELECT expression, when emitted
@@ -1548,7 +1548,7 @@ const IntrospectionRunView = z.object({
   startedAt: z.string().datetime({ offset: true }).nullable(),
   endedAt: z.string().datetime({ offset: true }).nullable(),
   diff: z.array(z.object({
-    change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'collision']),
+    change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'ordinal_changed', 'collision']),
     elementId: z.string().uuid().nullable(),
     exposedName: z.string().nullable(),
     before: z.string().nullable(),
@@ -1593,7 +1593,7 @@ const IntrospectionRunView = z.object({
   startedAt: z.string().datetime({ offset: true }).nullable(),
   endedAt: z.string().datetime({ offset: true }).nullable(),
   diff: z.array(z.object({
-    change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'collision']),
+    change: z.enum(['added', 'removed', 'renamed', 'type_changed', 'ordinal_changed', 'collision']),
     elementId: z.string().uuid().nullable(),
     exposedName: z.string().nullable(),
     before: z.string().nullable(),
@@ -2728,7 +2728,10 @@ create table catalog_element (
   discovered_at     timestamptz not null default now(),
   removed_at        timestamptz,
   unique (object_id, exposed_name),
-  unique (object_id, source_identifier)
+  unique (object_id, source_identifier),
+  ordinal          integer,              -- source order; legacy NULL until startup re-introspection
+  token_domain     text check (token_domain ~ '^[a-z0-9]+$'),
+  case_insensitive boolean               -- text elements only; null elsewhere
 );
 create index on catalog_element (project_id, status);
 create index on catalog_element (object_id) include (exposed_name, exposed_type);
@@ -2765,6 +2768,19 @@ and unchanged values need no confirmation. Removing the last effective zone
 cannot leave a tokenized naive timestamp. Writes share the source lock with
 entitlement setting and introspection. The read-plan integration belongs to 4.4;
 these commands add no routes or sidecar read-path wiring.
+
+**Ordinal migration (037).** Existing ordinals remain NULL rather than being
+guessed from UUID order. Startup queues ordinary introspection for active sources
+with active elements missing ordinals, under tenant scope, without duplicating
+an active run. Snapshot ordinals are persisted on every introspection. An ordinal
+change is recorded with its old/new values (`ordinal_changed`); known position
+changes are breaking for positional results but retain entitlements. The compiler
+refuses unknown ordinals naming the object until repair completes. A later
+migration sets NOT NULL once no unknown ordinals remain (including retained
+removed elements, which need an explicit historical-data decision).
+
+**Setting a tokenized entitlement on an element with no token_domain is refused**, naming the missing declaration, exactly as a missing timezone or epoch unit is (A.3.1). Changing token_domain or case_insensitive on an element with a tokenized entitlement is token-breaking and requires the project name as typed confirmation.
+
 
 ```sql
 create table element_stats (

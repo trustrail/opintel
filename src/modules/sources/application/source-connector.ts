@@ -1,6 +1,7 @@
-import type { DomainError, ElementId, ObjectId, ProjectId, Result, SourceId, Timestamp } from '../../../shared/kernel/index.js';
+import type { DomainError, ElementId, ObjectId, ProjectId, Result, SourceId, Timestamp, ExposedName } from '../../../shared/kernel/index.js';
 import type { SecretRef } from '../../../platform/secrets/types.js';
 
+export type SourceRef = Readonly<{ id: SourceId; projectId: ProjectId; kind: SourceKind; alias: ExposedName }>;
 export type SourceKind = 'postgres' | 'demo';
 export type ObjectRef = { id: ObjectId; sourceId: SourceId; schema: string; name: string };
 export type TopValue = { value: string; frequency: number };

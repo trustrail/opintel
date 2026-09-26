@@ -281,7 +281,9 @@ deployed arrangement starts. Run the thing.
 - src/modules/entitlements/application/treatments.ts still holds the five
   treatment strategies, with an optional TokenizerPort nothing implements.
   Under the read-boundary design (A.6) tokenized and masked treatments run
-  in the sidecar. Move them with the 4.4 and S2 revisions.
+  in the sidecar. Item 4.4 emits only a read plan and does not invoke these
+  strategies or hold a key. Retire the legacy application execution helpers
+  when S2 consumes the read plan at the sidecar read boundary.
 
 # Item 4.3a — custody implementation boundaries
 
@@ -294,3 +296,31 @@ deployed arrangement starts. Run the thing.
 - An unclean process exit may leave a custody lock. Recovery instructions in
   sidecar/tokenize/README.md require stopping all writers before removing the
   lock. Missing version history never causes automatic reinitialization.
+
+# Item 4.4 — source ordinals and UUID ordering (2026-09-25)
+
+- **Open: ordinal NOT NULL.** Migration 037 deliberately leaves existing
+  `catalog_element.ordinal` NULL and does no backfill. Application startup
+  queues normal introspection for active sources with unknown active ordinals;
+  snapshots fill them and the compiler refuses until they are known. Failed
+  source contact leaves the guard in place. Archived sources and retained removed
+  elements cannot be repaired by a current snapshot. Once there are no unknown
+  ordinals, add NOT NULL by a later migration. Historical removed rows need an
+  explicit disposition before that migration; do not manufacture their order.
+- **Open: UUID v7 is not insertion order.** `UuidV7IdFactory` has a millisecond
+  timestamp and a random suffix, without a monotonic counter. IDs allocated
+  within one millisecond sort randomly. The test factory increments its clock
+  per ID, so it does not reproduce this property. Never infer discovery, source
+  column or insertion order from IDs, anywhere in the codebase.
+- Audit: introspection history (`sources/infrastructure/introspection-query.ts`)
+  orders by ID descending and therefore does not strictly preserve chronological
+  order within a millisecond. Correct its ordering and cursor together in a
+  separate change. Source latest-run queries use `created_at, id`; IDs there are
+  tie-breakers only. Tenancy/source/catalogue/invitation/member cursor lists and
+  filing-rule snapshots use IDs as a stable total order, not insertion order.
+  Mail dispatch orders by `created_at`; the relationship outbox uses bigint
+  IDs, so this UUID issue does not apply. No additional source-ordinal backfill
+  by ID was found.
+- Compiler cache/session assertions VC-17/VC-18 await S2 with 4.9. Query
+  inspection VC-10–VC-14 and VC-23–VC-30 await 4.5; resolver assertions
+  VC-19–VC-22 await 4.5a. No session, resolver or treatment execution was added.

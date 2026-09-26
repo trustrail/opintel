@@ -5,10 +5,12 @@ import {
 import type { ExposedType } from './type-mapping.js';
 
 export type ElementDiscovery = Readonly<{
-  sourceIdentifier: string; stableRef: string | null; sourceType: string; exposedType: ExposedType | null;
+  ordinal?: number | null; sourceIdentifier: string; stableRef: string | null; sourceType: string; exposedType: ExposedType | null;
   nullable: boolean; isKey: boolean; description: string | null;
 }>;
 export type ElementState = ElementDiscovery & Readonly<{
+  tokenDomain?: string | null; caseInsensitive?: boolean | null; canonId?: string | null;
+  sourceTimezone?: string | null; schemaTimezone?: string | null; epochUnit?: 'seconds' | 'milliseconds' | null;
   id: ElementId; objectId: ObjectId; projectId: ProjectId; exposedName: ExposedName | null; nameRevision?: number;
   status: 'active' | 'removed'; discoveredAt: Timestamp; removedAt: Timestamp | null;
 }>;

@@ -1,3 +1,5 @@
+import { PostgresOrdinalRepair } from '../src/modules/sources/infrastructure/ordinal-repair.js';
+import { PostgresIntrospectionQuery } from '../src/modules/sources/infrastructure/introspection-query.js';
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
@@ -56,6 +58,45 @@ describe('introspection job and persisted catalogue',()=>{
     expect(rows[0]).toMatchObject({exposed_name:'label',source_identifier:'renamed'});
     expect((await catalog()).elements[0]).toMatchObject({id:rows[0]?.id});
     expect(before.elements[0]).toMatchObject({id:rows[0]?.id});
+  });
+  it('persists snapshot ordinals, records a mid-object position change, and preserves identity and decisions',async()=>{
+    discovery=snapshot();
+    discovery.objects[0]!.columns.push({...discovery.objects[0]!.columns[0]!,sourceIdentifier:'last',stableRef:'2',ordinal:2});
+    await run();
+    const before=await withTenant(ctx,tx=>tx.query<{id:string;stable_ref:string;ordinal:number}>('SELECT id,stable_ref,ordinal FROM catalog_element ORDER BY ordinal'));
+    const pool=randomUUID();
+    await withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'clear','user',$2 FROM catalog_element",[pool,ctx.userId]);
+    });
+    const decisions=await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY element_id'));
+    discovery.objects[0]!.columns[1]!.ordinal=3;
+    discovery.objects[0]!.columns.splice(1,0,{...discovery.objects[0]!.columns[0]!,sourceIdentifier:'middle',stableRef:'3',ordinal:2});
+    const completed=await run();
+    expect(completed.diff).toContainEqual(expect.objectContaining({type:'CatalogElementOrdinalChanged',elementId:before[1]!.id,beforeOrdinal:2,afterOrdinal:3,before:'2',after:'3',breaking:true}));
+    expect(unwrap(await new PostgresIntrospectionQuery(store).read(ctx,completed.id)).diff).toContainEqual(expect.objectContaining({change:'ordinal_changed',before:'2',after:'3',breaking:true}));
+    expect(await withTenant(ctx,tx=>tx.query('SELECT id,stable_ref,ordinal FROM catalog_element WHERE stable_ref=$1',['2']))).toEqual([{...before[1],ordinal:3}]);
+    expect(await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement ORDER BY element_id'))).toEqual(decisions);
+    expect((await run()).diff).toEqual([]);
+  });
+  it('queues startup repair once, respects tenant scope, and clears unknown ordinals through the ordinary job',async()=>{
+    await run();
+    await withPlatform(async tx=>{
+      await tx.query("INSERT INTO user_account(id,email) VALUES($1,'ordinal-repair@example.test') ON CONFLICT(id) DO NOTHING",[ctx.userId]);
+      await tx.query("INSERT INTO project_member(project_id,user_id,role) VALUES($1,$2,'admin')",[ctx.projectId,ctx.userId]);
+    });
+    await withTenant(ctx,tx=>tx.query('UPDATE catalog_element SET ordinal=NULL'));
+    const repair=new PostgresOrdinalRepair(new UuidV7IdFactory());
+    expect(await repair.queue()).toContainEqual(ctx);
+    await repair.queue();
+    const queued=await withTenant(ctx,tx=>tx.query<{id:import('../src/shared/kernel/index.js').RunId;include_schemas:string[];progress:{ordinalRepair:boolean}}>("SELECT id,include_schemas,progress FROM introspection_run WHERE state='queued'"));
+    expect(queued).toHaveLength(1);expect(queued[0]).toMatchObject({include_schemas:['public'],progress:{ordinalRepair:true}});
+    expect(await withTenant({...ctx,projectId:otherProject},tx=>tx.query("SELECT id FROM introspection_run WHERE state='queued'"))).toEqual([]);
+    const repaired=unwrap(await job.execute(ctx,queued[0]!.id));
+    expect(repaired.state).toBe('complete');
+    expect(repaired.diff).toContainEqual(expect.objectContaining({type:'CatalogElementOrdinalChanged',beforeOrdinal:null,afterOrdinal:1}));
+    expect(await withTenant(ctx,tx=>tx.query('SELECT ordinal FROM catalog_element'))).toEqual([{ordinal:1}]);
+    expect(await repair.queue()).toEqual([]);
   });
   it('carries both identities when stable-reference columns exchange source names',async()=>{
     const first=snapshot();

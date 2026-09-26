@@ -1,0 +1,1 @@
+{"to":"ask@condowits.com","template":"magic_link","vars":{"tokenId":"9851da27-57ce-4a5f-b782-f1159fa36746","url":"http://localhost:5173/auth/callback?token=wDcnFIZvlBb1VH8O6ZvrzeeXHlDtaxLjZLl6996RrU4"},"idempotencyKey":"magic_link:9851da27-57ce-4a5f-b782-f1159fa36746","acceptedAt":"2026-09-25T18:00:20.527Z"}

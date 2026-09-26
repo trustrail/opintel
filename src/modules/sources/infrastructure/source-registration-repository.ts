@@ -70,6 +70,6 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   await this.enqueueRetry(tx,ctx,id,runId);
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}
- queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",s.demo_template_id AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND r.state='queued' AND r.progress ? 'userId'`,[]));}
+ queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",CASE WHEN r.progress->>'ordinalRepair'='true' THEN NULL ELSE s.demo_template_id END AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND r.state='queued' AND r.progress ? 'userId'`,[]));}
  settledFilings(ctx:SourceContext,id:SourceId){return withTenant(ctx,async tx=>{const [row]=await tx.query<{count:number}>(`SELECT count(*)::int AS count FROM arrival_notice WHERE source_id=$1 AND payload->>'outcome' IN ('landed','quarantined','duplicate')`,[id]);return row!.count;});}
 }
