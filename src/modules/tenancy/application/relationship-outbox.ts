@@ -1,6 +1,6 @@
 import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../../authz/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
-import { CompanyId, PoolId, UserId } from '../../../shared/kernel/index.js';
+import { CompanyId, ProjectId, PoolId, UserId, type SourceId } from '../../../shared/kernel/index.js';
 
 export type RelationshipOutboxTx = Tx;
 
@@ -36,6 +36,10 @@ export class RelationshipOutbox {
     return BigInt(row.id);
   }
 
+  async enqueuePoolBinding(tx: RelationshipOutboxTx, poolId: PoolId, sourceId: SourceId, bound: boolean): Promise<bigint[]> {
+    return (await tx.query<{id:string}>('SELECT id FROM public.enqueue_pool_binding($1,$2,$3)',[poolId,sourceId,bound])).map(row=>BigInt(row.id));
+  }
+
   async read(tx: RelationshipOutboxTx, id: bigint): Promise<RelationshipOutboxEntry | null> {
     const rows = await tx.query<Row>(
       `SELECT id, operation, resource_type, resource_id, relation, subject_type, subject_id
@@ -51,7 +55,9 @@ export class RelationshipOutbox {
       operation: row.operation,
       resource: { type: row.resource_type, id: row.resource_id },
       relation: row.relation,
-      subject: row.subject_type === 'company'
+      subject: row.subject_type === 'project'
+        ? { type: 'project', id: ProjectId(row.subject_id) }
+        : row.subject_type === 'company'
         ? { type: 'company', id: CompanyId(row.subject_id) }
         : row.subject_type === 'pool'
           ? { type: 'pool', id: PoolId(row.subject_id) }
@@ -72,6 +78,15 @@ export class RelationshipOutbox {
   // A separate scope sees only committed entries and owns the dispatch lock.
   async dispatchOne(authorization: AuthorizationPort, id: bigint): Promise<AuthorizationRevision | null> {
     const outcome = await this.inPlatformScope<DispatchOutcome>(async (tx) => {
+      // Opposing binding changes must reach SpiceDB in commit order. A retry
+      // of an old touch must not resurrect a binding after a newer delete.
+      const [binding] = await tx.query<{resource_id:string;subject_id:string}>(
+        "SELECT resource_id,subject_id FROM relationship_outbox WHERE id=$1 AND relation='bound_pool' AND subject_type='pool'",[id.toString()]);
+      if(binding){
+        await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify(['pool-binding',binding.resource_id,binding.subject_id])]);
+        const earlier=await tx.query("SELECT id FROM relationship_outbox WHERE relation='bound_pool' AND subject_type='pool' AND resource_id=$1 AND subject_id=$2 AND id<$3 AND written_at IS NULL LIMIT 1",[binding.resource_id,binding.subject_id,id.toString()]);
+        if(earlier.length)return {ok:true,token:null};
+      }
       const entry = await this.read(tx, id);
       if (entry === null) return { ok: true, token: null };
 

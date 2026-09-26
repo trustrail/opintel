@@ -2296,6 +2296,36 @@ check(pool:harvest-ops,     'view',      user:dara)         // console
 check(datasource:warehouse, 'reachable', pool:harvest-ops)  // request path
 ```
 
+**Item 5.3 implementation.** `PoolBindingService` checks project `bind_source`
+and commits the pool's structural binding decision with relationship-outbox
+entries in the same tenant transaction. Migration 043 provides a narrowly scoped
+`enqueue_pool_binding` function: it checks both objects against the transaction's
+project, verifies the requested edge matches the binding row, and enqueues only
+the pool/project, datasource/project and datasource/bound_pool relationships.
+Tenant roles gain no direct write grant on the platform outbox. Dispatch uses the
+existing relationship outbox, after commit; failure retains pending entries and
+returns a retryable `dependency_unavailable`. Unbinding retains entitlements.
+Opposing pending writes for the same source/pool are dispatched in order, so a
+late retry of an old touch cannot undo a newer delete. This adds no new recovery
+scanner or timer.
+
+`PoolElementResolver` pins the pool from the verified bearer key, then performs
+both a fully consistent `datasource#reachable@pool` check and a fresh tenant-scoped
+binding/element/entitlement read on every call. It grants only the exact requested
+treatment and returns its complete entitlement, including mask kind. Withheld,
+undecided, inactive/unsupported elements, mismatched source/project/pool and
+mismatched treatments refuse. The local binding row also must exist, preventing
+a pending graph deletion from keeping an unbound source readable. The resolver
+uses `checkMany`, which has no stale-snapshot fallback; dependency failure never
+produces an authorization grant. Operation-specific SQL restrictions remain S2.
+
+Invalid, revoked, expired and malformed keys produce the same `unauthenticated`
+error without exposing a pool. I-005/I-006 exercise its 401 error envelope through
+a test-only transport; MCP routing remains 5.5. Every refusal calls the required
+`PoolAccessRefusals` port; `InfoPoolAccessRefusals` records only identifiers and the
+reason at info level. Evidence persistence remains 5.11. Item 5.3 adds application
+services and adapters, not screens or new HTTP routes.
+
 ## 3.5 Route declarations
 
 Every route declares its permission. A route without one fails to start the server, as a startup assertion rather than a review convention.

@@ -1,4 +1,4 @@
-import type { CompanyId, PoolId, Timestamp, UserId } from '../../../shared/kernel/index.js';
+import type { CompanyId, ProjectId, PoolId, Timestamp, UserId } from '../../../shared/kernel/index.js';
 
 export type AuthorizationRevision = string & { readonly __brand: 'AuthorizationRevision' };
 
@@ -24,6 +24,7 @@ export type RelationshipUpdate = {
   relation: string;
   subject:
     | { type: 'user'; id: UserId }
+    | { type: 'project'; id: ProjectId }
     | { type: 'pool'; id: PoolId }
     | { type: 'company'; id: CompanyId };
 };

@@ -75,7 +75,7 @@ definition datasource {
  * Runtime resolution is two checks, and the pool is never inferred:
  *
  *   pool := resolve_pool_from_key(bearer)
- *   Check(pool:<pool>,            member,    user:<user>)    // console
+ *   Check(pool:<pool>,            view,      user:<user>)    // console
  *   Check(datasource:<source>,    reachable, pool:<pool>)    // request path
  *
  * Entitlements are then keyed (pool, element) in Postgres, so the same
