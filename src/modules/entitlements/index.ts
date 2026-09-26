@@ -22,3 +22,6 @@ export { PostgresPatternRules } from './infrastructure/pattern-rules.js';
 
 export { BulkEntitlementService, type BulkEntitlementRepository } from './application/bulk.js';
 export { PostgresBulkEntitlements } from './infrastructure/bulk-entitlements.js';
+
+export { PostgresEntitlementReader } from './infrastructure/entitlement-read.js';
+export type { EntitlementReader } from './application/read.js';

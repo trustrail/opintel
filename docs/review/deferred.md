@@ -351,3 +351,8 @@ deployed arrangement starts. Run the thing.
   the same proof.
 - Decide at S2, with the bypass suite written first. Item 4.5 remains the
   application's refusal-only pre-filter and does not settle this decision.
+
+- Native select rendering is the recurring source of small visual flakes:
+  first the Chrome 154 width and arrow change, now 125 pixels inside the
+  entitlements treatment selector's option text. Tree rows and layout match.
+  Accepted as flaky under the retry policy rather than rebaselined.

@@ -1007,3 +1007,15 @@ H-010's HTTP-to-commit timing assertion lives only in
 `test/performance/bulk-entitlements.test.ts`: 500 elements, real Postgres and
 SpiceDB, under 3 seconds, run separately from the functional suite.
 `test/bulk-entitlement-migration.test.ts` verifies migration 040 up/down/up.
+
+Item 4.8 adds `test/entitlement-read.test.ts` for pool-bound, cursor-paged
+inspection and H-018 against the real compiler and persisted decisions. It checks
+all four readable treatments, omission of withheld/undecided fields and objects,
+scoped cursors, and route permission rejection.
+`e2e/entitlements.spec.ts` covers H-009's UI half, justification gating, bulk
+failure/retry behaviour, selection scoping, read-only viewers, four screen states,
+axe, and Linux screenshots at 390 / 900 / 1440.
+`e2e/entitlements.performance.spec.ts` proves H-016 in the isolated performance
+project: 5,000 fields fetched in bounded branch pages, 200 selected, and bounded
+DOM rendering (at most 28 rows) while measuring refresh-frame intervals, with
+selection identity checked after keyboard jumps.

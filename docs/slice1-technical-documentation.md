@@ -1418,6 +1418,30 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 | GET | `/pools/:id/view-definition` (the compiled DDL, admin only) |
 | GET / POST / DELETE | `/projects/:id/pattern-rules[/:ruleId]` |
 
+**Entitlement inspection (4.8).** `GET /pools/:id/entitlements` requires
+project `view` and takes `projectId`, `parent`, `prefix`, `sourceId?`,
+`undecided=true|false`, `cursor?` and `limit?`. It returns one branch as
+`{ nodes, nextCursor }` in the pool's bound, active catalogue. Element nodes carry
+`treatment`, `maskKind` and `justification`; a null treatment means no entitlement
+row. Cursors bind the project, pool, branch and filters. The pool selector uses
+the cursor-paged `GET /projects/:id/pools` read projection (`id`, `name`,
+`sourceIds`), requiring project `view`; it introduces no pool lifecycle command.
+`GET /pools/:id/view-definition?projectId=…` requires project `administer` and
+returns `{ views, omitted }` from the existing pure compiler over a single
+catalogue/decision snapshot. It neither executes a source query nor constructs
+a session or compilation cache.
+
+The screen keeps pool, source and undecided filters in the URL. Expansion,
+selection and the bulk form use local Zustand state. Only loaded, expanded
+fields are included by “Select loaded elements”; scrolling preserves selections.
+Pool/source/undecided filter changes clear selection, as does changing a name
+prefix. Clear cannot be applied without a non-whitespace justification. A
+failed command retains its selection and idempotency key until its payload
+changes. Success invalidates exactly the entitlement, pool-list,
+catalogue-element-list and project-stat families. View DDL is an inline,
+pool-context inspection, not a separate project destination. The bulk bar stays
+in normal flow at phone widths so the wrapped form does not obscure the tree.
+
 **Bulk entitlement command (4.7).** `POST /pools/:id/entitlements/bulk`
 requires `Idempotency-Key` and project `set_entitlement`. Its strict body is
 `{ projectId, elementIds, treatment, maskKind?, justification? }`: a non-empty
