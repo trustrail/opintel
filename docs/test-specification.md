@@ -1019,3 +1019,24 @@ axe, and Linux screenshots at 390 / 900 / 1440.
 project: 5,000 fields fetched in bounded branch pages, 200 selected, and bounded
 DOM rendering (at most 28 rows) while measuring refresh-frame intervals, with
 selection identity checked after keyboard jumps.
+
+## Policy version ownership — item 4.9
+
+`test/policy-version.test.ts` covers M-005/M-006 at the persisted policy-read
+boundary: an application clock advanced by one minute leaves the version
+unchanged; a committed entitlement change advances it and changes the freshly
+compiled projection. It exercises every current writer: single-decision set,
+bulk set, pattern rules through introspection completion, and type-family
+invalidation through the introspection job. Direct SQL, mixed insert/update
+upserts, multiple statements, rollback/savepoints, concurrent transactions,
+tenant permissions and project isolation verify database enforcement.
+
+`test/policy-version-migration.test.ts` checks migration 041 down/up/down/up and
+preservation of existing version values. `test/performance/policy-version.test.ts`
+puts H-002's two-second assertion only in the isolated performance project. It
+measures a 500-element clear decision through commit and fresh compilation,
+checking the resulting projection and advanced version.
+
+The project version is the invalidation generation for `(poolId, policyVersion)`.
+No session or compilation cache is introduced here. VC-17/VC-18 and propagation
+into session/evidence records remain with S2 and the evidence pipeline.

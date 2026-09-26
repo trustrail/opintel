@@ -3115,6 +3115,22 @@ and ambiguous namespaces.
 
 Item 4.1 adds entitlement storage in migration 028, with forced tenant RLS and composite project-matching pool/element foreign keys. There is no reset command. Removed elements and archived sources retain decisions; active pool reads exclude them. Treatment execution and compiled views remain items 4.2–4.4.
 
+Item 4.9 adds migration 041: statement-level INSERT/UPDATE/DELETE triggers on
+`entitlement` advance `project.policy_version` once per affected project per
+transaction. Transition tables identify affected projects; `policy_version_txid`
+(an epoch-aware `xid8`) records the transaction that last advanced each project.
+The update takes the project row lock and rechecks that marker, preserving
+increments under concurrent writers. The marker and increment roll back with the
+entitlement work, including savepoint rollback. Empty statements do not advance
+anything; a mixed upsert or multiple statements in one transaction advance once.
+The trigger function has a fixed search path and narrowly updates the project as
+its owner because the tenant role cannot update project rows. Public function
+execution is revoked; callers cannot suppress the trigger using session settings.
+Downgrade removes the triggers and marker but retains advanced version values.
+The policy reader exposes the committed project generation; all pools in that
+project use the new generation for cache identity. Session creation and the
+`(poolId, policyVersion)` compilation cache remain S2.
+
 Item 5.1 stores SHA-256 digests as exactly 32 bytes, with a partial `opk_live_`
 display prefix (fewer than the credential's 22 suffix characters). Neither the
 aggregate nor the schema contains a plaintext credential. Retiring and expired

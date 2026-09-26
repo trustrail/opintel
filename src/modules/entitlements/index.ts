@@ -25,3 +25,6 @@ export { PostgresBulkEntitlements } from './infrastructure/bulk-entitlements.js'
 
 export { PostgresEntitlementReader } from './infrastructure/entitlement-read.js';
 export type { EntitlementReader } from './application/read.js';
+
+export type { PolicyVersionReader } from './application/version.js';
+export { PostgresPolicyVersions } from './infrastructure/policy-version.js';

@@ -562,6 +562,13 @@ Compilation is pure and fast, so views are compiled **on demand at session creat
 
 `policyVersion` increments on the project for any entitlement change, which invalidates every pool's cache in that project. That is coarser than necessary and it is the right trade: correctness over cache hit rate.
 
+**The bump is enforced by the database, not by each write path**. A trigger on entitlement increments project.policy_version on insert, update and delete. Requiring every path to remember would mean the guarantee holds only until someone writes a path that forgets, and the failure is silent: a pool serves a view compiled under an older decision, and nothing looks wrong.
+
+**One bump per transaction, not per row**. A bulk set of 500 elements advances the version once. The trigger is a statement-level trigger, or a row trigger that only bumps when the version has not already moved in this transaction.
+
+**A test asserts that every path which writes an entitlement advances the version**, by writing through each service and comparing the version before and after. A path added later without a bump fails that test.
+
+
 ## B.6 Tests
 
 | ID | Case | Expected |
