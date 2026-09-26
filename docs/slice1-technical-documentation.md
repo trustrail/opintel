@@ -1884,9 +1884,10 @@ agent id; a session id is not a credential. Browser-origin requests are refused.
 
 `describe` and `explain` are listed unconditionally; `query` follows query mode.
 Their Zod input/output contracts generate the advertised JSON Schemas and the
-transport OpenAPI components. Until 5.6, 5.7 and 5.9 respectively, valid calls
-return an MCP error result with `dependency_unavailable` and a readable
-unavailable message. Prompt tools are not registered before Slice 1b. A hidden
+transport OpenAPI components. Item 5.6 supplies `describe`; query and explain
+remain unavailable until 5.7 and 5.9 respectively, returning an MCP error result
+with `dependency_unavailable` and a readable unavailable message. Prompt tools
+are not registered before Slice 1b. A hidden
 tool and an unknown name return the same JSON-RPC `-32602`, `Unknown tool.`.
 This item implements no data reads or tool result generation.
 
@@ -1904,6 +1905,23 @@ requests record activity, and authenticated ping responses record liveness.
 Server pings use the project's heartbeat interval; merely sending one does not
 mark an agent present. Revoked/expired sessions and failed heartbeat exchanges
 close their transport while retaining the durable presence record.
+
+**Item 5.6 implementation.** `describe` reads a tenant-scoped metadata snapshot
+joined to this pool's explicit entitlements and local source bindings, then checks
+each source's `reachable` permission in SpiceDB on every call. It contacts no
+customer source. It returns exposed three-part object names and exposed column
+names, with types from the catalogue's post-treatment helper: tokenized and
+masked columns are `VARCHAR`; clear and aggregate-only columns retain their
+exposed DuckDB types. Columns follow source ordinal order.
+
+Withheld elements appear only as names in `withheld`. All-withheld objects are
+included with empty `columns`; mixed withheld/undecided objects reveal only their
+withheld names. Wholly undecided objects are absent. The optional `object` selects
+an exact exposed three-part name; a name with no describable decisions returns
+`objects: []`, including unknown and wholly undecided objects. Removed objects
+and elements, archived sources, unsupported types and unnameable elements are
+excluded. The same validated output appears in MCP text and structured content;
+neither contains undecided names, source identifiers or compiler diagnostics.
 
 ## 2.7 The sidecar contract
 
@@ -3169,7 +3187,8 @@ bdx.public.treaty_risk         Postgres  bordereaux store, landed from spreadshe
 
 - The normalised name is **recorded on the element at first discovery and never recomputed**, so it cannot drift between introspection runs
 - Collisions after normalisation get a numeric suffix and raise a diff entry, because a collision usually means two things that should not share a namespace
-- The original identifier is always available in `describe` and on the evidence record
+- The original identifier remains in the catalogue and on the evidence record;
+  the agent's `describe` wire contract returns exposed names only
 
 
 

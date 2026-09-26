@@ -9,6 +9,7 @@ import { ProjectId } from '../../../shared/kernel/index.js';
 import { listedTools, toolDescriptor } from '../../../shared/api/mcp.js';
 import { errorEnvelopeSchema, type PoolKeyHttpEndpoint } from '../../../platform/http/index.js';
 import { McpAccess, type McpConfiguration, type McpPrincipal } from '../application/access.js';
+import type { DescribeTool } from '../application/describe.js';
 
 type Session = { server: Server; transport: StreamableHTTPServerTransport; principal: McpPrincipal; fingerprint: string; heartbeatAt: number; pinging: boolean };
 const fingerprint = (principal: McpPrincipal) => JSON.stringify(principal.pool.modes);
@@ -20,7 +21,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
  private readonly context = new AsyncLocalStorage<McpPrincipal>();
  private timer: ReturnType<typeof setInterval> | undefined;
  private refreshing = false;
- constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration) {}
+ constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool) {}
  start() {
   this.timer ??= setInterval(() => { void this.refresh().catch(() => { console.warn({event:'mcp.refresh_failed',category:'dependency_unavailable'}); }); }, 1000);
   this.timer.unref();
@@ -80,6 +81,17 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
     throw new McpError(ErrorCode.InvalidParams,'Unknown tool.');
    }
    const input = tool.input.safeParse(request.params.arguments ?? {});
+   if (input.success && tool.name==='opintel.describe' && this.describeTool) {
+    try {
+     const result = await this.describeTool.describe(caller,input.data);
+     if (result.ok) return {content:[{type:'text' as const,text:JSON.stringify(result.value)}],structuredContent:result.value};
+     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:result.error.code});
+     return {isError:true,content:[{type:'text' as const,text:result.error.message}],_meta:{code:result.error.code}};
+    } catch {
+     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:'dependency_unavailable'});
+     return {isError:true,content:[{type:'text' as const,text:'The pool description is unavailable.'}],_meta:{code:'dependency_unavailable'}};
+    }
+   }
    const code = input.success ? 'dependency_unavailable' : 'validation_failed';
    const message = input.success ? 'This tool is not available in this deployment yet.' : 'The tool arguments do not match its schema.';
    console.info({event:'mcp.refused',poolId:caller.pool.id,reason:code});

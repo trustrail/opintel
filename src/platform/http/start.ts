@@ -1,7 +1,7 @@
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
 import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
-import { McpAccess, McpHttpServer, PostgresMcpConfiguration } from '../../modules/mcp/index.js';
+import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader } from '../../modules/mcp/index.js';
 import { PostgresKeyVerifier } from '../../modules/pools/index.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
 import { PostgresEntitlementReader } from '../../modules/entitlements/index.js';
@@ -212,7 +212,7 @@ async function start(): Promise<void> {
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),
     ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
-  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration());
+  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization));
   mcp.start();
   const server = createHttpServer(routes, {
     agentInterface: mcp,
