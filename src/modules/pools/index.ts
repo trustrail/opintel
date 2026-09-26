@@ -5,3 +5,8 @@ export { PostgresKeyVerifier } from './infrastructure/key-verifier.js';
 export { PoolBindingService, PoolElementResolver, type PoolBindingRepository, type PoolAccessRefusals } from './application/binding.js';
 export { PostgresPoolBindings } from './infrastructure/binding.js';
 export { InfoPoolAccessRefusals } from './infrastructure/access-refusals.js';
+
+export { AgentPresenceService, type AgentPresenceRepository, type AuthenticatedPresence } from './application/presence.js';
+export { PostgresAgentPresence } from './infrastructure/presence.js';
+export { sweepAgentPresence } from './infrastructure/presence-sweep.js';
+export { agePresence, observePresence, type AgentPresence, type PresenceState, type PresenceTiming } from './domain/presence.js';

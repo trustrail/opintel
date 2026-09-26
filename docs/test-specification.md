@@ -250,7 +250,7 @@ Version 1.0 · September 2026
 | I-018 | F | Agent presence lifecycle | `connecting → active → idle → stale → disconnected` on SIGKILL |
 | I-019 | D | Agent never silently removed | Disconnected agents remain visible |
 | I-020 | F | Reconnect after stale | Same twin, reconnect count incremented |
-| I-021 | D | `agent_id` absent from the request | Accepted; presence recorded as unverified. **Nothing is authorised on it** |
+| I-021 | D | `agent_id` absent from the request | Refused, naming `X-Opintel-Agent-Id`. A supplied id is caller-claimed and unverified; **nothing is authorised on it** |
 | I-022 | S | Agent claims another agent's `agent_id` | Accepted, and the test asserts that no authorization outcome differs |
 | I-023 | C | MCP tool schemas | Contract tests pass in both directions |
 

@@ -13,7 +13,7 @@ async function fixture(){
  const f=await bulkFixture(0);const clock=new TestClock();
  await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
  const agents=Array.from({length:20},(_,i)=>`agent-${i}`);
- const affected=vi.fn<AgentPresenceQuery['affected']>(async()=>ok({affectedAgents:agents,affectedAgentCount:agents.length}));
+ const affected=vi.fn<AgentPresenceQuery['affected']>(async()=>ok({affectedAgents:agents,affectedAgentCount:agents.length,previouslySeenAgents:[]}));
  const repository=new PostgresPoolKeys(clock),service=new PoolKeyService(repository,{affected}),verifier=new PostgresKeyVerifier(clock);
  const create=async(name='Reporting',idempotency=randomUUID())=>PoolKeyCreationResponse.parse(unwrap(await service.execute(f.ctx,{kind:'create',name},idempotency)));
  const initial=await create();if(!initial.keyShown)throw new Error('Expected initial key');

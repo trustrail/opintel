@@ -45,7 +45,7 @@ export function projectStreamCache(cache: QueryClient, project: string) {
     invalidate(introspectionKeys.detail(project, event.runId)); invalidate(introspectionKeys.lists(project));
    } else if (event.type === 'catalog.changed') invalidate(elementKeys.all(project));
    else if (event.type === 'source.changed') { invalidate(introspectionKeys.lists(project)); invalidate(sourceKeys.lists(project)); invalidate(sourceKeys.detail(project, event.sourceId)); }
-   else { invalidate(filingKeys.list(project)); invalidate(sourceKeys.lists(project)); }
+   else if (event.type === 'filing.arrived') { invalidate(filingKeys.list(project)); invalidate(sourceKeys.lists(project)); }
   },
   dispose() { disposed = true; if (timer) clearTimeout(timer); pending.clear(); },
  };

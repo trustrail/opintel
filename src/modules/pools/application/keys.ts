@@ -1,9 +1,13 @@
-import { DomainError, err, type PoolId, type ProjectId, type UserId, type Result } from '../../../shared/kernel/index.js';
+import type { Tx } from '../../../platform/db/scope.js';
+import { DomainError, err, type PoolId, type ProjectId, type UserId, type Timestamp, type Result } from '../../../shared/kernel/index.js';
 import { CreatePoolBody, PoolKeyIdempotency, type PoolKeyCreationResponse, type PoolKeyStored, type PoolKeyMetadata } from '../../../shared/api/pool-keys.js';
 import type { PoolKeyId } from '../domain/pool.js';
 export type PoolKeyContext = {projectId:ProjectId;userId:UserId};
+export type AffectedAgents={affectedAgentCount:number;affectedAgents:string[];previouslySeenAgents:string[]};
 export interface AgentPresenceQuery {
- affected(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<{affectedAgentCount:number;affectedAgents:string[]}>>;
+ /** Reuses a caller-owned tenant scope while revocation holds its pool lock. */
+ affectedInScope?(tx:Tx,poolId:PoolId,keyVersion:PoolKeyId,settings:unknown,at:Timestamp):Promise<Result<AffectedAgents>>;
+ affected(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<AffectedAgents>>;
 }
 export type KeyCommand = {kind:'create';name:string} | {kind:'rotate';poolId:PoolId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
 export interface PoolKeyRepository {

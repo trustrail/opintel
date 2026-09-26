@@ -1,6 +1,6 @@
-import { PoolKeyService, PostgresPoolKeys } from '../../modules/pools/index.js';
+import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
-import { DomainError, err } from '../../shared/kernel/index.js';
+import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
 import { PostgresEntitlementReader } from '../../modules/entitlements/index.js';
 import { BulkEntitlementService, PostgresBulkEntitlements } from '../../modules/entitlements/index.js';
@@ -177,11 +177,18 @@ async function start(): Promise<void> {
   const custody=new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json')),authorization);
   const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
+  const presence = new PostgresAgentPresence(hub);
+  let sweepingPresence = false;
+  const sweepPresence = () => {
+    if(sweepingPresence)return;
+    sweepingPresence=true;
+    void sweepAgentPresence(presence).catch(()=>console.warn({event:'agent.presence_sweep_failed',category:'dependency_unavailable'})).finally(()=>{sweepingPresence=false;});
+  };
+  sweepPresence();
+  const presenceTimer=setInterval(sweepPresence,5000);presenceTimer.unref();
   const routes = [
-    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), {
-      // Item 5.4 supplies AgentPresenceQuery. Do not report a fabricated zero.
-      affected: async () => err(new DomainError('dependency_unavailable', 'Agent presence reporting is not available yet.')),
-    })),
+    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), presence)),
+    ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
@@ -238,6 +245,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
+    clearInterval(presenceTimer);
     clearInterval(rehearsalTimer);
     clearInterval(completionTimer);
     void sources.close();

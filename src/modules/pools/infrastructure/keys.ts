@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { withPlatform, withTenant, type Tx } from '../../../platform/db/scope.js';
-import { DomainError, err, ok, SystemClock, type Clock, type PoolId, type Result } from '../../../shared/kernel/index.js';
+import { DomainError, err, ok, Timestamp, SystemClock, type Clock, type PoolId, type Result } from '../../../shared/kernel/index.js';
 import { PoolKeyGraceSeconds, PoolKeyStored, type PoolKeyCreationResponse, type PoolKeyMetadata } from '../../../shared/api/pool-keys.js';
 import type { AgentPresenceQuery, KeyCommand, PoolKeyContext, PoolKeyRepository } from '../application/keys.js';
 import type { PoolKeyId } from '../domain/pool.js';
@@ -59,7 +59,9 @@ export class PostgresPoolKeys implements PoolKeyRepository {
      const [target]=await tx.query<KeyRow>(`SELECT ${columns} FROM pool_key WHERE pool_id=$1 AND id=$2`,[pool,command.keyVersion]);
      if(!target)return err(new DomainError('not_found','The named key version was not found in this pool.'));
      if(!['current','retiring'].includes(metadata(target,now).state))return err(new DomainError('conflict','This key version is already revoked or expired.'));
-     const affected=await presence.affected(ctx,pool,command.keyVersion);if(!affected.ok)return affected;
+     const affected=await (presence.affectedInScope
+      ? presence.affectedInScope(tx,pool,command.keyVersion,project.settings,Timestamp(now))
+      : presence.affected(ctx,pool,command.keyVersion));if(!affected.ok)return affected;
      const [revoked]=await tx.query<KeyRow>(`UPDATE pool_key SET state='revoked',grace_until=NULL WHERE id=$1 RETURNING ${columns}`,[command.keyVersion]);
      if(!revoked)throw new Error('Key revocation returned no row.');
      stored={...metadata(revoked,now),keyShown:false,...affected.value};

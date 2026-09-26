@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { SourceId, RunId, FilingId } from '../kernel/value-objects.js';
+import { SourceId, RunId, FilingId, PoolId } from '../kernel/value-objects.js';
 const identity = { sequence: z.number().int().nonnegative(), sourceId: z.string().uuid().transform(SourceId) };
 export const changeEventSchema = z.discriminatedUnion('type', [
+ z.object({sequence:z.number().int().nonnegative(),type:z.literal('agent.presence'),poolId:z.uuid().transform(PoolId),agentId:z.string()}).strict(),
  z.object({ ...identity, type: z.literal('introspection.progress'), runId: z.string().uuid().transform(RunId), state: z.enum(['queued','connecting','reading','diffing']), objects: z.number().int().nonnegative(), total: z.number().int().nonnegative().nullable() }).strict(),
  z.object({ ...identity, type: z.literal('introspection.finished'), runId: z.string().uuid().transform(RunId), state: z.enum(['complete','failed','cancelled']) }).strict(),
  z.object({ ...identity, type: z.literal('catalog.changed') }).strict(),
@@ -14,7 +15,7 @@ export type StreamEvent = z.infer<typeof streamEventSchema>;
 export type ChangeEvent = z.infer<typeof changeEventSchema>;
 type WithoutSequence<T> = T extends unknown ? Omit<T, 'sequence'> : never;
 export type ProjectChange = WithoutSequence<ChangeEvent>;
-export const streamFamilies = ['introspection', 'catalogElement', 'dataSource', 'filing'] as const;
+export const streamFamilies = ['introspection', 'catalogElement', 'dataSource', 'filing', 'agentPresence'] as const;
 export function streamOpenApiDocument() {
  return { openapi: '3.1.0', info: { title: 'Opintel project stream', version: '1' },
   components: { securitySchemes: { sessionCookie: { type: 'apiKey', in: 'cookie', name: 'opintel_session' } } },

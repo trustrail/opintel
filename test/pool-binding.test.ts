@@ -20,7 +20,7 @@ async function fixture(){
  await authorization.loadSchema(await readFile('docs/opintel-schema.zed','utf8'));
  await authorization.write([{operation:'touch',resource:{type:'project',id:f.ctx.projectId},relation:'admin',subject:{type:'user',id:f.ctx.userId}}]);
  await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
- const keys=new PoolKeyService(new PostgresPoolKeys(),{affected:async()=>ok({affectedAgents:[],affectedAgentCount:0})});
+ const keys=new PoolKeyService(new PostgresPoolKeys(),{affected:async()=>ok({affectedAgents:[],affectedAgentCount:0,previouslySeenAgents:[]})});
  const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name:'Binding pool'},randomUUID())));if(!issued.keyShown)throw new Error('No issued key');
  const pool=PoolId(issued.poolId),element=f.ids[0]!;
  const outbox=new RelationshipOutbox(),repository=new PostgresPoolBindings(outbox),service=new PoolBindingService(repository,outbox,authorization);

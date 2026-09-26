@@ -367,7 +367,7 @@ any -> cancelled  (from queued, connecting, reading only)
 connecting -> active <-> idle -> stale -> disconnected
 ```
 
-`idle` after 60s without a request, `stale` after 3 missed heartbeats, `disconnected` after the grace window. **A disconnected agent is never removed from the list.** Absence is information.
+`idle` after 60s without a request, `stale` after 3 missed heartbeats (20s each by default), `disconnected` after 5 minutes from entering stale by default. Heartbeat and grace settings are bounded in §4.5; a reconnect from stale/disconnected retains the twin and increments its reconnect count. **A disconnected agent is never removed from the list.** Absence is information.
 
 **Pool key**
 
@@ -2427,7 +2427,7 @@ withPlatformAdmin(fn)      // write industry scope. Distinct role, no customer r
 
 ```
 Authorization: Bearer opk_live_a3f2…
-X-Opintel-Agent-Id: harvester-01     // optional, observational
+X-Opintel-Agent-Id: harvester-01     // required, unverified, observational
 ```
 
 The key is hashed and looked up. A valid key resolves to a pool. From that point every authorization question is answered against the pool, never the agent.
@@ -3248,13 +3248,69 @@ create table agent_presence (
   agent_id   text not null,
   project_id uuid not null references project(id) on delete cascade,
   client     text,
+  verified   boolean not null default false check (verified = false),
+  key_version uuid not null, -- composite FK to pool_key(id, pool_id, project_id)
   first_seen timestamptz not null default now(),
   last_seen  timestamptz not null default now(),
+  last_request_at timestamptz,
+  last_heartbeat_at timestamptz not null,
+  stale_at   timestamptz, -- deadline, not the time the sweep happened to run
   reconnects integer not null default 0,
-  state      text not null default 'connecting',
+  state      text not null default 'connecting'
+    check (state in ('connecting','active','idle','stale','disconnected')),
   primary key (pool_id, agent_id)
 );
 ```
+**The heartbeat interval is 20 seconds**. Stale follows three missed heartbeats, so an agent that stops responding is stale within about 60 seconds. **The disconnect grace window is 5 minutes, measured from entering stale**, so a network interruption or a restart does not remove an agent that returns. Both are project settings, bounded to 5 to 60 seconds and 1 to 60 minutes.
+
+**A request with no agent id is refused**, not given a generated one. The agent_id is supplied by the caller and is how a reviewer follows one agent across requests, so inventing one would fill the list with identities nobody can trace and make the twin useless. The refusal names the missing header. The id is unverified by design: it identifies, the pool key authorises, and presence records what was claimed rather than what was proven.
+
+**Revocation counts the agents that could use the revoked key**: those in connecting, active, idle or stale, since all four can still make a request. disconnected agents are excluded from the count but shown separately as seen previously, because an agent that has been away for a week is not who the administrator is about to interrupt, and hiding it entirely would lose the fact that it existed.
+
+**An agent is counted against the key version it last authenticated with**. An agent that moved to a new key during a grace window is not affected by revoking the old one, and counting it would overstate the damage.
+
+**Item 5.4 implementation.** Migration 044 adds forced-RLS `agent_presence`,
+with separate `last_request_at` and `last_heartbeat_at`, the actual `stale_at`
+deadline, `key_version`, and `verified = false`. The composite key reference
+requires the last authenticated key to belong to the same pool and project.
+The tenant role has SELECT/INSERT/UPDATE but no DELETE grant. Disconnecting is
+an update; the original `first_seen` and `(pool_id, agent_id)` remain intact.
+
+Settings are `agentHeartbeatSeconds` (default 20, integer 5–60) and
+`agentDisconnectGraceSeconds` (default 300, integer 60–3600) in `project.settings`,
+validated by the shared schema and database. Requests reset both request activity
+and liveness; heartbeats reset only liveness. At three missed heartbeat intervals
+the agent is stale. At 60 seconds without a request a live agent is idle. With a
+short heartbeat interval, staleness can precede idleness. The disconnect deadline
+is the stale deadline plus grace, even if a sweep runs late. A successful return
+from stale/disconnected increments `reconnects` once; concurrent returns serialize
+on the same twin. All claimed identities remain explicitly unverified.
+
+`AgentPresenceService.observeAuthenticated` accepts `connect`, `request` and
+`heartbeat` signals from the authenticated transport, with the resolved pool and
+key version supplied separately from the claimed agent id. It refuses a missing
+or empty id, naming `X-Opintel-Agent-Id`; it never invents one. The repository also
+checks the key belongs to the pool and is still usable. MCP transport wiring
+remains item 5.5. Presence observations share-lock the pool before writing, so
+key revocation's exclusive pool lock stabilizes the last-authenticated key
+assignments during its affected-agent query. The concrete query uses the
+caller's tenant transaction through `affectedInScope`, avoiding a nested
+connection while that lock is held.
+
+`GET /pools/:id/agents?projectId=…` requires project `view` and returns a cursor
+page of all states, including disconnected agents. Both this read and the key
+impact query calculate current state from deadlines, without waiting for the
+worker. A startup sweep and a five-second timer persist elapsed transitions,
+using tenant scopes and one presence row per transaction. The worker discovers
+projects through the existing project/admin context pattern; no presence rows
+are read in platform scope.
+
+After commit, each observation or persisted state change publishes the
+identifier-only `{ type: 'agent.presence', poolId, agentId }` notification through
+the 3.16 SSE hub. Reconnect snapshots include `agentPresence`; consumers refetch
+current rows instead of applying possibly delayed state objects. Failed
+publication does not undo a committed observation. Agent list/twin screens and
+their query-cache integration remain 5.14.
 
 **A replayed key creation or rotation returns the metadata without the key**. Shown-once wins over §2.4's replay rule: the plaintext exists only in the response to the request that created it, and a retry — whether a network retry or a second tab — must not produce it again. The response carries the key version, prefix and creation time, plus keyShown: false, so a client can tell it replayed rather than created. **A caller that lost the response has lost the key**, and the answer is to rotate, which is a deliberate act with a visible consequence.
 
@@ -3287,10 +3343,11 @@ explicit revocation.
 `GET /pools/:id/keys/:keyVersion/affected-agents?projectId=…` returns key metadata
 and `affectedAgentCount` / `affectedAgents` for confirmation and expiry reporting.
 Revocation also returns those fields. Both use the application
-`AgentPresenceQuery` port, whose implementation belongs to 5.4. Item 5.2 tests
-supply a stub; until 5.4 is wired, runtime reporting/revocation returns
-`dependency_unavailable`, with no key mutation or fabricated zero-agent count.
-No presence lifecycle or screen is implemented here.
+`AgentPresenceQuery` port, implemented and wired by item 5.4. Item 5.2 tests
+retain a stub; runtime reporting/revocation now uses durable presence and also
+returns `previouslySeenAgents` for disconnected agents on that key version.
+The port always supplies this list; wire parsing defaults it to empty for
+metadata receipts created before item 5.4. No presence screen is implemented.
 
 Generation uses 22 uniformly sampled base62 characters after `opk_live_`.
 Only the SHA-256 digest and an eight-character suffix display prefix are stored.
