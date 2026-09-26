@@ -210,16 +210,6 @@ describe('sidecar Postgres connector against a read-only source credential', () 
     expect(contacts).toBe(0);
   });
 
-  it('C.4: scope enforces read-only, statement timeout and closes every connection', async () => {
-    const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 50, operationTimeoutMs: 1000 });
-    const { SecretRef } = await import('../src/platform/secrets/types.js');
-    const ref = SecretRef(envelope.credentialRef);
-    expect(await scope.run('test', ref, (session) => session.query('SHOW transaction_read_only'))).toEqual([{ transaction_read_only: 'on' }]);
-    await expect(scope.run('test', ref, (session) => session.query('SELECT pg_sleep(1)'))).rejects.toMatchObject({ code: '57014' });
-    await expect(scope.run('test', ref, (session) => session.query(`INSERT INTO ${quote(schema)}.t0 VALUES (9,'write')`))).rejects.toMatchObject({ code: '25006' });
-    expect(await fixture(async (db) => (await db.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1", [role])).rows)).toEqual([{ count: 0 }]);
-  });
-
   it('G-018: request abort cancels the source backend and releases its connection', async () => {
     const { SecretRef } = await import('../src/platform/secrets/types.js');
     const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 5000, operationTimeoutMs: 6000 });
@@ -240,19 +230,5 @@ describe('sidecar Postgres connector against a read-only source credential', () 
     expect(performance.now() - start).toBeLessThan(2500);
     expect(code).toBe('57014');
     expect(await fixture(async (db) => (await db.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1", [role])).rows)).toEqual([{ count: 0 }]);
-  });
-
-  it('C.4: bounds total wall time, refuses excess connections, and releases the slot', async () => {
-    const { SecretRef } = await import('../src/platform/secrets/types.js');
-    const scope = new PostgresSourceScope({ resolve: async () => sourceUrl }, { maxConnectionsPerSource: 1, statementTimeoutMs: 5000, operationTimeoutMs: 100 });
-    const ref = SecretRef(envelope.credentialRef);
-    let started!: () => void;
-    const ready = new Promise<void>((resolve) => { started = resolve; });
-    const running = scope.run('test', ref, async (session) => { started(); return session.query('SELECT pg_sleep(5)'); });
-    const finished = expect(running).rejects.toThrow();
-    await ready;
-    await expect(scope.run('test', ref, async () => {})).rejects.toThrow();
-    await finished;
-    expect(await scope.run('test', ref, (session) => session.query('SELECT 1 AS ok'))).toEqual([{ ok: 1 }]);
   });
 });

@@ -11,14 +11,30 @@ export interface SourceLimits {
   operationTimeoutMs: number;
 }
 export class SourceBusy extends Error {}
-export class SourceTimeout extends Error {}
+export class SourceTimeout extends Error {
+  constructor() {
+    super('Source operation exceeded its deadline.');
+    this.name = 'SourceTimeout';
+  }
+}
+/** Only the operation deadline uses this clock. Driver/server timeouts remain
+ * real and are covered by the isolated Postgres performance tests. */
+export interface SourceDeadlineClock {
+  after(milliseconds: number, expire: () => void): () => void;
+}
+const realDeadlineClock: SourceDeadlineClock = {
+  after(milliseconds, expire) {
+    const timer = setTimeout(expire, milliseconds);
+    return () => clearTimeout(timer);
+  },
+};
 export class SourceCancelled extends Error {}
 
 /** Customer-source scope. Separate from Opintel's handwritten metadata scopes.
  * Share one instance across the sidecar host to enforce its per-source ceiling. */
 export class PostgresSourceScope {
   private readonly active = new Map<string, number>();
-  constructor(private readonly credentials: SourceCredentialResolver, private readonly limits: SourceLimits) {
+  constructor(private readonly credentials: SourceCredentialResolver, private readonly limits: SourceLimits, private readonly deadlineClock: SourceDeadlineClock = realDeadlineClock) {
     for (const value of Object.values(limits)) {
       if (!Number.isSafeInteger(value) || value < 1 || value > 2_147_483_647) throw new Error('Source limits must be positive bounded integers.');
     }
@@ -38,9 +54,9 @@ export class PostgresSourceScope {
       abortOperation = () => { expired = true; reject(new SourceCancelled()); };
       signal?.addEventListener('abort', abortOperation, { once: true });
     });
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let clearDeadline: (() => void) | undefined;
     const deadline = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => { expired = true; reject(new SourceTimeout()); }, this.limits.operationTimeoutMs);
+      clearDeadline = this.deadlineClock.after(this.limits.operationTimeoutMs, () => { expired = true; reject(new SourceTimeout()); });
     });
     const execute = async (): Promise<T> => {
       const connectionString = await this.credentials.resolve(ref);
@@ -83,7 +99,7 @@ export class PostgresSourceScope {
         } catch { /* Closing the source connection and its statement timeout remain the fallback. */ }
         finally { await control.end().catch(() => {}); }
       }
-      if (timer !== undefined) clearTimeout(timer);
+      clearDeadline?.();
       try { await client?.end(); }
       finally {
         const remaining = (this.active.get(sourceKey) ?? 1) - 1;
