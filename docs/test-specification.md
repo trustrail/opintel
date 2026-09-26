@@ -935,6 +935,15 @@ VC-01–VC-09, VC-15, VC-16 and VC-31–VC-33, plus H-003 and H-005's compiled
 projection/read-plan assertions. The compiler invariant suite is authored
 separately; implementation work must not generate it.
 
+- `test/view-compiler.test.ts`: VC-08, VC-33, and the direct H-003/H-005
+  compiler assertions.
+- `test/performance/view-compiler.test.ts`: VC-15, 5,000 elements under
+  200ms, via the isolated `npm run test:performance` project.
+- `test/view-compiler-invariants.test.ts`: the separately authored
+  VC-01–VC-07, VC-09, VC-16, VC-31 and VC-32 invariants.
+- `test/compiler-declaration-migration.test.ts`: declaration migration
+  coverage; it is not a direct compiler VC test.
+
 - VC-10–VC-14 and VC-23–VC-30 belong to 4.5 query inspection.
 - VC-17 and VC-18 belong to S2 session creation, with 4.9 policy-version
   invalidation. They are not assertions about the pure compiler.

@@ -324,3 +324,14 @@ deployed arrangement starts. Run the thing.
 - Compiler cache/session assertions VC-17/VC-18 await S2 with 4.9. Query
   inspection VC-10–VC-14 and VC-23–VC-30 await 4.5; resolver assertions
   VC-19–VC-22 await 4.5a. No session, resolver or treatment execution was added.
+
+# Two-session verification: what went wrong at 4.4
+
+- The plan was: one session writes the implementation, a second writes an
+  independent suite from the spec. The first session shipped no tests
+  calling compileViews, so the independent suite became the only compiler
+  coverage and the two derivations collapsed into one. Three VC ids had
+  nothing behind them.
+- When using this arrangement again, in particular for S2's bypass suite,
+  confirm the implementation session's own tests exist and pass before the
+  second session starts.
