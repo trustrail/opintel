@@ -1,3 +1,6 @@
+import { PoolKeyService, PostgresPoolKeys } from '../../modules/pools/index.js';
+import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
+import { DomainError, err } from '../../shared/kernel/index.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
 import { PostgresEntitlementReader } from '../../modules/entitlements/index.js';
 import { BulkEntitlementService, PostgresBulkEntitlements } from '../../modules/entitlements/index.js';
@@ -175,6 +178,10 @@ async function start(): Promise<void> {
   const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
   const routes = [
+    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), {
+      // Item 5.4 supplies AgentPresenceQuery. Do not report a fabricated zero.
+      affected: async () => err(new DomainError('dependency_unavailable', 'Agent presence reporting is not available yet.')),
+    })),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),

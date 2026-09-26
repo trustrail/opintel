@@ -374,6 +374,7 @@ connecting -> active <-> idle -> stale -> disconnected
 ```
 current -> retiring -> expired
 current -> revoked          (break glass, requires typed confirmation)
+retiring -> revoked         (ends grace early, requires typed confirmation)
 ```
 
 ## 1.6 What is deliberately not modelled in Slice 1
@@ -3224,6 +3225,52 @@ create table agent_presence (
   primary key (pool_id, agent_id)
 );
 ```
+
+**A replayed key creation or rotation returns the metadata without the key**. Shown-once wins over §2.4's replay rule: the plaintext exists only in the response to the request that created it, and a retry — whether a network retry or a second tab — must not produce it again. The response carries the key version, prefix and creation time, plus keyShown: false, so a client can tell it replayed rather than created. **A caller that lost the response has lost the key**, and the answer is to rotate, which is a deliberate act with a visible consequence.
+
+
+**The grace window is 24 hours by default and is a project setting**, bounded to between one hour and seven days. It is the time an agent has to pick up a new key before the old one stops working, which is a deployment question for the customer rather than a constant.
+
+**A rotation while a grace window is open is refused**, naming the retiring key and when it expires. Two keys in grace would mean three keys accepted at once, and the one_retiring_key_per_pool index already prevents it at the database. The refusal turns that constraint into a message. An administrator who must rotate immediately revokes the retiring key first, which is the deliberate act.
+
+**Revocation takes the pool's name as typed confirmation** and applies to one key version, named explicitly. Revoking the current key leaves the pool with no working key and every agent refused, which is the point of break-glass; revoking a retiring key ends its grace early. The confirmation dialog states which agents are affected and how many.
+
+
+
+
+**Item 5.2 implementation.** The project setting is `settings.poolKeyGraceSeconds`
+(default 86400, integer range 3600–604800); migration 042 enforces its bounds.
+Creation uses `POST /projects/:id/pools` with `{ name }`; rotation takes
+`{ projectId }`; revocation takes `{ projectId, keyVersion, confirmation }`.
+All three require `Idempotency-Key` and project `administer`. A version is the
+`pool_key.id`, not its display prefix. Success is 200. Creation and rotation
+return `{ poolId, keyVersion, prefix, createdAt, state, graceUntil, keyShown, key? }`.
+Only the issuing response has `keyShown: true` and `key`; replay has no `key`
+property. Responses use `Cache-Control: no-store`. The transaction writes the
+key decision and its metadata-only receipt together, retaining the receipt for
+24 hours. Reuse with a different command returns 409 `idempotency_key_reused`.
+Pool-row locks serialize rotation/revocation, and an elapsed retiring slot is
+marked expired before replacement. Revocation changes only the named version;
+a different retiring/current version remains usable until its own expiry or
+explicit revocation.
+
+`GET /pools/:id/keys/:keyVersion/affected-agents?projectId=…` returns key metadata
+and `affectedAgentCount` / `affectedAgents` for confirmation and expiry reporting.
+Revocation also returns those fields. Both use the application
+`AgentPresenceQuery` port, whose implementation belongs to 5.4. Item 5.2 tests
+supply a stub; until 5.4 is wired, runtime reporting/revocation returns
+`dependency_unavailable`, with no key mutation or fabricated zero-agent count.
+No presence lifecycle or screen is implemented here.
+
+Generation uses 22 uniformly sampled base62 characters after `opk_live_`.
+Only the SHA-256 digest and an eight-character suffix display prefix are stored.
+The pre-tenant verifier uses migration 042's narrow `resolve_pool_key(bytea)`
+function through platform scope: its only selector is the presented key's digest,
+it returns no hash or credential, public/tenant execution is denied, and platform
+retains no direct read grant on pool/key tables. Verification reads committed
+state each time and rejects retiring keys at the exact expiry without waiting for
+a worker. MCP wiring and public failure-oracle handling remain 5.5.
+
 **matcher is interpreted by match_kind**: name_glob matches the element's exposed name with * and ? wildcards, case-insensitively, since exposed names are lowercase; type matches the element's exposed type exactly, so a rule written for a source type does not silently apply after a type change; schema matches the object's exposed schema exactly. Matching the exposed name rather than the source identifier means a rule survives a source-side rename, which is the same reason duckdb_name is immutable.
 
 **A rule applies to every pool in the project** that is bound to the element's source. A rule is a project-level policy — "customer identifiers are always tokenized" — and restricting it to one pool would mean the same policy written repeatedly and diverging. A pool that should differ gets an explicit entitlement, which wins over any rule (H-014).
