@@ -307,13 +307,28 @@ Everything here is natural language. Nothing above depends on anything below, wh
 |---|---|---|---|---|
 | S1 | Runnable host, validated config, pinned mutual TLS; `/health`, `/test-connection`, `/introspect`, `/sample` with consent, `/estimate`; audit and disconnect cancellation | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
 | **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-23, ING-25, ING-26 (ING-24: 5.11) |
-| S2 | **Two-session construction**, hardening with `lock_configuration` last, `/validate`, `/execute`; authoritative parse, binding and all treatment checks per C.3.1, including B.4's two cardinality stages. **Hand-written** | S1, 4.4 | session lifecycle and authoritative inspection | J-003 to J-018, VC-10 to VC-14, VC-23 to VC-30, H-008 (authoritative enforcement), VC-17/VC-18 (session compilation cache, with 4.9), and the bypass suite against both execution paths |
+| S2a | Two-session construction and hardening. lock_configuration last | S1 | sidecar/session | J-013, J-014, J-020; runtime statement-log assertion that lock_configuration is last before agent SQL |
+| S2b | **Bypass suite. Written from the specification, in its own session, before S2c** | S2a | sidecar/session/bypass | J-001 to J-012 |
+| S2c | Parse, PREPARE binding, SQL subset check on the parsed statement | S2a | sidecar/sql | C.3 refusals, J-015 to J-018, J-021 |
+| S2d | Authoritative treatment enforcement: aggregate-only two stages, token ordering | S2c, 4.4 | sidecar/sql | VC-10 to VC-14, VC-23 to VC-30 |
+| S2e | Staging paths, execute, cancellation, governance, ephemerality | S2c | sidecar/session | J-022 onward, C.4, C.5 |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
 | **S2b** | **Streaming execution path**, condition evaluated conservatively, bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
-| S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019, J-020, TOK-38 (with S2 staging) |
+| S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019 (requires staged data to scan), TOK-38 (with S2 staging) |
 | S5 | VNet mode, OCI image, egress restricted to declared hosts | S2 | packaging | SD-005 subset |
 
 **The sidecar is the critical path and the highest technical risk.** S1b is new in v2.0 and it is the right home for landing: the sidecar already runs inside the customer's environment, already holds credentials they control, and already sends nothing out. Putting ingest anywhere else would break the claim that files never leave their network.
+
+**S2a implementation.** `sidecar/session` constructs separate in-memory engine
+instances, applies revised C.2 in order (privileged external access stays on per
+C.1), executes raw agent SQL only in the agent instance, and closes both in
+`finally`. Its uninspected execution seam is documented in
+[the session interface](../sidecar/session/README.md) and is not mounted on HTTP.
+The driver statement log proves configuration lock is last before agent SQL.
+J-013/J-014 exercise native refusals; J-020 forces memory exhaustion with spill
+disabled. This does not prove S2c's `sql_not_permitted` envelope for J-015–J-018,
+or S4's staged-data sentinel scan for J-019. No parsing, treatment enforcement,
+staging or bypass-suite implementation is included.
 
 ### DuckDB inspection interface verification — 2026-09-26
 

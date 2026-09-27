@@ -700,16 +700,19 @@ That is conservative, and it should be. A wrong answer here reopens the isolatio
 Applied to every session before any agent SQL, in this order.
 
 ```sql
+SET temp_directory  = '';                  -- FIRST: refused once external access is off
+SET max_temp_directory_size = '0B';        -- DuckDB requires a unit
 SET enable_external_access      = false;   -- no httpfs, no file reads
 SET autoinstall_known_extensions = false;
 SET autoload_known_extensions    = false;
 SET allow_unsigned_extensions    = false;
 SET memory_limit    = '<per pool>';
 SET threads         = <per pool>;
-SET temp_directory  = '';                  -- no spill
-SET max_temp_directory_size = '0';
 SET lock_configuration = true;             -- LAST. Nothing after this line.
 ```
+**temp_directory is set first because DuckDB refuses to change it once enable_external_access is false**. Verified against v1.4.3. The guarantee is unchanged: there is no spill directory, and after lock_configuration no statement can reinstate one.
+
+**max_temp_directory_size requires a unit**, so '0B' rather than '0'.
 
 **`lock_configuration` must be the final statement.** Without it, agent SQL can `SET enable_external_access = true` and undo everything above. A test asserts that the last statement executed before agent SQL is this one, by inspecting the session's statement log rather than by reading the source.
 
@@ -739,6 +742,15 @@ Checked twice: in the API before dispatch, and in the sidecar before execution. 
 **A construct either side cannot interpret is a refusal**. No fallback to raw text, no regular expression, no partial inspection. The refusal names the construct.
 
 **A parser and engine version mismatch is a refusal**. The sidecar records its queryEngineVersion on every run, and an inspection performed under a different build is not evidence about this one.
+
+**Binding is established by containment and proved by preparation**. The agent session contains only the pool's staged tables under their three-part names, and nothing else: no attachment, no internal alias, no extension catalog. So an identifier that resolves at all can only have resolved to one of the pool's own objects.
+
+**PREPARE proves resolution**. The sidecar prepares the statement before executing it; preparation fails if any identifier does not resolve, and succeeds only if every one does. A statement that prepares in a session containing only the pool's objects has bound only to the pool's objects.
+
+**This makes the bypass suite load-bearing for binding as well as isolation**. The containment claim is exactly what the suite proves, so the two rest on one proof rather than two. That is an argument for this route: a single property, tested directly, rather than a second mechanism to keep correct.
+
+**The prepared statement is what executes**. Execution uses the prepared handle, not a re-parse of the text, so nothing can differ between what was checked and what runs.
+
 
 
 ## C.4 Resource governance

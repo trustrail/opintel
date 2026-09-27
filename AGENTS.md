@@ -40,14 +40,13 @@ Most rules below exist to protect that sentence.
 
 ## Never do these
 
-1. **Never write code for these four items.** They are hand-written:
-
+1. **Never write code for these items.** They are hand-written, except where a row records a decision otherwise:
    | Item | What |
    |---|---|
    | 1.4 | Tenant isolation wrapper |
-   | S2 | DuckDB two-session construction |
+   | S2 | DuckDB two-session construction. **Delegated by decision**, conditional on the bypass suite (S2b) being written in its own session, from the specification, with the implementation not read, and before S2c to S2e exist. A session implementing S2a, S2c, S2d or S2e must not read, write or modify that suite |
    | S4 | Ephemerality proof |
-   | C.6 | The bypass suite |
+   | C.6 | The bypass suite. **Delegated as item S2b by decision**, on the condition in the S2 row: written in its own session, from the specification, before S2c to S2e exist, and never read or modified by a session implementing them |
 
    If asked to implement one, say so and stop. A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
 2. **Never modify `docs/opintel-master.css` without being told to.** It is the product's stylesheet, extracted from the console. Port markup to its existing classes.
