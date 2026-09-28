@@ -1,1 +1,1 @@
-{"extends":"../../tsconfig.json","include":["./*.ts","../sql-subset.test.ts"],"exclude":[]}
+{"extends":"../../tsconfig.json","include":["./*.ts","../sql-subset.test.ts","../bypass-gate.test.ts"],"exclude":[]}

@@ -82,7 +82,9 @@ class Inspector {
     this.visit(t.function.filter,'expression',ctes);this.visit(t.function.order_bys,'modifier',ctes);
     return;
    }
-   case 'PIVOT':{const t=this.read(s.unpivot,value,tag);if(t)this.visit(t.source,'table',ctes);return;}
+   // Dynamic projection is not admitted. UNPIVOT is serialized as a PIVOT
+   // reference by this engine; it receives an explicit tree refusal too.
+   case 'PIVOT':this.refuse(tag);return;
    default:this.refuse(tag);
   }
  }

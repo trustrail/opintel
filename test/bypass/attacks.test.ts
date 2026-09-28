@@ -153,7 +153,10 @@ describe('S2b specification attacks (intentionally red until their owning items 
  it('J-049 literal COPY FROM passwd',async()=>refused('J-049','COPY FROM passwd',await run("COPY public.copy_target FROM '/etc/passwd'"),'sql_not_permitted'));
  for(const sql of ['CALL duckdb_settings()','CALL duckdb_tables()','CALL pragma_version()'])it(`J-050 ${sql}`,async()=>refused('J-050',sql,await run(sql),'sql_not_permitted'));
  for(const sql of ['PIVOT records ON transaction_id USING sum(amount)','UNPIVOT records ON id,amount INTO NAME column_name VALUE value']){
-  it(`J-052 ${sql}`,async()=>{const result=await run(sql);noLeak('J-052',sql,result);expect(result.ok).toBe(true);});
+  it(`J-052 ${sql}`,async()=>{
+   const result=await run(sql);refused('J-052',sql,result,'sql_not_permitted');
+   expect(!result.ok&&result.category).toBe(sql.startsWith('PIVOT ')?'serialization_refused':'sql_not_permitted');
+  });
  }
  it('J-053 spelling suggestions do not reveal salary',async()=>{
   const control=await run('SELECT salry FROM t',{positive:true});expect(!control.ok&&control.message).toContain('salary');

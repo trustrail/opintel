@@ -9,6 +9,15 @@ test confirms the attack was genuinely attempted.
 Attacks marked **fail-open** are the ones where a wrong implementation
 returns data rather than an error. Those are the ones that matter.
 
+**Running the suite.** `npm run test:bypass` runs this suite in its standalone
+Vitest project; `npm test` excludes it. CI runs both. The reviewed open-case
+registry names each owning item and accepts only its exact existing assertion
+failure plus matching observed outcome. It prints those cases as an open work
+queue. A new successful attack, an unrelated failure in a known case, missing
+or skipped tests, or unhandled errors fail the build. An open case that starts
+passing also fails until its exemption is removed with the owning item's fix.
+Attack statements and assertions are unchanged by this reporting policy.
+
 ## A. Reaching outside the session
 
 | ID | Attack | Property | Expected |
@@ -130,7 +139,22 @@ only the immediate statement, or matches one spelling, passes them.
 | J-041 | `SELECT load_extension('httpfs')` | The function form of `LOAD` is blocked | `sql_not_permitted` |
 | J-042 | `CALL duckdb_settings()`, and `CALL` of anything else | `CALL` is subject to the same rules as `SELECT` | Refused |
 | J-043 | `RESET lock_configuration`, and `RESET` of every setting in C.2 | `RESET` is a second spelling of `SET` | Each refused |
-| J-044 | `PIVOT` and `UNPIVOT` over a permitted object | Dynamically generated columns cannot introduce an unentitled one | Only entitled columns appear |
+| J-044 | `PIVOT` and `UNPIVOT` over a permitted object | Dynamically generated columns cannot introduce an unentitled one | Refused with `sql_not_permitted`; no preparation or execution |
+
+**Canonical J-052 decision.** PIVOT and UNPIVOT are refused rather than
+executed with a filtered projection. The original attack SQL is unchanged;
+the stronger refusal expectation is explicitly approved. On v1.4.3, dynamic
+PIVOT cannot be serialized and uses `proofCategory: serialization_refused`.
+The UNPIVOT probe does serialize as a PIVOT table-reference node, so its
+explicit subset refusal uses `proofCategory: sql_not_permitted` with tree
+evidence. It must not be misreported as a serialization failure. Neither
+dynamic projection is admitted by the current subset.
+
+If a future DuckDB serializes dynamic PIVOT, revisit this test: the
+serialization refusal would disappear. Proving a filtered projection contains
+only entitled columns would then be necessary before admitting that form;
+serialization success itself must never authorize it. The exact category
+assertion deliberately makes such an engine change visible.
 
 **This group exists because C.3.1 rests on `PREPARE`.** If a prepared
 statement or a macro body escapes inspection, the binding argument has a

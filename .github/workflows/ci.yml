@@ -54,6 +54,9 @@ jobs:
       - run: npm ci
       - run: npm run dev:up
       - run: npm test
+      - name: Bypass regression gate and open-attack queue
+        if: ${{ !cancelled() }}
+        run: npm run test:bypass
       # Separate process: no functional test workers compete with E-016.
       - name: Isolated E-016 latency budget
         run: npm run test:performance

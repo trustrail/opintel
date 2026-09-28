@@ -21,6 +21,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   'CALL duckdb_settings()',"EXPORT DATABASE '/tmp/opintel-must-not-export'",'CREATE VIEW v AS SELECT * FROM orders',
   'CREATE MACRO m() AS (SELECT amount FROM orders LIMIT 1)','PREPARE p AS SELECT * FROM orders; EXECUTE p',
   'INSERT INTO orders VALUES(3,30)','UPDATE orders SET amount=0','DELETE FROM orders','DROP TABLE orders',
+  'UNPIVOT orders ON id,amount INTO NAME column_name VALUE value',
   "SELECT * FROM read_csv('/etc/passwd')","SELECT * FROM query('SELECT * FROM orders')","SELECT load_extension('httpfs')",
   "WITH q AS (SELECT * FROM read_parquet('/tmp/missing')) SELECT * FROM q",'SELECT 1; SELECT 2',
   "SELECT 1; /* hide */ aTtAcH 'missing.db' AS x","ＡＴＴＡＣＨ 'missing.db' AS x","PREPARE p AS 'ATTACH ''missing.db'' AS x'; EXECUTE p",

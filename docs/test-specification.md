@@ -317,7 +317,7 @@ Version 1.0 · September 2026
 | J-056 | S | query_table indirection to a protected object | Refused; positive control resolves and returns rows |
 | J-057 | S | query SQL-string indirection to a protected object | Refused; positive control resolves and returns rows |
 
-S2b canonical identifiers map to the provisional attack list in [the accepted mapping](review/s2b-mapping.md). The suite remains red for unmet security, refusal-envelope and transport prerequisites. It does not fix those gaps.
+S2b canonical identifiers map to the provisional attack list in [the accepted mapping](review/s2b-mapping.md). Run the separate project with `npm run test:bypass`. Its reviewed open-case registry reports unmet security, refusal-envelope and transport prerequisites as an owned work queue; new or changed failures fail CI. The underlying assertions remain in place. See [the runner policy](../test/bypass/README.md).
 
 ## S1-K · Query mode: end to end
 

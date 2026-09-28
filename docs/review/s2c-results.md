@@ -1,5 +1,11 @@
 # S2c subset inspection and binding results
 
+Historical implementation verification follows. Subsequently, the user approved
+J-052's stronger refusal expectation: dynamic PIVOT is serialization-refused
+and UNPIVOT is explicitly tree-refused. The separate `npm run test:bypass` gate
+now reports the remaining owned open checks without treating them as new CI
+regressions. See [the current runner policy](../../test/bypass/README.md).
+
 Engine: `v1.4.3/d1dc88f950`, through `@duckdb/node-api` 1.4.3-r.3. The original
 [S2b results](s2b-results.md) remain the uninspected baseline. Attack SQL was
 preserved. The approved control split and refusal proof categories are recorded

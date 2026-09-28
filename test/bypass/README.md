@@ -1,10 +1,35 @@
 # S2b black-box attack suite
 
-Run `npx vitest run test/bypass/attacks.test.ts`. Set `BYPASS_REPORT` to a file
-path to collect observations even when assertions fail. The default test
-configuration includes this suite. Nothing is skipped or marked as an expected
-failure. Its current red state must stay visible until the responsible items
-close the gaps.
+Run `npm run test:bypass`. The standalone `vitest.bypass.config.ts` project is
+excluded from `npm test`, just as the performance project is. CI runs both.
+No attack is skipped and no assertion is wrapped in `it.fails` or a catch that
+treats arbitrary failure as success. The underlying tests keep their assertions.
+
+The runner prints a work queue with each open test's owning item. It accepts only
+the reviewed entries in `open-attacks.json`: exact file/test identity, exact
+assertion error and matching attack observations. A new failure, newly
+succeeding attack, different leaked result, timeout, hook/unhandled error,
+missing required test, skip or pending test fails the gate. The required-test
+inventory prevents deletion from silently shrinking the suite.
+
+An unexpectedly passing registered test also fails the gate: remove its open
+entry in the same change that closes it. When an owning item lands, remove its
+exemptions; unresolved assertions then fail normally. The registry is reviewed
+source, never automatically updated from a failing run. J-055's documented
+tracker limitation remains a normal passing test, not an exemption.
+
+The only variable evidence normalized is J-020's allocator-specific OOM text,
+and only when it starts with the exact `Out of Memory Error:` family. The test
+still independently asserts actual OOM, inspected execution and zero spill.
+Every other registered observation is compared exactly. Gate regression tests
+live in the main functional project at `test/bypass-gate.test.ts`.
+
+For raw diagnostic output, run
+`npx vitest run --config vitest.bypass.config.ts`; that command intentionally
+reports the underlying failures and exits nonzero. `npm run test:bypass` always
+runs the complete inventory and does not accept filtering flags. Set
+`BYPASS_REPORT` to retain observations and `BYPASS_PROOF_REPORT` to retain parsed
+forms and driver evidence from the synthetic fixtures.
 
 The harness imports the published session and SQL inspection interfaces.
 It uses the documented `SessionEngine` injection point to seed real DuckDB

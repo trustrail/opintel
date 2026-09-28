@@ -351,7 +351,8 @@ inert classification probe. The approved parser/serialization proof categories
 and coverage limits are recorded in [interface verification](review/s2c-parser-interface.md).
 S2c implements this boundary in `sidecar/sql`; [verification results](review/s2c-results.md)
 distinguish closed subset attacks from S2d treatments, missing 5.7 transport,
-and the remaining PIVOT/resource-envelope assertions. J-021 remains C.4 resource
+and the resource-envelope assertion. J-052 now proves the explicitly approved
+PIVOT/UNPIVOT refusal behavior. J-021 remains C.4 resource
 governance in S2e, outside S2c. S2d must still enforce treatments against the
 sidecar's own tree and binding; S2e supplies staged objects and governance.
 
@@ -376,6 +377,15 @@ Thirty-six cases for ingest, to be added to the test specification.
 ## 6. Validation strategy
 
 ### 6.1 Four levels of proof
+
+**Bypass regression gate.** `test/bypass/` runs in its own Vitest project via
+`npm run test:bypass`, separate from `npm test`; CI runs both. The reviewed
+`test/bypass/open-attacks.json` registers current open cases by exact assertion,
+observation and owner (S2d, S2e and 5.7). Expected
+failures print as an owned work queue. New failures or succeeding attacks,
+missing/skipped tests, changed failure reasons, unhandled errors and stale
+entries that now pass fail the build. Owners remove exemptions when their
+items land. No blanket CI failure allowance or skipped attack is used.
 
 | Level | Proves | When |
 |---|---|---|

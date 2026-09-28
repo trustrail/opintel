@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts sidecar --max-warnings 0 && depcruise --config .dependency-cruiser.cjs src --output-type err",
     "test": "tsx scripts/test.ts",
+    "test:bypass": "tsx scripts/test-bypass.ts",
     "test:visual": "playwright test",
     "test:visual:docker": "node scripts/visual-docker.mjs",
     "test:visual:performance": "playwright test --config playwright.performance.config.ts",

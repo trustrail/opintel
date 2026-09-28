@@ -29,9 +29,10 @@ readers and dynamic query functions refuse. Pure series generators and
 engine-owned catalogue metadata functions have explicit entries. Qualified
 functions and user macros are not permitted. Window expressions, recursive
 CTEs, casts and other unimplemented shapes refuse rather than receive partial
-inspection. Dynamic PIVOT cannot be serialized by this engine and refuses;
-its positive-result bypass assertion remains red. The simple serialized
-UNPIVOT form is inspected, including its source.
+inspection. Dynamic PIVOT cannot be serialized by this engine and refuses.
+UNPIVOT serializes as a PIVOT table reference and is explicitly refused by the
+subset check. The approved J-052 assertions prove refusal, not filtered output;
+a future change in serialization coverage requires revisiting that proof.
 
 SQL refusals use `sql_not_permitted` with proof categories `parse_failed`,
 `serialization_refused`, or `sql_not_permitted`. An inspected statement whose

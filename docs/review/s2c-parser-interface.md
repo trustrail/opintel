@@ -66,8 +66,10 @@ A serializer error is never recorded as a tree.
 
 The subset check stays explicit after serialization. The named serialized
 families are convenient coverage, not permission. A future serialized ATTACH
-root is refused by a regression test. Dynamic PIVOT's positive-result assertion
-remains red rather than weakening it to accept the serialization refusal.
+root is refused by a regression test. A subsequent explicit J-052 decision
+changes its original positive-result assertion to the stronger refusal proof:
+dynamic PIVOT is `serialization_refused`; serializable UNPIVOT is explicitly
+tree-refused. See [the approved attack expectations](../bypass-attacks.md).
 
 The upstream [SQL/JSON interface documentation](https://duckdb.org/docs/stable/data/json/sql_to_and_from_json)
 and [C API reference](https://duckdb.org/docs/stable/clients/c/api) describe the

@@ -1,0 +1,574 @@
+{
+  "requiredTests": [
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-012 attaching database as other"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-012 attaching database as pg_warehouse"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-012 extension-backed Postgres attachment"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 read_csv reads an existing controlled sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 read_parquet reads an existing controlled sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 read_json reads an existing controlled sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 read_text reads an existing controlled sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 read_blob reads an existing controlled sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 glob reads an existing controlled sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-016 literal /etc/passwd route"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-027 bare-filename shorthand"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-015 COPY TO must neither complete nor create a file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-017 INSTALL httpfs"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-017 LOAD httpfs"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-017 INSTALL httpfs; LOAD httpfs"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-017 SELECT load_extension('httpfs')"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-028 enumerate loaded extensions and exercise their registered external-access functions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-014 SET enable_external_access"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-029 SET lock_configuration"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-030 SET temp_directory"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-032 SET memory_limit"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA temp_directory"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET temp_directory"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA max_temp_directory_size"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET max_temp_directory_size"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA enable_external_access"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET enable_external_access"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA autoinstall_known_extensions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET autoinstall_known_extensions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA autoload_known_extensions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET autoload_known_extensions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA allow_unsigned_extensions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET allow_unsigned_extensions"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA memory_limit"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET memory_limit"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA threads"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET threads"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 PRAGMA lock_configuration"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-051 RESET lock_configuration"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-031 bare PRAGMA enable_external_access"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-020 memory exhaustion with spill disabled"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-004 staging; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-004 internal alias; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-005 withheld via base; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-011 quoted case; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-009 CTE; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-009 subquery; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-009 UNION; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-009 join; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-018 view body; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-010 macro body; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-010 prepared reference; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-056 dynamic query_table; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-057 dynamic query; J-046 same SQL succeeds when authorized"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-004 plausible alias _warehouse with matching positive fixture"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-004 plausible alias internal_warehouse with matching positive fixture"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-004 plausible alias base_warehouse with matching positive fixture"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-004 plausible alias source_warehouse with matching positive fixture"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-006 SELECT * FROM duckdb_tables()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-006 SELECT * FROM duckdb_columns()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-006 SELECT * FROM duckdb_databases()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-006 SELECT database_name FROM duckdb_databases()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-008 SELECT * FROM duckdb_views()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-007 SELECT * FROM information_schema.tables"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-007 SELECT * FROM information_schema.columns"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-013 search_path into base catalogue"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-033 direct hidden column with valid allowed table"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-034 direct hidden column with valid allowed table"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-035 post-filter singleton"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-036 unaggregated amount"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-037 MIN token"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-038 ORDER token"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-038 ORDER unselected token"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-039 LIKE token"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-040 grouping cannot reconstruct an already-masked staged column"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-018 permitted view must still refuse CREATE"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-018 permitted macro must still refuse CREATE"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-041 multiple statements"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-042 comments and whitespace"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-043 aTtAcH"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-043 \uff21\uff34\uff34\uff21\uff23\uff28"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-044 BLOCKED: waits for item 5.7 authenticated SQL path to the real session"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-045 BLOCKED: waits for item 5.7 authenticated SQL path to the real session"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-047 broken-hardening mutation control"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-048 refusals must carry structured error codes"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-010 literal deferred ATTACH must not pass on a syntax error"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-049 COPY FROM existing sentinel file"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-049 literal COPY FROM passwd"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-050 CALL duckdb_settings()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-050 CALL duckdb_tables()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-050 CALL pragma_version()"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-052 PIVOT records ON transaction_id USING sum(amount)"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-052 UNPIVOT records ON id,amount INTO NAME column_name VALUE value"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-053 spelling suggestions do not reveal salary"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-054 runtime-error oracle must bind-fail on withheld column"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-055 expected tracker success: both queries meet k=5 yet their difference isolates one salary"
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-048 every observed refusal has a structured code; invalid probes are not protection"
+    }
+  ],
+  "open": [
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-035 post-filter singleton",
+      "owner": "S2d",
+      "reason": "Treatment enforcement is not implemented.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-035: attack returned rows or completed: expected true to be false // Object.is equality"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-035",
+          "variant": "post-filter singleton",
+          "status": "ATTACK_SUCCEEDED",
+          "detail": "{\"columns\":[\"sum(amount)\"],\"rows\":[[\"101\"]],\"queryEngineVersion\":\"v1.4.3/d1dc88f950\"}"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-036 unaggregated amount",
+      "owner": "S2d",
+      "reason": "Treatment enforcement is not implemented.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-036: attack returned rows or completed: expected true to be false // Object.is equality"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-036",
+          "variant": "unaggregated amount",
+          "status": "ATTACK_SUCCEEDED",
+          "detail": "{\"columns\":[\"amount\"],\"rows\":[[101],[102],[103],[104],[105],[106]],\"queryEngineVersion\":\"v1.4.3/d1dc88f950\"}"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-037 MIN token",
+      "owner": "S2d",
+      "reason": "Treatment enforcement is not implemented.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-037: attack returned rows or completed: expected true to be false // Object.is equality"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-037",
+          "variant": "MIN token",
+          "status": "ATTACK_SUCCEEDED",
+          "detail": "{\"columns\":[\"min(customer_id)\"],\"rows\":[[\"v1_c_AAAAAAAAAAAAAAAAAAAAAAAAAA\"]],\"queryEngineVersion\":\"v1.4.3/d1dc88f950\"}"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-038 ORDER token",
+      "owner": "S2d",
+      "reason": "Treatment enforcement is not implemented.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-038: attack returned rows or completed: expected true to be false // Object.is equality"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-038",
+          "variant": "ORDER token",
+          "status": "ATTACK_SUCCEEDED",
+          "detail": "{\"columns\":[\"id\",\"amount\",\"transaction_id\",\"customer_id\",\"card_number\",\"age\",\"zip\",\"random_col\"],\"rows\":[[1,101,\"x\",\"v1_c_AAAAAAAAAAAAAAAAAAAAAAAAAA\",\"************1234\",42,\"12345\",\"0.1000\"],[2,102,\"noise\",\"v1_c_BBBBBBBBBBBBBBBBBBBBBBBBBB\",\"************1234\",20,\"99999\",\"0.9999\"],[3,103,\"noise\",\"v1_c_BBBBBBBBBBBBBBBBBBBBBBBBBB\",\"************1234\",20,\"99999\",\"0.9999\"],[4,104,\"noise\",\"v1_c_BBBBBBBBBBBBBBBBBBBBBBBBBB\",\"************1234\",20,\"99999\",\"0.9999\"],[5,105,\"noise\",\"v1_c_BBBBBBBBBBBBBBBBBBBBBBBBBB\",\"************1234\",20,\"99999\",\"0.9999\"],[6,106,\"noise\",\"v1_c_BBBBBBBBBBBBBBBBBBBBBBBBBB\",\"************1234\",20,\"99999\",\"0.9999\"]],\"queryEngineVersion\":\"v1.4.3/d1dc88f950\"}"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-038 ORDER unselected token",
+      "owner": "S2d",
+      "reason": "Treatment enforcement is not implemented.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-038: attack returned rows or completed: expected true to be false // Object.is equality"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-038",
+          "variant": "ORDER unselected token",
+          "status": "ATTACK_SUCCEEDED",
+          "detail": "{\"columns\":[\"amount\"],\"rows\":[[101],[102],[103],[104],[105],[106]],\"queryEngineVersion\":\"v1.4.3/d1dc88f950\"}"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-039 LIKE token",
+      "owner": "S2d",
+      "reason": "Treatment enforcement is not implemented.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-039: attack returned rows or completed: expected true to be false // Object.is equality"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-039",
+          "variant": "LIKE token",
+          "status": "ATTACK_SUCCEEDED",
+          "detail": "{\"columns\":[\"id\",\"amount\",\"transaction_id\",\"customer_id\",\"card_number\",\"age\",\"zip\",\"random_col\"],\"rows\":[[1,101,\"x\",\"v1_c_AAAAAAAAAAAAAAAAAAAAAAAAAA\",\"************1234\",42,\"12345\",\"0.1000\"]],\"queryEngineVersion\":\"v1.4.3/d1dc88f950\"}"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-044 BLOCKED: waits for item 5.7 authenticated SQL path to the real session",
+      "owner": "5.7",
+      "reason": "Authenticated pool/key-to-query transport is absent.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-044: missing item 5.7 authenticated query transport; cannot exercise cross-pool / mid-session revoked or expired keys against SQL execution"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-044",
+          "variant": "prerequisite",
+          "status": "BLOCKED",
+          "detail": "Item 5.7 authenticated query transport with real pool/key/session binding is absent; replace this prerequisite with the actual attack when it lands"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-045 BLOCKED: waits for item 5.7 authenticated SQL path to the real session",
+      "owner": "5.7",
+      "reason": "Authenticated pool/key-to-query transport is absent.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "J-045: missing item 5.7 authenticated query transport; cannot exercise cross-pool / mid-session revoked or expired keys against SQL execution"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-045",
+          "variant": "prerequisite",
+          "status": "BLOCKED",
+          "detail": "Item 5.7 authenticated query transport with real pool/key/session binding is absent; replace this prerequisite with the actual attack when it lands"
+        }
+      ]
+    },
+    {
+      "file": "test/bypass/attacks.test.ts",
+      "name": "J-048 every observed refusal has a structured code; invalid probes are not protection",
+      "owner": "S2e",
+      "reason": "J-020 still exposes a raw OOM exception instead of the governed resource-error envelope.",
+      "errors": [
+        {
+          "name": "AssertionError",
+          "message": "Unstructured or unrelated refusals must not make the suite look complete: expected [ Array(1) ] to deeply equal []"
+        }
+      ],
+      "findings": [
+        {
+          "id": "J-020",
+          "variant": "memory pressure",
+          "status": "REFUSED_RAW",
+          "detail": "Out of Memory Error"
+        }
+      ]
+    }
+  ]
+}

@@ -71,6 +71,3 @@ export const tableFunction = z.object({...table,type:z.literal('TABLE_FUNCTION')
 export const subqueryExpression = z.object({...expression,class:z.literal('SUBQUERY'),type:z.literal('SUBQUERY'),
  subquery_type:z.enum(['SCALAR','EXISTS','NOT_EXISTS','ANY']),subquery:statement,child:z.unknown(),comparison_type:z.string()}).strict();
 export const caseExpression = z.object({...expression,class:z.literal('CASE'),type:z.literal('CASE_EXPR'),case_checks:z.array(z.object({when_expr:z.unknown(),then_expr:z.unknown()}).strict()),else_expr:z.unknown()}).strict();
-export const unpivot = z.object({...table,type:z.literal('PIVOT'),source:z.unknown(),aggregates:empty,unpivot_names:z.array(z.string()).min(1),
- pivots:z.array(z.object({pivot_expressions:empty,unpivot_names:z.array(z.string()),entries:z.array(z.object({values:z.array(constant.shape.value),star_expr:z.null(),alias:z.string()}).strict()),pivot_enum:z.literal('')}).strict()),
- groups:empty,column_name_alias:z.array(z.string()),include_nulls:z.boolean()}).strict();
