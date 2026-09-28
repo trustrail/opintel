@@ -5,15 +5,15 @@ project in a separate process, without database/service prerequisites: these
 tests use isolated DuckDB instances and synthetic files. CI invokes both gates;
 the bypass step has no `continue-on-error` allowance.
 
-Current result: **88 passing checks, nine registered open checks, zero
+Current result after S2d: **94 passing checks, three registered open checks, zero
 regressions**. The owned work queue is:
 
 | Checks | Owner | Open behavior |
 |---|---|---|
-| J-035, J-036, J-037, both J-038 variants, J-039 | S2d | Treatment attacks still return data |
 | J-044, J-045 | 5.7 | Authenticated query transport prerequisites |
 | J-048 final sweep, identifying J-020 | S2e | Raw OOM error needs the governed resource envelope |
 
+[S2d](s2d-results.md) closed J-035–J-039 and removed their six exemptions.
 J-055 remains a passing test of the documented tracker limitation.
 
 ## Distinguishing expected failures from regressions

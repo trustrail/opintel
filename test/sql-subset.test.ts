@@ -1,6 +1,8 @@
 import { describe,expect,it } from 'vitest';
 import { DuckDBSessionEngine, type SessionEngine, type InspectionEvent } from '../sidecar/session/index.js';
 import { InspectedSessionExecutor,inspectSubset,queryEngineBuild } from '../sidecar/sql/index.js';
+import { sqlPolicy } from './fixtures/sql-policy.js';
+const policy=sqlPolicy([{catalog:'memory',schema:'main',name:'orders',columns:[{name:'id'},{name:'amount'}]}]);
 const limits={memoryMb:32,threads:1};
 const namespace={catalog:'memory',schema:'main',objects:[{catalog:'memory',schema:'main',name:'orders'}]};
 function fixture(extra=''){
@@ -27,7 +29,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   "SELECT 1; /* hide */ aTtAcH 'missing.db' AS x","ＡＴＴＡＣＨ 'missing.db' AS x","PREPARE p AS 'ATTACH ''missing.db'' AS x'; EXECUTE p",
  ];
  for(const sql of prohibited)it(`no prohibited statement reaches prepare or execute: ${sql}`,async()=>{
-  const f=fixture(),result=await f.executor.execute(sql,limits,namespace);
+  const f=fixture(),result=await f.executor.execute(sql,limits,namespace,policy);
   expect(result.ok).toBe(false);
   if(!result.ok)expect(result.error.code).toBe('sql_not_permitted');
   expect(f.events[0]?.stage).toBe('parse_started');
@@ -39,7 +41,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   'VALUES (10),(20)','DESCRIBE memory.main.orders','SELECT amount FROM orders UNION ALL SELECT 30',
   'SELECT * FROM (SELECT amount FROM orders) q','SELECT amount FROM orders WHERE id IN (SELECT id FROM orders)',
   'SELECT CASE WHEN id=1 THEN amount ELSE 0 END FROM orders'])it(`permits, binds and executes retained handle: ${sql}`,async()=>{
-  const f=fixture(),result=await f.executor.execute(sql,limits,namespace);
+  const f=fixture(),result=await f.executor.execute(sql,limits,namespace,policy);
   expect(result.ok,result.ok?'':result.error.message).toBe(true);
   if(result.ok){expect(result.value.rows.length).toBeGreaterThan(0);expect(result.value.queryEngineVersion).toBe(queryEngineBuild);}
   expect(f.events.map(e=>e.stage)).toEqual(['parse_started','parse_succeeded','serialize_started','serialized','inspected','prepare_started','prepared','inspected','execute_started','executed','released']);
@@ -47,7 +49,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
  });
  it('two malformed spellings have engine error evidence and no invented tree',async()=>{
   for(const sql of ["ＡＴＴＡＣＨ 'x' AS y","PREPARE p AS 'ATTACH x'; EXECUTE p"]){
-   const f=fixture(),result=await f.executor.execute(sql,limits,namespace);
+   const f=fixture(),result=await f.executor.execute(sql,limits,namespace,policy);
    expect(result.ok).toBe(false);if(!result.ok)expect(result.error.details?.proofCategory).toBe('parse_failed');
    expect(f.events.map(e=>e.stage)).toEqual(['parse_started','parse_failed']);
    expect(f.events.at(-1)).toMatchObject({error:expect.any(String)});
@@ -73,7 +75,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   }finally{session.close();}
  });
  for(const sql of ['SELECT missing FROM orders','SELECT id FROM orders a JOIN orders b ON a.id=b.id'])it(`binding fails closed: ${sql}`,async()=>{
-  const f=fixture(),result=await f.executor.execute(sql,limits,namespace);
+  const f=fixture(),result=await f.executor.execute(sql,limits,namespace,policy);
   expect(!result.ok&&result.error.details?.stage).toBe('binding');
   expect(f.events.some(e=>e.stage==='inspected'&&e.permitted)).toBe(true);
   expect(f.events.some(e=>e.stage==='binding_failed')).toBe(true);
@@ -81,7 +83,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   expect(f.closed).toEqual(['agent','privileged']);
  });
  it('containment refuses unrelated user objects before binding',async()=>{
-  const f=fixture('CREATE TABLE private_data(secret VARCHAR)'),result=await f.executor.execute('SELECT * FROM orders',limits,namespace);
+  const f=fixture('CREATE TABLE private_data(secret VARCHAR)'),result=await f.executor.execute('SELECT * FROM orders',limits,namespace,policy);
   expect(!result.ok&&result.error.message).toContain('outside the pool namespace');
   expect(f.events.some(e=>e.stage==='prepare_started')).toBe(false);
  });
@@ -119,7 +121,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
     }};
    }}};
   }};
-  const result=await new InspectedSessionExecutor(engine).execute('SELECT 7',limits,{...namespace,objects:[]});
+  const result=await new InspectedSessionExecutor(engine).execute('SELECT 7',limits,{...namespace,objects:[]},sqlPolicy([]));
   expect(result.ok&&result.value.rows).toEqual([[7]]);
   expect(calls).toEqual(['parse','prepare','retained handle','release']);
  });
@@ -128,7 +130,7 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   const engine:SessionEngine={open:async role=>{
    const s=await driver.open(role);return {...s,inspection:{...s.inspection!,build:async()=> 'different/build'},close:()=>{closed.push(role);s.close();}};
   }};
-  const result=await new InspectedSessionExecutor(engine).execute('SELECT 1',limits,namespace);
+  const result=await new InspectedSessionExecutor(engine).execute('SELECT 1',limits,namespace,policy);
   expect(!result.ok&&result.error.message).toContain('build');expect(closed).toEqual(['agent','privileged']);
  });
 });

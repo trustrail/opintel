@@ -1,10 +1,13 @@
-# S2c inspected execution
+# S2c/S2d inspected execution
 
-`InspectedSessionExecutor.execute(sql, limits, namespace)` returns
+`InspectedSessionExecutor.execute(sql, limits, namespace, policy)` returns
 `Result<InspectedRows, DomainError>`; successful rows include
-`queryEngineVersion`. The namespace is trusted pool configuration with a
+`queryEngineVersion` and a treatment-evidence snapshot. The namespace is trusted pool configuration with a
 default catalogue/schema and exact owned three-part names. It is not supplied
-by the agent. This item adds no HTTP route, staging or treatment enforcement.
+by the agent. This module adds no HTTP route or staging. The required policy supplies the
+project threshold, a read plan of staged objects and exposed columns mapped to
+element IDs, and the entitlement decisions for those IDs. Missing policy is a
+refusal. Column inventory must agree with the read plan.
 
 After S2a's session construction and hardening, the executor:
 
@@ -27,7 +30,7 @@ SELECT, WITH, VALUES and DESCRIBE are supported named families. Expression
 functions have an explicit builtin allowlist; unknown functions, external
 readers and dynamic query functions refuse. Pure series generators and
 engine-owned catalogue metadata functions have explicit entries. Qualified
-functions and user macros are not permitted. Window expressions, recursive
+functions and user macros are not permitted. Unsupported window operations, recursive
 CTEs, casts and other unimplemented shapes refuse rather than receive partial
 inspection. Dynamic PIVOT cannot be serialized by this engine and refuses.
 UNPIVOT serializes as a PIVOT table reference and is explicitly refused by the
@@ -48,5 +51,17 @@ trees or a second parser. “No prepare/execute” refers to agent SQL; trusted
 hardening, version, serializer and catalogue queries still run internally.
 
 The raw `TwoSessionExecutor` remains for S2a and the approved J-046/J-047
-controls. It is not an authorization path. S2d adds treatments, S2e supplies
+controls. It is not an authorization path. S2d enforces treatments, S2e supplies
 staging and resource governance, and 5.7 supplies authenticated query transport.
+
+
+Treatment and cardinality checks run independently of the application. See
+[the S2d report](../../docs/review/s2d-results.md) for the supported estimate
+path, uncertain-estimate fallback, tree/count transformation, whole-result
+refusal and conservative handling of nested protected aggregations.
+
+`validate(sql, limits, namespace, policy)` performs the same structural,
+treatment and binding checks without executing agent SQL. Its evidence snapshot
+states whether Stage 2 remains necessary. It grants no reusable permission;
+`execute` repeats the checks and returns no rows before required counts pass.
+Neither method opens a source connection; staging remains S2e.

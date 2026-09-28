@@ -1005,7 +1005,10 @@ it is not the authoritative “allowed” result in B.6. The tests cover aliases
 ordinal ordering/grouping, joins, CTEs, FROM subqueries, stars, object DESCRIBE,
 VALUES, build mismatch, malformed/unknown syntax, and the token refusal envelope.
 
-VC-14, VC-23–VC-26 and VC-28's execution/evidence assertions remain S2 work.
+VC-14, VC-23–VC-26 and VC-28's sidecar execution/evidence-snapshot assertions
+are now covered by `test/sql-treatments.test.ts` in S2d, together with the
+authoritative VC-10–VC-13, VC-27 and VC-29/VC-30 checks. Persistence of that
+snapshot into the query run belongs to execution integration.
 The VC-23-shaped query intentionally passes this pre-filter: there are no
 statistics or post-filter counts in the application. A separate test checks that
 a changed threshold appears in an early refusal's reason; it does not close VC-28.

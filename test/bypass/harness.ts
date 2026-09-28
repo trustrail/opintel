@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { expect } from 'vitest';
 // Published interface only. No implementation imports or source inspection.
 import { DuckDBSessionEngine, TwoSessionExecutor, type SessionEngine, type SessionRows, type SessionStatement, type InspectionEvent } from '../../sidecar/session/index.js';
+import { sqlPolicy } from '../fixtures/sql-policy.js';
 import { InspectedSessionExecutor } from '../../sidecar/sql/index.js';
 export const literal=(value:string)=>`'${value.replaceAll("'","''")}'`;
 export const secret='WITHHELD_SENTINEL_9b21',unknownSecret='UNDECIDED_SENTINEL_8c31',rawCard='4111111111111234';
@@ -74,7 +75,10 @@ export async function run(sql:string,options:RunOptions={}):Promise<Outcome>{
   const limits={memoryMb:options.memoryMb??32,threads:1};
   if(raw)result={ok:true,value:await new TwoSessionExecutor(engine).execute(sql,limits)};
   else {
-   const inspected=await new InspectedSessionExecutor(engine,event=>events.push(event)).execute(sql,limits,{catalog:'warehouse',schema:'public',objects:['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name}))});
+   const policy=sqlPolicy(['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name,columns:
+    name==='copy_target'?[{name:'id'},{name:'payload'}]:name==='t'&&options.tracker?[{name:'id'},{name:'salary',treatment:'aggregate_only'},{name:'age'},{name:'zip'},{name:'random_col'}]:
+    [{name:'id'},{name:'amount',treatment:'aggregate_only'},{name:'transaction_id'},{name:'customer_id',treatment:'tokenized'},{name:'card_number',treatment:'masked'},{name:'age'},{name:'zip'},{name:'random_col'}]})));
+   const inspected=await new InspectedSessionExecutor(engine,event=>events.push(event)).execute(sql,limits,{catalog:'warehouse',schema:'public',objects:['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name}))},policy);
    result=inspected.ok?{ok:true,value:inspected.value}:{ok:false,message:inspected.error.message,code:inspected.error.code,category:String(inspected.error.details?.proofCategory??'')};
   }
  }
@@ -88,7 +92,13 @@ export async function run(sql:string,options:RunOptions={}):Promise<Outcome>{
  else {
   proofs.push({sql,events});
   expect(events.some(e=>e.stage==='parse_started'),'PREREQUISITE: no engine parse attempt').toBe(true);
-  if(!result.ok){
+  if(!result.ok&&result.category==='aggregate_stage2'){
+   expect(events.some(e=>e.stage==='prepared')).toBe(true);
+   expect(events.some(e=>e.stage==='executed')).toBe(true);
+   expect(events.some(e=>e.stage==='cardinality'&&e.phase===2&&e.counted&&!e.passed)).toBe(true);
+   expect(events.some(e=>e.stage==='released')).toBe(true);
+   expect(result).not.toHaveProperty('value');
+  }else if(!result.ok){
    if(result.category==='parse_failed')expect(events.some(e=>e.stage==='parse_failed'&&e.error.length>0)).toBe(true);
    else {
     expect(events.some(e=>e.stage==='parse_succeeded')).toBe(true);

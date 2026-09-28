@@ -34,8 +34,12 @@ describe('4.5 application pre-filter — real DuckDB syntax, no execution permis
     ['window', `SELECT SUM(amount) OVER () FROM ${table}`],
   ])('%s refuses aggregate-only disclosure early', async (_id, sql) => {
     const result = await inspect(sql);
-    expect(result).toMatchObject({ ok: false, error: { code: 'entitlement_missing', details: { aggregateMinGroupSize: 7, stage: 'application_pre_filter' } } });
-    if (!result.ok) expect(result.error.message).toContain('amount');
+    expect(result).toMatchObject({ ok: false, error: { code: 'unsupported_on_aggregate_only', details: { aggregateMinGroupSize: 7, stage: 'application_pre_filter' } } });
+    if (!result.ok) {
+      expect(result.error.message).toContain('amount');
+      expect(result.error.message).toContain('Use an aggregate over a sufficiently large group');
+      expect(errorCodeSchema.safeParse(result.error.code).success).toBe(true);
+    }
   });
 
   it.each([

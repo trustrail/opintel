@@ -26,6 +26,35 @@ export class DuckDBSessionEngine implements SessionEngine {
       const rows = versionSchema.parse((await connection.runAndReadAll('SELECT library_version, source_id FROM pragma_version()')).getRowObjects());
       return `${rows[0]!.library_version}/${rows[0]!.source_id}`;
      },
+     columns: async () => z.array(z.object({catalog:z.string(),schema:z.string(),name:z.string(),column:z.string()})).parse((await connection.runAndReadAll(
+      'SELECT database_name AS catalog, schema_name AS schema, table_name AS name, column_name AS column FROM duckdb_columns() WHERE NOT internal'
+     )).getRowObjects()),
+     render: async tree => z.array(z.object({sql:z.string()})).length(1).parse((await connection.runAndReadAll(
+      'SELECT json_deserialize_sql($1::JSON) AS sql',[JSON.stringify(tree)]
+     )).getRowObjects())[0]!.sql,
+     estimate: async sql => {
+      // EXPLAIN never executes the permitted SELECT. No group averages are used.
+      let explained;
+      try{explained=await connection.runAndReadAll('EXPLAIN (FORMAT JSON) '+sql);}
+      catch(error){if(error instanceof Error&&(error.message.startsWith('Binder Error:')||error.message.startsWith('Catalog Error:')))return null;throw error;}
+      const rows=z.array(z.tuple([z.string(),z.string()])).parse(explained.getRowsJson());
+      const plan:unknown=JSON.parse(rows.find(r=>r[0]==='physical_plan')?.[1]??'null');
+      const node=z.object({name:z.string(),children:z.array(z.unknown()),extra_info:z.record(z.string(),z.unknown())});
+      let current:unknown=Array.isArray(plan)&&plan.length===1?plan[0]:null;
+      let found=false;
+      for(let depth=0;depth<100;depth++){
+       const parsed=node.safeParse(current);if(!parsed.success)return null;
+       const n=parsed.data,name=n.name.trim();
+       if(name==='UNGROUPED_AGGREGATE')found=true;
+       else if(found&&typeof n.extra_info['Estimated Cardinality']==='string'){
+        const value=Number(n.extra_info['Estimated Cardinality']);
+        return Number.isSafeInteger(value)&&value>=0?value:null;
+       }else if(name!=='PROJECTION')return null;
+       if(n.children.length!==1)return null;
+       current=n.children[0];
+      }
+      return null;
+     },
      objects: async () => objectsSchema.parse((await connection.runAndReadAll(`
       SELECT database_name AS catalog, schema_name AS schema, table_name AS name FROM duckdb_tables() WHERE NOT internal
       UNION ALL SELECT database_name, schema_name, view_name FROM duckdb_views() WHERE NOT internal

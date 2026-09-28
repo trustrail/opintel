@@ -408,7 +408,7 @@ type ErrorCode =
   | 'unauthenticated' | 'forbidden' | 'not_found' | 'validation_failed'
   | 'conflict' | 'idempotency_key_reused' | 'rate_limited' | 'dependency_unavailable'
   // agent facing
-  | 'entitlement_missing' | 'element_withheld' | 'object_unavailable'
+  | 'entitlement_missing' | 'element_withheld' | 'object_unavailable' | 'unsupported_on_aggregate_only'
   | 'term_unresolved' | 'clarification_required' | 'domain_knowledge_gap'
   | 'sources_cannot_be_joined' | 'large_result_confirmation' | 'budget_exceeded'
   | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown'
@@ -3986,7 +3986,8 @@ Stable, machine-readable, and part of the public contract. Renaming one is a bre
 
 | Code | Agent should |
 |---|---|
-| `entitlement_missing` | Report the gap upward. Do not retry |
+| `entitlement_missing` | No entitlement row exists. Report the gap upward. Do not retry |
+| `unsupported_on_aggregate_only` | Use a permitted aggregate over a sufficiently large group, or ask an administrator to review the treatment or threshold |
 | `element_withheld` | Report. Do not retry |
 | `term_unresolved` | Name the term. Rephrase or escalate |
 | `clarification_required` | Answer through `respond_clarification` |

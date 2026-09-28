@@ -110,8 +110,8 @@ describe('S2b specification attacks (intentionally red until their owning items 
   });
  }
  for(const [id,label,sql,code] of [
-  ['J-035','post-filter singleton',"SELECT SUM(amount) FROM t WHERE transaction_id = 'x'",'sql_not_permitted'],
-  ['J-036','unaggregated amount','SELECT amount FROM t','sql_not_permitted'],
+  ['J-035','post-filter singleton',"SELECT SUM(amount) FROM t WHERE transaction_id = 'x'",'unsupported_on_aggregate_only'],
+  ['J-036','unaggregated amount','SELECT amount FROM t','unsupported_on_aggregate_only'],
   ['J-037','MIN token','SELECT MIN(customer_id) FROM t','unsupported_on_token'],
   ['J-038','ORDER token','SELECT * FROM t ORDER BY customer_id','unsupported_on_token'],
   ['J-038','ORDER unselected token','SELECT amount FROM t ORDER BY customer_id','unsupported_on_token'],

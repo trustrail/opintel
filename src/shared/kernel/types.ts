@@ -5,7 +5,7 @@ export type JsonObject = { [key: string]: JsonValue };
 export type ErrorCode =
   | 'unauthenticated' | 'forbidden' | 'not_found' | 'validation_failed'
   | 'conflict' | 'idempotency_key_reused' | 'rate_limited' | 'dependency_unavailable'
-  | 'entitlement_missing' | 'element_withheld' | 'object_unavailable' | 'unsupported_on_token'
+  | 'entitlement_missing' | 'element_withheld' | 'object_unavailable' | 'unsupported_on_token' | 'unsupported_on_aggregate_only'
   | 'term_unresolved' | 'clarification_required' | 'domain_knowledge_gap'
   | 'sources_cannot_be_joined' | 'large_result_confirmation' | 'budget_exceeded'
   | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown';

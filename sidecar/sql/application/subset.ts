@@ -90,6 +90,11 @@ class Inspector {
  }
  expression(value:unknown,tag:string,ctes:ReadonlySet<string>):void {
   switch(tag){
+   case 'WINDOW':{
+    const e=this.read(s.window,value,tag);if(!e)return;
+    if(e.schema||e.catalog||!functions.has(fold(e.function_name))){this.refuse(tag);return;}
+    for(const child of [...e.children,...e.partitions,...e.orders.map(o=>o.expression),...e.arg_orders.map(o=>o.expression),e.start_expr,e.end_expr,e.offset_expr,e.default_expr,e.filter_expr])this.visit(child,'expression',ctes);return;
+   }
    case 'COLUMN_REF':this.read(s.column,value,tag);return;
    case 'CONSTANT':this.read(s.constant,value,tag);return;
    case 'STAR':this.read(s.star,value,tag);return;

@@ -516,6 +516,8 @@ STAGE 1, before execution, deterministic
   and join selectivity
   if the estimate for any group is below aggregateMinGroupSize:
       refuse
+  if no supported per-group estimate is available:
+      mark the execution for stage 2
   if the estimate is within a factor of 2 of the threshold:
       mark the execution for stage 2
 
@@ -525,13 +527,27 @@ STAGE 2, during execution, only when marked
       refuse the whole result. Do not return the compliant groups
 ```
 
-**Stage 2 exists because estimates are estimates.** A statistics-based prediction of 40 rows can be 1 in reality, and the product cannot rely on a planner's guess for a disclosure control. It runs only when the estimate is close to the line, so the common case costs nothing.
+**Nested aggregation over an aggregate-only element is refused
+unconditionally.** Stage 2 instruments the outer projection only, so it
+cannot preserve and verify the inner groups' counts through nesting. The
+refusal is conservative rather than a verdict about that query's groups:
+the check cannot see inside the nesting, so it cannot say the groups are
+large enough. The refusal message must say so, since an administrator
+reading "below the threshold" would conclude the data is too sparse when
+the truth is that the check declined to look.
+
+**SELECT DISTINCT over a protected aggregation is refused for the same
+reason.** COUNT(DISTINCT e) on a tokenized element is permitted and
+unaffected: the distinct argument to an aggregate is not a distinct
+projection.
+
+**Stage 2 exists because estimates are estimates.** A statistics-based prediction of 40 rows can be 1 in reality, and the product cannot rely on a planner's guess for a disclosure control. It runs when the estimate is close to the line or uncertain. Missing statistics, skew that the statistics cannot describe, and unmodelled joins require stage 2. Estimated input rows divided by estimated group count is only an average and cannot justify the no-count fast path. Only a supported per-group estimate above twice the threshold skips stage 2.
 
 **Refusing the whole result rather than the small groups is deliberate.** Returning the compliant groups and silently dropping the rest leaks by omission: an analyst who knows the city list can see which ones vanished, and that is itself the disclosure.
 
 **Predicates on aggregate-only columns are refused outright**, per the list above, which closes the other route to the same attack: filtering on the protected value and reading the group that survives.
 
-Refusal code: `entitlement_missing`, naming the element, the threshold and which stage refused, so an administrator can decide whether the threshold is wrong or the question was.
+Refusal code: `unsupported_on_aggregate_only`, naming the element, the threshold and which stage refused, so an administrator can decide whether the threshold is wrong or the question was.
 
 **`aggregateMinGroupSize` defaults to 5 and is a project setting.** It is a disclosure-risk judgement, not a technical constant, and it belongs with the customer.
 

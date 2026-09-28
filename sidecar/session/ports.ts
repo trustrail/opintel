@@ -17,6 +17,11 @@ export interface PreparedHandle {
 }
 export interface SessionInspection {
  build(): Promise<string>;
+ columns(): Promise<{catalog:string;schema:string;name:string;column:string}[]>;
+ /** Trusted tree rendering only; the returned text must be parsed and inspected again. */
+ render(tree:unknown): Promise<string>;
+ /** Only requested for a permitted, single unfiltered input group. Null means uncertain. */
+ estimate(sql:string): Promise<number|null>;
  parse(sql: string): Promise<ParseOutcome>;
  objects(): Promise<{ catalog: string; schema: string; name: string }[]>;
  hasExternalState(allowedCatalogs: readonly string[]): Promise<boolean>;
@@ -25,6 +30,7 @@ export type InspectionEvent =
  | { stage: 'parse_started' | 'parse_succeeded' | 'serialize_started' | 'prepare_started' | 'prepared' | 'execute_started' | 'executed' | 'released' }
  | { stage: 'parse_failed' | 'serialization_refused' | 'binding_failed'; error: string }
  | { stage: 'serialized'; tree: unknown }
+ | { stage: 'cardinality'; phase:1|2; threshold:number; estimate:number|null; passed:boolean; counted:boolean }
  | { stage: 'inspected'; permitted: boolean; construct?: string; tree: unknown };
 /** Opt-in test evidence, NOT telemetry: trees can contain SQL literals. */
 export type InspectionObserver = (event: InspectionEvent) => void;

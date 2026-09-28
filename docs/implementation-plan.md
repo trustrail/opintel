@@ -353,8 +353,15 @@ S2c implements this boundary in `sidecar/sql`; [verification results](review/s2c
 distinguish closed subset attacks from S2d treatments, missing 5.7 transport,
 and the resource-envelope assertion. J-052 now proves the explicitly approved
 PIVOT/UNPIVOT refusal behavior. J-021 remains C.4 resource
-governance in S2e, outside S2c. S2d must still enforce treatments against the
+governance in S2e, outside S2c. S2d now enforces treatments against the
 sidecar's own tree and binding; S2e supplies staged objects and governance.
+
+**S2d implementation.** Authoritative treatment inspection, request-policy and
+session-column agreement, both cardinality stages, and whole-result refusal are
+implemented in `sidecar/sql`. Uncertain per-group estimates require Stage 2.
+[S2d results](review/s2d-results.md) records supported shapes, conservative
+refusals, VC coverage and closure of J-035–J-039. Their bypass exemptions are
+removed; only 5.7 transport and the S2e resource envelope remain open.
 
 ---
 
@@ -381,7 +388,7 @@ Thirty-six cases for ingest, to be added to the test specification.
 **Bypass regression gate.** `test/bypass/` runs in its own Vitest project via
 `npm run test:bypass`, separate from `npm test`; CI runs both. The reviewed
 `test/bypass/open-attacks.json` registers current open cases by exact assertion,
-observation and owner (S2d, S2e and 5.7). Expected
+observation and owner (currently S2e and 5.7). Expected
 failures print as an owned work queue. New failures or succeeding attacks,
 missing/skipped tests, changed failure reasons, unhandled errors and stale
 entries that now pass fail the build. Owners remove exemptions when their

@@ -1,30 +1,31 @@
 import { z } from 'zod';
-import { DomainError, err, ok, type ElementId, type Result } from '../../../shared/kernel/index.js';
-import type { ViewDefinition } from './compile.js';
-import type { QueryParserPort } from './query-parser-port.js';
-import * as syntax from './query-syntax.js';
+import { DomainError, err, ok, type ElementId, type Result } from '../../../src/shared/kernel/index.js';
+import * as syntax from './syntax.js';
+import { foldIdentifier, type PoolNamespace } from './subset.js';
+import { type TreatmentPolicy, type PolicyTable } from './treatment-policy.js';
 
 type Reference = { elementId: ElementId; name: string; treatment: 'tokenized' | 'aggregate_only'; threshold: number };
 type Field = { name: string; references: Reference[] };
-type Relation = { qualifiers: string[][]; fields: Field[] };
+type Relation = { qualifiers: string[][]; fields: Field[]; opaque?: boolean };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
 type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean };
-const fold = (name: string) => name.toLowerCase();
+const fold = foldIdentifier;
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => fold(v) === fold(b[i]!));
 
-/** Syntax-level lookup is deliberately not DuckDB binding. S2 must inspect again. */
+/** Sidecar-owned lineage analysis; PREPARE in the same contained session proves resolution. */
 class Inspection {
+  aggregates: {node: unknown; reference: Reference}[] = [];
+  private currentNode: unknown;
   failure: DomainError | undefined;
   private depth = 0;
   private visits = 0;
-  constructor(private readonly views: readonly ViewDefinition[]) {}
+  constructor(private readonly views: readonly PolicyTable[], private readonly namespace: PoolNamespace, private readonly policy: TreatmentPolicy) {}
 
   refuse(construct: string): void {
-    this.failure ??= new DomainError('sql_not_permitted', `The application pre-filter cannot interpret ${construct}. Rewrite the query; sidecar inspection is still required.`, { construct, stage: 'application_pre_filter' });
+    this.failure ??= new DomainError('sql_not_permitted', `The sidecar cannot interpret construct ${construct}; a column was not found or the construct is unavailable or ambiguous. Rewrite the query using a supported construct.`, { construct, proofCategory: 'sql_not_permitted', stage: 'treatment' });
   }
 
   read<T>(schema: z.ZodType<T>, value: unknown, construct: string): T | undefined {
-    if (this.failure) return undefined;
     const parsed = schema.safeParse(value);
     if (!parsed.success) {
       const path = parsed.error.issues[0]?.path.join('.') || construct;
@@ -35,7 +36,6 @@ class Inspection {
   }
 
   private enter(): boolean {
-    if (this.failure) return false;
     if (++this.visits > 10000 || this.depth >= 100) { this.refuse('query complexity'); return false; }
     this.depth++;
     return true;
@@ -44,12 +44,12 @@ class Inspection {
   private check(references: Reference[], context: Context, operation?: string): void {
     for (const ref of references) {
       if (ref.treatment === 'aggregate_only' && !context.directAggregate) {
-        this.failure ??= new DomainError('unsupported_on_aggregate_only', `Element ${ref.name} is aggregate-only and cannot appear in ${context.clause}${operation ? ` (${operation})` : ''}. Minimum group size is ${ref.threshold}; refused by the application pre-filter. Use an aggregate over a sufficiently large group instead.`, {
-          elementId: ref.elementId, operation: operation ?? context.clause, aggregateMinGroupSize: ref.threshold, stage: 'application_pre_filter',
+        this.failure ??= new DomainError('unsupported_on_aggregate_only', `Element ${ref.name} is aggregate-only and cannot appear in ${context.clause}${operation ? ` (${operation})` : ''}. Minimum group size is ${ref.threshold}; refused at stage 1. Use an aggregate over a sufficiently large group instead.`, {
+          elementId: ref.elementId, operation: operation ?? context.clause, aggregateMinGroupSize: ref.threshold, stage: 1, construct: ref.name, proofCategory: 'sql_not_permitted',
         });
       } else if (ref.treatment === 'tokenized' && (operation !== undefined || context.clause === 'ORDER BY')) {
         const op = operation ?? 'ORDER BY';
-        this.failure ??= new DomainError('unsupported_on_token', `Element ${ref.name} cannot be used with ${op}: tokens preserve equality only.`, { elementId: ref.elementId, operation: op, stage: 'application_pre_filter' });
+        if(this.failure?.code!=='sql_not_permitted')this.failure = new DomainError('unsupported_on_token', `Element ${ref.name} cannot be used with ${op}: tokens preserve equality only. Use equality, grouping or COUNT instead.`, { elementId: ref.elementId, operation: op, stage: 1, construct: ref.name, proofCategory: 'sql_not_permitted' });
       }
     }
   }
@@ -63,11 +63,12 @@ class Inspection {
     // Ambiguous input/output aliases are refused rather than guessing DuckDB's precedence.
     if (aliases.length && candidates.length) {
       if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references) !== JSON.stringify(candidates[0]!.references)) {
-        this.refuse(`ambiguous identifier ${names.join('.')}`); return [];
+        this.refuse(names.at(-1)!); return [];
       }
     }
     const matches = candidates.length ? candidates : aliases;
-    if (matches.length !== 1) { this.refuse(`unresolved or ambiguous identifier ${names.join('.')}`); return []; }
+    if(matches.length===0&&context.relations.length===1&&context.relations[0]!.opaque)return [];
+    if (matches.length !== 1) { this.refuse(names.at(-1)!); return []; }
     return matches[0]!.references;
   }
 
@@ -82,6 +83,7 @@ class Inspection {
           if (!e) return [];
           const refs = this.lookup(e.column_names, context);
           this.check(refs, context);
+          if (context.directAggregate) for (const reference of refs) if(reference.treatment==='aggregate_only') this.aggregates.push({node:this.currentNode,reference});
           return refs;
         }
         case 'CONSTANT': this.read(syntax.constant, value, 'constant'); return [];
@@ -91,9 +93,9 @@ class Inspection {
           const name = fold(e.function_name);
           const aggregate = ['sum', 'avg', 'min', 'max', 'count', 'count_star'].includes(name) && !e.is_operator;
           const operation = ['+', '-', '*', '/', '//', '%', '**', '^', '~~', '!~~', '~~*', '!~~*'].includes(name) && e.is_operator;
-          if (!aggregate && !operation) { this.refuse(`function ${name}`); return []; }
+
           if (e.order_bys.orders.length) { this.refuse('aggregate ORDER BY'); return []; }
-          // Aggregate FILTER changes per-aggregate cardinality, which this pre-filter cannot estimate.
+          // Aggregate FILTER changes per-aggregate cardinality, which this inspector cannot estimate.
           if (e.filter !== null) {
             this.expression(e.filter, { ...context, clause: 'WHERE', directAggregate: false });
             this.refuse('aggregate FILTER'); return [];
@@ -113,7 +115,8 @@ class Inspection {
           const e = this.read(syntax.comparison, value, 'comparison');
           if (!e) return [];
           const refs = [e.left, e.right].flatMap(child => this.expression(child, { ...context, directAggregate: false }));
-          if (!['COMPARE_EQUAL', 'COMPARE_NOTEQUAL'].includes(e.type)) this.check(refs, context, e.type);
+          const operation={COMPARE_EQUAL:'=',COMPARE_NOTEQUAL:'<>',COMPARE_LESSTHAN:'<',COMPARE_GREATERTHAN:'>',COMPARE_LESSTHANOREQUALTO:'<=',COMPARE_GREATERTHANOREQUALTO:'>='}[e.type];
+          if (!['COMPARE_EQUAL', 'COMPARE_NOTEQUAL'].includes(e.type)) this.check(refs, context, operation);
           // Equality and predicates produce booleans, not tokens. ORDER BY on a token
           // is still refused while visiting the operand in its original clause.
           return [];
@@ -130,6 +133,8 @@ class Inspection {
           e.children.forEach(child => this.expression(child, { ...context, directAggregate: false }));
           return [];
         }
+        case 'CASE': {const e=this.read(syntax.caseExpression,value,'CASE');if(!e)return [];return [...e.case_checks.flatMap(c=>[c.when_expr,c.then_expr]),e.else_expr].flatMap(c=>this.expression(c,{...context,directAggregate:false}));}
+        case 'SUBQUERY': {const e=this.read(syntax.subqueryExpression,value,'SUBQUERY');if(!e)return [];if(e.child!==null)this.expression(e.child,{...context,directAggregate:false});return this.query(e.subquery.node).flatMap(f=>f.references);}
         case 'WINDOW': {
           const e = this.read(syntax.window, value, 'WINDOW');
           if (!e) return [];
@@ -152,35 +157,28 @@ class Inspection {
       const raw = this.read(syntax.record, value, 'table reference');
       if (!raw) return [];
       switch (raw.type) {
+        case 'TABLE_FUNCTION': { const t=this.read(syntax.tableFunction,value,'TABLE_FUNCTION');if(!t)return [];return [{qualifiers:[[t.alias||t.function.function_name]],fields:[],opaque:true}]; }
         case 'EMPTY': this.read(syntax.emptyTable, value, 'empty FROM'); return [];
         case 'BASE_TABLE': {
           const t = this.read(syntax.baseTable, value, 'table reference');
           if (!t) return [];
           const cte = !t.catalog_name && !t.schema_name ? ctes.get(fold(t.table_name)) : undefined;
           if (cte) return [{ qualifiers: [[t.alias || t.table_name]], fields: cte }];
-          const matches = this.views.filter(v => same([v.catalog, v.schema, v.name], [t.catalog_name, t.schema_name, t.table_name]));
-          if (!t.catalog_name || !t.schema_name || matches.length !== 1) {
-            this.refuse(`table ${[t.catalog_name, t.schema_name, t.table_name].filter(Boolean).join('.')}`); return [];
-          }
-          const view = matches[0]!;
-          const fields: Field[] = [];
-          for (const col of view.columns) {
-            if (col.state !== 'emitted' || col.exposedName === null) continue;
-            const refs: Reference[] = [];
-            if (col.treatment === 'aggregate_only' || col.treatment === 'tokenized') {
-              const constraint = view.constraints.find(c => c.elementId === col.elementId);
-              if (col.treatment === 'aggregate_only' && (!constraint || !Number.isSafeInteger(constraint.minGroupSize) || constraint.minGroupSize < 1)) this.refuse(`aggregate constraint for ${col.exposedName}`);
-              refs.push({ elementId: col.elementId, name: col.exposedName, treatment: col.treatment, threshold: constraint?.minGroupSize ?? 0 });
-            } else if (col.treatment !== 'clear' && col.treatment !== 'masked') this.refuse(`treatment for ${col.exposedName}`);
-            fields.push({ name: col.exposedName, references: refs });
-          }
-          return [{ qualifiers: t.alias ? [[t.alias]] : [[t.table_name], [t.schema_name, t.table_name], [t.catalog_name, t.schema_name, t.table_name]], fields }];
+          const catalog=t.catalog_name||this.namespace.catalog, schema=t.schema_name||this.namespace.schema;
+          const matches=this.views.filter(v=>same([v.catalog,v.schema,v.name],[catalog,schema,t.table_name]));
+          if(matches.length!==1){this.refuse(t.table_name);return [];}
+          const view=matches[0]!;
+          const fields:Field[]=view.columns.map(col=>({name:col.name,references:
+            col.treatment==='aggregate_only'||col.treatment==='tokenized'
+              ? [{elementId:col.elementId,name:col.name,treatment:col.treatment,threshold:this.policy.aggregateMinGroupSize}] : []}));
+          return [{ qualifiers: t.alias ? [[t.alias]] : [[t.table_name], [schema, t.table_name], [catalog, schema, t.table_name]], fields }];
         }
         case 'JOIN': {
           const t = this.read(syntax.join, value, 'JOIN');
           if (!t) return [];
           if (t.alias) { this.refuse('aliased JOIN'); return []; }
           const relations = [...this.relation(t.left, ctes), ...this.relation(t.right, ctes)];
+          if(relations.some(r=>r.opaque))this.refuse('JOIN');
           if (t.condition !== null) this.expression(t.condition, { relations, clause: 'JOIN' });
           return relations;
         }
@@ -208,8 +206,11 @@ class Inspection {
 
   query(value: unknown, inherited: ReadonlyMap<string, Field[]> = new Map()): Field[] {
     if (!this.enter()) return [];
+    const parentNode=this.currentNode;this.currentNode=value;
     try {
-      const q = this.read(syntax.select, value, 'SELECT/CTE/VALUES/DESCRIBE');
+      const set=syntax.setOperation.safeParse(value);
+      if(set.success){if(set.data.cte_map.map.length||set.data.modifiers.length){this.refuse('SET_OPERATION_NODE');return [];}const left=this.query(set.data.left,inherited),right=this.query(set.data.right,inherited);if(left.length!==right.length)this.refuse('SET_OPERATION_NODE');return left.map((f,n)=>({...f,references:[...f.references,...(right[n]?.references??[])]}));}
+      const q = this.read(syntax.select, value, 'SELECT_NODE');
       if (!q) return [];
       const ctes = new Map(inherited);
       const declared = new Set<string>();
@@ -237,7 +238,7 @@ class Inspection {
         this.relation(table, ctes);
         return [];
       }
-      const relations = this.relation(q.from_table, ctes);
+      const relations = this.relation(q.from_table, ctes);this.currentNode=value;
       const output: Field[] = [];
       for (const expr of q.select_list) {
         const raw = this.read(syntax.record, expr, 'projection');
@@ -269,7 +270,7 @@ class Inspection {
         else this.refuse(`query modifier ${String(m?.type)}`);
       }
       return output;
-    } finally { this.depth--; }
+    } finally { this.currentNode=parentNode;this.depth--; }
   }
 
   private clauseExpression(value: unknown, context: Context, output: Field[]): void {
@@ -283,22 +284,18 @@ class Inspection {
   }
 }
 
-export type QueryPreFilterInput = Readonly<{ sql: string; queryEngineBuild: string; views: readonly ViewDefinition[] }>;
-export type QueryPreFilterOutcome = Readonly<{ kind: 'requires_sidecar_inspection' }>;
-
-/** Passing this filter is never permission. No SQL is rewritten or executed. */
-export class QueryPreFilter {
-  constructor(private readonly parser: QueryParserPort) {}
-
-  async inspect(input: QueryPreFilterInput): Promise<Result<QueryPreFilterOutcome>> {
-    const boundary = z.object({ sql: z.string().min(1), queryEngineBuild: z.string().min(1) }).safeParse(input);
-    if (!boundary.success) return err(new DomainError('sql_not_permitted', 'A SQL statement and the sidecar engine build are required.'));
-    const parsed = await this.parser.parse(input.sql);
-    if (!parsed.ok) return parsed;
-    if (parsed.value.parserBuild !== input.queryEngineBuild) return err(new DomainError('sql_not_permitted', 'The application parser and sidecar engine builds differ. Align their builds before retrying.', { construct: 'parser_engine_build', stage: 'application_pre_filter' }));
-    const inspection = new Inspection(input.views);
-    const document = inspection.read(syntax.document, parsed.value.tree, 'DuckDB statement');
-    if (document) inspection.query(document.statements[0]!.node);
-    return inspection.failure ? err(inspection.failure) : ok({ kind: 'requires_sidecar_inspection' });
-  }
+export type TreatmentInspection={aggregate?: {elementId:ElementId;name:string;threshold:number}};
+export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:TreatmentPolicy, tables:PolicyTable[]):Result<TreatmentInspection>{
+ if(!tables.some(t=>t.columns.some(c=>c.treatment==='aggregate_only'||c.treatment==='tokenized')))return ok({});
+ const i=new Inspection(tables,namespace,policy),doc=syntax.document.safeParse(tree);
+ if(!doc.success)return err(new DomainError('sql_not_permitted','The sidecar cannot interpret the statement.'));
+ const root=doc.data.statements[0]!.node;
+ i.query(root);
+ if(i.failure)return err(i.failure);
+ // Nested aggregation requires counts to survive the outer projection. Until
+ // that transformation is supported, refuse rather than lose the disclosure check.
+ if(i.aggregates.some(a=>a.node!==root))return err(new DomainError('sql_not_permitted','Construct SELECT_NODE contains nested aggregation over an aggregate-only element. The cardinality check cannot preserve and verify the inner groups’ counts through nesting; it has not determined that those groups are below the threshold. Use a single aggregate query so group sizes can be checked.',{construct:'SELECT_NODE',proofCategory:'sql_not_permitted'}));
+ if(i.aggregates.length){const q=syntax.select.parse(root);if(q.modifiers.some(m=>syntax.distinct.safeParse(m).success))return err(new DomainError('sql_not_permitted','Construct DISTINCT_MODIFIER over protected aggregation is not supported.',{construct:'DISTINCT_MODIFIER',proofCategory:'sql_not_permitted'}));}
+ const ref=i.aggregates[0]?.reference;
+ return ok(ref?{aggregate:{elementId:ref.elementId,name:ref.name,threshold:ref.threshold}}:{});
 }

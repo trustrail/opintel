@@ -6,7 +6,7 @@ const events:InspectionEvent[]=[],record=(event:InspectionEvent)=>events.push(ev
 const inspected=new InspectedSessionExecutor(new DuckDBSessionEngine(undefined,record),record);
 let message='';
 try{
- const result=await inspected.execute('SELECT count(*) FROM (SELECT i FROM range(10000000) t(i) GROUP BY i)',{memoryMb:16,threads:1},{catalog:'memory',schema:'main',objects:[]});
+ const result=await inspected.execute('SELECT count(*) FROM (SELECT i FROM range(10000000) t(i) GROUP BY i)',{memoryMb:16,threads:1},{catalog:'memory',schema:'main',objects:[]},{readPlan:[],entitlements:[],aggregateMinGroupSize:5});
  if(!result.ok)message=result.error.message;
 }
 catch(error:unknown){message=error instanceof Error?error.message:String(error);}
