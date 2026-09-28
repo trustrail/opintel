@@ -14,4 +14,4 @@ export interface Canonicaliser {
 export interface ZoneResolver {
     toUtc(localSeconds: number, zone: string): Result<number>;
 }
-export function validateTokenConfig(input: unknown): Result<TokenConfig> { const result = tokenConfigSchema.safeParse(input); return result.success ? ok(result.data) : err(new DomainError('validation_failed', 'Tokenization requires a valid mode and non-empty lowercase alphanumeric domain and canonicaliser identifiers.')); }
+export function validateTokenConfig(input: unknown): Result<TokenConfig> { const result = tokenConfigSchema.safeParse(input); return result.success ? ok(result.data) : err(new DomainError('validation_failed', 'Tokenization requires a valid mode and non-empty lowercase alphanumeric domain and canonicaliser identifiers.',{cause:'invalid_token_declaration',reason:'token_declaration'})); }

@@ -41,7 +41,7 @@ export type CompileInput = Readonly<{
 export function quoteIdent(identifier: string): string { return `"${identifier.replaceAll('"', '""')}"`; }
 const validIdentifier = (value: string) => value.length > 0 && !value.includes('\0');
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
-const invalid = (message: string) => err(new DomainError('validation_failed', message));
+const invalid = (message: string) => err(new DomainError('validation_failed', message,{cause:'invalid_plan',reason:'read_plan'}));
 
 function tokenDeclaration(element: CatalogElement): Result<TokenDeclaration> {
   const e = element.state;

@@ -547,7 +547,7 @@ projection.
 
 **Predicates on aggregate-only columns are refused outright**, per the list above, which closes the other route to the same attack: filtering on the protected value and reading the group that survives.
 
-Refusal code: `unsupported_on_aggregate_only`, naming the element, the threshold and which stage refused, so an administrator can decide whether the threshold is wrong or the question was.
+Refusal code: `unsupported_on_aggregate_only`, naming the element, the threshold and which stage refused in trusted internal diagnostics, so an administrator can decide whether the threshold is wrong or the question was. Item 5.8 removes the threshold and suppressed counts from every agent-facing payload, including `_meta`, while preserving the known cause and stage.
 
 **`aggregateMinGroupSize` defaults to 5 and is a project setting.** It is a disclosure-risk judgement, not a technical constant, and it belongs with the customer.
 

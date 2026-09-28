@@ -1,3 +1,4 @@
+import { startupCheck, StartupCheckError } from '../startup-check.js';
 import { constants } from 'node:fs';
 import { open, readdir, lstat, mkdir, readFile, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
@@ -42,9 +43,9 @@ const legacyFilingSchema = filingSchema.omit({ partyId: true }).extend({
 const legacyStateSchema = currentStateSchema.extend({ version: z.literal(1), filings: z.array(legacyFilingSchema) });
 const stateSchema = z.union([currentStateSchema, legacyStateSchema]);
 
-export class MissingLandingStateError extends Error {
+export class MissingLandingStateError extends StartupCheckError {
   constructor() {
-    super('Landing state file is missing but the landing zone contains files. Startup refused: restore the history or have an operator confirm a genuine first run before initializing an empty zone.');
+    super('landing state', 'Landing state file is missing but the landing zone contains files. Startup refused: restore the history or have an operator confirm a genuine first run before initializing an empty zone.');
     this.name = 'MissingLandingStateError';
   }
 }
@@ -78,22 +79,23 @@ export class FilingRegister {
     const zone = landingZoneSchema.parse(input);
     zone.directory = resolve(zone.directory); zone.stateFile = resolve(zone.stateFile); zone.rulesFile = resolve(zone.rulesFile);
     for (const file of [zone.stateFile, zone.rulesFile]) {
-      if (file === zone.directory || file.startsWith(zone.directory + sep)) throw new Error('Landing metadata must be outside the watched directory.');
+      if (file === zone.directory || file.startsWith(zone.directory + sep)) throw new StartupCheckError('landing paths', 'Landing metadata must be outside the watched directory.');
     }
-    if (!(await lstat(zone.directory)).isDirectory()) throw new Error('Landing zone must be a directory.');
-    await mkdir(dirname(zone.stateFile), { recursive: true, mode: 0o700 });
+    if (!(await startupCheck(`landing directory ${zone.directory}`, () => lstat(zone.directory))).isDirectory()) throw new StartupCheckError('landing directory', 'Landing zone must be a directory.');
+    await startupCheck(`landing state directory ${dirname(zone.stateFile)}`, () => mkdir(dirname(zone.stateFile), { recursive: true, mode: 0o700 }));
     // Exclusive ownership. After an unclean shutdown the operator removes the
     // stale lock only after confirming the previous process is no longer alive.
     const lock = zone.stateFile + '.lock';
-    const owner = await open(lock, 'wx', 0o600);
+    const owner = await startupCheck(`landing state lock ${lock}`, () => open(lock, 'wx', 0o600));
     try { await owner.writeFile(String(process.pid)); await owner.sync(); } finally { await owner.close(); }
     let scanAttempts = 0;
     const watcher = new FilingRegister(zone, warn ?? ((error: unknown) => ingestEvent({ event: 'ingest.scan_failed', sourceId: zone.sourceId, projectId: zone.projectId, errorCategory: ingestErrorCategory(error), attemptCount: ++scanAttempts })), extractor, lander, delivery);
     try {
-      await watcher.rules();
+      await startupCheck(`landing rule snapshot ${zone.rulesFile}`, () => watcher.rules());
       try {
-        const state = stateSchema.parse(JSON.parse(await readFile(zone.stateFile, 'utf8')) as unknown);
-        if (state.sourceId !== zone.sourceId || state.projectId !== zone.projectId) throw new Error('Landing state belongs to a different source.');
+        const contents = await readFile(zone.stateFile, 'utf8');
+        const state = await startupCheck(`landing state ${zone.stateFile}`, () => stateSchema.parse(JSON.parse(contents) as unknown));
+        if (state.sourceId !== zone.sourceId || state.projectId !== zone.projectId) throw new StartupCheckError('landing state identity', 'Landing state belongs to a different source or project.');
         watcher.filings = state.filings;
         if (state.version === 1) await watcher.persist(state.filings);
       } catch (error) {
@@ -104,7 +106,7 @@ export class FilingRegister {
         await watcher.persist([]);
       }
       return watcher;
-    } catch (error) { await unlink(lock); throw error; }
+    } catch (error) { await unlink(lock).catch(() => undefined); throw error; }
   }
 
   private async rules() { return identificationRulesSchema.parse(JSON.parse(await readFile(this.zone.rulesFile, 'utf8')) as unknown); }

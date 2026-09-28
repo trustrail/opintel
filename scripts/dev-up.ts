@@ -1,4 +1,7 @@
-import { startDevelopmentSidecar } from './sidecar-dev.js';
+import { join } from 'node:path';
+import { loadSidecarConfig } from '../sidecar/config.js';
+import { checkDevelopmentLandingZones } from './sidecar-landing-check.js';
+import { prepareSidecarDevelopment, sidecarDevDirectory, startDevelopmentSidecar } from './sidecar-dev.js';
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { setTimeout } from 'node:timers/promises';
@@ -81,6 +84,9 @@ async function main(): Promise<void> {
     console.info('Loaded docs/opintel-schema.zed into SpiceDB.');
   } finally { client.close(); }
   await testPreflight(environment);
+  await prepareSidecarDevelopment();
+  const { config } = await loadSidecarConfig(join(sidecarDevDirectory, 'service.json'));
+  await checkDevelopmentLandingZones(config.landingZones ?? []);
   await startDevelopmentSidecar();
   console.info('Development services are ready. Run npm run dev:api, npm run dev, or npm test.');
 }

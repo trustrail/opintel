@@ -1842,6 +1842,23 @@ Project query limits cap the corresponding optional pool budget overrides;
 is read from `pool.budgets.threads` and must be explicitly configured. Missing or
 invalid execution limits refuse rather than inventing a deployment default.
 
+### Item 5.8 model text and refusal metadata
+
+Successful query responses retain `QueryOutput` in `structuredContent`, add the
+exact model-readable paragraph specified in `docs/5-8-model-text.md`, and retain
+`recordId`, `reduced` and safe reduction elements in `_meta`. Lists follow the
+compilation's object order and source-column ordinals. Undecided columns are
+never listed. Returned token/mask lineage is distinguished from aggregates such
+as `COUNT(DISTINCT token)`; aggregate-only use remains identified separately.
+
+Query refusals carry `code`, `cause`, `retryable` and an evidence id when one
+exists. `QueryRefusalMetadata` is the Zod/OpenAPI contract for the safe additional
+producer fields. Known resolver states, stage, proof, resource, operation and
+configuration distinctions survive; arbitrary diagnostics, aggregate thresholds
+and suppressed counts do not. Every operator-needed sentence forces
+`retryable: false`. The approved mapping and weighed limitations are recorded in
+`docs/review/5-8-code-causes.md`. Item 5.7a still owns interruption provenance.
+
 ### Tool availability
 
 | Tool | Available when |
@@ -2030,6 +2047,19 @@ type LandingReceipt = {
   landedAt: string;
 };
 ```
+
+**Startup diagnostics.** Startup identifies the failed check and a safe cause;
+raw driver errors, configuration values and credentials are not logged. Rule
+snapshots, landing paths/state/locks, TLS components and the listener have distinct
+diagnostics. Cleanup preserves the initial failure. Development `dev:up` checks
+landing-zone identities against the application database before starting the
+sidecar: the project must exist, and the source must either be connected or
+reserved in `demo_source_template.deployment_ref` under that project (E2-013).
+A failure names the zone, project and source IDs, distinguishes a missing project
+from a missing source/reservation, and explains that removing `tmp/sidecar` and
+rerunning `npm run dev:up` resolves stale development state after a database reset.
+This check runs only in development bootstrap; the standalone sidecar has no
+application startup dependency.
 
 S1 serves the five source-connector endpoints as a standalone HTTPS process.
 Every endpoint requires the pinned application certificate. Request schemas,

@@ -225,6 +225,16 @@ deployed arrangement starts. Run the thing.
   look rather than what failed.
 - A catch block that replaces the error with a generic message is a defect
   unless it maps known causes to specific safe messages first.
+- Sidecar startup now names the failed check and a safe cause (TLS component,
+  listener, landing directory, rule snapshot, state/lock, or database), preserving
+  recovery instructions and the original failure through cleanup. `dev:up`
+  surfaces the current child's startup diagnostic from its log.
+- Development bootstrap checks each landing zone's project and source before
+  launching the sidecar. A connected source or a reserved demo deployment in
+  `demo_source_template.deployment_ref` is valid (pre-Connect, §4.3 / E2-013).
+  Missing identity names the zone and both IDs, with removal of `tmp/sidecar`
+  and rerunning `dev:up` as development recovery after a database reset.
+  The standalone sidecar does not depend on the application or its database.
 
 # From item 3.15 — introspection progress
 

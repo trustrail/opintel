@@ -469,3 +469,17 @@ Do not delete a source to recover a failed run. Existing register IDs, hashes,
 landed rows and supersession links remain authoritative. Fix any reported
 preparation mismatch before retrying. The command returns failure if background
 preparation fails, with its safe actionable message.
+
+## Startup diagnostics
+
+Startup failures identify the check and a safe cause. For example, an occupied
+port names the HTTPS listener; a stale state lock names its file and asks the
+operator to confirm the old process has stopped. Unknown errors do not expose
+raw exception text or customer values.
+
+`dev:up` also checks local landing-zone project/source identities. A prepared demo
+reservation is valid before Connect creates the source row. After a development
+database reset, an orphaned zone reports its path and project/source IDs; removing
+`tmp/sidecar` and rerunning `npm run dev:up` resolves that development state. This
+is a development reset, not a production recovery procedure. The standalone
+sidecar does not query the application's database or wait for its API.

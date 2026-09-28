@@ -12,6 +12,20 @@ const naming = new CatalogNaming(new AsciiTransliterator());
 const columnsSchema = z.array(z.object({ name: z.string(), type: z.enum(['TEXT', 'NUMERIC', 'BOOLEAN', 'DATE']), filingId: z.uuid() }));
 const provenance = ['_opintel_filing_id', '_opintel_as_at', '_opintel_period', '_opintel_received_at', '_opintel_file_sha256'];
 const metadata = '_opintel_landing';
+// Driver messages can include customer values. Keep connection diagnostics to
+// reviewed text selected by the structured code instead.
+const databaseFailureReasons: Readonly<Record<string, string>> = {
+  '28P01': 'Landing database authentication failed.',
+  '28000': 'Landing database authentication was rejected.',
+  '3D000': 'The configured landing database does not exist.',
+  '42501': 'Landing database permission denied.',
+  '53300': 'The landing database has too many connections.',
+  '57P03': 'The landing database is not accepting connections.',
+  '57014': 'The landing database operation timed out or was cancelled.',
+  ECONNREFUSED: 'The landing database refused the connection.',
+  ENOTFOUND: 'The landing database hostname could not be resolved.',
+  ETIMEDOUT: 'The landing database connection timed out.',
+};
 
 /** A write scope for the customer's landing database, separate from both the
  * read-only connector scope and the application's handwritten metadata scopes.
@@ -66,7 +80,7 @@ export class PostgresLanding implements LandingPort {
       const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
       return err(error instanceof DomainError ? error : /^22/.test(code) || code === '54011'
         ? new DomainError('validation_failed', 'The filing cannot be represented by its declared PostgreSQL columns.')
-        : new DomainError('source_unavailable', 'Landing database operation failed; the filing remains available for retry.'));
+        : new DomainError('source_unavailable', databaseFailureReasons[code] ?? 'Landing database operation failed; the filing remains available for retry.'));
     } finally { await db?.end().catch(() => {}); }
   }
   async committed(source: LandingSource): Promise<Result<LandingReceipt[]>> {

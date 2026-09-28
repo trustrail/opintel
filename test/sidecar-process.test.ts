@@ -83,3 +83,26 @@ it('refuses an unresponsive recorded PID and an unrecorded port owner without st
  try{await expect(startDevelopmentSidecar(directory)).rejects.toThrow('No replacement was started');await expect(readFile(pidFile,'utf8')).rejects.toMatchObject({code:'ENOENT'});}
  finally{await new Promise<void>(resolve=>other.close(()=>resolve()));}
 },15000);
+
+
+it('reports the occupied listener instead of a checklist of possible startup causes', async () => {
+ const {config}=await loadSidecarConfig(join(directory,'service.json'));
+ const other=tcpServer();await new Promise<void>(resolve=>other.listen(0,'127.0.0.1',resolve));
+ const address=other.address();if(!address||typeof address==='string')throw new Error('No port');
+ const file=join(directory,'occupied-port.json');
+ await writeFile(file,JSON.stringify({...config,port:address.port,auditFile:join(directory,'occupied-audit.jsonl')}));
+ const running=launch(file);
+ try {
+  await expect(running.exited).resolves.toEqual({code:1,signal:null});
+  expect(running.output()).toContain(`Sidecar startup failed: HTTPS listener 127.0.0.1:${address.port}: the address and port are already in use.`);
+  expect(running.output()).not.toContain('Check TLS, port');
+ } finally {forceCleanup(running.child);await running.exited;await new Promise<void>(resolve=>other.close(()=>resolve()));}
+},15000);
+
+it('dev:up surfaces this child startup diagnostic without replaying an old log failure', async () => {
+ const root=join(directory,'failed-child');await prepareSidecarDevelopment(root);
+ const file=join(root,'service.json');const original=JSON.parse(await readFile(file,'utf8')) as Record<string,unknown>;
+ await writeFile(file,JSON.stringify({...original,port:await availablePort(),auditFile:'.'}));
+ await writeFile(join(root,'service.log'),'Sidecar startup failed: old failure\n');
+ await expect(startDevelopmentSidecar(root)).rejects.toThrow(`Sidecar startup failed: audit file ${root}: the configured file is a directory.`);
+},15000);

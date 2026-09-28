@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {QueryOutput} from '../src/shared/api/mcp.js';
 import {RunId,DomainError,err} from '../src/shared/kernel/index.js';
-import {withTenant} from '../src/platform/db/scope.js';
+import {withTenant,withPlatform} from '../src/platform/db/scope.js';
 import {assertEvidenceWriter,UnavailableEvidenceWriter} from '../src/modules/mcp/index.js';
 import {queryFixture,TestEvidenceWriter} from './fixtures/query/fixture.js';
 const cleanup:Array<()=>Promise<void>>=[];
@@ -13,13 +13,13 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   expect(response.isError,JSON.stringify(response)).not.toBe(true);const output=QueryOutput.parse(response.structuredContent);
   expect(output.columns).toEqual([{name:'field_1',type:'INTEGER'},{name:'field_2',type:'VARCHAR'},{name:'field_4',type:'VARCHAR'}]);expect(output.rows).toHaveLength(2);expect(output.truncated).toBe(true);
   expect(output.rows[0]).toEqual([1,expect.stringMatching(/^v1_customer_/),'large']);
-  expect(f.writer.records.get(RunId(output.evidenceId))).toMatchObject({outcome:{kind:'answered',rows:2}});expect(response.content).toEqual([]);expect(f.boundary.executions).toBeGreaterThan(0);
+  expect(f.writer.records.get(RunId(output.evidenceId))).toMatchObject({outcome:{kind:'answered',rows:2}});expect(response.content).toEqual([{type:'text',text:'2 rows. The result was truncated at 2 rows; there are more. 1 element was withheld: field_5. field_2 was returned tokenized. Tokens are stable: the same value is always the same token, so they can be grouped and joined, but not ordered or compared.'}]);expect(f.boundary.executions).toBeGreaterThan(0);
   expect(JSON.stringify(response)).not.toMatch(/1001|WITHHELD_SENTINEL|UNDECIDED_SENTINEL/u);
  });
- it('structured star on the native staging path omits withheld and undecided columns',async()=>{
+ it('I-009: star names withheld in exact model text while omitting withheld and undecided data',async()=>{
   const f=await fixture();await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='clear' WHERE pool_id=$1 AND element_id=ANY($2::uuid[])",[f.pool,[f.ids[1],f.ids[2]]]));
   const response=await f.query('SELECT * FROM warehouse.public.records ORDER BY field_1');expect(response.isError,JSON.stringify(response)).not.toBe(true);const output=QueryOutput.parse(response.structuredContent);
-  expect(output.columns.map(c=>c.name)).toEqual(['field_1','field_2','field_3','field_4']);expect(output.rows[0]).toEqual([1,1001,10,'large']);expect(JSON.stringify(response)).not.toMatch(/field_5|field_6|WITHHELD_SENTINEL|UNDECIDED_SENTINEL/u);
+  expect(output.columns.map(c=>c.name)).toEqual(['field_1','field_2','field_3','field_4']);expect(output.rows[0]).toEqual([1,1001,10,'large']);expect(response.content).toEqual([{type:'text',text:'7 rows. 1 element was withheld: field_5.'}]);expect(JSON.stringify(output)).not.toContain('field_5');expect(JSON.stringify(response)).not.toMatch(/field_6|WITHHELD_SENTINEL|UNDECIDED_SENTINEL/u);
  });
  it('I-010/I-011/I-012: withheld, undecided and absent are distinct recorded refusals',async()=>{
   const f=await fixture();
@@ -58,7 +58,7 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
  });
  it('a dead sidecar after a successful request never serves the preceding result',async()=>{
   const f=await fixture(),sql='SELECT field_1 FROM warehouse.public.records';expect((await f.query(sql)).isError).not.toBe(true);await f.host.close();
-  const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',retryable:true}});expect(response.structuredContent).toBeUndefined();
+  const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'sidecar_transport_failed',retryable:false}});expect(response.structuredContent).toBeUndefined();
  });
  it('disconnecting the MCP request aborts its sidecar request',async()=>{
   const f=await fixture();let started!:()=>void;const beginning=new Promise<void>(resolve=>{started=resolve;});let stopped!:()=>void;const ended=new Promise<void>(resolve=>{stopped=resolve;});
@@ -76,7 +76,49 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
  });
  it('production unavailable writer refuses before compilation or execution, naming 5.10',async()=>{
   const f=await queryFixture(new UnavailableEvidenceWriter());cleanup.push(f.close);const read=vi.spyOn(f.reader,'read'),execute=vi.spyOn(f.execution,'execute'),health=vi.spyOn(f.execution,'health');
-  const response=await f.query('SELECT field_1 FROM warehouse.public.records');expect(response).toMatchObject({isError:true,_meta:{code:'dependency_unavailable'}});expect(JSON.stringify(response)).toContain('5.10');expect(read).not.toHaveBeenCalled();expect(health).not.toHaveBeenCalled();expect(execute).not.toHaveBeenCalled();
+  const response=await f.query('SELECT field_1 FROM warehouse.public.records');expect(response).toMatchObject({isError:true,_meta:{code:'dependency_unavailable'}});expect(response._meta).toMatchObject({cause:'evidence_before_execution',requiredItems:['5.10','5.11']});expect(read).not.toHaveBeenCalled();expect(health).not.toHaveBeenCalled();expect(execute).not.toHaveBeenCalled();
+ });
+ it('5.8: complete MCP responses never expose configured aggregate thresholds',async()=>{
+  const f=await fixture();
+  const limit=938173;
+  await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{query,aggregateMinGroupSize}',to_jsonb($2::int)) WHERE id=$1",[f.ctx.projectId,limit]));
+  for(const sql of ['SELECT field_1 FROM warehouse.public.records','SELECT field_3 FROM warehouse.public.records','SELECT SUM(field_3) FROM warehouse.public.records','SELECT field_4,SUM(field_3) FROM warehouse.public.records GROUP BY field_4','SELECT SUM(total) FROM (SELECT SUM(field_3) AS total FROM warehouse.public.records) q']){
+   const response=await f.query(sql);
+   expect(JSON.stringify(response)).not.toMatch(/938173|aggregateMinGroupSize|threshold|treatmentEvidence/u);
+   if(response.isError)expect(response).not.toHaveProperty('structuredContent');
+  }
+  vi.spyOn(f.execution,'execute').mockResolvedValue(err(new DomainError('unsupported_on_aggregate_only','Internal threshold 938173',{cause:'cardinality_count_invalid',name:'field_3',stage:2,aggregateMinGroupSize:limit,nested:{value:limit}},true)));
+  const invalid=await f.query('SELECT SUM(field_3) FROM warehouse.public.records');
+  expect(invalid).toMatchObject({_meta:{cause:'cardinality_count_invalid',retryable:false}});expect(JSON.stringify(invalid)).not.toContain(String(limit));
+  const listing=await f.client.listTools();
+  const describe=await f.client.callTool({name:'opintel.describe',arguments:{}});
+  const unavailable=await f.client.callTool({name:'opintel.explain',arguments:{sql:'SELECT 1'}});
+  for(const response of [listing,describe,unavailable])expect(JSON.stringify(response)).not.toMatch(/938173|aggregateMinGroupSize/u);
+ });
+ it('I-009: source ordinals determine withheld order, and masked projections keep their lineage',async()=>{
+  const f=await fixture();
+  await withTenant(f.ctx,async tx=>{
+   await tx.query("UPDATE entitlement SET treatment='withheld' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[1]]);
+   await tx.query("UPDATE catalog_element SET ordinal=20 WHERE id=$1",[f.ids[1]]);
+   await tx.query("UPDATE entitlement SET treatment='masked',mask_kind='all' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[3]]);
+  });
+  const result=await f.query('SELECT field_4 AS renamed FROM warehouse.public.records');
+  expect(result.content).toEqual([{type:'text',text:'7 rows. 2 elements were withheld: field_5, field_2. field_4 was returned masked.'}]);
+  const maximum=await f.query('SELECT MAX(field_4) FROM warehouse.public.records');
+  expect(maximum.content).toEqual([{type:'text',text:'1 row. 2 elements were withheld: field_5, field_2. field_4 was returned masked.'}]);
+  const count=await f.query('SELECT COUNT(field_4) FROM warehouse.public.records');
+  expect(count.content).toEqual([{type:'text',text:'1 row. 2 elements were withheld: field_5, field_2.'}]);
+ });
+ it('5.8: COUNT(DISTINCT token) is a count, not a returned token',async()=>{
+  const f=await fixture();
+  expect((await f.query('SELECT COUNT(DISTINCT field_2) FROM warehouse.public.records')).content).toEqual([{type:'text',text:'1 row. 1 element was withheld: field_5.'}]);
+ });
+ it('5.8: all resolver states survive the actual MCP metadata allowlist',async()=>{
+  const f=await fixture(),read=f.reader.read.bind(f.reader);
+  for(const reason of ['all_withheld','all_undecided','mixed_withheld_undecided'] as const){
+   const spy=vi.spyOn(f.reader,'read').mockImplementation(async principal=>{const result=await read(principal);return result.ok?{ok:true,value:{...result.value,compilation:{views:[],omitted:[{catalog:'warehouse',schema:'public',name:'records',reason}]}}}:result;});
+   expect(await f.query('SELECT * FROM warehouse.public.records')).toMatchObject({_meta:{code:'object_unavailable',cause:reason,reason}});spy.mockRestore();
+  }
  });
 });
 it('startup rejects the evidence test stub in every non-test build',()=>{

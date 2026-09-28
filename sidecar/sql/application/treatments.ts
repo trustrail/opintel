@@ -8,12 +8,13 @@ type Reference = { elementId: ElementId; name: string; treatment: 'tokenized' | 
 type Field = { name: string; references: Reference[] };
 type Relation = { qualifiers: string[][]; fields: Field[]; opaque?: boolean };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
-type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean };
+type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean; aggregateArgument?: boolean; aggregateContext?: boolean };
 const fold = foldIdentifier;
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => fold(v) === fold(b[i]!));
 
 /** Sidecar-owned lineage analysis; PREPARE in the same contained session proves resolution. */
 class Inspection {
+  readonly aggregateNodes = new Set<unknown>();
   aggregates: {node: unknown; reference: Reference}[] = [];
   private currentNode: unknown;
   failure: DomainError | undefined;
@@ -22,7 +23,7 @@ class Inspection {
   constructor(private readonly views: readonly PolicyTable[], private readonly namespace: PoolNamespace, private readonly policy: TreatmentPolicy) {}
 
   refuse(construct: string): void {
-    this.failure ??= new DomainError('sql_not_permitted', `The sidecar cannot interpret construct ${construct}; a column was not found or the construct is unavailable or ambiguous. Rewrite the query using a supported construct.`, { construct, proofCategory: 'sql_not_permitted', stage: 'treatment' });
+    this.failure ??= new DomainError('sql_not_permitted', `The sidecar cannot interpret construct ${construct}; a column was not found or the construct is unavailable or ambiguous. Rewrite the query using a supported construct.`, { cause:'prohibited_construct',construct, proofCategory: 'sql_not_permitted', stage: 'treatment' });
   }
 
   read<T>(schema: z.ZodType<T>, value: unknown, construct: string): T | undefined {
@@ -45,11 +46,11 @@ class Inspection {
     for (const ref of references) {
       if (ref.treatment === 'aggregate_only' && !context.directAggregate) {
         this.failure ??= new DomainError('unsupported_on_aggregate_only', `Element ${ref.name} is aggregate-only and cannot appear in ${context.clause}${operation ? ` (${operation})` : ''}. Minimum group size is ${ref.threshold}; refused at stage 1. Use an aggregate over a sufficiently large group instead.`, {
-          elementId: ref.elementId, operation: operation ?? context.clause, aggregateMinGroupSize: ref.threshold, stage: 1, construct: ref.name, proofCategory: 'sql_not_permitted',
+          cause: context.aggregateArgument ? (context.aggregateContext ? 'not_direct_aggregate_argument' : 'unsupported_aggregate_context') : 'row_access', name:ref.name, elementId: ref.elementId, operation: operation ?? context.clause, aggregateMinGroupSize: ref.threshold, stage: 1, construct: ref.name, proofCategory: 'sql_not_permitted',
         });
       } else if (ref.treatment === 'tokenized' && (operation !== undefined || context.clause === 'ORDER BY')) {
         const op = operation ?? 'ORDER BY';
-        if(this.failure?.code!=='sql_not_permitted')this.failure = new DomainError('unsupported_on_token', `Element ${ref.name} cannot be used with ${op}: tokens preserve equality only. Use equality, grouping or COUNT instead.`, { elementId: ref.elementId, operation: op, stage: 1, construct: ref.name, proofCategory: 'sql_not_permitted' });
+        if(this.failure?.code!=='sql_not_permitted')this.failure = new DomainError('unsupported_on_token', `Element ${ref.name} cannot be used with ${op}: tokens preserve equality only. Use equality, grouping or COUNT instead.`, { cause:'unsupported_operation',name:ref.name,elementId: ref.elementId, operation: op, stage: 1, construct: ref.name, proofCategory: 'sql_not_permitted' });
       }
     }
   }
@@ -92,6 +93,7 @@ class Inspection {
           if (!e) return [];
           const name = fold(e.function_name);
           const aggregate = ['sum', 'avg', 'min', 'max', 'count', 'count_star'].includes(name) && !e.is_operator;
+          if(aggregate)this.aggregateNodes.add(this.currentNode);
           const operation = ['+', '-', '*', '/', '//', '%', '**', '^', '~~', '!~~', '~~*', '!~~*'].includes(name) && e.is_operator;
 
           if (e.order_bys.orders.length) { this.refuse('aggregate ORDER BY'); return []; }
@@ -103,7 +105,7 @@ class Inspection {
           const direct = aggregate && (context.clause === 'SELECT' || context.clause === 'HAVING');
           const refs = e.children.flatMap(child => {
             const r = this.read(syntax.record, child, 'function argument');
-            return this.expression(child, { ...context, directAggregate: direct && r?.class === 'COLUMN_REF' });
+            return this.expression(child, { ...context, aggregateArgument: aggregate || context.aggregateArgument, aggregateContext: aggregate ? direct : context.aggregateContext, directAggregate: direct && r?.class === 'COLUMN_REF' });
           });
           const tokenOperation = operation ? (name.includes('~~') ? 'LIKE' : name) : name === 'count' || name === 'count_star' ? undefined : name.toUpperCase();
           // Protected aggregate references were checked at their immediate parent.
@@ -294,8 +296,8 @@ export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:
  if(i.failure)return err(i.failure);
  // Nested aggregation requires counts to survive the outer projection. Until
  // that transformation is supported, refuse rather than lose the disclosure check.
- if(i.aggregates.some(a=>a.node!==root))return err(new DomainError('sql_not_permitted','Construct SELECT_NODE contains nested aggregation over an aggregate-only element. The cardinality check cannot preserve and verify the inner groups’ counts through nesting; it has not determined that those groups are below the threshold. Use a single aggregate query so group sizes can be checked.',{construct:'SELECT_NODE',proofCategory:'sql_not_permitted'}));
- if(i.aggregates.length){const q=syntax.select.parse(root);if(q.modifiers.some(m=>syntax.distinct.safeParse(m).success))return err(new DomainError('sql_not_permitted','Construct DISTINCT_MODIFIER over protected aggregation is not supported.',{construct:'DISTINCT_MODIFIER',proofCategory:'sql_not_permitted'}));}
+ if(i.aggregates.some(a=>a.node!==root))return err(new DomainError('unsupported_on_aggregate_only','Construct SELECT_NODE contains nested aggregation over an aggregate-only element. The cardinality check cannot preserve and verify the inner groups’ counts through nesting; it has not determined that those groups are below the threshold. Use a single aggregate query so group sizes can be checked.',{cause:i.aggregateNodes.has(root)?'nested_aggregation':'inner_group_counts_unverifiable',name:i.aggregates.find(a=>a.node!==root)!.reference.name,elementId:i.aggregates.find(a=>a.node!==root)!.reference.elementId,construct:'SELECT_NODE',proofCategory:'sql_not_permitted'}));
+ if(i.aggregates.length){const q=syntax.select.parse(root);if(q.modifiers.some(m=>syntax.distinct.safeParse(m).success))return err(new DomainError('sql_not_permitted','Construct DISTINCT_MODIFIER over protected aggregation is not supported.',{cause:'prohibited_construct',construct:'DISTINCT_MODIFIER',proofCategory:'sql_not_permitted'}));}
  const ref=i.aggregates[0]?.reference;
  return ok(ref?{aggregate:{elementId:ref.elementId,name:ref.name,threshold:ref.threshold}}:{});
 }

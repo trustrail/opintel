@@ -70,6 +70,12 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
   const stop=()=>stopRecordedSidecar({pidFile,entryPoint,host:config.host,port:config.port,timeoutMs:config.shutdownTimeoutMs+2000});
   await stop();
   const output=await open(resolve(directory,'service.log'),'a',0o600);
+  const logOffset=(await output.stat()).size;
+  const startupFailure=async()=>{
+    const log=await readFile(resolve(directory,'service.log'));
+    const message=log.subarray(logOffset).toString('utf8').split('\n').find(line=>line.startsWith('Sidecar startup failed:'));
+    return new Error(message ?? `Sidecar process exited without a startup diagnostic. Inspect ${resolve(directory,'service.log')}.`);
+  };
   const child=spawn(process.execPath,['--import','tsx',entryPoint,resolve(directory,'service.json')],{
     cwd:fileURLToPath(new URL('../',import.meta.url)),detached:true,stdio:['ignore',output.fd,output.fd],env:process.env,
   });
@@ -79,7 +85,7 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
   try{
     if(child.pid!==undefined)await writeFile(pidFile,String(child.pid)+'\n',{mode:0o600});
     for(let attempt=0;attempt<40;attempt++){
-      if(failed)throw new Error('Sidecar process exited. Check tmp/sidecar/service.log; another process may own its port.');
+      if(failed)throw await startupFailure();
       try{await checkLocalSidecar(resolve(directory,'client.json'));if(failed)throw new Error('Sidecar exited');
         child.unref();console.info(`Local sidecar ready. Client configuration: ${resolve(directory,'client.json')}.`);return;
       }catch{await delay(250);}

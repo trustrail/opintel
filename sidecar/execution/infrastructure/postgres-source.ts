@@ -20,16 +20,26 @@ const modes: Readonly<Record<string, string>> = {
   date: 'date', timestamp: 'timestamp', timestamptz: 'timestamp',
 };
 const refused = () => err(new DomainError('validation_failed',
-  'A source column cannot use its declared tokenization mode. Check the declaration; cast floating-point columns upstream to numeric.'));
+  'A source column cannot use its declared tokenization mode. Check the declaration; cast floating-point columns upstream to numeric.',{cause:'invalid_token_declaration',reason:'token_declaration'}));
 
 
+// Only stable typed driver codes establish these facts. Native scanner text is
+// not evidence of reachability and is never searched for a cause.
+function sourceFailureCause(error:unknown):string {
+ const parsed=z.object({code:z.string()}).safeParse(error);
+ if(!parsed.success)return 'unclassified';
+ if(['ECONNREFUSED','ENOTFOUND','EHOSTUNREACH','ENETUNREACH'].includes(parsed.data.code))return 'source_unreachable';
+ if(parsed.data.code==='57014')return 'interruption_unclassified';
+ if(/^[0-9A-Z]{5}$/u.test(parsed.data.code))return 'source_read_failed';
+ return 'unclassified';
+}
 export class PostgresStagingSource implements StagingSource {
  constructor(private readonly scope:PostgresSourceScope,private readonly tokenizer:SidecarTokenizer){}
- private async safe<T>(work:()=>Promise<Result<T>>):Promise<Result<T>>{
+ private async safe<T>(work:()=>Promise<Result<T>>,responseKind:'metadata'|'data'='data'):Promise<Result<T>>{
   try{return await work();}catch(e){if(e instanceof DomainError)return err(e);
-   if(e instanceof Error&&e.message.startsWith('Out of Memory Error:'))return err(new DomainError('budget_exceeded','The pool memory limit was exceeded while staging. Narrow the query or review the pool limit.',{resource:'memory'}));
-   if(e instanceof SourceBusy)return err(new DomainError('budget_exceeded','Source connection limit reached.',undefined,true));
-   return err(new DomainError('source_unavailable',e instanceof SourceTimeout?'The source operation exceeded its deadline.':e instanceof SourceCancelled?'The source operation was cancelled.':'The source read could not complete. No partial result was returned.'));
+   if(e instanceof Error&&e.message.startsWith('Out of Memory Error:'))return err(new DomainError('budget_exceeded','The pool memory limit was exceeded while staging. Narrow the query or review the pool limit.',{cause:'memory_exhausted',resource:'memory'}));
+   if(e instanceof SourceBusy)return err(new DomainError('budget_exceeded','Source connection limit reached.',{cause:'source_connections_saturated'},true));
+   return err(new DomainError('source_unavailable',e instanceof SourceTimeout?'The source operation exceeded its deadline.':e instanceof SourceCancelled?'The source operation was cancelled.':'The source read could not complete. No partial result was returned.',{...(e instanceof z.ZodError?{reason:responseKind}:{}),cause:e instanceof SourceTimeout||e instanceof SourceCancelled?'interruption_unclassified':e instanceof z.ZodError?'source_response_unusable':sourceFailureCause(e)}));
   }
  }
  estimate(s:Scan,signal:AbortSignal):Promise<Result<number|null>>{
@@ -40,7 +50,7 @@ export class PostgresStagingSource implements StagingSource {
    const rows=await session.query('EXPLAIN (FORMAT JSON) '+select(s));
    const explained=z.array(z.object({'QUERY PLAN':z.array(z.object({Plan:z.object({'Plan Rows':z.number().nonnegative()})})).min(1)})).min(1).parse(rows);
    return ok(explained[0]!['QUERY PLAN'][0]!.Plan['Plan Rows']);
-  },signal));
+  },signal),'metadata');
  }
  plain(s:Scan,privileged:EngineSession,table:string,signal:AbortSignal):Promise<Result<void>>{
   return this.safe(()=>this.scope.external(key(s),credential(s),async (connection,sourceSignal)=>{
@@ -87,7 +97,7 @@ export class PostgresStagingSource implements StagingSource {
   return this.tokenizer.run(ProjectId(s.request.projectId),async run=>{
    for(const [i,c] of s.object.readPlan.columns.entries())if(c.treatment==='tokenized'){
     const config=c.token!,registered=canonicalisers.get(config.canonId);
-    if(!registered||registered.mode!==config.mode)return err(new DomainError('validation_failed','The read plan names an unavailable canonicaliser.'));
+    if(!registered||registered.mode!==config.mode)return err(new DomainError('validation_failed','The read plan names an unavailable canonicaliser.',{cause:'invalid_token_declaration',reason:'canonicaliser'}));
     const builtin=['stdtext1','stdnum1','stddate1','stdtime1'].includes(config.canonId);
     const transform=run.prepare(config,builtin?undefined:registered);if(!transform.ok)return transform;base[i]=transform.value;
    }

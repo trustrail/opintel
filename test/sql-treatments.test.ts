@@ -35,6 +35,17 @@ describe('S2d authoritative treatment enforcement',{timeout:30000},()=>{
   expect(f.events.some(e=>e.stage==='prepare_started'||e.stage==='execute_started')).toBe(false);
   if(!result.ok){expect(result.error.details).toMatchObject({stage:1,aggregateMinGroupSize:5});expect(result.error.message).toContain('amount');expect(result.error.message).toContain('Use an aggregate');}
  });
+ it('5.8: nested refusal retains S2d message and distinguishes the actual outer aggregate',async()=>{
+  for(const [sql,cause] of [
+   ['SELECT SUM(total) FROM (SELECT SUM(amount) AS total FROM orders) q','nested_aggregation'],
+   ['SELECT 1 FROM (SELECT SUM(amount) AS total FROM orders) q','inner_group_counts_unverifiable'],
+  ]){
+   const f=fixture(),result=await f.run(sql!);
+   expectCode(result,'unsupported_on_aggregate_only');
+   if(!result.ok){expect(result.error.details).toMatchObject({cause,name:'amount'});expect(result.error.message).toBe('Construct SELECT_NODE contains nested aggregation over an aggregate-only element. The cardinality check cannot preserve and verify the inner groups’ counts through nesting; it has not determined that those groups are below the threshold. Use a single aggregate query so group sizes can be checked.');}
+   expect(f.events.some(e=>e.stage==='prepare_started'||e.stage==='execute_started')).toBe(false);
+  }
+ });
  it('VC-11 permits compliant groups, strips its count, and executes only the reinspected retained handle',async()=>{
   const f=fixture(11),result=await f.run('SELECT city,SUM(amount) AS total FROM orders GROUP BY city ORDER BY city');
   expect(result.ok&&result.value.columns).toEqual(['city','total']);

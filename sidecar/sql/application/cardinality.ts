@@ -3,9 +3,9 @@ import { DomainError } from '../../../src/shared/kernel/index.js';
 import * as syntax from './syntax.js';
 import type { TreatmentInspection } from './treatments.js';
 export type Aggregate=NonNullable<TreatmentInspection['aggregate']>;
-export function aggregateRefusal(aggregate:Aggregate,stage:1|2):DomainError{
+export function aggregateRefusal(aggregate:Aggregate,stage:1|2,invalid=false):DomainError{
  return new DomainError('unsupported_on_aggregate_only',`Element ${aggregate.name} is aggregate-only. Minimum group size ${aggregate.threshold} was not met at stage ${stage}. Use a broader group or less restrictive filter, or ask an administrator to review the threshold.`,{
-  elementId:aggregate.elementId,aggregateMinGroupSize:aggregate.threshold,stage,construct:aggregate.name,
+  cause:invalid?'cardinality_count_invalid':stage===1?'cardinality_estimate_low':'cardinality_count_low',name:aggregate.name,elementId:aggregate.elementId,aggregateMinGroupSize:aggregate.threshold,stage,construct:aggregate.name,
   proofCategory:stage===2?'aggregate_stage2':'sql_not_permitted',
  });
 }

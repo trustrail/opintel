@@ -5,10 +5,11 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ToolSchema, JSONRPCMessageSchema, McpError, ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { ProjectId } from '../../../shared/kernel/index.js';
+import { DomainError, ProjectId } from '../../../shared/kernel/index.js';
 import { listedTools, toolDescriptor } from '../../../shared/api/mcp.js';
 import { errorEnvelopeSchema, type PoolKeyHttpEndpoint } from '../../../platform/http/index.js';
 import { McpAccess, type McpConfiguration, type McpPrincipal } from '../application/access.js';
+import {queryResponse,refusalResponse} from '../application/response.js';
 import type { QueryTool } from '../application/query-ports.js';
 import type { DescribeTool } from '../application/describe.js';
 
@@ -84,17 +85,17 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    const input = tool.input.safeParse(request.params.arguments ?? {});
    if(input.success&&tool.name==='opintel.query'&&this.queryTool){
     try{const result=await this.queryTool.query(caller,input.data,AbortSignal.any([extra.signal,this.context.getStore()!.signal]));
-     if(result.ok)return {content:[],structuredContent:result.value,_meta:{recordId:result.value.evidenceId}};
+     if(result.ok)return queryResponse(result.value);
      console.info({event:'mcp.refused',poolId:caller.pool.id,reason:result.error.code});
-     return {isError:true,content:[{type:'text' as const,text:result.error.message}],_meta:{...(result.error.details??{}),code:result.error.code,retryable:result.error.retryable}};
-    }catch{return {isError:true,content:[{type:'text' as const,text:'The query is unavailable. No partial result was returned.'}],_meta:{code:'dependency_unavailable'}};}
+     return refusalResponse(result.error);
+    }catch{return refusalResponse(new DomainError('dependency_unavailable','The query could not complete.',{cause:'unclassified'}));}
    }
    if (input.success && tool.name==='opintel.describe' && this.describeTool) {
     try {
      const result = await this.describeTool.describe(caller,input.data);
      if (result.ok) return {content:[{type:'text' as const,text:JSON.stringify(result.value)}],structuredContent:result.value};
      console.info({event:'mcp.refused',poolId:caller.pool.id,reason:result.error.code});
-     return {isError:true,content:[{type:'text' as const,text:result.error.message}],_meta:{code:result.error.code}};
+     return refusalResponse(result.error);
     } catch {
      console.info({event:'mcp.refused',poolId:caller.pool.id,reason:'dependency_unavailable'});
      return {isError:true,content:[{type:'text' as const,text:'The pool description is unavailable.'}],_meta:{code:'dependency_unavailable'}};
@@ -103,7 +104,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    const code = input.success ? 'dependency_unavailable' : 'validation_failed';
    const message = input.success ? 'This tool is not available in this deployment yet.' : 'The tool arguments do not match its schema.';
    console.info({event:'mcp.refused',poolId:caller.pool.id,reason:code});
-   return {isError:true,content:[{type:'text' as const,text:message}],_meta:{code}};
+   return {isError:true,content:[{type:'text' as const,text:message}],_meta:{code,cause:input.success?'tool_unavailable':'invalid_query',retryable:false}};
   });
   await server.connect(transport);
   return session;

@@ -7,7 +7,7 @@ import { deadlineClock,executionAudit,type ExecutionAudit,type DeadlineClock,typ
 import { pushdown,referencedObjects } from './pushdown.js';
 export const stagingRef=(o:StagingObject)=>`${o.catalog}__${o.schema}__${o.name}`;
 const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
-const cancelled=()=>err(new DomainError('budget_exceeded','The execution exceeded timeoutMs or was cancelled. No partial result was returned.',{resource:'time'},true));
+const cancelled=()=>err(new DomainError('budget_exceeded','The execution exceeded timeoutMs or was cancelled. No partial result was returned.',{cause:'interruption_unclassified',resource:'time'},true));
 export class StagedExecutor {
  constructor(private readonly source:StagingSource,private readonly engine:(r:ExecutionRequest)=>SessionEngine=r=>new DuckDBSessionEngine(undefined,undefined,undefined,r.limits),private readonly queue=new ExecutionQueue(),private readonly clock:DeadlineClock=deadlineClock,private readonly audit:ExecutionAudit=executionAudit){}
  execute(input:unknown,signal?:AbortSignal){return this.logged(input,false,signal);}
@@ -18,10 +18,10 @@ export class StagedExecutor {
   return result;
  }
  private async run(input:unknown,validateOnly:boolean,parent?:AbortSignal):Promise<Result<unknown>>{
-  const decoded=executionRequest.safeParse(input);if(!decoded.success)return err(new DomainError('validation_failed','The execution request does not match the staged query contract.'));
+  const decoded=executionRequest.safeParse(input);if(!decoded.success)return err(new DomainError('validation_failed','The execution request does not match the staged query contract.',{cause:'invalid_execution_contract'}));
   const r=decoded.data;
   const addresses=r.objects.map(o=>JSON.stringify([o.catalog,o.schema,o.name]));
-  if(new Set(addresses).size!==addresses.length||new Set(r.objects.map(stagingRef)).size!==r.objects.length||new Set(r.sources.map(s=>s.sourceId)).size!==r.sources.length||r.objects.some(o=>o.catalog!==o.readPlan.catalog||!r.sources.some(s=>s.sourceId===o.sourceId)))return err(new DomainError('validation_failed','The staged source addresses or declarations are inconsistent.'));
+  if(new Set(addresses).size!==addresses.length||new Set(r.objects.map(stagingRef)).size!==r.objects.length||new Set(r.sources.map(s=>s.sourceId)).size!==r.sources.length||r.objects.some(o=>o.catalog!==o.readPlan.catalog||!r.sources.some(s=>s.sourceId===o.sourceId)))return err(new DomainError('validation_failed','The staged source addresses or declarations are inconsistent.',{cause:'invalid_plan',reason:'source_declarations'}));
   const controller=new AbortController(),abort=()=>controller.abort();parent?.addEventListener('abort',abort,{once:true});if(parent?.aborted)abort();
   const stop=this.clock.after(r.limits.timeoutMs,abort),signal=controller.signal;
   let release:(()=>void)|undefined;
@@ -31,11 +31,11 @@ export class StagedExecutor {
    if(!lease.ok)return lease;release=lease.value;
    const policy:TreatmentPolicy={aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId)}))})),
     entitlements:r.entitlements.map(e=>({...e,elementId:ElementId(e.elementId)}))};
-   if(r.objects.some(o=>o.readPlan.columns.some(c=>!r.entitlements.some(e=>e.elementId===c.elementId&&e.treatment===c.treatment))))return err(new DomainError('sql_not_permitted','The read plan and authoritative entitlements disagree.'));
+   if(r.objects.some(o=>o.readPlan.columns.some(c=>!r.entitlements.some(e=>e.elementId===c.elementId&&e.treatment===c.treatment))))return err(new DomainError('sql_not_permitted','The read plan and authoritative entitlements disagree.',{cause:'inspection_inconsistent',reason:'policy'}));
    // Duplicate references to an element may appear in more than one view, but
    // their decisions must agree. Never silently replace a conflicting decision.
    const decisions=new Map<string,TreatmentPolicy['entitlements'][number]>();
-   for(const d of policy.entitlements){if(decisions.has(d.elementId)&&decisions.get(d.elementId)!.treatment!==d.treatment)return err(new DomainError('validation_failed','Conflicting element treatments.'));decisions.set(d.elementId,d);}policy.entitlements=[...decisions.values()];
+   for(const d of policy.entitlements){if(decisions.has(d.elementId)&&decisions.get(d.elementId)!.treatment!==d.treatment)return err(new DomainError('validation_failed','Conflicting element treatments.',{cause:'invalid_plan',reason:'conflicting_treatments'}));decisions.set(d.elementId,d);}policy.entitlements=[...decisions.values()];
    const ns={...r.namespace,objects:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name}))},limits={memoryMb:r.limits.memoryMb,threads:r.limits.threads};
    let tree:unknown;
    const preflightEngine=this.wrap(r,active,signal,true);
@@ -46,13 +46,13 @@ export class StagedExecutor {
    // Admit every source scan before fetching any rows.
    for(const scan of scans){
     const estimate=await this.source.estimate(scan,signal);if(signal.aborted)return cancelled();if(!estimate.ok)return estimate;
-    if(estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0||estimate.value>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${scan.object.catalog}.${scan.object.schema}.${scan.object.name} cannot be staged within maxStagingRows=${r.settings.maxStagingRows}: its post-pushdown size is ${estimate.value===null?'unknown':'above the limit'}. Narrow the query or review this setting.`,{setting:'maxStagingRows',value:r.settings.maxStagingRows}));
+    if(estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0||estimate.value>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${scan.object.catalog}.${scan.object.schema}.${scan.object.name} cannot be staged within maxStagingRows=${r.settings.maxStagingRows}: its post-pushdown size is ${estimate.value===null?'unknown':'above the limit'}. Narrow the query or review this setting.`,{object:{catalog:scan.object.catalog,schema:scan.object.schema,name:scan.object.name},cause:estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0?'scan_size_unknown':'scan_estimate_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
    }
    const stage=async(privileged:EngineSession,agent:EngineSession):Promise<Result<void>>=>{
     for(const scan of scans){
      if(signal.aborted)return cancelled();
      const o=scan.object,table=stagingRef(o);
-     if(!privileged.staging||!agent.staging)return err(new DomainError('dependency_unavailable','The engine cannot stage pool objects.'));
+     if(!privileged.staging||!agent.staging)return err(new DomainError('dependency_unavailable','The engine cannot stage pool objects.',{cause:'component_configuration',reason:'staging_capability'}));
      let result:Result<void>;
      if(o.readPlan.columns.every(c=>c.treatment==='clear'||c.treatment==='aggregate_only'))result=await this.source.plain(scan,privileged,table,signal);
      else{
@@ -61,13 +61,13 @@ export class StagedExecutor {
       try{result=await this.source.treated(scan,async rows=>{
        if(signal.aborted)return cancelled();
        count+=rows.length;
-       if(count>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{setting:'maxStagingRows',value:r.settings.maxStagingRows}));
-       appending=privileged.staging!.append('memory','__staging',table,rows);await appending;return ok(undefined);
+       if(count>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{object:{catalog:o.catalog,schema:o.schema,name:o.name},cause:'scan_observed_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
+       appending=privileged.staging!.append('memory','__staging',table,rows);try{await appending;}catch(error){if(error instanceof DomainError||error instanceof Error&&error.message.startsWith('Out of Memory Error:'))throw error;throw new DomainError('source_unavailable','Local staging could not append source rows.',{cause:'staging_failed'});}return ok(undefined);
       },signal);}finally{await appending?.catch(()=>{});}
      }
      if(!result.ok)return result;
      const counted=await privileged.execute(`SELECT COUNT(*) FROM __staging.${quote(table)}`);
-     if(BigInt(String(counted.rows[0]?.[0]))>BigInt(r.settings.maxStagingRows))return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{setting:'maxStagingRows',value:r.settings.maxStagingRows}));
+     if(BigInt(String(counted.rows[0]?.[0]))>BigInt(r.settings.maxStagingRows))return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{object:{catalog:o.catalog,schema:o.schema,name:o.name},cause:'scan_observed_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
      await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);
     }
     return ok(undefined);

@@ -251,6 +251,7 @@ VC-10–VC-14, VC-23–VC-30 and H-008 therefore require authoritative sidecar a
 | 5.5 | MCP server, key auth, tool listing driven by pool config | 5.2, 4.4 | `modules/mcp` | I-004, I-013, I-014, I-023 |
 | 5.6 | `describe`: entitled with types, withheld marked, undecided absent | 5.5, 4.4 | tool | I-007, I-008 |
 | 5.7 | `query`: SQL subset on the parsed statement, dispatch to sidecar | 5.5, S2 | tool | I-010 to I-012, K-001 to K-009, F-010 (query refusal), J-044/J-045 |
+| 5.7a | Distinguish cancellation, deadline and source failure: preserve the first cause across queueing, source reads, engine interruption and transport | 5.7, S2e | `sidecar/session`, `mcp` | A cancelled query, a deadline and an unreachable source each produce their own code and message; a race between them resolves deterministically |
 | 5.8 | **Reduction in the text content the model reads.** Hand-reviewed | 5.7 | `mcp/response.ts` | I-009 |
 | 5.9 | `explain` dry run, no source contact | 5.7 | tool | N-003 |
 | 5.10 | Evidence domain, append-only grants, partitioning | 2.1 | `modules/evidence` | M-001 to M-006 |

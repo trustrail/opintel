@@ -28,7 +28,7 @@ export class TokenizationRun {
             return parsed;
         const config = parsed.value;
         if (extension && (config.mode !== 'text' || extension.canonId !== config.canonId))
-            return err(new DomainError('validation_failed', 'The canonicaliser must match the text element declaration.'));
+            return err(new DomainError('validation_failed', 'The canonicaliser must match the text element declaration.',{cause:'invalid_token_declaration',reason:'canonicaliser'}));
         return ok(value => {
             const canonical = canonicalise(value, config, this.zones, extension);
             if (!canonical.ok || canonical.value === null)
@@ -51,7 +51,7 @@ export class TokenizationRun {
         });
     }
     prepare(input: unknown, extension?: Canonicaliser) {
-        if (typeof input === 'object' && input !== null && 'domain' in input && input.domain === 'sentinel') return err(new DomainError('validation_failed', 'The sentinel token domain is reserved for key custody.'));
+        if (typeof input === 'object' && input !== null && 'domain' in input && input.domain === 'sentinel') return err(new DomainError('validation_failed', 'The sentinel token domain is reserved for key custody.',{cause:'invalid_token_declaration',reason:'sentinel_domain'}));
         return this.prepareInternal(input, extension);
     }
     sentinel() {
@@ -70,16 +70,16 @@ export class SidecarTokenizer {
             const resolved = TokenKey.take(await this.secrets.resolveBytes(ref));
             if (!resolved.ok) {
                 this.audit.record({ event: 'tokenization.refused', projectId, category: 'key_resolution' });
-                return err(new DomainError('dependency_unavailable', `Token key ${ref} must contain exactly 32 raw bytes.`));
+                return err(new DomainError('dependency_unavailable', `Token key ${ref} must contain exactly 32 raw bytes.`,{cause:'component_configuration',reason:'token_key_size'}));
             }
             key = resolved.value;
             const result = await work(new TokenizationRun(key, this.zones));
             this.audit.record(result.ok ? { event: 'tokenization.complete', projectId } : { event: 'tokenization.refused', projectId, category: 'declaration' });
             return result;
         }
-        catch {
+        catch (error) {
             this.audit.record({ event: 'tokenization.refused', projectId, category: key ? 'execution' : 'key_resolution' });
-            return err(new DomainError('dependency_unavailable', `Tokenization could not complete using ${ref}. Check the source and secret-store configuration.`));
+            return err(new DomainError('dependency_unavailable', `Tokenization could not complete using ${ref}. Check the source and secret-store configuration.`,error instanceof DomainError?error.details:{cause:'tokenization_failed'}));
         }
         finally {
             key?.dispose();

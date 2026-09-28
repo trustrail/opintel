@@ -3,7 +3,7 @@ import { caseFolding } from './unicode/folding.js';
 import { digits, validCivil, seconds, formatSeconds, type Civil } from './calendar.js';
 import type { TokenConfig, Canonicaliser, ZoneResolver } from './config.js';
 const trimSet = new Set(Array.from('\u0009\u000a\u000b\u000c\u000d\u0020\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff'));
-const refused = () => err(new DomainError('validation_failed', 'The source value does not match its declared tokenization mode. Read it as source text and check its declaration.'));
+const refused = () => err(new DomainError('validation_failed', 'The source value does not match its declared tokenization mode. Read it as source text and check its declaration.',{cause:'invalid_token_declaration',reason:'token_declaration'}));
 function civil(match: RegExpExecArray): Civil { return { year: digits(match[1]!), month: digits(match[2]!), day: digits(match[3]!), hour: digits(match[4] ?? '0'), minute: digits(match[5] ?? '0'), second: digits(match[6] ?? '0') }; }
 export function canonicalise(value: unknown, config: TokenConfig, zones: ZoneResolver, extension?: Canonicaliser): Result<string | null> {
     if (value === null)
@@ -72,7 +72,7 @@ export function canonicalise(value: unknown, config: TokenConfig, zones: ZoneRes
             const offset = match[8];
             if (offset === undefined) {
                 if (!config.declaredZone)
-                    return err(new DomainError('validation_failed', 'A timestamp without an offset requires a declared source timezone.'));
+                    return err(new DomainError('validation_failed', 'A timestamp without an offset requires a declared source timezone.',{cause:'invalid_token_declaration',reason:'source_timezone'}));
                 const resolved = zones.toUtc(utc, config.declaredZone);
                 if (!resolved.ok)
                     return resolved;

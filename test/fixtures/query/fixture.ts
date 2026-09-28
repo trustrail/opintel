@@ -13,7 +13,7 @@ import {PoolKeyCreationResponse} from '../../../src/shared/api/pool-keys.js';
 import {PoolKeyService,PostgresPoolKeys,PostgresKeyVerifier,AgentPresenceService,PostgresAgentPresence,PoolBindingService,PostgresPoolBindings} from '../../../src/modules/pools/index.js';
 import {RelationshipOutbox} from '../../../src/modules/tenancy/index.js';
 import {SpiceDbAuthorizationPort} from '../../../src/modules/authz/infrastructure/spicedb-authorization-port.js';
-import {McpAccess,McpHttpServer,PostgresMcpConfiguration,QueryService,PostgresQueryReader,SidecarQueryExecution,type EvidenceWriterPort} from '../../../src/modules/mcp/index.js';
+import {DescribeService,PostgresDescribeReader,McpAccess,McpHttpServer,PostgresMcpConfiguration,QueryService,PostgresQueryReader,SidecarQueryExecution,type EvidenceWriterPort} from '../../../src/modules/mcp/index.js';
 import {QueryPreFilter,DuckDBQueryParser} from '../../../src/modules/entitlements/index.js';
 import {createHttpServer} from '../../../src/platform/http/index.js';
 import {prepareSidecarDevelopment} from '../../../scripts/sidecar-dev.js';
@@ -77,7 +77,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.4.3/d1dc88f950'}});const port=await host.listen();cleanup.push(()=>host.close());
  const execution=new SidecarQueryExecution({...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`});
  const reader=new PostgresQueryReader(),filter=new QueryPreFilter(new DuckDBQueryParser()),service=new QueryService(reader,filter,execution,authorization,writer);
- const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),undefined,service);
+ const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),new DescribeService(new PostgresDescribeReader(),authorization),service);
  const server=createHttpServer([],{agentInterface:mcp});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');cleanup.push(async()=>{await mcp.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const url=new URL(`http://127.0.0.1:${address.port}/mcp/v1/p/${f.ctx.projectId}`);
  const connect=async(key:string)=>{const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(url,{requestInit:{headers:{authorization:`Bearer ${key}`,'x-opintel-agent-id':'unverified-agent'}}});await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};

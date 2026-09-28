@@ -26,7 +26,7 @@ class Inspector {
  private depth=0;
  constructor(private readonly namespace:PoolNamespace){}
  refuse(construct:string):void {
-  this.failure??=new DomainError('sql_not_permitted',`Construct ${construct} is not permitted in this pool.`,{construct,proofCategory:'sql_not_permitted'});
+  this.failure??=new DomainError('sql_not_permitted',`Construct ${construct} is not permitted in this pool.`,{cause:'prohibited_construct',construct,proofCategory:'sql_not_permitted'});
  }
  read<T>(schema:z.ZodType<T>,value:unknown,construct:string):T|undefined {
   const parsed=schema.safeParse(value);

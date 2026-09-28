@@ -22,21 +22,21 @@ const explanations: Record<OmittedObject['reason'], string> = {
  * namespace lookup, never binding, treatment approval or execution permission. */
 export function resolveIdentifier(compilation: CompileResult, identifier: ObjectIdentifier): Result<ViewDefinition> {
   const parsed = identifierSchema.safeParse(identifier);
-  if (!parsed.success) return err(new DomainError('sql_not_permitted', 'An object identifier must contain non-empty catalog, schema and name components without NUL characters.'));
+  if (!parsed.success) return err(new DomainError('sql_not_permitted', 'An object identifier must contain non-empty catalog, schema and name components without NUL characters.',{cause:'invalid_identifier'}));
   const address = parsed.data;
   const name = [address.catalog, address.schema, address.name].map(quoteIdent).join('.');
   const views = compilation.views.filter(view => matches(view, address));
   const omitted = compilation.omitted.filter(object => matches(object, address));
   if (views.length + omitted.length > 1) {
-    return err(new DomainError('sql_not_permitted', `Object ${name} is ambiguous in the pool's compilation snapshot.`, { object: address }));
+    return err(new DomainError('sql_not_permitted', `Object ${name} is ambiguous in the pool's compilation snapshot.`, { cause:'ambiguous_object',object: address }));
   }
   const view = views[0];
   if (view) return ok(view);
   const object = omitted[0];
   if (object) {
     return err(new DomainError('object_unavailable', `Object ${name} is unavailable: ${explanations[object.reason]}.`, {
-      object: { catalog: object.catalog, schema: object.schema, name: object.name }, reason: object.reason,
+      object: { catalog: object.catalog, schema: object.schema, name: object.name }, cause:object.reason,reason: object.reason,
     }));
   }
-  return err(new DomainError('not_found', `Object ${name} was not found in the pool's namespace.`, { object: address }));
+  return err(new DomainError('not_found', `Object ${name} was not found in the pool's namespace.`, { cause:'object_absent',object: address }));
 }

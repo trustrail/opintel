@@ -6,8 +6,8 @@ export function sessionFailure(error:unknown):DomainError{
  const message=error instanceof Error?error.message:'';
  if(message.startsWith('Out of Memory Error:'))return new DomainError('budget_exceeded',
   'Out of Memory Error: the pool memory limit was exceeded. Narrow the query or ask an administrator to review the limit.',
-  {resource:'memory'},false);
+  {cause:'memory_exhausted',resource:'memory'},false);
  if(message.startsWith('Interrupt Error:'))return new DomainError('budget_exceeded',
-  'The query was cancelled before completion. No partial result was returned.',{resource:'cancellation'},false);
- return new DomainError('dependency_unavailable','The query engine could not complete the operation. No partial result was returned.',undefined,true);
+  'The query was cancelled before completion. No partial result was returned.',{cause:'interruption_unclassified',resource:'cancellation'},false);
+ return new DomainError('dependency_unavailable','The query engine could not complete the operation. No partial result was returned.',{cause:'engine_failed'},true);
 }

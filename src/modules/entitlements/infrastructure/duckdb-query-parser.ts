@@ -23,7 +23,7 @@ export class DuckDBQueryParser implements QueryParserPort {
         const result = serialized.parse((await connection.runAndReadAll('SELECT CAST(json_serialize_sql(CAST($1 AS VARCHAR)) AS VARCHAR) AS syntax', [sql])).getRowObjects())[0]!;
         const tree: unknown = JSON.parse(result.syntax);
         const failure = parseFailure.safeParse(tree);
-        if (failure.success) return err(new DomainError('sql_not_permitted', `DuckDB could not serialize the statement (${failure.data.error_type}). Use an interpretable SELECT, WITH, VALUES or object DESCRIBE statement.`, { construct: failure.data.error_type, stage: 'application_pre_filter' }));
+        if (failure.success) return err(new DomainError('sql_not_permitted', `DuckDB could not serialize the statement (${failure.data.error_type}). Use an interpretable SELECT, WITH, VALUES or object DESCRIBE statement.`, { cause:failure.data.error_type==='parser'?'parse_failed':'serialization_refused',construct: failure.data.error_type, stage: 'application_pre_filter' }));
         return ok({ parserBuild: `${version.library_version}/${version.source_id}`, tree });
       } finally { connection.closeSync(); }
     } finally { instance.closeSync(); }

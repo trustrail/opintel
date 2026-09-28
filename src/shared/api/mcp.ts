@@ -1,3 +1,4 @@
+import {QueryRefusalMetadata} from './query-refusal.js';
 import { z } from 'zod';
 
 export const DescribeInput = z.strictObject({ object: z.string().optional() });
@@ -29,6 +30,7 @@ export function mcpOpenApiDocument() {
   components: { securitySchemes: { poolKey: { type: 'http', scheme: 'bearer' } }, schemas: {
    DescribeInput: z.toJSONSchema(DescribeInput), DescribeOutput: z.toJSONSchema(DescribeOutput),
    ExplainInput: z.toJSONSchema(ExplainInput), ExplainOutput: z.toJSONSchema(ExplainOutput),
+   QueryRefusalMetadata:z.toJSONSchema(QueryRefusalMetadata),
    QueryInput: z.toJSONSchema(QueryInput), QueryOutput: z.toJSONSchema(QueryOutput),
   } },
   paths: { '/mcp/v1/p/{projectId}': Object.fromEntries(['get','post','delete'].map(method => [method, {

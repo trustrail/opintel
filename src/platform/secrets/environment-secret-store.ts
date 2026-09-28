@@ -15,7 +15,7 @@ export class EnvironmentSecretStore implements SecretStorePort {
   async resolve(ref: SecretRefType): Promise<string> {
     const secret = this.environment[environmentVariableFor(ref)];
     if (secret === undefined) {
-      throw new DomainError('dependency_unavailable', `Secret ${ref} is not configured.`, undefined, true);
+      throw new DomainError('dependency_unavailable', `Secret ${ref} is not configured.`, {cause:'component_configuration',reason:'secret_missing'}, true);
     }
     return secret;
   }
@@ -25,7 +25,7 @@ export class EnvironmentSecretStore implements SecretStorePort {
   }
 
   async store(path: string, _secret: string): Promise<SecretRefType> {
-    throw new DomainError('dependency_unavailable', `Secret storage is unavailable for secret://${path}.`, undefined, false);
+    throw new DomainError('dependency_unavailable', `Secret storage is unavailable for secret://${path}.`, {cause:'component_configuration',reason:'secret_storage'}, false);
   }
 }
 

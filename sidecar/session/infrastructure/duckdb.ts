@@ -59,7 +59,7 @@ export class DuckDBSessionEngine implements SessionEngine {
       try{const rows=await connection.stream(`SELECT * FROM __staging.${quote(table)}`);for await(const chunk of rows)appender.appendDataChunk(chunk);appender.flushSync();}finally{appender.closeSync();}
      },
      materialize:async(source,query,table,columns)=>{
-      if(role!=='privileged'||!this.postgresExtension)throw new DomainError('dependency_unavailable','A signed PostgreSQL scanner matching DuckDB v1.4.3 is required. Configure postgresExtension before staging clear objects.');
+      if(role!=='privileged'||!this.postgresExtension)throw new DomainError('dependency_unavailable','A signed PostgreSQL scanner matching DuckDB v1.4.3 is required. Configure postgresExtension before staging clear objects.',{cause:'component_configuration',reason:'scanner'});
       await connection.run(`ATTACH ${literal(source)} AS __source (TYPE POSTGRES, READ_ONLY)`);
       try{await connection.run('CREATE SCHEMA IF NOT EXISTS __staging');
        await connection.run(`CREATE TABLE __staging.${quote(table)} AS SELECT ${columns.map(c=>'CAST('+quote(c.name)+' AS '+stagingType(c.type)!.duck+') AS '+quote(c.name)).join(',')} FROM postgres_query('__source',${literal(query)})`);

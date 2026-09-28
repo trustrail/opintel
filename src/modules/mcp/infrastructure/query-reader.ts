@@ -13,12 +13,12 @@ export class PostgresQueryReader implements QuerySnapshotReader {
   const ctx={projectId:principal.pool.projectId,userId:principal.scopeUserId};
   const result=await new PostgresEntitlementReader().compilation(ctx,principal.pool.id);if(!result.ok)return result;
   const [pool]=await withTenant(ctx,tx=>tx.query<{budgets:unknown;enabled:boolean}>('SELECT budgets,mode_query AS enabled FROM pool WHERE id=$1',[principal.pool.id]));
-  if(!pool?.enabled)return err(new DomainError('forbidden','Query mode is not enabled for this pool.'));
+  if(!pool?.enabled)return err(new DomainError('forbidden','Query mode is not enabled for this pool.',{cause:'query_disabled'}));
   const settings=querySettings.safeParse(result.value.projectSettings),budget=budgets.safeParse(pool.budgets);
-  if(!settings.success||!budget.success)return err(new DomainError('validation_failed','Configure project query limits and the pool threads budget before querying.'));
+  if(!settings.success||!budget.success)return err(new DomainError('validation_failed','Configure project query limits and the pool threads budget before querying.',{cause:'invalid_settings',reason:'query_limits'}));
   const q=settings.data.query,b=budget.data;
   const limits=executionRequest.shape.limits.safeParse({memoryMb:Math.min(b.memoryMb??q.memoryLimitMb,q.memoryLimitMb),threads:b.threads,timeoutMs:Math.min(b.timeoutMs??q.timeoutSeconds*1000,q.timeoutSeconds*1000),rowLimit:Math.min(b.rowsPerRequest??q.rowLimit,q.rowLimit),concurrency:Math.min(b.concurrency??q.concurrencyPerPool,q.concurrencyPerPool)});
-  if(!limits.success)return err(new DomainError('validation_failed','The configured query limits are invalid.'));
+  if(!limits.success)return err(new DomainError('validation_failed','The configured query limits are invalid.',{cause:'invalid_settings',reason:'query_limits'}));
   return ok({...result.value,aggregateMinGroupSize:q.aggregateMinGroupSize,limits:limits.data,settings:executionSettings.parse({maxStagingRows:q.maxStagingRows,maxQueuedExecutions:q.maxQueuedExecutions})});
  }
 }

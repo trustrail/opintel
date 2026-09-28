@@ -1,3 +1,4 @@
+import { startupCheck, StartupCheckError } from './startup-check.js';
 import { SecretRef } from '../src/platform/secrets/types.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -33,23 +34,21 @@ export type SidecarConfig = z.infer<typeof sidecarConfigSchema>;
 export type SidecarTls = { ca: string; cert: string; key: string; clientPin: string };
 
 export async function loadSidecarConfig(file: string): Promise<{ config: SidecarConfig; tls: SidecarTls }> {
-  let value: unknown;
-  try { value = JSON.parse(await readFile(file, 'utf8')) as unknown; }
-  catch { throw new Error('Sidecar configuration file is missing or is not valid JSON.'); }
+  const value = await startupCheck(`configuration file ${file}`, async () => JSON.parse(await readFile(file, 'utf8')) as unknown);
   const parsed = sidecarConfigSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid sidecar configuration fields: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}.`);
+  if (!parsed.success) throw new StartupCheckError('configuration schema', `Invalid sidecar configuration fields: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}.`);
   const config = parsed.data;
-  const read = async (path: string) => readFile(resolve(dirname(file), path), 'utf8');
-  let tls: SidecarTls;
-  try {
-    const [ca, cert, key, clientPin] = await Promise.all([read(config.tls.caFile), read(config.tls.certFile), read(config.tls.keyFile), read(config.tls.clientPinFile)]);
-    tls = { ca, cert, key, clientPin };
-    createSecureContext({ ca, cert, key, minVersion: 'TLSv1.3' });
-    if (!new X509Certificate(cert).checkPrivateKey(createPrivateKey(key))) throw new Error('Key mismatch');
-    for (const pem of [cert, clientPin]) {
-      const certificate = new X509Certificate(pem);
-      if (Date.parse(certificate.validFrom) > Date.now() || Date.parse(certificate.validTo) <= Date.now()) throw new Error('Expired certificate');
-    }
-  } catch { throw new Error('Sidecar TLS files are missing, invalid, expired, or the server key does not match its certificate.'); }
+  const read = async (field: keyof SidecarConfig['tls']) => startupCheck(`TLS ${field}`, () => readFile(resolve(dirname(file), config.tls[field]), 'utf8'));
+  const [ca, cert, key, clientPin] = await Promise.all([read('caFile'), read('certFile'), read('keyFile'), read('clientPinFile')]);
+  const tls = { ca, cert, key, clientPin };
+  const certificate = await startupCheck('TLS server certificate', () => new X509Certificate(cert), 'the certificate is invalid.');
+  const privateKey = await startupCheck('TLS server private key', () => createPrivateKey(key), 'the private key is invalid or requires a passphrase.');
+  if (!certificate.checkPrivateKey(privateKey)) throw new StartupCheckError('TLS server key', 'the private key does not match the server certificate.');
+  for (const [name, pem] of [['server certificate', cert], ['client pin certificate', clientPin]] as const) {
+    const certificate = await startupCheck(`TLS ${name}`, () => new X509Certificate(pem), 'the certificate is invalid.');
+    if (Date.parse(certificate.validFrom) > Date.now()) throw new StartupCheckError(`TLS ${name}`, 'the certificate is not yet valid.');
+    if (Date.parse(certificate.validTo) <= Date.now()) throw new StartupCheckError(`TLS ${name}`, 'the certificate has expired.');
+  }
+  await startupCheck('TLS secure context', () => createSecureContext({ ca, cert, key, minVersion: 'TLSv1.3' }), 'the TLS configuration is invalid.');
   return { config: { ...config, postgresExtension:config.postgresExtension?resolve(dirname(file),config.postgresExtension):undefined, custody:config.custody?{keyStore:resolve(dirname(file),config.custody.keyStore),keyEscrow:resolve(dirname(file),config.custody.keyEscrow)}:undefined, auditFile: resolve(dirname(file), config.auditFile), landingZones: config.landingZones?.map((zone) => ({ ...zone, directory: resolve(dirname(file), zone.directory), stateFile: resolve(dirname(file), zone.stateFile), rulesFile: resolve(dirname(file), zone.rulesFile) })) }, tls };
 }

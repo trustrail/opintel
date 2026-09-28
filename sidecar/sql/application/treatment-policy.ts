@@ -14,7 +14,7 @@ export type PolicyTable={catalog:string;schema:string;name:string;columns:{name:
 const address=(v:{catalog:string;schema:string;name:string})=>JSON.stringify([v.catalog,v.schema,v.name].map(fold));
 export function resolvePolicy(input:unknown,namespace:PoolNamespace):Result<{policy:TreatmentPolicy;tables:PolicyTable[]}>{
  const parsed=treatmentPolicySchema.safeParse(input);
- const failure=()=>err(new DomainError('sql_not_permitted','The pool read plan and a decision for every staged column are required.'));
+ const failure=()=>err(new DomainError('sql_not_permitted','The pool read plan and a decision for every staged column are required.',{cause:'inspection_inconsistent',reason:'policy'}));
  if(!parsed.success)return failure();
  const policy=parsed.data,decisions=new Map(policy.entitlements.map(e=>[e.elementId,e.treatment]));
  if(decisions.size!==policy.entitlements.length||new Set(policy.readPlan.map(address)).size!==policy.readPlan.length)return failure();

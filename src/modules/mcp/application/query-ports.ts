@@ -3,6 +3,7 @@ import type {CompileResult} from '../../entitlements/index.js';
 import type {Result,RunId,SourceId} from '../../../shared/kernel/index.js';
 import type {ExecutionRequest,executionResponse} from '../../../shared/execution-contract.js';
 import type {QueryOutput} from '../../../shared/api/mcp.js';
+import type {Reduction} from './response.js';
 import type {McpPrincipal} from './access.js';
 export interface EvidenceWriterPort {
  readonly implementation:'durable'|'unavailable'|'test-stub';
@@ -16,4 +17,4 @@ export interface QueryExecutionPort {
  health(signal?:AbortSignal):Promise<Result<{queryEngineVersion:string}>>;
  execute(input:ExecutionRequest,signal?:AbortSignal):Promise<Result<z.infer<typeof executionResponse>>>;
 }
-export interface QueryTool {query(principal:McpPrincipal,input:unknown,signal?:AbortSignal):Promise<Result<z.infer<typeof QueryOutput>>>}
+export interface QueryTool {query(principal:McpPrincipal,input:unknown,signal?:AbortSignal):Promise<Result<z.infer<typeof QueryOutput>&{reduction?:Reduction}>>}
