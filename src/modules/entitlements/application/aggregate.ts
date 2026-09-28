@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { DomainError, err, ok, type ElementId, type Result } from '../../../shared/kernel/index.js';
-import type { ViewDefinition } from './compile.js';
+import type { ViewDefinition, OmittedObject } from './compile.js';
 import type { QueryParserPort } from './query-parser-port.js';
+import { resolveIdentifier } from './resolve.js';
 import * as syntax from './query-syntax.js';
 
 type Reference = { elementId: ElementId; name: string; treatment: 'tokenized' | 'aggregate_only'; threshold: number };
-type Field = { name: string; references: Reference[] };
+type Field = { name: string; references: Reference[]; omitted?:'withheld'|'undecided' };
 type Relation = { qualifiers: string[][]; fields: Field[] };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
 type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean };
@@ -17,7 +18,7 @@ class Inspection {
   failure: DomainError | undefined;
   private depth = 0;
   private visits = 0;
-  constructor(private readonly views: readonly ViewDefinition[]) {}
+  constructor(private readonly views: readonly ViewDefinition[],private readonly omitted:readonly OmittedObject[]=[],private readonly onObject?:(view:ViewDefinition)=>void) {}
 
   refuse(construct: string): void {
     this.failure ??= new DomainError('sql_not_permitted', `The application pre-filter cannot interpret ${construct}. Rewrite the query; sidecar inspection is still required.`, { construct, stage: 'application_pre_filter' });
@@ -67,7 +68,9 @@ class Inspection {
       }
     }
     const matches = candidates.length ? candidates : aliases;
-    if (matches.length !== 1) { this.refuse(`unresolved or ambiguous identifier ${names.join('.')}`); return []; }
+    if(matches.length===0){this.failure??=new DomainError('not_found',`Column ${names.join('.')} was not found in the pool query.`);return [];}
+    if (matches.length !== 1) { this.refuse(`ambiguous identifier ${names.join('.')}`); return []; }
+    if(matches[0]!.omitted){const withheld=matches[0]!.omitted==='withheld';this.failure??=new DomainError(withheld?'element_withheld':'entitlement_missing',withheld?`Column ${names.join('.')} is withheld by the pool's decision.`:`No entitlement has been decided for column ${names.join('.')}. Ask an administrator to decide its treatment.`);return [];}
     return matches[0]!.references;
   }
 
@@ -160,12 +163,14 @@ class Inspection {
           if (cte) return [{ qualifiers: [[t.alias || t.table_name]], fields: cte }];
           const matches = this.views.filter(v => same([v.catalog, v.schema, v.name], [t.catalog_name, t.schema_name, t.table_name]));
           if (!t.catalog_name || !t.schema_name || matches.length !== 1) {
+            if(t.catalog_name&&t.schema_name){const resolved=resolveIdentifier({views:this.views,omitted:this.omitted},{catalog:t.catalog_name,schema:t.schema_name,name:t.table_name});if(!resolved.ok){this.failure??=resolved.error;return [];}}
             this.refuse(`table ${[t.catalog_name, t.schema_name, t.table_name].filter(Boolean).join('.')}`); return [];
           }
-          const view = matches[0]!;
+          const view = matches[0]!;this.onObject?.(view);
           const fields: Field[] = [];
           for (const col of view.columns) {
-            if (col.state !== 'emitted' || col.exposedName === null) continue;
+            if(col.exposedName===null)continue;
+            if(col.state!=='emitted'){fields.push({name:col.exposedName,references:[],omitted:col.state});continue;}
             const refs: Reference[] = [];
             if (col.treatment === 'aggregate_only' || col.treatment === 'tokenized') {
               const constraint = view.constraints.find(c => c.elementId === col.elementId);
@@ -246,7 +251,7 @@ class Inspection {
           if (!star) continue;
           const selected = relations.filter(r => !star.relation_name || r.qualifiers.some(n => n.length === 1 && fold(n[0]!) === fold(star.relation_name)));
           if (!selected.length) this.refuse('star qualifier');
-          for (const field of selected.flatMap(r => r.fields)) { this.check(field.references, { relations, clause: 'SELECT' }); output.push(field); }
+          for (const field of selected.flatMap(r => r.fields).filter(f=>!f.omitted)) { this.check(field.references, { relations, clause: 'SELECT' }); output.push(field); }
         } else {
           const refs = this.expression(expr, { relations, clause: 'SELECT' });
           const col = syntax.column.safeParse(expr);
@@ -283,20 +288,20 @@ class Inspection {
   }
 }
 
-export type QueryPreFilterInput = Readonly<{ sql: string; queryEngineBuild: string; views: readonly ViewDefinition[] }>;
+export type QueryPreFilterInput = Readonly<{ sql: string; queryEngineBuild: string; views: readonly ViewDefinition[]; omitted?: readonly OmittedObject[] }>;
 export type QueryPreFilterOutcome = Readonly<{ kind: 'requires_sidecar_inspection' }>;
 
 /** Passing this filter is never permission. No SQL is rewritten or executed. */
 export class QueryPreFilter {
   constructor(private readonly parser: QueryParserPort) {}
 
-  async inspect(input: QueryPreFilterInput): Promise<Result<QueryPreFilterOutcome>> {
+  async inspect(input: QueryPreFilterInput,onObject?:(view:ViewDefinition)=>void): Promise<Result<QueryPreFilterOutcome>> {
     const boundary = z.object({ sql: z.string().min(1), queryEngineBuild: z.string().min(1) }).safeParse(input);
     if (!boundary.success) return err(new DomainError('sql_not_permitted', 'A SQL statement and the sidecar engine build are required.'));
     const parsed = await this.parser.parse(input.sql);
     if (!parsed.ok) return parsed;
     if (parsed.value.parserBuild !== input.queryEngineBuild) return err(new DomainError('sql_not_permitted', 'The application parser and sidecar engine builds differ. Align their builds before retrying.', { construct: 'parser_engine_build', stage: 'application_pre_filter' }));
-    const inspection = new Inspection(input.views);
+    const inspection = new Inspection(input.views,input.omitted,onObject);
     const document = inspection.read(syntax.document, parsed.value.tree, 'DuckDB statement');
     if (document) inspection.query(document.statements[0]!.node);
     return inspection.failure ? err(inspection.failure) : ok({ kind: 'requires_sidecar_inspection' });

@@ -250,7 +250,7 @@ VC-10–VC-14, VC-23–VC-30 and H-008 therefore require authoritative sidecar a
 | 5.4 | Agent presence state machine, never silently removed | 5.1, 3.16 | `pools/presence.ts` | I-018 to I-021 |
 | 5.5 | MCP server, key auth, tool listing driven by pool config | 5.2, 4.4 | `modules/mcp` | I-004, I-013, I-014, I-023 |
 | 5.6 | `describe`: entitled with types, withheld marked, undecided absent | 5.5, 4.4 | tool | I-007, I-008 |
-| 5.7 | `query`: SQL subset on the parsed statement, dispatch to sidecar | 5.5, S2 | tool | I-009 to I-012, K-001 to K-009, F-010 (query refusal) |
+| 5.7 | `query`: SQL subset on the parsed statement, dispatch to sidecar | 5.5, S2 | tool | I-010 to I-012, K-001 to K-009, F-010 (query refusal), J-044/J-045 |
 | 5.8 | **Reduction in the text content the model reads.** Hand-reviewed | 5.7 | `mcp/response.ts` | I-009 |
 | 5.9 | `explain` dry run, no source contact | 5.7 | tool | N-003 |
 | 5.10 | Evidence domain, append-only grants, partitioning | 2.1 | `modules/evidence` | M-001 to M-006 |
@@ -308,7 +308,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | S1 | Runnable host, validated config, pinned mutual TLS; `/health`, `/test-connection`, `/introspect`, `/sample` with consent, `/estimate`; audit and disconnect cancellation | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
 | **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-23, ING-25, ING-26 (ING-24: 5.11) |
 | S2a | Two-session construction and hardening. lock_configuration last | S1 | sidecar/session | J-013, J-014, J-020; runtime statement-log assertion that lock_configuration is last before agent SQL |
-| S2b | **Bypass suite from docs/bypass-attacks.md; preserve every attack** | S2a | test/bypass | J-004 to J-018, J-020, J-027 to J-057; J-044/J-045 explicitly blocked on 5.7 |
+| S2b | **Bypass suite from docs/bypass-attacks.md; preserve every attack** | S2a | test/bypass | J-004 to J-018, J-020, J-027 to J-057; J-044/J-045 authenticated attacks supplied by 5.7 |
 | S2c | Parse, serialize, explicit subset inspection, then PREPARE binding and retained-handle execution | S2a | sidecar/sql | C.3 refusals, J-015 to J-018; no prohibited statement reaches prepare/execute |
 | S2d | Authoritative treatment enforcement: aggregate-only two stages, token ordering | S2c, 4.4 | sidecar/sql | VC-10 to VC-14, VC-23 to VC-30 |
 | S2e | Staging paths, execute, cancellation, governance, ephemerality | S2c | sidecar/session | J-022 onward, C.4, C.5 |
@@ -388,7 +388,7 @@ Thirty-six cases for ingest, to be added to the test specification.
 **Bypass regression gate.** `test/bypass/` runs in its own Vitest project via
 `npm run test:bypass`, separate from `npm test`; CI runs both. The reviewed
 `test/bypass/open-attacks.json` registers current open cases by exact assertion,
-observation and owner (currently 5.7). Expected
+observation and owner (no open exemptions after 5.7). Expected
 failures print as an owned work queue. New failures or succeeding attacks,
 missing/skipped tests, changed failure reasons, unhandled errors and stale
 entries that now pass fail the build. Owners remove exemptions when their
@@ -550,3 +550,23 @@ transport portion of J-022/J-023 are exercised here; workspace degraded-state
 integration cannot be claimed before 5.7's query transport exists. S4's handwritten
 sentinel proof and S5's container security/deployment remain separate items.
 Streaming remains deferred. See `docs/review/s2e-progress.md` for verification.
+
+
+### Item 5.7 — query dispatch and evidence boundary
+
+The application runs the existing refuse-only pre-filter, resolves the current
+pool compilation and source relationships, and dispatches its read plan and
+entitlements to the pinned mTLS sidecar. The sidecar independently inspects,
+binds and executes. Native result types accompany result columns. No cached or
+partial answer is served when a source or the sidecar becomes unavailable.
+
+`EvidenceWriterPort` gates execution and release of a structured answer. Tests
+use a marked stub; startup rejects that marker outside a test build. Production
+uses an unavailable adapter naming items 5.10/5.11 and refuses before execution.
+I-009's model-readable reduction remains solely 5.8; 5.7 emits structured
+content and an evidence id, with no successful-answer text composition.
+
+J-044/J-045 now exercise real pool keys, relationships, MCP sessions and SQL
+execution, including revoked and expired keys on the next request. Their two
+prerequisite exemptions are removed. The bypass project consequently requires
+the same local service prerequisites as the functional project.

@@ -9,6 +9,7 @@ import { ProjectId } from '../../../shared/kernel/index.js';
 import { listedTools, toolDescriptor } from '../../../shared/api/mcp.js';
 import { errorEnvelopeSchema, type PoolKeyHttpEndpoint } from '../../../platform/http/index.js';
 import { McpAccess, type McpConfiguration, type McpPrincipal } from '../application/access.js';
+import type { QueryTool } from '../application/query-ports.js';
 import type { DescribeTool } from '../application/describe.js';
 
 type Session = { server: Server; transport: StreamableHTTPServerTransport; principal: McpPrincipal; fingerprint: string; heartbeatAt: number; pinging: boolean };
@@ -18,10 +19,10 @@ const fingerprint = (principal: McpPrincipal) => JSON.stringify(principal.pool.m
 export class McpHttpServer implements PoolKeyHttpEndpoint {
  readonly permission = 'pool-key' as const;
  private readonly sessions = new Map<string, Session>();
- private readonly context = new AsyncLocalStorage<McpPrincipal>();
+ private readonly context = new AsyncLocalStorage<{principal:McpPrincipal;signal:AbortSignal}>();
  private timer: ReturnType<typeof setInterval> | undefined;
  private refreshing = false;
- constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool) {}
+ constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool,private readonly queryTool?:QueryTool) {}
  start() {
   this.timer ??= setInterval(() => { void this.refresh().catch(() => { console.warn({event:'mcp.refresh_failed',category:'dependency_unavailable'}); }); }, 1000);
   this.timer.unref();
@@ -68,12 +69,12 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
   const session: Session = {server,transport,principal,fingerprint:fingerprint(principal),heartbeatAt:Date.now(),pinging:false};
   server.onclose = () => { if (transport.sessionId) this.sessions.delete(transport.sessionId); };
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-   const caller = this.context.getStore();
+   const caller = this.context.getStore()?.principal;
    if (!caller) throw new Error('Missing authenticated MCP request context.');
    return {tools:listedTools(caller.pool.modes).map(tool=>ToolSchema.parse(toolDescriptor(tool)))};
   });
-  server.setRequestHandler(CallToolRequestSchema, async request => {
-   const caller = this.context.getStore();
+  server.setRequestHandler(CallToolRequestSchema, async (request,extra) => {
+   const caller = this.context.getStore()?.principal;
    if (!caller) throw new Error('Missing authenticated MCP request context.');
    const tool = listedTools(caller.pool.modes).find(candidate=>candidate.name===request.params.name);
    if (!tool) {
@@ -81,6 +82,13 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
     throw new McpError(ErrorCode.InvalidParams,'Unknown tool.');
    }
    const input = tool.input.safeParse(request.params.arguments ?? {});
+   if(input.success&&tool.name==='opintel.query'&&this.queryTool){
+    try{const result=await this.queryTool.query(caller,input.data,AbortSignal.any([extra.signal,this.context.getStore()!.signal]));
+     if(result.ok)return {content:[],structuredContent:result.value,_meta:{recordId:result.value.evidenceId}};
+     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:result.error.code});
+     return {isError:true,content:[{type:'text' as const,text:result.error.message}],_meta:{...(result.error.details??{}),code:result.error.code,retryable:result.error.retryable}};
+    }catch{return {isError:true,content:[{type:'text' as const,text:'The query is unavailable. No partial result was returned.'}],_meta:{code:'dependency_unavailable'}};}
+   }
    if (input.success && tool.name==='opintel.describe' && this.describeTool) {
     try {
      const result = await this.describeTool.describe(caller,input.data);
@@ -143,7 +151,10 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    // The caller id is observational; changing it never changes session access.
    session.principal = principal;
    response.setHeader('cache-control','no-store');
-   await this.context.run(principal,()=>session!.transport.handleRequest(request,response,body));
+   const disconnected=new AbortController();
+   const abort=()=>{if(!response.writableFinished)disconnected.abort();};response.once('close',abort);if(response.destroyed)disconnected.abort();
+   try{await this.context.run({principal,signal:disconnected.signal},()=>session!.transport.handleRequest(request,response,body));}
+   finally{response.removeListener('close',abort);}
   } catch {
    if (!response.headersSent) this.failure(response,requestId,503,'dependency_unavailable','The agent interface is temporarily unavailable.');
    else response.end();

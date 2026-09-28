@@ -365,3 +365,12 @@ The staged path remains the default. Streaming requires the complete conservativ
 eligibility check and the same bypass suite against that distinct path before
 it can be enabled. S2e does not implement the alternative source attachment in
 the agent session; that alternative also requires its own review.
+
+## Query evidence and reduction (5.7)
+
+Query is unavailable in production until 5.10 and 5.11 land. Item 5.7 uses
+EvidenceWriterPort and a test-only stub; the production adapter refuses with
+dependency_unavailable naming item 5.10 before parsing, source contact or execution.
+Startup rejects a test stub in every non-test build. No fabricated evidence id
+substitutes for a durable record. I-009's model-readable reduction text belongs
+to handwritten item 5.8; 5.7 returns the structured query result only.

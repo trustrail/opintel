@@ -2,7 +2,7 @@
  * SQL errors remain engine errors; S2c owns sql_not_permitted refusals. */
 export type SessionRole = 'privileged' | 'agent';
 export type SessionLimits = Readonly<{ memoryMb: number; threads: number }>;
-export type SessionRows = { columns: string[]; rows: unknown[][] };
+export type SessionRows = { columns: string[]; rows: unknown[][]; columnTypes?:string[] };
 export interface EngineSession {
  execute(sql: string): Promise<SessionRows>;
  inspection?: SessionInspection;

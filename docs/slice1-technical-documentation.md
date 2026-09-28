@@ -1821,6 +1821,27 @@ Tool availability is driven by pool configuration and a `notifications/tools/lis
 
 If a withheld field is merely absent from the JSON, the model concludes the data does not exist and reasons confidently over a partial picture. Everything else in the system degrades visibly. This degrades silently, which is why it is a contract and not a nicety.
 
+### Item 5.7 execution boundary
+
+`query` returns the specified structured result only. Model-readable reduction
+and I-009 remain item 5.8. `EvidenceWriterPort` must accept the request before
+execution and record its outcome before rows are released. The production
+adapter refuses with `dependency_unavailable`, naming 5.10 and 5.11; it performs
+no source work. Startup rejects a test-stub writer outside tests.
+
+Execution reads the current compilation and checks the referenced source
+relationships on each request. Its three-part exposed identifiers are those
+accepted by the item 4.5 pre-filter. The filter may refuse; its acceptance is
+never sent as authorization. The sidecar receives the read plans and independent
+entitlements, and supplies the native post-treatment result types. Source and
+sidecar failures return no partial or cached answer. MCP cancellation and HTTP
+disconnection cancel the downstream execution request.
+
+Project query limits cap the corresponding optional pool budget overrides;
+`maxRows` can only lower the configured row limit. C.4's per-pool `threads` value
+is read from `pool.budgets.threads` and must be explicitly configured. Missing or
+invalid execution limits refuse rather than inventing a deployment default.
+
 ### Tool availability
 
 | Tool | Available when |
@@ -1884,8 +1905,8 @@ agent id; a session id is not a credential. Browser-origin requests are refused.
 
 `describe` and `explain` are listed unconditionally; `query` follows query mode.
 Their Zod input/output contracts generate the advertised JSON Schemas and the
-transport OpenAPI components. Item 5.6 supplies `describe`; query and explain
-remain unavailable until 5.7 and 5.9 respectively, returning an MCP error result
+transport OpenAPI components. Item 5.6 supplies `describe`; item 5.7 wires query but keeps it unavailable
+until durable evidence lands in 5.10/5.11. Explain awaits 5.9. Unavailable tools return an MCP error result
 with `dependency_unavailable` and a readable unavailable message. Prompt tools
 are not registered before Slice 1b. A hidden
 tool and an unknown name return the same JSON-RPC `-32602`, `Unknown tool.`.

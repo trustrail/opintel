@@ -99,7 +99,7 @@ export class InspectedSessionExecutor {
      const passed=rows.rows.every(row=>row.length===rows.columns.length&&validGroupCount(row.at(-1),aggregate.threshold));
      this.observe?.({stage:'cardinality',phase:2,threshold:aggregate.threshold,estimate:null,passed,counted:true});
      if(!passed)return err(aggregateRefusal(aggregate,2));
-     rows.columns.pop();for(const row of rows.rows)row.pop();evidence.stage2Ran=true;
+     rows.columns.pop();rows.columnTypes?.pop();for(const row of rows.rows)row.pop();evidence.stage2Ran=true;
     }
     const truncated=options.rowLimit!==undefined&&rows.rows.length>options.rowLimit;
     if(truncated)rows.rows.length=options.rowLimit!;

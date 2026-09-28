@@ -28,6 +28,6 @@ export const executionRequest=z.strictObject({requestId:name,projectId:z.uuid(),
 });
 export type ExecutionRequest=z.infer<typeof executionRequest>;
 export type StagingObject=z.infer<typeof stagingObject>;
-export const executionResponse=z.strictObject({columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
+export const executionResponse=z.strictObject({columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
  treatmentEvidence:z.strictObject({aggregateMinGroupSize:z.number(),stage2Required:z.boolean(),stage2Ran:z.boolean()})});
 export const validationResponse=z.strictObject({queryEngineVersion:z.string(),treatmentEvidence:executionResponse.shape.treatmentEvidence});

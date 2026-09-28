@@ -100,7 +100,6 @@ describe('4.5 application pre-filter — real DuckDB syntax, no execution permis
     "COPY (SELECT 1) TO '/tmp/refused'", 'CREATE TABLE x AS SELECT 1',
     "SELECT * FROM read_csv('/tmp/never-read')", 'SELECT * FROM duckdb_tables()',
     'SELECT * FROM information_schema.tables', 'SELECT * FROM orders',
-    `SELECT hidden FROM ${table}`, `SELECT undecided FROM ${table}`, `SELECT missing FROM ${table}`,
     `SELECT id FROM ${table} a JOIN ${table} b ON a.id=b.id`,
     `SELECT id AS city FROM ${table} ORDER BY city`,
     `SELECT SUM(amount) FILTER (WHERE city = 'x') FROM ${table}`,
@@ -112,6 +111,10 @@ describe('4.5 application pre-filter — real DuckDB syntax, no execution permis
     'SHOW ALL TABLES',
   ])('refuses uninterpretable or unavailable syntax: %s', async sql => {
     expect(await inspect(sql)).toMatchObject({ ok: false, error: { code: 'sql_not_permitted' } });
+  });
+
+  it.each([['hidden','element_withheld'],['undecided','entitlement_missing'],['missing','not_found']])('I-010/I-011/I-012: naming %s preserves its specific refusal',async(name,code)=>{
+    expect(await inspect(`SELECT ${name} FROM ${table}`)).toMatchObject({ok:false,error:{code}});
   });
 
   it('parser output is syntax only, including references to nonexistent objects', async () => {

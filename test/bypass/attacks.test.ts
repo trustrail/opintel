@@ -3,7 +3,11 @@ import { readdir,writeFile } from 'node:fs/promises';
 import { join,resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import * as publishedSession from '../../sidecar/session/index.js';
+import {randomUUID} from 'node:crypto';
+import {queryFixture,unwrap} from '../fixtures/query/fixture.js';
+import {withTenant} from '../../src/platform/db/scope.js';
+import {poolKeyId} from '../../src/modules/pools/index.js';
+import {PoolId} from '../../src/shared/kernel/index.js';
 import { fixtures,run,refused,noLeak,positive,record,findings,proofs,literal,secret,rawCard } from './harness.js';
 let files:Awaited<ReturnType<typeof fixtures>>;
 beforeAll(async()=>{files=await fixtures();},30000);
@@ -129,14 +133,42 @@ describe('S2b specification attacks (intentionally red until their owning items 
  it('J-041 multiple statements',async()=>refused('J-041','stacked SET',await run('SELECT 1; SET enable_external_access = true')));
  it('J-042 comments and whitespace',async()=>refused('J-042','commented ATTACH',await run(`SELECT/*x*/1;\n/*concealed*/ ATTACH ${literal(join(files.dir,'other.db'))} AS stolen`),'sql_not_permitted'));
  for(const keyword of ['aTtAcH','ＡＴＴＡＣＨ'])it(`J-043 ${keyword}`,async()=>refused('J-043',keyword,await run(`${keyword} ${literal(join(files.dir,'other.db'))} AS stolen`),'sql_not_permitted'));
- for(const id of ['J-044','J-045'])it(`${id} BLOCKED: waits for item 5.7 authenticated SQL path to the real session`,()=>{
-  // No fake key verifier or test-only authenticated query route: those would
-  // prove the harness. The published session interface has no key/pool input.
-  expect(Object.keys(publishedSession).sort(),'The published seam changed: replace this prerequisite with the actual authenticated query attack').toEqual(['DuckDBSessionEngine','TwoSessionExecutor']);
-  expect(new publishedSession.TwoSessionExecutor().execute.length,'The SQL/limits-only interface changed; wire the real authenticated query path').toBe(2);
-  record(id,'prerequisite','BLOCKED','Item 5.7 authenticated query transport with real pool/key/session binding is absent; replace this prerequisite with the actual attack when it lands');
-  expect.fail(`${id}: missing item 5.7 authenticated query transport; cannot exercise cross-pool / mid-session revoked or expired keys against SQL execution`);
- });
+ it('J-044 real authenticated cross-pool object access',async()=>{
+  const f=await queryFixture();try{
+   const sql='SELECT field_1 FROM warehouse.public.records';
+   const positive=await f.query(sql);expect(positive.isError,JSON.stringify(positive)).not.toBe(true);expect(positive.structuredContent).toMatchObject({rows:[[1],[2],[3],[4],[5],[6],[7]]});expect(f.boundary.executions).toBeGreaterThan(0);
+   const other=await f.issue('Other pool'),agent=await f.connect(other.key),before=f.boundary.executions;
+   const attack=await agent.query(sql);
+   record('J-044','cross-pool',attack.isError?'REFUSED_STRUCTURED':'ATTACK_SUCCEEDED',JSON.stringify(attack._meta));
+   expect(attack).toMatchObject({isError:true,_meta:{code:'not_found'}});expect(attack.structuredContent).toBeUndefined();expect(JSON.stringify(attack)).not.toMatch(/another pool|belongs to|exists elsewhere/iu);expect(f.boundary.executions).toBe(before);
+   // Same SQL, same key, now deliberately granted: the harness cannot explain refusal.
+   unwrap(await f.bindings.set(f.ctx,PoolId(other.poolId),f.source,true));
+   await withTenant(f.ctx,tx=>tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) VALUES($1,$2,$3,'clear','user',$4)",[other.poolId,f.ids[0],f.ctx.projectId,f.ctx.userId]));
+   const granted=await agent.query(sql);expect(granted.isError,JSON.stringify(granted)).not.toBe(true);expect(granted.structuredContent).toMatchObject({rows:[[1],[2],[3],[4],[5],[6],[7]]});
+  }finally{await f.close();}
+ },60000);
+ it('J-045 real authenticated mid-session revoked and expired keys',async()=>{
+  const f=await queryFixture();try{
+   const sql='SELECT field_1 FROM warehouse.public.records';expect((await f.query(sql)).isError).not.toBe(true);
+   unwrap(await f.keys.execute(f.ctx,{kind:'revoke',poolId:f.pool,keyVersion:unwrap(poolKeyId(f.issued.keyVersion)),confirmation:'Query pool'},randomUUID()));
+   const before=f.boundary.executions;
+   await expect(f.query(sql)).rejects.toMatchObject({code:401,message:expect.stringContaining('unauthenticated')});expect(f.boundary.executions).toBe(before);
+   const expired=await f.issue('Expiry pool'),agent=await f.connect(expired.key);
+   unwrap(await f.bindings.set(f.ctx,PoolId(expired.poolId),f.source,true));
+   await withTenant(f.ctx,tx=>tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) VALUES($1,$2,$3,'clear','user',$4)",[expired.poolId,f.ids[0],f.ctx.projectId,f.ctx.userId]));
+   expect((await agent.query(sql)).isError).not.toBe(true);
+   unwrap(await f.keys.execute(f.ctx,{kind:'rotate',poolId:PoolId(expired.poolId)},randomUUID()));
+   await withTenant(f.ctx,tx=>tx.query("UPDATE pool_key SET grace_until=clock_timestamp()-interval '1 microsecond' WHERE id=$1",[expired.keyVersion]));
+   const atExpiry=f.boundary.executions;await expect(agent.query(sql)).rejects.toMatchObject({code:401,message:expect.stringContaining('unauthenticated')});expect(f.boundary.executions).toBe(atExpiry);
+   const envelopes=[];
+   for(const key of [f.issued.key,expired.key,'malformed','opk_live_ABCDEFGHIJKLMNOPQRSTUV']){
+    const response=await fetch(f.url,{method:'POST',headers:{authorization:`Bearer ${key}`,'x-opintel-agent-id':'unverified-agent','content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:9,method:'tools/call',params:{name:'opintel.query',arguments:{sql}}})});expect(response.status).toBe(401);
+    const body=await response.json() as {error:{requestId:string;code:string;message:string;retryable:boolean}};const {requestId,...envelope}=body.error;expect(requestId).toBeTruthy();envelopes.push(envelope);
+   }
+   expect(envelopes.every(e=>JSON.stringify(e)===JSON.stringify(envelopes[0]))).toBe(true);
+   record('J-045','revoked and expired','REFUSED_STRUCTURED','Next request in each authenticated session returns the identical unauthenticated envelope; no engine execution');
+  }finally{await f.close();}
+ },60000);
  it('J-047 broken-hardening mutation control',async()=>{
   const sql="SET memory_limit = '64GB'; SELECT current_setting('memory_limit')";
   const locked=await run(sql,{raw:true});expect(locked.ok).toBe(false);

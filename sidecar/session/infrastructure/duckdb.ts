@@ -158,7 +158,7 @@ export class DuckDBSessionEngine implements SessionEngine {
          this.evidence?.({stage:'execute_started'});
          const result=await prepared.runAndReadAll();
          this.evidence?.({stage:'executed'});
-         return {columns:result.columnNames(),rows:result.getRowsJson()};
+         return {columns:result.columnNames(),columnTypes:result.columnTypes().map(t=>t.toString()),rows:result.getRowsJson()};
         },
         close:()=>{if(!released){released=true;prepared.destroySync();this.evidence?.({stage:'released'});}},
        }};

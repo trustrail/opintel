@@ -1345,6 +1345,12 @@
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "type": "object",
                   "properties": {
+                    "columnTypes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "columns": {
                       "type": "array",
                       "items": {
@@ -1393,6 +1399,7 @@
                     }
                   },
                   "required": [
+                    "columnTypes",
                     "columns",
                     "rows",
                     "truncated",

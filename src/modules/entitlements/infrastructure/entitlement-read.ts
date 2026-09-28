@@ -36,14 +36,17 @@ export class PostgresEntitlementReader implements EntitlementReader {
   return ok(rows.map(row=>({position:row.id,node:{...row,kind}})));
  });}
  async definition(ctx:EntitlementContext,pool:PoolId){
+  const result=await this.compilation(ctx,pool);return result.ok?ok({views:result.value.compilation.views.map(({catalog,schema,name,ddl})=>({catalog,schema,name,ddl})),omitted:[...result.value.compilation.omitted]}):result;
+ }
+ async compilation(ctx:EntitlementContext,pool:PoolId){
   const [project]=await withPlatform(tx=>tx.query<{version:number;settings:unknown}>('SELECT policy_version AS version,settings FROM project WHERE id=$1',[ctx.projectId]));if(!project)return missing();
   const settings=z.object({query:z.object({aggregateMinGroupSize:z.number().int().positive().default(5)}).default({aggregateMinGroupSize:5})}).safeParse(project.settings);
   if(!settings.success)return err(new DomainError('validation_failed','The project aggregate threshold is invalid.'));
   return withTenant(ctx,async tx=>{
    if(!(await tx.query('SELECT id FROM pool WHERE id=$1',[pool])).length)return missing();
-   type Snapshot={sources:Array<Omit<SourceRef,'alias'>&{alias:string}>;objects:CatalogObjectRow[];elements:Array<Omit<CatalogElementRow,'discoveredAt'|'removedAt'>&{discoveredAt:string;removedAt:string|null}>;decisions:Array<Omit<EntitlementState,'setAt'>&{setAt:string}>};
+   type Snapshot={sources:Array<Omit<SourceRef,'alias'>&{alias:string;credentialRef:string|null;status:string}>;objects:CatalogObjectRow[];elements:Array<Omit<CatalogElementRow,'discoveredAt'|'removedAt'>&{discoveredAt:string;removedAt:string|null}>;decisions:Array<Omit<EntitlementState,'setAt'>&{setAt:string}>};
    const [snapshot]=await tx.query<Snapshot>(`WITH sources AS (
-    SELECT s.id,s.project_id AS "projectId",s.exposed_alias AS alias,s.kind FROM data_source s JOIN pool_source_binding b ON b.source_id=s.id WHERE b.pool_id=$1 AND s.status<>'archived'
+    SELECT s.id,s.project_id AS "projectId",s.exposed_alias AS alias,s.kind,s.credential_ref AS "credentialRef",s.status FROM data_source s JOIN pool_source_binding b ON b.source_id=s.id WHERE b.pool_id=$1 AND s.status<>'archived'
    ), objects AS (
     SELECT o.id,o.project_id AS "projectId",o.source_id AS "sourceId",o.schema_name AS "schemaName",o.object_name AS "objectName",o.object_kind AS kind,o.exposed_schema AS "exposedSchema",o.exposed_name AS "exposedName",o.lineage_known AS "lineageKnown",o.row_estimate AS "rowEstimate",o.description,o.status FROM catalog_object o JOIN sources s ON s.id=o.source_id WHERE o.status='active'
    ), elements AS (
@@ -55,7 +58,7 @@ export class PostgresEntitlementReader implements EntitlementReader {
    const objects=[];for(const row of snapshot.objects){const object=hydrateCatalogObject(row,snapshot.elements.filter(e=>e.objectId===row.id).map(e=>({...e,discoveredAt:new Date(e.discoveredAt),removedAt:e.removedAt===null?null:new Date(e.removedAt)})));if(!object.ok)return object;objects.push(object.value);}
    const decisions=new Map<ElementId,Entitlement>();for(const row of snapshot.decisions){const decision=Entitlement.decide({...row,setAt:Timestamp(new Date(row.setAt))});if(!decision.ok)return decision;decisions.set(row.elementId,decision.value);}
    const compiled=compileViews({poolId:pool,boundSources:snapshot.sources.map(s=>({...s,alias:ExposedName(s.alias)})),objects,elements:objects.flatMap(o=>o.elements),entitlements:decisions,aggregateMinGroupSize:settings.data.query.aggregateMinGroupSize,policyVersion:project.version});
-   return compiled.ok?ok({views:compiled.value.views.map(({catalog,schema,name,ddl})=>({catalog,schema,name,ddl})),omitted:[...compiled.value.omitted]}):compiled;
+   return compiled.ok?ok({compilation:compiled.value,policyVersion:project.version,projectSettings:project.settings,sources:snapshot.sources}):compiled;
   });
  }
 }

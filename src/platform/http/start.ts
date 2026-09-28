@@ -1,10 +1,10 @@
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
 import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
-import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader } from '../../modules/mcp/index.js';
+import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader,QueryService,PostgresQueryReader,SidecarQueryExecution,UnavailableEvidenceWriter,assertEvidenceWriter } from '../../modules/mcp/index.js';
 import { PostgresKeyVerifier } from '../../modules/pools/index.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
-import { PostgresEntitlementReader } from '../../modules/entitlements/index.js';
+import { PostgresEntitlementReader,QueryPreFilter,DuckDBQueryParser } from '../../modules/entitlements/index.js';
 import { BulkEntitlementService, PostgresBulkEntitlements } from '../../modules/entitlements/index.js';
 import { bulkEntitlementRoutes } from '../../modules/entitlements/api/bulk-routes.js';
 import { PostgresOrdinalRepair } from '../../modules/sources/infrastructure/ordinal-repair.js';
@@ -158,7 +158,8 @@ async function start(): Promise<void> {
   const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
-  const sources=createSourceRuntime(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json'),hub);
+  const sidecarOptions=await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json');
+  const sources=createSourceRuntime(sidecarOptions,hub);
   // Durable startup repair runs through the ordinary worker, without waiting
   // for source contact before serving the API. Unknown ordinals still fail closed.
   const repair = async () => {
@@ -212,7 +213,9 @@ async function start(): Promise<void> {
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),
     ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
-  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization));
+  const evidence=new UnavailableEvidenceWriter();assertEvidenceWriter(evidence);
+  const query=new QueryService(new PostgresQueryReader(),new QueryPreFilter(new DuckDBQueryParser()),new SidecarQueryExecution(sidecarOptions),authorization,evidence);
+  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization),query);
   mcp.start();
   const server = createHttpServer(routes, {
     agentInterface: mcp,

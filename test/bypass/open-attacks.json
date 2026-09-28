@@ -322,15 +322,15 @@
     },
     {
       "file": "test/bypass/attacks.test.ts",
-      "name": "J-043 \uff21\uff34\uff34\uff21\uff23\uff28"
+      "name": "J-043 ＡＴＴＡＣＨ"
     },
     {
       "file": "test/bypass/attacks.test.ts",
-      "name": "J-044 BLOCKED: waits for item 5.7 authenticated SQL path to the real session"
+      "name": "J-044 real authenticated cross-pool object access"
     },
     {
       "file": "test/bypass/attacks.test.ts",
-      "name": "J-045 BLOCKED: waits for item 5.7 authenticated SQL path to the real session"
+      "name": "J-045 real authenticated mid-session revoked and expired keys"
     },
     {
       "file": "test/bypass/attacks.test.ts",
@@ -389,46 +389,5 @@
       "name": "J-048 every observed refusal has a structured code; invalid probes are not protection"
     }
   ],
-  "open": [
-    {
-      "file": "test/bypass/attacks.test.ts",
-      "name": "J-044 BLOCKED: waits for item 5.7 authenticated SQL path to the real session",
-      "owner": "5.7",
-      "reason": "Authenticated pool/key-to-query transport is absent.",
-      "errors": [
-        {
-          "name": "AssertionError",
-          "message": "J-044: missing item 5.7 authenticated query transport; cannot exercise cross-pool / mid-session revoked or expired keys against SQL execution"
-        }
-      ],
-      "findings": [
-        {
-          "id": "J-044",
-          "variant": "prerequisite",
-          "status": "BLOCKED",
-          "detail": "Item 5.7 authenticated query transport with real pool/key/session binding is absent; replace this prerequisite with the actual attack when it lands"
-        }
-      ]
-    },
-    {
-      "file": "test/bypass/attacks.test.ts",
-      "name": "J-045 BLOCKED: waits for item 5.7 authenticated SQL path to the real session",
-      "owner": "5.7",
-      "reason": "Authenticated pool/key-to-query transport is absent.",
-      "errors": [
-        {
-          "name": "AssertionError",
-          "message": "J-045: missing item 5.7 authenticated query transport; cannot exercise cross-pool / mid-session revoked or expired keys against SQL execution"
-        }
-      ],
-      "findings": [
-        {
-          "id": "J-045",
-          "variant": "prerequisite",
-          "status": "BLOCKED",
-          "detail": "Item 5.7 authenticated query transport with real pool/key/session binding is absent; replace this prerequisite with the actual attack when it lands"
-        }
-      ]
-    }
-  ]
+  "open": []
 }

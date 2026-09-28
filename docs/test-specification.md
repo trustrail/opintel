@@ -238,7 +238,7 @@ Version 1.0 · September 2026
 | I-006 | S | Agent connects with a revoked key | 401 |
 | I-007 | F | `describe` | Entitled elements with post-treatment types; withheld marked; undecided absent |
 | I-008 | D | `describe` type for a tokenized integer | `VARCHAR`, not the source type |
-| I-009 | F | `SELECT *` on a table with a withheld column | Other columns returned; withheld named in the text content the model reads |
+| I-009 | F | `SELECT *` on a table with a withheld column *(proved by 5.8)* | Other columns returned; withheld named in the text content the model reads |
 | I-010 | F | Query naming a withheld column | `element_withheld`, not a binder error |
 | I-011 | F | Query naming an undecided column | `entitlement_missing` |
 | I-012 | F | Query naming a non-existent column | Ordinary error, distinguishable from the two above |
@@ -302,8 +302,8 @@ Version 1.0 · September 2026
 | J-041 | S | Multiple statements | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
 | J-042 | S | Comments / whitespace | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
 | J-043 | S | Keyword case / Unicode | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
-| J-044 | S | Cross-pool key access | Explicit failing prerequisite until the real 5.7 authenticated query path exists |
-| J-045 | S | Mid-session expired/revoked key | Explicit failing prerequisite until the real 5.7 authenticated query path exists |
+| J-044 | S | Cross-pool key access | Real authenticated MCP path: another pool’s object is not found; the same SQL executes with its entitled key |
+| J-045 | S | Mid-session expired/revoked key | Real authenticated MCP path: the next request refuses with the identical authentication envelope; no SQL execution |
 | J-046 | S | Positive controls | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
 | J-047 | S | Broken-hardening control | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
 | J-048 | S | Structured refusals | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
