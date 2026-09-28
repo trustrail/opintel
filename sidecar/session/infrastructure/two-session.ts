@@ -20,21 +20,24 @@ async function harden(session: EngineSession, role: SessionRole, limits: Session
 }
 
 /** S2a's intentionally uninspected execution seam. Not mounted on HTTP and not
- * usable as an authorization decision. S2b attacks this seam directly; parsing,
- * binding, subset/treatment checks and staging belong to later items. */
+ * usable as an authorization decision. S2b's approved raw controls use it;
+ * S2c composes inspection through withAgent. */
 export class TwoSessionExecutor {
  constructor(private readonly engine: SessionEngine = new DuckDBSessionEngine()) {}
  async execute(sql: string, input: SessionLimits): Promise<SessionRows> {
+  z.string().parse(sql);
+  return this.withAgent(input, agent => agent.execute(sql));
+ }
+ /** Trusted composition seam; hardening precedes work and both instances close. */
+ async withAgent<T>(input: SessionLimits, work: (agent: EngineSession) => Promise<T>): Promise<T> {
   const limits = limitsSchema.parse(input);
-  z.string().parse(sql); // Type boundary only. No SQL inspection whatsoever.
   const privileged = await this.engine.open('privileged');
   try {
    await harden(privileged,'privileged',limits);
    const agent = await this.engine.open('agent');
    try {
     await harden(agent,'agent',limits);
-    // No inspection, preparation, rewrite, probe or setup statement here.
-    return await agent.execute(sql);
+    return await work(agent);
    } finally { agent.close(); }
   } finally { privileged.close(); }
  }

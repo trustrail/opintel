@@ -755,6 +755,18 @@ Checked twice: in the API before dispatch, and in the sidecar before execution. 
 
 **PREPARE proves resolution**. The sidecar prepares the statement before executing it; preparation fails if any identifier does not resolve, and succeeds only if every one does. A statement that prepares in a session containing only the pool's objects has bound only to the pool's objects.
 
+**Nothing is prepared before it is permitted.** Preparation is not inert:
+COPY and EXPORT reach filesystem checks during PREPARE, verified against
+v1.4.3. So the order is fixed: parse, serialise, inspect the tree, and
+only then prepare. PREPARE proves binding for a statement already found
+permitted; it is never part of deciding permission.
+
+**Serialization success is not permission.** The named serializable families
+SELECT, WITH, VALUES and DESCRIBE match the permitted subset in the pinned
+build, but the subset check remains explicit. A future engine that serializes
+ATTACH must not silently widen what is permitted. Unsupported serialization
+refuses before preparation; it is distinct from a parser failure.
+
 **This makes the bypass suite load-bearing for binding as well as isolation**. The containment claim is exactly what the suite proves, so the two rest on one proof rather than two. That is an argument for this route: a single property, tested directly, rather than a second mechanism to keep correct.
 
 **The prepared statement is what executes**. Execution uses the prepared handle, not a re-parse of the text, so nothing can differ between what was checked and what runs.

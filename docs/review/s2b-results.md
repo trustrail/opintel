@@ -5,6 +5,9 @@ session interface. No S2a implementation source was read for this item and no
 production code was changed. The accepted ID mapping is in
 [s2b-mapping.md](s2b-mapping.md); attack meanings remain in the original list.
 
+This is the historical S2a baseline. Subsequent implementation and the current
+attack outcomes are recorded in [S2c results](s2c-results.md).
+
 ## Execution result
 
 97 tests: **59 passed, 38 failed, 0 skipped**. No `it.skip`, `it.todo`, expected

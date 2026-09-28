@@ -1,0 +1,51 @@
+# S2c inspected execution
+
+`InspectedSessionExecutor.execute(sql, limits, namespace)` returns
+`Result<InspectedRows, DomainError>`; successful rows include
+`queryEngineVersion`. The namespace is trusted pool configuration with a
+default catalogue/schema and exact owned three-part names. It is not supplied
+by the agent. This item adds no HTTP route, staging or treatment enforcement.
+
+After S2a's session construction and hardening, the executor:
+
+1. Verifies `v1.4.3/d1dc88f950` in the agent connection.
+2. Invokes `json_serialize_sql` with the agent text as a VARCHAR parameter.
+   The pinned engine function parses first, then serializes. Its returned
+   error type distinguishes parser rejection from unsupported serialization.
+3. Inspects the supported JSON shapes recursively, including CTEs, subqueries,
+   joins, set operations, predicates, expressions and modifiers. An explicit
+   statement-family allowlist remains necessary; unknown nodes/fields refuse.
+4. Verifies that user objects belong to the namespace and that no external
+   database or user-defined function is present. Identifier matching uses
+   DuckDB's ASCII-only case folding. Only then does PREPARE prove resolution.
+   Native binding suggestions are not returned to the caller.
+5. Re-inspects the unchanged tree after binding and executes the retained
+   native handle. No text execution or rewriting follows. The handle and both
+   sessions close on success and failure.
+
+SELECT, WITH, VALUES and DESCRIBE are supported named families. Expression
+functions have an explicit builtin allowlist; unknown functions, external
+readers and dynamic query functions refuse. Pure series generators and
+engine-owned catalogue metadata functions have explicit entries. Qualified
+functions and user macros are not permitted. Window expressions, recursive
+CTEs, casts and other unimplemented shapes refuse rather than receive partial
+inspection. Dynamic PIVOT cannot be serialized by this engine and refuses;
+its positive-result bypass assertion remains red. The simple serialized
+UNPIVOT form is inspected, including its source.
+
+SQL refusals use `sql_not_permitted` with proof categories `parse_failed`,
+`serialization_refused`, or `sql_not_permitted`. An inspected statement whose
+identifiers do not bind records `binding_failed` and never executes.
+Infrastructure/resource failures remain exceptions; their governed envelope
+belongs to S2e, not to a false identifier refusal.
+
+Optional `InspectionObserver` callbacks record driver outcomes and inspector
+decisions for tests. They are not telemetry: trees contain SQL literals. No
+callback, SQL/tree log or row log is installed by default. The serializer's
+internal stages are evidenced by its returned engine result, not invented
+trees or a second parser. “No prepare/execute” refers to agent SQL; trusted
+hardening, version, serializer and catalogue queries still run internally.
+
+The raw `TwoSessionExecutor` remains for S2a and the approved J-046/J-047
+controls. It is not an authorization path. S2d adds treatments, S2e supplies
+staging and resource governance, and 5.7 supplies authenticated query transport.

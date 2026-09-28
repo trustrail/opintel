@@ -75,6 +75,41 @@ These are the **fail-open** ones. A wrong implementation answers them.
 These are not attacks. They are the checks that stop the suite passing
 vacuously.
 
+**Execution boundary (S2c decision).** The positive controls (canonical J-046)
+and broken-lock control (canonical J-047) run against the raw session. They
+prove the session's behaviour, not the inspector's: inspection would refuse
+CREATE even in a positive fixture, and SET even with the lock omitted. The
+attacks run through the inspected path. These canonical IDs are mapped from
+this document's provisional IDs in [the accepted mapping](review/s2b-mapping.md).
+
+Every refused attack must prove that an engine parse was attempted. Merely
+reaching an inspection entry point is insufficient: a text-based refusal before
+parsing would satisfy that weaker check. There are three proof categories:
+
+- **`parse_failed`:** the engine could not parse the text. Record the parse
+  attempt and returned error, and assert that no agent statement was prepared
+  or executed. There is no tree to inspect. Full-width `ＡＴＴＡＣＨ` and
+  `PREPARE p AS 'ATTACH ...'` belong here; do not fabricate a parsed form.
+- **`sql_not_permitted`:** the statement parsed and inspection of its tree
+  refused it. Record the parsed form and assert that the refusal names a
+  construct found in that tree.
+- **`serialization_refused`:** parsing succeeded, serialization was attempted
+  and failed, and no agent statement was prepared or executed. Record those
+  outcomes and assert that no prepare or execute call was made. This is neither
+  a parser failure nor a tree-inspection refusal; no tree can be required here.
+
+Accepted statements still require explicit tree inspection, binding and
+execution of the retained prepared handle. No prohibited statement may reach
+prepare or execute. Serialization success must never replace the subset check.
+Construct-name matching applies to tree refusals. Parser and serialization
+refusals have engine failure evidence instead; never infer a construct from the
+raw text. A tree that passes the subset check can still fail PREPARE's binding
+proof; retain the passed inspection and failed binding evidence and assert that
+execution did not occur.
+
+An attack refused without a parse attempt remains a failure. Attack SQL and
+refusal assertions otherwise remain unchanged.
+
 | ID | Check | Why |
 |---|---|---|
 | J-035 | Each attack in group C is run against a session **with** the object present and entitled, and returns rows | Proves the refusals in C are refusals, not the object being absent for an unrelated reason |

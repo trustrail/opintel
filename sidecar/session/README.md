@@ -34,4 +34,9 @@ S2a proves J-013, J-014, and J-020, plus the runtime last-statement assertion.
 J-020 forces a real engine memory-limit failure in an isolated working directory
 and checks that no spill files were created. This is not S4's sentinel scan of
 disk and mapped memory. J-015–J-018 remain S2c; J-019 remains S4 after staging.
-The independent S2b suite is not part of these construction tests.
+The independent S2b suite is not part of these construction tests. With S2c,
+its positive and broken-lock controls retain this raw seam; attacks use
+[`InspectedSessionExecutor`](../sql/README.md). `withAgent(limits, callback)` is
+the trusted composition seam used by that executor after hardening. The native
+adapter exposes an inspection capability on the session and an optional,
+test-only inspection observer as its second constructor argument.

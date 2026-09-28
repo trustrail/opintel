@@ -309,7 +309,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-23, ING-25, ING-26 (ING-24: 5.11) |
 | S2a | Two-session construction and hardening. lock_configuration last | S1 | sidecar/session | J-013, J-014, J-020; runtime statement-log assertion that lock_configuration is last before agent SQL |
 | S2b | **Bypass suite from docs/bypass-attacks.md; preserve every attack** | S2a | test/bypass | J-004 to J-018, J-020, J-027 to J-057; J-044/J-045 explicitly blocked on 5.7 |
-| S2c | Parse, PREPARE binding, SQL subset check on the parsed statement | S2a | sidecar/sql | C.3 refusals, J-015 to J-018, J-021 |
+| S2c | Parse, serialize, explicit subset inspection, then PREPARE binding and retained-handle execution | S2a | sidecar/sql | C.3 refusals, J-015 to J-018; no prohibited statement reaches prepare/execute |
 | S2d | Authoritative treatment enforcement: aggregate-only two stages, token ordering | S2c, 4.4 | sidecar/sql | VC-10 to VC-14, VC-23 to VC-30 |
 | S2e | Staging paths, execute, cancellation, governance, ephemerality | S2c | sidecar/session | J-022 onward, C.4, C.5 |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
@@ -344,7 +344,16 @@ Verified with the upstream **v1.4.3 CLI, build `d1dc88f950`**, in a temporary in
 
 Sources: [SQL/JSON contract](https://duckdb.org/docs/current/data/json/sql_to_and_from_json), [v1.4.3 serializer](https://github.com/duckdb/duckdb/blob/v1.4.3/extension/json/json_functions/json_serialize_sql.cpp), [SELECT/VALUES/CTE transformation](https://github.com/duckdb/duckdb/blob/v1.4.3/src/parser/transform/statement/transform_select_node.cpp), [DESCRIBE transformation](https://github.com/duckdb/duckdb/blob/v1.4.3/src/parser/transform/statement/transform_show.cpp), [bound column references](https://github.com/duckdb/duckdb/blob/v1.4.3/src/include/duckdb/planner/expression/bound_columnref_expression.hpp), [connection API](https://github.com/duckdb/duckdb/blob/v1.4.3/src/include/duckdb/main/connection.hpp), [C prepared-statement API](https://duckdb.org/docs/current/clients/c/prepared), [C++ stability warning](https://duckdb.org/docs/current/clients/cpp).
 
-**Unresolved S2 binding decision.** SQL-to-JSON is a parse interface, not sufficient for authoritative inspection. The three candidate routes and the decision at S2, with the bypass suite written first, are recorded in [deferred review](review/deferred.md#s2--parse-and-binding). The hand-written S2 design must establish the exact engine build and binding integration, map bound references through aliases, CTEs, subqueries and star expansion to pool elements, and retain the inspected statement through execution in the same session. Transformations, including C.4's injected LIMIT, require re-inspection; uninterpretable constructs, unresolved/ambiguous bindings and parser/engine build mismatches refuse. Re-run coverage on the chosen build. This decision does not block 4.5's refusal-only syntax pre-filter.
+**S2 binding decision.** C.3.1 now fixes the order: parse, serialize, explicit
+subset inspection, then PREPARE to prove binding in the contained agent
+session, followed by execution of the retained handle. Preparation is not an
+inert classification probe. The approved parser/serialization proof categories
+and coverage limits are recorded in [interface verification](review/s2c-parser-interface.md).
+S2c implements this boundary in `sidecar/sql`; [verification results](review/s2c-results.md)
+distinguish closed subset attacks from S2d treatments, missing 5.7 transport,
+and the remaining PIVOT/resource-envelope assertions. J-021 remains C.4 resource
+governance in S2e, outside S2c. S2d must still enforce treatments against the
+sidecar's own tree and binding; S2e supplies staged objects and governance.
 
 ---
 

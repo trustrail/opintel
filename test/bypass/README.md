@@ -6,11 +6,20 @@ configuration includes this suite. Nothing is skipped or marked as an expected
 failure. Its current red state must stay visible until the responsible items
 close the gaps.
 
-The harness imports only the published `sidecar/session/index.ts` interface.
+The harness imports the published session and SQL inspection interfaces.
 It uses the documented `SessionEngine` injection point to seed real DuckDB
-instances before hardening. It does not inspect S2a source or insert a SQL filter.
-The same attack text is submitted unchanged through `TwoSessionExecutor` and
-its arrival is verified using the driver's statement observer.
+instances before hardening. It inserts no test-only SQL filter. Attack text is
+submitted unchanged through `InspectedSessionExecutor`. Positive and broken-lock
+controls retain `TwoSessionExecutor`; the approved split and three proof
+categories are recorded in `docs/bypass-attacks.md`.
+
+Refused attacks assert native parse evidence, serialization outcomes and absence
+of preparation/execution where required. A tree refusal must name a construct
+actually present in the recorded tree. Queries whose binding fails must have
+passed subset inspection and must not execute. Set `BYPASS_PROOF_REPORT` to
+record the trees and driver events for these synthetic fixtures; this is not
+application telemetry. The memory-pressure child also uses inspected execution
+and proves it reached the prepared handle before running out of memory.
 
 Privileged fixtures contain sentinel plaintext under `__staging` and an internal
 catalogue alias. Agent fixtures contain only their permitted columns under
@@ -37,8 +46,10 @@ cross-pool and mid-session expiry/revocation attacks when 5.7 lands.
 
 `ATTACK_SUCCEEDED` means the prohibited statement completed or protected metadata
 was exposed. `REFUSED_RAW` means the engine blocked the operation but no structured
-error code was available. `INVALID_PROBE` means syntax or a missing function
-prevented the specified spelling from exercising its claimed property. These
-remain failing tests; they are not reported as protection and their attack text
-is retained for review. J-048 checks the structured-refusal requirement across
+error code was available. `INVALID_PROBE` means an unrelated raw failure prevented
+the specified spelling from exercising its claimed property. The approved
+`parse_failed` and `serialization_refused` categories instead require engine
+evidence and zero agent prepare/execute calls. Their envelope code remains
+`sql_not_permitted`; proof categories do not add API error codes.
+J-048 checks the structured-refusal requirement across
 all observed refusals. `BLOCKED` and `EXPECTED_SUCCESS` are separate categories.

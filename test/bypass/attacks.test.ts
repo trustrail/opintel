@@ -4,11 +4,12 @@ import { join,resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as publishedSession from '../../sidecar/session/index.js';
-import { fixtures,run,refused,noLeak,positive,record,findings,literal,secret,rawCard } from './harness.js';
+import { fixtures,run,refused,noLeak,positive,record,findings,proofs,literal,secret,rawCard } from './harness.js';
 let files:Awaited<ReturnType<typeof fixtures>>;
 beforeAll(async()=>{files=await fixtures();},30000);
 afterAll(async()=>{
  if(process.env.BYPASS_REPORT)await writeFile(process.env.BYPASS_REPORT,JSON.stringify(findings,null,2)+'\n');
+ if(process.env.BYPASS_PROOF_REPORT)await writeFile(process.env.BYPASS_PROOF_REPORT,JSON.stringify(proofs,null,2)+'\n');
  await files?.close();
 },30000);
 const settings:Record<string,string>={temp_directory:"'/tmp'",max_temp_directory_size:"'1GB'",enable_external_access:'true',autoinstall_known_extensions:'true',autoload_known_extensions:'true',allow_unsigned_extensions:'true',memory_limit:"'64GB'",threads:'8',lock_configuration:'false'};
@@ -54,7 +55,8 @@ describe('S2b specification attacks (intentionally red until their owning items 
  it('J-031 bare PRAGMA enable_external_access',async()=>refused('J-031','bare spelling',await run('PRAGMA enable_external_access')));
  it('J-020 memory exhaustion with spill disabled',async()=>{
   const {stdout}=await promisify(execFile)(process.execPath,['--import',resolve('node_modules/tsx/dist/loader.mjs'),resolve('test/bypass/memory-probe.ts')],{cwd:files.dir,timeout:25000});
-  const result=JSON.parse(stdout) as {message:string;before:string[];after:string[];settings:unknown[][]};
+  const result=JSON.parse(stdout) as {message:string;before:string[];after:string[];settings:unknown[][];events:{stage:string}[]};
+  expect(result.events.map(e=>e.stage)).toEqual(['parse_started','parse_succeeded','serialize_started','serialized','inspected','prepare_started','prepared','inspected','execute_started','released']);
   record('J-020','memory pressure',result.message?'REFUSED_RAW':'ATTACK_SUCCEEDED',result.message||'Allocation completed');
   expect(result.message).toMatch(/Out of Memory Error/iu);expect(result.after).toEqual(result.before);
   expect(result.settings).toEqual([['','0 bytes']]);
@@ -136,7 +138,7 @@ describe('S2b specification attacks (intentionally red until their owning items 
  });
  it('J-047 broken-hardening mutation control',async()=>{
   const sql="SET memory_limit = '64GB'; SELECT current_setting('memory_limit')";
-  const locked=await run(sql);expect(locked.ok).toBe(false);
+  const locked=await run(sql,{raw:true});expect(locked.ok).toBe(false);
   const broken=await run(sql,{brokenLock:true});expect(broken.ok).toBe(true);
   expect(broken.ok&&broken.value.rows[0]).toEqual(['59.6 GiB']);
   record('J-047','omitted lock','CONTROL','Memory budget alteration succeeds only with the lock deliberately omitted');
@@ -151,7 +153,7 @@ describe('S2b specification attacks (intentionally red until their owning items 
  it('J-049 literal COPY FROM passwd',async()=>refused('J-049','COPY FROM passwd',await run("COPY public.copy_target FROM '/etc/passwd'"),'sql_not_permitted'));
  for(const sql of ['CALL duckdb_settings()','CALL duckdb_tables()','CALL pragma_version()'])it(`J-050 ${sql}`,async()=>refused('J-050',sql,await run(sql),'sql_not_permitted'));
  for(const sql of ['PIVOT records ON transaction_id USING sum(amount)','UNPIVOT records ON id,amount INTO NAME column_name VALUE value']){
-  it(`J-052 ${sql}`,async()=>{const result=await run(sql);expect(result.ok).toBe(true);noLeak('J-052',sql,result);});
+  it(`J-052 ${sql}`,async()=>{const result=await run(sql);noLeak('J-052',sql,result);expect(result.ok).toBe(true);});
  }
  it('J-053 spelling suggestions do not reveal salary',async()=>{
   const control=await run('SELECT salry FROM t',{positive:true});expect(!control.ok&&control.message).toContain('salary');

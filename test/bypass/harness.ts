@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect } from 'vitest';
 // Published interface only. No implementation imports or source inspection.
-import { DuckDBSessionEngine, TwoSessionExecutor, type SessionEngine, type SessionRows, type SessionStatement } from '../../sidecar/session/index.js';
+import { DuckDBSessionEngine, TwoSessionExecutor, type SessionEngine, type SessionRows, type SessionStatement, type InspectionEvent } from '../../sidecar/session/index.js';
+import { InspectedSessionExecutor } from '../../sidecar/sql/index.js';
 export const literal=(value:string)=>`'${value.replaceAll("'","''")}'`;
 export const secret='WITHHELD_SENTINEL_9b21',unknownSecret='UNDECIDED_SENTINEL_8c31',rawCard='4111111111111234';
 export const allowedSql=`CREATE SCHEMA public;
@@ -17,8 +18,15 @@ export const allowedSql=`CREATE SCHEMA public;
 const rawSql=`CREATE SCHEMA __staging; CREATE TABLE __staging.warehouse__public__orders AS SELECT 1 AS id,${literal(secret)} AS salary,${literal(unknownSecret)} AS undecided_col;
  ATTACH ':memory:' AS pg_warehouse; CREATE SCHEMA pg_warehouse.public;
  CREATE TABLE pg_warehouse.public.orders AS SELECT * FROM __staging.warehouse__public__orders; CREATE VIEW __staging.raw_view AS SELECT salary FROM pg_warehouse.public.orders;`;
-export type Outcome={ok:true;value:SessionRows}|{ok:false;message:string;code?:string};
-export type RunOptions={positive?:boolean;brokenLock?:boolean;tracker?:boolean;memoryMb?:number;positiveSetup?:string;fileDatabase?:string};
+export type Outcome={ok:true;value:SessionRows}|{ok:false;message:string;code?:string;category?:string};
+export type RunOptions={raw?:boolean;positive?:boolean;brokenLock?:boolean;tracker?:boolean;memoryMb?:number;positiveSetup?:string;fileDatabase?:string};
+export const proofs:{sql:string;events:InspectionEvent[]}[]=[];
+function treeStrings(value:unknown):string[]{
+ if(typeof value==='string')return [value];
+ if(Array.isArray(value))return value.flatMap(treeStrings);
+ if(typeof value==='object'&&value!==null)return Object.entries(value).flatMap(([key,v])=>[key,...treeStrings(v)]);
+ return [];
+}
 export interface Finding {id:string;variant:string;status:string;detail:string}
 export const findings:Finding[]=[];
 export function record(id:string,variant:string,status:string,detail:string){findings.push({id,variant,status,detail});}
@@ -39,7 +47,8 @@ export async function fixtures(){
  return {dir,baseline,close:()=>rm(dir,{recursive:true,force:true})};
 }
 export async function run(sql:string,options:RunOptions={}):Promise<Outcome>{
- const log:SessionStatement[]=[],driver=new DuckDBSessionEngine(entry=>log.push(entry));
+ const log:SessionStatement[]=[],events:InspectionEvent[]=[],driver=new DuckDBSessionEngine(entry=>log.push(entry),event=>events.push(event));
+ const raw=options.raw||options.positive||options.positiveSetup!==undefined||options.brokenLock;
  const engine:SessionEngine={open:async role=>{
   const session=await driver.open(role);
   try{
@@ -61,14 +70,44 @@ export async function run(sql:string,options:RunOptions={}):Promise<Outcome>{
   return session;
  }};
  let result:Outcome;
- try{result={ok:true,value:await new TwoSessionExecutor(engine).execute(sql,{memoryMb:options.memoryMb??32,threads:1})};}
+ try{
+  const limits={memoryMb:options.memoryMb??32,threads:1};
+  if(raw)result={ok:true,value:await new TwoSessionExecutor(engine).execute(sql,limits)};
+  else {
+   const inspected=await new InspectedSessionExecutor(engine,event=>events.push(event)).execute(sql,limits,{catalog:'warehouse',schema:'public',objects:['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name}))});
+   result=inspected.ok?{ok:true,value:inspected.value}:{ok:false,message:inspected.error.message,code:inspected.error.code,category:String(inspected.error.details?.proofCategory??'')};
+  }
+ }
  catch(error:unknown){
   const message=error instanceof Error?error.message:String(error);
   const object=typeof error==='object'&&error!==null?error as Record<string,unknown>:{};
   const nested=typeof object.error==='object'&&object.error!==null?object.error as Record<string,unknown>:object;
   result={ok:false,message,...(typeof nested.code==='string'?{code:nested.code}:{})};
  }
- expect(log.some(entry=>entry.role==='agent'&&entry.sql===sql),`PREREQUISITE: attack never reached agent session: ${sql}; ${result.ok?'':result.message}`).toBe(true);
+ if(raw)expect(log.some(entry=>entry.role==='agent'&&entry.sql===sql),`PREREQUISITE: control never reached raw session: ${sql}`).toBe(true);
+ else {
+  proofs.push({sql,events});
+  expect(events.some(e=>e.stage==='parse_started'),'PREREQUISITE: no engine parse attempt').toBe(true);
+  if(!result.ok){
+   if(result.category==='parse_failed')expect(events.some(e=>e.stage==='parse_failed'&&e.error.length>0)).toBe(true);
+   else {
+    expect(events.some(e=>e.stage==='parse_succeeded')).toBe(true);
+    expect(events.some(e=>e.stage==='serialize_started')).toBe(true);
+    if(result.category==='serialization_refused')expect(events.some(e=>e.stage==='serialization_refused'&&e.error.length>0)).toBe(true);
+    else{
+     const refused=events.find(e=>e.stage==='inspected'&&!e.permitted);
+     expect(refused,'PREREQUISITE: no recorded tree refusal').toBeDefined();
+     if(refused?.stage==='inspected'){
+      expect(treeStrings(refused.tree)).toContain(refused.construct);
+      expect(result.message).toContain(refused.construct);
+     }
+    }
+   }
+   if(events.some(e=>e.stage==='binding_failed'))expect(events.some(e=>e.stage==='inspected'&&e.permitted)).toBe(true);
+   else expect(events.some(e=>e.stage==='prepare_started')).toBe(false);
+   expect(events.some(e=>e.stage==='execute_started')).toBe(false);
+  }
+ }
  return result;
 }
 export function refused(id:string,variant:string,result:Outcome,code?:string,construct?:string){
@@ -78,12 +117,13 @@ export function refused(id:string,variant:string,result:Outcome,code?:string,con
  if(result.ok)return;
  expect(result.message,`${id}: unrelated parser/fixture failure is not a security refusal`).not.toMatch(/Parser Error|syntax error|No files found|Function.*does not exist|unrecognized configuration/iu);
  if(code)expect(result.code,`${id}: J-048 requires a structured ${code} refusal, not a raw engine error`).toBe(code);
- if(construct)expect(result.message.toLowerCase()).toContain(construct.toLowerCase());
+ // The approved parser/serialization categories have no tree construct to name.
+ if(construct&&result.category!=='parse_failed'&&result.category!=='serialization_refused')expect(result.message.toLowerCase()).toContain(construct.toLowerCase());
 }
 export function noLeak(id:string,variant:string,result:Outcome){
  const serialized=JSON.stringify(result);
  const leaked=[secret,unknownSecret,rawCard,'__staging','pg_warehouse','undecided_col','salary'].filter(value=>serialized.includes(value));
- record(id,variant,leaked.length?'ATTACK_SUCCEEDED':result.ok?'NO_LEAK':'REFUSED_RAW',leaked.length?`Disclosed: ${leaked.join(', ')}`:result.ok?'No forbidden metadata':result.message);
+ record(id,variant,leaked.length?'ATTACK_SUCCEEDED':result.ok?'NO_LEAK':result.code?'REFUSED_STRUCTURED':'REFUSED_RAW',leaked.length?`Disclosed: ${leaked.join(', ')}`:result.ok?'No forbidden metadata':result.message);
  expect(leaked,`${id}: leaked protected metadata`).toEqual([]);
 }
 export async function positive(sql:string){
