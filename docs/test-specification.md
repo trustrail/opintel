@@ -285,6 +285,40 @@ Version 1.0 · September 2026
 | J-025 | P | Concurrency ceiling reached | Queued to the bound, then refused, never unbounded |
 | J-026 | F | Row limit exceeded | `truncated: true` returned, not a silent cut |
 
+| J-027 | S | Bare-filename reads | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-028 | S | Loaded-extension routes | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-029 | S | Unlock configuration | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-030 | S | Reinstate spill directory | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-031 | S | PRAGMA settings | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-032 | S | Raise memory budget | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-033 | S | Direct withheld column | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-034 | S | Direct undecided column | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-035 | S | Aggregate post-filter cardinality | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-036 | S | Unaggregated aggregate-only column | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-037 | S | Token MIN | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-038 | S | Token ordering | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-039 | S | Token LIKE | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-040 | S | Grouping masks | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-041 | S | Multiple statements | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-042 | S | Comments / whitespace | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-043 | S | Keyword case / Unicode | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-044 | S | Cross-pool key access | Explicit failing prerequisite until the real 5.7 authenticated query path exists |
+| J-045 | S | Mid-session expired/revoked key | Explicit failing prerequisite until the real 5.7 authenticated query path exists |
+| J-046 | S | Positive controls | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-047 | S | Broken-hardening control | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-048 | S | Structured refusals | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-049 | S | COPY FROM | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-050 | S | CALL | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-051 | S | RESET | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-052 | S | PIVOT / UNPIVOT | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-053 | S | Spelling suggestions | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-054 | S | Runtime-error oracle | See bypass-attacks.md and the canonical mapping; no unrelated refusal counts as protection |
+| J-055 | S | Tracker attack (expected success) | Expected success; both result sets meet k=5, subtraction isolates one salary |
+| J-056 | S | query_table indirection to a protected object | Refused; positive control resolves and returns rows |
+| J-057 | S | query SQL-string indirection to a protected object | Refused; positive control resolves and returns rows |
+
+S2b canonical identifiers map to the provisional attack list in [the accepted mapping](review/s2b-mapping.md). The suite remains red for unmet security, refusal-envelope and transport prerequisites. It does not fix those gaps.
+
 ## S1-K · Query mode: end to end
 
 | ID | Type | Case | Expected |

@@ -275,6 +275,14 @@ Stated because a customer will ask, and because pretending otherwise is worse th
 
 Where these matter, the correct treatment is `aggregate_only` or `withheld`, not tokenized.
 
+**Query-padding attacks are not closed.** An analyst who can combine
+permitted predicates can isolate an individual while satisfying the
+minimum group size, then subtract the known noise. Defending against that
+needs analysis across a session's query history, which Slice 1 does not
+have. The minimum group size is a floor against the obvious case, not a
+disclosure guarantee. The expected-success regression is J-055 (provisional
+J-047 in `bypass-attacks.md`).
+
 ## A.8 Tests
 
 | ID | Case | Expected |

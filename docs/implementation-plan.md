@@ -308,7 +308,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | S1 | Runnable host, validated config, pinned mutual TLS; `/health`, `/test-connection`, `/introspect`, `/sample` with consent, `/estimate`; audit and disconnect cancellation | 1.1 | sidecar repo | G-014, G-015, J-001, J-002 |
 | **S1b** | **Landing runtime.** Spreadsheet read, flatten, write to the customer's Postgres. Runs in their environment, reads files there, never transmits them | S1, 3.8 | `sidecar/ingest` | ING-09 to ING-23, ING-25, ING-26 (ING-24: 5.11) |
 | S2a | Two-session construction and hardening. lock_configuration last | S1 | sidecar/session | J-013, J-014, J-020; runtime statement-log assertion that lock_configuration is last before agent SQL |
-| S2b | **Bypass suite. Written from the specification, in its own session, before S2c** | S2a | sidecar/session/bypass | J-001 to J-012 |
+| S2b | **Bypass suite from docs/bypass-attacks.md; preserve every attack** | S2a | test/bypass | J-004 to J-018, J-020, J-027 to J-057; J-044/J-045 explicitly blocked on 5.7 |
 | S2c | Parse, PREPARE binding, SQL subset check on the parsed statement | S2a | sidecar/sql | C.3 refusals, J-015 to J-018, J-021 |
 | S2d | Authoritative treatment enforcement: aggregate-only two stages, token ordering | S2c, 4.4 | sidecar/sql | VC-10 to VC-14, VC-23 to VC-30 |
 | S2e | Staging paths, execute, cancellation, governance, ephemerality | S2c | sidecar/session | J-022 onward, C.4, C.5 |
@@ -500,3 +500,13 @@ The pull request template.
 **The plan is dependency-ordered.** Anything reordered should be checked against the dependency column, because most of the sequencing exists for a reason rather than by habit.
 
 **Slice 1a is the product.** It connects sources, lands spreadsheets, governs every field, answers agent queries and records what was released. Slice 1b makes it answer questions in words. The first is what an unattended agent uses. The second is how the system gets configured.
+
+
+**S2b verification.** The accepted [canonical mapping](review/s2b-mapping.md)
+preserves the existing J series. The suite uses the published session interface
+and fixture injection, not implementation inspection. It includes positive
+controls, a broken-lock mutation control and failing structured-error checks.
+J-044/J-045 fail explicitly on the missing authenticated query path; J-055
+asserts the expected tracker success documented in A.7. The tests remain red
+where later items must close gaps; see [current results](review/s2b-results.md).
+No production fix is part of S2b.

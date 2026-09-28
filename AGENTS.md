@@ -44,11 +44,12 @@ Most rules below exist to protect that sentence.
    | Item | What |
    |---|---|
    | 1.4 | Tenant isolation wrapper |
-   | S2 | DuckDB two-session construction. **Delegated by decision**, conditional on the bypass suite (S2b) being written in its own session, from the specification, with the implementation not read, and before S2c to S2e exist. A session implementing S2a, S2c, S2d or S2e must not read, write or modify that suite |
    | S4 | Ephemerality proof |
-   | C.6 | The bypass suite. **Delegated as item S2b by decision**, on the condition in the S2 row: written in its own session, from the specification, before S2c to S2e exist, and never read or modified by a session implementing them |
+   | S2 | DuckDB two-session construction. **Delegated by decision.** The bypass suite is specified in docs/bypass-attacks.md, written independently of the implementation, and is the verification hand-writing would otherwise provide. A session may implement any S2 item, including the suite, but must not weaken, remove or narrow an attack in the list |
+   | C.6 | The bypass suite. **Delegated as item S2b by decision**, implemented from docs/bypass-attacks.md. Changing what an attack tests is a decision for review, not an implementation choice |
 
-   If asked to implement one, say so and stop. A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
+
+   If asked to implement one, say so and stop, unless its row records a decision otherwise. A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
 2. **Never modify `docs/opintel-master.css` without being told to.** It is the product's stylesheet, extracted from the console. Port markup to its existing classes.
 3. **Never invent a CSS class.** If one is genuinely missing, say so and stop. Adding it is a reviewed change to the master file.
 4. **Never use `any`.** `strict` and `noUncheckedIndexedAccess` are on.
