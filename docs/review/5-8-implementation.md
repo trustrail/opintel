@@ -34,7 +34,23 @@ No bypass attack SQL, expected refusal or specification was changed.
 
 ## Verification
 
-Verification is in progress. The updated focused MCP/formatter/resolver run
-passed 93 tests. The full suite initially encountered the existing ING-17 XLSX
-and CSV 60-second timeouts; their code and limits were not changed. Final results
-will be recorded after the full, isolated and bypass checks complete.
+Verification completed on 2026-09-28 with fresh, sequential reruns of commit
+`b7474d5` after the machine crash. All three commands exited 0. The earlier
+focused MCP/formatter/resolver run passed 93 tests.
+
+| Check | Command | Final result |
+|---|---|---|
+| Full suite | `npm test` | 116 files, 1,260 tests passed; zero failed or skipped. Duration: 342.05 seconds. |
+| Isolated ING-17 | `npx vitest run test/ingest-extract.test.ts -t ING-17` | Both streaming tests passed; the other 11 tests were excluded by the name filter. Duration: 38.93 seconds. |
+| Complete bypass gate | `npm run test:bypass` | 97 passing checks, zero registered open checks, zero regressions. |
+
+The earlier full attempt encountered the existing ING-17 XLSX and CSV
+60-second timeouts. In the final full run, XLSX passed in 13.549 seconds and CSV
+in 39.500 seconds; in isolation they passed in 8.653 and 28.399 seconds,
+respectively. Their code and timeout limits were unchanged. No bypass attack
+SQL, expected refusal, specification or exemption was changed for verification.
+
+The full and isolated runs also used default and JSON reporters to retain their
+results; the table omits those reporting-only flags. Logs and JSON reports were
+saved as `/private/tmp/opintel-5-8-{full,isolated}.{log,json}`, with the bypass log at
+`/private/tmp/opintel-5-8-bypass.log`.
