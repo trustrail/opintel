@@ -799,8 +799,17 @@ refuses before preparation; it is distinct from a parser failure.
 | Rows | `LIMIT` injected at the outermost level, `truncated: true` returned |
 | Concurrency | Semaphore per pool, queued to a bound, then refused |
 | Source connections | Ceiling per source, opened per execution, closed in a `finally` |
+| Staging scan | maxStagingRows. An object whose estimated rows after pushdown exceed it refuses with unsupported_pushdown |
+| Queue depth | maxQueuedExecutions per pool. Beyond it, refuse rather than queue |
 
 **The customer's database is the scarce resource, not the sidecar.** An accidental cartesian join hits their production Postgres. Statement timeouts on the source side matter as much as the sidecar's own limits, and both appear in the console's query settings.
+
+**maxStagingRows defaults to 5,000,000 and is a project setting**, bounded between 10,000 and 100,000,000. It bounds what one execution pulls out of the customer's database, and the right value depends on their hardware rather than on Opintel. The estimate comes from estimateRowCount after predicates are pushed down; where the source cannot estimate, the refusal is on the unestimated object, since an unknown size is not a small one.
+
+**maxQueuedExecutions defaults to 8 per pool** and is a project setting, bounded between 1 and 64. An agent that waits indefinitely is worse than one told to retry: it holds a connection, its own caller times out, and nobody learns the pool is saturated. The refusal carries retryable: true and the current queue depth.
+
+**Both refusals name the setting and its value**, so an administrator reading an agent's complaint can tell whether the limit is wrong or the query was.
+
 
 ## C.5 Ephemerality
 

@@ -10,6 +10,7 @@ export function createPostgresConnector(options: {
   secrets: SecretStorePort;
   audit: SamplingAuditPort;
   limits: SourceLimits;
+  scope?:PostgresSourceScope;
 }): SidecarConnector {
-  return new PostgresConnector(new PostgresSourceScope(options.secrets, options.limits), options.audit);
+  return new PostgresConnector(options.scope??new PostgresSourceScope(options.secrets, options.limits), options.audit);
 }

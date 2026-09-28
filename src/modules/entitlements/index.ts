@@ -28,3 +28,5 @@ export type { EntitlementReader } from './application/read.js';
 
 export type { PolicyVersionReader } from './application/version.js';
 export { PostgresPolicyVersions } from './infrastructure/policy-version.js';
+
+export { maskValue } from './domain/masks.js';

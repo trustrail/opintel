@@ -1,0 +1,11 @@
+import {loadSidecarConfig} from '../../sidecar/config.js';
+import {createSidecarServer} from '../../sidecar/http/server.js';
+import {createPostgresConnector} from '../../sidecar/create-postgres-connector.js';
+import {EnvironmentSecretStore} from '../../src/platform/secrets/index.js';
+import {StagedExecutor} from '../../sidecar/execution/application/execute.js';
+import {DuckDBSessionEngine} from '../../sidecar/session/index.js';
+import {ok} from '../../src/shared/kernel/index.js';
+const {config,tls}=await loadSidecarConfig(process.argv[2]!);
+const execution=new StagedExecutor({estimate:async()=>ok(1),plain:async(s,p,table)=>{await p.staging!.create('memory','__staging',table,s.object.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));await p.staging!.append('memory','__staging',table,[['ROW_VALUE_SENTINEL']]);return ok(undefined);},treated:async()=>ok(undefined)},r=>new DuckDBSessionEngine(undefined,e=>{if(e.stage==='execute_started')process.send?.('executing');},undefined,r.limits));
+const host=createSidecarServer({config:{...config,port:0},tls,execution,connector:createPostgresConnector({secrets:new EnvironmentSecretStore(),limits:config.limits,audit:{record:async()=>{}}})});
+process.send?.({port:await host.listen()});

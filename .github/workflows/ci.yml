@@ -52,6 +52,7 @@ jobs:
           node-version: 20.19.0
           cache: npm
       - run: npm ci
+      - run: npm run sidecar:prepare-scanner
       - run: npm run dev:up
       - run: npm test
       - name: Bypass regression gate and open-attack queue

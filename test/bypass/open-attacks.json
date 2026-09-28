@@ -429,26 +429,6 @@
           "detail": "Item 5.7 authenticated query transport with real pool/key/session binding is absent; replace this prerequisite with the actual attack when it lands"
         }
       ]
-    },
-    {
-      "file": "test/bypass/attacks.test.ts",
-      "name": "J-048 every observed refusal has a structured code; invalid probes are not protection",
-      "owner": "S2e",
-      "reason": "J-020 still exposes a raw OOM exception instead of the governed resource-error envelope.",
-      "errors": [
-        {
-          "name": "AssertionError",
-          "message": "Unstructured or unrelated refusals must not make the suite look complete: expected [ Array(1) ] to deeply equal []"
-        }
-      ],
-      "findings": [
-        {
-          "id": "J-020",
-          "variant": "memory pressure",
-          "status": "REFUSED_RAW",
-          "detail": "Out of Memory Error"
-        }
-      ]
     }
   ]
 }

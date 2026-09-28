@@ -2019,7 +2019,23 @@ no source values or resolved credentials enter them. The development CLI uses
 `EnvironmentSecretStore`; the host accepts an injected `SecretStorePort`.
 
 S1 reports `queryEngineVersion: "not-loaded"` in health because it does not create a DuckDB
-engine. `/validate` and `/execute` belong to S2 and are not mounted by S1.
+engine. S2e now mounts `/validate` and `/execute` in the composed host and reports
+its native engine build in health. Their shared Zod contract is
+`src/shared/execution-contract.ts`: request/project/pool identifiers, SQL,
+namespace, source credential references, B.3 read plans with element IDs,
+independent entitlements, policy version, aggregate minimum, pool limits and
+project execution settings. `entitlementContext` remains null. Validation opens
+no source connection. Execution returns columns, rows, `truncated`,
+`executionPath: staged`, engine/policy versions and treatment evidence. Refusals
+include structured code, human message, retryability and diagnostic details;
+queue saturation includes its current depth. The application transport is 5.7.
+
+The optional `postgresExtension` host setting names the signed PostgreSQL scanner
+file, resolved relative to the configuration file. Provision it with
+`npm run sidecar:prepare-scanner` before using the clear staging path. Queries
+never install extensions. Both staging readers and S1 operations share the same
+source connection ceiling. See `sidecar/execution/README.md` for the execution
+and cleanup boundary.
 The built wire contract is 2 and the independently reported sidecar version
 starts at 0.1.0. Local bootstrap creates expiring development certificates and
 starts the host; it does not build the S5 deployment package.

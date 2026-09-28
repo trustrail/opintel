@@ -1,3 +1,4 @@
+import { executionRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
 import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
 import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
 import { safeSourceMessage } from '../../src/shared/source-errors.js';
@@ -25,6 +26,7 @@ const errorMessages: Readonly<Record<string,string>> = {
 
 export function createSidecarServer(options: {
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
+  execution?: {execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
   demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
   custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
   canonicalisers?: CanonicaliserRegistry;
@@ -33,6 +35,7 @@ export function createSidecarServer(options: {
   const build = wire.healthResponse.parse({ ...(options.build ?? sidecarBuild), canonicalisers: (options.canonicalisers ?? canonicalisers).ids });
   const pin = new X509Certificate(options.tls.clientPin).fingerprint256;
   const routes: Record<string, Route> = {
+    ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
     ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),
     '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:build}) },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
@@ -50,9 +53,9 @@ export function createSidecarServer(options: {
     res.writeHead(status, { 'content-type':'application/json', 'cache-control':'no-store' });
     res.end(JSON.stringify(body));
   }
-  function fail(res: ServerResponse, status: number, code: string, message: string, requestId: string, retryable=false) {
+  function fail(res: ServerResponse, status: number, code: string, message: string, requestId: string, retryable=false, details?:Readonly<Record<string,unknown>>) {
     if(status<500)console.info({event:'sidecar.refused',reason:code,requestId});
-    send(res,status,{error:{code,message,requestId,retryable}});
+    send(res,status,{error:{code,message,requestId,retryable,...(details?{details}:{})}});
   }
   async function handle(req: IncomingMessage,res: ServerResponse,controller: AbortController): Promise<void> {
     let requestId: string = randomUUID();
@@ -64,6 +67,7 @@ export function createSidecarServer(options: {
     if (route === undefined) { fail(res,404,'not_found','The endpoint does not exist.',requestId); req.resume(); return; }
     if (req.method !== 'POST') { fail(res,405,'method_not_allowed','This endpoint requires POST.',requestId); req.resume(); return; }
     try {
+      const execution=path==='/execute'||path==='/validate';
       const bytes = await readBody(req,options.config.maxRequestBytes);
       const size = bytes.length;
       if (controller.signal.aborted) return;
@@ -74,15 +78,16 @@ export function createSidecarServer(options: {
         if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) { fail(res,415,'validation_failed','A JSON request body is required.',requestId); return; }
         try { body = JSON.parse(bytes.toString('utf8')) as unknown; }
         catch { fail(res,400,'validation_failed','The request body is not valid JSON.',requestId); return; }
-        const parsed = (path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
+        const parsed = (execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
+        if(execution&&'limits' in parsed.data)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));
       }
       const result = await route.invoke(body,controller.signal);
       if (controller.signal.aborted) return;
       if (!result.ok) {
         const code = result.error.code;
-        fail(res,statusFor(code),code,path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable);
+        fail(res,execution&&['sql_not_permitted','unsupported_on_token','unsupported_on_aggregate_only','unsupported_pushdown'].includes(code)?422:statusFor(code),code,execution?result.error.message:path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable,execution?result.error.details:undefined);
         return;
       }
       const response = route.response.safeParse(result.value);

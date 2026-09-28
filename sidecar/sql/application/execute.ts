@@ -1,14 +1,15 @@
 import { z } from 'zod';
 import { DomainError, err, ok, type Result } from '../../../src/shared/kernel/index.js';
-import { TwoSessionExecutor, type SessionEngine, type SessionLimits, type SessionRows, type InspectionObserver } from '../../session/index.js';
+import { TwoSessionExecutor, type SessionEngine, type EngineSession, type SessionLimits, type SessionRows, type InspectionObserver } from '../../session/index.js';
 import { inspectSubset, namespaceSchema, foldIdentifier, type PoolNamespace } from './subset.js';
 import { resolvePolicy } from './treatment-policy.js';
 import { inspectTreatments } from './treatments.js';
+import { withRowLimit } from './row-limit.js';
 import { aggregateRefusal, supportsEstimate, withGroupCount, validGroupCount } from './cardinality.js';
 
 export const queryEngineBuild='v1.4.3/d1dc88f950';
 export type TreatmentEvidence={aggregateMinGroupSize:number;stage2Required:boolean;stage2Ran:boolean};
-export type InspectedRows=SessionRows&{queryEngineVersion:string;treatmentEvidence:TreatmentEvidence};
+export type InspectedRows=SessionRows&{queryEngineVersion:string;treatmentEvidence:TreatmentEvidence;truncated?:boolean};
 const equalObject=(a:PoolNamespace['objects'][number],b:PoolNamespace['objects'][number])=>
  foldIdentifier(a.catalog)===foldIdentifier(b.catalog)&&foldIdentifier(a.schema)===foldIdentifier(b.schema)&&foldIdentifier(a.name)===foldIdentifier(b.name);
 
@@ -17,16 +18,17 @@ const equalObject=(a:PoolNamespace['objects'][number],b:PoolNamespace['objects']
 export class InspectedSessionExecutor {
  private readonly sessions:TwoSessionExecutor;
  constructor(engine?:SessionEngine,private readonly observe?:InspectionObserver){this.sessions=new TwoSessionExecutor(engine);}
- execute(sql:string,limits:SessionLimits,input:PoolNamespace,policy?:unknown):Promise<Result<InspectedRows>>{
-  return this.run(sql,limits,input,policy,true);
+ execute(sql:string,limits:SessionLimits,input:PoolNamespace,policy?:unknown,options:{rowLimit?:number;signal?:AbortSignal;stage?:(privileged:EngineSession,agent:EngineSession)=>Promise<Result<void>>}={}):Promise<Result<InspectedRows>>{
+  return this.run(sql,limits,input,policy,true,options);
  }
  async validate(sql:string,limits:SessionLimits,input:PoolNamespace,policy:unknown):Promise<Result<{queryEngineVersion:string;treatmentEvidence:TreatmentEvidence}>>{
   const result=await this.run(sql,limits,input,policy,false);
   return result.ok?ok({queryEngineVersion:result.value.queryEngineVersion,treatmentEvidence:result.value.treatmentEvidence}):result;
  }
- private async run(sql:string,limits:SessionLimits,input:PoolNamespace,policyInput:unknown,execute:boolean):Promise<Result<InspectedRows>>{
+ private async run(sql:string,limits:SessionLimits,input:PoolNamespace,policyInput:unknown,execute:boolean,options:{rowLimit?:number;signal?:AbortSignal;stage?:(privileged:EngineSession,agent:EngineSession)=>Promise<Result<void>>}={}):Promise<Result<InspectedRows>>{
+  try{
   const namespace=namespaceSchema.parse(input);z.string().parse(sql);
-  return this.sessions.withAgent(limits,async agent=>{
+  return await this.sessions.withAgent(limits,async agent=>{
    const inspection=agent.inspection;
    if(!inspection)return err(new DomainError('sql_not_permitted','This engine does not provide authoritative SQL inspection.'));
    const version=await inspection.build();
@@ -73,6 +75,14 @@ export class InspectedSessionExecutor {
     const subset=report(parsed.tree,inspectSubset(parsed.tree,namespace));if(!subset.ok)return subset;
     const treatments=inspectTreatments(parsed.tree,namespace,policy,tables);if(!treatments.ok)return report(parsed.tree,treatments);
    }
+   if(options.rowLimit!==undefined){
+    const limit=z.number().int().positive().max(2147483646).parse(options.rowLimit);
+    const rendered=await inspection.render(withRowLimit(parsed.tree,limit+1));
+    parsed=await inspection.parse(rendered);
+    if(parsed.kind!=='parsed')return err(new DomainError('sql_not_permitted','The bounded statement could not be inspected.'));
+    const subset=report(parsed.tree,inspectSubset(parsed.tree,namespace));if(!subset.ok)return subset;
+    const treatment=inspectTreatments(parsed.tree,namespace,policy,tables);if(!treatment.ok)return report(parsed.tree,treatment);
+   }
    const preparation=await parsed.prepare();
    if(preparation.kind==='unresolved'){
     const construct=z.object({statements:z.array(z.object({node:z.object({type:z.string()})}))}).parse(parsed.tree).statements[0]!.node.type;
@@ -91,8 +101,15 @@ export class InspectedSessionExecutor {
      if(!passed)return err(aggregateRefusal(aggregate,2));
      rows.columns.pop();for(const row of rows.rows)row.pop();evidence.stage2Ran=true;
     }
-    return ok({...rows,queryEngineVersion:version,treatmentEvidence:evidence});
+    const truncated=options.rowLimit!==undefined&&rows.rows.length>options.rowLimit;
+    if(truncated)rows.rows.length=options.rowLimit!;
+    return ok({...rows,queryEngineVersion:version,treatmentEvidence:evidence,...(options.rowLimit!==undefined?{truncated}:{})});
    }finally{handle.close();}
-  });
+  },options.signal,options.stage?async(privileged,agent)=>{const staged=await options.stage!(privileged,agent);return staged.ok?undefined:staged;}:undefined);
+  }catch(error){
+   if(error instanceof DomainError)return err(error);
+   if(error instanceof z.ZodError)return err(new DomainError('validation_failed','The query request or engine response did not match its required contract.'));
+   return err(this.sessions.failure(error));
+  }
  }
 }

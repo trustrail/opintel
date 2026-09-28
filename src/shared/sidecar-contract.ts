@@ -1,3 +1,4 @@
+import { executionRequest,executionResponse,validationResponse } from './execution-contract.js';
 import { custodyEnvelope,custodyOperations } from './custody-contract.js';
 import { provisionDemoPayload, provisionDemoResponse } from './demo-contract.js';
 import { z } from 'zod';
@@ -40,6 +41,8 @@ export const envelope = z.strictObject({
 export function sidecarOpenApiDocument() {
   const operations = [
     ...Object.entries(custodyOperations).map(([path,operation])=>['/custody/'+path,custodyEnvelope.extend({payload:operation.request}),operation.response] as const),
+    ['/execute',executionRequest,executionResponse],
+    ['/validate',executionRequest,validationResponse],
     ['/health', null, healthResponse],
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
@@ -47,7 +50,7 @@ export function sidecarOpenApiDocument() {
     ['/provision-demo', envelope.extend({payload:provisionDemoPayload}), provisionDemoResponse],
     ['/estimate', envelope.extend({payload:estimatePayload}), estimateResponse],
   ] as const;
-  const error = z.strictObject({error:z.strictObject({code:z.string(),message:z.string(),requestId:z.string(),retryable:z.boolean()})});
+  const error = z.strictObject({error:z.strictObject({code:z.string(),message:z.string(),requestId:z.string(),retryable:z.boolean(),details:z.record(z.string(),z.unknown()).optional()})});
   return {
     openapi:'3.1.0',info:{title:'Opintel sidecar',version:'2'},
     components:{securitySchemes:{applicationCertificate:{type:'mutualTLS'}}},

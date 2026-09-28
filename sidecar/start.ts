@@ -1,3 +1,7 @@
+import { StagedExecutor,PostgresStagingSource } from './execution/index.js';
+import { PostgresSourceScope } from './infrastructure/postgres-source-scope.js';
+import { DuckDBSessionEngine } from './session/index.js';
+import { SidecarTokenizer,IanaZoneResolver } from './tokenize/index.js';
 import { FileCustody } from './custody/infrastructure/file-custody.js';
 import { DevelopmentFileKeyStore,DevelopmentFileKeyEscrow } from './custody/infrastructure/development-file-keys.js';
 import { foldingVersion } from './tokenize/unicode/folding.js';
@@ -15,7 +19,7 @@ import { EnvironmentSecretStore } from '../src/platform/secrets/index.js';
 import { loadSidecarConfig } from './config.js';
 import { createPostgresConnector } from './create-postgres-connector.js';
 import { FileSamplingAudit } from './infrastructure/file-sampling-audit.js';
-import { createSidecarServer } from './http/server.js';
+import { createSidecarServer,sidecarBuild } from './http/server.js';
 
 async function main(): Promise<void> {
   console.info({event:'tokenization.unicode', runtime:process.versions.unicode, folding:foldingVersion});
@@ -26,7 +30,11 @@ async function main(): Promise<void> {
   await custody?.sweep();
   const custodyTimer=setInterval(()=>{void custody?.sweep().catch(()=>console.warn({event:'custody.cleanup_failed',category:'storage'}));},60000);custodyTimer.unref();
   const audit = await FileSamplingAudit.open(config.auditFile);
-  const host = createSidecarServer({config,tls,custody,demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets:new EnvironmentSecretStore(),audit,limits:config.limits})});
+  const secrets=new EnvironmentSecretStore(),scope=new PostgresSourceScope(secrets,config.limits);
+  const execution=new StagedExecutor(new PostgresStagingSource(scope,new SidecarTokenizer(secrets,new IanaZoneResolver())),r=>new DuckDBSessionEngine(undefined,undefined,config.postgresExtension,r.limits));
+  const engineProbe=await new DuckDBSessionEngine().open('privileged');
+  let queryEngineVersion:string;try{queryEngineVersion=await engineProbe.inspection!.build();}finally{engineProbe.close();}
+  const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;
   const stop = () => {

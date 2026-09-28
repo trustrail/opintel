@@ -55,9 +55,10 @@ describe('S2b specification attacks (intentionally red until their owning items 
  it('J-031 bare PRAGMA enable_external_access',async()=>refused('J-031','bare spelling',await run('PRAGMA enable_external_access')));
  it('J-020 memory exhaustion with spill disabled',async()=>{
   const {stdout}=await promisify(execFile)(process.execPath,['--import',resolve('node_modules/tsx/dist/loader.mjs'),resolve('test/bypass/memory-probe.ts')],{cwd:files.dir,timeout:25000});
-  const result=JSON.parse(stdout) as {message:string;before:string[];after:string[];settings:unknown[][];events:{stage:string}[]};
+  const result=JSON.parse(stdout) as {message:string;code?:string;before:string[];after:string[];settings:unknown[][];events:{stage:string}[]};
   expect(result.events.map(e=>e.stage)).toEqual(['parse_started','parse_succeeded','serialize_started','serialized','inspected','prepare_started','prepared','inspected','execute_started','released']);
-  record('J-020','memory pressure',result.message?'REFUSED_RAW':'ATTACK_SUCCEEDED',result.message||'Allocation completed');
+  record('J-020','memory pressure',result.code?'REFUSED_STRUCTURED':result.message?'REFUSED_RAW':'ATTACK_SUCCEEDED',result.message||'Allocation completed');
+  expect(result.code).toBe('budget_exceeded');
   expect(result.message).toMatch(/Out of Memory Error/iu);expect(result.after).toEqual(result.before);
   expect(result.settings).toEqual([['','0 bytes']]);
  });

@@ -6,6 +6,14 @@ export type SessionRows = { columns: string[]; rows: unknown[][] };
 export interface EngineSession {
  execute(sql: string): Promise<SessionRows>;
  inspection?: SessionInspection;
+ interrupt?():void;
+ staging?:{
+  namespace(catalog:string,schema:string):Promise<void>;
+  create(catalog:string,schema:string,table:string,columns:{name:string;type:string}[]):Promise<void>;
+  append(catalog:string,schema:string,table:string,rows:unknown[][]):Promise<void>;
+  transfer(table:string,target:{catalog:string;schema:string;name:string},agent:EngineSession):Promise<void>;
+  materialize(connection:string,query:string,table:string,columns:{name:string;type:string}[]):Promise<void>;
+ };
  close(): void;
 }
 export type ParseOutcome =

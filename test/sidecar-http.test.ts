@@ -1,3 +1,5 @@
+import { StagedExecutor } from '../sidecar/execution/application/execute.js';
+import { executionRequest } from '../src/shared/execution-contract.js';
 import { randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer as createTcpServer } from 'node:net';
@@ -93,7 +95,7 @@ beforeAll(async()=>{
   resolveSpy=vi.spyOn(secrets,'resolve');
   audit=await FileSamplingAudit.open(config.auditFile);
   connector=new PostgresConnector(new ObservedScope(secrets,config.limits),audit);
-  host=createSidecarServer({config,tls,connector});
+  host=createSidecarServer({config,tls,connector,execution:new StagedExecutor({estimate:async()=>ok(null),plain:async()=>ok(undefined),treated:async()=>ok(undefined)})});
   const port=await host.listen();
   options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
 },60000);
@@ -165,7 +167,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
   });
   it('validates HTTP boundaries and never reflects literal credentials',async()=>{
     expect((await json('/health',undefined,{method:'GET'})).status).toBe(405);
-    expect((await json('/execute',body({}))).status).toBe(404);
+    expect((await json('/missing-route',body({}))).status).toBe(404);
     expect((await json('/health',{})).status).toBe(400);
     expect((await json('/test-connection',undefined,{raw:'{'})).status).toBe(400);
     const invalid=await json('/test-connection',{...body({}),credentialRef:sourceUrl});
@@ -180,7 +182,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await limited.close();}
     const specification=wire.sidecarOpenApiDocument();
-    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/health','/introspect','/provision-demo','/sample','/test-connection']);
+    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/execute','/health','/introspect','/provision-demo','/sample','/test-connection','/validate']);
     expect(JSON.parse(await readFile(new URL('../sidecar/openapi.json',import.meta.url),'utf8'))).toEqual(specification);
   });
 
@@ -217,3 +219,10 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(await client().estimateRowCount(ref,object)).toEqual(ok(3));
   });
 });
+
+it('S2e execution and validation use the pinned certificate and structured wire contract',async()=>{
+ const r=executionRequest.parse({requestId:'wire-execute',entitlements:[],projectId,poolId:randomUUID(),policyVersion:1,sql:'SELECT 1',namespace:{catalog:'memory',schema:'main'},sources:[],objects:[],aggregateMinGroupSize:5,limits:{memoryMb:32,threads:1,timeoutMs:10000,rowLimit:1,concurrency:1},entitlementContext:null});
+ expect(await json('/validate',r)).toMatchObject({status:200,value:{queryEngineVersion:'v1.4.3/d1dc88f950'}});
+ expect(await json('/execute',r)).toMatchObject({status:200,value:{rows:[[1]],truncated:false,executionPath:'staged'}});
+ const refused=await json('/execute',{...r,sql:"ATTACH 'private.db' AS private"});expect(refused).toMatchObject({status:422,value:{error:{code:'sql_not_permitted',details:{proofCategory:'serialization_refused'}}}});
+},30000);

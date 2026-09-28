@@ -1,26 +1,71 @@
+import { DomainError } from '../../../src/shared/kernel/index.js';
+import { parseTreeJson,renderTreeJson } from './tree-json.js';
+import { stagingType } from '../../../src/shared/staging-types.js';
 import { randomUUID } from 'node:crypto';
-import { DuckDBInstance } from '@duckdb/node-api';
+import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { z } from 'zod';
 import type { EngineSession, SessionEngine, SessionRole, StatementObserver, InspectionObserver } from '../ports.js';
 
+const connections=new WeakMap<EngineSession,DuckDBConnection>();
+const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
+const literal=(s:string)=>"'"+s.replaceAll("'","''")+"'";
 const failureSchema = z.object({ error: z.literal(true), error_type: z.string(), error_message: z.string() });
 const versionSchema = z.array(z.object({ library_version: z.string(), source_id: z.string() })).length(1);
 const objectsSchema = z.array(z.object({ catalog: z.string(), schema: z.string(), name: z.string() }));
 
 export class DuckDBSessionEngine implements SessionEngine {
- constructor(private readonly observe?: StatementObserver, private readonly evidence?: InspectionObserver) {}
+ constructor(private readonly observe?: StatementObserver, private readonly evidence?: InspectionObserver,private readonly postgresExtension?:string,private readonly initialLimits?:{memoryMb:number;threads:number}) {}
  async open(role: SessionRole): Promise<EngineSession> {
   // Never use the instance cache: two connections in one instance share a
   // catalogue and configuration, which is not the two-session construction.
   const instance = await DuckDBInstance.create(':memory:', {
    enable_external_access: 'true',
+   ...(this.initialLimits?{memory_limit:`${this.initialLimits.memoryMb}MB`,threads:String(this.initialLimits.threads)}:{}),
    temp_directory: '', max_temp_directory_size: '0B',
    autoinstall_known_extensions: 'false', autoload_known_extensions: 'false', allow_unsigned_extensions: 'false',
   });
+  let opening: DuckDBConnection | undefined;
   try {
-   const connection = await instance.connect(), sessionId = randomUUID();
+   const connection = await instance.connect(), sessionId = randomUUID();opening=connection;
    let closed = false;
-   return {
+   const stagedTypes=new Map<string,boolean[]>();
+   if(role==='privileged'&&this.postgresExtension){
+    await connection.run('LOAD '+literal(this.postgresExtension));
+    await connection.run('SET pg_connection_limit=1');await connection.run('SET pg_connection_cache=false');
+    await connection.run('SET pg_use_ctid_scan=false');
+   }
+   const namespace=async(catalog:string,schema:string)=>{
+      const catalogs=(await connection.runAndReadAll('SELECT database_name FROM duckdb_databases()')).getRowObjects();
+      if(!catalogs.some(c=>c.database_name===catalog))await connection.run(`ATTACH ':memory:' AS ${quote(catalog)}`);
+      await connection.run(`CREATE SCHEMA IF NOT EXISTS ${quote(catalog)}.${quote(schema)}`);
+   };
+   const session:EngineSession = {
+    interrupt:()=>{if(!closed)connection.interrupt();},
+    staging:{
+     namespace,
+     create:async(catalog,schema,table,columns)=>{
+      stagedTypes.set(JSON.stringify([catalog,schema,table]),columns.map(c=>stagingType(c.type)!.complex));
+      await namespace(catalog,schema);
+      await connection.run(`CREATE TABLE ${quote(catalog)}.${quote(schema)}.${quote(table)} (${columns.map(c=>quote(c.name)+' '+stagingType(c.type)!.duck).join(',')})`);
+     },
+     append:async(catalog,schema,table,rows)=>{
+      if(!rows.length)return;
+      const statement=await connection.prepare(`INSERT INTO ${quote(catalog)}.${quote(schema)}.${quote(table)} VALUES (${rows[0]!.map((_,i)=>stagedTypes.get(JSON.stringify([catalog,schema,table]))?.[i]?'CAST($'+(i+1)+' AS JSON)':'$'+(i+1)).join(',')})`);
+      try{for(const row of rows){const values=z.array(z.union([z.string(),z.number(),z.boolean(),z.bigint(),z.null()])).parse(row);statement.bind(values);await statement.run();}}finally{statement.destroySync();}
+     },
+     transfer:async(table,target,agent)=>{
+      const other=connections.get(agent);if(!other)throw new Error('The destination engine cannot accept in-memory chunks.');
+      const appender=await other.createAppender(target.name,target.schema,target.catalog);
+      try{const rows=await connection.stream(`SELECT * FROM __staging.${quote(table)}`);for await(const chunk of rows)appender.appendDataChunk(chunk);appender.flushSync();}finally{appender.closeSync();}
+     },
+     materialize:async(source,query,table,columns)=>{
+      if(role!=='privileged'||!this.postgresExtension)throw new DomainError('dependency_unavailable','A signed PostgreSQL scanner matching DuckDB v1.4.3 is required. Configure postgresExtension before staging clear objects.');
+      await connection.run(`ATTACH ${literal(source)} AS __source (TYPE POSTGRES, READ_ONLY)`);
+      try{await connection.run('CREATE SCHEMA IF NOT EXISTS __staging');
+       await connection.run(`CREATE TABLE __staging.${quote(table)} AS SELECT ${columns.map(c=>'CAST('+quote(c.name)+' AS '+stagingType(c.type)!.duck+') AS '+quote(c.name)).join(',')} FROM postgres_query('__source',${literal(query)})`);
+      }finally{await connection.run('DETACH __source');}
+     },
+    },
     inspection: {
      build: async () => {
       const rows = versionSchema.parse((await connection.runAndReadAll('SELECT library_version, source_id FROM pragma_version()')).getRowObjects());
@@ -30,7 +75,7 @@ export class DuckDBSessionEngine implements SessionEngine {
       'SELECT database_name AS catalog, schema_name AS schema, table_name AS name, column_name AS column FROM duckdb_columns() WHERE NOT internal'
      )).getRowObjects()),
      render: async tree => z.array(z.object({sql:z.string()})).length(1).parse((await connection.runAndReadAll(
-      'SELECT json_deserialize_sql($1::JSON) AS sql',[JSON.stringify(tree)]
+      'SELECT json_deserialize_sql($1::JSON) AS sql',[renderTreeJson(tree)]
      )).getRowObjects())[0]!.sql,
      estimate: async sql => {
       // EXPLAIN never executes the permitted SELECT. No group averages are used.
@@ -75,7 +120,7 @@ export class DuckDBSessionEngine implements SessionEngine {
       this.evidence?.({stage:'parse_started'});
       const serialized = await connection.runAndReadAll('SELECT json_serialize_sql($1::VARCHAR)::VARCHAR AS syntax', [sql]);
       const json = z.array(z.object({syntax:z.string()})).length(1).parse(serialized.getRowObjects())[0]!.syntax;
-      const tree: unknown = JSON.parse(json);
+      const tree: unknown = parseTreeJson(json);
       const failure = failureSchema.safeParse(tree);
       if (failure.success && failure.data.error_type === 'parser') {
        this.evidence?.({stage:'parse_failed',error:failure.data.error_message});
@@ -136,6 +181,7 @@ export class DuckDBSessionEngine implements SessionEngine {
      try { connection.closeSync(); } finally { instance.closeSync(); }
     },
    };
-  } catch (error) { instance.closeSync(); throw error; }
+   connections.set(session,connection);return session;
+  } catch (error) { try{opening?.closeSync();}finally{instance.closeSync();}throw error; }
  }
 }

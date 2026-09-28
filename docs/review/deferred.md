@@ -356,3 +356,12 @@ deployed arrangement starts. Run the thing.
   first the Chrome 154 width and arrow change, now 125 pixels inside the
   entitlements treatment selector's option text. Tree rows and layout match.
   Accepted as flaky under the retry policy rather than rebaselined.
+
+
+# S2e — streaming optimisation
+
+C.1.1's streaming execution path is deferred until after the staged path ships.
+The staged path remains the default. Streaming requires the complete conservative
+eligibility check and the same bypass suite against that distinct path before
+it can be enabled. S2e does not implement the alternative source attachment in
+the agent session; that alternative also requires its own review.

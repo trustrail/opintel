@@ -40,8 +40,10 @@ a future change in serialization coverage requires revisiting that proof.
 SQL refusals use `sql_not_permitted` with proof categories `parse_failed`,
 `serialization_refused`, or `sql_not_permitted`. An inspected statement whose
 identifiers do not bind records `binding_failed` and never executes.
-Infrastructure/resource failures remain exceptions; their governed envelope
-belongs to S2e, not to a false identifier refusal.
+The S2e resource boundary maps memory exhaustion to `budget_exceeded` and
+other engine failures to a fixed `dependency_unavailable` envelope, after
+cleanup. Native diagnostic text is not returned. These are not identifier
+refusals; the raw S2a control seam still throws native errors.
 
 Optional `InspectionObserver` callbacks record driver outcomes and inspector
 decisions for tests. They are not telemetry: trees contain SQL literals. No

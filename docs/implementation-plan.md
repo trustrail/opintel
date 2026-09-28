@@ -313,7 +313,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | S2d | Authoritative treatment enforcement: aggregate-only two stages, token ordering | S2c, 4.4 | sidecar/sql | VC-10 to VC-14, VC-23 to VC-30 |
 | S2e | Staging paths, execute, cancellation, governance, ephemerality | S2c | sidecar/session | J-022 onward, C.4, C.5 |
 | S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
-| **S2b** | **Streaming execution path**, condition evaluated conservatively, bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
+| **S2b** | **Streaming execution path — deferred until after S2e staged execution**, condition evaluated conservatively, same bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
 | S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019 (requires staged data to scan), TOK-38 (with S2 staging) |
 | S5 | VNet mode, OCI image, egress restricted to declared hosts | S2 | packaging | SD-005 subset |
 
@@ -361,7 +361,7 @@ session-column agreement, both cardinality stages, and whole-result refusal are
 implemented in `sidecar/sql`. Uncertain per-group estimates require Stage 2.
 [S2d results](review/s2d-results.md) records supported shapes, conservative
 refusals, VC coverage and closure of J-035–J-039. Their bypass exemptions are
-removed; only 5.7 transport and the S2e resource envelope remain open.
+removed; only the 5.7 transport prerequisites remain open after S2e closes the resource envelope.
 
 ---
 
@@ -388,7 +388,7 @@ Thirty-six cases for ingest, to be added to the test specification.
 **Bypass regression gate.** `test/bypass/` runs in its own Vitest project via
 `npm run test:bypass`, separate from `npm test`; CI runs both. The reviewed
 `test/bypass/open-attacks.json` registers current open cases by exact assertion,
-observation and owner (currently S2e and 5.7). Expected
+observation and owner (currently 5.7). Expected
 failures print as an owned work queue. New failures or succeeding attacks,
 missing/skipped tests, changed failure reasons, unhandled errors and stale
 entries that now pass fail the build. Owners remove exemptions when their
@@ -536,3 +536,17 @@ J-044/J-045 fail explicitly on the missing authenticated query path; J-055
 asserts the expected tracker success documented in A.7. The tests remain red
 where later items must close gaps; see [current results](review/s2b-results.md).
 No production fix is part of S2b.
+
+
+**S2e implementation.** `sidecar/execution` mounts staged `/validate` and
+`/execute`, with privileged scanner materialisation for clear/aggregate-only
+objects and scoped connector treatment/appends for treated objects. It enforces
+post-pushdown scan admission, actual staging row bounds, per-pool concurrency and
+bounded waiting, cancellation, outer LIMIT/truncation, structured resource
+refusals and cleanup before response. Project defaults/bounds are in the shared
+execution contract; the authenticated application caller remains 5.7. J-048's
+resource-envelope exemption is removed. J-021, J-024 to J-026 and the sidecar
+transport portion of J-022/J-023 are exercised here; workspace degraded-state
+integration cannot be claimed before 5.7's query transport exists. S4's handwritten
+sentinel proof and S5's container security/deployment remain separate items.
+Streaming remains deferred. See `docs/review/s2e-progress.md` for verification.

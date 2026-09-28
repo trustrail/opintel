@@ -80,3 +80,17 @@ it('the connector maps the timeout response without logging the raw error',async
   credential.resolve('must-not-be-opened');await new Promise<void>(resolve=>setImmediate(resolve));
  }finally{for(const log of logs)log.mockRestore();}
 });
+
+it('C.4 native scanner lease shares the source ceiling and its injected deadline',async()=>{
+ const clock=new ManualDeadlineClock(),scope=new PostgresSourceScope({resolve:async()=> 'postgresql://fixture/db'},{...limits,maxConnectionsPerSource:1},clock),controller=new AbortController();
+ const ready=deferred<void>();
+ const running=scope.external('source',ref,async(_dsn,signal)=>{ready.resolve();await new Promise<void>(resolve=>signal.addEventListener('abort',()=>resolve(),{once:true}));},controller.signal);
+ const finished=expect(running).rejects.toBeInstanceOf(SourceTimeout);await ready.promise;
+ await expect(scope.run('source',ref,async()=>{})).rejects.toBeInstanceOf(SourceBusy);
+ clock.advance(100);await finished;expect(clock.pending).toBe(0);expect(await scope.run('source',ref,async()=> 'released')).toBe('released');
+});
+it('C.4 native scanner credential lookup expires without starting late work',async()=>{
+ const clock=new ManualDeadlineClock(),credential=deferred<string>(),work=vi.fn(async()=>{});
+ const scope=new PostgresSourceScope({resolve:()=>credential.promise},limits,clock);
+ const pending=expect(scope.external('source',ref,work,new AbortController().signal)).rejects.toBeInstanceOf(SourceTimeout);clock.advance(100);await pending;credential.resolve('postgresql://fixture/db');await Promise.resolve();expect(work).not.toHaveBeenCalled();
+});
