@@ -256,12 +256,12 @@ class QueryRun {
   readonly stages: RunStage[];
   readonly elements: ElementDelivery[];
   readonly versions: VersionStamp;
-  readonly outcome: RunOutcome;
+  readonly outcome: RunOutcome | null; // null means started but incomplete
 }
 ```
 
 **Invariants**
-- Immutable after `outcome` is set. No setters exist on the class
+- The header is immutable from request start; completion is a separate append-only fact. No setters exist on the class. A header with no completion row is an incomplete run, not a missing run
 - Every stage that ran appends a `RunStage`. A refusal records the stage that refused and why
 - `versions` is captured at request start, not at completion, so a mid-flight configuration change is visible as a discrepancy rather than hidden
 
@@ -758,7 +758,7 @@ type RunStage = {
 type ElementDelivery = {
   elementId: ElementId | null;      // null when the agent named something unknown
   exposedName: ExposedName;
-  treatment: Treatment | null;      // null when it was never entitled
+  treatment: Exclude<Treatment, 'withheld'> | null; // null exactly for withheld or undecided state
   state: 'released' | 'withheld' | 'undecided' | 'aggregated';
   withheldReason: string | null;
 };
@@ -2561,7 +2561,7 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 
 **The agent interface at `/mcp/v1/p/:projectId` is not in this table.** It authenticates by pool key rather than by session, and every authorization question there is answered against the pool.
 
-**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, bulk_decision, bulk_entitlement_request, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_element, run_stage, synonym_candidate.
+**A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, bulk_decision, bulk_entitlement_request, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_completion, run_element, run_stage, synonym_candidate.
 
 **Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp.
 
@@ -3668,75 +3668,134 @@ Valid last4 and email values use the fixed prefixes shown in B.3 (`••••`
 
 ## 4.6 Evidence
 
-Append-only and partitioned by month.
+Append-only and partitioned by the request's start month in UTC. Item 5.10
+provides the immutable domain and storage structure; item 5.11 writes records.
+
+**A run has an immutable header and at most one completion row.** The header
+captures identity, request and versions at open. Completion is inserted, never
+updated into the header. This preserves the no-UPDATE guarantee and makes a
+crash visible: a header with no completion is an **incomplete** run, not a missing
+request. Read models start from the header and left-join completion. Both use
+the original `(id, started_at)` identity, even when completion crosses a month
+boundary. The completion primary key permits only one terminal outcome.
 
 ```sql
 create table query_run (
-  id            uuid not null default gen_random_uuid(),
-  project_id    uuid not null,
-  pool_id       uuid not null,
-  agent_id      text,
-  key_prefix    text not null,
-  mode          text not null check (mode in ('query','prompt')),
-  request       text not null,
-  cil           jsonb,
-  source_plan   jsonb,
+  id uuid not null default gen_random_uuid(),
+  project_id uuid not null references project(id),
+  pool_id uuid not null,
+  agent_id text,                         -- observational, never authorization
+  key_prefix text not null,
+  mode text not null check (mode in ('query','prompt')),
+  request text not null,
+  versions jsonb not null,               -- policy, vocabulary, catalog, tokenKey
+  started_at timestamptz not null,
+  primary key (id, started_at),
+  foreign key (pool_id, project_id) references pool(id, project_id)
+) partition by range (started_at);
+
+create table run_completion (
+  run_id uuid not null,
+  started_at timestamptz not null,
+  outcome jsonb not null,                -- full tagged RunOutcome from §1.7
+  cil jsonb,
+  source_plan jsonb,
   generated_sql text,
-  row_count     integer,
-  outcome       text not null,
-  refusal_code  text,
-  latency_ms    integer,
-  versions      jsonb not null,
-  freshness     jsonb not null default '{}',
-  -- derived at write time from the sources actually reached, never from a project flag
-  synthetic     boolean not null default false,
-  started_at    timestamptz not null,
-  completed_at  timestamptz,
-  primary key (id, started_at)
+  latency_ms integer check (latency_ms >= 0),
+  freshness jsonb not null default '{}',
+  synthetic boolean not null default false,
+  completed_at timestamptz not null check (completed_at >= started_at),
+  primary key (run_id, started_at),
+  foreign key (run_id, started_at) references query_run(id, started_at)
 ) partition by range (started_at);
 
 create table run_element (
-  run_id     uuid not null,
+  run_id uuid not null,
   started_at timestamptz not null,
   element_id uuid,
   exposed_name text not null,
-  treatment  text not null,
-  withheld_reason text
+  state text not null check (state in ('released','withheld','undecided','aggregated')),
+  treatment text check (treatment in ('clear','tokenized','masked','aggregate_only')),
+  withheld_reason text,
+  check ((treatment is null) = (state in ('withheld','undecided'))),
+  foreign key (run_id, started_at) references query_run(id, started_at)
 ) partition by range (started_at);
 
 create table run_stage (
-  run_id     uuid not null,
+  run_id uuid not null,
   started_at timestamptz not null,
-  stage      text not null,
-  result     text not null,
-  detail     jsonb,
-  ms         integer
+  stage text not null,                   -- RunStage.stage from §1.7
+  result text not null,                  -- ok | clarify | refuse | warn
+  detail jsonb,
+  ms integer not null check (ms >= 0),
+  foreign key (run_id, started_at) references query_run(id, started_at)
 ) partition by range (started_at);
 
 create table audit_entry (
-  id          uuid primary key default gen_random_uuid(),
-  project_id  uuid,
-  company_id  uuid,
-  actor_id    uuid,
-  actor_kind  text not null check (actor_kind in ('user','system','rule')),
-  action      text not null,
-  target      jsonb not null,
-  before      jsonb,
-  after       jsonb,
-  revision    text,
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid references project(id),
+  company_id uuid references company(id),
+  actor_id uuid,
+  actor_kind text not null check (actor_kind in ('user','system','rule')),
+  action text not null,
+  target jsonb not null,
+  before jsonb,
+  after jsonb,
+  revision text,
   occurred_at timestamptz not null default now()
 );
+create index on query_run (project_id, started_at desc, id);
+create index on run_element (run_id, started_at);
+create index on run_stage (run_id, started_at);
 create index on audit_entry (project_id, occurred_at desc);
 ```
+
+**State and delivered treatment are different facts.** Withheld and undecided
+both mean nothing was delivered, so their treatment is null. Their states
+preserve the difference between an explicit withholding decision and no decision.
+The bidirectional check also forbids null treatment for released or aggregated
+elements. There is no sentinel treatment for non-delivery. Historical element
+identifiers and exposed names are retained without cascading deletion from the
+live catalogue.
+
+**The completion stores the full tagged outcome**, retaining row counts,
+truncation, withheld count, refusal code/element/stage, clarification link and
+failure retryability as applicable. These are not reconstructed from today's
+configuration. `versions.policy` is captured with the header and never replaced
+with the policy at completion. All four version fields are required non-negative
+integers. Completion stores freshness and synthetic provenance; computing those
+values and writing the record remain item 5.11.
 
 **The append-only guarantee is a grant, not a convention:**
 
 ```sql
-revoke update, delete on query_run, run_element, run_stage, audit_entry from opintel_app;
-grant  insert, select  on query_run, run_element, run_stage, audit_entry to opintel_app;
+revoke all on query_run, run_completion, run_element, run_stage, audit_entry
+  from opintel_app;
+grant insert, select on query_run, run_completion, run_element, run_stage,
+  audit_entry to opintel_app;
 ```
 
-A test asserts this. If someone adds an `UPDATE` path, the grant fails it, not code review.
+The same grants and forced RLS apply to direct monthly-partition access. Child
+RLS requires a visible header with the same run ID and start timestamp. An
+insert guard serializes stage/element appends with completion and rejects child
+appends after completion. No foreign key cascades deletes through evidence.
+Project audit rows use tenant scope; company/platform audit rows (null project)
+use the existing platform scopes. The application cannot read those shared audit
+rows through an unset project. Administrative fixture truncation is separate
+from application privileges; no application UPDATE or DELETE is granted.
+
+Migration 046 supplies the full constraints and an owner-only
+`ensure_evidence_month(date)` DDL function. It creates four matching monthly
+partitions, including their forced RLS and grants. Bootstrap provisions the
+previous, current and next UTC months; deployment owners provision later months
+before use. There is no default partition: an unprovisioned month refuses the
+insert. Partition retention/scheduling remains item 5.17, and no retention job
+or record writer is introduced here.
+
+M-001 through M-006 cover incomplete records, unique header/completion identity,
+element structure, grant-level UPDATE/DELETE rejection, and persisted policy
+stamps before and after a committed entitlement change. Direct partition access,
+month-boundary routing and migration down/up are verified too.
 
 ## 4.7 Row-level security
 

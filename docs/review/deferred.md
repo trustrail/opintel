@@ -384,3 +384,11 @@ dependency_unavailable naming item 5.10 before parsing, source contact or execut
 Startup rejects a test stub in every non-test build. No fabricated evidence id
 substitutes for a durable record. I-009's model-readable reduction text belongs
 to handwritten item 5.8; 5.7 returns the structured query result only.
+
+# From item 5.10
+
+- Evidence partitions exist for one month either side of installation, and
+  ensure_evidence_month is owner-only. Nothing provisions future months, so
+  evidence writes fail closed roughly two months after deployment. Item 5.17
+  owns retention; it should own forward provisioning too, or an operational
+  runbook must.

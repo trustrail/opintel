@@ -27,6 +27,8 @@ const contracts: Record<string, GrantContract> = {
   ...Object.fromEntries(['pool_key_request', 'bulk_entitlement_request', 'pattern_rule', 'introspection_completed', 'pattern_rule_application', 'entitlement', 'pool', 'pool_key', 'pool_source_binding', 'data_source', 'introspection_run', 'catalog_object', 'catalog_schema_temporal', 'catalog_element', 'element_stats', 'filing_party', 'filing_party_rule'].map((table) => [table, {
     opintel_app: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], opintel_platform: [], opintel_platform_admin: manage,
   } satisfies GrantContract])),
+  ...Object.fromEntries(['query_run','run_completion','run_element','run_stage'].map(table=>[table,{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['SELECT','INSERT','TRUNCATE']} satisfies GrantContract])),
+  audit_entry:{opintel_app:['SELECT','INSERT'],opintel_platform:['SELECT','INSERT'],opintel_platform_admin:['SELECT','INSERT','TRUNCATE']},
   agent_presence: {opintel_app:['SELECT','INSERT','UPDATE'],opintel_platform:[],opintel_platform_admin:['SELECT','INSERT','UPDATE','TRUNCATE']},
   bulk_decision: {opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['SELECT','INSERT','TRUNCATE']},
   token_key_version: {opintel_app:['SELECT','INSERT','UPDATE'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
@@ -61,6 +63,7 @@ const contracts: Record<string, GrantContract> = {
 
 type GrantRow = {
   table_name: string;
+  partition_parent: string | null;
   role_name: typeof roles[number];
   privilege: Privilege;
   granted: boolean;
@@ -70,10 +73,12 @@ databaseIntegration('application table grants', () => {
   it('requires the declared privileges for every public table and application role', async () => {
     if (process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required when REQUIRE_DB_TESTS=1.');
     const rows = await withPlatform((tx) => tx.query<GrantRow>(
-      `SELECT c.relname AS table_name, r.role_name, p.privilege,
+      `SELECT c.relname AS table_name, parent.relname AS partition_parent, r.role_name, p.privilege,
               has_table_privilege(r.role_name, c.oid, p.privilege) AS granted
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
+       LEFT JOIN pg_inherits i ON i.inhrelid=c.oid
+       LEFT JOIN pg_class parent ON parent.oid=i.inhparent
        CROSS JOIN unnest($1::text[]) r(role_name)
        CROSS JOIN unnest($2::text[]) p(privilege)
        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
@@ -81,10 +86,10 @@ databaseIntegration('application table grants', () => {
       [roles, privileges],
     ));
 
-    const tables = [...new Set(rows.map((row) => row.table_name))].sort();
+    const tables = [...new Set(rows.map((row) => row.partition_parent && ['query_run','run_completion','run_element','run_stage'].includes(row.partition_parent) ? row.partition_parent : row.table_name))].sort();
     expect(tables, 'Every public table needs an explicit grant contract.').toEqual(Object.keys(contracts).sort());
     const mismatches = rows.flatMap((row) => {
-      const contract = contracts[row.table_name];
+      const contract = contracts[row.partition_parent && ['query_run','run_completion','run_element','run_stage'].includes(row.partition_parent) ? row.partition_parent : row.table_name];
       if (contract === undefined) return [`${row.table_name}: missing grant contract`];
       const required = contract[row.role_name].includes(row.privilege);
       return row.granted === required ? [] : [

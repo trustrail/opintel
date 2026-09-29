@@ -582,3 +582,14 @@ checks pending. It remains callable with query mode disabled and needs no
 execution evidence writer. N-003 covers real MCP/mTLS validation, refusal parity
 and zero source connections. No sidecar enforcement or other item is changed.
 See [verification results](review/5-9-implementation.md).
+
+### Item 5.10 — evidence domain and schema
+
+Evidence has an immutable request header and one append-only completion. A
+header without completion reads as incomplete. Element state is explicit;
+treatment is null if and only if state is withheld or undecided. Migration 046
+enforces these structures, captures version stamps, partitions by UTC start
+month, and grants the application only SELECT and INSERT on evidence parents
+and partitions. Domain snapshots and boundary schemas preserve the recorded
+facts. The record writer remains item 5.11.
+See [verification results](review/5-10-implementation.md).
