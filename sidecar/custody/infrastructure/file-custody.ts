@@ -18,11 +18,13 @@ export class FileCustody {
  constructor(private readonly store:KeyStore,private readonly escrow:KeyEscrow,private readonly now:()=>number=Date.now){if(store.location===escrow.location)throw new Error('KeyStore and KeyEscrow must resolve to different locations.');}
  async sweep(){for(const entry of await readdir(this.store.location,{withFileTypes:true})){if(entry.isDirectory()&&/^[0-9a-f-]{36}$/u.test(entry.name))await this.invoke('status',entry.name,{});}}
  async resolveBytes(reference:import('../../../src/platform/secrets/index.js').SecretRef):Promise<Uint8Array>{
-  const match=/^secret:\/\/opintel\/token-key\/([0-9a-f-]{36})$/u.exec(reference);
+  const match=/^secret:\/\/opintel\/token-key\/([0-9a-f-]{36})(?:\/v([1-9][0-9]*))?$/u.exec(reference);
   if(!match)throw new DomainError('dependency_unavailable','Unknown token key reference.');
   const project=ProjectId(match[1]!);const state=stateSchema.parse(JSON.parse(await readFile(join(this.store.location,project,'state.json'),'utf8')));
   if(state.current===null)throw new DomainError('dependency_unavailable','Token key custody has not been initialized.');
-  return this.store.resolveBytes(ref(project+'/v'+state.current));
+  const selected=match[2]===undefined?state.current:Number(match[2]);
+  if(!state.versions.includes(selected))throw new DomainError('dependency_unavailable','The selected token key version is unavailable.');
+  return this.store.resolveBytes(ref(project+'/v'+selected));
  }
  private async save(project:string,state:State){const path=join(this.store.location,project,'state.json');const temp=path+'.'+randomUUID();const f=await open(temp,'wx',0o600);try{await f.writeFile(JSON.stringify(state));await f.sync();}finally{await f.close();}await rename(temp,path);const dir=await open(join(path,'..'),'r');try{await dir.sync();}finally{await dir.close();}}
  async invoke(operation:CustodyOperation,projectInput:string,payload:unknown):Promise<Result<unknown>>{

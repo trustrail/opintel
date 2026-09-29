@@ -8,7 +8,7 @@ const time=z.iso.datetime({offset:true}).transform(value=>Timestamp(new Date(val
 // Historical exposed names are facts, not inputs to today's naming policy.
 const name=z.string().min(1).refine(value=>!value.includes('\0')).transform(value=>value as ExposedName);
 const object=z.record(z.string(),z.json());
-export const versionStampSchema=z.strictObject({policy:count,vocabulary:count,catalog:count,tokenKey:count});
+export const versionStampSchema=z.strictObject({policy:count,vocabulary:count,catalog:count,tokenKeyVersionSelected:count.positive().nullable()});
 const stage=z.enum(['classify','recover','resolve_values','resolve_sources','compose','validate','qqc_l1','qqc_l2','qqc_l3','execute','record']);
 export const runStageSchema=z.strictObject({stage,result:z.enum(['ok','clarify','refuse','warn']),detail:object.nullable(),ms:count});
 const element={elementId:z.uuid().transform(ElementId).nullable(),exposedName:name,withheldReason:z.string().nullable()};
@@ -24,10 +24,12 @@ export const runOutcomeSchema=z.discriminatedUnion('kind',[
  z.strictObject({kind:z.literal('failed'),code:errorCodeSchema,retryable:z.boolean()}),
 ]);
 export const runHeaderSchema=z.strictObject({id:z.uuid().transform(RunId),projectId:z.uuid().transform(ProjectId),poolId:z.uuid().transform(PoolId),agentId:z.string().nullable(),keyPrefix:z.string(),mode:z.enum(['query','prompt']),request:z.string(),versions:versionStampSchema,startedAt:time});
-export const runCompletionSchema=z.strictObject({outcome:runOutcomeSchema,cil:object.nullable(),sourcePlan:object.nullable(),generatedSql:z.string().nullable(),latencyMs:count.nullable(),freshness:object,synthetic:z.boolean(),completedAt:time});
+export const runCompletionSchema=z.strictObject({tokenKeyVersionUsed:count.positive().nullable().default(null),outcome:runOutcomeSchema,cil:object.nullable(),sourcePlan:object.nullable(),generatedSql:z.string().nullable(),latencyMs:count.nullable(),freshness:object,synthetic:z.boolean(),completedAt:time});
 export const queryRunSchema=z.strictObject({header:runHeaderSchema,stages:z.array(runStageSchema),elements:z.array(elementDeliverySchema),completion:runCompletionSchema.nullable()});
 /** Boundary for reconstructing a record; it neither reads nor writes storage. */
 export function parseQueryRun(input:unknown):Result<QueryRun> {
- const parsed=queryRunSchema.safeParse(input);
+ const legacy=z.object({header:z.object({versions:z.object({policy:count,vocabulary:count,catalog:count,tokenKey:count})}).passthrough()}).passthrough().safeParse(input);
+ const normalized=legacy.success?{...legacy.data,header:{...legacy.data.header,versions:{policy:legacy.data.header.versions.policy,vocabulary:legacy.data.header.versions.vocabulary,catalog:legacy.data.header.versions.catalog,tokenKeyVersionSelected:legacy.data.header.versions.tokenKey||null}}}:input;
+ const parsed=queryRunSchema.safeParse(normalized);
  return parsed.success?QueryRun.create(parsed.data):err(new DomainError('validation_failed','The evidence record does not match its schema.'));
 }

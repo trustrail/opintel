@@ -1,7 +1,7 @@
 import type { Result } from '../../../src/shared/kernel/index.js';
 import type { ExecutionRequest,StagingObject } from '../../../src/shared/execution-contract.js';
 import type { EngineSession } from '../../session/index.js';
-export type Scan={object:StagingObject;predicate:string|null;request:ExecutionRequest};
+export type Scan={object:StagingObject;predicate:string|null;request:ExecutionRequest;onTokenized?:()=>void};
 export interface StagingSource {
  estimate(scan:Scan,signal:AbortSignal):Promise<Result<number|null>>;
  plain(scan:Scan,privileged:EngineSession,table:string,signal:AbortSignal):Promise<Result<void>>;

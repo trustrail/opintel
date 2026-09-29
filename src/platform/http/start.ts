@@ -1,7 +1,8 @@
+import {PostgresEvidenceWriter} from '../../modules/evidence/index.js';
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
 import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
-import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader,ExplainService,QueryService,PostgresQueryReader,SidecarQueryExecution,UnavailableEvidenceWriter,assertEvidenceWriter } from '../../modules/mcp/index.js';
+import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader,ExplainService,QueryService,PostgresQueryReader,SidecarQueryExecution,assertEvidenceWriter } from '../../modules/mcp/index.js';
 import { PostgresKeyVerifier } from '../../modules/pools/index.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
 import { PostgresEntitlementReader,QueryPreFilter,DuckDBQueryParser } from '../../modules/entitlements/index.js';
@@ -213,7 +214,7 @@ async function start(): Promise<void> {
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),
     ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
-  const evidence=new UnavailableEvidenceWriter();assertEvidenceWriter(evidence);
+  const evidence=new PostgresEvidenceWriter();assertEvidenceWriter(evidence);
   const execution=new SidecarQueryExecution(sidecarOptions),filter=new QueryPreFilter(new DuckDBQueryParser());
   const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence);
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory());

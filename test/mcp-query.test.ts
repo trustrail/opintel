@@ -2,8 +2,8 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 import {QueryOutput} from '../src/shared/api/mcp.js';
 import {RunId,DomainError,err} from '../src/shared/kernel/index.js';
 import {withTenant,withPlatform} from '../src/platform/db/scope.js';
-import {assertEvidenceWriter,UnavailableEvidenceWriter} from '../src/modules/mcp/index.js';
-import {queryFixture,TestEvidenceWriter} from './fixtures/query/fixture.js';
+import {assertEvidenceWriter} from '../src/modules/mcp/index.js';
+import {queryFixture,TestEvidenceWriter,UnavailableEvidenceWriter} from './fixtures/query/fixture.js';
 const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).reverse())await close();});
 async function fixture(writer=new TestEvidenceWriter()){const f=await queryFixture(writer);cleanup.push(f.close);return {...f,writer};}
@@ -25,7 +25,7 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   const f=await fixture();
   for(const [name,code] of [['field_5','element_withheld'],['field_6','entitlement_missing'],['not_here','not_found']]){
    const response=await f.query(`SELECT ${name} FROM warehouse.public.records`);expect(response).toMatchObject({isError:true,_meta:{code,evidenceId:expect.any(String)}});
-   expect([...f.writer.records.values()].at(-1)?.outcome).toEqual({kind:'refused',code});expect(response.structuredContent).toBeUndefined();
+   expect([...f.writer.records.values()].at(-1)?.outcome).toMatchObject({kind:'refused',code});expect(response.structuredContent).toBeUndefined();
   }
   expect(f.boundary.executions).toBe(0);
  });
@@ -74,9 +74,9 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   const f=await fixture();vi.spyOn(f.writer,'close').mockResolvedValue(err(new DomainError('dependency_unavailable','Evidence could not be recorded.')));
   const response=await f.query('SELECT field_1 FROM warehouse.public.records');expect(response).toMatchObject({isError:true,_meta:{code:'dependency_unavailable'}});expect(response.structuredContent).toBeUndefined();
  });
- it('production unavailable writer refuses before compilation or execution, naming 5.10',async()=>{
+ it('an unavailable writer prevents source execution',async()=>{
   const f=await queryFixture(new UnavailableEvidenceWriter());cleanup.push(f.close);const read=vi.spyOn(f.reader,'read'),execute=vi.spyOn(f.execution,'execute'),health=vi.spyOn(f.execution,'health');
-  const response=await f.query('SELECT field_1 FROM warehouse.public.records');expect(response).toMatchObject({isError:true,_meta:{code:'dependency_unavailable'}});expect(response._meta).toMatchObject({cause:'evidence_before_execution',requiredItems:['5.10','5.11']});expect(read).not.toHaveBeenCalled();expect(health).not.toHaveBeenCalled();expect(execute).not.toHaveBeenCalled();
+  const response=await f.query('SELECT field_1 FROM warehouse.public.records');expect(response).toMatchObject({isError:true,_meta:{code:'dependency_unavailable'}});expect(response._meta).toMatchObject({cause:'evidence_before_execution'});expect(read).toHaveBeenCalled();expect(health).toHaveBeenCalled();expect(execute).not.toHaveBeenCalled();
  });
  it('5.8: complete MCP responses never expose configured aggregate thresholds',async()=>{
   const f=await fixture();
@@ -122,5 +122,5 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
  });
 });
 it('startup rejects the evidence test stub in every non-test build',()=>{
- const writer=new TestEvidenceWriter();for(const environment of ['production','development','staging',''])expect(()=>assertEvidenceWriter(writer,environment)).toThrow('non-test build');expect(()=>assertEvidenceWriter(writer,'test')).not.toThrow();expect(()=>assertEvidenceWriter(new UnavailableEvidenceWriter(),'production')).not.toThrow();
+ const writer=new TestEvidenceWriter();for(const environment of ['production','development','staging',''])expect(()=>assertEvidenceWriter(writer,environment)).toThrow('non-test build');expect(()=>assertEvidenceWriter(writer,'test')).not.toThrow();
 });

@@ -563,7 +563,8 @@ partial answer is served when a source or the sidecar becomes unavailable.
 
 `EvidenceWriterPort` gates execution and release of a structured answer. Tests
 use a marked stub; startup rejects that marker outside a test build. Production
-uses an unavailable adapter naming items 5.10/5.11 and refuses before execution.
+now uses item 5.11’s durable writer: a committed header gates source work and a
+committed completion gates result release.
 I-009's model-readable reduction remains solely 5.8; 5.7 emits structured
 content and an evidence id, with no successful-answer text composition.
 
@@ -593,3 +594,16 @@ month, and grants the application only SELECT and INSERT on evidence parents
 and partitions. Domain snapshots and boundary schemas preserve the recorded
 facts. The record writer remains item 5.11.
 See [verification results](review/5-10-implementation.md).
+
+
+### Item 5.11 — durable record writer
+
+Production query dispatch now uses the evidence writer. Source-free preparation
+captures the plan, versions and source provenance before the header commits.
+Completion atomically appends per-element deliveries, reductions, stage reasons,
+freshness, landing strategy and derived synthetic provenance before rows return.
+Selected and actually used token-key versions are distinct: the former is pinned
+at open, the latter reported by the sidecar, with equality enforced in the database.
+Migration 047 adds transaction-coalesced catalogue generation and the selected/used
+constraints. The test-stub startup assertion remains.
+See [verification results](review/5-11-implementation.md).

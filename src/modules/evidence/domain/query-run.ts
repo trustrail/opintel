@@ -1,6 +1,6 @@
 import { DomainError, err, ok, type Result, type RunId, type ProjectId, type PoolId, type ElementId, type ExposedName, type Timestamp, type ErrorCode, type JsonObject } from '../../../shared/kernel/index.js';
 
-export type VersionStamp = Readonly<{policy:number;vocabulary:number;catalog:number;tokenKey:number}>;
+export type VersionStamp = Readonly<{policy:number;vocabulary:number;catalog:number;tokenKeyVersionSelected:number|null}>;
 export type RunStage = Readonly<{
  stage:'classify'|'recover'|'resolve_values'|'resolve_sources'|'compose'|'validate'|'qqc_l1'|'qqc_l2'|'qqc_l3'|'execute'|'record';
  result:'ok'|'clarify'|'refuse'|'warn';detail:JsonObject|null;ms:number;
@@ -21,7 +21,7 @@ export type RunHeader = Readonly<{
  mode:'query'|'prompt';request:string;versions:VersionStamp;startedAt:Timestamp;
 }>;
 export type RunCompletion = Readonly<{
- outcome:RunOutcome;cil:JsonObject|null;sourcePlan:JsonObject|null;generatedSql:string|null;
+ tokenKeyVersionUsed:number|null;outcome:RunOutcome;cil:JsonObject|null;sourcePlan:JsonObject|null;generatedSql:string|null;
  latencyMs:number|null;freshness:JsonObject;synthetic:boolean;completedAt:Timestamp;
 }>;
 export type QueryRunState = Readonly<{header:RunHeader;stages:readonly RunStage[];elements:readonly ElementDelivery[];completion:RunCompletion|null}>;
@@ -39,15 +39,18 @@ export class QueryRun {
  get status():'incomplete'|'complete'{return this.state.completion===null?'incomplete':'complete';}
  static create(input:QueryRunState):Result<QueryRun> {
   const invalid=(message:string)=>err(new DomainError('validation_failed',message));
-  if(Object.values(input.header.versions).some(value=>!count(value)))return invalid('Evidence versions must be non-negative integers.');
+  if(Object.values(input.header.versions).some(value=>value!==null&&!count(value)))return invalid('Evidence versions must be non-negative integers.');
+  if(input.header.versions.tokenKeyVersionSelected!==null&&input.header.versions.tokenKeyVersionSelected<=0)return invalid('A selected key version must be positive.');
   const started=Date.parse(input.header.startedAt);
   if(!Number.isFinite(started))return invalid('Evidence requires a valid start time.');
   for(const stage of input.stages)if(!count(stage.ms))return invalid('Evidence stage duration must be a non-negative integer.');
   for(const element of input.elements) {
+   if(element.treatment==='tokenized'&&input.header.versions.tokenKeyVersionSelected===null)return invalid('Tokenized elements require a selected key version.');
    if((element.treatment===null)!==(element.state==='withheld'||element.state==='undecided'))return invalid('Evidence treatment must be null exactly when the element is withheld or undecided.');
   }
   const completion=input.completion;
   if(completion!==null) {
+   if(completion.tokenKeyVersionUsed!==null&&completion.tokenKeyVersionUsed!==input.header.versions.tokenKeyVersionSelected)return invalid('The used key must equal the selected version.');
    if(!Number.isFinite(Date.parse(completion.completedAt))||Date.parse(completion.completedAt)<started)return invalid('Evidence completion cannot precede its start.');
    if(completion.latencyMs!==null&&!count(completion.latencyMs))return invalid('Evidence latency must be a non-negative integer.');
    const outcome=completion.outcome;

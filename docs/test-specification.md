@@ -383,7 +383,8 @@ S2b canonical identifiers map to the provisional attack list in [the accepted ma
 | M-015 | P | Activity list, 1M records | Virtualised, no frame drops |
 
 Item 5.10 exercises M-001–M-006 at the domain/database boundary using scoped
-fixture writes; production record writing remains 5.11. M-001 also asserts that
+fixture writes. Item 5.11 additionally tests real authenticated MCP requests
+through the durable writer and sidecar for M-002/M-011/M-012, ING-24 and TOK-30. M-001 also asserts that
 a persisted header without a completion reads as incomplete rather than missing.
 M-002 records state separately from treatment: treatment is null exactly for
 withheld or undecided elements. M-003/M-004 cover both partitioned parents and

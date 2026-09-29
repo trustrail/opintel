@@ -86,7 +86,7 @@ export class PostgresStagingSource implements StagingSource {
     const treated:unknown[][]=[];
     try{
      for(const row of rows){const output:unknown[]=[];for(const [i,c] of s.object.readPlan.columns.entries()){
-      const v=transforms[i]!(row[c.exposedName]);if(!v.ok)return v;output.push(v.value);
+      const v=transforms[i]!(row[c.exposedName]);if(!v.ok)return v;if(c.treatment==='tokenized'&&v.value!==null)s.onTokenized?.();output.push(v.value);
      }treated.push(output);for(const k of Object.keys(row))row[k]=null;}
      if(signal.aborted)throw new SourceCancelled();const accepted=await consume(treated);if(!accepted.ok)return accepted;
     }finally{for(const row of raw)if(typeof row==='object'&&row!==null)for(const k of Object.keys(row))Reflect.set(row,k,null);for(const row of rows)for(const k of Object.keys(row))row[k]=null;for(const row of treated)row.fill(null);treated.length=0;}
@@ -102,6 +102,6 @@ export class PostgresStagingSource implements StagingSource {
     const transform=run.prepare(config,builtin?undefined:registered);if(!transform.ok)return transform;base[i]=transform.value;
    }
    return read(base);
-  });
+  },s.request.tokenKeyVersionSelected);
  }
 }

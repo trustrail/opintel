@@ -13,11 +13,13 @@ export class StagedExecutor {
  execute(input:unknown,signal?:AbortSignal){return this.logged(input,false,signal);}
  validate(input:unknown,signal?:AbortSignal){return this.logged(input,true,signal);}
  private async logged(input:unknown,validateOnly:boolean,signal?:AbortSignal){
-  const result=await this.run(input,validateOnly,signal),r=executionRequest.safeParse(input);
+  const usage:{tokenKeyVersionUsed:number|null;sourceIdsReached:string[]}={tokenKeyVersionUsed:null,sourceIdsReached:[]};
+  const result=await this.run(input,validateOnly,signal,usage),r=executionRequest.safeParse(input);
   if(r.success)this.audit.record({event:result.ok?'execution.completed':'execution.refused',requestId:r.data.requestId,projectId:r.data.projectId,poolId:r.data.poolId,operation:validateOnly?'validate':'execute',...(!result.ok?{reason:result.error.code}:{})});
-  return result;
+  if(validateOnly)return result;
+  return result.ok?ok({...result.value as object,...usage}):err(new DomainError(result.error.code,result.error.message,{...result.error.details,...usage},result.error.retryable));
  }
- private async run(input:unknown,validateOnly:boolean,parent?:AbortSignal):Promise<Result<unknown>>{
+ private async run(input:unknown,validateOnly:boolean,parent:AbortSignal|undefined,usage:{tokenKeyVersionUsed:number|null;sourceIdsReached:string[]}):Promise<Result<unknown>>{
   const decoded=executionRequest.safeParse(input);if(!decoded.success)return err(new DomainError('validation_failed','The execution request does not match the staged query contract.',{cause:'invalid_execution_contract'}));
   const r=decoded.data;
   const addresses=r.objects.map(o=>JSON.stringify([o.catalog,o.schema,o.name]));
@@ -44,7 +46,9 @@ export class StagedExecutor {
    const referenced=referencedObjects(tree,r.objects,r);
    const scans=referenced.map(object=>({object,request:r,predicate:pushdown(tree,object,r)}));
    // Admit every source scan before fetching any rows.
+   if(r.objects.some(o=>o.readPlan.columns.some(c=>c.treatment==='tokenized'))&&r.tokenKeyVersionSelected===null)return err(new DomainError('dependency_unavailable','A tokenized plan requires a selected token key version.'));
    for(const scan of scans){
+    if(!usage.sourceIdsReached.includes(scan.object.sourceId))usage.sourceIdsReached.push(scan.object.sourceId);
     const estimate=await this.source.estimate(scan,signal);if(signal.aborted)return cancelled();if(!estimate.ok)return estimate;
     if(estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0||estimate.value>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${scan.object.catalog}.${scan.object.schema}.${scan.object.name} cannot be staged within maxStagingRows=${r.settings.maxStagingRows}: its post-pushdown size is ${estimate.value===null?'unknown':'above the limit'}. Narrow the query or review this setting.`,{object:{catalog:scan.object.catalog,schema:scan.object.schema,name:scan.object.name},cause:estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0?'scan_size_unknown':'scan_estimate_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
    }
@@ -58,7 +62,7 @@ export class StagedExecutor {
      else{
       await privileged.staging.create('memory','__staging',table,o.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));
       let count=0;let appending:Promise<void>|undefined;
-      try{result=await this.source.treated(scan,async rows=>{
+      try{result=await this.source.treated({...scan,onTokenized:()=>{usage.tokenKeyVersionUsed=r.tokenKeyVersionSelected;}},async rows=>{
        if(signal.aborted)return cancelled();
        count+=rows.length;
        if(count>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{object:{catalog:o.catalog,schema:o.schema,name:o.name},cause:'scan_observed_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));

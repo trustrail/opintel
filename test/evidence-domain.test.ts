@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { parseQueryRun } from '../src/modules/evidence/index.js';
-const record=()=>({header:{id:randomUUID(),projectId:randomUUID(),poolId:randomUUID(),agentId:null,keyPrefix:'opk_live_prefix',mode:'query',request:'SELECT 1',versions:{policy:7,vocabulary:2,catalog:3,tokenKey:4},startedAt:'2026-09-01T00:00:00Z'},elements:[],stages:[],completion:null});
+const record=()=>({header:{id:randomUUID(),projectId:randomUUID(),poolId:randomUUID(),agentId:null,keyPrefix:'opk_live_prefix',mode:'query',request:'SELECT 1',versions:{policy:7,vocabulary:2,catalog:3,tokenKeyVersionSelected:4},startedAt:'2026-09-01T00:00:00Z'},elements:[],stages:[],completion:null});
 it('an incomplete snapshot is immutable and holds its own captured policy stamp',()=>{
  const input=record(),parsed=parseQueryRun(input);expect(parsed.ok).toBe(true);if(!parsed.ok)throw parsed.error;
  input.header.versions.policy=99;
@@ -25,5 +25,5 @@ it('refuses a refusal without its refusing stage and completion before the heade
 });
 it('rejects a sentinel treatment, mismatched null treatment and missing policy version',()=>{
  for(const [state,treatment] of [['withheld','withheld'],['withheld','clear'],['undecided','masked'],['released',null],['aggregated',null]])expect(parseQueryRun({...record(),elements:[{elementId:null,exposedName:'field',state,treatment,withheldReason:null}]})).toMatchObject({ok:false});
- const input=record();expect(parseQueryRun({...input,header:{...input.header,versions:{vocabulary:2,catalog:3,tokenKey:4}}})).toMatchObject({ok:false});
+ const input=record();expect(parseQueryRun({...input,header:{...input.header,versions:{vocabulary:2,catalog:3,tokenKeyVersionSelected:4}}})).toMatchObject({ok:false});
 });

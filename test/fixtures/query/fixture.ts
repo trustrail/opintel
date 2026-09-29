@@ -8,7 +8,7 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {bulkFixture} from '../bulk-entitlements/fixture.js';
 import {withPlatform,withTenant} from '../../../src/platform/db/scope.js';
-import {PoolId,SourceId,RunId,SystemClock,UuidV7IdFactory,ok,type Result} from '../../../src/shared/kernel/index.js';
+import {PoolId,SourceId,RunId,SystemClock,UuidV7IdFactory,ok,err,DomainError,type Result} from '../../../src/shared/kernel/index.js';
 import {PoolKeyCreationResponse} from '../../../src/shared/api/pool-keys.js';
 import {PoolKeyService,PostgresPoolKeys,PostgresKeyVerifier,AgentPresenceService,PostgresAgentPresence,PoolBindingService,PostgresPoolBindings} from '../../../src/modules/pools/index.js';
 import {RelationshipOutbox} from '../../../src/modules/tenancy/index.js';
@@ -27,6 +27,11 @@ import {DuckDBSessionEngine} from '../../../sidecar/session/index.js';
 import {SidecarTokenizer,IanaZoneResolver} from '../../../sidecar/tokenize/index.js';
 import {loadSidecarClientOptions} from '../../../src/modules/sources/index.js';
 export function unwrap<T>(r:Result<T>):T{if(!r.ok)throw new Error(`${r.error.code}: ${r.error.message}`);return r.value;}
+export class UnavailableEvidenceWriter {
+ readonly implementation='test-stub' as const;
+ async open(){return err(new DomainError('dependency_unavailable','Evidence could not be opened.'));}
+ async close(){return err(new DomainError('dependency_unavailable','Evidence could not be recorded.'));}
+}
 export class TestEvidenceWriter implements EvidenceWriterPort {
  readonly implementation='test-stub' as const;
  readonly records=new Map<RunId,{principal:Parameters<EvidenceWriterPort['open']>[0];sql:string;outcome?:Parameters<EvidenceWriterPort['close']>[1]}>();
@@ -44,7 +49,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const authorization=new SpiceDbAuthorizationPort({endpoint:process.env.SPICEDB_ENDPOINT!,token:process.env.SPICEDB_TOKEN!,clock:new SystemClock(),stalenessCeilingMs:10000});cleanup.push(async()=>authorization.close());
  await authorization.loadSchema(await readFile('docs/opintel-schema.zed','utf8'));
  await authorization.write([{operation:'touch',resource:{type:'project',id:f.ctx.projectId},relation:'admin',subject:{type:'user',id:f.ctx.userId}}]);
- await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]);await tx.query('UPDATE project SET settings=$2 WHERE id=$1',[f.ctx.projectId,JSON.stringify({query:{rowLimit:100,timeoutSeconds:15,memoryLimitMb:128,concurrencyPerPool:2,aggregateMinGroupSize:5}})]);});
+ await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]);await tx.query('UPDATE project SET settings=$2,token_key_version=1 WHERE id=$1',[f.ctx.projectId,JSON.stringify({query:{rowLimit:100,timeoutSeconds:15,memoryLimitMb:128,concurrencyPerPool:2,aggregateMinGroupSize:5}})]);});
  const presence=new PostgresAgentPresence({publish:async()=>{}}),keys=new PoolKeyService(new PostgresPoolKeys(),presence),outbox=new RelationshipOutbox(),bindings=new PoolBindingService(new PostgresPoolBindings(outbox),outbox,authorization);
  const issue=async(name:string)=>{const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name},randomUUID())));if(!issued.keyShown)throw new Error('Missing key');await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[issued.poolId,JSON.stringify({threads:1})]));return issued;};
  const issued=await issue('Query pool'),pool=PoolId(issued.poolId);
@@ -71,7 +76,8 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
  const secrets={resolve:async()=>process.env.TEST_DATABASE_URL!};
  const scope=new PostgresSourceScope(secrets,{maxConnectionsPerSource:2,statementTimeoutMs:10000,operationTimeoutMs:15000});
- const source=new PostgresStagingSource(scope,new SidecarTokenizer({resolveBytes:async()=>Buffer.alloc(32,1)},new IanaZoneResolver()));
+ const tokenSecrets={resolveBytes:async(_ref:unknown)=>Buffer.alloc(32,1)};
+ const source=new PostgresStagingSource(scope,new SidecarTokenizer(tokenSecrets,new IanaZoneResolver()));
  const boundary={executions:0};
  const executor=new StagedExecutor(source,r=>new DuckDBSessionEngine(undefined,event=>{if(event.stage==='execute_started')boundary.executions++;},resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),r.limits));
  const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.4.3/d1dc88f950'}});const port=await host.listen();cleanup.push(()=>host.close());
@@ -83,6 +89,6 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const url=new URL(`http://127.0.0.1:${address.port}/mcp/v1/p/${f.ctx.projectId}`);
  const connect=async(key:string)=>{const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(url,{requestInit:{headers:{authorization:`Bearer ${key}`,'x-opintel-agent-id':'unverified-agent'}}});await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};
  const agent=await connect(issued.key);
- return {...f,pool,schema,db,issued,issue,keys,bindings,authorization,writer,reader,filter,execution,service,secrets,stagingSource:source,sourceScope:scope,boundary,addSource,host,connect,url,...agent,close};
+ return {...f,pool,schema,db,issued,issue,keys,bindings,authorization,writer,reader,filter,execution,service,secrets,tokenSecrets,stagingSource:source,sourceScope:scope,boundary,addSource,host,connect,url,...agent,close};
  }catch(error){await close();throw error;}
 }

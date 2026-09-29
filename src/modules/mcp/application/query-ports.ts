@@ -1,17 +1,13 @@
 import type {z} from 'zod';
 import type {CompileResult} from '../../entitlements/index.js';
-import type {Result,RunId,SourceId} from '../../../shared/kernel/index.js';
+import type {Result,SourceId} from '../../../shared/kernel/index.js';
 import type {ExecutionRequest,executionResponse,validationResponse} from '../../../shared/execution-contract.js';
 import type {QueryOutput} from '../../../shared/api/mcp.js';
 import type {Reduction} from './response.js';
 import type {McpPrincipal} from './access.js';
-export interface EvidenceWriterPort {
- readonly implementation:'durable'|'unavailable'|'test-stub';
- open(principal:McpPrincipal,sql:string):Promise<Result<RunId>>;
- close(id:RunId,outcome:{kind:'answered';rows:number;policyVersion:number;queryEngineVersion:string}|{kind:'refused';code:string}):Promise<Result<void>>;
-}
+export type {EvidenceWriterPort} from '../../evidence/index.js';
 export interface QuerySnapshotReader {
- read(principal:McpPrincipal):Promise<Result<{compilation:CompileResult;policyVersion:number;aggregateMinGroupSize:number;settings:ExecutionRequest['settings'];limits:ExecutionRequest['limits'];sources:Array<{id:SourceId;alias:string;credentialRef:string|null;status:string}>}>>;
+ read(principal:McpPrincipal):Promise<Result<{compilation:CompileResult;evidence?:{versions:import('../../evidence/index.js').VersionStamp;currentTokenKeyVersion:number|null;withheldReasons?:Record<string,string|null>;sources:import('../../evidence/index.js').EvidenceSource[]};policyVersion:number;aggregateMinGroupSize:number;settings:ExecutionRequest['settings'];limits:ExecutionRequest['limits'];sources:Array<{id:SourceId;alias:string;credentialRef:string|null;status:string}>}>>;
 }
 export interface QueryExecutionPort {
  health(signal?:AbortSignal):Promise<Result<{queryEngineVersion:string}>>;

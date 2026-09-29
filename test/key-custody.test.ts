@@ -84,6 +84,9 @@ it('TOK-16/TOK-29: rotation changes tokens, records reason/actor/version, and re
  unwrap(await initialize());const before=await token();const original=(await keys())[0]!.sentinel_token;
  const view=unwrap(await rotate());expect(view).toMatchObject({currentVersion:2,versions:[{version:2,reason:'Deliberate test rotation',lastRehearsal:'ok'},{version:1,state:'retired',lastRehearsal:'ok'}]});
  expect(await token()).not.toBe(before);
+ const selected=await custody.resolveBytes(SecretRef(`secret://opintel/token-key/${ctx.projectId}/v1`));
+ const retained=await store.resolveBytes(SecretRef(`secret://custody/${ctx.projectId}/v1`));
+ try{expect(selected).toEqual(retained);}finally{selected.fill(0);retained.fill(0);}
  const old=unwrap(TokenKey.take(await store.resolveBytes(SecretRef(`secret://custody/${ctx.projectId}/v1`))));
  try{const run=new TokenizationRun(old,new IanaZoneResolver());expect(unwrap(run.sentinel())).toBe(original);expect(unwrap(run.tokenize('same customer',{domain:'c',canonId:'stdtext1',mode:'text'}))).toBe(before);}finally{old.dispose();}
  expect(await escrow.exists(ctx.projectId+'/v1')).toBe(true);

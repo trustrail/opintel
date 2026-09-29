@@ -62,8 +62,8 @@ export class TokenizationRun {
 }
 export class SidecarTokenizer {
     constructor(private readonly secrets: Pick<SecretStorePort, 'resolveBytes'>, private readonly zones: ZoneResolver, private readonly audit: TokenAudit = consoleTokenAudit) { }
-    async run<T>(projectId: ProjectId, work: (run: TokenizationRun) => Promise<Result<T>> | Result<T>): Promise<Result<T>> {
-        const ref = SecretRef(`secret://opintel/token-key/${projectId}`);
+    async run<T>(projectId: ProjectId, work: (run: TokenizationRun) => Promise<Result<T>> | Result<T>, selectedVersion?: number|null): Promise<Result<T>> {
+        const ref = SecretRef(`secret://opintel/token-key/${projectId}${selectedVersion===undefined?'':'/v'+selectedVersion}`);
         let key: TokenKey | undefined;
         try {
             this.audit.record({ event: 'tokenization.started', projectId });

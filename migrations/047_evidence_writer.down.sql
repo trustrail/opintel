@@ -1,0 +1,15 @@
+DROP TRIGGER evidence_element_token ON run_element;
+DROP TRIGGER evidence_completion_token ON run_completion;
+DROP FUNCTION public.check_evidence_token_version();
+ALTER TABLE run_completion DROP COLUMN token_key_version_used;
+DROP TRIGGER catalog_object_generation_insert ON catalog_object;
+DROP TRIGGER catalog_object_generation_update ON catalog_object;
+DROP TRIGGER catalog_object_generation_delete ON catalog_object;
+DROP TRIGGER catalog_element_generation_insert ON catalog_element;
+DROP TRIGGER catalog_element_generation_update ON catalog_element;
+DROP TRIGGER catalog_element_generation_delete ON catalog_element;
+DROP TRIGGER catalog_schema_temporal_generation_insert ON catalog_schema_temporal;
+DROP TRIGGER catalog_schema_temporal_generation_update ON catalog_schema_temporal;
+DROP TRIGGER catalog_schema_temporal_generation_delete ON catalog_schema_temporal;
+DROP FUNCTION public.bump_catalog_generation();
+ALTER TABLE project DROP COLUMN catalog_generation_txid, DROP COLUMN catalog_generation;

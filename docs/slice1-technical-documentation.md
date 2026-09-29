@@ -638,8 +638,8 @@ type ClarificationAnswer = { concept: string; value: string | null; saveAsDefaul
 
 // ---- evidence ----
 interface RecordWriter {
-  // Opening a record is the FIRST thing a request does, so a crash mid-flight
-  // leaves a record with no outcome rather than no record at all.
+  // After source-free plan preparation, opening is the first durable action.
+  // It commits before source work; a later crash leaves an incomplete record.
   open(req: { pool: PoolRef; mode: 'query' | 'prompt'; text: string;
               agentId: string | null; versions: VersionStamp }): Promise<RunId>;
   stage(run: RunId, stage: RunStage): Promise<void>;
@@ -743,7 +743,7 @@ type VersionStamp = {
   policy: number;       // project.policy_version at request start
   vocabulary: number;   // effective vocabulary version
   catalog: number;      // catalog generation
-  tokenKey: number;     // which token key produced the tokens in this response
+  tokenKeyVersionSelected: number | null; // key pinned for the plan, not a claim of use
 };
 
 type RunStage = {
@@ -3688,7 +3688,7 @@ create table query_run (
   key_prefix text not null,
   mode text not null check (mode in ('query','prompt')),
   request text not null,
-  versions jsonb not null,               -- policy, vocabulary, catalog, tokenKey
+  versions jsonb not null,               -- policy, vocabulary, catalog, tokenKeyVersionSelected
   started_at timestamptz not null,
   primary key (id, started_at),
   foreign key (pool_id, project_id) references pool(id, project_id)
@@ -3698,6 +3698,7 @@ create table run_completion (
   run_id uuid not null,
   started_at timestamptz not null,
   outcome jsonb not null,                -- full tagged RunOutcome from §1.7
+  token_key_version_used integer check (token_key_version_used > 0),
   cil jsonb,
   source_plan jsonb,
   generated_sql text,
@@ -3762,9 +3763,50 @@ live catalogue.
 truncation, withheld count, refusal code/element/stage, clarification link and
 failure retryability as applicable. These are not reconstructed from today's
 configuration. `versions.policy` is captured with the header and never replaced
-with the policy at completion. All four version fields are required non-negative
-integers. Completion stores freshness and synthetic provenance; computing those
-values and writing the record remain item 5.11.
+with the policy at completion. Policy, vocabulary and catalogue stamps are required non-negative integers.
+The effective vocabulary stamp is industry version plus project revision.
+`project.catalog_generation` is advanced by database triggers on
+`catalog_object`, `catalog_element` and `catalog_schema_temporal`, once per
+transaction using the same transaction-marker construction as policy version.
+Rolled-back changes roll back the increment. The reader checks the policy and
+catalogue stamps around its compilation snapshot and refuses a changing snapshot.
+
+**Selected and used token keys are different facts.** Header
+`versions.tokenKeyVersionSelected` is a positive version when the plan contains
+any tokenized element; otherwise it is null. Source-free parsing and plan
+inspection precede open. The selected version is pinned before the header is
+committed and passed to every source's tokenizer. Reading the current key per
+source could let a rotation mid-run produce one answer containing tokens from
+two keys while its evidence names one. Retained version-specific key references
+prevent that race; there is no fallback to the current key.
+
+Completion `tokenKeyVersionUsed` (SQL `token_key_version_used`) is nullable.
+It is null when no non-null token was produced, including empty/all-null inputs
+or a failure before tokenization. When present, a database insert constraint
+requires it to equal the header's selected version. Another insert constraint
+requires any tokenized `run_element` to have a selected header version. A run
+that selects a key and fails before using it is **selected-but-unused**: this is
+information, not a discrepancy. A single field would force a pre-work header to
+assert a fact it cannot yet know. Migration 047 accepts historical `tokenKey`
+stamps for reading without updating immutable headers; new writers use only the
+explicit selected/used names.
+
+**Item 5.11's durable writer gates both ends.** The open transaction commits
+before source estimation, credentials, reads or execution. Closing atomically
+appends stage facts, delivered/withheld/undecided elements and one completion;
+rows cannot be released until that transaction commits. Failure to open prevents
+source work. Failure to close releases no answer and leaves the header incomplete.
+An interrupted sidecar response with no trustworthy execution evidence also
+leaves the header incomplete, rather than inventing a null key usage fact.
+
+`source_plan` captures the prepared object/element declarations and per-source
+origin, freshness mode, landing strategy and last introspection timestamp.
+`freshness.sources` contains those captured facts for sources the sidecar reports
+contacting. `synthetic` is derived from demo origin among those sources, never
+from a project flag or merely a bound source. Stages retain refusal code and
+human reason, and execution path, engine version and aggregate inspection facts.
+Neither result rows nor credentials enter the writer. Query mode leaves CIL and
+generated SQL null; prompt composition remains the later prompt items.
 
 **The append-only guarantee is a grant, not a convention:**
 
@@ -3790,7 +3832,7 @@ partitions, including their forced RLS and grants. Bootstrap provisions the
 previous, current and next UTC months; deployment owners provision later months
 before use. There is no default partition: an unprovisioned month refuses the
 insert. Partition retention/scheduling remains item 5.17, and no retention job
-or record writer is introduced here.
+is introduced by 5.10. Item 5.11 supplies the record writer described above.
 
 M-001 through M-006 cover incomplete records, unique header/completion identity,
 element structure, grant-level UPDATE/DELETE rejection, and persisted policy

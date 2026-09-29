@@ -18,7 +18,7 @@ const column=z.strictObject({sourceIdentifier:name,exposedName:name,
 export const stagingObject=z.strictObject({catalog:name,schema:name,name:name,sourceId:z.uuid(),
  readPlan:z.strictObject({catalog:name,schema:name,object:name,columns:z.array(column).min(1)}),
 });
-export const executionRequest=z.strictObject({requestId:name,projectId:z.uuid(),poolId:z.uuid(),policyVersion:z.number().int().nonnegative(),
+export const executionRequest=z.strictObject({requestId:name,tokenKeyVersionSelected:positive.nullable().default(null),projectId:z.uuid(),poolId:z.uuid(),policyVersion:z.number().int().nonnegative(),
  sql:z.string().min(1),namespace:z.strictObject({catalog:name,schema:name}),
  entitlements:z.array(z.strictObject({elementId:z.uuid(),treatment:z.enum(['clear','aggregate_only','masked','tokenized','withheld'])})),
  sources:z.array(z.strictObject({sourceId:z.uuid(),credentialRef:z.string().startsWith('secret://')})),objects:z.array(stagingObject),
@@ -28,6 +28,6 @@ export const executionRequest=z.strictObject({requestId:name,projectId:z.uuid(),
 });
 export type ExecutionRequest=z.infer<typeof executionRequest>;
 export type StagingObject=z.infer<typeof stagingObject>;
-export const executionResponse=z.strictObject({columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
+export const executionResponse=z.strictObject({tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
  treatmentEvidence:z.strictObject({aggregateMinGroupSize:z.number(),stage2Required:z.boolean(),stage2Ran:z.boolean()})});
 export const validationResponse=z.strictObject({queryEngineVersion:z.string(),treatmentEvidence:executionResponse.shape.treatmentEvidence});

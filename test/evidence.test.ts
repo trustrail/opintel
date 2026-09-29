@@ -9,7 +9,7 @@ let f:PolicyFixture;
 const now=()=>new Date().toISOString();
 type Header={id:string;startedAt:string};
 async function open(at=now(),id=randomUUID()):Promise<Header> {
- const versions:VersionStamp={policy:await f.version(),vocabulary:2,catalog:3,tokenKey:4};
+ const versions:VersionStamp={policy:await f.version(),vocabulary:2,catalog:3,tokenKeyVersionSelected:4};
  await withTenant(f.ctx,tx=>tx.query(`INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,request,versions,started_at)
  VALUES($1,$2,$3,'claimed-agent','opk_live_prefix','query','SELECT field_1 FROM warehouse.public.records',$4,$5)`,[id,f.ctx.projectId,f.pool,versions,at]));
  return {id,startedAt:at};
@@ -54,7 +54,7 @@ describe('5.10 evidence domain and database',{timeout:30000},()=>{
   const run=(await read(h))!;
   expect(run.state.elements.map(e=>[e.state,e.treatment])).toEqual([['released','clear'],['released','tokenized'],['released','masked'],['aggregated','aggregate_only'],['withheld',null],['undecided',null]]);
   expect(run.state.elements[4]?.withheldReason).toBe('Explicit pool decision');
-  expect(run.versions).toEqual({policy:1,vocabulary:2,catalog:3,tokenKey:4});
+  expect(run.versions).toEqual({policy:1,vocabulary:2,catalog:3,tokenKeyVersionSelected:4});
   expect(run.state.completion).toMatchObject({freshness:{mode:'live'},synthetic:false,latencyMs:12,outcome:{kind:'reduced',withheld:1}});
  });
  it('enforces treatment null if and only if state is withheld or undecided, through direct SQL',async()=>{

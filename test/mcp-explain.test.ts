@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExplainOutput } from '../src/shared/api/mcp.js';
 import { withTenant, withPlatform } from '../src/platform/db/scope.js';
-import { UnavailableEvidenceWriter } from '../src/modules/mcp/index.js';
+import { UnavailableEvidenceWriter } from './fixtures/query/fixture.js';
 import { queryFixture, TestEvidenceWriter } from './fixtures/query/fixture.js';
 
 const cleanup:Array<()=>Promise<void>>=[];
