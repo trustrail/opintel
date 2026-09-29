@@ -4,8 +4,8 @@ import { TokenKeyView } from '../../shared/custody-contract.js';
 import { projectKeys } from '../tenancy/data.js';
 const api = createApiClient();
 export const custodyKeys = { status: (projectId: string) => [...projectKeys.scope(projectId), 'token-key'] as const };
-export function useTokenKey(projectId: string) {
-  return useQuery<TokenKeyView, AppError>({ queryKey: custodyKeys.status(projectId), queryFn: async () => {
+export function useTokenKey(projectId: string, enabled = true) {
+  return useQuery<TokenKeyView, AppError>({ queryKey: custodyKeys.status(projectId), enabled, queryFn: async () => {
     const result = await api.request({path:`/api/v1/projects/${projectId}/token-key`,response:TokenKeyView});
     if (!result.ok) throw result.error;
     return result.value;

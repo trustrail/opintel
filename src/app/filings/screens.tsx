@@ -4,7 +4,7 @@ import { ErrorState, EmptyState, LoadingState } from '../../shared/ui/index.js';
 import { useFilings } from './data.js';
 
 export const landingLabels = { append_as_at: 'append as at', table_per_filing: 'table per filing' };
-const categories: Record<string, string> = {
+export const quarantineLabels: Record<string, string> = {
   no_rule_matched: 'No filing-party rule matched.', multiple_rules_matched: 'More than one filing-party rule matched.',
   unreadable_format: 'The file format could not be read.', sheet_absent: 'The declared sheet is missing.',
   merged_header: 'The header contains merged cells.', formula_uncached: 'A formula has no cached value.',
@@ -34,7 +34,7 @@ export function QuarantineFeed({ projectId }: { projectId: string }): ReactNode 
   const filings = query.data?.filter(filing => filing.outcome === 'quarantined') ?? [];
   return <section className="card" aria-labelledby="quarantine-heading"><div className="card-h"><h2 id="quarantine-heading">Needs a decision</h2><span className="meta">Quarantined filings</span></div>
     {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={() => { void query.refetch(); }} /> : filings.length === 0 ? <EmptyState icon="✓" title="No quarantined filings" description="Files needing attention will appear here. Review their local details before retrying." /> : <ul className="feed">{filings.map(filing => <li key={filing.filingId}><span className="sev hi" aria-hidden="true">!</span><div className="fb">
-      <p className="t">{categories[filing.quarantineCategory ?? ''] ?? 'The filing needs local review before it can land.'}</p>
+      <p className="t">{quarantineLabels[filing.quarantineCategory ?? ''] ?? 'The filing needs local review before it can land.'}</p>
       <p className="d">Filing <span className="mono" style={{ overflowWrap: 'anywhere' }}>{filing.filingId}</span> · <Received value={filing.receivedAt} /></p>
       <p className="d">Not landed into a source. The full reason stays in your environment because it may contain file contents or cell values. Ask the sidecar operator to inspect this filing in the local register, correct its rule or file, and retry it. Attribution is checked again; it cannot be overridden.</p>
       <details><summary>Local resolution instructions</summary><p className="d">Stop the watcher to release its register lock. Run these commands in the customer environment with the same sidecar configuration. The first ID identifies the configured landing zone, not a source this file has landed into.</p>

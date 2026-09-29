@@ -1,3 +1,4 @@
+import {PostgresPoolReader} from '../../pools/index.js';
 import { z } from 'zod';
 import { withTenant,withPlatform } from '../../../platform/db/scope.js';
 import { DomainError,err,ok,type PoolId,type ElementId,ExposedName,Timestamp } from '../../../shared/kernel/index.js';
@@ -10,7 +11,7 @@ import { compileViews } from '../application/compile.js';
 import { Entitlement,type EntitlementState } from '../domain/entitlement.js';
 const missing=()=>err(new DomainError('not_found','The pool or catalogue branch was not found in this project.'));
 export class PostgresEntitlementReader implements EntitlementReader {
- pools(ctx:EntitlementContext,after:string|null,limit:number){return withTenant(ctx,async tx=>ok(await tx.query<{id:string;name:string;sourceIds:string[]}>(`SELECT p.id,p.name,ARRAY(SELECT source_id::text FROM pool_source_binding WHERE pool_id=p.id ORDER BY source_id) AS "sourceIds" FROM pool p WHERE ($1::uuid IS NULL OR p.id>$1) ORDER BY p.id LIMIT $2`,[after,limit])));}
+ pools(ctx:EntitlementContext,after:string|null,limit:number){return new PostgresPoolReader().list(ctx,after,limit);}
  tree(ctx:EntitlementContext,pool:PoolId,q:EntitlementTreeRead){return withTenant(ctx,async tx=>{
   if(!(await tx.query('SELECT id FROM pool WHERE id=$1',[pool])).length)return missing();
   let kind:EntitlementNode['kind']='source',source:string|null=null,schema:string|null=null,object:string|null=null;

@@ -1,0 +1,3 @@
+import {projectKeys} from '../tenancy/data.js';
+export const poolKeys={lists:(p:string)=>[...projectKeys.scope(p),'pool','list'] as const,overview:(p:string)=>[...poolKeys.lists(p),'overview'] as const,details:(p:string)=>[...projectKeys.scope(p),'pool','detail'] as const,detail:(p:string,id:string)=>[...poolKeys.details(p),id] as const,impact:(p:string,id:string,key:string)=>[...poolKeys.detail(p,id),'impact',key] as const};
+export const agentKeys={presence:(p:string)=>[...projectKeys.scope(p),'agent','presence'] as const,pool:(p:string,id:string)=>[...agentKeys.presence(p),id] as const,list:(p:string,id:string)=>[...agentKeys.pool(p,id),'list'] as const,twin:(p:string,id:string,agent:string)=>[...agentKeys.pool(p,id),'twin',agent] as const};

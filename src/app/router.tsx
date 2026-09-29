@@ -1,3 +1,4 @@
+import {PoolsScreen,PoolDetailScreen,AgentTwinScreen} from './pools/screens.js';
 import {ActivityScreen,RecordScreen} from './activity/screens.js';
 import {ActivityFilters,DetailQuery} from '../shared/api/activity.js';
 import { EntitlementsScreen } from './entitlements/screen.js';
@@ -43,6 +44,7 @@ const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, pat
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined)}).parse(search), component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
   const search=projectScreenRoute.useSearch(),navigate=projectScreenRoute.useNavigate();
+  if(screen==='pools')return <RouteErrorBoundary><PoolsScreen key={projectId} projectId={projectId}/></RouteErrorBoundary>;
   if(screen==='entitlements')return <RouteErrorBoundary><EntitlementsScreen projectId={projectId} search={search} onSearch={next=>{void navigate({search:next});}}/></RouteErrorBoundary>;
   if (screen === 'token-key') return <RouteErrorBoundary><TokenKeyScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'catalog') return <RouteErrorBoundary><CatalogScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
@@ -55,6 +57,8 @@ const introspectionListRoute=createRoute({getParentRoute:()=>rootRoute,path:'/pr
 const introspectionRunRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/introspections/$runId',component:()=>{const params=introspectionRunRoute.useParams();return <RouteErrorBoundary><IntrospectionRunScreen key={params.projectId+params.runId} {...params}/></RouteErrorBoundary>;}});
 const activityRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/activity',validateSearch:s=>ActivityFilters.parse(s),component:()=>{const {projectId}=activityRoute.useParams();const filters=activityRoute.useSearch(),navigate=activityRoute.useNavigate();return <RouteErrorBoundary><ActivityScreen key={projectId} projectId={projectId} filters={filters} onFilters={next=>{void navigate({search:next});}}/></RouteErrorBoundary>;}});
 const recordRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/runs/$runId',validateSearch:s=>DetailQuery.pick({startedAt:true}).parse(s),component:()=>{const params=recordRoute.useParams(),search=recordRoute.useSearch();return <RouteErrorBoundary><RecordScreen key={params.runId+search.startedAt} {...params} {...search}/></RouteErrorBoundary>;}});
+const poolDetailRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/pools/$poolId',component:()=>{const params=poolDetailRoute.useParams();return <RouteErrorBoundary><PoolDetailScreen key={params.projectId+params.poolId} {...params}/></RouteErrorBoundary>;}});
+const agentTwinRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/pools/$poolId/agents/$agentId',component:()=>{const params=agentTwinRoute.useParams();return <RouteErrorBoundary><AgentTwinScreen key={params.projectId+params.poolId+params.agentId} {...params}/></RouteErrorBoundary>;}});
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: () => <AuthRoute><SignInScreen /></AuthRoute> });
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
@@ -72,7 +76,7 @@ function routeFor(item: NavItem) {
 }
 
 const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects').map(routeFor));
-const routeTree = rootRoute.addChildren([activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routeTree = rootRoute.addChildren([poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
 
 export const router = createRouter({ routeTree });
 

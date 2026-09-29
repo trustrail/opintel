@@ -1,3 +1,4 @@
+import {poolKeys} from '../pools/keys.js';
 import { useMutation,useQuery,useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { createApiClient,type AppError } from '../../shared/api/index.js';
@@ -5,7 +6,7 @@ import { PoolChoices,readEntitlements,ViewDefinitionResponse,type EntitlementFil
 import { bulkSetEntitlements,type BulkEntitlementBody,type BulkEntitlementResponse } from '../../shared/api/bulk-entitlements.js';
 import { projectKeys } from '../tenancy/data.js';
 import { elementKeys } from '../catalog/data.js';
-export const poolKeys={lists:(project:string)=>[...projectKeys.scope(project),'pool','list'] as const};
+export {poolKeys} from '../pools/keys.js';
 export const entitlementKeys={all:(project:string)=>[...projectKeys.scope(project),'entitlement'] as const,list:(project:string,pool:string,filter:EntitlementFilter)=>[...entitlementKeys.all(project),pool,'list',filter] as const,definition:(project:string,pool:string)=>[...entitlementKeys.all(project),pool,'definition'] as const};
 export function usePools(project:string){return useQuery<z.infer<typeof PoolChoices>['items'],AppError>({queryKey:poolKeys.lists(project),staleTime:60_000,retry:false,queryFn:async()=>{const items:z.infer<typeof PoolChoices>['items']=[];let cursor:string|null=null;do{const result:{ok:true;value:z.infer<typeof PoolChoices>}|{ok:false;error:AppError}=await createApiClient().request({path:`/api/v1/projects/${project}/pools${cursor?`?cursor=${encodeURIComponent(cursor)}`:''}`,response:PoolChoices});if(!result.ok)throw result.error;items.push(...result.value.items);cursor=result.value.nextCursor;}while(cursor);return items;}});}
 export function entitlementOptions(project:string,pool:string,filter:EntitlementFilter){return {queryKey:entitlementKeys.list(project,pool,filter),retry:false as const,staleTime:60_000,queryFn:async()=>{const result=await readEntitlements(project,pool,filter);if(!result.ok)throw result.error;return result.value;}};}

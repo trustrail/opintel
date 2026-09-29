@@ -1,3 +1,7 @@
+import {PostgresDashboardReader} from '../../modules/tenancy/index.js';
+import {dashboardRoutes} from '../../modules/tenancy/api/dashboard-routes.js';
+import {PostgresPoolReader} from '../../modules/pools/index.js';
+import {poolReadRoutes} from '../../modules/pools/api/read-routes.js';
 import {evidenceExportRoutes} from '../../modules/evidence/api/export-routes.js';
 import {EvidenceExportService,PostgresEvidenceExports} from '../../modules/evidence/index.js';
 import {EvidenceQuery,PostgresEvidenceReader,DuckDBEvidenceText} from '../../modules/evidence/index.js';
@@ -198,6 +202,8 @@ async function start(): Promise<void> {
   const routes = [
     ...evidenceExportRoutes(new EvidenceExportService(new PostgresEvidenceExports(),evidenceQuery,authorization)),
     ...evidenceRoutes(evidenceQuery),
+    ...dashboardRoutes(new PostgresDashboardReader()),
+    ...poolReadRoutes(new PostgresPoolReader()),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), presence)),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),

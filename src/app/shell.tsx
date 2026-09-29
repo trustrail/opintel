@@ -1,3 +1,4 @@
+import {usePool} from './pools/data.js';
 import { useIntrospection } from './introspection/data.js';
 import { useProjectStream } from './project-stream.js';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
@@ -69,6 +70,8 @@ function TopBar(): ReactNode {
   const projects = useProjects();
   const project = projects.data?.find((item) => item.id === projectIdFromPath(pathname));
   const section = pathname.split('/')[3];
+  const poolId = section === 'pools' ? pathname.split('/')[4] : undefined;
+  const pool = usePool(project?.id??'',poolId??'',Boolean(project&&poolId));
   const runId = section === 'introspections' ? pathname.split('/')[4] : undefined;
   const run = useIntrospection(project?.id ?? '',runId ?? '',Boolean(project && runId));
   const crumbs: {label:string; to:string; companyId?:string}[] = project ? [
@@ -79,7 +82,9 @@ function TopBar(): ReactNode {
   if(project && section === 'runs') crumbs.push({label:'Activity',to:`/projects/${project.id}/activity`});
   if(project && section === 'token-key') crumbs.push({label:'Access',to:`/projects/${project.id}/access`});
   if(project && runId && run.data) crumbs.push({label:'Introspection runs',to:`/projects/${project.id}/sources/${run.data.sourceId}/introspections`});
-  crumbs.push({label:labelForPath(pathname),to:pathname});
+  if(project&&poolId)crumbs.push({label:'Pools',to:`/projects/${project.id}/pools`});
+  if(project&&poolId&&pathname.split('/')[5]==='agents')crumbs.push({label:pool.data?.name??'Pool detail',to:`/projects/${project.id}/pools/${poolId}`});
+  crumbs.push({label:poolId&&pathname.split('/').length===5?(pool.data?.name??'Pool detail'):labelForPath(pathname),to:pathname});
   return <header className="top"><nav className="crumbs" aria-label="Breadcrumb"><ol>{crumbs.map((crumb,index) => <li key={`${index}-${crumb.to}`}>
     {index > 0 ? <span className="sl" aria-hidden="true">/</span> : null}
     {index === crumbs.length-1 ? <span className="cur" aria-current="page">{crumb.label}</span> : <Link to={crumb.to} search={crumb.companyId ? {companyId:crumb.companyId} : {}}>{crumb.label}</Link>}

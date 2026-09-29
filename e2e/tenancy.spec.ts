@@ -34,6 +34,9 @@ async function api(page: Page, options: { empty?: boolean; noAdmin?: boolean; fa
       companies.push({ id: companyId, name: body.name, role: 'admin', projectCount: 0 });
       await route.fulfill({ status: 201, json: { id: companyId, ...body, createdAt: '2026-01-02T00:00:00.000Z' } }); return;
     }
+    if(path.endsWith('/stats')) { await route.fulfill({json:{asOf:'2026-09-29T00:00:00.000Z',utcDay:'2026-09-29',pools:0,sources:0,spectrum:{clear:0,tokenized:0,masked:0,aggregate_only:0,withheld:0,undecided:0},requests:0,queries:0,prompts:0,refused:0,incomplete:0,connectedAgents:0,staleAgents:0}}); return; }
+    if(path.includes('/dashboard/')) { await route.fulfill({json:{items:[],nextCursor:null}}); return; }
+    if(path.endsWith('/token-key')) { await route.fulfill({json:{currentVersion:null,versions:[]}}); return; }
     if (path.endsWith('/projects')) await route.fulfill({ json: { items: projects, nextCursor: null } });
     else if (path.endsWith('/companies')) await route.fulfill({ json: { items: companies, nextCursor: null } });
     else if (path.endsWith('/industries')) await route.fulfill({ json: options.noIndustries ? [] : [industry, { ...industry, id: nextId, name: 'General', slug: 'general', description: 'Start without an inherited vocabulary.', inheritedTermCount: 0, hasDemoPack: false }] });

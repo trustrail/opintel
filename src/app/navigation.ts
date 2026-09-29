@@ -42,6 +42,8 @@ export const navGroups: readonly NavGroup[] = [
 ];
 
 export function labelForPath(pathname: string): string {
+  if (/^\/projects\/[^/]+\/pools\/[^/]+\/agents\/[^/]+$/u.test(pathname)) return 'Agent twin';
+  if (/^\/projects\/[^/]+\/pools\/[^/]+$/u.test(pathname)) return 'Pool detail';
   if (/^\/projects\/[^/]+\/introspections\/[^/]+$/u.test(pathname)) return 'Introspection run';
   if (/^\/projects\/[^/]+\/sources\/[^/]+\/introspections$/u.test(pathname)) return 'Introspection runs';
   if (/^\/projects\/[^/]+\/runs\/[^/]+$/u.test(pathname)) return 'Run record';

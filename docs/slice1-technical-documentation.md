@@ -3498,6 +3498,10 @@ create table agent_presence (
 
 **A request with no agent id is refused**, not given a generated one. The agent_id is supplied by the caller and is how a reviewer follows one agent across requests, so inventing one would fill the list with identities nobody can trace and make the twin useless. The refusal names the missing header. The id is unverified by design: it identifies, the pool key authorises, and presence records what was claimed rather than what was proven.
 
+**The Pools list clear ratio** is clear elements divided by all active elements in the pool’s bound, non-archived sources, including undecided elements. Removed objects and elements are excluded. Display n/a when there are no active elements.
+
+Revocation refreshes list key status and the twin’s last-authenticated key status, without changing observed presence state. Rotation retains its narrower detail invalidation.
+
 **Revocation counts the agents that could use the revoked key**: those in connecting, active, idle or stale, since all four can still make a request. disconnected agents are excluded from the count but shown separately as seen previously, because an agent that has been away for a week is not who the administrator is about to interrupt, and hiding it entirely would lose the fact that it existed.
 
 **An agent is counted against the key version it last authenticated with**. An agent that moved to a new key during a grace window is not affected by revoking the old one, and counting it would overstate the damage.
@@ -3542,8 +3546,15 @@ After commit, each observation or persisted state change publishes the
 identifier-only `{ type: 'agent.presence', poolId, agentId }` notification through
 the 3.16 SSE hub. Reconnect snapshots include `agentPresence`; consumers refetch
 current rows instead of applying possibly delayed state objects. Failed
-publication does not undo a committed observation. Agent list/twin screens and
-their query-cache integration remain 5.14.
+publication does not undo a committed observation. Item 5.14 supplies the agent list/twin screens and query-cache integration.
+
+**Item 5.14 console reads.** The existing cursor-paged pool list includes query/prompt modes, bound source IDs, total observed agents (including disconnected), active agents, working key count, clear element count and active element count. `GET /pools/:id?projectId=…` returns those fields plus key metadata and the configured grace duration. `GET /pools/:id/agents/:agentId?projectId=…` returns the observed presence and `keyMetadata` for its last-authenticated version. All reads require project `view`; key actions and impact reporting retain `administer`. No read returns a credential or hash. Grace expiry is calculated at read time, even before the expiry worker runs.
+
+The pool detail and agent twin are contextual destinations under Pools, reached from their respective rows. Breadcrumbs link to Pools and the specific pool. Neither is a separate project-wide drawer destination. All three screens provide loading, empty/not-found, error and ready states using existing console classes.
+
+An issuing response is held only in transient screen-local state, never returned into the query/mutation cache or persisted. The key dialog cannot close through Escape or its backdrop. Successful clipboard copy (or copying the entire selected key) enables explicit dismissal, which clears the credential. Internal navigation is blocked while the dialog is open; unloading warns that the response cannot be recovered. A replay explains that the key was already shown and offers no recovery path. Rotation shows grace and key-specific impact; revocation requires the pool name and separates disconnected, previously seen identities.
+
+Presence events invalidate the affected pool's agent queries, list summary and detail; reconnect snapshots invalidate the project presence family, pool lists and pool details. These identifier-only notifications trigger authorized reads rather than writing event payloads into the cache. Agents are not polled or removed on disconnect.
 
 **A replayed key creation or rotation returns the metadata without the key**. Shown-once wins over §2.4's replay rule: the plaintext exists only in the response to the request that created it, and a retry — whether a network retry or a second tab — must not produce it again. The response carries the key version, prefix and creation time, plus keyShown: false, so a client can tell it replayed rather than created. **A caller that lost the response has lost the key**, and the answer is to rotate, which is a deliberate act with a visible consequence.
 
@@ -3580,7 +3591,7 @@ Revocation also returns those fields. Both use the application
 retain a stub; runtime reporting/revocation now uses durable presence and also
 returns `previouslySeenAgents` for disconnected agents on that key version.
 The port always supplies this list; wire parsing defaults it to empty for
-metadata receipts created before item 5.4. No presence screen is implemented.
+metadata receipts created before item 5.4. Presence screens are implemented in item 5.14.
 
 Generation uses 22 uniformly sampled base62 characters after `opk_live_`.
 Only the SHA-256 digest and an eight-character suffix display prefix are stored.
@@ -4052,6 +4063,7 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Delete source | `dataSource.lists`, `catalogElement.all`, `entitlement.all`, `pool.lists` |
 | Create pool | `pool.lists`, `project.stats` |
 | Rotate pool key | `pool.detail` only |
+| Revoke pool key | `pool.detail`, `pool.lists`, `agent.presence` |
 | Rotate or restore token key; rehearse now | `custody.status(projectId)` after success or refusal; shared by the key screen and custody observations |
 | Bind source | `pool.detail`, `entitlement.all` for that pool |
 | Accept invite | `member.lists`, `project.lists`, `auth.me` |
@@ -4149,6 +4161,14 @@ Rendering an empty table with no explanation is a defect. Every screen has a pur
 
 **A drawer item with sub-items carries a separate disclosure button**, a sibling of its navigation control. The label navigates; the disclosure only toggles, with manual overrides in the drawer store rather than the URL. Its accessible name is Show/Hide sub-items of X and aria-expanded reports the state. Enter and Space toggle. One decorative right-chevron icon rotates 90 degrees when expanded, using the same colour token and weight in both states. Hover, focus-within and active backgrounds belong to the shared row; both controls stay transparent. Focus rings belong only to the focused control. + is not used, because in this console it means create.
 
+
+**Dashboard (item 5.15).** Project-wide ratios and the treatment spectrum count active bound pool–element pairs, including undecided pairs. The label is **“decisions across N pools”**, never “elements”: one field can have different treatments in different pools. Removed objects/elements and archived sources are excluded. The ring shows decided coverage; the spectrum states the clear ratio. Pool shields use the same active denominator within their pool and show n/a when it is zero.
+
+The tiles are Requests today, Refused today, Incomplete today and Agents connected. **Today is UTC and is labelled UTC on screen**, including the UTC date. Requests count headers, including incomplete runs; refusals count recorded refused completions; incomplete means no completion row. These counts include demo runs and expose no request arguments. Connected counts live connecting/active/idle observations; stale is stated separately, using the configured presence deadlines. No historical trend or fully-decided streak is inferred from current state.
+
+**When there are no findings, the feed is absent rather than empty.** No heading, placeholder, “no issues” card or filler appears in its place. A clean project remains a quiet screen with factual metrics and pool shields; a placeholder would manufacture something to attend to. **The dashboard states the clear ratio without judging it.** Whether 80% clear is correct depends on the data. Editorial warnings based on that number train people to dismiss the dashboard.
+
+The feed contains current undecided pairs grouped by pool/source, current source failures, quarantined filings with category/ID/receipt time and local resolution instructions, and existing permission-gated custody failures. Quarantine filenames and detailed local reasons are never fetched. There is no acknowledge/resolve workflow. Setup guidance disappears once a project has a source and a pool. Stats and the cursor-paged feed/shields require project view, refresh on entry and every 30 seconds, and invalidate together under project.stats on project SSE changes/reconnect. Existing mutation invalidations of project.stats cover the new reads. Custody remains under its existing administrator-only endpoint and cache policy.
 
 ## 5.6 Slice 1 screens
 

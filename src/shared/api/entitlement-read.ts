@@ -1,3 +1,4 @@
+import {PoolPage} from './pools.js';
 import { z } from 'zod';
 import { CatalogNode } from './catalog.js';
 import { BulkEntitlementBody,BulkEntitlementError } from './bulk-entitlements.js';
@@ -18,7 +19,7 @@ export const PoolChoicesQuery=z.object({cursor:z.string().max(2048).optional(),l
 export const ViewDefinitionQuery=z.object({projectId:z.uuid()});
 export function entitlementReadOpenApiDocument(){
  const routes:Array<{path:string;response:z.ZodType;query:z.ZodType;description:string}>=[
-  {path:'/api/v1/projects/{id}/pools',response:PoolChoices,query:PoolChoicesQuery,description:'Project view permission; cursor-paged pool choices.'},
+  {path:'/api/v1/projects/{id}/pools',response:PoolPage,query:PoolChoicesQuery,description:'Project view permission; cursor-paged pool choices.'},
   {path:'/api/v1/pools/{id}/entitlements',response:EntitlementPage,query:EntitlementQuery,description:'Project view permission; one branch per cursor-paged request. Null treatment means undecided.'},
   {path:'/api/v1/pools/{id}/view-definition',response:ViewDefinitionResponse,query:ViewDefinitionQuery,description:'Project administer permission. DDL from the pure compiler; no source execution.'},
  ];

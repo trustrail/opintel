@@ -1,3 +1,5 @@
+import {projectKeys} from './tenancy/data.js';
+import {agentKeys,poolKeys} from './pools/keys.js';
 import type { QueryClient, QueryKey, InfiniteData } from '@tanstack/react-query';
 import { streamEventSchema } from '../shared/api/stream.js';
 import type { RunView } from '../shared/api/introspection.js';
@@ -27,6 +29,7 @@ export function projectStreamCache(cache: QueryClient, project: string) {
   catalogElement: () => invalidate(elementKeys.all(project)),
   dataSource: () => { invalidate(sourceKeys.lists(project)); invalidate(sourceKeys.details(project)); },
   filing: () => invalidate(filingKeys.list(project)),
+  agentPresence: () => { invalidate(agentKeys.presence(project)); invalidate(poolKeys.lists(project)); invalidate(poolKeys.details(project)); },
  };
  return {
   receive(raw: unknown) {
@@ -34,9 +37,10 @@ export function projectStreamCache(cache: QueryClient, project: string) {
    const parsed = streamEventSchema.safeParse(raw);
    if (!parsed.success) return;
    const event = parsed.data;
-   if (event.type === 'snapshot') { sequence = event.sequence; for (const family of event.invalidate) families[family]?.(); return; }
+   if (event.type === 'snapshot') { invalidate(projectKeys.stats(project)); sequence = event.sequence; for (const family of event.invalidate) families[family]?.(); return; }
    if (event.sequence <= sequence) return;
    sequence = event.sequence;
+   invalidate(projectKeys.stats(project));
    if (event.type === 'introspection.progress') {
     const update = (run: RunView): RunView => run.id === event.runId && active(run.state) ? { ...run, state: event.state, progress: { objects: event.objects, total: event.total } } : run;
     cache.setQueryData<RunView>(introspectionKeys.detail(project, event.runId), run => run ? update(run) : undefined);
@@ -45,6 +49,7 @@ export function projectStreamCache(cache: QueryClient, project: string) {
     invalidate(introspectionKeys.detail(project, event.runId)); invalidate(introspectionKeys.lists(project));
    } else if (event.type === 'catalog.changed') invalidate(elementKeys.all(project));
    else if (event.type === 'source.changed') { invalidate(introspectionKeys.lists(project)); invalidate(sourceKeys.lists(project)); invalidate(sourceKeys.detail(project, event.sourceId)); }
+   else if (event.type === 'agent.presence') { invalidate(agentKeys.pool(project,event.poolId)); invalidate(poolKeys.lists(project)); invalidate(poolKeys.detail(project,event.poolId)); }
    else if (event.type === 'filing.arrived') { invalidate(filingKeys.list(project)); invalidate(sourceKeys.lists(project)); }
   },
   dispose() { disposed = true; if (timer) clearTimeout(timer); pending.clear(); },

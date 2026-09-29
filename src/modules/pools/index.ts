@@ -10,3 +10,6 @@ export { AgentPresenceService, type AgentPresenceRepository, type AuthenticatedP
 export { PostgresAgentPresence } from './infrastructure/presence.js';
 export { sweepAgentPresence } from './infrastructure/presence-sweep.js';
 export { agePresence, observePresence, type AgentPresence, type PresenceState, type PresenceTiming } from './domain/presence.js';
+
+export {PostgresPoolReader} from './infrastructure/read.js';
+export type {PoolReader} from './application/read.js';

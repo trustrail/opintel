@@ -1,3 +1,4 @@
+import {dashboard as dashboardFixture} from './dashboard-fixture.js';
 import {test} from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
@@ -16,6 +17,9 @@ async function mock(page:Page){
   const url=new URL(route.request().url());const path=url.pathname;
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id:otherId,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:projectId,name:'Reporting',company:{id:otherId,name:'Example Company'},industry:{id:otherId,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
+  if(path.endsWith('/stats'))return route.fulfill({json:{...dashboardFixture,pools:0,sources:0}});
+  if(path.endsWith('/dashboard/pools'))return route.fulfill({json:{items:[],nextCursor:null}});
+  if(path.endsWith('/dashboard/feed'))return route.fulfill({json:{items:state.empty?[]:[{id:'quarantine:'+held,kind:'quarantine',filingId:held,zoneId:sourceId,category:'verification_mismatch',receivedAt:'2026-04-01T12:00:00Z'}],nextCursor:null}});
   if(path.endsWith('/token-key'))return route.fulfill({json:{currentVersion:null,versions:[]}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[]});
   if(path.endsWith('/sources'))return route.fulfill({json:{items:[{...source,landingStrategy:state.strategy},{...source,id:otherId,name:'Live database',exposedAlias:'live_database',landingStrategy:null,filingCount:null}],nextCursor:null}});
@@ -46,7 +50,7 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  // Start feed snapshots in a fresh page after the keyboard interaction above.
  await page.close();page=await initialPage.context().newPage();await mock(page);await page.setViewportSize({width,height:1000});
  await page.goto(`/projects/${projectId}/dashboard`);await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText(current,{exact:true})).toHaveCount(0);
- await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText('A filing landed against the wrong party is worse than one that did not land.',{exact:false})).toBeVisible();
+ await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText('Not landed into a source.',{exact:false})).toBeVisible();
  await expect(page).toHaveScreenshot(`filings-dashboard-${width}.png`,{fullPage:true});await accessible(page);
  await page.goto(`/projects/${projectId}/observations`);await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText('Attribution is checked again; it cannot be overridden.',{exact:false})).toBeVisible();
  await expect(page).toHaveScreenshot(`filings-observations-${width}.png`,{fullPage:true});
