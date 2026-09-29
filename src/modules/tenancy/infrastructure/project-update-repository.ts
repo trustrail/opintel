@@ -1,5 +1,5 @@
-import { withPlatform } from '../../../platform/db/scope.js';
-import { CompanyId, DomainError, IndustryId, ProjectName, Timestamp, err, ok, type ProjectId, type Region } from '../../../shared/kernel/index.js';
+import { withTenant } from '../../../platform/db/scope.js';
+import { CompanyId, DomainError, IndustryId, ProjectName, Timestamp, err, ok, type ProjectId, type Region, type UserId } from '../../../shared/kernel/index.js';
 import type { ProjectUpdateRepository } from '../application/update-project.js';
 
 type UpdatedProjectRow = {
@@ -13,19 +13,18 @@ type UpdatedProjectRow = {
 };
 
 export class PostgresProjectUpdateRepository implements ProjectUpdateRepository {
-  async rename(id: ProjectId, name: ProjectName): ReturnType<ProjectUpdateRepository['rename']> {
+  async rename(id: ProjectId, name: ProjectName,actor:UserId): ReturnType<ProjectUpdateRepository['rename']> {
     try {
-      return await withPlatform(async (tx) => {
+      return await withTenant({projectId:id,userId:actor},async (tx) => {
         const rows = await tx.query<UpdatedProjectRow>(
           `WITH updated AS (
-             UPDATE project SET name = $2 WHERE id = $1
-             RETURNING company_id, name, industry_id, region, created_at
+             SELECT * FROM rename_project_setting($1)
            )
            SELECT p.*, i.name AS industry_name,
              (SELECT count(*)::int FROM vocabulary_term v
               WHERE v.scope = 'industry' AND v.industry_id = i.id AND v.active) AS inherited_term_count
            FROM updated p JOIN industry i ON i.id = p.industry_id`,
-          [id, name],
+          [name],
         );
         const row = rows[0];
         if (row === undefined) return err(new DomainError('not_found', 'The project does not exist.'));

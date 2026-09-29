@@ -1,4 +1,4 @@
-import { executionRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
+import { executionRequest,validationRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
 import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
 import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
 import { safeSourceMessage } from '../../src/shared/source-errors.js';
@@ -78,10 +78,10 @@ export function createSidecarServer(options: {
         if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) { fail(res,415,'validation_failed','A JSON request body is required.',requestId); return; }
         try { body = JSON.parse(bytes.toString('utf8')) as unknown; }
         catch { fail(res,400,'validation_failed','The request body is not valid JSON.',requestId); return; }
-        const parsed = (execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
+        const parsed = (path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
-        if(execution&&'limits' in parsed.data)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));
+        if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));
       }
       const result = await route.invoke(body,controller.signal);
       if (controller.signal.aborted) return;

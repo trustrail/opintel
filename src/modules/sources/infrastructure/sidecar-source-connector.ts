@@ -1,3 +1,4 @@
+import {effectiveSetting} from '../../../shared/project-settings.js';
 import { safeSourceMessage } from '../../../shared/source-errors.js';
 import { provisionDemoPayload, provisionDemoResponse, type ProvisionDemoPayload } from '../../../shared/demo-contract.js';
 import type { DemoProvisioningPort } from '../application/demo-provisioning.js';
@@ -63,8 +64,11 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     if (signal?.aborted) return err(new DomainError('source_unavailable', 'Source request cancelled.'));
     const resolution = await this.context.sampling(elements);
     if (!resolution.ok) return resolution;
+    if(effectiveSetting(resolution.value.projectSettings,'discovery.valueSampling')!==true)return err(new DomainError('forbidden','Value sampling is disabled in project settings.'));
+    const size=effectiveSetting(resolution.value.projectSettings,'discovery.sampleSize');
+    if(typeof size!=='number')return err(new DomainError('forbidden','Configure sample size before sampling.'));
     if (!resolution.value.consentGiven) return err(new DomainError('forbidden', 'Sampling requires source consent.'));
-    const parsed = wire.samplePayload.safeParse({ ...resolution.value, limit });
+    const parsed = wire.samplePayload.safeParse({consentGiven:resolution.value.consentGiven,projectSamplingAllowed:true,elements:resolution.value.elements,limit:Math.min(limit,size)});
     if (!parsed.success || new Set(elements).size !== elements.length || parsed.data.elements.length !== elements.length
       || new Set(parsed.data.elements.map((element) => element.elementId)).size !== elements.length
       || parsed.data.elements.some((element) => !elements.some((id) => id === element.elementId))) return this.invalid();

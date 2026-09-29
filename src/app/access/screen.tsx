@@ -1,3 +1,4 @@
+import {Timestamp} from '../settings/preferences.js';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -28,7 +29,7 @@ function Derivation({ projectId, member, company }: { projectId: string; member:
   return <>
     <div className="seg"><h3 className="seglab">Why this person has access</h3>
       <p className="note">{member.via === 'project' ? 'Access was granted directly on this project.' : member.via === 'company' ? `Access is inherited from ${company}. There is no grant on this project.` : `Access comes from a direct project grant and membership of ${company}. Removing the project grant would not remove company access.`}</p>
-      {member.grantedAt === null ? null : <p className="note">Project grant: <time dateTime={member.grantedAt}>{member.grantedAt.slice(0, 10)}</time>{member.grantedBy === null ? '' : ` by ${member.grantedBy.email}`}.</p>}
+      {member.grantedAt === null ? null : <p className="note">Project grant: <Timestamp value={member.grantedAt}/>{member.grantedBy === null ? '' : ` by ${member.grantedBy.email}`}.</p>}
     </div>
     {groups.map((group) => {
       const permissions = explanation.data.permissions.filter((permission) => (permission.allowed ? permission.via : 'denied') === group.key);
@@ -37,7 +38,7 @@ function Derivation({ projectId, member, company }: { projectId: string; member:
       </section>;
     })}
     {member.projectRole === 'operator' && member.companyRole !== 'admin' ? <p className="note">Operators keep agents running without widening what they see. They can export evidence and simulate, but cannot set entitlements, bind sources or map terms.</p> : null}
-    <p className="note">Checked <time dateTime={explanation.data.checkedAt}>{explanation.data.checkedAt}</time></p>
+    <p className="note">Checked <Timestamp value={explanation.data.checkedAt}/></p>
     <details className="seg"><summary>Authorization trace</summary><p className="note">Supplementary detail. Cached checks may return a shorter trace or no trace.</p>
       {explanation.data.permissions.map((permission) => <div className="seg" key={permission.permission}><h4 className="seglab">{permissionLabels[permission.permission] ?? permission.permission}</h4>
         <div className="deriv" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{permission.path.length === 0 ? 'No additional trace detail returned.' : permission.path.join('\n')}</div>

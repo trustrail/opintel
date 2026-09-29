@@ -2,3 +2,6 @@ export { TwoSessionExecutor } from './infrastructure/two-session.js';
 export { DuckDBSessionEngine } from './infrastructure/duckdb.js';
 export type { EngineSession, SessionEngine, SessionLimits, SessionRole, SessionRows, SessionStatement, StatementObserver } from './ports.js';
 export type { ParseOutcome, PreparedHandle, SessionInspection, InspectionEvent, InspectionObserver } from './ports.js';
+
+export {DuckDBValidationSessions,validationBudget} from './infrastructure/validation.js';
+export type {ValidationSession,ValidationSessions} from './validation.js';

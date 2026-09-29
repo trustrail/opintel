@@ -112,6 +112,12 @@ databaseDescribe('POST /projects with Postgres', () => {
     expect(records.outbox).toEqual(Array.from({ length: 2 }, () => ({ authorization_revision: token, written_at: expect.any(Date) })));
     expect(records.vocabulary).toEqual([{ scope: 'industry' }, { scope: 'industry' }]);
     expect(records.project).toEqual([{ industry_id: industryId, region: body.region }]);
+    const [stored] = await withPlatform(tx => tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1', [project.id]));
+    expect(stored?.settings).toEqual({discovery: {
+      newElements: 'rules_only', typeFamilyChange: 'revert', renameHandling: 'carry',
+      adoptRenamedNames: false, valueSampling: false,
+    }}); // No sampleSize or guessed query limits.
+
   });
 
   it('E2-004: refuses a visible company the caller cannot administer without writing', async () => {

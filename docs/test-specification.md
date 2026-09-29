@@ -260,7 +260,7 @@ Version 1.0 · September 2026
 |---|---|---|---|
 | J-001 | C | All five endpoints | Contract tests pass |
 | J-002 | F | Introspect via sidecar vs direct connection | Identical catalogue |
-| J-003 | S | `/validate` | Opens zero source connections |
+| J-003 | S | `/validate` | Opens zero source connections, reaches no query-execution capability, and never runs a prepared statement. Validation exposes parse/bind only and uses the fixed sidecar budget: 128 MB, one thread, two seconds, independent of project/pool execution limits. |
 | J-004 | S | Base catalog, fully qualified | Object not found |
 | J-005 | S | Base catalog for a withheld column | Object not found |
 | J-006 | S | `duckdb_databases()` / `duckdb_tables()` / `duckdb_columns()` | Only the pool's objects |
@@ -396,7 +396,7 @@ direct monthly partitions, with actual SQL attempts rejected by grants.
 |---|---|---|---|
 | N-001 | F | Run a question | Result and full trace |
 | N-002 | F | Stage rail during a run | Stages advance; elapsed counter runs; **no bare spinner at any point** |
-| N-003 | F | Dry run | Plans and stops; states nothing was read |
+| N-003 | F | Dry run | Plans and stops; states nothing was read. Missing project execution limits and pool threads budget do not refuse explain: permitted output names them in notes; zero source connections open. Query execution still refuses. |
 | N-004 | F | Clarification | Rendered inline as selectable real options |
 | N-005 | F | ⌘/Ctrl+Enter | Runs |
 | N-006 | F | Trace contents | Match the stored record exactly, field by field |
@@ -429,6 +429,25 @@ direct monthly partitions, with actual SQL attempts rejected by grants.
 
 Every setting in C.4 has a case. A setting with no case is a coverage gap.
 
+**Item 5.16 scope decision.** The reviewed §5.8 settings table is the common
+contract for screen copy and validation. Q-025–Q-027 have two owners: 5.16 proves
+configuration visibility, bounds/default/unset descriptions, persistence and audit;
+5.17 proves execution (retention, stored redaction and capture sampling). An
+execution test pending 5.17 must not be reported as passed by a configuration test.
+Until 5.17, the UI states that arguments remain stored unredacted and capture is
+still complete, regardless of saved future-job settings.
+
+Q-004, Q-005, Q-010, Q-020, Q-028–Q-030 and Q-034 are deferred to item 5.16a, **not in Slice 1a**.
+The six notification toggles, digest/delivery rules, alert types and two-step
+mechanism need reviewed contracts before implementation. Their cases below are
+retained as future requirements, not current Slice 1a acceptance tests. Q-010
+(including next-run display) and Q-020 are deferred in full: 5.16 neither persists
+inert controls nor claims scheduling or daily-budget enforcement. Scheduling needs
+an anchor, timezone and weekly day; budgets need day boundaries, failed/refused-run
+consumption and concurrent reservation/commit semantics. Company
+settings Q-031–Q-033 and Q-035 remain in 5.16, together with the write-time invariant
+that enforced SSO has exactly one enabled company_idp.
+
 | ID | Type | Case | Expected |
 |---|---|---|---|
 | Q-001 | F | Personal: name, timezone, date format, reduced motion | Persist; timestamps across the app re-render in the new zone |
@@ -440,7 +459,7 @@ Every setting in C.4 has a case. A setting with no case is a coverage gap.
 | Q-007 | F | Project details: rename | Persists; appears on the next export |
 | Q-008 | F | Project details: region | Read-only; no API route mutates it |
 | Q-009 | F | Project details: industry | Read-only with a Migrate action; never an inline select |
-| Q-010 | F | Discovery: schedule off / hourly / daily / weekly | Job scheduled accordingly; next-run time shown |
+| Q-010 | F | **Deferred: 5.16a, not Slice 1a.** Discovery: schedule off / hourly / daily / weekly | Job scheduled accordingly; next-run time shown |
 | Q-011 | F | Discovery: new elements = hold | Newly discovered elements are undecided |
 | Q-012 | F | Discovery: new elements = apply rules only | Rule-matched elements set; unmatched stay undecided |
 | Q-013 | F | Discovery: type-family change = revert | Element reverts; observation raised |
@@ -450,7 +469,7 @@ Every setting in C.4 has a case. A setting with no case is a coverage gap.
 | Q-017 | F | Discovery: sampling off | `/sample` returns 403 even with per-source consent |
 | Q-018 | F | Query: timeout | Enforced at the sidecar; a longer query is cancelled |
 | Q-019 | F | Query: row limit | `truncated: true` returned, never a silent cut |
-| Q-020 | F | Query: daily row budget per pool | Refusal on exceed, naming the budget |
+| Q-020 | F | **Deferred: 5.16a, not Slice 1a.** Query: daily row budget per pool | Refusal on exceed, naming the budget |
 | Q-021 | F | Query: cardinality confirmation threshold | Above it, confirmation required |
 | Q-022 | F | Query: aggregate minimum group size | Groups below it refused |
 | Q-023 | F | Query: memory limit | Enforced; fails rather than spills |

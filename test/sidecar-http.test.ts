@@ -1,3 +1,5 @@
+import {StagedValidator} from '../sidecar/execution/application/validate.js';
+import {DuckDBValidationSessions,type InspectionEvent,type SessionStatement} from '../sidecar/session/index.js';
 import { StagedExecutor } from '../sidecar/execution/application/execute.js';
 import { executionRequest } from '../src/shared/execution-contract.js';
 import { randomUUID } from 'node:crypto';
@@ -43,6 +45,10 @@ let secrets:EnvironmentSecretStore;
 let resolveSpy:MockInstance<EnvironmentSecretStore['resolve']>;
 let alternate:{cert:string;key:string};
 const queryFailures:unknown[]=[];
+const validationEvents:InspectionEvent[]=[];
+const validationStatements:SessionStatement[]=[];
+const executionReached=vi.fn();
+
 class ObservedScope extends PostgresSourceScope {
   override run<T>(key:string,credential:SecretRef,work:(session:SourceSession)=>Promise<T>,signal?:AbortSignal):Promise<T>{
     return super.run(key,credential,(session)=>work({query:async(sql,values)=>{
@@ -67,7 +73,7 @@ async function json(path:string,payload?:unknown,settings:{tls?:Partial<SidecarO
   });
 }
 const client=(object='records',configOptions=options)=>new SidecarSourceConnector('postgres',{
-  requestId:'client-test',projectId,sourceId,sampling:async()=>ok({consentGiven:true,elements:[{elementId,schema,object,column:'label'}]}),
+  requestId:'client-test',projectId,sourceId,sampling:async()=>ok({projectSettings:{discovery:{valueSampling:true,sampleSize:10000}},consentGiven:true,elements:[{elementId,schema,object,column:'label'}]}),
 },configOptions);
 const auditRows=async()=> (await readFile(config.auditFile,'utf8')).trim().split('\n').filter(Boolean).map((line)=>JSON.parse(line) as Record<string,unknown>);
 
@@ -95,7 +101,9 @@ beforeAll(async()=>{
   resolveSpy=vi.spyOn(secrets,'resolve');
   audit=await FileSamplingAudit.open(config.auditFile);
   connector=new PostgresConnector(new ObservedScope(secrets,config.limits),audit);
-  host=createSidecarServer({config,tls,connector,execution:new StagedExecutor({estimate:async()=>ok(null),plain:async()=>ok(undefined),treated:async()=>ok(undefined)})});
+  const executor=new StagedExecutor({estimate:async()=>{executionReached();return ok(null);},plain:async()=>{executionReached();return ok(undefined);},treated:async()=>{executionReached();return ok(undefined);}});
+  const validator=new StagedValidator(new DuckDBValidationSessions(s=>validationStatements.push(s),e=>validationEvents.push(e)));
+  host=createSidecarServer({config,tls,connector,execution:{execute:(body,signal)=>{executionReached();return executor.execute(body,signal);},validate:(body,signal)=>validator.validate(body,signal)}});
   const port=await host.listen();
   options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
 },60000);
@@ -112,7 +120,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(await json('/test-connection',body({}))).toEqual({status:200,value:{reachable:true}});
     const introspection=await json('/introspect',body({include:[schema]}));
     expect(introspection.status).toBe(200);expect(wire.snapshotResponse.safeParse(introspection.value).success).toBe(true);
-    const sample=await json('/sample',body({consentGiven:true,elements:[{elementId,schema,object:'records',column:'label'}],limit:2}));
+    const sample=await json('/sample',body({projectSamplingAllowed:true,consentGiven:true,elements:[{elementId,schema,object:'records',column:'label'}],limit:2}));
     expect(sample).toEqual({status:200,value:{values:{[elementId]:[{value:sentinel,frequency:2},{value:'other',frequency:1}]}}});
     expect(await json('/estimate',body({object:{schema,name:'records'}}))).toEqual({status:200,value:{rows:3}});
     const recorded=await auditRows();
@@ -218,11 +226,25 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     const object={id:ObjectId(randomUUID()),sourceId,schema,name:'records'};
     expect(await client().estimateRowCount(ref,object)).toEqual(ok(3));
   });
+it('Q-017: project sampling off returns 403 even with source consent',async()=>{
+ const result=await json('/sample',body({projectSamplingAllowed:false,consentGiven:true,elements:[{elementId,schema,object:'records',column:'label'}],limit:2}));expect(result.status).toBe(403);
 });
 
-it('S2e execution and validation use the pinned certificate and structured wire contract',async()=>{
+});
+
+it('J-003/S2e execution and validation use the pinned certificate and structured wire contract',async()=>{
  const r=executionRequest.parse({requestId:'wire-execute',entitlements:[],projectId,poolId:randomUUID(),policyVersion:1,sql:'SELECT 1',namespace:{catalog:'memory',schema:'main'},sources:[],objects:[],aggregateMinGroupSize:5,limits:{memoryMb:32,threads:1,timeoutMs:10000,rowLimit:1,concurrency:1},entitlementContext:null});
- expect(await json('/validate',r)).toMatchObject({status:200,value:{queryEngineVersion:'v1.4.3/d1dc88f950'}});
+ // J-003: missing execution limits cannot block or grant execution to validation.
+ validationEvents.length=0;validationStatements.length=0;executionReached.mockClear();resolveSpy.mockClear();
+ const {limits:_,...dryRun}=r;
+ expect(await json('/validate',dryRun)).toMatchObject({status:200,value:{queryEngineVersion:'v1.4.3/d1dc88f950'}});
+ expect(executionReached).not.toHaveBeenCalled();expect(resolveSpy).not.toHaveBeenCalled();
+ expect(validationEvents.map(e=>e.stage)).toEqual(['parse_started','parse_succeeded','serialize_started','serialized','prepare_started','prepared','released']);
+ expect(validationStatements.every(s=>s.sql.startsWith('SET '))).toBe(true);
+ expect(validationStatements.map(s=>s.sql)).toContain("SET memory_limit = '128MB'");
+ expect(validationStatements.map(s=>s.sql)).toContain('SET threads = 1');
+ expect(await json('/execute',dryRun)).toMatchObject({status:400});
+
  expect(await json('/execute',r)).toMatchObject({status:200,value:{rows:[[1]],truncated:false,executionPath:'staged'}});
  const refused=await json('/execute',{...r,sql:"ATTACH 'private.db' AS private"});expect(refused).toMatchObject({status:422,value:{error:{code:'sql_not_permitted',details:{proofCategory:'serialization_refused'}}}});
 },30000);

@@ -1,3 +1,4 @@
+import {executionRequest} from '../../../shared/execution-contract.js';
 import type {EvidencePlan} from '../../evidence/index.js';
 import {z} from 'zod';
 import {QueryPreparation} from './query-preparation.js';
@@ -34,8 +35,10 @@ export class QueryService implements QueryTool {
    const plan=prepared.value;plan.request.requestId=id;
    // requires_sidecar_inspection is not authorization. No pre-filter outcome
    // is sent to the sidecar; it receives independent plans and entitlements.
+   const executable=executionRequest.safeParse(plan.request);
+   if(!executable.success)return refused(new DomainError('validation_failed','The configured query limits are invalid.',{cause:'invalid_settings',reason:'query_limits'}));
    progress='unknown';
-   const response=await this.execution.execute(plan.request,signal);if(!response.ok){
+   const response=await this.execution.execute(executable.data,signal);if(!response.ok){
     const proof=response.error.details?.proofCategory;
     const reported=z.object({tokenKeyVersionUsed:z.number().int().positive().nullable(),sourceIdsReached:z.array(z.string())}).safeParse(response.error.details);
     if(reported.success)usage=reported.data;

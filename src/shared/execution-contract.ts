@@ -1,10 +1,11 @@
+import {numericProjectSetting} from './project-settings.js';
 import { stagingType } from './staging-types.js';
 import { z } from 'zod';
 const name=z.string().min(1).refine(v=>!v.includes('\0'));
 const positive=z.number().int().positive().safe();
 export const executionSettings=z.strictObject({
- maxStagingRows:z.number().int().min(10000).max(100000000).default(5000000),
- maxQueuedExecutions:z.number().int().min(1).max(64).default(8),
+ maxStagingRows:numericProjectSetting('query.maxStagingRows'),
+ maxQueuedExecutions:numericProjectSetting('query.maxQueuedExecutions'),
 });
 const column=z.strictObject({sourceIdentifier:name,exposedName:name,
  exposedType:z.string().refine(v=>stagingType(v)!==null),
@@ -26,6 +27,10 @@ export const executionRequest=z.strictObject({requestId:name,tokenKeyVersionSele
  limits:z.strictObject({memoryMb:positive,threads:positive,timeoutMs:positive.max(2147483647),rowLimit:positive.max(2147483646),concurrency:positive}),
  entitlementContext:z.null(),
 });
+// Validation accepts execution metadata for compatibility, but does not require
+// or use execution limits. /execute retains the strict required contract.
+export const validationRequest=executionRequest.extend({limits:executionRequest.shape.limits.optional()});
+export type ValidationRequest=z.infer<typeof validationRequest>;
 export type ExecutionRequest=z.infer<typeof executionRequest>;
 export type StagingObject=z.infer<typeof stagingObject>;
 export const executionResponse=z.strictObject({tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),

@@ -260,8 +260,18 @@ VC-10–VC-14, VC-23–VC-30 and H-008 therefore require authoritative sidecar a
 | 5.13 | Export: streaming NDJSON and CSV, synthetic excluded | 5.10 | endpoint | M-008 to M-010 |
 | 5.14 | Pools screens: list, detail with key management, agent twin | 5.2, 5.4 | three screens | I-001 (copy-to-dismiss UI), I-015 to I-022 |
 | 5.15 | Dashboard: ratio, spectrum, tiles, feed, pool shields, empty when clean | 4.9, 5.4 | screen | O-001 to O-004 |
-| 5.16 | Settings: project and personal pages | all above | screens | Q-001 to Q-038 |
+| 5.16 | Settings: project, company and personal pages; §5.8 contract reviewed before screen implementation | all above | screens | Q-001–Q-003, Q-006–Q-009, Q-011–Q-019, Q-021–Q-024, Q-025–Q-027 configuration only, Q-031–Q-033, Q-035–Q-038 |
+| 5.16a | Notifications and alerts, including digest preferences/delivery; discovery scheduling and daily pool row budgets; admin two-step enforcement requires its own identity contract. **Not in Slice 1a; deferred pending contracts.** | Contracts to be reviewed before implementation | settings and delivery/enforcement | Q-004, Q-005, Q-010, Q-020, Q-028–Q-030, Q-034 |
 | 5.17 | Retention and redaction jobs | 5.10 | jobs | Q-025 to Q-027 |
+
+5.16 exposes and persists evidence settings; 5.17 owns the execution half of
+Q-025–Q-027: retention, stored redaction and capture sampling. Saving configuration
+must not claim these jobs are already operating. Notifications, alerts and admin
+two-step have no agreed contract and do not block the Slice 1a gate as item 5.16a.
+Discovery scheduling and daily pool row budgets are entirely deferred there too:
+no inert settings writes or next-run display in 5.16. Scheduling needs an anchor,
+timezone and weekly day. Budgets need a day boundary, failed/refused-run consumption,
+concurrent reservation/commit and pool override semantics.
 
 **Gate, and this is the Slice 1a gate.** An external agent configured from published documentation only lists its tools, runs `SELECT *` on a table with a withheld column, receives the other columns and is told in text which were withheld. A withheld column returns `element_withheld`, an undecided one `entitlement_missing`, a non-existent one an ordinary error. Key rotation keeps a twenty-agent pool serving with zero failures. Every request produced exactly one immutable record. Pilot criteria S1 through S4 pass.
 

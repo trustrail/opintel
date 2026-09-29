@@ -49,6 +49,12 @@ describe('session cookie', () => {
 redisDescribe('Redis session store', () => {
   beforeEach(startStore);
 
+  it('Q-033: idle timeout is pinned when the session is created',async()=>{
+    let timeout=60000;store=new RedisSessionStore(connection!.client,clock,new TestIdFactory(),async()=>timeout);
+    const old=await store.create(user,meta);timeout=120000;const next=await store.create(user,meta);clock.advance(61000);
+    expect(await store.read(old)).toBeNull();expect(await store.read(next)).not.toBeNull();
+  });
+
   it('D-003: expires a session after eight idle hours', async () => {
     const id = await store.create(user, meta);
     clock.advance(sessionIdleTimeoutMs + 60_000);

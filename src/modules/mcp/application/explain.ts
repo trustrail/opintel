@@ -28,7 +28,7 @@ export class ExplainService implements ExplainTool {
    if(!validated.ok)return validated;
    if(validated.value.queryEngineVersion!==plan.queryEngineVersion)return err(new DomainError('sql_not_permitted','The application parser and sidecar engine builds differ. Align their builds before retrying.',{cause:'parser_engine_mismatch'}));
    if(validated.value.treatmentEvidence.stage2Ran)return err(new DomainError('dependency_unavailable','The sidecar returned an inconsistent validation result.',{cause:'unclassified'}));
-   const notes=['Dry run. No source was contacted. Nothing was read.'];
+   const notes=['Dry run. No source was contacted. Nothing was read.',...plan.executionNotes];
    const r=plan.reduction;
    if(r.withheld.length)notes.push(`Elements that would be withheld: ${r.withheld.join(', ')}.`);
    if(r.tokenized.length)notes.push(`Elements that would be returned tokenized: ${r.tokenized.join(', ')}.`);

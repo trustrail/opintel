@@ -29,7 +29,7 @@ async function provision(){
   await tx.query("INSERT INTO company_member(company_id,user_id,role,granted_by) VALUES($1,$2,'admin',$2) ON CONFLICT DO NOTHING",[companyId,userId]);
  });
  await withPlatform(async tx=>{
-  await tx.query("INSERT INTO project(id,company_id,industry_id,name,region,settings) VALUES($1,$2,$3,'Reinsurance Demo','eu-west-1',$4) ON CONFLICT(id) DO NOTHING",[projectId,companyId,industry.id,{poolKeyGraceSeconds:3600,query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5}}]);
+  await tx.query("INSERT INTO project(id,company_id,industry_id,name,region,settings) VALUES($1,$2,$3,'Reinsurance Demo','eu-west-1',$4) ON CONFLICT(id) DO NOTHING",[projectId,companyId,industry.id,{discovery:{newElements:'rules_only',typeFamilyChange:'revert',renameHandling:'carry',adoptRenamedNames:false,valueSampling:false},poolKeyGraceSeconds:3600,query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5}}]);
   await tx.query("INSERT INTO project_member(project_id,user_id,role,granted_by) VALUES($1,$2,'admin',$2) ON CONFLICT DO NOTHING",[projectId,userId]);
  });
  // Touch restores authorization after a SpiceDB volume wipe as well.

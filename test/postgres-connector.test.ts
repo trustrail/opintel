@@ -30,7 +30,7 @@ async function fixture<T>(work: (client: Client) => Promise<T>): Promise<T> {
 const unwrap = <T>(result: Result<T>): T => { if (!result.ok) throw new Error(result.error.message); return result.value; };
 const request = (payload: unknown) => ({ ...envelope, payload });
 const introspect = async (include = [schema]) => unwrap(await connector.introspect(request({ include }))).snapshot;
-const sample = (consentGiven: boolean, object = 't0', column = 'label') => request({ consentGiven, elements: [{ elementId: element, schema, object, column }], limit: 2 });
+const sample = (consentGiven: boolean, object = 't0', column = 'label') => request({ projectSamplingAllowed:true,consentGiven, elements: [{ elementId: element, schema, object, column }], limit: 2 });
 
 beforeAll(async () => {
   await fixture(async (db) => {

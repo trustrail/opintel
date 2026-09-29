@@ -7,7 +7,8 @@ import { inspectTreatments } from './treatments.js';
 import { withRowLimit } from './row-limit.js';
 import { aggregateRefusal, supportsEstimate, withGroupCount, validGroupCount } from './cardinality.js';
 
-export const queryEngineBuild='v1.4.3/d1dc88f950';
+import {queryEngineBuild} from './engine-build.js';
+export {queryEngineBuild} from './engine-build.js';
 export type TreatmentEvidence={aggregateMinGroupSize:number;stage2Required:boolean;stage2Ran:boolean};
 export type InspectedRows=SessionRows&{queryEngineVersion:string;treatmentEvidence:TreatmentEvidence;truncated?:boolean};
 const equalObject=(a:PoolNamespace['objects'][number],b:PoolNamespace['objects'][number])=>

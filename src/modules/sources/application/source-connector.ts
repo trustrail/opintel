@@ -33,6 +33,7 @@ export interface SourceConnectorContext {
   requestId: string;
   sampling(elements: ElementId[]): Promise<Result<{
     consentGiven: boolean;
+    projectSettings?: unknown;
     elements: Array<{ elementId: ElementId; schema: string; object: string; column: string }>;
   }, DomainError>>;
 }

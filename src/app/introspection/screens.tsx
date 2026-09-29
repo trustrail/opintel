@@ -1,10 +1,11 @@
+import {Timestamp as DisplayTimestamp} from '../settings/preferences.js';
 import { Link } from '@tanstack/react-router';
 import { Button,EmptyState,ErrorState,LoadingState,StageRail,Treatment,type Stage } from '../../shared/ui/index.js';
 import type { RunView } from '../../shared/api/introspection.js';
 import { useProjects } from '../tenancy/data.js';
 import { useSources } from '../sources/data.js';
 import { active,useIntrospection,useIntrospections,useCancelIntrospection } from './data.js';
-const stamp=(value:string|null)=>value?value.slice(0,19).replace('T',' ')+' UTC':'Not started';
+const stamp=(value:string|null)=>value===null?'Never':<DisplayTimestamp value={value}/>;
 function Badge({state}:{state:RunView['state']}){return <span className={state==='complete'?'tr clear':state==='failed'?'tr held':'tr ref'}><i aria-hidden="true"/>{state}</span>;}
 export function IntrospectionListScreen({projectId,sourceId}:{projectId:string;sourceId:string}){
  const query=useIntrospections(projectId,sourceId);const sources=useSources(projectId);const name=sources.data?.find(s=>s.id===sourceId)?.name??'Source';const items=query.data?.pages.flatMap(p=>p.items)??[];

@@ -6,7 +6,7 @@ import type { CurrentUserAccount, CurrentUserRepository } from '../application/c
 import type { AccountRepository, InvitationAcceptancePort, InviteRepository, MagicLinkRepository, MagicLinkToken, PendingInvite, RateLimiter, UserAccount } from '../application/magic-link.js';
 
 type AccountRow = { id: string; email: string };
-type CurrentUserRow = { id: string; email: string; full_name: string | null; timezone: string };
+type CurrentUserRow = { id: string; email: string; full_name: string | null; timezone: string; sso_enforced:boolean };
 type InviteRow = { id: string; email: string; role: PendingInvite['role']; expires_at: string };
 type TokenRow = { id: string; email: string; device_nonce: string; invite_id: string | null };
 
@@ -17,9 +17,9 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
     const row = rows[0]; return row === undefined ? null : { id: UserId(row.id), email: row.email };
   }
   async findById(id: UserId): Promise<CurrentUserAccount | null> {
-    const rows = await withPlatform((tx) => tx.query<CurrentUserRow>('SELECT id, email, full_name, timezone FROM user_account WHERE id = $1', [id]));
+    const rows = await withPlatform((tx) => tx.query<CurrentUserRow>(`SELECT u.id,u.email,u.full_name,u.timezone,EXISTS(SELECT 1 FROM company_member m JOIN company c ON c.id=m.company_id WHERE m.user_id=u.id AND c.sso_enforced) AS sso_enforced FROM user_account u WHERE u.id=$1`, [id]));
     const row = rows[0];
-    return row === undefined ? null : { id: UserId(row.id), email: row.email, fullName: row.full_name, timezone: row.timezone };
+    return row === undefined ? null : { id: UserId(row.id), email: row.email, fullName: row.full_name, timezone: row.timezone,ssoEnforced:row.sso_enforced };
   }
   async create(email: string, _invite: PendingInvite | null): Promise<UserAccount> {
     const rows = await withPlatform((tx) => tx.query<AccountRow>('INSERT INTO user_account (email) VALUES ($1) RETURNING id, email', [email]));

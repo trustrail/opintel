@@ -1,3 +1,4 @@
+import {projectSettingSchema} from '../../../shared/project-settings.js';
 import {z} from 'zod';
 import {ok,type ProjectId,type UserId,type RunId,type Result} from '../../../shared/kernel/index.js';
 import type {AuthorizationPort} from '../../authz/index.js';
@@ -10,7 +11,7 @@ export interface EvidenceReader {
  detail(ctx:EvidenceContext,id:RunId,at:string):Promise<Result<EvidenceDetail>>;
 }
 export interface EvidenceTextPort {stripSql(sql:string):Promise<string|null>}
-const policy=z.object({evidence:z.object({redaction:z.enum(['aggressive','allowlist','none']).default('aggressive'),allowlistedFields:z.array(z.string()).default([])}).default({redaction:'aggressive',allowlistedFields:[]})});
+const policy=z.object({evidence:z.object({redaction:projectSettingSchema('evidence.redaction').pipe(z.enum(['aggressive','allowlist','none'])),allowlistedFields:projectSettingSchema('evidence.allowlistedFields').pipe(z.array(z.string()))}).default({redaction:'aggressive',allowlistedFields:[]})});
 export class EvidenceQuery {
  constructor(private readonly reader:EvidenceReader,private readonly authorization:AuthorizationPort,private readonly text:EvidenceTextPort){}
  private async visibility(ctx:EvidenceContext){

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { QueryInput } from '../../../shared/api/mcp.js';
-import { executionRequest } from '../../../shared/execution-contract.js';
+import { validationRequest } from '../../../shared/execution-contract.js';
 import { DomainError, err, ok, type ElementId } from '../../../shared/kernel/index.js';
 import { QueryPreFilter, type ViewDefinition } from '../../entitlements/index.js';
 import type { AuthorizationPort } from '../../authz/index.js';
@@ -16,7 +16,7 @@ export class QueryPreparation {
  async prepare(principal:McpPrincipal,input:z.infer<typeof QueryInput>,requestId:string,signal?:AbortSignal,capture?:(plan:EvidencePlan)=>void) {
    const snapshot=await this.reader.read(principal);if(!snapshot.ok)return err(snapshot.error);
    const s=snapshot.value;
-   const evidence:EvidencePlan|undefined=s.evidence?{requiresTokenization:false,versions:{...s.evidence.versions},elements:[],sources:[],sourcePlan:{},stages:[]}:undefined;
+   const evidence:EvidencePlan|undefined=s.evidence?{requiresTokenization:false,versions:{...s.evidence.versions},elements:[],sources:[],sourcePlan:{executionSettings:{...(s.limits?{limits:s.limits}:{}),settings:s.settings,aggregateMinGroupSize:s.aggregateMinGroupSize}},stages:[]}:undefined;
    if(evidence)capture?.(evidence);
    const health=await this.execution.health(signal);if(!health.ok)return err(health.error);
    const touched:ViewDefinition[]=[];const returned=new Set<ElementId>();
@@ -27,7 +27,7 @@ export class QueryPreparation {
     const tokenized=touched.some(v=>v.readPlan.columns.some(c=>c.treatment==='tokenized'));
     evidence.requiresTokenization=tokenized;
     evidence.versions={...evidence.versions,tokenKeyVersionSelected:tokenized?s.evidence.currentTokenKeyVersion:null};
-    evidence.sourcePlan={queryEngineVersion:health.value.queryEngineVersion,objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,columns:v.columns.map(c=>({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:c.treatment}))})),sources:evidence.sources};
+    evidence.sourcePlan={...evidence.sourcePlan,queryEngineVersion:health.value.queryEngineVersion,objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,columns:v.columns.map(c=>({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:c.treatment}))})),sources:evidence.sources};
     for(const v of touched)for(const c of v.columns){
      if(c.exposedName===null)continue;
      if(c.state==='withheld'||c.state==='undecided')evidence.elements.push({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:null,withheldReason:c.state==='withheld'?(s.evidence.withheldReasons?.[c.elementId]??'Withheld by the pool policy.'):'No entitlement decision exists.'});
@@ -43,12 +43,12 @@ export class QueryPreparation {
    if(sources.some(source=>source.status!=='connected'||source.credentialRef===null))return err(new DomainError('source_unavailable','A referenced source is unavailable. No cached or partial result was returned.',{cause:'source_not_ready',reason:sources.some(source=>source.status!=='connected')?(sources.some(source=>source.credentialRef===null)?'source_status_and_credential_missing':'source_status'):'credential_missing'},true));
    if(evidence)evidence.stages.push({stage:'resolve_sources',result:'ok',detail:{checks:checks.map((check,i)=>({sourceId:sources[i]!.id,allowed:check.allowed,token:check.token,checkedAt:check.checkedAt,snapshotAgeMs:check.snapshotAgeMs}))},ms:Math.max(0,Math.round(performance.now()-resolveStarted))});
    const first=touched[0];
-   const request=executionRequest.safeParse({requestId,tokenKeyVersionSelected:evidence?.versions.tokenKeyVersionSelected??null,projectId:principal.pool.projectId,poolId:principal.pool.id,sql:input.sql,policyVersion:s.policyVersion,
+   const request=validationRequest.safeParse({requestId,tokenKeyVersionSelected:evidence?.versions.tokenKeyVersionSelected??null,projectId:principal.pool.projectId,poolId:principal.pool.id,sql:input.sql,policyVersion:s.policyVersion,
     namespace:{catalog:first?.catalog??'memory',schema:first?.schema??'main'},
     sources:sources.map(source=>({sourceId:source.id,credentialRef:source.credentialRef})),
     objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,sourceId:s.sources.find(source=>source.alias===v.catalog)?.id,readPlan:{...v.readPlan,columns:v.readPlan.columns.map(c=>({...c,elementId:v.columns.find(column=>column.exposedName===c.exposedName)?.elementId}))}})),
     entitlements:touched.flatMap(v=>v.columns.filter(c=>c.state==='emitted').map(c=>({elementId:c.elementId,treatment:c.treatment}))),aggregateMinGroupSize:s.aggregateMinGroupSize,settings:s.settings,
-    limits:{...s.limits,rowLimit:Math.min(input.maxRows??s.limits.rowLimit,s.limits.rowLimit)},entitlementContext:null});
+    limits:s.limits?{...s.limits,rowLimit:Math.min(input.maxRows??s.limits.rowLimit,s.limits.rowLimit)}:undefined,entitlementContext:null});
    if(!request.success)return err(new DomainError('dependency_unavailable','The pool read plan or execution settings are incomplete.',{cause:'component_configuration',reason:'read_plan'}));
    const reduction:Reduction={withheld:[],tokenized:[],masked:[],aggregate_only:[]};
    // Compilation is already ordered by object address and source ordinal.
@@ -57,6 +57,6 @@ export class QueryPreparation {
     if(column.state==='withheld')reduction.withheld.push(column.exposedName);
     else if(returned.has(column.elementId)&&column.treatment!==null&&column.treatment!=='clear'&&column.treatment!=='withheld')reduction[column.treatment].push(column.exposedName);
    }
-   return ok({request:request.data,queryEngineVersion:health.value.queryEngineVersion,reduction});
+   return ok({executionNotes:s.executionNotes??[],request:request.data,queryEngineVersion:health.value.queryEngineVersion,reduction});
  }
 }

@@ -9,6 +9,7 @@ export type SessionMeta = {
 };
 
 export type SessionRecord = {
+  idleTimeoutMs?: number;
   userId: UserId;
   method: AuthMethod;
   createdAt: Timestamp;

@@ -8,6 +8,16 @@ afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).re
 async function fixture(){const writer=new PostgresEvidenceWriter(),f=await queryFixture(writer);cleanup.push(f.close);return {...f,writer};}
 async function records(f:Awaited<ReturnType<typeof fixture>>){return withTenant(f.ctx,tx=>tx.query<{id:string;versions:{policy:number;catalog:number;vocabulary:number;tokenKeyVersionSelected:number|null};outcome:{kind:string};used:number|null;synthetic:boolean;source_plan:unknown;freshness:unknown}>(`SELECT r.id,r.versions,c.outcome,c.token_key_version_used AS used,c.synthetic,c.source_plan,c.freshness FROM query_run r LEFT JOIN run_completion c ON c.run_id=r.id AND c.started_at=r.started_at WHERE r.pool_id=$1 ORDER BY r.started_at`,[f.pool]));}
 describe('5.11 durable evidence writer',{timeout:60000},()=>{
+ it('Q-037: an in-flight query retains and records the limits pinned at preparation',async()=>{
+  const f=await fixture(),execute=f.execution.execute.bind(f.execution);
+  const [before]=await withPlatform(tx=>tx.query<{settings:{query:{rowLimit:number}}}>('SELECT settings FROM project WHERE id=$1',[f.ctx.projectId]));
+  vi.spyOn(f.execution,'execute').mockImplementation(async(request,...rest)=>{
+   await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{query,rowLimit}','1'::jsonb) WHERE id=$1",[f.ctx.projectId]));
+   expect(request.limits.rowLimit).toBe(before!.settings.query.rowLimit);return execute(request,...rest);
+  });
+  expect((await f.query('SELECT field_1 FROM warehouse.public.records')).isError).not.toBe(true);
+  expect((await records(f))[0]?.source_plan).toMatchObject({executionSettings:{limits:{rowLimit:before!.settings.query.rowLimit}}});
+ });
  it('M-002/M-012: persists deliveries, reduction reasons and metadata, with header before source work and completion before release',async()=>{
   const f=await fixture(),estimate=f.stagingSource.estimate.bind(f.stagingSource);const opened=vi.spyOn(f.writer,'open'),closed=vi.spyOn(f.writer,'close');
   vi.spyOn(f.stagingSource,'estimate').mockImplementation(async(...args)=>{const rows=await records(f);expect(rows).toHaveLength(1);expect(rows[0]?.outcome).toBeNull();return estimate(...args);});

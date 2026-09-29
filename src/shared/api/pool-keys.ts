@@ -1,6 +1,7 @@
+import {numericProjectSetting} from '../project-settings.js';
 import { z } from 'zod';
 import { createApiClient } from './client.js';
-export const PoolKeyGraceSeconds = z.number().int().min(3600).max(604800).default(86400);
+export const PoolKeyGraceSeconds = numericProjectSetting('poolKeyGraceSeconds');
 export const PoolKeyIdempotency = z.string().trim().min(1).max(200);
 export const CreatePoolBody = z.strictObject({name:z.string().trim().min(1).max(80)});
 export const RotatePoolKeyBody = z.strictObject({projectId:z.uuid()});

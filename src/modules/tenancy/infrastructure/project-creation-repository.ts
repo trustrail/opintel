@@ -1,3 +1,4 @@
+import {effectiveSetting} from '../../../shared/project-settings.js';
 import { withPlatform } from '../../../platform/db/scope.js';
 import { DomainError, ProjectId, Timestamp, err, ok, type UserId } from '../../../shared/kernel/index.js';
 import type { CreateProjectInput, ProjectCreationRepository } from '../application/create-project.js';
@@ -19,12 +20,21 @@ export class PostgresProjectCreationRepository implements ProjectCreationReposit
       const industry = industries[0];
       if (industry === undefined) return err(new DomainError('validation_failed', 'The selected industry does not exist.'));
 
+      // Persist the existing discovery behaviour. Sampling size and hardware
+      // limits are deliberately absent: neither has a safe inferred value.
+      const settings = {discovery: {
+        newElements: effectiveSetting({}, 'discovery.newElements'),
+        typeFamilyChange: effectiveSetting({}, 'discovery.typeFamilyChange'),
+        renameHandling: effectiveSetting({}, 'discovery.renameHandling'),
+        adoptRenamedNames: effectiveSetting({}, 'discovery.adoptRenamedNames'),
+        valueSampling: effectiveSetting({}, 'discovery.valueSampling'),
+      }};
       const rows = await tx.query<{ id: string; created_at: Date }>(
-        `INSERT INTO project (company_id, name, industry_id, region)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO project (company_id, name, industry_id, region, settings)
+         VALUES ($1, $2, $3, $4, $5::jsonb)
          ON CONFLICT (company_id, lower(name)) DO NOTHING
          RETURNING id, created_at`,
-        [input.companyId, input.name, input.industryId, input.region],
+        [input.companyId, input.name, input.industryId, input.region, JSON.stringify(settings)],
       );
       const row = rows[0];
       if (row === undefined) return err(new DomainError('conflict', 'A project with this name already exists in the company.'));

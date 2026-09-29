@@ -80,20 +80,20 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
  });
  it('5.8: complete MCP responses never expose configured aggregate thresholds',async()=>{
   const f=await fixture();
-  const limit=938173;
+  const limit=999;
   await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{query,aggregateMinGroupSize}',to_jsonb($2::int)) WHERE id=$1",[f.ctx.projectId,limit]));
   for(const sql of ['SELECT field_1 FROM warehouse.public.records','SELECT field_3 FROM warehouse.public.records','SELECT SUM(field_3) FROM warehouse.public.records','SELECT field_4,SUM(field_3) FROM warehouse.public.records GROUP BY field_4','SELECT SUM(total) FROM (SELECT SUM(field_3) AS total FROM warehouse.public.records) q']){
    const response=await f.query(sql);
-   expect(JSON.stringify(response)).not.toMatch(/938173|aggregateMinGroupSize|threshold|treatmentEvidence/u);
+   expect(JSON.stringify(response)).not.toMatch(/\b999\b|aggregateMinGroupSize|threshold|treatmentEvidence/u);
    if(response.isError)expect(response).not.toHaveProperty('structuredContent');
   }
-  vi.spyOn(f.execution,'execute').mockResolvedValue(err(new DomainError('unsupported_on_aggregate_only','Internal threshold 938173',{cause:'cardinality_count_invalid',name:'field_3',stage:2,aggregateMinGroupSize:limit,nested:{value:limit}},true)));
+  vi.spyOn(f.execution,'execute').mockResolvedValue(err(new DomainError('unsupported_on_aggregate_only','Internal threshold 999',{cause:'cardinality_count_invalid',name:'field_3',stage:2,aggregateMinGroupSize:limit,nested:{value:limit}},true)));
   const invalid=await f.query('SELECT SUM(field_3) FROM warehouse.public.records');
   expect(invalid).toMatchObject({_meta:{cause:'cardinality_count_invalid',retryable:false}});expect(JSON.stringify(invalid)).not.toContain(String(limit));
   const listing=await f.client.listTools();
   const describe=await f.client.callTool({name:'opintel.describe',arguments:{}});
   const unavailable=await f.client.callTool({name:'opintel.explain',arguments:{sql:'SELECT 1'}});
-  for(const response of [listing,describe,unavailable])expect(JSON.stringify(response)).not.toMatch(/938173|aggregateMinGroupSize/u);
+  for(const response of [listing,describe,unavailable])expect(JSON.stringify(response)).not.toMatch(/\b999\b|aggregateMinGroupSize/u);
  });
  it('I-009: source ordinals determine withheld order, and masked projections keep their lineage',async()=>{
   const f=await fixture();

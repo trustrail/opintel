@@ -14,7 +14,7 @@ const ref = SecretRef('secret://customer/warehouse');
 const element = ElementId(randomUUID());
 const context: SourceConnectorContext = {
   projectId: ProjectId(randomUUID()), sourceId: SourceId(randomUUID()), requestId: 'request-123',
-  sampling: async () => ok({ consentGiven: true, elements: [{ elementId: element, schema: 'public', object: 'orders', column: 'customer' }] }),
+  sampling: async () => ok({ projectSettings:{discovery:{valueSampling:true,sampleSize:10000}},consentGiven: true, elements: [{ elementId: element, schema: 'public', object: 'orders', column: 'customer' }] }),
 };
 const object = { id: ObjectId(randomUUID()), sourceId: context.sourceId, schema: 'public', name: 'orders' };
 let dir: string;

@@ -14,7 +14,7 @@ export function projectUpdateRoutes(service: UpdateProjectService) {
     params: z.object({ id: z.string().uuid() }), request: UpdateProjectBody,
     response: z.union([ProjectView, errorEnvelopeSchema]),
     handle: async (request) => {
-      const result = await service.rename(ProjectId(request.params.id), ProjectName(request.body.name));
+      const result = await service.rename(ProjectId(request.params.id), ProjectName(request.body.name),request.actor.id);
       if (!result.ok) {
         return { status: result.error.code === 'not_found' ? 404 : 409, body: { error: {
           code: result.error.code, message: result.error.message, details: result.error.details,

@@ -1893,6 +1893,11 @@ and suppressed counts do not. Every operator-needed sentence forces
 `retryable: false`. The approved mapping and weighed limitations are recorded in
 `docs/review/5-8-code-causes.md`. Item 5.7a still owns interruption provenance.
 
+### Project settings
+Every setting, with its type, default, bounds, what it affects, and what happens when unset. Settings with no default are marked required before use, naming what is refused until they are set. This table is the source for the settings screen and for validation; neither invents a bound the other does not have.
+
+The complete table is in §5.8, submitted for review before item 5.16 implementation.
+
 ### Tool availability
 
 | Tool | Available when |
@@ -2012,7 +2017,14 @@ that no source was contacted and nothing was read. Undecided elements, raw
 source identifiers, credentials and aggregate thresholds are not exposed.
 `permitted: true` is a dry-run verdict, not an execution guarantee: notes identify
 pending group-size checks and explain that source connectivity, scan size and
-execution limits have not been established.
+execution limits have not been established. Missing project timeoutSeconds, rowLimit,
+memoryLimitMb or concurrencyPerPool, and a missing pool threads budget, do not
+refuse the dry run. Explain completes structural and entitlement checks and names
+the missing configuration in notes stating that execution would be refused.
+Query execution still requires these limits; explain supplies no hardware defaults
+and persists no configuration. The sidecar enforces its own fixed validation budget
+(128 MB, one thread, two seconds), with a parse/bind-only session that cannot execute
+a prepared statement or contact a source; see algorithm C.4.
 
 Refusals return the specified `{ permitted: false, reason, code }` in structured
 content. `reason` and MCP text come from query's item 5.8 refusal formatter, with
@@ -2079,11 +2091,12 @@ type IntrospectPayload = { include: string[] };      // exact schema names; empt
 type IntrospectResponse = { snapshot: CatalogSnapshot };
 
 // POST /sample -> sampleTopValues
-// Refused unless the source carries sampling consent. The sidecar does not
+// Refused unless project sampling is enabled and the source carries sampling consent. The sidecar does not
 // decide that; the application does, and passes it explicitly so the refusal
 // is visible in the sidecar's own logs.
 type SamplePayload = {
   consentGiven: true;
+  projectSamplingAllowed: true; // explicit project gate; false refuses with 403
   elements: Array<{ elementId: ElementId; schema: string; object: string; column: string }>;
   limit: number;
 };
@@ -2172,6 +2185,7 @@ starts the host; it does not build the S5 deployment package.
 ```ts
 type SamplePayload = {
   consentGiven: true;
+  projectSamplingAllowed: true; // explicit project gate; false refuses with 403
   elements: Array<{
     elementId: ElementId;
     schema: string;
@@ -2692,6 +2706,8 @@ create table user_account (
   full_name     text,
   avatar_url    text,
   timezone      text not null default 'UTC',
+  date_format   text not null default 'YYYY-MM-DD' check (date_format in ('YYYY-MM-DD','DD/MM/YYYY','MM/DD/YYYY')),
+  reduced_motion boolean not null default false,
   created_at    timestamptz not null default now(),
   last_login_at timestamptz
 );
@@ -2826,7 +2842,7 @@ create unique index one_current_key on token_key_version (project_id) where stat
 ```
 **Platform defaults**. Google and Microsoft Entra are available to every company without configuration, using platform-level credentials. company_idp exists for a company bringing its own tenant or a generic OIDC issuer. So /auth/providers returns the platform defaults plus any enabled company_idp rows for the matching domain.
 
-**sso_enforced without an enabled company_idp row is a misconfiguration** that would lock everyone out. Setting it refuses unless at least one provider is enabled.
+**sso_enforced requires exactly one enabled company_idp row.** Setting it or changing provider configuration refuses if the resulting state has zero or multiple enabled providers. Database triggers serialize these writes on the company row and enforce the invariant.
 
 **Membership is written in both places, and SpiceDB is authoritative for decisions**. Postgres holds the same facts so the application can list — which companies a user administers, who the members of a project are — without asking SpiceDB to enumerate. SpiceDB answers whether a user may do a thing; Postgres answers what exists.
 
@@ -4075,6 +4091,9 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Create company | company.lists, auth.me |
 | Create project | project.lists, company.lists |
 | Rename project | project.lists, project.detail |
+| Save project settings | `settings.project`, `project.detail`, `project.stats`; query section also `entitlement.all`; evidence section also `activity.all`; agent timing also `agent.presence`, `pool.lists`, `pool.details`; key grace also `pool.details` |
+| Save company settings | `settings.company`, `company.lists`, `project.lists`, `auth.me` |
+| Save personal settings | `settings.personal`, `auth.me`; timestamp consumers rerender from the personal settings query |
 | Cancel introspection | `introspection.detail`, `introspection.list`, `source.list` |
 A mutation not in this table is incomplete.
 
@@ -4155,7 +4174,7 @@ Rendering an empty table with no explanation is a defect. Every screen has a pur
 
 **Destinations are drawer sub-items; contextual links stay in context**. A screen scoped to the whole project that belongs under a drawer item, such as Explore schema under Data sources or Token key under Access, appears as a sub-item of that item. Its section defaults to expanded when active; an explicit drawer toggle overrides that default until toggled again. It is not reached only by a link on the parent's screen. A link that carries a specific object, such as a source's introspection runs, a failed source's failing run, or a filing's superseded filing, stays where the object is shown. The active sub-item is highlighted and its parent shows as the active section. In the collapsed drawer, sub-items are hidden. The breadcrumb includes the sub-item.
 
-**Every breadcrumb segment except the current page is a link to that scope**. The company goes to All projects filtered to that company, until the company screen in item 5.16 exists. The project goes to its dashboard, and a section to its screen. The current page is not a link and carries aria-current="page". The breadcrumb is a nav labelled "Breadcrumb" containing an ordered list, with decorative separators hidden from assistive technology. At narrow widths only the parent segment shows, as a back link.
+**Every breadcrumb segment except the current page is a link to that scope**. The company goes to its company settings screen. The project goes to its dashboard, and a section to its screen. The current page is not a link and carries aria-current="page". The breadcrumb is a nav labelled "Breadcrumb" containing an ordered list, with decorative separators hidden from assistive technology. At narrow widths only the parent segment shows, as a back link.
 
 **No screen renders its own back link or button**. The breadcrumb's parent segment is the back affordance, everywhere, and at narrow widths it is the only segment shown, prefixed with a left chevron: ‹ Data sources. A screen that invents its own "Back to X" produces a different affordance on every screen and leaves people guessing which one a given screen has.
 
@@ -4210,6 +4229,96 @@ Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `pref
 
 **Create project has no counterpart in the reference implementation**, which shows an already-created project. Compose it from existing primitives: a .card containing .fld for the name, a list of industries each showing its inherited term count, and a region selector. The industry choice is presented as a decision with consequences, not a dropdown.
 ---
+
+## 5.8 Project settings contract
+
+**Approved item 5.16 contract.** This is the single contract for the settings screen and validation. Paths below are relative to `project.settings`. A missing property is unset; JSON null, an empty string and zero are not aliases for absence. The screen distinguishes an explicit value from an inherited default. Saving an unrelated setting must not populate missing required limits.
+
+**Safe defaults versus customer knowledge.** A setting has a safe default when that default preserves behaviour the system already has. Discovery uses rules_only, revert, carry, false and false, with sampleSize unset while sampling is off. Project creation writes these values explicitly using the shared settings definitions; the database column default remains unchanged. Readers use the same safe defaults for absent discovery fields. A setting has no default when choosing one would guess something only the customer knows: query timeout, row, memory and concurrency limits remain unset and refuse execution.
+
+**No hardware defaults.** Required limits display **“Not configured; queries refused”**, naming the missing setting. Defaults in a demo fixture are not product defaults. Invalid explicit values are rejected on write, not clamped or silently replaced by defaults. Existing malformed values must be shown as invalid and must not make execution permissive.
+
+**Bounds.** `safe+` means an integer from 1 through 9,007,199,254,740,991, the exact JSON/JavaScript integer range. It is retained only for memory and the deferred daily row budget, whose practical ceilings depend on customer hardware. All other numeric settings have explicit operational bounds. Enums accept only the listed values; booleans accept only true/false. Project creation persists safe discovery defaults; existing projects receive the same mapping through migration. Sampling stays off with sampleSize absent, a coherent state requiring no warning. A size is required only when enabling sampling.
+
+| Setting | Type | Default | Bounds / allowed values | What it affects | Behaviour when unset |
+|---|---|---|---|---|---|
+| `discovery.newElements` | enum | rules_only; persisted at creation and backfilled for existing projects | hold, rules_only | Entitlements for newly discovered elements | Use rules_only. hold leaves them undecided; rules_only applies matching rules and leaves unmatched elements undecided. |
+| `discovery.typeFamilyChange` | enum | revert; persisted at creation and backfilled for existing projects | revert, carry | Existing decisions when a type changes family | Use revert. Both choices retain an observation of the change. |
+| `discovery.renameHandling` | enum | carry; persisted at creation and backfilled for existing projects | carry, new | Decisions on a detected rename | Use carry. new treats the element as new and undecided. |
+| `discovery.adoptRenamedNames` | boolean | false; persisted at creation and backfilled for existing projects | true, false | Whether a detected rename changes the exposed name | Use false. true is labelled a breaking change; old exposed-name references can fail. |
+| `discovery.valueSampling` | boolean | false; persisted at creation and backfilled for existing projects | true, false | Project gate for source value sampling | Refuse sampling (403). Explicit true still requires per-source consent; false refuses even with consent. Metadata-only introspection does not require sampling. |
+| `discovery.sampleSize` | integer | None; required only when enabling sampling | 1–10,000 | Maximum requested sampling size | Refuse sampling until configured, even when both consent gates allow it. No source values are read to determine a default. |
+| `query.timeoutSeconds` | integer seconds | None — required before use | 1–2,147,483 | Execution deadline, including cancellation and teardown | Refuse query execution. The maximum ensures conversion to milliseconds fits the existing 2,147,483,647 ms wire bound. A tighter pool timeout wins. |
+| `query.rowLimit` | integer rows | None — required before use | 1–2,147,483,646 | Maximum returned rows | Refuse query execution. A tighter pool limit wins; a cut result states truncated, never silently cuts. |
+| `query.cardinalityConfirmThreshold` | integer rows | 50,000 | 1,000–1,000,000 | L2 estimated cardinality requiring confirmation, algorithm E.6 | Use 50,000. This is a prompt quality-control threshold, not a new SELECT/explain confirmation flow; its executor belongs to the prompt pipeline. |
+| `query.aggregateMinGroupSize` | integer rows | 5 | 1–1,000 | Aggregate-only disclosure floor after filtering | Use 5. The screen explicitly states that 1 disables the minimum-group-size protection. |
+| `query.memoryLimitMb` | integer MB | None — required before use | safe+ | DuckDB memory ceiling; the practical maximum depends on customer hardware, so no guessed operational ceiling or default is supplied | Refuse query execution. A tighter pool limit wins; exceeding the limit fails instead of spilling. |
+| `query.concurrencyPerPool` | integer executions | None — required before use | 1–256 | Simultaneous executions in each pool | Refuse query execution. A tighter pool limit wins; queued executions are bounded separately. |
+| `query.maxStagingRows` | integer rows | 5,000,000 | 10,000–100,000,000 | Rows staged from each object after predicate pushdown | Use 5,000,000. Unknown or excessive estimates refuse; observed excess refuses too. |
+| `query.maxQueuedExecutions` | integer executions | 8 | 1–64 | Waiting executions per pool | Use 8. A full queue refuses with retryability and current depth. |
+| `evidence.fullRetentionDays` | integer days | None — required before use | 1–36,500 | Age at which full records become eligible for retention processing | Refuse destructive full-record retention processing until configured; retain records. This is not a refusal to answer queries. Execution belongs to 5.17. |
+| `evidence.rollupRetentionDays` | integer days | None — required before use | 1–36,500; at least fullRetentionDays when both are set | Retention of evidence rollups | Refuse rollup expiry until configured; retain rollups. Full-record ageing must not destroy the required rollup. Execution belongs to 5.17. |
+| `evidence.redaction` | enum | aggressive | aggressive, allowlist, none | Arguments visible to authorised readers; stored redaction in 5.17 | Use aggressive. Without project#view_unredacted no arguments are exposed in any mode. Until 5.17 storage remains unredacted; the screen states that limitation. |
+| `evidence.allowlistedFields` | string array | [] | Unique non-empty argument-field names; not source-column names | Fields eligible for the allowlist projection | Expose no arguments under allowlist. SQL/prompt allowlisting never permits raw literals; literal stripping follows §4.6, failing closed where unavailable. Other modes ignore but preserve the list. |
+| `evidence.captureSamplingPercent` | number, percent | None — required before use | Finite, greater than 0 and at most 100 | Requested evidence capture sampling; errors remain 100% | Refuse activation of sampling until configured; the current writer continues capturing every run. 5.17 owns execution and its interaction with immutable headers/completions. Never imply that saving a value has activated sampling. |
+| `poolKeyGraceSeconds` | integer seconds | 86,400 (24 hours) | 3,600–604,800 (1 hour–7 days) | Grace assigned on future pool-key rotations | Use 86,400. Changing it does not rewrite an already issued key's grace expiry. |
+| `agentHeartbeatSeconds` | integer seconds | 20 | 5–60 | Advertised heartbeat cadence; stale after three missed intervals | Use 20. This does not alter the separate fixed idle threshold of 60 seconds without a request. |
+| `agentDisconnectGraceSeconds` | integer seconds | 300 (5 minutes) | 60–3,600 (1–60 minutes) | Time from entering stale to disconnected | Use 300. Disconnected twins remain visible. |
+
+### Review points and execution ownership
+
+**Discovery migration evidence.** The migration must distinguish projects existing at migration time from projects created afterwards, record these backfill choices explicitly, and preserve existing explicit valid choices. It must not rewrite saved run options or per-source consent. This is the migration contract, not a claim that a migration has already run.
+
+| Setting | Today's behaviour, traced in code | Existing-project migration value |
+|---|---|---|
+| newElements | Introspection enqueues newly added elements for bound pools. The completion handler applies eligible active rules older than discovery, without overwriting existing decisions. Unmatched, conflicting or invalid matches remain undecided. See `src/modules/sources/infrastructure/introspection-completed.ts` and `src/modules/entitlements/infrastructure/pattern-rules.ts`. | rules_only, not hold. With no matching rules this still leaves elements undecided. |
+| typeFamilyChange | Reconciliation flags a family change (also a changed unsupported type); publication records the previous decisions in the run diff and deletes them, making the element undecided. See `src/modules/catalog/application/introspection-diff.ts` and `src/modules/sources/infrastructure/postgres-introspection-store.ts`. | revert |
+| renameHandling | A matching stable reference preserves element identity and decisions across a rename. Without a stable reference, changed identifiers are treated as removal plus addition; the system does not guess that they are a rename. Type-family invalidation still takes precedence. See `src/modules/catalog/domain/catalog.ts`. | carry, with that same detected-rename limitation |
+| adoptRenamedNames | Defaults false on enqueue and in stored-run reads. An explicit, administrator-authorised per-run option can adopt the new exposed name. See `src/modules/sources/application/introspection-job.ts` and `src/modules/sources/infrastructure/postgres-introspection-store.ts`. | false; preserve explicit already-queued per-run options |
+| valueSampling | Production source runtime refuses sampling as outside source registration. Introspection reads metadata only and never calls sampleTopValues. The lower-level connector separately supports explicit consent-bearing sampling; no project gate is currently read. See `src/modules/sources/infrastructure/source-runtime.ts` and `src/modules/sources/infrastructure/sidecar-source-connector.ts`. | false preserves the production introspection path. This is not a claim that the lower-level /sample transport is globally disabled today. |
+| sampleSize | sampleTopValues requires a caller-supplied limit; samplePayload accepts a positive safe integer with no default. There are no production calls supplying a standard size. See `src/shared/sidecar-contract.ts` and `src/modules/sources/infrastructure/sidecar-source-connector.ts`. | Retain absence for existing projects while sampling is off; require 1–10,000 before enabling sampling. Unset sampleSize with valueSampling false is coherent, not incomplete; the screen must not flag it. Metadata introspection continues. |
+
+New projects persist the five safe discovery defaults at creation and leave sampleSize unset; existing projects must not stop introspecting because this configuration was introduced. No migration may invent a sampling size or treat the absence of a project sampling gate as evidence of consent.
+
+The cardinality threshold defaults to 50,000 and is bounded to 1,000–1,000,000: below a thousand confirmation becomes habitual; above a million unconfirmed execution loses meaningful review.
+
+**Entirely deferred to 5.16a, not in Slice 1a:** the following entries are an inventory of deferred schema fields, not controls or settings writes supplied by 5.16. Do not add a query refusal for an unset daily budget, a scheduler, or Q-010's next-run display in 5.16. Existing JSON entries are preserved but not presented as effective enforcement.
+
+| Deferred setting | Type / default / bounds | Open contract questions |
+|---|---|---|
+| discovery.schedule | enum off/hourly/daily/weekly; no default | Schedule anchor, timezone, weekly day and next-run derivation. Entire Q-010 deferred. |
+| query.dailyRowBudgetPerPool | integer rows; no default; safe+ because the practical ceiling depends on customer hardware | Accounting day/timezone; consumption by refused/failed executions; concurrent reservation and commit; precedence of pool.budgets.rowsPerDay. Entire Q-020 deferred. |
+
+Item **5.16 exposes, validates, persists and audits** the evidence settings. Item **5.17 executes** retention, stored redaction and capture sampling, and owns the execution half of Q-025–Q-027. Read-time redaction already operates as described in §4.6. Capturing less evidence must not be implemented by simply dropping the durable header or completion required before an answer is released.
+
+The approved table must drive one shared setting definition used by screen descriptions and write validation. Existing readers must use the same approved defaults and bounds; they must not retain divergent private validators. Writes record actor/before/after under Q-036. Query execution captures effective settings at start under Q-037; changing settings does not change an in-flight run. Missing required values remain representable so a project can be created and configured incrementally.
+
+### Item 5.16 implementation
+
+`src/shared/project-settings.ts` is the executable definition of this table. Screen labels, defaults, bounds and write validation use those same descriptors. The contract test enumerates every field, compares the rendered description and input bounds, and checks boundary acceptance/rejection. The runtime query, heartbeat, key-grace and sampling readers reuse the definitions too.
+
+Migration 050 records the six existing-project discovery mappings beside the backfill. It leaves sampleSize absent. Project creation persists the same discovery defaults without inventing hardware limits. Discovery publication applies the selected hold/rules, type-change, rename and exposed-name policies; absent discovery fields use their safe defaults. Migration 051 supplies scoped project rename with atomic audit. Settings writes and their actor/before/after audit entries commit together; grants remain append-only for audit entries. Nested project settings sections replace their active fields while preserving deferred/unknown stored fields; omitted sections stay unchanged. Blank root timing inputs save their stated defaults explicitly. No missing hardware limit is filled in by a settings save.
+
+Personal profile adds date format (YYYY-MM-DD default, DD/MM/YYYY or MM/DD/YYYY) and reduced motion (false default: respect OS; true disables transitions/animations). The timezone is a valid IANA name, default UTC; email is read-only. Timestamp components subscribe to the profile query; explicitly UTC daily dashboard totals stay UTC.
+
+Company idle timeout is 1–43,200 minutes, default 480, bounded by the existing 30-day absolute session lifetime. New sessions pin the shortest company idle timeout among the user's memberships; later edits do not alter existing session deadlines. Enforcing SSO causes existing magic-link sessions of company members to be rejected and revoked on their next authenticated read. Allowed domains are exact DNS domains, empty by default (no domain restriction), enforced when inviting. Company default industry/region preselect unset create-project choices. Company members and project viewers see settings read-only, with an explanation.
+
+The sampling wire requires both source consent and explicit project sampling permission. A false project gate returns 403 even with source consent; the application bounds a request by the configured sample size. Source registration/introspection remains metadata-only. Effective query execution settings are captured in the evidence source plan from the preparation snapshot, not re-read at completion.
+
+### Scope boundaries
+
+Project details also show name, company, industry and region. They are columns, not `project.settings`: name uses the existing rename contract; company and region are read-only; industry is read-only with the existing Migrate action. Policy version, catalogue generation and vocabulary revision are derived stamps, never editable settings.
+
+| Project detail | Type | Default | Bounds / allowed values | What it affects | Behaviour when unset |
+|---|---|---|---|---|---|
+| `name` | string | None — required at creation | 1–80 characters; unique within company, case-insensitively | Switcher, headings and exports | Refuse creation or rename without a name. |
+| `company_id` | company UUID | None — required at creation | Existing company the creator is authorised to use; read-only here | Ownership and inherited permissions | Refuse project creation. |
+| `industry_id` | industry UUID | Explicit selection; company default may preselect it | Existing industry; changes use Migrate, not an inline edit | Industry pack and inherited vocabulary | Refuse project creation without a selected industry. |
+| `region` | enum | Explicit selection; company default may preselect it | eu-west-1, us-east-1, ap-southeast-1, ap-southeast-3; immutable | Project data region | Refuse project creation without a selected region. |
+
+Pool modes, clarification policy and budgets remain pool-scoped; source sampling consent and landing strategy remain source-scoped; token domain, canonicalisation and temporal declarations remain catalogue-scoped. Show their ownership and link to their existing contextual surfaces instead of duplicating them as project settings. There is no invented project default for a landing strategy or timezone declaration. The source connection ceiling and source statement/operation timeouts are customer-side sidecar configuration (algorithm C.4), not writable project settings; query timeout does not override a tighter source deadline. Reference lifetime/retry controls in the reference console belong to the later reference feature, not Slice 1a.
+
+Company settings are included in 5.16, including default industry/region, allowed domains, idle timeout and enforced SSO. Enforced SSO requires exactly one enabled company_idp at write time, including provider changes. Personal profile settings remain in 5.16. Notifications, digests, alerts and admin two-step enforcement are deferred; their contracts are not supplied by this table.
 
 # 6. Error handling
 

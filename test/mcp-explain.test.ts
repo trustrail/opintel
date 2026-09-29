@@ -61,13 +61,29 @@ describe('5.9 explain through authenticated MCP and pinned sidecar validation',{
  });
  it('N-003: aggregates remain a dry run and expose no thresholds or cardinality verdict',async()=>{
   const f=await fixture(),connections=sourceConnections(f);
-  await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{query,aggregateMinGroupSize}',to_jsonb($2::int)) WHERE id=$1",[f.ctx.projectId,938173]));
+  await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{query,aggregateMinGroupSize}',to_jsonb($2::int)) WHERE id=$1",[f.ctx.projectId,937]));
   const response=await f.explain('SELECT field_4,SUM(field_3) FROM warehouse.public.records GROUP BY field_4');
   const output=ExplainOutput.parse(response.structuredContent);expect(output.permitted).toBe(true);if(!output.permitted)throw new Error(output.reason);
   expect(output.notes).toContain('Elements that can only be read in aggregate: field_3.');
   expect(output.notes).toContain('Group sizes must be checked during execution; this dry run does not establish that the groups are large enough.');
-  expect(JSON.stringify(response)).not.toMatch(/938173|aggregateMinGroupSize|treatmentEvidence/u);
+  expect(JSON.stringify(response)).not.toMatch(/937|aggregateMinGroupSize|treatmentEvidence/u);
   for(const connection of connections)expect(connection).not.toHaveBeenCalled();expect(f.boundary.executions).toBe(0);
+ });
+ it('N-003: missing execution limits are named in notes without refusing the dry run or contacting sources',async()=>{
+  const f=await fixture(),connections=sourceConnections(f);
+  await withPlatform(tx=>tx.query('UPDATE project SET settings=$2 WHERE id=$1',[f.ctx.projectId,{}]));
+  await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[f.pool,{}]));
+  const execute=vi.spyOn(f.execution,'execute');
+  const response=await f.explain('SELECT field_1 FROM warehouse.public.records');
+  const output=ExplainOutput.parse(response.structuredContent);
+  expect(output.permitted,JSON.stringify(output)).toBe(true);
+  if(!output.permitted)throw new Error(output.reason);
+  for(const name of ['timeoutSeconds','rowLimit','memoryLimitMb','concurrencyPerPool','threads'])expect(output.notes.some(note=>note.includes(name)&&note.includes('Execution would be refused'))).toBe(true);
+  for(const connection of connections)expect(connection).not.toHaveBeenCalled();
+  expect(execute).not.toHaveBeenCalled();expect(f.boundary.executions).toBe(0);
+  const refused=await f.query('SELECT field_1 FROM warehouse.public.records');
+  expect(refused.isError).toBe(true);
+  for(const connection of connections)expect(connection).not.toHaveBeenCalled();
  });
  it('N-003: handles CTE lineage, star expansion and source-free VALUES',async()=>{
   const f=await fixture(),connections=sourceConnections(f);

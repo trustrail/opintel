@@ -19,6 +19,8 @@ export class PostgresInvitationRepository implements InvitationRepository {
       if (input.projectId !== project) return err(new DomainError('validation_failed', 'The invitation project must match the requested project.'));
       const target = await tx.query<{ company_id: string }>('SELECT company_id FROM project WHERE id = $1 FOR UPDATE', [project]);
       if (target[0]?.company_id !== input.companyId) return err(new DomainError('validation_failed', 'The project does not belong to the selected company.'));
+      const [company]=await tx.query<{allowed_domains:string[]}>('SELECT allowed_domains FROM company WHERE id=$1 FOR SHARE',[input.companyId]);
+      if(company?.allowed_domains.length&&!company.allowed_domains.includes(input.email.split('@').at(-1)!.toLowerCase()))return err(new DomainError('forbidden','This email domain is not allowed by the company. Ask a company administrator to review allowed domains.'));
       const existing = await tx.query<{ id: string }>(`SELECT u.id FROM user_account u WHERE u.email = $1 AND (
         EXISTS (SELECT 1 FROM project_member m WHERE m.project_id = $2 AND m.user_id = u.id)
         OR EXISTS (SELECT 1 FROM company_member m WHERE m.company_id = $3 AND m.user_id = u.id AND m.role = 'admin'))`, [input.email, project, input.companyId]);

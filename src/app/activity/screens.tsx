@@ -1,3 +1,4 @@
+import {Timestamp as DisplayTimestamp} from '../settings/preferences.js';
 import {useMemo,useRef,type RefObject} from 'react';
 import {useStore} from 'zustand';
 import {useNavigate} from '@tanstack/react-router';
@@ -6,7 +7,7 @@ import {ActivityStatus,type ActivityEntry,type ActivityFilters} from '../../shar
 import {usePools} from '../entitlements/data.js';
 import {useActivity,useEvidence} from './data.js';
 import {createActivityState,activityRowHeight as height,activityWindowSize as windowSize} from './state.js';
-const stamp=(s:string)=>s.replace('T',' ').replace('Z',' UTC');
+const stamp=(value:string|null)=>value===null?'Never':<DisplayTimestamp value={value}/>;
 function Outcome({status}:{status:ActivityEntry['status']}){return <span className={status==='answered'?'tr clear':status==='failed'?'tr held':'tr ref'}><i aria-hidden="true"/>{status}</span>;}
 export function ActivityScreen({projectId,filters,onFilters}:{projectId:string;filters:ActivityFilters;onFilters:(filters:ActivityFilters)=>void}){
  const query=useActivity(projectId,filters),pools=usePools(projectId);const store=useMemo(createActivityState,[projectId]);const state=store.getState();const viewport=useRef<HTMLDivElement>(null);

@@ -1,3 +1,6 @@
+import {sessionIdlePolicy} from '../../modules/identity/infrastructure/session-policy.js';
+import {settingsRoutes} from '../../modules/tenancy/api/settings-routes.js';
+import {PostgresSettings} from '../../modules/tenancy/index.js';
 import {PostgresDashboardReader} from '../../modules/tenancy/index.js';
 import {dashboardRoutes} from '../../modules/tenancy/api/dashboard-routes.js';
 import {PostgresPoolReader} from '../../modules/pools/index.js';
@@ -156,7 +159,7 @@ async function start(): Promise<void> {
   await redis.connect();
 
   const hub = new RedisProjectHub(redis.client, requiredEnvironment('REDIS_URL'));
-  const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory());
+  const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory(),sessionIdlePolicy);
 
   const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
   const delivery = new OutboxMagicLinkDispatcher(new MailOutbox(), mail);
@@ -200,6 +203,7 @@ async function start(): Promise<void> {
   const presenceTimer=setInterval(sweepPresence,5000);presenceTimer.unref();
   const evidenceQuery=new EvidenceQuery(new PostgresEvidenceReader(),authorization,new DuckDBEvidenceText());
   const routes = [
+    ...settingsRoutes(new PostgresSettings()),
     ...evidenceExportRoutes(new EvidenceExportService(new PostgresEvidenceExports(),evidenceQuery,authorization)),
     ...evidenceRoutes(evidenceQuery),
     ...dashboardRoutes(new PostgresDashboardReader()),

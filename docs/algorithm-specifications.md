@@ -791,6 +791,23 @@ refuses before preparation; it is distinct from a parser failure.
 
 ## C.4 Resource governance
 
+**Validation has a fixed sidecar budget: 128 MB, one thread, and a two-second
+wall-clock deadline.** These are parser implementation limits, not customer query
+limits. They are not configurable, not project settings, and cannot be overridden
+by a validation request. Parsing contacts no source and executes no agent query;
+a dry run still running after two seconds is interrupted and refused rather than
+waiting for a source or an execution budget that it never uses.
+
+The validation path is structurally separate from execution. Its session exposes
+parse, catalogue inspection and binding, but no execute method, executable prepared
+handle, source connector or staging-data operation. Trusted empty-schema setup and
+metadata inspection remain internal to the adapter. PREPARE still proves binding
+as required by C.3.1; the adapter destroys that handle and returns only the binding
+verdict. It never runs the prepared statement, a group-count query or an estimate.
+J-003 verifies zero source connections, no execution events, the capability boundary
+and the fixed deadline. Execution retains the customer-supplied limits below;
+missing execution limits are explain notes, not dry-run refusals.
+
 | Limit | Enforcement |
 |---|---|
 | Memory | `memory_limit`. Exceeding fails; it does not spill |

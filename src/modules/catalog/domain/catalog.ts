@@ -88,7 +88,7 @@ export class CatalogObject {
 
   // Pure aggregate reconciliation. Contacting a source, normalising names,
   // persistence and publishing these changes belong to later application items.
-  reconcile(discovered: readonly ElementDiscovery[], assign: AssignElementIdentity, now: Timestamp): Result<readonly CatalogChange[], DomainError> {
+  reconcile(discovered: readonly ElementDiscovery[], assign: AssignElementIdentity, now: Timestamp, renameHandling:'carry'|'new'='carry'): Result<readonly CatalogChange[], DomainError> {
     const identifiers = new Set<string>();
     const refs = new Set<string>();
     const matched = new Set<ElementId>();
@@ -104,9 +104,10 @@ export class CatalogObject {
       }
       identifiers.add(discovery.sourceIdentifier);
       if (discovery.stableRef !== null) refs.add(discovery.stableRef);
-      const existing = this.current.find(({ state }) => discovery.stableRef === null
+      let existing = this.current.find(({ state }) => discovery.stableRef === null
         ? state.stableRef === null && state.sourceIdentifier === discovery.sourceIdentifier
         : state.stableRef === discovery.stableRef);
+      if(renameHandling==='new'&&existing&&existing.state.sourceIdentifier!==discovery.sourceIdentifier)existing=undefined;
       if (existing !== undefined) {
         matched.add(existing.state.id);
         if (existing.state.sourceIdentifier !== discovery.sourceIdentifier) change('CatalogElementRenamed', existing.state.id);
@@ -132,7 +133,7 @@ export class CatalogObject {
     for (const element of this.current) {
       if (matched.has(element.state.id)) continue;
       if (element.state.status === 'active') change('CatalogElementRemoved', element.state.id);
-      next.push(element.state.status === 'removed' ? element : new CatalogElement({ ...element.state, status: 'removed', removedAt: now }));
+      next.push(element.state.status === 'removed' ? element : new CatalogElement({ ...element.state, ...(renameHandling==='new'&&discovered.some(d=>d.stableRef!==null&&d.stableRef===element.state.stableRef&&d.sourceIdentifier!==element.state.sourceIdentifier)?{stableRef:null}:{}), status: 'removed', removedAt: now }));
     }
     const valid = validateElements(next);
     if (!valid.ok) return valid;

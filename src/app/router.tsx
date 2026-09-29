@@ -1,3 +1,4 @@
+import {ProjectSettingsScreen,PersonalSettingsScreen,CompanySettingsScreen} from './settings/screens.js';
 import {PoolsScreen,PoolDetailScreen,AgentTwinScreen} from './pools/screens.js';
 import {ActivityScreen,RecordScreen} from './activity/screens.js';
 import {ActivityFilters,DetailQuery} from '../shared/api/activity.js';
@@ -44,6 +45,7 @@ const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, pat
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined)}).parse(search), component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
   const search=projectScreenRoute.useSearch(),navigate=projectScreenRoute.useNavigate();
+  if(screen==='settings'||screen.startsWith('settings-'))return <ProjectSettingsScreen key={projectId+screen} projectId={projectId} section={screen}/>;
   if(screen==='pools')return <RouteErrorBoundary><PoolsScreen key={projectId} projectId={projectId}/></RouteErrorBoundary>;
   if(screen==='entitlements')return <RouteErrorBoundary><EntitlementsScreen projectId={projectId} search={search} onSearch={next=>{void navigate({search:next});}}/></RouteErrorBoundary>;
   if (screen === 'token-key') return <RouteErrorBoundary><TokenKeyScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
@@ -59,6 +61,8 @@ const activityRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$p
 const recordRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/runs/$runId',validateSearch:s=>DetailQuery.pick({startedAt:true}).parse(s),component:()=>{const params=recordRoute.useParams(),search=recordRoute.useSearch();return <RouteErrorBoundary><RecordScreen key={params.runId+search.startedAt} {...params} {...search}/></RouteErrorBoundary>;}});
 const poolDetailRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/pools/$poolId',component:()=>{const params=poolDetailRoute.useParams();return <RouteErrorBoundary><PoolDetailScreen key={params.projectId+params.poolId} {...params}/></RouteErrorBoundary>;}});
 const agentTwinRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/pools/$poolId/agents/$agentId',component:()=>{const params=agentTwinRoute.useParams();return <RouteErrorBoundary><AgentTwinScreen key={params.projectId+params.poolId+params.agentId} {...params}/></RouteErrorBoundary>;}});
+const personalSettingsRoute=createRoute({getParentRoute:()=>rootRoute,path:'/settings',component:PersonalSettingsScreen});
+const companySettingsRoute=createRoute({getParentRoute:()=>rootRoute,path:'/companies/$companyId/settings',component:()=>{const {companyId}=companySettingsRoute.useParams();return <CompanySettingsScreen companyId={companyId}/>;}});
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: () => <AuthRoute><SignInScreen /></AuthRoute> });
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
@@ -75,8 +79,8 @@ function routeFor(item: NavItem) {
   });
 }
 
-const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects').map(routeFor));
-const routeTree = rootRoute.addChildren([poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects'&&item.path!=='/settings').map(routeFor));
+const routeTree = rootRoute.addChildren([personalSettingsRoute,companySettingsRoute,poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
 
 export const router = createRouter({ routeTree });
 

@@ -3,7 +3,7 @@ import {X509Certificate} from 'node:crypto';
 import {checkServerIdentity} from 'node:tls';
 import {z} from 'zod';
 import {DomainError,err,ok,type Result} from '../../../shared/kernel/index.js';
-import {executionRequest,executionResponse,validationResponse,type ExecutionRequest} from '../../../shared/execution-contract.js';
+import {executionRequest,validationRequest,executionResponse,validationResponse,type ExecutionRequest,type ValidationRequest} from '../../../shared/execution-contract.js';
 import {healthResponse} from '../../../shared/sidecar-contract.js';
 import {serviceErrorEnvelope} from '../../../shared/error-contract.js';
 import type {SidecarOptions} from '../../sources/index.js';
@@ -14,7 +14,7 @@ export class SidecarQueryExecution implements QueryExecutionPort,QueryValidation
  constructor(private readonly options:SidecarOptions){this.base=new URL(options.baseUrl);if(this.base.protocol!=='https:'||this.base.username||this.base.password||this.base.search||this.base.hash)throw new Error('Query execution requires an HTTPS sidecar URL.');this.pin=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;}
  async health(signal?:AbortSignal){const result=await this.call('/health',undefined,healthResponse,this.options.timeoutMs??9000,signal);if(!result.ok)return result;return result.value.contract===2?ok({queryEngineVersion:result.value.queryEngineVersion}):err(new DomainError('dependency_unavailable','The sidecar contract is incompatible with query execution.',{cause:'sidecar_contract_mismatch',reason:'health_contract'}));}
  execute(input:ExecutionRequest,signal?:AbortSignal){const parsed=executionRequest.safeParse(input);return parsed.success?this.call('/execute',parsed.data,executionResponse,Math.min(2147483647,parsed.data.limits.timeoutMs+2000),signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
- validate(input:ExecutionRequest,signal?:AbortSignal){const parsed=executionRequest.safeParse(input);return parsed.success?this.call('/validate',parsed.data,validationResponse,Math.min(2147483647,parsed.data.limits.timeoutMs+2000),signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
+ validate(input:ValidationRequest,signal?:AbortSignal){const parsed=validationRequest.safeParse(input);return parsed.success?this.call('/validate',parsed.data,validationResponse,this.options.timeoutMs??9000,signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
  private async call<T>(path:string,body:unknown,schema:z.ZodType<T>,timeoutMs:number,parent?:AbortSignal):Promise<Result<T>>{
   const timeout=AbortSignal.timeout(timeoutMs),signal=parent?AbortSignal.any([timeout,parent]):timeout;
   let responseStarted=false;let responseReason:string|undefined;

@@ -23,6 +23,7 @@ const sessions = redisKeyPrefix('session');
 const sessionsForUser = redisKeyPrefix('session-user');
 
 const storedSessionSchema = z.object({
+  idleTimeoutMs:z.number().int().positive().optional(),
   userId: z.string().uuid(),
   method: z.union([z.literal('magic_link'), z.string().regex(/^oidc:.+$/u)]),
   createdAt: z.string().datetime({ offset: true }),
@@ -43,13 +44,14 @@ function timestampMilliseconds(timestamp: string): number {
 
 function isExpired(record: SessionRecord, now: string): boolean {
   const nowMilliseconds = timestampMilliseconds(now);
-  return nowMilliseconds - timestampMilliseconds(record.lastSeenAt) >= sessionIdleTimeoutMs
+  return nowMilliseconds - timestampMilliseconds(record.lastSeenAt) >= (record.idleTimeoutMs??sessionIdleTimeoutMs)
     || nowMilliseconds - timestampMilliseconds(record.createdAt) >= sessionAbsoluteTimeoutMs;
 }
 
 function sessionRecord(stored: StoredSession): SessionRecord {
   return {
     userId: UserId(stored.userId),
+    idleTimeoutMs:stored.idleTimeoutMs,
     method: stored.method as AuthMethod,
     createdAt: Timestamp(new Date(stored.createdAt)),
     lastSeenAt: Timestamp(new Date(stored.lastSeenAt)),
@@ -63,6 +65,7 @@ export class RedisSessionStore implements SessionPort {
     private readonly client: RedisClient,
     private readonly clock: Clock,
     private readonly idFactory: IdFactory,
+    private readonly idlePolicy:(user:UserId)=>Promise<number>=async()=>sessionIdleTimeoutMs,
   ) {}
 
   async create(
@@ -75,6 +78,7 @@ export class RedisSessionStore implements SessionPort {
     const id = SessionId(this.idFactory.create<string>());
     await this.write(id, {
       userId: user,
+      idleTimeoutMs:await this.idlePolicy(user),
       method,
       createdAt: now,
       lastSeenAt: now,
@@ -184,7 +188,7 @@ export class RedisSessionStore implements SessionPort {
   private async write(id: SessionIdType, record: SessionRecord): Promise<void> {
     const remainingAbsolute = sessionAbsoluteTimeoutMs
       - (timestampMilliseconds(this.clock.now()) - timestampMilliseconds(record.createdAt));
-    const ttl = Math.min(sessionIdleTimeoutMs, remainingAbsolute);
+    const ttl = Math.min(record.idleTimeoutMs??sessionIdleTimeoutMs, remainingAbsolute);
     if (ttl <= 0) {
       await this.remove(id, record.userId);
       return;

@@ -1,7 +1,8 @@
+import {numericProjectSetting} from '../project-settings.js';
 import { z } from 'zod';
 import { createApiClient } from './client.js';
 export const AgentIdHeader = z.string().min(1).refine(value=>value.trim().length>0,'X-Opintel-Agent-Id is required.');
-export const PresenceSettings = z.object({agentHeartbeatSeconds:z.number().int().min(5).max(60).default(20),agentDisconnectGraceSeconds:z.number().int().min(60).max(3600).default(300)});
+export const PresenceSettings = z.object({agentHeartbeatSeconds:numericProjectSetting('agentHeartbeatSeconds'),agentDisconnectGraceSeconds:numericProjectSetting('agentDisconnectGraceSeconds')});
 export const AgentPresenceState = z.enum(['connecting','active','idle','stale','disconnected']);
 export const PresenceSignal = z.strictObject({agentId:AgentIdHeader,client:z.string().nullable().default(null),kind:z.enum(['connect','request','heartbeat'])});
 export const AgentPresenceView = z.strictObject({poolId:z.uuid(),agentId:z.string(),client:z.string().nullable(),verified:z.literal(false),keyVersion:z.uuid(),firstSeen:z.iso.datetime(),lastSeen:z.iso.datetime(),lastRequestAt:z.iso.datetime().nullable(),lastHeartbeatAt:z.iso.datetime(),staleAt:z.iso.datetime().nullable(),reconnects:z.number().int().nonnegative(),state:AgentPresenceState});

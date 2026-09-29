@@ -82,6 +82,18 @@ integration('invitations', () => {
     return links.confirm({ token, deviceNonce: 'recipient-device', confirm: true, ip: '192.0.2.1', userAgent: 'test' });
   }
 
+  it('Q-032: allowed domains reject outside invitations before persisting or delivering them', async () => {
+    await withPlatform(tx => tx.query('UPDATE company SET allowed_domains=$2 WHERE id=$1', [company, ['example.com']]));
+    for (const email of ['reader@outside.test', 'reader@sub.example.com']) {
+      const result = await service.create({ email, companyId: company, projectId: project, role: 'viewer' }, project, creator);
+      expect(result).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+    }
+    expect(delivered.size).toBe(0);
+    expect(await withPlatform(tx => tx.query('SELECT id FROM pending_invite'))).toEqual([]);
+    await invite('reader@example.com');
+    expect(delivered.size).toBe(1);
+  });
+
   it('E-010: sending grants nothing; creation and cursor listing return the declared payload', async () => {
     const response = await fetch(`${base}/projects/${project}/invitations`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'one@example.com', companyId: company, projectId: project, role: 'viewer' }) });
     expect(response.status).toBe(201);

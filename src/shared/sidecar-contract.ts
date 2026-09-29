@@ -1,4 +1,5 @@
-import { executionRequest,executionResponse,validationResponse } from './execution-contract.js';
+import {numericProjectSetting} from './project-settings.js';
+import { executionRequest,validationRequest,executionResponse,validationResponse } from './execution-contract.js';
 import { custodyEnvelope,custodyOperations } from './custody-contract.js';
 import { provisionDemoPayload, provisionDemoResponse } from './demo-contract.js';
 import { z } from 'zod';
@@ -27,8 +28,9 @@ export const sampleResponse = z.strictObject({ values: z.record(z.uuid(), z.arra
 export const estimateResponse = z.strictObject({ rows: count.nullable() });
 export const samplePayload = z.strictObject({
   consentGiven: z.literal(true),
+  projectSamplingAllowed:z.literal(true),
   elements: z.array(z.strictObject({ elementId: z.uuid(), schema: z.string().min(1), object: z.string().min(1), column: z.string().min(1) })),
-  limit: z.number().int().positive().safe(),
+  limit: numericProjectSetting('discovery.sampleSize'),
 });
 export const introspectPayload = z.strictObject({ include: z.array(z.string()) });
 export const estimatePayload = z.strictObject({ object: z.strictObject({ schema: z.string(), name: z.string() }) });
@@ -41,8 +43,8 @@ export const envelope = z.strictObject({
 export function sidecarOpenApiDocument() {
   const operations = [
     ...Object.entries(custodyOperations).map(([path,operation])=>['/custody/'+path,custodyEnvelope.extend({payload:operation.request}),operation.response] as const),
-    ['/execute',executionRequest,executionResponse],
-    ['/validate',executionRequest,validationResponse],
+    ['/execute',executionRequest,validationRequest,executionResponse],
+    ['/validate',validationRequest,validationResponse],
     ['/health', null, healthResponse],
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],

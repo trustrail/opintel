@@ -1,3 +1,4 @@
+import {StagedValidator} from './validate.js';
 import { DomainError,PoolId,ProjectId,ElementId,err,ok,type Result } from '../../../src/shared/kernel/index.js';
 import { executionRequest,type ExecutionRequest, type StagingObject } from '../../../src/shared/execution-contract.js';
 import { DuckDBSessionEngine,type EngineSession,type SessionEngine,type InspectionEvent } from '../../session/index.js';
@@ -10,16 +11,15 @@ const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
 const cancelled=()=>err(new DomainError('budget_exceeded','The execution exceeded timeoutMs or was cancelled. No partial result was returned.',{cause:'interruption_unclassified',resource:'time'},true));
 export class StagedExecutor {
  constructor(private readonly source:StagingSource,private readonly engine:(r:ExecutionRequest)=>SessionEngine=r=>new DuckDBSessionEngine(undefined,undefined,undefined,r.limits),private readonly queue=new ExecutionQueue(),private readonly clock:DeadlineClock=deadlineClock,private readonly audit:ExecutionAudit=executionAudit){}
- execute(input:unknown,signal?:AbortSignal){return this.logged(input,false,signal);}
- validate(input:unknown,signal?:AbortSignal){return this.logged(input,true,signal);}
- private async logged(input:unknown,validateOnly:boolean,signal?:AbortSignal){
+ execute(input:unknown,signal?:AbortSignal){return this.logged(input,signal);}
+ validate(input:unknown,signal?:AbortSignal){return new StagedValidator().validate(input,signal);}
+ private async logged(input:unknown,signal?:AbortSignal){
   const usage:{tokenKeyVersionUsed:number|null;sourceIdsReached:string[]}={tokenKeyVersionUsed:null,sourceIdsReached:[]};
-  const result=await this.run(input,validateOnly,signal,usage),r=executionRequest.safeParse(input);
-  if(r.success)this.audit.record({event:result.ok?'execution.completed':'execution.refused',requestId:r.data.requestId,projectId:r.data.projectId,poolId:r.data.poolId,operation:validateOnly?'validate':'execute',...(!result.ok?{reason:result.error.code}:{})});
-  if(validateOnly)return result;
+  const result=await this.run(input,signal,usage),r=executionRequest.safeParse(input);
+  if(r.success)this.audit.record({event:result.ok?'execution.completed':'execution.refused',requestId:r.data.requestId,projectId:r.data.projectId,poolId:r.data.poolId,operation:'execute',...(!result.ok?{reason:result.error.code}:{})});
   return result.ok?ok({...result.value as object,...usage}):err(new DomainError(result.error.code,result.error.message,{...result.error.details,...usage},result.error.retryable));
  }
- private async run(input:unknown,validateOnly:boolean,parent:AbortSignal|undefined,usage:{tokenKeyVersionUsed:number|null;sourceIdsReached:string[]}):Promise<Result<unknown>>{
+ private async run(input:unknown,parent:AbortSignal|undefined,usage:{tokenKeyVersionUsed:number|null;sourceIdsReached:string[]}):Promise<Result<unknown>>{
   const decoded=executionRequest.safeParse(input);if(!decoded.success)return err(new DomainError('validation_failed','The execution request does not match the staged query contract.',{cause:'invalid_execution_contract'}));
   const r=decoded.data;
   const addresses=r.objects.map(o=>JSON.stringify([o.catalog,o.schema,o.name]));
@@ -42,7 +42,7 @@ export class StagedExecutor {
    let tree:unknown;
    const preflightEngine=this.wrap(r,active,signal,true);
    const preflight=await new InspectedSessionExecutor(preflightEngine,(e:InspectionEvent)=>{if(e.stage==='inspected'&&tree===undefined)tree=e.tree;}).validate(r.sql,limits,ns,policy);
-   if(signal.aborted)return cancelled();if(!preflight.ok||validateOnly)return preflight;
+   if(signal.aborted)return cancelled();if(!preflight.ok)return preflight;
    const referenced=referencedObjects(tree,r.objects,r);
    const scans=referenced.map(object=>({object,request:r,predicate:pushdown(tree,object,r)}));
    // Admit every source scan before fetching any rows.

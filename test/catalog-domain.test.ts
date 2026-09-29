@@ -91,3 +91,11 @@ describe('catalogue aggregate identity', () => {
     expect(Object.isFrozen(catalog.elements[0]?.state)).toBe(true);
   });
 });
+
+it('Q-015: treat-as-new does not carry the identity of a detected stable-reference rename',()=>{
+ const catalog=object(),old=identity('old_name'),fresh=identity('new_name');
+ catalog.reconcile([column('Old Name')],()=>ok(old),now);
+ expect(catalog.reconcile([column('New Name')],()=>ok(fresh),later,'new').ok).toBe(true);
+ expect(catalog.elements.find(e=>e.state.id===old.id)?.state).toMatchObject({status:'removed',stableRef:null});
+ expect(catalog.elements.find(e=>e.state.id===fresh.id)?.state).toMatchObject({status:'active',stableRef:'1'});
+});

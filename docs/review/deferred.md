@@ -54,9 +54,10 @@ EOF
 
 # From item 1.10
 
-- sso_enforced requires exactly one enabled company_idp. There is no company
-  settings route in Slice 1, so nothing enforces this at write time. Item
-  5.16 owns it. Until then /auth/providers handles the ambiguity defensively.
+- Resolved in 5.16: sso_enforced requires exactly one enabled company_idp.
+  The company settings write and provider mutations are guarded by migration
+  050 database triggers, serialized on the company row. /auth/providers retains
+  its defensive ambiguity handling.
 
 # From item 1.13a
 
@@ -392,3 +393,14 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   evidence writes fail closed roughly two months after deployment. Item 5.17
   owns retention; it should own forward provisioning too, or an operational
   runbook must.
+
+# Jurisdiction in industry packs
+
+- The same concept carries different names and different statutory content
+  by jurisdiction: Ontario condominium corporation, BC strata corporation,
+  US homeowners association. That is vocabulary, not project.region, which
+  is a data residency fact.
+- Two open questions for the vocabulary items: whether jurisdiction is a
+  dimension within one pack or separate packs, and whether it attaches to
+  the project or to the filing party. A platform holding several provinces
+  at once suggests the latter, which is a different shape from industry.

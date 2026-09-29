@@ -3,8 +3,9 @@ import type { RunId, SourceId } from '../../../shared/kernel/index.js';
 import type { IntrospectionContext } from '../application/introspection-store.js';
 import type { IntrospectionCompletedHandler } from '../application/introspection-completed.js';
 
-export async function recordIntrospectionCompleted(tx: Tx, ctx: IntrospectionContext, runId: RunId, sourceId: SourceId): Promise<void> {
+export async function recordIntrospectionCompleted(tx: Tx, ctx: IntrospectionContext, runId: RunId, sourceId: SourceId,applyRules=true): Promise<void> {
   await tx.query(`INSERT INTO introspection_completed(run_id,project_id,source_id,user_id) VALUES($1,$2,$3,$4)`, [runId,ctx.projectId,sourceId,ctx.userId]);
+  if(!applyRules)return;
   await tx.query(`INSERT INTO pattern_rule_application(run_id,project_id,pool_id,element_id)
     SELECT $1,$2,b.pool_id,e.id FROM introspection_run r CROSS JOIN LATERAL jsonb_array_elements(r.diff) d
     JOIN catalog_element e ON e.id=(d->>'elementId')::uuid

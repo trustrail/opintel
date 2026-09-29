@@ -1,5 +1,6 @@
+import {effectiveSetting} from '../../../shared/project-settings.js';
 import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
-import { withTenant, type Tx } from '../../../platform/db/scope.js';
+import { withTenant, withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { type CatalogObject, CatalogNaming, AsciiTransliterator, reconcileSnapshot, hydrateCatalogObject, type CatalogObjectRow, type CatalogElementRow } from '../../catalog/index.js';
 import { DomainError, err, ok, type ErrorCode, type IdFactory, type RunId, type SourceId, type ElementId, type Result } from '../../../shared/kernel/index.js';
 import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore, RecordedIntrospectionDiff } from '../application/introspection-store.js';
@@ -96,6 +97,9 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
     }));
   }
   async publish(ctx: IntrospectionContext,id: RunId,snapshot: CatalogSnapshot): Promise<Result<IntrospectionRun>> {
+    const [project]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));
+    const choices=['newElements','typeFamilyChange','renameHandling','adoptRenamedNames'].map(k=>effectiveSetting(project?.settings,'discovery.'+k));
+    if(choices.some(v=>v===undefined))return err(new DomainError('validation_failed','Configure project discovery settings before introspection.'));
     const parsed = snapshotResponse.safeParse({snapshot});
     if (!parsed.success) return err(new DomainError('validation_failed','Invalid catalogue snapshot.'));
     try { return await this.changed(ctx, withTenant(ctx,async (tx): Promise<Result<IntrospectionRun>> => {
@@ -122,7 +126,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       if (current.value.include.length > 0 && parsed.data.snapshot.objects.some((object) => !current.value.include.includes(object.schema))) {
         return err(new DomainError('validation_failed','Snapshot contains a schema outside the requested selection.'));
       }
-      const staged = reconcileSnapshot(previous,parsed.data.snapshot,source,this.naming,this.ids,current.value.adoptRenamedNames);
+      const staged = reconcileSnapshot(previous,parsed.data.snapshot,source,this.naming,this.ids,current.value.adoptRenamedNames||choices[3]===true,choices[2] as 'carry'|'new',choices[1] as 'revert'|'carry');
       if (!staged.ok) throw new PublicationRefused(staged.error);
       // The durable invalidation instruction precedes metadata publication.
       // Capture every old decision while the source and elements are locked.
@@ -167,7 +171,7 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
       }
       await tx.query("UPDATE introspection_run SET state='complete',ended_at=now(),progress=progress || jsonb_build_object('phase','complete','objects',$2::int) WHERE id=$1",[id,staged.value.objects.length]);
       await tx.query("UPDATE data_source SET status='connected',last_introspected_at=now() WHERE id=$1",[source.id]);
-      await recordIntrospectionCompleted(tx,ctx,id,source.id);
+      await recordIntrospectionCompleted(tx,ctx,id,source.id,choices[0]==='rules_only');
       return this.readTx(tx,id);
     })); } catch(error: unknown) {
       if (error instanceof PublicationRefused) return err(error.error);

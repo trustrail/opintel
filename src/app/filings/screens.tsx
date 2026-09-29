@@ -1,3 +1,4 @@
+import {Timestamp} from '../settings/preferences.js';
 import { CustodyObservations } from '../custody/observations.js';
 import type { ReactNode } from 'react';
 import { ErrorState, EmptyState, LoadingState } from '../../shared/ui/index.js';
@@ -12,7 +13,7 @@ export const quarantineLabels: Record<string, string> = {
   verification_mismatch: 'The content does not match the attributed filing party.', column_type_changed: 'A column type differs from earlier filings.',
   rule_invalid: 'The filing rule is invalid.', attribution_missing: 'The filing could not be attributed to a party.', header_invalid: 'The declared header is invalid.',
 };
-function Received({ value }: { value: string }) { return <time dateTime={value}>{value.slice(0, 16).replace('T', ' ')} UTC</time>; }
+function Received({ value }: { value: string }) { return <Timestamp value={value}/>; }
 
 export function SourceFilings({ projectId, sourceId, strategy }: { projectId: string; sourceId: string; strategy: keyof typeof landingLabels | null }): ReactNode {
   const query = useFilings(projectId);

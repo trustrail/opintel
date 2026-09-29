@@ -86,7 +86,7 @@ export class IntrospectionJob {
       if (!diffing.ok) return diffing;
       cancellable=false;
       const result = await this.store.publish(ctx,id,snapshot.value);
-      if (!result.ok) return await this.store.fail(ctx,id,'Catalogue publication failed.',false);
+      if (!result.ok) return await this.store.fail(ctx,id,result.error.message,false,result.error.code);
       return result;
     } catch {
       if (controller.signal.aborted && cancellable) return await this.store.cancel(ctx,id);

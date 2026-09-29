@@ -1,9 +1,10 @@
+import {Timestamp as DisplayTimestamp} from '../settings/preferences.js';
 import { useEffect, useRef, type FormEvent } from 'react';
 import { Button, Card, CardHeader, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
 import { useCompanies, useProjects } from '../tenancy/data.js';
 import { useCustodyAction, useTokenKey } from './data.js';
 import { useCustodyUi } from './state.js';
-const time = (value:string|null) => value === null ? 'Never' : new Date(value).toISOString().slice(0,16).replace('T',' ')+' UTC';
+const time=(value:string|null)=>value===null?'Never':<DisplayTimestamp value={value}/>;
 export function TokenKeyScreen({projectId}:{projectId:string}) {
   const query=useTokenKey(projectId),projects=useProjects(),companies=useCompanies();
   const mutation=useCustodyAction(projectId),ui=useCustodyUi();

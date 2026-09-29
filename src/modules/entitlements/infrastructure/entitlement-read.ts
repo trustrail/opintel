@@ -1,3 +1,4 @@
+import {projectSettingSchema} from '../../../shared/project-settings.js';
 import {PostgresPoolReader} from '../../pools/index.js';
 import { z } from 'zod';
 import { withTenant,withPlatform } from '../../../platform/db/scope.js';
@@ -41,7 +42,7 @@ export class PostgresEntitlementReader implements EntitlementReader {
  }
  async compilation(ctx:EntitlementContext,pool:PoolId){
   const [project]=await withPlatform(tx=>tx.query<{version:number;settings:unknown;stamp:{policy:number;catalog:number;vocabulary:number;tokenKeyVersionSelected:number|null}}>("SELECT p.policy_version AS version,p.settings,jsonb_build_object('policy',p.policy_version,'catalog',p.catalog_generation,'vocabulary',i.vocabulary_version+p.vocabulary_revision,'tokenKeyVersionSelected',p.token_key_version) AS stamp FROM project p JOIN industry i ON i.id=p.industry_id WHERE p.id=$1",[ctx.projectId]));if(!project)return missing();
-  const settings=z.object({query:z.object({aggregateMinGroupSize:z.number().int().positive().default(5)}).default({aggregateMinGroupSize:5})}).safeParse(project.settings);
+  const settings=z.object({query:z.object({aggregateMinGroupSize:projectSettingSchema('query.aggregateMinGroupSize')}).default({aggregateMinGroupSize:5})}).safeParse(project.settings);
   if(!settings.success)return err(new DomainError('validation_failed','The project aggregate threshold is invalid.'));
   const result=await withTenant(ctx,async tx=>{
    if(!(await tx.query('SELECT id FROM pool WHERE id=$1',[pool])).length)return missing();
@@ -58,7 +59,7 @@ export class PostgresEntitlementReader implements EntitlementReader {
    if(!snapshot)throw new Error('Missing catalogue snapshot.');
    const objects=[];for(const row of snapshot.objects){const object=hydrateCatalogObject(row,snapshot.elements.filter(e=>e.objectId===row.id).map(e=>({...e,discoveredAt:new Date(e.discoveredAt),removedAt:e.removedAt===null?null:new Date(e.removedAt)})));if(!object.ok)return object;objects.push(object.value);}
    const decisions=new Map<ElementId,Entitlement>();for(const row of snapshot.decisions){const decision=Entitlement.decide({...row,setAt:Timestamp(new Date(row.setAt))});if(!decision.ok)return decision;decisions.set(row.elementId,decision.value);}
-   const compiled=compileViews({poolId:pool,boundSources:snapshot.sources.map(s=>({...s,alias:ExposedName(s.alias)})),objects,elements:objects.flatMap(o=>o.elements),entitlements:decisions,aggregateMinGroupSize:settings.data.query.aggregateMinGroupSize,policyVersion:project.version});
+   const compiled=compileViews({poolId:pool,boundSources:snapshot.sources.map(s=>({...s,alias:ExposedName(s.alias)})),objects,elements:objects.flatMap(o=>o.elements),entitlements:decisions,aggregateMinGroupSize:Number(settings.data.query.aggregateMinGroupSize),policyVersion:project.version});
    return compiled.ok?ok({compilation:compiled.value,policyVersion:project.version,projectSettings:project.settings,sources:snapshot.sources,evidence:{versions:{...project.stamp,tokenKeyVersionSelected:null},currentTokenKeyVersion:project.stamp.tokenKeyVersionSelected,withheldReasons:Object.fromEntries(snapshot.decisions.map(d=>[d.elementId,d.justification])),sources:snapshot.sources.map(s=>({id:s.id,origin:s.origin,freshnessMode:s.freshnessMode,landingStrategy:s.landingStrategy,lastIntrospectedAt:s.lastIntrospectedAt}))}}):compiled;
   });
   if(!result.ok)return result;

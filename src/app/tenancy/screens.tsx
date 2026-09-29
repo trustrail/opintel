@@ -1,6 +1,7 @@
 import {DashboardScreen} from '../dashboard/screen.js';
 import { Link, useSearch, useNavigate, useRouterState } from '@tanstack/react-router';
-import { type FormEvent, type ReactNode } from 'react';
+import {useCompanySettings} from '../settings/data.js';
+import {useEffect, type FormEvent, type ReactNode } from 'react';
 import { Button, Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
 import { CreateCompanyBody, CreateProjectBody, RegionSchema } from '../../shared/api/tenancy-schemas.js';
 import { useCompanies, useCreateCompany, useCreateProject, useIndustries, useProjects, type IndustryItem } from './data.js';
@@ -24,7 +25,7 @@ export function ProjectChooser(): ReactNode {
     {error !== null ? <ErrorState title="Projects could not be loaded" description={error.message} retry={() => { void projects.refetch(); void companies.refetch(); }} />
       : projects.isPending || companies.isPending ? <LoadingState /> : <>
         <div className="pgrow" style={{ marginBottom: 14 }}><Link className="btn go" to={admin ? '/projects/new' : '/companies/new'}>{admin ? 'Create project' : 'Create company'}</Link>{admin ? <Link className="btn ghost" to="/companies/new">Create company</Link> : null}</div>
-        <div className="filters"><span className="pick"><label htmlFor="company-filter">Company</label><select id="company-filter" value={companyId ?? ''} onChange={event => {void navigate({to:'/projects',search:event.target.value ? {companyId:event.target.value} : {}});}}><option value="">All companies</option>{(companies.data ?? []).map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></span></div>
+        <div className="filters">{(companies.data??[]).map(c=><Link key={c.id} className="btn ghost" to="/companies/$companyId/settings" params={{companyId:c.id}}>{c.name} settings</Link>)}<span className="pick"><label htmlFor="company-filter">Company</label><select id="company-filter" value={companyId ?? ''} onChange={event => {void navigate({to:'/projects',search:event.target.value ? {companyId:event.target.value} : {}});}}><option value="">All companies</option>{(companies.data ?? []).map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></span></div>
         {visible.length === 0 ? <EmptyState icon="◫" title={companyId ? "No projects in this company" : "No projects yet"} description={companyId ? "Choose another company or All companies to see your other projects." : admin ? 'Create a project to choose an industry and region, then connect your first source.' : 'Create a company first. You will become its administrator and can create a project.'} />
           : <div className="pgrid">{visible.map((project) => <Link className="pcard" key={project.id} to="/projects/$projectId/dashboard" params={{ projectId: project.id }} aria-labelledby={`project-${project.id}`} style={{ color: 'inherit', textDecoration: 'none', padding: 12, alignSelf: 'start' }}>
             <div className="ph2" style={{ marginBottom: 6 }}><span className="sq" aria-hidden="true">{project.name.slice(0, 2).toUpperCase()}</span><div><h4 id={`project-${project.id}`} aria-level={2}>{project.name}</h4><span className="co2">{project.company.name}</span></div></div>
@@ -53,6 +54,8 @@ export function CreateProjectScreen(): ReactNode {
   const navigate = useNavigate();
   const admins = companies.data?.filter((company) => company.role === 'admin') ?? [];
   const companyId = admins.some((company) => company.id === form.companyId) ? form.companyId : admins.length === 1 ? admins[0]?.id ?? '' : '';
+  const defaults=useCompanySettings(companyId);
+  useEffect(()=>{if(defaults.data)form.set({region:form.region||defaults.data.defaultRegion,industryId:form.industryId||defaults.data.defaultIndustryId||''});},[defaults.data]);
   const error = companies.error ?? industries.error;
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

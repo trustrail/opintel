@@ -87,10 +87,11 @@ export class PostgresConnector implements SidecarConnector {
     const event: SamplingAudit = {
       requestId: envelope.data.requestId, projectId: ProjectId(envelope.data.projectId), sourceId: SourceId(envelope.data.sourceId),
       elementIds: payload.success ? payload.data.elements.map((element) => ElementId(element.elementId)) : [],
-      consentGiven: payload.success, outcome: 'refused',
+      consentGiven: z.object({consentGiven:z.literal(true)}).safeParse(envelope.data.payload).success, outcome: 'refused',
     };
     if (!payload.success) {
       if (!await this.record(event)) return auditFailure();
+      if(envelope.data.payload&&typeof envelope.data.payload==='object'&&'projectSamplingAllowed' in envelope.data.payload&&envelope.data.payload.projectSamplingAllowed!==true)return err(new DomainError('forbidden','Value sampling is disabled in project settings.'));
       const consent = z.object({ consentGiven: z.literal(true) }).safeParse(envelope.data.payload);
       return consent.success ? invalid() : err(new DomainError('forbidden', 'Sampling requires source consent.'));
     }

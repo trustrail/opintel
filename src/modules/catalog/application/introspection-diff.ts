@@ -29,7 +29,7 @@ function family(type: ExposedType | null): TypeFamily {
 }
 /** Stages the entire catalogue in memory. No caller-owned aggregate is mutated. */
 export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: CatalogSnapshot,
-  source: { id: SourceId; projectId: ProjectId }, naming: CatalogNaming, ids: IdFactory, adoptRenamedNames = false,
+  source: { id: SourceId; projectId: ProjectId }, naming: CatalogNaming, ids: IdFactory, adoptRenamedNames = false, renameHandling:'carry'|'new'='carry', typeFamilyChange:'revert'|'carry'='revert',
 ): Result<{ objects: CatalogObject[]; diff: IntrospectionDiff[] }> {
   const objects: CatalogObject[] = [];
   const diff: IntrospectionDiff[] = [];
@@ -63,7 +63,7 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
       diff.push({ type: 'CatalogObjectAdded', projectId: source.projectId, objectId: object.state.id });
       if (name.collision) diff.push({ type: 'CatalogNameCollision', projectId: source.projectId, objectId: object.state.id });
     }
-    const changes = object.reconcile(discovered.columns.map((column) => ({ ...column, exposedType: mapSourceType(column.sourceType) })), naming.elementIdentity(ids), snapshot.takenAt);
+    const changes = object.reconcile(discovered.columns.map((column) => ({ ...column, exposedType: mapSourceType(column.sourceType) })), naming.elementIdentity(ids), snapshot.takenAt,renameHandling);
     if (!changes.ok) return changes;
     diff.push(...changes.value);
     for (const current of object.elements) {
@@ -89,7 +89,7 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
           (beforeFamily === 'unsupported' && prior.sourceType !== next.sourceType);
         diff.push({ type: changedFamily ? 'CatalogElementTypeFamilyChanged' : 'CatalogElementTypeChanged',
           projectId: source.projectId, objectId: object.state.id, elementId: next.id,
-          beforeType: prior.sourceType, afterType: next.sourceType, ...(changedFamily ? { requiresEntitlementDeletion: true as const, beforeFamily, afterFamily } : {}) });
+          beforeType: prior.sourceType, afterType: next.sourceType, ...(changedFamily ? { ...(typeFamilyChange==='revert'?{requiresEntitlementDeletion: true as const}:{}), beforeFamily, afterFamily } : {}) });
       }
       if ((prior.ordinal ?? null) !== (next.ordinal ?? null)) {
         diff.push({ type: 'CatalogElementOrdinalChanged', projectId: source.projectId, objectId: object.state.id, elementId: next.id,
@@ -106,7 +106,7 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
     if (seen.has(old.state.id)) continue;
     const copy = CatalogObject.create({ ...old.state, status: 'removed' }, old.elements);
     if (!copy.ok) return copy;
-    const changes = copy.value.reconcile([], naming.elementIdentity(ids), snapshot.takenAt);
+    const changes = copy.value.reconcile([], naming.elementIdentity(ids), snapshot.takenAt,renameHandling);
     if (!changes.ok) return changes;
     if (old.state.status === 'active') diff.push({ type: 'CatalogObjectRemoved', projectId: source.projectId, objectId: old.state.id });
     diff.push(...changes.value);
