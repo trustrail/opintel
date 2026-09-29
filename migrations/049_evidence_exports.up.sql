@@ -19,12 +19,11 @@ CREATE TABLE evidence_export_request (
 ALTER TABLE evidence_export ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_export FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_read ON evidence_export FOR SELECT USING(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
-CREATE POLICY tenant_write ON evidence_export FOR INSERT WITH CHECK(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
+CREATE POLICY tenant_write ON evidence_export FOR ALL USING(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid) WITH CHECK(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
 ALTER TABLE evidence_export_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_export_request FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_read ON evidence_export_request FOR SELECT USING(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
-CREATE POLICY tenant_write ON evidence_export_request FOR INSERT WITH CHECK(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
-CREATE POLICY tenant_update ON evidence_export_request FOR UPDATE USING(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid) WITH CHECK(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
+CREATE POLICY tenant_write ON evidence_export_request FOR ALL USING(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid) WITH CHECK(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid AND actor_id=NULLIF(current_setting('app.user_id',true),'')::uuid);
 GRANT SELECT,INSERT ON evidence_export TO opintel_app;
 GRANT SELECT,INSERT,UPDATE ON evidence_export_request TO opintel_app;
 GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE ON evidence_export,evidence_export_request TO opintel_platform_admin;

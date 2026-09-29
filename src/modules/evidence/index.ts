@@ -11,3 +11,4 @@ export {EvidenceExportService,ExportId,type ExportRepository} from './applicatio
 export {PostgresEvidenceExports} from './infrastructure/export.js';
 
 export {EvidenceMaintenance} from './infrastructure/maintenance.js';
+export type {EvidencePartitionTelemetryPort} from './application/partition-monitor.js';

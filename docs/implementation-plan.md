@@ -84,6 +84,14 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.14 | Kitchen sink, visual snapshots, axe in CI | 1.11 | `/dev/kitchen-sink` | O-005 to O-009 |
 | 1.15 | Observability: OTel, request id, logs with field allowlist | 1.1 | `platform/telemetry` | no customer data in telemetry |
 
+Item 1.15 must wire `EvidencePartitionTelemetryPort` to the customer's chosen
+deployment receiver: the unlabelled `opintel_evidence_partition_horizon_months`
+gauge and low-horizon, uncovered-current-month and cannot-measure alerts (§8.6).
+Until then the port emits structured logs; this does not deliver a ticket or
+page. Missing hourly observations must be treated as unknown, never as a
+healthy cached gauge. Receiver selection is per deployment, not a product
+default.
+
 **Gate.** A new email receives a link, clicks once, lands in the shell. Second click fails. Expired fails. Different browser prompts. Fourth request in fifteen minutes returns 429 without revealing whether the account exists. Kitchen sink matches snapshots at three viewports, zero axe violations.
 
 ### P1 Tenancy

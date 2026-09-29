@@ -3856,6 +3856,43 @@ create table run_stage (
   foreign key (run_id, started_at) references query_run(id, started_at)
 ) partition by range (started_at);
 
+-- Lifecycle facts introduced by 5.17. Maintenance alone creates/expires rollups.
+create table evidence_redaction (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references project(id),
+  run_id uuid not null,
+  started_at timestamptz not null,
+  redacted_at timestamptz not null default clock_timestamp(),
+  policy jsonb not null,                 -- exact mode and allowlistedFields
+  fields text[] not null,                -- request, generatedSql
+  foreign key (run_id, started_at) references query_run(id, started_at)
+);
+create table evidence_rollup (
+  id uuid not null,
+  started_at timestamptz not null,        -- original run identity / list position
+  project_id uuid not null references project(id),
+  pool_id uuid not null,
+  agent_id text,
+  key_prefix text not null,
+  mode text not null,
+  versions jsonb not null,
+  outcome jsonb not null,
+  token_key_version_used integer,
+  latency_ms integer,
+  synthetic boolean not null,
+  completed_at timestamptz not null,
+  created_at timestamptz not null default clock_timestamp(),
+  minimum_retention_days integer not null check (minimum_retention_days between 1 and 36500),
+  capture_percent numeric not null,
+  capture_selected boolean not null,
+  detail_captured boolean not null,
+  redactions jsonb not null,             -- preserve the run's redaction history
+  treatment_counts jsonb not null,       -- all delivered treatments / non-delivery states
+  source_treatment_counts jsonb not null,-- source-bound facts only, for exports
+  primary key (id, started_at),
+  foreign key (pool_id, project_id) references pool(id, project_id)
+);
+
 create table audit_entry (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references project(id),
@@ -3974,10 +4011,22 @@ Migration 046 supplies the full constraints and an owner-only
 `ensure_evidence_month(date)` DDL function. It creates four matching monthly
 partitions, including their forced RLS and grants. Bootstrap provisions the
 previous, current and next UTC months. Item 5.17 provisions through UTC month
-+3 before the API accepts requests and repeats provisioning every hour, before
-retention or redaction work. The job calls `ensure_evidence_month` through a
++3 before the API accepts requests and repeats provisioning every hour on its
+own timer and non-overlap guard. Retention and redaction have a separate hourly
+timer and guard: a hung data-maintenance pass must never starve provisioning.
+The job calls `ensure_evidence_month` through a
 maintenance-only function; it is idempotent and covers year boundaries. There
 is no default partition: an unprovisioned month still refuses the insert.
+
+Provisioning has a fixed 10-second caller deadline in its own code. The scoped
+database API does not expose cancellation: the race bounds the wait, not the
+database statement. A timed-out underlying operation remains single-flight
+until it settles, so retries cannot accumulate abandoned DDL requests. Horizon
+measurement runs even after provisioning fails, with a separate single-flight
+operation and 10-second deadline. Thus a provisioning attempt including its
+health observation waits at most 20 seconds; a stuck DDL request does not prevent
+reporting actual coverage or a cannot-measure alert. The hand-written scope
+wrapper is unchanged.
 
 **Sampling may only ever drop detail about runs that succeeded.** Refusals,
 failures and clarifications retain full detail regardless of selection. Sampling
@@ -4628,6 +4677,17 @@ Low cardinality by construction. **Never label by element, agent, user or run id
 | `opintel_introspection_duration_ms` | histogram | source_kind |
 | `opintel_llm_tokens_total` | counter | project, call_site |
 | `opintel_evidence_write_lag_ms` | histogram | |
+| `opintel_evidence_partition_horizon_months` | gauge | |
+
+The evidence horizon counts fully provisioned, contiguous future months from
+the current UTC month, using actual attached range bounds across all four
+evidence tables. A hole or missing child partition limits coverage; a later
+partition cannot hide it. Zero means no complete future month is covered;
+current-month coverage is checked separately. Measurement runs at startup and
+on every hourly provisioning attempt, including failed attempts. A failed or
+timed-out measurement invalidates the previous reading and emits an unknown
+observation rather than a healthy stale number. The narrow telemetry port logs
+structured events until item 1.15 connects the deployment's receiver.
 
 `opintel_elements_undecided` and `opintel_clear_ratio` are business metrics that happen to be operational: a sudden drop in undecided means a bulk decision, and a sudden rise in clear ratio means someone widened access. Both are worth seeing.
 
@@ -4664,6 +4724,9 @@ Page only on customer impact.
 | Authorization unavailable | SpiceDB unreachable beyond the staleness ceiling | Page |
 | Sidecar fleet down | All sidecars for a project unhealthy for 2 minutes | Page |
 | Evidence write failing | Write lag above 30 seconds | Page. **A request we cannot record is a request we should not serve** |
+| Evidence partition horizon low | Fewer than two complete future UTC months covered | Ticket |
+| Evidence current month uncovered | Any evidence table lacks current UTC month coverage | Page |
+| Evidence horizon unknown | Measurement fails or times out; receiver must also detect missing hourly observations | Ticket |
 | Latency | p95 above budget for 15 minutes | Ticket |
 | Introspection failing | Same source failing three runs | Ticket |
 | Cost | Project above 80% of ceiling | Ticket |

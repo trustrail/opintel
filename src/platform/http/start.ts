@@ -1,4 +1,5 @@
 import {EvidenceMaintenance} from '../../modules/evidence/index.js';
+import {scheduleEvidenceMaintenance} from './evidence-maintenance.js';
 import {sessionIdlePolicy} from '../../modules/identity/infrastructure/session-policy.js';
 import {settingsRoutes} from '../../modules/tenancy/api/settings-routes.js';
 import {PostgresSettings} from '../../modules/tenancy/index.js';
@@ -147,9 +148,9 @@ async function start(): Promise<void> {
   const lifecycle=new EvidenceMaintenance();
   // Await forward provisioning before accepting requests. Maintenance repeats after restarts.
   await lifecycle.provision();
-  let maintainingEvidence=false;
-  const maintainEvidence=()=>{if(maintainingEvidence)return;maintainingEvidence=true;void lifecycle.run().catch(()=>console.error({event:'evidence.maintenance_failed',category:'dependency_unavailable'})).finally(()=>{maintainingEvidence=false;});};
-  maintainEvidence();const evidenceTimer=setInterval(maintainEvidence,60*60*1000);evidenceTimer.unref();
+  const stopEvidenceMaintenance=scheduleEvidenceMaintenance({
+    provision:()=>lifecycle.provision(),retain:()=>lifecycle.retain(),
+  },phase=>console.error({event:'evidence.maintenance_failed',phase,category:'dependency_unavailable'}));
   const clock = new SystemClock();
   const authorization = new SpiceDbAuthorizationPort({
     endpoint: requiredEnvironment('SPICEDB_ENDPOINT'), token: requiredEnvironment('SPICEDB_TOKEN'),
@@ -280,7 +281,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
-    clearInterval(evidenceTimer);
+    stopEvidenceMaintenance();
     clearInterval(presenceTimer);
     clearInterval(rehearsalTimer);
     clearInterval(completionTimer);

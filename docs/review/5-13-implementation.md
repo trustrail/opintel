@@ -90,3 +90,13 @@ FOR INSERT, and RLS-10 checks names rather than policy commands.
   predicates; export tests verify expired receipt reuse still works. Migration
   049 was reverted and reapplied only in the isolated test database. The full
   suite was not repeated for this correction.
+
+## Applied-history correction
+
+The policy correction is now delivered by forward migration **053**, not by
+rewriting 049. 049 has been restored to the exact checksum in the development
+ledger. Earlier verification statements about isolated reapplication did not
+prove compatibility with databases already on original 049; that missing upgrade
+test allowed the checksum break to escape. See
+[the correction report](049-migration-correction.md) for the verified chronology,
+checksums, forward repair and upgrade regression.

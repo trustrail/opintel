@@ -66,7 +66,8 @@ Most rules below exist to protect that sentence.
 9. **Never authorize anything on `agentId`.** It is self-declared and used only for presence and evidence. The pool key is the membership.
 10. **Never delete an entitlement row to make an element undecided.** Undecided is the absence of a row. There is no such treatment value and no route back to it.
 11. **Never update or delete an evidence record.** The grants forbid it. If you need to change one, you have misunderstood the model.
-12. **Never guess where the spec is silent.** Stop and ask. A plausible invention is worse than a question, because it passes review.
+12. **Never edit an applied migration.** Restore its exact applied bytes and put corrections in a new forward migration. Never rewrite the checksum ledger to accept an edit.
+13. **Never guess where the spec is silent.** Stop and ask. A plausible invention is worse than a question, because it passes review.
 
 ---
 

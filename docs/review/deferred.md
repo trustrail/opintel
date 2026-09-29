@@ -414,8 +414,20 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   owns retention; it should own forward provisioning too, or an operational
   runbook must.
   **Resolved by 5.17:** API startup provisions through UTC month +3 before
-  accepting requests; the hourly lifecycle job repeats provisioning before
-  redaction and retention. Missing partitions still fail closed.
+  accepting requests; an independent hourly job repeats provisioning, with its
+  own non-overlap guard separate from redaction and retention. Missing
+  partitions still fail closed.
+
+# S5 — production process supervision
+
+- No production supervisor configuration exists. Nothing currently establishes
+  who keeps the API process running or restarts it after failure. The development
+  `dev:api` watch command is not a production supervision contract.
+- Evidence forward provisioning runs at API startup and hourly inside that
+  process. If the process is down, the timer is down too. Startup provisions
+  before accepting requests, but a timer is not a supervisor.
+- S5 packaging must supply the production process supervisor and its restart
+  configuration, and establish operational ownership of the process.
 
 # Jurisdiction in industry packs
 
@@ -441,3 +453,15 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
 - S5 covers packaging, not fleet management. This belongs before a second
   customer, and the reachability decision should be made before more is
   built on the current one-sidecar assumption.
+
+- Deployment direction (provisional): single-tenant, customer deploys
+  application and sidecars in their own network, two zones, sidecars behind
+  a load balancer. Other models later.
+- Not all sidecar work fans out. Query execution is stateless per request
+  and scales freely. Ingest does not: landing zone registers and filing
+  history are per-instance disk state, so a zone must be pinned to one
+  instance. Key custody must move to a shared store, or two instances would
+  generate different token keys for one project and tokens would stop
+  joining across them.
+- Cancellation is per-connection: an abort only reaches the instance holding
+  it. Fine while a query is one request; a problem if that changes.

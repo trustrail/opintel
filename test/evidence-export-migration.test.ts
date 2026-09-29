@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import {Client} from 'pg';
 import {it,expect} from 'vitest';
-it('049 export policies permit only descriptor inserts and receipt inserts/updates',async()=>{
+it('053 export policies permit only descriptor inserts and receipt inserts/updates',async()=>{
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{
   const policies=await db.query<{tablename:string;policyname:string;cmd:string;qual:string|null;with_check:string|null}>("SELECT tablename,policyname,cmd,qual,with_check FROM pg_policies WHERE schemaname='public' AND tablename IN ('evidence_export','evidence_export_request') ORDER BY tablename,policyname");

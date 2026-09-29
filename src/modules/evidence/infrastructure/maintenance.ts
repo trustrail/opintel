@@ -3,10 +3,18 @@ import {ProjectId,ok,err,DomainError,type Result} from '../../../shared/kernel/i
 import {evidencePolicy,storedArgument} from '../application/lifecycle.js';
 import type {EvidenceTextPort} from '../application/read.js';
 import {DuckDBEvidenceText} from './text.js';
+import {BoundedMaintenanceOperation,readPartitionHorizon} from './partition-health.js';
+import {observePartitionHorizon,type EvidencePartitionTelemetryPort} from '../application/partition-monitor.js';
+import {LoggedEvidencePartitionTelemetry} from './partition-telemetry.js';
 const actor={actor:{kind:'system' as const,name:'evidence-lifecycle'}};
 export class EvidenceMaintenance {
- constructor(private readonly text:EvidenceTextPort=new DuckDBEvidenceText()){}
- async provision():Promise<void>{await withPlatformAdmin(actor,tx=>tx.query('SELECT provision_evidence_partitions()'));}
+ private readonly provisioning=new BoundedMaintenanceOperation(async()=>{await withPlatformAdmin(actor,tx=>tx.query('SELECT provision_evidence_partitions()'));});
+ private readonly horizon=new BoundedMaintenanceOperation(readPartitionHorizon);
+ constructor(private readonly text:EvidenceTextPort=new DuckDBEvidenceText(),private readonly telemetry:EvidencePartitionTelemetryPort=new LoggedEvidencePartitionTelemetry()){}
+ async provision():Promise<void>{
+  try{await this.provisioning.run();}
+  finally{await observePartitionHorizon(()=>this.horizon.run(),this.telemetry);}
+ }
  async project(projectId:ProjectId):Promise<Result<void>>{
   const [project]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[projectId]));
   if(!project)return err(new DomainError('not_found','The evidence project was not found.'));
@@ -26,8 +34,7 @@ export class EvidenceMaintenance {
   for(;;){const [row]=await withPlatformAdmin(actor,tx=>tx.query<{count:number}>('SELECT retain_evidence($1) AS count',[projectId]));if((row?.count??0)===0)break;}
   return ok(undefined);
  }
- async run():Promise<void>{
-  await this.provision();
+ async retain():Promise<void>{
   const projects=await withPlatform(tx=>tx.query<{id:string}>('SELECT id FROM project ORDER BY id'));
   for(const project of projects){const result=await this.project(ProjectId(project.id));if(!result.ok)throw result.error;}
  }
