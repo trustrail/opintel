@@ -89,7 +89,9 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   }
   vi.spyOn(f.execution,'execute').mockResolvedValue(err(new DomainError('unsupported_on_aggregate_only','Internal threshold 999',{cause:'cardinality_count_invalid',name:'field_3',stage:2,aggregateMinGroupSize:limit,nested:{value:limit}},true)));
   const invalid=await f.query('SELECT SUM(field_3) FROM warehouse.public.records');
-  expect(invalid).toMatchObject({_meta:{cause:'cardinality_count_invalid',retryable:false}});expect(JSON.stringify(invalid)).not.toContain(String(limit));
+  expect(invalid).toMatchObject({_meta:{cause:'cardinality_count_invalid',retryable:false}});
+  // A random evidence UUID may contain the threshold's digits without leaking configuration.
+  expect(JSON.stringify(invalid,(key,value:unknown)=>key==='evidenceId'?undefined:value)).not.toContain(String(limit));
   const listing=await f.client.listTools();
   const describe=await f.client.callTool({name:'opintel.describe',arguments:{}});
   const unavailable=await f.client.callTool({name:'opintel.explain',arguments:{sql:'SELECT 1'}});

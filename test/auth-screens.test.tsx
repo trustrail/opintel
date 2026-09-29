@@ -50,11 +50,11 @@ describe('auth screens', () => {
     ], enforced: null }));
     const view = renderRoute('/sign-in');
     const email = await screen.findByLabelText('Email address');
-    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Continue with Microsoft' })).toBeTruthy();
     fireEvent.change(email, { target: { value: 'person@example.com' } });
     await screen.findByRole('button', { name: 'Continue with email' });
 
+    await screen.findByRole('button', {name:'Continue with Google'});
+    await screen.findByRole('button', {name:'Continue with Microsoft'});
     const controls = [...view.container.querySelectorAll('input, button')];
     expect(controls.map((control) => control.tagName === 'INPUT' ? control.id : control.textContent)).toEqual([
       'sign-in-email',
@@ -66,6 +66,18 @@ describe('auth screens', () => {
 
     const result = await axe.run(view.container);
     expect(result.violations).toEqual([]);
+  });
+
+  it('shows magic link alone before resolution and when no OIDC providers are configured',async()=>{
+    const fetcher=vi.spyOn(globalThis,'fetch').mockResolvedValue(response({magicLink:true,providers:[],enforced:null}));
+    renderRoute('/sign-in');const email=await screen.findByLabelText('Email address');
+    expect(screen.queryByRole('button',{name:'Continue with Google'})).toBeNull();
+    expect(screen.queryByRole('button',{name:'Continue with Microsoft'})).toBeNull();
+    fireEvent.change(email,{target:{value:'person@unconfigured.example'}});
+    await waitFor(()=>expect(fetcher).toHaveBeenCalled());
+    await waitFor(()=>expect((screen.getByRole('button',{name:'Continue with email'}) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByRole('button',{name:'Continue with Google'})).toBeNull();
+    expect(screen.queryByRole('button',{name:'Continue with Microsoft'})).toBeNull();
   });
 
   it('submits the email route through the API client without a document navigation', async () => {
@@ -96,8 +108,6 @@ describe('auth screens', () => {
     const view = renderRoute('/sign-in');
     const email = await screen.findByLabelText('Email address');
     const continueWithEmail = screen.getByRole('button', { name: 'Continue with email' }) as HTMLButtonElement;
-    const continueWithGoogle = screen.getByRole('button', { name: 'Continue with Google' }) as HTMLButtonElement;
-    const continueWithMicrosoft = screen.getByRole('button', { name: 'Continue with Microsoft' }) as HTMLButtonElement;
     const reservedMessage = view.container.querySelector('#sign-in-email-error');
     if (reservedMessage === null) throw new Error('Sign-in error message space is missing.');
     expect(reservedMessage.textContent).toBe('\u00a0');
@@ -113,8 +123,8 @@ describe('auth screens', () => {
     expect(malformedMessage.id).toBe('sign-in-email-error');
     expect(view.container.querySelector('.fld.err')).not.toBeNull();
     expect(continueWithEmail.disabled).toBe(true);
-    expect(continueWithGoogle.disabled).toBe(false);
-    expect(continueWithMicrosoft.disabled).toBe(false);
+    expect(screen.queryByRole('button',{name:'Continue with Google'})).toBeNull();
+    expect(screen.queryByRole('button',{name:'Continue with Microsoft'})).toBeNull();
 
     fireEvent.change(email, { target: { value: 'person@example.com' } });
     await waitFor(() => { expect(screen.queryByText('That does not look like an email address.')).toBeNull(); });
@@ -139,7 +149,8 @@ describe('auth screens', () => {
     let calls = 0;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
       calls += 1;
-      if (calls === 1) return response({ magicLink: true, providers: [firstProvider], enforced: null });
+      if (calls === 1) return response({ magicLink: true, providers: [], enforced: null });
+      if (calls === 2) return response({ magicLink: true, providers: [firstProvider], enforced: null });
       return new Promise<Response>(() => {});
     });
     const view = renderRoute('/sign-in');
@@ -152,7 +163,7 @@ describe('auth screens', () => {
     fireEvent.change(email, { target: { value: 'third@example.com' } });
     await new Promise<void>((resolve) => { globalThis.setTimeout(resolve, 350); });
 
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
     expect(screen.getByRole('button', { name: 'Continue with Example SSO' })).toBeTruthy();
     expect(view.container.textContent).not.toContain('Preparing this view');
   });

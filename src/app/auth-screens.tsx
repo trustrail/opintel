@@ -29,11 +29,6 @@ type AuthUiState = {
   validateEmail(): EmailValidationError | null;
 };
 
-const platformProviders: readonly Provider[] = [
-  { provider: 'oidc:google', displayName: 'Google', startPath: '/auth/oidc/oidc:google/start' },
-  { provider: 'oidc:entra', displayName: 'Microsoft', startPath: '/auth/oidc/oidc:entra/start' },
-];
-
 function emailValidationError(email: string): EmailValidationError | null {
   if (email.length === 0) return 'Enter your email address.';
   return requestLinkEmailSchema.safeParse(email).success ? null : 'That does not look like an email address.';
@@ -139,6 +134,12 @@ function providerFor(response: ProvidersResponse): Provider | null {
   return response.providers.find((provider) => provider.provider === response.enforced) ?? null;
 }
 
+function providerStartPath(provider:Provider,deviceNonce:string):string {
+  const url=new URL(provider.startPath,globalThis.location.origin);
+  url.searchParams.set('deviceNonce',deviceNonce);
+  return url.pathname+url.search;
+}
+
 export function SignInScreen(): ReactNode {
   const navigate = useNavigate();
   const email = useAuthUiStore((state) => state.email);
@@ -149,11 +150,11 @@ export function SignInScreen(): ReactNode {
   const providerEmail = useDebouncedValue(email, 300);
   useEffect(() => { rememberReturnTo(new URLSearchParams(globalThis.location.search).get('next')); }, []);
   const providers = useQuery<ProvidersResponse, AppError>({
-    queryKey: authKeys.providers(providerEmail),
-    enabled: validEmail(providerEmail),
+    queryKey: authKeys.providers(validEmail(providerEmail)?providerEmail:''),
+    enabled: providerEmail.length===0 || validEmail(providerEmail),
     placeholderData: (previousData) => previousData,
     queryFn: async () => {
-      const result = await api.request({ path: `/api/v1/auth/providers?email=${encodeURIComponent(providerEmail)}`, response: providersResponseSchema });
+      const result = await api.request({ path: validEmail(providerEmail)?`/api/v1/auth/providers?email=${encodeURIComponent(providerEmail)}`:'/api/v1/auth/providers', response: providersResponseSchema });
       if (!result.ok) throw result.error;
       return result.value;
     },
@@ -165,12 +166,12 @@ export function SignInScreen(): ReactNode {
     },
   });
   const enforced = providers.data === undefined ? null : providerFor(providers.data);
-  const availableProviders = providers.data?.providers ?? platformProviders;
+  const availableProviders = providers.data?.providers ?? [];
   const magicLinkAvailable = providers.data?.magicLink ?? true;
 
   useEffect(() => {
-    if (enforced !== null) globalThis.location.assign(enforced.startPath);
-  }, [enforced]);
+    if (enforced !== null) globalThis.location.assign(providerStartPath(enforced,nonce));
+  }, [enforced,nonce]);
 
   if (enforced !== null) return <Redirecting provider={enforced} />;
   if (providers.isError) return <ApiFailure error={providers.error} retry={() => { void providers.refetch(); }} />;
@@ -194,7 +195,7 @@ export function SignInScreen(): ReactNode {
     </div>
     <div className="enrolopts">
       {magicLinkAvailable ? <Button disabled={!validEmail(email) || emailError !== null || providers.isFetching} style={{ width: '100%' }} type="submit" variant="go">Continue with email</Button> : null}
-      {availableProviders.map((provider) => <Button key={provider.provider} onClick={() => { globalThis.location.assign(provider.startPath); }} style={{ width: '100%' }} variant="ghost">Continue with {provider.displayName}</Button>)}
+      {availableProviders.map((provider) => <Button key={provider.provider} onClick={() => { globalThis.location.assign(providerStartPath(provider,nonce)); }} style={{ width: '100%' }} variant="ghost">Continue with {provider.displayName}</Button>)}
       <p className="note">We will never reveal whether an account exists for an email address.</p>
     </div>
   </form></Message>;

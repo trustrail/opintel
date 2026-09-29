@@ -67,7 +67,7 @@ export class OpenIdClientAdapter implements OidcProviderPort {
     const challenge = await import('openid-client').then(({ calculatePKCECodeChallenge }) => calculatePKCECodeChallenge(flow.codeVerifier));
     return buildAuthorizationUrl(client, {
       response_type: 'code',
-      scope: 'openid email profile',
+      scope: configuration.scope,
       redirect_uri: flow.redirectUri,
       state,
       nonce: flow.nonce,

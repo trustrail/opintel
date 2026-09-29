@@ -6,13 +6,13 @@ const emptyParams = z.object({});
 const emptyBody = z.undefined();
 const providerOption = z.object({ provider: z.string(), displayName: z.string(), startPath: z.string() });
 const response = z.object({ magicLink: z.boolean(), providers: z.array(providerOption), enforced: z.string().nullable() });
-const query = z.object({ email: z.string().max(320).refine(isProviderLookupEmail) });
+const query = z.object({ email: z.string().max(320).refine(isProviderLookupEmail).optional() });
 
 export function providerRoutes(service: ProviderResolutionService) {
   return [defineRoute({
     method: 'GET', path: '/api/v1/auth/providers', params: emptyParams, query,
     permission: 'public',
     request: emptyBody, response,
-    handle: async (request) => ({ body: await service.resolve(request.query.email) }),
+    handle: async (request) => ({ body: await service.resolve(request.query.email), headers: {'cache-control':'no-store'} }),
   })];
 }

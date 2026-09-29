@@ -117,7 +117,9 @@ class TestProvider implements OidcProviderPort {
 }
 
 class TestConfigurations implements OidcConfigurationRepository {
+  async recordCompletedSignIn():Promise<boolean>{return true;}
   readonly configuration: OidcProviderConfiguration = {
+    id:null,configurationVersion:'fixture-v1',scope:'openid email profile',
     provider: 'google', issuer: 'https://idp.example', clientId: 'client',
     clientSecretRef: SecretRef('secret://opintel/idp/google/client'), discoveryUrl: null,
   };

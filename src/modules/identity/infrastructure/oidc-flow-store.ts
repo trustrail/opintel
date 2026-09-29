@@ -1,10 +1,13 @@
-import { CompanyId, InviteId, Timestamp } from '../../../shared/kernel/index.js';
+import {z} from 'zod';
+import {SecretRef} from '../../../platform/secrets/index.js';
+import { CompanyId, CompanyIdpId, InviteId, Timestamp } from '../../../shared/kernel/index.js';
 import { redisKeyPrefix, type RedisClient } from '../../../platform/redis/index.js';
 import type { OidcFlowState, OidcFlowStore } from '../application/oidc.js';
 
 const flows = redisKeyPrefix('oidc');
 const flowLifetimeMs = 10 * 60 * 1_000;
 
+const configurationSchema=z.object({id:z.uuid().nullable(),configurationVersion:z.string().min(1),scope:z.string().min(1),provider:z.string(),issuer:z.url(),clientId:z.string(),clientSecretRef:z.string().startsWith('secret://'),discoveryUrl:z.url().nullable()});
 function parseFlow(raw: string): OidcFlowState | null {
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -17,7 +20,9 @@ function parseFlow(raw: string): OidcFlowState | null {
       (value.companyId !== null && typeof value.companyId !== 'string') ||
       (value.inviteId !== null && typeof value.inviteId !== 'string')
     ) return null;
+    const configuration=configurationSchema.parse(value.configuration);
     return {
+      configuration:{...configuration,id:configuration.id===null?null:CompanyIdpId(configuration.id),clientSecretRef:SecretRef(configuration.clientSecretRef)},
       codeVerifier: value.codeVerifier,
       nonce: value.nonce,
       provider: value.provider,

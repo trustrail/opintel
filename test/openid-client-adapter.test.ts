@@ -5,6 +5,7 @@ import type { OidcFlowState, OidcProviderConfiguration } from '../src/modules/id
 const oidcMock = vi.hoisted(() => ({
   customFetch: Symbol('customFetch'),
   clockTolerance: Symbol('clockTolerance'),
+  authorize:vi.fn(()=>new URL('https://idp.example/authorize')),
 }));
 
 vi.mock('openid-client', () => ({
@@ -16,7 +17,7 @@ vi.mock('openid-client', () => ({
   enableNonRepudiationChecks: () => undefined,
   getJwksCache: () => undefined,
   setJwksCache: () => undefined,
-  buildAuthorizationUrl: () => new URL('https://idp.example/authorize'),
+  buildAuthorizationUrl: oidcMock.authorize,
   calculatePKCECodeChallenge: async () => 'challenge',
   authorizationCodeGrant: async (configuration: unknown) => {
     if (typeof configuration !== 'object' || configuration === null) throw new Error('OIDC configuration is invalid.');
@@ -43,11 +44,13 @@ class TestSecretStore implements SecretStorePort {
 }
 
 const configuration: OidcProviderConfiguration = {
+  id:null,configurationVersion:'fixture-v1',scope:'openid email profile',
   provider: 'google', issuer: 'https://idp.example', clientId: 'client',
   clientSecretRef: SecretRef('secret://opintel/idp/google/client'), discoveryUrl: null,
 };
 
 const flow: OidcFlowState = {
+  configuration,
   codeVerifier: 'a'.repeat(43), nonce: 'nonce', provider: 'google', companyId: null,
   redirectUri: 'https://console.example/auth/callback', inviteId: null,
   deviceNonce: 'device-nonce', createdAt: '2026-01-01T00:00:00.000Z' as OidcFlowState['createdAt'],
@@ -80,4 +83,10 @@ describe('OIDC ID-token algorithms', () => {
     await expect(rejection).rejects.toThrow('invalid_request');
     await expect(rejection).rejects.not.toThrow(algorithm);
   });
+});
+
+it('5.18 authorization uses the persisted scope rather than a hard-coded value',async()=>{
+ const configured={...configuration,scope:'openid email custom_scope'};
+ await new OpenIdClientAdapter(new TestSecretStore()).authorizationUrl(configured,'state',{...flow,configuration:configured});
+ expect(oidcMock.authorize).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({scope:'openid email custom_scope'}));
 });

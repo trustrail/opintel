@@ -18,8 +18,15 @@ it('enforced SSO refuses zero and multiple enabled providers and guards provider
  const f=await policyFixture(0);const [p]=await withPlatform(tx=>tx.query<{company_id:string}>('SELECT company_id FROM project WHERE id=$1',[f.ctx.projectId]));const id=CompanyId(p!.company_id);const current=unwrap(await service.company(id));const {enabledProviders:_,id:__,...body}=current;
  const refused=await service.saveCompany(id,f.ctx.userId,{...body,ssoEnforced:true});expect(refused.ok).toBe(false);if(!refused.ok)expect(refused.error.message).toContain('exactly one');
  const provider=randomUUID();await withPlatform(tx=>tx.query("INSERT INTO company_idp(id,company_id,provider,display_name,issuer,client_id,client_secret_ref) VALUES($1,$2,'oidc:generic','Company SSO','https://example.com','client','secret://test')",[provider,id]));
+ expect((await service.saveCompany(id,f.ctx.userId,{...body,ssoEnforced:true})).ok).toBe(false);
+ // This count-invariant fixture represents an administrator's completed sign-in.
+ // The HTTP round-trip and absence/invalidity of proof are covered in the 5.18 suite.
+ await withPlatform(async tx=>{
+  await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT DO NOTHING',[f.ctx.userId,randomUUID()+'@example.com']);
+  await tx.query('INSERT INTO company_idp_sign_in(idp_id,configuration_version,user_id,session_id,completed_at) SELECT id,configuration_version,$2,$3,now() FROM company_idp WHERE id=$1',[provider,f.ctx.userId,randomUUID()]);
+ });
  expect((await service.saveCompany(id,f.ctx.userId,{...body,ssoEnforced:true})).ok).toBe(true);
- await expect(withPlatform(tx=>tx.query('UPDATE company_idp SET enabled=false WHERE id=$1',[provider]))).rejects.toMatchObject({constraint:'company_sso_one_enabled_idp'});
+ await expect(withPlatform(tx=>tx.query('UPDATE company_idp SET enabled=false WHERE id=$1',[provider]))).rejects.toMatchObject({constraint:'company_sso_configuration_locked'});
  await expect(withPlatform(tx=>tx.query('DELETE FROM company_idp WHERE id=$1',[provider]))).rejects.toMatchObject({constraint:'company_sso_one_enabled_idp'});
  await expect(withPlatform(tx=>tx.query("INSERT INTO company_idp(company_id,provider,display_name,issuer,client_id,client_secret_ref) VALUES($1,'oidc:google','Second','https://example.com','client','secret://test')",[id]))).rejects.toMatchObject({constraint:'company_sso_one_enabled_idp'});
 });

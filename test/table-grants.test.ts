@@ -57,6 +57,7 @@ const contracts: Record<string, GrantContract> = {
   pending_invite: platformManaged,
   magic_link_token: platformManaged,
   company_idp: platformManaged,
+  company_idp_sign_in: {opintel_app:[],opintel_platform:['SELECT','INSERT'],opintel_platform_admin:manage},
   mail_outbox: platformManaged,
   company_member: platformManaged,
   project_member: platformManaged,

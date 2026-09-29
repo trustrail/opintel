@@ -1,3 +1,5 @@
+import {createOidcRuntime,createProviderResolutionRuntime} from '../../modules/identity/infrastructure/oidc-runtime.js';
+import {oidcRoutes} from '../../modules/identity/api/oidc-routes.js';
 import {EvidenceMaintenance} from '../../modules/evidence/index.js';
 import {scheduleEvidenceMaintenance} from './evidence-maintenance.js';
 import {sessionIdlePolicy} from '../../modules/identity/infrastructure/session-policy.js';
@@ -60,13 +62,11 @@ async function start(): Promise<void> {
     { createHttpServer },
     { createRedisConnection },
     { MagicLinkService },
-    { ProviderResolutionService },
     { CurrentUserService },
     { PostgresIdentityRepository, RedisRateLimiter },
     { OutboxMagicLinkDispatcher },
     { RedisSessionStore },
     { LocalFileMailAdapter, MailOutbox },
-    { PostgresProviderResolutionRepository },
     { magicLinkRoutes },
     { providerRoutes },
     { currentUserRoutes, cookieValue },
@@ -104,13 +104,11 @@ async function start(): Promise<void> {
     import('./index.js'),
     import('../redis/index.js'),
     import('../../modules/identity/application/magic-link.js'),
-    import('../../modules/identity/application/providers.js'),
     import('../../modules/identity/application/current-user.js'),
     import('../../modules/identity/infrastructure/magic-link-repositories.js'),
     import('../../modules/identity/infrastructure/magic-link-mail-dispatcher.js'),
     import('../../modules/identity/infrastructure/redis-session-store.js'),
     import('../mail/index.js'),
-    import('../../modules/identity/infrastructure/provider-resolution-repository.js'),
     import('../../modules/identity/api/magic-link-routes.js'),
     import('../../modules/identity/api/provider-routes.js'),
     import('../../modules/identity/api/current-user-routes.js'),
@@ -174,6 +172,7 @@ async function start(): Promise<void> {
   const invitations = new InvitationService(new PostgresInvitationRepository(relationshipOutbox), relationshipOutbox, authorization, clock, delivery);
   const identity = new PostgresIdentityRepository(clock, invitations);
   const currentUsers = new CurrentUserService(sessions, identity);
+  const oidc=createOidcRuntime(redis.client,identity,identity,sessions,clock);
   const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, delivery);
   const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
   const register = new PostgresFilingRegister(hub);
@@ -228,10 +227,11 @@ async function start(): Promise<void> {
     ...registerRoutes(register),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
     ...magicLinkRoutes(magicLinks),
+    ...oidcRoutes(oidc,process.env.APP_BASE_URL ?? 'http://localhost:5173'),
     ...invitationRoutes(invitations),
     ...memberRoutes(new ListMembersService(new PostgresMemberListRepository())),
     ...permissionRoutes(new ExplainPermissionsService(new PostgresPermissionSubjectRepository(), authorization)),
-    ...providerRoutes(new ProviderResolutionService(new PostgresProviderResolutionRepository())),
+    ...providerRoutes(createProviderResolutionRuntime()),
     ...currentUserRoutes(currentUsers),
     ...companyRoutes(companies),
     ...projectRoutes(projects),

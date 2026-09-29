@@ -1,3 +1,4 @@
+import {checkSsoEnforcement} from '../../identity/index.js';
 import {withPlatform,withTenant} from '../../../platform/db/scope.js';
 import {ok,err,DomainError,type ProjectId,type CompanyId,type UserId} from '../../../shared/kernel/index.js';
 import {CompanySettingsView,PersonalSettingsView,ProjectSettingsView} from '../../../shared/api/settings.js';
@@ -13,6 +14,10 @@ export class PostgresSettings implements SettingsRepository{
  company(id:CompanyId){return withPlatform(async tx=>{const [row]=await tx.query(companySelect,[id]);return row?ok(CompanySettingsView.parse(row)):missing();});}
  async saveCompany(id:CompanyId,actor:UserId,value:Parameters<SettingsRepository['saveCompany']>[2]){
  try{return await withPlatform(async tx=>{const [before]=await tx.query(companySelect+' FOR UPDATE',[id]);if(!before)return missing();
+ if(value.ssoEnforced&&!CompanySettingsView.parse(before).ssoEnforced){
+  const allowed=await checkSsoEnforcement(tx,id,actor);
+  if(!allowed.ok){await tx.query("INSERT INTO audit_entry(company_id,actor_id,actor_kind,action,target,after) VALUES($1,$2,'user','SsoEnforcementRefused',$3,$4)",[id,actor,{companyId:id},{reason:allowed.error.message}]);return allowed;}
+ }
  await tx.query('UPDATE company SET name=$2,default_industry_id=$3,default_region=$4,allowed_domains=$5,idle_timeout_mins=$6,sso_enforced=$7 WHERE id=$1',[id,value.name,value.defaultIndustryId,value.defaultRegion,value.allowedDomains,value.idleTimeoutMins,value.ssoEnforced]);
  await tx.query("INSERT INTO audit_entry(company_id,actor_id,actor_kind,action,target,before,after) VALUES($1,$2,'user','CompanySettingsChanged',$3,$4,$5)",[id,actor,{companyId:id},before,value]);const [after]=await tx.query(companySelect,[id]);return ok(CompanySettingsView.parse(after));});}catch(e){if(typeof e==='object'&&e!==null&&'constraint' in e&&e.constraint==='company_sso_one_enabled_idp')return err(new DomainError('conflict','Enforced SSO requires exactly one enabled company identity provider. Configure one provider before enabling SSO.'));throw e;}}
  personal(actor:UserId){return withPlatform(async tx=>{const [row]=await tx.query(personalSelect,[actor]);return row?ok(PersonalSettingsView.parse(row)):missing();});}

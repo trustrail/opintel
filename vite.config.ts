@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     server: {
       proxy: {
+        '/auth/oidc': { target: `http://localhost:${apiPort}`, changeOrigin: true },
         '/api': { target: `http://localhost:${apiPort}`, changeOrigin: true },
       },
     },

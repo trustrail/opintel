@@ -76,13 +76,19 @@ asserts a cause the system has not established is worse than a vague one.
 | `unsupported_on_token` | Any | `{name} is tokenized, so it supports equality, grouping and joins, but not {operation}. Tokens preserve which values are the same, not how they order.` |
 | `unsupported_on_aggregate_only` | Read row by row | `{name} can only be read in aggregate. This query reads it row by row. Use an aggregate such as SUM, AVG or COUNT over a group.` |
 | `unsupported_on_aggregate_only` | Cardinality refused | `{name} can only be read in aggregate, and this query would have described too few records. Group more broadly, or use a less restrictive filter.` |
+| `unsupported_on_aggregate_only` | Count invalid | `{name} can only be read in aggregate, and the group sizes for this query could not be checked. Nothing is established about whether the groups are large enough. Try a simpler grouping, or ask an administrator to look at this query.` |
 | `unsupported_on_aggregate_only` | Nested aggregation | `{name} can only be read in aggregate, and this query nests one aggregate inside another. The group sizes cannot be checked through the nesting, so the query is refused without judging them. Use a single aggregate.` |
 
-**The three aggregate-only cases must be distinguishable.** Row-by-row says
+**The aggregate-only cases must be distinguishable.** Row-by-row says
 use an aggregate. Cardinality says group more broadly. Nested says the check
 declined to look, and explicitly disclaims a verdict about the group sizes,
 so an administrator reading an agent's complaint does not lower a threshold
 that was never the problem.
+
+Count invalid likewise disclaims a verdict: an invalid count after Stage 2 may
+reflect the query's shape or a defect. It suggests a simpler grouping or
+administrator review and carries `retryable: false`; repeating the same query
+produces the same invalid count.
 
 ### By statement
 

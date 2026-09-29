@@ -32,8 +32,8 @@ Version 1.0 · September 2026
 
 | ID | Type | Case | Expected |
 |---|---|---|---|
-| A-001 | F | Screen renders with no email entered | Email field, "Continue with email", and every platform-enabled provider button visible |
-| A-002 | F | `GET /auth/providers` with unknown domain | Returns platform defaults only. No company is revealed |
+| A-001 | F | Screen renders with no email entered | Email field and "Continue with email"; after initial provider resolution, only configured platform provider buttons appear |
+| A-002 | F | `GET /auth/providers` with unknown domain | Returns configured platform defaults only. No company is revealed |
 | A-003 | F | Email at a domain with SSO **available, not enforced** | Link sent, and the screen offers "You can also continue with {provider}" |
 | A-004 | F | Email at a domain with SSO **enforced** | Redirect to the IdP. No email sent. Destination named before redirect |
 | A-005 | F | Email at an unknown domain | Response identical in shape to A-003. **No email sent** |
@@ -48,6 +48,14 @@ Version 1.0 · September 2026
 | A-014 | X | Full keyboard traversal of the screen | Every control reachable, visible focus, logical order |
 | A-015 | X | axe scan | Zero violations |
 | A-016 | M | Screen reviewed against §A.9 copy rules | Passes |
+
+Platform-provider visibility: with no OIDC environment variables set,
+`/auth/providers` returns magic link only and neither Google nor Microsoft
+appears. Missing issuer/client id, malformed or unresolved secret references,
+empty secrets and secret-store failures omit the affected platform provider.
+Credential additions/removals are rechecked by the same resolver instance; no
+secret or client configuration appears in the response. The sign-in screen has
+no hard-coded provider fallback and retains enabled company providers.
 
 ## S1-B · Magic link
 
@@ -488,6 +496,20 @@ that enforced SSO has exactly one enabled company_idp.
 | Q-036 | D | Every setting write | Audit entry with actor, before and after |
 | Q-037 | R | Setting changed while a query is in flight | In-flight query uses the value in force at start; recorded on the record |
 | Q-038 | X | Every settings page | Keyboard traversable, axe clean, three viewports |
+
+**5.18 acceptance (in addition to Q-035).** Enabling SSO without a completed
+sign-in by that actor through the exact company provider revision refuses and
+leaves enforcement off. Discovery/start, failed exchange, unverified email and
+failed session creation create no proof. A different user/company/provider
+cannot borrow proof. Client id, secret reference, issuer or scope changes
+invalidate proof, including change-and-revert. A callback whose pinned revision
+changed before or during exchange refuses; any new session is revoked. Provider
+configuration writes under enforcement refuse. Enforcement and configuration
+writes serialize on the company lock. Scope is persisted and actually used by
+the adapter. Migration up/down preserves provider rows; no proof is backfilled.
+HTTP reachability exercises the production OIDC factory through start, callback
+and a readable session; company settings still require administration.
+
 
 ## S1-R · Catalogue: rules, and derived read models
 

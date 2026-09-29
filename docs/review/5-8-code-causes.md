@@ -44,6 +44,7 @@ below are copied character for character from the approved specification.
 | A-row | `{name} can only be read in aggregate. This query reads it row by row. Use an aggregate such as SUM, AVG or COUNT over a group.` |
 | A-direct | `{name} can only be read in aggregate, and this query does not pass it directly to an aggregate. Use SUM, AVG or COUNT over the element itself.` |
 | A-small | `{name} can only be read in aggregate, and this query would have described too few records. Group more broadly, or use a less restrictive filter.` |
+| A-count-invalid | `{name} can only be read in aggregate, and the group sizes for this query could not be checked. Nothing is established about whether the groups are large enough. Try a simpler grouping, or ask an administrator to look at this query.` |
 | A-nested | `{name} can only be read in aggregate, and this query nests one aggregate inside another. The group sizes cannot be checked through the nesting, so the query is refused without judging them. Use a single aggregate.` |
 | Q | `{construct} is not permitted here. This interface accepts SELECT, WITH, VALUES and DESCRIBE against the objects this pool can reach.` |
 | Q-fallback | `This query cannot be run through this interface. This interface accepts SELECT, WITH, VALUES and DESCRIBE against the objects this pool can reach.` |
@@ -78,7 +79,7 @@ expose source names, hostnames, secrets, thresholds or suppressed counts.
 | `unsupported_on_aggregate_only` | `inner_group_counts_unverifiable` | Protected aggregation is below the root, but there is no established outer aggregation | Q-fallback | false |
 | `unsupported_on_aggregate_only` | `cardinality_estimate_low` | A supported estimate is below the minimum; actual group size has not been measured | Q-fallback | false |
 | `unsupported_on_aggregate_only` | `cardinality_count_low` | A valid Stage 2 count proves at least one group is below the minimum | A-small | false |
-| `unsupported_on_aggregate_only` | `cardinality_count_invalid` | An instrumented count or row shape is invalid, so no group-size verdict is justified | Unknown | false |
+| `unsupported_on_aggregate_only` | `cardinality_count_invalid` | An instrumented count or row shape is invalid, so no group-size verdict is justified | A-count-invalid | false |
 | `sql_not_permitted` | `prohibited_construct` | Inspection establishes the named construct is prohibited; includes protected DISTINCT and other explicitly unsupported forms | Q | false |
 | `sql_not_permitted` | `parse_failed` | The engine cannot parse the statement; no construct/tree is invented | Q-fallback | false |
 | `sql_not_permitted` | `serialization_refused` | Parsing succeeded but serialization did not produce an inspectable tree | Q-fallback | false |
@@ -153,6 +154,12 @@ allowlist and operator/retryability rule apply to those responses too.
    as unclassified rather than guessing from the exception's message.
 
 ## Threshold and retryability defects: implementation and proof
+
+**Exact-text test limitation.** `test/mcp-response.test.ts` reads its expected
+messages and code/cause selections from this table and message catalogue. A
+green run proves the implementation and the table agree; it cannot catch a
+table whose wording or mapping is wrong. Semantic correctness still requires
+review against the facts established by the producer.
 
 Implementation and verification requirements for the approved mapping:
 

@@ -2352,7 +2352,10 @@ local commands and migration rollback/backfill constraints.
 
 ### `GET /auth/providers`
 
-Takes `email` as a query parameter. Always `200`, always the same shape.
+Takes an optional `email` query parameter. Without it, resolves configured
+platform providers only, so the initial screen does not need to guess. A supplied
+email is validated as before. Successful resolution is always `200` with the
+same shape.
 
 ```ts
 type ProvidersResponse = {
@@ -2366,7 +2369,27 @@ type ProvidersResponse = {
 };
 ```
 
-**An unknown domain returns the platform defaults**, exactly as a known domain with no `company_idp` rows does. The two are indistinguishable.
+**An unknown domain returns the configured platform defaults**, exactly as a
+known domain with no `company_idp` rows does. The two are indistinguishable.
+Google and Microsoft are included only when the issuer and client id are present
+and the secret reference resolves to a nonempty secret. Readiness is checked on
+each provider resolution, not cached at startup. A missing or unresolvable
+configuration omits that platform provider; no discovery probe is performed.
+Only availability is reported: issuer, client id, secret reference and secret
+value do not enter the response. Responses use `Cache-Control: no-store`.
+Secret sourcing remains the secret store adapter’s concern. Development loads
+`.env` at process start; editing it requires restarting `dev:api`. Resolution
+checks availability through the existing adapter each time, without a separate
+file reload or a startup availability cache.
+
+The sign-in screen requests platform providers on initial load, then resolves
+company providers after a valid email is entered. It renders only returned
+providers; while initial lookup is pending it offers magic link, with no
+hard-coded Google/Microsoft fallback. With no platform OIDC
+configuration and no enabled company providers, `/auth/providers` returns
+`{magicLink: true, providers: [], enforced: null}` and the screen offers magic
+link alone. Enabled company providers and uniquely enforced company SSO retain
+their existing behavior.
 
 **`enforced` is non-null only when the domain maps to a company with `sso_enforced` set.** The client redirects immediately rather than showing the form. That is the one observable difference, and it reveals only that a domain uses SSO, which is already public.
 
@@ -2414,6 +2437,7 @@ The token travels as a **query parameter**, not a fragment. A fragment never rea
 
 ```ts
 type OidcFlowState = {
+  configuration: OidcProviderConfiguration; // immutable start snapshot, including revision and scope
   codeVerifier: string;       // 43 to 128 chars, base64url
   nonce: string;
   provider: string;
@@ -2425,6 +2449,24 @@ type OidcFlowState = {
 };
 ```
 state is 32 bytes from a CSPRNG. A callback whose state is absent, expired or already consumed is refused without saying which.
+
+The production API constructs the OIDC service with the Postgres configuration
+repository, Redis flow/session stores and `OpenIdClientAdapter`, and registers
+`GET /auth/oidc/:provider/start` and `GET /auth/oidc/:provider/callback` as public
+routes. The development proxy forwards `/auth/oidc` to that API. Company provider
+links carry `companyId`; the SPA adds its existing `deviceNonce`. Direct start
+links without a device nonce receive a fresh opaque nonce. Start sets a ten-minute
+Secure, HttpOnly, SameSite=Lax flow cookie; callback requires it to match state
+and requires the provider in the path to match the pinned flow. Redirect URIs
+come from configured `APP_BASE_URL`, never request Host or a supplied return URL.
+A successful callback sets the normal session cookie and redirects to projects;
+refusals use the standard human-readable error envelope without provider values.
+
+Platform Google/Entra configurations use `OIDC_GOOGLE_*` / `OIDC_ENTRA_*`
+`ISSUER`, `CLIENT_ID`, `CLIENT_SECRET_REF` and optional `SCOPE` settings. Scope
+defaults to the pre-existing `openid email profile` behavior. Company providers
+use their persisted scope. Missing platform credentials omit that provider from resolution and the sign-in
+screen; a platform sign-in never proves a company's separate configuration.
 
 **ID tokens are verified with openid-client**, which handles discovery, JWKS retrieval and caching. Accepted algorithms are RS256 and ES256 only; none and HMAC variants are refused. Issuer must match the discovered issuer exactly, audience must equal the client id, exp and iat are checked with 60 seconds of clock skew, and nonce must match the one in the flow state. **Code replay is prevented by the single-use flow state**, so no separate replay store is needed.
 
@@ -2611,7 +2653,7 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 
 **A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, bulk_decision, bulk_entitlement_request, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_completion, run_element, run_stage, synonym_candidate.
 
-**Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp.
+**Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp, company_idp_sign_in.
 
 **term_synonym inherits its vocabulary_term's scope**, so it carries no project_id. Its own forced RLS policies consult the parent: reads require a visible term, tenant writes require a term in app.project_id, and platform-admin writes require an industry term. This also protects direct writes and reparenting. Dedicated integration tests cover it because project_id-based discovery cannot find it.
 
@@ -2818,6 +2860,8 @@ create table company_idp (
   issuer        text not null,
   client_id     text not null,
   client_secret_ref text not null,        -- secret://... never a literal
+  scope         text not null default 'openid email profile',
+  configuration_version uuid not null default gen_random_uuid(),
   discovery_url text,                     -- null when issuer is well known
   enabled       boolean not null default true,
   created_at    timestamptz not null default now(),
@@ -2840,9 +2884,54 @@ create table token_key_version (
 );
 create unique index one_current_key on token_key_version (project_id) where state = 'current';
 ```
-**Platform defaults**. Google and Microsoft Entra are available to every company without configuration, using platform-level credentials. company_idp exists for a company bringing its own tenant or a generic OIDC issuer. So /auth/providers returns the platform defaults plus any enabled company_idp rows for the matching domain.
+**Platform defaults**. Google and Microsoft Entra are available to companies only when the deployment has configured platform-level credentials and their secret references resolve. company_idp exists for a company bringing its own tenant or a generic OIDC issuer. So /auth/providers returns the platform defaults plus any enabled company_idp rows for the matching domain.
 
 **sso_enforced requires exactly one enabled company_idp row.** Setting it or changing provider configuration refuses if the resulting state has zero or multiple enabled providers. Database triggers serialize these writes on the company row and enforce the invariant.
+
+**SSO enforcement gate (5.18).** The company administrator enabling enforcement
+must have completed a sign-in through the exact enabled `company_idp` row and
+its current `configuration_version`. A discovery probe, an authorization URL,
+an unverified identity, a failed exchange or failed session creation is not
+proof. The company-settings route checks `company#administer`; the write checks
+this actor's proof while holding the company row lock, before changing
+`sso_enforced`. Provider writes take the same lock, so a concurrent configuration
+change cannot slip between verification and activation. A refusal is returned
+as `conflict` while enforcement remains off, and recorded as
+`SsoEnforcementRefused` in the company audit.
+
+```sql
+create table company_idp_sign_in (
+  idp_id uuid not null references company_idp(id) on delete cascade,
+  configuration_version uuid not null,
+  user_id uuid not null references user_account(id) on delete cascade,
+  session_id uuid not null,               -- session was created before this proof
+  completed_at timestamptz not null,
+  primary key (idp_id, configuration_version, user_id)
+);
+```
+
+This is shared identity data, protected by the identity/application boundary,
+not a project RLS table. The platform role has SELECT and INSERT; the tenant
+application role has no access. Only completed OIDC callbacks write proof. A
+proof remains usable until configuration changes; there is no invented expiry
+or backfill from old identities or sessions. Existing enforced companies are
+not silently disabled by migration; a subsequent activation needs proof.
+
+Every changed provider row receives a fresh revision from a database trigger,
+including client id, secret reference, issuer, scope, discovery URL, provider
+identity, enabled state or display name. Change-and-revert cannot revive proof;
+delete-and-recreate cannot inherit it. The revision is pinned at sign-in start.
+The callback verifies it before exchange, exchanges using the pinned
+configuration, and checks it under the company lock again when recording proof
+after session creation. A change during exchange refuses the callback and
+revokes the new session; no session cookie or proof is released for that attempt.
+
+Provider UPDATEs that change a row are refused while enforcement is on. Existing
+provider-count constraints also protect deletion or adding another enabled
+provider. Two-phase replacement is separate item **5.18a**: the old configuration
+must remain enforced until an administrator has successfully signed in through
+the proposed replacement, then activation is atomic. It is not implemented by
+5.18. Administrator magic-link recovery remains separate item **5.19**.
 
 **Membership is written in both places, and SpiceDB is authoritative for decisions**. Postgres holds the same facts so the application can list — which companies a user administers, who the members of a project are — without asking SpiceDB to enumerate. SpiceDB answers whether a user may do a thing; Postgres answers what exists.
 
@@ -4434,7 +4523,7 @@ Project details also show name, company, industry and region. They are columns, 
 
 Pool modes, clarification policy and budgets remain pool-scoped; source sampling consent and landing strategy remain source-scoped; token domain, canonicalisation and temporal declarations remain catalogue-scoped. Show their ownership and link to their existing contextual surfaces instead of duplicating them as project settings. There is no invented project default for a landing strategy or timezone declaration. The source connection ceiling and source statement/operation timeouts are customer-side sidecar configuration (algorithm C.4), not writable project settings; query timeout does not override a tighter source deadline. Reference lifetime/retry controls in the reference console belong to the later reference feature, not Slice 1a.
 
-Company settings are included in 5.16, including default industry/region, allowed domains, idle timeout and enforced SSO. Enforced SSO requires exactly one enabled company_idp at write time, including provider changes. Personal profile settings remain in 5.16. Notifications, digests, alerts and admin two-step enforcement are deferred; their contracts are not supplied by this table.
+Company settings are included in 5.16, including default industry/region, allowed domains, idle timeout and enforced SSO. Enforced SSO requires exactly one enabled company_idp at write time and, from 5.18, a completed sign-in by the enabling administrator through its current configuration. Provider configuration changes are refused while enforcement is on; two-phase replacement belongs to 5.18a. Personal profile settings remain in 5.16. Notifications, digests, alerts and admin two-step enforcement are deferred; their contracts are not supplied by this table.
 
 # 6. Error handling
 

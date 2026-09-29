@@ -23,6 +23,10 @@ export interface ProviderResolutionRepository {
   findCompanyForDomain(domain: string): Promise<CompanyProviderSettings | null>;
 }
 
+export interface PlatformProviderReadiness {
+  available(provider: string): Promise<boolean>;
+}
+
 export interface ProviderResolutionLogger {
   warn(message: string, fields: Readonly<{ companyId: CompanyId }>): void;
 }
@@ -63,23 +67,22 @@ export function isProviderLookupEmail(email: string): boolean {
 export class ProviderResolutionService {
   constructor(
     private readonly repository: ProviderResolutionRepository,
+    private readonly platform: PlatformProviderReadiness,
     private readonly logger: ProviderResolutionLogger = defaultLogger,
   ) {}
 
-  async resolve(email: string): Promise<ProvidersResponse> {
-    const company = await this.repository.findCompanyForDomain(domainForProviderLookup(email));
-    if (company === null) return { magicLink: true, providers: [...platformDefaults], enforced: null };
-
-    const providers = [...platformDefaults, ...company.providers];
-    if (!company.ssoEnforced) return { magicLink: true, providers, enforced: null };
-    const enabled = company.providers;
-    if (enabled.length !== 1) {
-      this.logger.warn('SSO enforcement is not applied because company provider configuration is ambiguous.', { companyId: company.companyId });
-      return { magicLink: true, providers, enforced: null };
+  async resolve(email?: string): Promise<ProvidersResponse> {
+    const company = email === undefined ? null : await this.repository.findCompanyForDomain(domainForProviderLookup(email));
+    if (company?.ssoEnforced && company.providers.length === 1) {
+      const enforcedProvider = company.providers[0]!;
+      return { magicLink: false, providers: [enforcedProvider], enforced: enforcedProvider.provider };
     }
-    const enforcedProvider = enabled[0];
-    if (enforcedProvider === undefined) throw new Error('Enabled provider count was unexpectedly empty.');
-    return { magicLink: false, providers: [enforcedProvider], enforced: enforcedProvider.provider };
+    const readiness = await Promise.all(platformDefaults.map(provider => this.platform.available(provider.provider)));
+    const providers = [...platformDefaults.filter((_provider, index) => readiness[index]), ...(company?.providers ?? [])];
+    if (company?.ssoEnforced) {
+      this.logger.warn('SSO enforcement is not applied because company provider configuration is ambiguous.', { companyId: company.companyId });
+    }
+    return { magicLink: true, providers, enforced: null };
   }
 }
 

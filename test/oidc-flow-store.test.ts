@@ -1,3 +1,4 @@
+import {SecretRef} from '../src/platform/secrets/index.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CompanyId, InviteId, Timestamp } from '../src/shared/kernel/index.js';
 import { RedisOidcFlowStore } from '../src/modules/identity/infrastructure/oidc-flow-store.js';
@@ -21,6 +22,7 @@ integration('OIDC Redis flow state', () => {
     const store = new RedisOidcFlowStore(connection.client);
     const state = 'oidc-state-integration-test';
     const flow = {
+      configuration:{id:null,configurationVersion:'fixture-v1',scope:'openid email profile',provider:'google',issuer:'https://idp.example',clientId:'client',clientSecretRef:SecretRef('secret://test'),discoveryUrl:null},
       codeVerifier: 'a'.repeat(43), nonce: 'nonce', provider: 'google',
       companyId: CompanyId('018f8f9d-7f83-7abc-8def-000000000001'),
       redirectUri: 'https://console.example/auth/callback',

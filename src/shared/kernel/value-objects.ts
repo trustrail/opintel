@@ -3,6 +3,7 @@ import { InvariantViolation } from './errors.js';
 type Brand<Name extends string> = string & { readonly __brand: Name };
 
 export type CompanyId = Brand<'CompanyId'>;
+export type CompanyIdpId = Brand<'CompanyIdpId'>;
 export type ProjectId = Brand<'ProjectId'>;
 export type UserId = Brand<'UserId'>;
 export type SourceId = Brand<'SourceId'>;
@@ -63,6 +64,7 @@ function textFactory<Name extends string>(
 }
 
 export const CompanyId = uuidFactory('CompanyId');
+export const CompanyIdpId = uuidFactory('CompanyIdpId');
 export const ProjectId = uuidFactory('ProjectId');
 export const UserId = uuidFactory('UserId');
 export const SourceId = uuidFactory('SourceId');

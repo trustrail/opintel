@@ -74,7 +74,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.6 | Identity domain and schema | 1.2, 1.3, 2.1  | `modules/identity` | domain invariants |
 | 1.8 | Sessions: Redis, cookie, timeouts, revocation | 1.6 | session store | D-001 to D-011 |
 | 1.7 | Magic link: request, callback, device nonce, rate limits, single use | 1.4, 1.5, 1.5a, 1.5b, 1.6, 1.8 | endpoints | B-001 to B-015, A-005, A-006 |
-| 1.9 | OIDC with PKCE, account linking on verified email | 1.7 | provider adapters | C-001 to C-011 |
+| 1.9 | OIDC with PKCE, account linking on verified email; production service construction, registered start/callback routes and browser proxy | 1.7 | provider adapters and routes | C-001 to C-011; production-factory HTTP round trip into a readable session |
 | 1.10 | `/auth/providers` route resolution | 1.7, 1.9 | endpoint | A-001 to A-013 |
 | 1.11 | **Design system from the master stylesheet**, ported to its class contract | 1.1 | `shared/ui` | O-001 to O-011 |
 | 1.12 | App shell: router, drawer, top bar, error boundaries, toast host | 1.11 | `app/`, shell | shell renders |
@@ -272,12 +272,15 @@ VC-10–VC-14, VC-23–VC-30 and H-008 therefore require authoritative sidecar a
 | 5.16a | Notifications and alerts, including digest preferences/delivery; discovery scheduling and daily pool row budgets; admin two-step enforcement requires its own identity contract. **Not in Slice 1a; deferred pending contracts.** | Contracts to be reviewed before implementation | settings and delivery/enforcement | Q-004, Q-005, Q-010, Q-020, Q-028–Q-030, Q-034 |
 | 5.17 | Evidence retention into visible per-run rollups, stored redaction with run history, successful-run detail sampling, and forward partition provisioning | 5.10 | jobs | Q-025 to Q-027 |
 | 5.18 | SSO enforcement gate: the enabling company administrator must have completed a sign-in through the exact provider and configuration being enforced. Any configuration change invalidates the proof. Verified at write time | 5.16 | `modules/identity` | Enforcement is refused without a verified sign-in through that configuration; a changed client id, secret reference, issuer or scope invalidates it |
+| 5.18a | Two-phase enforced SSO configuration rotation: stage a replacement, require the company administrator to complete sign-in through that exact configuration, then atomically activate it. The old configuration remains enforced until activation. Required for ordinary maintenance such as expiring client secrets | 5.18 | `modules/identity` | Successful verification activates the replacement without a window of disabled enforcement; failed or abandoned flows leave the enforced configuration unchanged |
 | 5.19 | SSO break-glass: company administrators retain magic links under enforcement, covering provider resolution, link issuance, confirmation and session acceptance. Stated on the enforcement screen and audited on every use | 5.18 | `modules/identity` | An administrator signs in by magic link while enforcement is on; a non-administrator cannot; every use is recorded |
 
-**5.18 and 5.19 are separate, unimplemented Slice 1a requirements.** Both must
+**5.18 and 5.19 are separate Slice 1a requirements.** Both must
 be complete before the Slice 1a gate: a customer who cannot sign in has no product.
 The enforcement gate prevents activation against an unverified configuration;
-break-glass provides administrator recovery if the provider later fails.
+break-glass provides administrator recovery if the provider later fails. Item
+5.18a separately supplies verified configuration rotation under uninterrupted
+enforcement; until it lands, configuration changes under enforcement refuse.
 
 5.16 exposes and persists evidence settings; 5.17 owns the execution half of
 Q-025–Q-027: retention, stored redaction and capture sampling. Saving configuration

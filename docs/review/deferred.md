@@ -75,7 +75,14 @@ EOF
   enforcement, across provider resolution, issuance, confirmation and session
   acceptance. The exception is stated on the enforcement screen and every use is
   audited; non-administrators cannot use it.
-- Both items are **required for Slice 1a and not yet implemented**. Provider
+- Item 5.18 refuses direct provider configuration changes while enforcement is
+  on. Item 5.18a owns two-phase rotation: an administrator supplies a replacement
+  and signs in through that exact configuration before it atomically becomes
+  enforced. The old configuration remains in force throughout verification;
+  failed or abandoned flows change nothing. This is required maintenance for
+  expiring client secrets, not a break-glass mechanism.
+- Both items are **required for Slice 1a**. Item 5.18 implements the gate;
+  5.19 remains unimplemented. Provider
   existence alone does not make enforcement safe, and a customer who cannot sign
   in has no product.
 
@@ -465,3 +472,76 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   joining across them.
 - Cancellation is per-connection: an abort only reaches the instance holding
   it. Fine while a query is one request; a problem if that changes.
+
+# Reachability is part of done
+
+Passing tests has repeatedly failed to establish that an implementation is
+reachable: the mail adapter (1.7), project creation route (2.6b), receipt listener
+(3.9), and OIDC service/start/callback routes (1.9) were built without complete
+composition-root wiring. An item touching a route or adapter needs a reachability
+check before it is called done: follow the production root through construction,
+route/listener registration and the caller's transport path, then exercise that
+path with infrastructure substitutes only at external boundaries. Unit tests of
+an unregistered handler or unconstructed service do not establish delivery.
+
+## Composition-root audit: unconstructed runtime paths
+
+Audit scope: the API and sidecar start files, their imported runtime factories,
+module exports, constructors and factory calls; development scripts and tests
+were checked separately. An export or import alone does not establish a call.
+These are administrator controls with implementations but no reachable runtime
+write path. They remain open; the OIDC repair does not wire them incidentally.
+
+- **Temporal declarations — item 4.3b.** `PostgresTemporalRepository` implements
+  element timezone/epoch declarations and schema timezone inheritance. It has no
+  production construction or registered writer route. **4.3b completion owns
+  wiring** its permissioned API and administrator controls; execution already
+  consumes these declarations.
+- **Token declarations — item 4.4** (declaration persistence, commit `71b9f1b`). `PostgresTokenDeclarations` implements
+  `tokenDomain` and `caseInsensitive` writes and token-change confirmation. It has
+  no production construction or writer route. **4.4 completion owns wiring** the
+  declaration API, with the element controls integrated into 4.8's Entitlements
+  screen. Demo bootstrap writes are not an administrator control.
+- **Canonicaliser assignment — item 4.3c.** `PostgresCanonicaliserAssignments`
+  implements assignment against the sidecar-advertised registry and confirmation
+  of token changes. Neither it nor its `CanonicaliserCatalog` dependency is
+  composed for production administration. **4.3c completion owns wiring** the
+  assignment API and its administrator control; the execution registry is live.
+- **Pool/source binding management — item 5.3.** `PoolBindingService` and
+  `PostgresPoolBindings` are constructed by `scripts/dev-demo.ts`, but not by the
+  API, and have no registered management route. **5.3 completion owns wiring**
+  the binding API, with controls in 5.14's pool detail. Source binding is enforced
+  by the query path; what is missing is the ordinary administrator's way to
+  change it.
+
+## Composition-root audit: unused helpers with production replacements
+
+These are cleanup candidates, not evidence that the corresponding runtime
+control is absent. Remove or consolidate them with their tests deliberately;
+none was removed during the OIDC repair.
+
+- `TreatmentStrategies` (4.2), including its optional `TokenizerPort`, is never
+  constructed in production. `compileViews` supplies the treatment-aware read
+  plan and the live sidecar `PostgresStagingSource` applies `maskValue` and
+  `SidecarTokenizer`; omission and aggregate restrictions are enforced by the
+  compiler and inspected execution path.
+- `PostgresEntitlements` (4.1) is not constructed in production. Administrator
+  writes use `BulkEntitlementService` / `PostgresBulkEntitlements` (4.7), including
+  one-element selections, and reads use `PostgresEntitlementReader`. Its absence
+  does not mean entitlement editing is unreachable.
+- `PostgresPolicyVersions` / `PolicyVersionReader` (4.9) are unused. Database
+  triggers advance the version and the live entitlement/query readers load it
+  with their snapshots. This unused reader does not remove version enforcement.
+- `PoolElementResolver` and `InfoPoolAccessRefusals` (5.3) are unused. MCP access
+  verifies pool keys; describe/query readers restrict by local binding and
+  entitlement, and the services perform SpiceDB source-reachability checks.
+  Query refusals use the live evidence writer. This is separate from the missing
+  binding-management path above.
+- `TokenizedSourceReader` (4.3) is an unused early read-boundary helper. The staged
+  production executor constructs `PostgresStagingSource`, which performs typed
+  source reads and tokenization before handing treated values to DuckDB.
+
+`DevelopmentFileKeyStore` and `DevelopmentFileKeyEscrow` are **not** missing:
+sidecar startup calls their static `open` factories. Runtime factories also
+construct other adapters transitively. A search for `new` in start files alone
+would incorrectly report those as absent.

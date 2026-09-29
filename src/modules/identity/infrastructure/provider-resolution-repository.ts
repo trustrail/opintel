@@ -31,7 +31,7 @@ export class PostgresProviderResolutionRepository implements ProviderResolutionR
       providers: rows.flatMap((provider): ProviderOption[] => provider.provider === null || provider.display_name === null ? [] : [{
         provider: provider.provider,
         displayName: provider.display_name,
-        startPath: startPath(provider.provider),
+        startPath: `${startPath(provider.provider)}?companyId=${company.id}`,
       }]),
     };
   }

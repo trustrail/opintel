@@ -1,3 +1,4 @@
+import {createProviderResolutionRuntime} from '../src/modules/identity/infrastructure/oidc-runtime.js';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
@@ -13,6 +14,8 @@ import {
 } from '../src/modules/identity/application/providers.js';
 import { providerRoutes } from '../src/modules/identity/api/provider-routes.js';
 import { PostgresProviderResolutionRepository } from '../src/modules/identity/infrastructure/provider-resolution-repository.js';
+
+const configuredPlatform = {available:async()=>true};
 
 const companyId = CompanyId('018f8f9d-7f83-7abc-8def-000000000001');
 const customProvider = { provider: 'oidc:acme', displayName: 'Acme SSO', startPath: '/auth/oidc/oidc:acme/start' };
@@ -40,25 +43,26 @@ function settings(ssoEnforced: boolean, providers: CompanyProviderSettings['prov
 const servers: ReturnType<typeof createHttpServer>[] = [];
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(servers.splice(0).filter((server) => server.listening).map((server) => new Promise<void>((resolve, reject) => {
     server.close((error) => error === undefined ? resolve() : reject(error));
   })));
 });
 
-async function get(service: ProviderResolutionService, email: string): Promise<Response> {
+async function get(service: ProviderResolutionService, email?: string): Promise<Response> {
   const server = createHttpServer(providerRoutes(service), { requestIdFactory: () => 'req-test' });
   servers.push(server);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
   if (address === null || typeof address === 'string') throw new Error('Test server did not bind to TCP.');
-  return fetch(`http://127.0.0.1:${(address as AddressInfo).port}/api/v1/auth/providers?email=${encodeURIComponent(email)}`);
+  return fetch(`http://127.0.0.1:${(address as AddressInfo).port}/api/v1/auth/providers${email===undefined?'':`?email=${encodeURIComponent(email)}`}`);
 }
 
 describe('GET /auth/providers', () => {
   it('A-002 and A-005: returns the same platform defaults for unknown domains and known companies without IdPs', async () => {
     const repository = new TestRepository(new Map([['known.example', settings(false, [])]]));
-    const service = new ProviderResolutionService(repository);
+    const service = new ProviderResolutionService(repository,configuredPlatform);
 
     const unknown = await service.resolve('person@unknown.example');
     const known = await service.resolve('person@known.example');
@@ -76,7 +80,7 @@ describe('GET /auth/providers', () => {
   });
 
   it('A-003: adds enabled company providers while retaining magic-link and platform-default routes', async () => {
-    const service = new ProviderResolutionService(new TestRepository(new Map([['acme.example', settings(false, [customProvider])]])));
+    const service = new ProviderResolutionService(new TestRepository(new Map([['acme.example', settings(false, [customProvider])]])),configuredPlatform);
 
     await expect(service.resolve('person@acme.example')).resolves.toEqual({
       magicLink: true,
@@ -89,8 +93,13 @@ describe('GET /auth/providers', () => {
     });
   });
 
+  it('unconfigured platform providers do not hide an enabled company provider',async()=>{
+    const service=new ProviderResolutionService(new TestRepository(new Map([['acme.example',settings(false,[customProvider])]])),{available:async()=>false});
+    expect(await service.resolve('person@acme.example')).toEqual({magicLink:true,providers:[customProvider],enforced:null});
+  });
+
   it('A-004: returns only the uniquely enforced provider and disables magic links', async () => {
-    const service = new ProviderResolutionService(new TestRepository(new Map([['acme.example', settings(true, [customProvider])]])));
+    const service = new ProviderResolutionService(new TestRepository(new Map([['acme.example', settings(true, [customProvider])]])),configuredPlatform);
 
     await expect(service.resolve('person@acme.example')).resolves.toEqual({
       magicLink: false,
@@ -104,7 +113,7 @@ describe('GET /auth/providers', () => {
     const service = new ProviderResolutionService(new TestRepository(new Map([
       ['zero.example', settings(true, [])],
       ['many.example', settings(true, [customProvider, { provider: 'oidc:other', displayName: 'Other SSO', startPath: '/auth/oidc/oidc:other/start' }])],
-    ])), logger);
+    ])), configuredPlatform, logger);
 
     const zero = await service.resolve('person@zero.example');
     const many = await service.resolve('person@many.example');
@@ -119,7 +128,7 @@ describe('GET /auth/providers', () => {
 
   it('A-010 through A-013: validates query email boundaries and normalizes Unicode domains without collapsing plus addresses', async () => {
     const repository = new TestRepository(new Map());
-    const service = new ProviderResolutionService(repository);
+    const service = new ProviderResolutionService(repository,configuredPlatform);
     const valid320 = `${'a'.repeat(314)}@x.com`;
     const invalid321 = `${'a'.repeat(315)}@x.com`;
 
@@ -134,7 +143,7 @@ describe('GET /auth/providers', () => {
   });
 
   it('uses the error envelope for an invalid query and always supplies a request id', async () => {
-    const response = await get(new ProviderResolutionService(new TestRepository(new Map())), 'invalid');
+    const response = await get(new ProviderResolutionService(new TestRepository(new Map()),configuredPlatform), 'invalid');
 
     expect(response.headers.get('x-request-id')).toBe('req-test');
     await expect(response.json()).resolves.toMatchObject({
@@ -148,6 +157,14 @@ const databaseIntegration = process.env.DATABASE_URL === undefined && !databaseT
 
 databaseIntegration('provider resolution persistence', () => {
   resetDatabaseBeforeEach('company');
+  it('with no OIDC variables, the production /auth/providers route returns only magic link and neither platform provider',async()=>{
+    for(const name of Object.keys(process.env))if(name.startsWith('OIDC_'))vi.stubEnv(name,undefined);
+    const service=createProviderResolutionRuntime();
+    expect(await (await get(service)).json()).toEqual({magicLink:true,providers:[],enforced:null});
+    const response=await get(service,'person@unconfigured.example');
+    expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({magicLink:true,providers:[],enforced:null});
+  });
   it('reads enabled company providers for the matching allowed domain', async () => {
     if (process.env.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required when REQUIRE_DB_TESTS=1.');
     const domain = `provider-${crypto.randomUUID()}.example`;
@@ -172,7 +189,7 @@ databaseIntegration('provider resolution persistence', () => {
       await expect(new PostgresProviderResolutionRepository().findCompanyForDomain(domain)).resolves.toEqual({
         companyId: CompanyId(company),
         ssoEnforced: false,
-        providers: [customProvider],
+        providers: [{...customProvider,startPath: `${customProvider.startPath}?companyId=${company}`}],
       });
     } finally {
       await withPlatform((tx) => tx.query('DELETE FROM company WHERE id = $1', [company]));
