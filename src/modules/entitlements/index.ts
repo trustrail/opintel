@@ -30,3 +30,4 @@ export type { PolicyVersionReader } from './application/version.js';
 export { PostgresPolicyVersions } from './infrastructure/policy-version.js';
 
 export { maskValue } from './domain/masks.js';
+export {literalStrippedTree} from './application/literal-stripping.js';

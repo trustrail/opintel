@@ -1,3 +1,5 @@
+import {EvidenceQuery,PostgresEvidenceReader,DuckDBEvidenceText} from '../../modules/evidence/index.js';
+import {evidenceRoutes} from '../../modules/evidence/api/routes.js';
 import {PostgresEvidenceWriter} from '../../modules/evidence/index.js';
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
@@ -191,6 +193,7 @@ async function start(): Promise<void> {
   sweepPresence();
   const presenceTimer=setInterval(sweepPresence,5000);presenceTimer.unref();
   const routes = [
+    ...evidenceRoutes(new EvidenceQuery(new PostgresEvidenceReader(),authorization,new DuckDBEvidenceText())),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), presence)),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),

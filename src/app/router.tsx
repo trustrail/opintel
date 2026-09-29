@@ -1,3 +1,5 @@
+import {ActivityScreen,RecordScreen} from './activity/screens.js';
+import {ActivityFilters,DetailQuery} from '../shared/api/activity.js';
 import { EntitlementsScreen } from './entitlements/screen.js';
 import { z } from 'zod';
 import { TokenKeyScreen } from './custody/screen.js';
@@ -51,6 +53,8 @@ const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: 
 } });
 const introspectionListRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/sources/$sourceId/introspections',component:()=>{const params=introspectionListRoute.useParams();return <RouteErrorBoundary><IntrospectionListScreen key={params.projectId+params.sourceId} {...params}/></RouteErrorBoundary>;}});
 const introspectionRunRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/introspections/$runId',component:()=>{const params=introspectionRunRoute.useParams();return <RouteErrorBoundary><IntrospectionRunScreen key={params.projectId+params.runId} {...params}/></RouteErrorBoundary>;}});
+const activityRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/activity',validateSearch:s=>ActivityFilters.parse(s),component:()=>{const {projectId}=activityRoute.useParams();const filters=activityRoute.useSearch(),navigate=activityRoute.useNavigate();return <RouteErrorBoundary><ActivityScreen key={projectId} projectId={projectId} filters={filters} onFilters={next=>{void navigate({search:next});}}/></RouteErrorBoundary>;}});
+const recordRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/runs/$runId',validateSearch:s=>DetailQuery.pick({startedAt:true}).parse(s),component:()=>{const params=recordRoute.useParams(),search=recordRoute.useSearch();return <RouteErrorBoundary><RecordScreen key={params.runId+search.startedAt} {...params} {...search}/></RouteErrorBoundary>;}});
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: () => <AuthRoute><SignInScreen /></AuthRoute> });
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
@@ -68,7 +72,7 @@ function routeFor(item: NavItem) {
 }
 
 const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects').map(routeFor));
-const routeTree = rootRoute.addChildren([introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routeTree = rootRoute.addChildren([activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
 
 export const router = createRouter({ routeTree });
 

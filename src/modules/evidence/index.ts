@@ -4,3 +4,6 @@ export {parseQueryRun,queryRunSchema,versionStampSchema,runHeaderSchema,runCompl
 
 export type {EvidenceWriterPort,EvidencePlan,EvidenceFinish,EvidencePrincipal,EvidenceSource} from './application/write.js';
 export {PostgresEvidenceWriter} from './infrastructure/write.js';
+export {EvidenceQuery,type EvidenceReader,type EvidenceContext,type EvidenceTextPort} from './application/read.js';
+export {PostgresEvidenceReader} from './infrastructure/read.js';
+export {DuckDBEvidenceText} from './infrastructure/text.js';

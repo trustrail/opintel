@@ -1,0 +1,2 @@
+DROP INDEX query_run_activity_order_idx;
+DROP INDEX query_run_activity_pool_idx;

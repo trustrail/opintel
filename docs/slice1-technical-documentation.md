@@ -3671,13 +3671,54 @@ Valid last4 and email values use the fixed prefixes shown in B.3 (`••••`
 Append-only and partitioned by the request's start month in UTC. Item 5.10
 provides the immutable domain and storage structure; item 5.11 writes records.
 
-**A run has an immutable header and at most one completion row.** The header
+**A run has an immutable header and at most one completion row**. The header
 captures identity, request and versions at open. Completion is inserted, never
 updated into the header. This preserves the no-UPDATE guarantee and makes a
 crash visible: a header with no completion is an **incomplete** run, not a missing
 request. Read models start from the header and left-join completion. Both use
 the original `(id, started_at)` identity, even when completion crosses a month
 boundary. The completion primary key permits only one terminal outcome.
+
+**Redaction is enforced in the API, at read time**, and applies to every argument recorded on a run.
+
+**Without project#view_unredacted, arguments are never returned**, whatever the project's mode. The mode governs what an authorised reader sees, not whether authorisation applies.
+
+**For an authorised reader**:
+
+| Mode | What is returned |
+|------|------------------|
+| none | The arguments as recorded, including literals |
+| allowlist | Only the fields named in allowlistedFields, and for text-bearing fields a literal-stripped form: identifiers, operations and structure retained, every literal replaced by a placeholder |
+| aggressive | No arguments at all |
+
+**allowlistedFields names argument fields**, such as sql, prompt or maxRows. Allowlisting sql exposes its literal-stripped form, never its raw text; raw text requires none. **This is the point of the middle mode**: an auditor asking which objects and columns a run read, and what shape the query took, is answered without disclosing the values it filtered on.
+
+**Literal stripping uses the parsed statement**, not a regular expression over the text. The parse already exists from C.3.
+
+**Until item 5.17, arguments are stored unredacted**. Read-time redaction protects console viewers; it does not protect anyone with view_unredacted or direct database access. 5.17 owns stored redaction.
+
+The 5.12 reader reuses C.3's parser for historical SQL and replaces constants
+in the parsed tree before printing it. Unsupported or malformed statements
+are hidden; it never falls back to raw text. Prompt interpretation is not in
+this slice, so allowlisting `prompt` cannot expose prose without a structured
+literal-stripping path. Only `none`, with `view_unredacted`, exposes raw prompts.
+Stage details and source plans are projected to declared metadata, rather than
+returning arbitrary JSON that could contain arguments.
+
+Activity uses cursor pagination ordered by `(started_at, id)` descending,
+with mode, pool, outcome, agent and UTC time-range filters. The detail endpoint
+requires the project and original start timestamp alongside the run id; the
+timestamp retains database microseconds. Header-only records read as incomplete.
+Element names, treatments, object references and version stamps come from stored
+evidence, never from today's catalogue or entitlements.
+
+The underlying evidence is immutable, but its authorised read projection is
+not: permissions and redaction settings can change, and a completion can be
+appended after the header. Therefore these console reads use `Cache-Control:
+no-store`, refetch on entry and discard inactive query data, rather than the
+infinite cache used for immutable entities with immutable visibility.
+
+
 
 ```sql
 create table query_run (
@@ -3941,7 +3982,7 @@ Every project-scoped key begins `['project', projectId, …]`, so switching proj
 | `industry`, `industryTerm`, `demoSourceTemplate`, `discoveryQuestion` | 1 hour | Shared, changes only on a platform publish |
 | `effectiveVocabulary` | 5 min | Keyed by `(projectId, vocabularyVersion)` |
 | `synonymCandidate` | 1 min | A queue, changes as prompts arrive |
-| `run`, `runStage` | **Infinite** | Immutable once written. Never refetched |
+| `run`, `runStage` | **Infinite** for immutable facts | The authorised console projection is an exception: see §4.6; it refetches on entry because permissions, redaction and completion can change |
 
 Immutable entities caching forever is the largest single cache win in the application.
 
