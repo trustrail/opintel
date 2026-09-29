@@ -1,3 +1,4 @@
+import type { ExplainTool } from '../application/explain.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -6,7 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { CallToolRequestSchema, ListToolsRequestSchema, ToolSchema, JSONRPCMessageSchema, McpError, ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { DomainError, ProjectId } from '../../../shared/kernel/index.js';
-import { listedTools, toolDescriptor } from '../../../shared/api/mcp.js';
+import { ExplainOutput, listedTools, toolDescriptor } from '../../../shared/api/mcp.js';
 import { errorEnvelopeSchema, type PoolKeyHttpEndpoint } from '../../../platform/http/index.js';
 import { McpAccess, type McpConfiguration, type McpPrincipal } from '../application/access.js';
 import {queryResponse,refusalResponse} from '../application/response.js';
@@ -23,7 +24,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
  private readonly context = new AsyncLocalStorage<{principal:McpPrincipal;signal:AbortSignal}>();
  private timer: ReturnType<typeof setInterval> | undefined;
  private refreshing = false;
- constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool,private readonly queryTool?:QueryTool) {}
+ constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool,private readonly queryTool?:QueryTool,private readonly explainTool?:ExplainTool) {}
  start() {
   this.timer ??= setInterval(() => { void this.refresh().catch(() => { console.warn({event:'mcp.refresh_failed',category:'dependency_unavailable'}); }); }, 1000);
   this.timer.unref();
@@ -90,6 +91,18 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
      return refusalResponse(result.error);
     }catch{return refusalResponse(new DomainError('dependency_unavailable','The query could not complete.',{cause:'unclassified'}));}
    }
+   if (input.success && tool.name==='opintel.explain' && this.explainTool) {
+    const refused=(error:DomainError)=>{
+     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:error.code});
+     const response=refusalResponse(error);
+     return {...response,structuredContent:ExplainOutput.parse({permitted:false,reason:response.content[0]!.text,code:error.code})};
+    };
+    try {
+     const result=await this.explainTool.explain(caller,input.data,AbortSignal.any([extra.signal,this.context.getStore()!.signal]));
+     if(!result.ok)return refused(result.error);
+     return {content:[{type:'text' as const,text:JSON.stringify(result.value)}],structuredContent:result.value};
+    } catch {return refused(new DomainError('dependency_unavailable','The query could not complete.',{cause:'unclassified'}));}
+   }
    if (input.success && tool.name==='opintel.describe' && this.describeTool) {
     try {
      const result = await this.describeTool.describe(caller,input.data);
@@ -104,7 +117,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    const code = input.success ? 'dependency_unavailable' : 'validation_failed';
    const message = input.success ? 'This tool is not available in this deployment yet.' : 'The tool arguments do not match its schema.';
    console.info({event:'mcp.refused',poolId:caller.pool.id,reason:code});
-   return {isError:true,content:[{type:'text' as const,text:message}],_meta:{code,cause:input.success?'tool_unavailable':'invalid_query',retryable:false}};
+   return {isError:true,content:[{type:'text' as const,text:message}],_meta:{code,cause:input.success?'tool_unavailable':'invalid_query',retryable:false},...(tool.name==='opintel.explain'?{structuredContent:ExplainOutput.parse({permitted:false,reason:message,code})}:{})};
   });
   await server.connect(transport);
   return session;

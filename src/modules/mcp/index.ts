@@ -11,3 +11,6 @@ export {SidecarQueryExecution} from './infrastructure/execution-client.js';
 export {UnavailableEvidenceWriter} from './infrastructure/evidence-unavailable.js';
 
 export {queryResponse,refusalResponse} from './application/response.js';
+
+export {ExplainService,type ExplainTool} from './application/explain.js';
+export type {QueryValidationPort} from './application/query-ports.js';

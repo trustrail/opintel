@@ -1923,7 +1923,7 @@ agent id; a session id is not a credential. Browser-origin requests are refused.
 `describe` and `explain` are listed unconditionally; `query` follows query mode.
 Their Zod input/output contracts generate the advertised JSON Schemas and the
 transport OpenAPI components. Item 5.6 supplies `describe`; item 5.7 wires query but keeps it unavailable
-until durable evidence lands in 5.10/5.11. Explain awaits 5.9. Unavailable tools return an MCP error result
+until durable evidence lands in 5.10/5.11. Item 5.9 supplies explain. Unavailable tools return an MCP error result
 with `dependency_unavailable` and a readable unavailable message. Prompt tools
 are not registered before Slice 1b. A hidden
 tool and an unknown name return the same JSON-RPC `-32602`, `Unknown tool.`.
@@ -1960,6 +1960,34 @@ an exact exposed three-part name; a name with no describable decisions returns
 and elements, archived sources, unsupported types and unnameable elements are
 excluded. The same validated output appears in MCP text and structured content;
 neither contains undecided names, source identifiers or compiler diagnostics.
+
+**Item 5.9 implementation.** `explain` shares query's current compilation,
+source-relationship checks, refuse-only pre-filter, read-plan construction and
+reduction lineage. It calls the pinned sidecar's `/validate`, never `/execute`.
+Only successful authoritative parsing, treatment inspection and preparation
+against empty pool tables can produce `permitted: true`; application acceptance
+alone cannot. It opens no source connection, estimates no source and reads no
+rows. It remains callable with query mode disabled and does not depend on the
+future evidence writer.
+
+Successful `objects` are three-part exposed object names. `columns` are their
+fully qualified exposed read-plan columns, including columns staged even when
+not projected by the query. Notes distinguish these planned reads from returned
+token/mask lineage, name withheld decisions and aggregate-only use, and state
+that no source was contacted and nothing was read. Undecided elements, raw
+source identifiers, credentials and aggregate thresholds are not exposed.
+`permitted: true` is a dry-run verdict, not an execution guarantee: notes identify
+pending group-size checks and explain that source connectivity, scan size and
+execution limits have not been established.
+
+Refusals return the specified `{ permitted: false, reason, code }` in structured
+content. `reason` and MCP text come from query's item 5.8 refusal formatter, with
+the same code and safe metadata. No evidence id is fabricated. Application
+refusals are logged at `info`; sidecar validation retains its existing audit.
+Cancellation and disconnection abort the validation request. N-003 exercises the
+real MCP and pinned sidecar path, asserts zero calls to both source-connection
+scopes and all staging-source methods, and uses query as a positive control for
+the source-connection instrumentation.
 
 ## 2.7 The sidecar contract
 

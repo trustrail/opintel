@@ -571,3 +571,14 @@ J-044/J-045 now exercise real pool keys, relationships, MCP sessions and SQL
 execution, including revoked and expired keys on the next request. Their two
 prerequisite exemptions are removed. The bypass project consequently requires
 the same local service prerequisites as the functional project.
+
+
+### Item 5.9 — explain dry run
+
+`explain` uses query's shared preparation and refusal formatter, then the
+sidecar's existing authoritative `/validate`. It reports exposed planned reads
+and reductions, explicitly states nothing was read, and keeps data-dependent
+checks pending. It remains callable with query mode disabled and needs no
+execution evidence writer. N-003 covers real MCP/mTLS validation, refusal parity
+and zero source connections. No sidecar enforcement or other item is changed.
+See [verification results](review/5-9-implementation.md).
