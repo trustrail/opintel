@@ -1499,6 +1499,40 @@ replay. Cache invalidation and policy-version changes remain item 4.9.
 | GET | `/runs/:id` |
 | POST | `/projects/:id/exports` |
 | GET | `/exports/:id` (status, then a signed download URL) |
+| GET | `/exports/:id/download` (authenticated, signed, streaming NDJSON or CSV) |
+
+Item 5.13 implements creation as an immutable export descriptor, not a stored
+file or a background materialisation job. `POST /projects/:id/exports` accepts
+`{format: 'ndjson'|'csv', filters: {poolId?, agentId?, mode?, outcome?, elementId?,
+from?, to?}}` and requires `Idempotency-Key`. It returns 201 with
+`{id, projectId, format, filters, createdAt}`. The original descriptor is replayed
+for the same actor/project/key/body for 24 hours; another body returns
+409 `idempotency_key_reused`.
+
+`GET /exports/:id?projectId=…` returns that descriptor with `status: 'ready'`,
+`downloadUrl` and `expiresAt`. Ready means the descriptor can be streamed, not
+that a file has been generated. The signed URL expires after fifteen minutes;
+status supplies a fresh link. Status and download require the creating user,
+project scope and current `project#export_evidence`. The signature binds the
+export, project, user and expiry and does not replace session authentication.
+All three routes return `Cache-Control: no-store`.
+
+Download uses descending `(started_at, id)` keyset pages of at most 100 records,
+with a header-time upper bound of descriptor creation. Completion facts are
+read when each page is fetched; this is a live audit read, not a frozen database
+snapshot. Each page rechecks export permission and the current argument
+redaction policy. NDJSON has one object per line; CSV has one run per row with
+the same fields, fixed header columns, empty cells for null, and nested evidence
+as JSON cells. CSV quotes cells and doubles embedded quotes; text that could be
+interpreted as a spreadsheet formula receives a leading apostrophe. NDJSON
+retains that text exactly when authorised. Both use the redacted detail schema
+plus `demoProvenance: 'none'|'unknown'` described in §4.6.
+
+The HTTP writer awaits backpressure and stops database paging on disconnect.
+An error before output uses the standard error envelope; an error after output
+aborts the transfer so a partial artifact cannot appear successfully complete.
+No export file is stored, and no download uses the permissions or redaction
+settings that happened to be in force when its descriptor was created.
 
 ### streams
 
@@ -3848,6 +3882,26 @@ from a project flag or merely a bound source. Stages retain refusal code and
 human reason, and execution path, engine version and aggregate inspection facts.
 Neither result rows nor credentials enter the writer. Query mode leaves CIL and
 generated SQL null; prompt composition remains the later prompt items.
+
+**Exports exclude known demo-touching runs, but include incomplete runs with
+unknown provenance.** A completed record with `synthetic = true` is excluded
+as a whole, based on recorded source contact rather than today's source or
+project configuration. A header without completion remains in the export with
+`status: 'incomplete'`, `synthetic: null` and `demoProvenance: 'unknown'`. It is
+not known to have touched a demo source. The header proves that a question was
+asked and did not reach a recorded completion; omitting it would hide that audit
+fact and create an unexplained discrepancy with Activity. Unknown provenance
+must not be changed into an assertion of no demo contact, or filtered out as
+though demo contact were known. Completed non-synthetic rows carry
+`demoProvenance: 'none'`.
+
+Synthetic derived element deliveries (released/aggregated entries with no source
+element ID) are omitted from exports, including null-ID object declarations.
+They were not fields read from a source. Null-ID withheld/undecided refusal facts
+remain, explicitly stating non-delivery. This projection never changes stored
+evidence. Export arguments use the same read-time permission and redaction path
+as Activity, including parsed literal stripping and no arguments at all without
+`project#view_unredacted`. Stored redaction still belongs to item 5.17.
 
 **The append-only guarantee is a grant, not a convention:**
 

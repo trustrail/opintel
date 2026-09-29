@@ -3,10 +3,13 @@ import {withTenant,withPlatform} from '../../../platform/db/scope.js';
 import {ok,err,DomainError,type RunId} from '../../../shared/kernel/index.js';
 import {ActivityEntry,EvidenceDetail,type ActivityFilters} from '../../../shared/api/activity.js';
 import type {EvidenceContext,EvidencePosition,EvidenceReader} from '../application/read.js';
-const time=(column:string)=>`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
-const columns=`r.id,r.project_id AS "projectId",r.pool_id AS "poolId",r.agent_id AS "agentId",r.key_prefix AS "keyPrefix",r.mode,${time('r.started_at')} AS "startedAt",COALESCE(c.outcome->>'kind','incomplete') AS status,(c.outcome->>'rowCount')::bigint::float8 AS "rowCount",c.latency_ms AS "latencyMs",c.synthetic,r.request,'raw' AS "argumentVisibility",r.versions`;
+export const time=(column:string)=>`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+export const columns=`r.id,r.project_id AS "projectId",r.pool_id AS "poolId",r.agent_id AS "agentId",r.key_prefix AS "keyPrefix",r.mode,${time('r.started_at')} AS "startedAt",COALESCE(c.outcome->>'kind','incomplete') AS status,(c.outcome->>'rowCount')::bigint::float8 AS "rowCount",c.latency_ms AS "latencyMs",c.synthetic,r.request,'raw' AS "argumentVisibility",r.versions`;
 const joined='FROM query_run r LEFT JOIN run_completion c ON c.run_id=r.id AND c.started_at=r.started_at';
-function entry(row:Record<string,unknown>){const legacy=z.object({policy:z.number(),catalog:z.number(),vocabulary:z.number(),tokenKey:z.number()}).safeParse(row.versions);return ActivityEntry.parse({...row,versions:legacy.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
+const legacyVersions=z.object({policy:z.number(),catalog:z.number(),vocabulary:z.number(),tokenKey:z.number()});
+const storedObjects=z.object({objects:EvidenceDetail.shape.objects});
+const storedSources=z.object({sources:EvidenceDetail.shape.sources.default([])});
+function entry(row:Record<string,unknown>){const legacy=typeof row.versions==='object'&&row.versions!==null&&'tokenKey' in row.versions?legacyVersions.safeParse(row.versions):null;return ActivityEntry.parse({...row,versions:legacy?.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
 export class PostgresEvidenceReader implements EvidenceReader {
  async settings(ctx:EvidenceContext){const [row]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));return row?.settings;}
  async list(ctx:EvidenceContext,filters:ActivityFilters,after:EvidencePosition|null,limit:number){
@@ -27,9 +30,13 @@ export class PostgresEvidenceReader implements EvidenceReader {
    // Arbitrary stage/CIL/plan JSON can contain argument values. Only declared
    // metadata crosses this read boundary, regardless of redaction mode.
    const stages=await tx.query("SELECT stage,result,ms,detail->>'code' AS code FROM run_stage WHERE run_id=$1 AND started_at=$2::timestamptz ORDER BY CASE stage WHEN 'validate' THEN 1 WHEN 'execute' THEN 2 WHEN 'record' THEN 3 ELSE 0 END,stage",[id,at]);
-   const objects=z.object({objects:EvidenceDetail.shape.objects}).safeParse(row.sourcePlan??{});
-   const sources=z.object({sources:EvidenceDetail.shape.sources.default([])}).safeParse(row.freshness??{});
-   return ok(EvidenceDetail.parse({...row,...entry(row),elements,stages,objects:objects.success?objects.data.objects:[],sources:sources.success?sources.data.sources:[]}));
+   return ok(detailRecord({...row,elements,stages}));
   });
  }
+}
+
+export function detailRecord(row:Record<string,unknown>):EvidenceDetail {
+ const objects=storedObjects.safeParse(row.sourcePlan??{});
+ const sources=storedSources.safeParse(row.freshness??{});
+ return EvidenceDetail.parse({...row,...entry(row),objects:objects.success?objects.data.objects:[],sources:sources.success?sources.data.sources:[]});
 }

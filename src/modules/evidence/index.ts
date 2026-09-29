@@ -7,3 +7,5 @@ export {PostgresEvidenceWriter} from './infrastructure/write.js';
 export {EvidenceQuery,type EvidenceReader,type EvidenceContext,type EvidenceTextPort} from './application/read.js';
 export {PostgresEvidenceReader} from './infrastructure/read.js';
 export {DuckDBEvidenceText} from './infrastructure/text.js';
+export {EvidenceExportService,ExportId,type ExportRepository} from './application/export.js';
+export {PostgresEvidenceExports} from './infrastructure/export.js';

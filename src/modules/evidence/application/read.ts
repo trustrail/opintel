@@ -27,9 +27,13 @@ export class EvidenceQuery {
   const settings=await this.visibility(ctx),rows=await this.reader.list(ctx,filters,after,limit);if(!rows.ok)return rows;
   const items:ActivityEntry[]=[];for(const row of rows.value)items.push(await this.redact(row,settings));return ok(items);
  }
+ async redactRecords(ctx:EvidenceContext,rows:EvidenceDetail[]):Promise<Result<EvidenceDetail[]>>{
+  const settings=await this.visibility(ctx),result:EvidenceDetail[]=[];
+  for(const row of rows){const redacted=await this.redact(row,settings);result.push({...redacted,generatedSql:settings.redaction==='none'?row.generatedSql:settings.redaction==='allowlist'&&settings.allowlistedFields.includes('sql')&&row.generatedSql?await this.text.stripSql(row.generatedSql):null});}
+  return ok(result);
+ }
  async detail(ctx:EvidenceContext,id:RunId,at:string){
-  const settings=await this.visibility(ctx),row=await this.reader.detail(ctx,id,at);if(!row.ok)return row;
-  const redacted=await this.redact(row.value,settings);
-  return ok({...redacted,generatedSql:settings.redaction==='none'?row.value.generatedSql:settings.redaction==='allowlist'&&settings.allowlistedFields.includes('sql')&&row.value.generatedSql?await this.text.stripSql(row.value.generatedSql):null});
+  const row=await this.reader.detail(ctx,id,at);if(!row.ok)return row;
+  const result=await this.redactRecords(ctx,[row.value]);return result.ok?ok(result.value[0]!):result;
  }
 }

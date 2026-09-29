@@ -1,3 +1,5 @@
+import {evidenceExportRoutes} from '../../modules/evidence/api/export-routes.js';
+import {EvidenceExportService,PostgresEvidenceExports} from '../../modules/evidence/index.js';
 import {EvidenceQuery,PostgresEvidenceReader,DuckDBEvidenceText} from '../../modules/evidence/index.js';
 import {evidenceRoutes} from '../../modules/evidence/api/routes.js';
 import {PostgresEvidenceWriter} from '../../modules/evidence/index.js';
@@ -192,8 +194,10 @@ async function start(): Promise<void> {
   };
   sweepPresence();
   const presenceTimer=setInterval(sweepPresence,5000);presenceTimer.unref();
+  const evidenceQuery=new EvidenceQuery(new PostgresEvidenceReader(),authorization,new DuckDBEvidenceText());
   const routes = [
-    ...evidenceRoutes(new EvidenceQuery(new PostgresEvidenceReader(),authorization,new DuckDBEvidenceText())),
+    ...evidenceExportRoutes(new EvidenceExportService(new PostgresEvidenceExports(),evidenceQuery,authorization)),
+    ...evidenceRoutes(evidenceQuery),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), presence)),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),

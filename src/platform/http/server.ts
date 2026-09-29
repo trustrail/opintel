@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {once} from 'node:events';
 import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { DomainError, type JsonObject } from '../../shared/kernel/index.js';
 import type { CurrentUser } from '../../modules/identity/application/current-user.js';
@@ -35,6 +36,9 @@ export type AuthenticatedRequest<TBody, TQuery = Record<string, never>> = HttpRe
 };
 
 export type HttpResponse<TBody> = {
+ readonly download: (send: (chunk:TBody)=>Promise<void>,signal:AbortSignal)=>Promise<void>;
+ readonly headers: Readonly<Record<string,string>>;
+} | {
  readonly stream: (send: (event: TBody | null) => void, signal: AbortSignal) => Promise<void>;
 } | {
   readonly status?: number;
@@ -315,6 +319,30 @@ export function createHttpServer(
         requestId,
         ...(actor === undefined ? {} : { actor }),
       });
+      if ('download' in result) {
+        if(response.destroyed)return;
+        const controller=new AbortController();
+        const closed=()=>controller.abort();response.once('close',closed);
+        try {
+          await result.download(async chunk=>{
+            if(controller.signal.aborted)throw new Error('Download closed');
+            const parsed=matched.route.response.parse(chunk);
+            if(typeof parsed!=='string')throw new Error('Download chunks must be strings.');
+            if(!response.headersSent)response.writeHead(200,{...result.headers,[requestIdHeader]:requestId});
+            if(!response.write(parsed))await once(response,'drain',{signal:controller.signal});
+          },controller.signal);
+          if(!controller.signal.aborted){
+            if(!response.headersSent)response.writeHead(200,{...result.headers,[requestIdHeader]:requestId});
+            response.end();
+          }
+        } catch(error) {
+          if(controller.signal.aborted)return;
+          // A partial artifact must fail the transfer, never look complete.
+          if(response.headersSent){response.destroy();return;}
+          throw error;
+        } finally {controller.abort();response.off('close',closed);}
+        return;
+      }
       if ('stream' in result) {
         if (response.destroyed) return;
         const controller = new AbortController();
@@ -352,7 +380,7 @@ export function createHttpServer(
             : error.code === 'unauthenticated' ? 401
               : error.code === 'forbidden' ? 403
                 : error.code === 'not_found' ? 404
-                  : error.code === 'conflict' ? 409
+                  : error.code === 'conflict' || error.code === 'idempotency_key_reused' ? 409
                     : error.code === 'rate_limited' ? 429
                       : error.code === 'dependency_unavailable' ? 503 : 500,
           requestId,
