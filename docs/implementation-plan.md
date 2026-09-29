@@ -262,7 +262,14 @@ VC-10–VC-14, VC-23–VC-30 and H-008 therefore require authoritative sidecar a
 | 5.15 | Dashboard: ratio, spectrum, tiles, feed, pool shields, empty when clean | 4.9, 5.4 | screen | O-001 to O-004 |
 | 5.16 | Settings: project, company and personal pages; §5.8 contract reviewed before screen implementation | all above | screens | Q-001–Q-003, Q-006–Q-009, Q-011–Q-019, Q-021–Q-024, Q-025–Q-027 configuration only, Q-031–Q-033, Q-035–Q-038 |
 | 5.16a | Notifications and alerts, including digest preferences/delivery; discovery scheduling and daily pool row budgets; admin two-step enforcement requires its own identity contract. **Not in Slice 1a; deferred pending contracts.** | Contracts to be reviewed before implementation | settings and delivery/enforcement | Q-004, Q-005, Q-010, Q-020, Q-028–Q-030, Q-034 |
-| 5.17 | Retention and redaction jobs | 5.10 | jobs | Q-025 to Q-027 |
+| 5.17 | Evidence retention into visible per-run rollups, stored redaction with run history, successful-run detail sampling, and forward partition provisioning | 5.10 | jobs | Q-025 to Q-027 |
+| 5.18 | SSO enforcement gate: the enabling company administrator must have completed a sign-in through the exact provider and configuration being enforced. Any configuration change invalidates the proof. Verified at write time | 5.16 | `modules/identity` | Enforcement is refused without a verified sign-in through that configuration; a changed client id, secret reference, issuer or scope invalidates it |
+| 5.19 | SSO break-glass: company administrators retain magic links under enforcement, covering provider resolution, link issuance, confirmation and session acceptance. Stated on the enforcement screen and audited on every use | 5.18 | `modules/identity` | An administrator signs in by magic link while enforcement is on; a non-administrator cannot; every use is recorded |
+
+**5.18 and 5.19 are separate, unimplemented Slice 1a requirements.** Both must
+be complete before the Slice 1a gate: a customer who cannot sign in has no product.
+The enforcement gate prevents activation against an unverified configuration;
+break-glass provides administrator recovery if the provider later fails.
 
 5.16 exposes and persists evidence settings; 5.17 owns the execution half of
 Q-025–Q-027: retention, stored redaction and capture sampling. Saving configuration

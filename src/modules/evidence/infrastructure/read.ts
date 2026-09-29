@@ -4,8 +4,11 @@ import {ok,err,DomainError,type RunId} from '../../../shared/kernel/index.js';
 import {ActivityEntry,EvidenceDetail,type ActivityFilters} from '../../../shared/api/activity.js';
 import type {EvidenceContext,EvidencePosition,EvidenceReader} from '../application/read.js';
 export const time=(column:string)=>`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
-export const columns=`r.id,r.project_id AS "projectId",r.pool_id AS "poolId",r.agent_id AS "agentId",r.key_prefix AS "keyPrefix",r.mode,${time('r.started_at')} AS "startedAt",COALESCE(c.outcome->>'kind','incomplete') AS status,(c.outcome->>'rowCount')::bigint::float8 AS "rowCount",c.latency_ms AS "latencyMs",c.synthetic,r.request,'raw' AS "argumentVisibility",r.versions`;
-const joined='FROM query_run r LEFT JOIN run_completion c ON c.run_id=r.id AND c.started_at=r.started_at';
+export const columns=`r.id,r.project_id AS "projectId",r.pool_id AS "poolId",r.agent_id AS "agentId",r.key_prefix AS "keyPrefix",r.mode,${time('r.started_at')} AS "startedAt",COALESCE(c.outcome->>'kind','incomplete') AS status,(c.outcome->>'rowCount')::bigint::float8 AS "rowCount",c.latency_ms AS "latencyMs",c.synthetic,r.request,'raw' AS "argumentVisibility",r.versions,r.record_kind AS "recordKind",${time('r.rolled_up_at')} AS "rolledUpAt",r.treatment_counts AS "treatmentCounts",r.source_treatment_counts AS "sourceTreatmentCounts",r.capture_percent::float8 AS "capturePercent",r.capture_selected AS "captureSelected",c.detail_captured AS "detailCaptured",r.redactions`;
+// A single statement snapshot prevents retention from removing children between reads.
+export const childColumns=`COALESCE((SELECT jsonb_agg(jsonb_build_object('elementId',e.element_id,'exposedName',e.exposed_name,'state',e.state,'treatment',e.treatment,'withheldReason',e.withheld_reason) ORDER BY e.exposed_name,e.element_id) FROM run_element e WHERE e.run_id=r.id AND e.started_at=r.started_at),'[]') AS elements,
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('stage',s.stage,'result',s.result,'ms',s.ms,'code',s.detail->>'code') ORDER BY CASE s.stage WHEN 'validate' THEN 1 WHEN 'execute' THEN 2 WHEN 'record' THEN 3 ELSE 0 END,s.stage) FROM run_stage s WHERE s.run_id=r.id AND s.started_at=r.started_at),'[]') AS stages`;
+const joined='FROM evidence_run_read r LEFT JOIN evidence_completion_read c ON c.run_id=r.id AND c.started_at=r.started_at';
 const legacyVersions=z.object({policy:z.number(),catalog:z.number(),vocabulary:z.number(),tokenKey:z.number()});
 const storedObjects=z.object({objects:EvidenceDetail.shape.objects});
 const storedSources=z.object({sources:EvidenceDetail.shape.sources.default([])});
@@ -24,13 +27,9 @@ export class PostgresEvidenceReader implements EvidenceReader {
  }
  async detail(ctx:EvidenceContext,id:RunId,at:string){
   return withTenant(ctx,async tx=>{
-   const [row]=await tx.query<Record<string,unknown>>(`SELECT ${columns},${time('c.completed_at')} AS "completedAt",c.token_key_version_used AS "tokenKeyVersionUsed",(c.outcome->>'truncated')::boolean AS truncated,c.outcome->>'code' AS "refusalCode",c.generated_sql AS "generatedSql",c.freshness,c.source_plan AS "sourcePlan" ${joined} WHERE r.project_id=$1 AND r.id=$2 AND r.started_at=$3::timestamptz`,[ctx.projectId,id,at]);
+   const [row]=await tx.query<Record<string,unknown>>(`SELECT ${columns},${time('c.completed_at')} AS "completedAt",c.token_key_version_used AS "tokenKeyVersionUsed",(c.outcome->>'truncated')::boolean AS truncated,c.outcome->>'code' AS "refusalCode",c.generated_sql AS "generatedSql",c.freshness,c.source_plan AS "sourcePlan",${childColumns} ${joined} WHERE r.project_id=$1 AND r.id=$2 AND r.started_at=$3::timestamptz`,[ctx.projectId,id,at]);
    if(!row)return err(new DomainError('not_found','This run was not found in this project.'));
-   const elements=await tx.query('SELECT element_id AS "elementId",exposed_name AS "exposedName",state,treatment,withheld_reason AS "withheldReason" FROM run_element WHERE run_id=$1 AND started_at=$2::timestamptz ORDER BY exposed_name,element_id',[id,at]);
-   // Arbitrary stage/CIL/plan JSON can contain argument values. Only declared
-   // metadata crosses this read boundary, regardless of redaction mode.
-   const stages=await tx.query("SELECT stage,result,ms,detail->>'code' AS code FROM run_stage WHERE run_id=$1 AND started_at=$2::timestamptz ORDER BY CASE stage WHEN 'validate' THEN 1 WHEN 'execute' THEN 2 WHEN 'record' THEN 3 ELSE 0 END,stage",[id,at]);
-   return ok(detailRecord({...row,elements,stages}));
+   return ok(detailRecord(row));
   });
  }
 }

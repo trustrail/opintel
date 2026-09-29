@@ -38,7 +38,7 @@ export class EvidenceExportService {
    for(const row of redacted.value){
     if(signal.aborted)return;
     if(row.synthetic===true)continue;
-    yield ok(EvidenceExportRecord.parse({...row,demoProvenance:row.status==='incomplete'?'unknown':'none',elements:row.elements.filter(e=>e.elementId!==null||e.state==='withheld'||e.state==='undecided'),objects:row.objects.map(o=>({...o,columns:o.columns.filter(c=>c.elementId!==null)}))}));
+    yield ok(EvidenceExportRecord.parse({...row,treatmentCounts:row.recordKind==='rollup'?row.sourceTreatmentCounts:row.treatmentCounts,demoProvenance:row.status==='incomplete'?'unknown':'none',elements:row.elements.filter(e=>e.elementId!==null||e.state==='withheld'||e.state==='undecided'),objects:row.objects.map(o=>({...o,columns:o.columns.filter(c=>c.elementId!==null)}))}));
    }
    const last=page.at(-1)!;after={id:RunId(last.id),at:last.startedAt};if(page.length<100)return;
   }

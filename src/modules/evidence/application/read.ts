@@ -19,7 +19,7 @@ export class EvidenceQuery {
   const parsed=policy.safeParse(settings);return checks[0]?.allowed&&parsed.success?parsed.data.evidence:{redaction:'aggressive' as const,allowlistedFields:[]};
  }
  private async redact<T extends ActivityEntry>(row:T,settings:Awaited<ReturnType<EvidenceQuery['visibility']>>):Promise<T>{
-  if(settings.redaction==='none')return {...row,argumentVisibility:'raw'};
+  if(settings.redaction==='none')return {...row,argumentVisibility:row.request===null?'hidden':row.redactions.some(e=>e.fields.includes('request')&&e.policy.redaction==='allowlist')?'literal_stripped':'raw'};
   // Prompts have no parsed SQL structure in Slice 1a. Never fall back to raw prose.
   const request=settings.redaction==='allowlist'&&row.mode==='query'&&settings.allowlistedFields.includes('sql')&&row.request!==null?await this.text.stripSql(row.request):null;
   return {...row,request,argumentVisibility:request===null?'hidden':'literal_stripped'};

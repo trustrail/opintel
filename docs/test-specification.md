@@ -434,8 +434,8 @@ contract for screen copy and validation. Q-025–Q-027 have two owners: 5.16 pro
 configuration visibility, bounds/default/unset descriptions, persistence and audit;
 5.17 proves execution (retention, stored redaction and capture sampling). An
 execution test pending 5.17 must not be reported as passed by a configuration test.
-Until 5.17, the UI states that arguments remain stored unredacted and capture is
-still complete, regardless of saved future-job settings.
+Item 5.17 activates these settings and replaces the future-job copy with the
+current storage, retention and sampling behaviour.
 
 Q-004, Q-005, Q-010, Q-020, Q-028–Q-030 and Q-034 are deferred to item 5.16a, **not in Slice 1a**.
 The six notification toggles, digest/delivery rules, alert types and two-step
@@ -474,9 +474,9 @@ that enforced SSO has exactly one enabled company_idp.
 | Q-022 | F | Query: aggregate minimum group size | Groups below it refused |
 | Q-023 | F | Query: memory limit | Enforced; fails rather than spills |
 | Q-024 | F | Query: concurrency per pool | Queued to the bound, then refused |
-| Q-025 | F | Evidence: retention tiers | Records aged out on schedule; rollups retained |
-| Q-026 | F | Evidence: redaction aggressive / allowlist / none | Applied to stored arguments; assert at rest |
-| Q-027 | F | Evidence: capture sampling below 100% | Errors still captured at 100%; sampling rate stated in the UI |
+| Q-025 | F | Evidence: retention tiers | Completed full records atomically become visibly marked rollups; incomplete runs retained. Rollup clock starts at creation, with a window at least full retention and no shorter than its recorded floor. Unset windows never authorise deletion |
+| Q-026 | F | Evidence: redaction aggressive / allowlist / none | Applied before persistence and to historical stored arguments; assert at rest. Time, policy and fields recorded on the run. Application UPDATE/DELETE remain refused |
+| Q-027 | F | Evidence: capture sampling below 100% | Only successful runs may lose detailed stages/source plans. Refusals and failures retain full detail. Header, completion and element facts always retained; percentage and selection pinned at open, rate stated in UI |
 | Q-028 | F | Alerts: each rule type | Fires on its trigger only |
 | Q-029 | F | Alerts: cooldown | One delivery per cooldown per rule |
 | Q-030 | F | Alerts: webhook with a bad URL | Validation on save; delivery failure surfaced, retried with backoff |

@@ -18,7 +18,7 @@ export type RunOutcome = Readonly<
 >;
 export type RunHeader = Readonly<{
  id:RunId;projectId:ProjectId;poolId:PoolId;agentId:string|null;keyPrefix:string;
- mode:'query'|'prompt';request:string;versions:VersionStamp;startedAt:Timestamp;
+ mode:'query'|'prompt';request:string|null;versions:VersionStamp;startedAt:Timestamp;
 }>;
 export type RunCompletion = Readonly<{
  tokenKeyVersionUsed:number|null;outcome:RunOutcome;cil:JsonObject|null;sourcePlan:JsonObject|null;generatedSql:string|null;

@@ -252,7 +252,7 @@ class QueryRun {
   readonly poolId: PoolId;
   readonly agentId: string | null;   // self-declared, observational
   readonly mode: 'query' | 'prompt';
-  readonly request: string;
+  readonly request: string | null; // absent after stored redaction
   readonly stages: RunStage[];
   readonly elements: ElementDelivery[];
   readonly versions: VersionStamp;
@@ -261,8 +261,8 @@ class QueryRun {
 ```
 
 **Invariants**
-- The header is immutable from request start; completion is a separate append-only fact. No setters exist on the class. A header with no completion row is an incomplete run, not a missing run
-- Every stage that ran appends a `RunStage`. A refusal records the stage that refused and why
+- Identity, versions and sampling selection are immutable from request start; completion is a separate append-only fact. Stored argument redaction is the explicit in-place exception, with its time and policy recorded (§4.6). No setters exist on the snapshot class. A header with no completion row is an incomplete run, not a missing run
+- Full capture appends the stages that ran. Only successful runs may omit stage detail under pinned sampling; a refusal always records the stage that refused and why (§4.6)
 - `versions` is captured at request start, not at completion, so a mid-flight configuration change is visible as a discrepancy rather than hidden
 
 ## 1.3 Value objects
@@ -3756,7 +3756,24 @@ boundary. The completion primary key permits only one terminal outcome.
 
 **Literal stripping uses the parsed statement**, not a regular expression over the text. The parse already exists from C.3.
 
-**Until item 5.17, arguments are stored unredacted**. Read-time redaction protects console viewers; it does not protect anyone with view_unredacted or direct database access. 5.17 owns stored redaction.
+**Stored redaction (5.17) is the one in-place exception to append-only.** The
+writer applies the current policy before committing request arguments. An hourly
+job also scrubs historical request and generated-SQL arguments, including
+incomplete runs. `none` preserves what remains; it cannot restore removed data.
+`allowlist` uses parsed literal stripping, never regex or raw fallback. Prompt
+arguments have no safe structured stripping path in this slice and are removed
+unless the mode is `none`. CIL remains null in the query writer; stage and source
+plan facts contain metadata, not a second copy of request arguments.
+
+Every rewrite atomically appends an `evidence_redaction` fact with the original
+run identity, UTC timestamp, affected argument fields and the exact redaction
+policy (mode and allowlisted fields). The run's Activity detail and exports
+carry these facts. An absent redacted argument can therefore be distinguished
+from one never captured. The job checks that the policy and original arguments
+have not changed before applying a rewrite. No application UPDATE or DELETE
+grant is added; only narrowly scoped owner functions callable by the maintenance
+role perform these changes. Read-time permission and current redaction still
+apply, including to already stripped stored arguments.
 
 The 5.12 reader reuses C.3's parser for historical SQL and replaces constants
 in the parsed tree before printing it. Unsupported or malformed statements
@@ -3773,8 +3790,9 @@ timestamp retains database microseconds. Header-only records read as incomplete.
 Element names, treatments, object references and version stamps come from stored
 evidence, never from today's catalogue or entitlements.
 
-The underlying evidence is immutable, but its authorised read projection is
-not: permissions and redaction settings can change, and a completion can be
+Beyond the explicit lifecycle operations, the evidence facts are immutable, but
+the authorised read projection is not: permissions and redaction settings can
+change, and a completion can be
 appended after the header. Therefore these console reads use `Cache-Control:
 no-store`, refetch on entry and discard inactive query data, rather than the
 infinite cache used for immutable entities with immutable visibility.
@@ -3789,7 +3807,9 @@ create table query_run (
   agent_id text,                         -- observational, never authorization
   key_prefix text not null,
   mode text not null check (mode in ('query','prompt')),
-  request text not null,
+  request text,                         -- nullable after stored redaction
+  capture_percent numeric not null default 100 check (capture_percent > 0 and capture_percent <= 100),
+  capture_selected boolean not null default true,
   versions jsonb not null,               -- policy, vocabulary, catalog, tokenKeyVersionSelected
   started_at timestamptz not null,
   primary key (id, started_at),
@@ -3801,6 +3821,8 @@ create table run_completion (
   started_at timestamptz not null,
   outcome jsonb not null,                -- full tagged RunOutcome from §1.7
   token_key_version_used integer check (token_key_version_used > 0),
+  detail_captured boolean not null default true,
+  check (detail_captured or outcome->>'kind' in ('answered','reduced')),
   cil jsonb,
   source_plan jsonb,
   generated_sql text,
@@ -3928,7 +3950,7 @@ They were not fields read from a source. Null-ID withheld/undecided refusal fact
 remain, explicitly stating non-delivery. This projection never changes stored
 evidence. Export arguments use the same read-time permission and redaction path
 as Activity, including parsed literal stripping and no arguments at all without
-`project#view_unredacted`. Stored redaction still belongs to item 5.17.
+`project#view_unredacted`. Stored redaction cannot be undone by exporting.
 
 **The append-only guarantee is a grant, not a convention:**
 
@@ -3951,10 +3973,55 @@ from application privileges; no application UPDATE or DELETE is granted.
 Migration 046 supplies the full constraints and an owner-only
 `ensure_evidence_month(date)` DDL function. It creates four matching monthly
 partitions, including their forced RLS and grants. Bootstrap provisions the
-previous, current and next UTC months; deployment owners provision later months
-before use. There is no default partition: an unprovisioned month refuses the
-insert. Partition retention/scheduling remains item 5.17, and no retention job
-is introduced by 5.10. Item 5.11 supplies the record writer described above.
+previous, current and next UTC months. Item 5.17 provisions through UTC month
++3 before the API accepts requests and repeats provisioning every hour, before
+retention or redaction work. The job calls `ensure_evidence_month` through a
+maintenance-only function; it is idempotent and covers year boundaries. There
+is no default partition: an unprovisioned month still refuses the insert.
+
+**Sampling may only ever drop detail about runs that succeeded.** Refusals,
+failures and clarifications retain full detail regardless of selection. Sampling
+never drops a header, completion, per-element delivery facts, version stamps,
+source-contact freshness/provenance or the terminal outcome. It may omit the
+successful run's detailed stages and source plan; minimal execute/record stages
+remain. Selection is a uniform hash of the run ID against the configured
+percentage. Both the percentage and selection are pinned at open, just like the
+selected token key: a mid-run setting change must not describe neither state.
+The completion records whether detail was captured. An unset percentage captures
+100%; it never disables evidence. Activity states the pinned rate and detail
+state. Redaction is independent of sampling, so keeping full refusal detail does
+not retain arguments forbidden by the storage policy.
+
+**Retention ages completed full records into one rollup per run, atomically.**
+Age of the full record is measured from `started_at`; incomplete headers are
+never aged out. The rollup retains identity, versions, outcome (including row
+count), latency, completion time, demo provenance, sampling facts, redaction
+history and treatment/state counts. Its `created_at` begins a fresh retention
+clock. Its retention is at least the full record's retention, **measured from
+rollup creation**, and never shorter than the window recorded when it was
+created. The job takes the greatest of that recorded floor and the current full
+and rollup windows. An unset full window disables full-record ageing; an unset
+rollup window disables rollup expiry. Ageing never deletes the rollup just
+created. Shared monthly partitions are not dropped: projects may have different
+retention policies or incomplete runs in the same partition.
+
+Activity, record detail, NDJSON and CSV exports explicitly identify
+`recordKind: rollup`, with `rolledUpAt` and summary treatment counts. The screen
+says **Rollup · summary only** and explains that element-level facts, source
+plans and stages have been removed. Empty element lists do not claim no elements
+were read. Export counts exclude synthetic derived deliveries using separately
+stored source-only counts; demo-touching rollups remain excluded. An element-ID
+export filter matches only retained element facts; a rollup cannot assert such a
+match. Detail and export pages read in a single database statement snapshot so
+concurrent ageing cannot turn a full record into one with missing children.
+
+The startup job and hourly repeats process records in keyset read batches of
+100, with one run aggregate per write transaction; redaction precedes ageing for
+each project. Privileged retention creates the
+rollup and deletes its full aggregate in one transaction. Rollups are read-only
+to the application; invoker views preserve tenant RLS for both storage forms.
+Downgrade is refused once redaction or rollup facts exist: it cannot reconstruct
+removed arguments or full records, or silently erase that history.
 
 M-001 through M-006 cover incomplete records, unique header/completion identity,
 element structure, grant-level UPDATE/DELETE rejection, and persisted policy
@@ -4256,11 +4323,11 @@ Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `pref
 | `query.concurrencyPerPool` | integer executions | None — required before use | 1–256 | Simultaneous executions in each pool | Refuse query execution. A tighter pool limit wins; queued executions are bounded separately. |
 | `query.maxStagingRows` | integer rows | 5,000,000 | 10,000–100,000,000 | Rows staged from each object after predicate pushdown | Use 5,000,000. Unknown or excessive estimates refuse; observed excess refuses too. |
 | `query.maxQueuedExecutions` | integer executions | 8 | 1–64 | Waiting executions per pool | Use 8. A full queue refuses with retryability and current depth. |
-| `evidence.fullRetentionDays` | integer days | None — required before use | 1–36,500 | Age at which full records become eligible for retention processing | Refuse destructive full-record retention processing until configured; retain records. This is not a refusal to answer queries. Execution belongs to 5.17. |
-| `evidence.rollupRetentionDays` | integer days | None — required before use | 1–36,500; at least fullRetentionDays when both are set | Retention of evidence rollups | Refuse rollup expiry until configured; retain rollups. Full-record ageing must not destroy the required rollup. Execution belongs to 5.17. |
-| `evidence.redaction` | enum | aggressive | aggressive, allowlist, none | Arguments visible to authorised readers; stored redaction in 5.17 | Use aggressive. Without project#view_unredacted no arguments are exposed in any mode. Until 5.17 storage remains unredacted; the screen states that limitation. |
-| `evidence.allowlistedFields` | string array | [] | Unique non-empty argument-field names; not source-column names | Fields eligible for the allowlist projection | Expose no arguments under allowlist. SQL/prompt allowlisting never permits raw literals; literal stripping follows §4.6, failing closed where unavailable. Other modes ignore but preserve the list. |
-| `evidence.captureSamplingPercent` | number, percent | None — required before use | Finite, greater than 0 and at most 100 | Requested evidence capture sampling; errors remain 100% | Refuse activation of sampling until configured; the current writer continues capturing every run. 5.17 owns execution and its interaction with immutable headers/completions. Never imply that saving a value has activated sampling. |
+| `evidence.fullRetentionDays` | integer days | None — required before use | 1–36,500 | Age at which full records become eligible for retention processing | Refuse destructive full-record retention processing until configured; retain records. This is not a refusal to answer queries. Execution is the hourly 5.17 job. |
+| `evidence.rollupRetentionDays` | integer days | None — required before use | 1–36,500; at least fullRetentionDays when both are set | Retention measured from rollup creation; at least the full window and never shorter than the floor recorded at creation | Refuse rollup expiry until configured; retain rollups. Full-record ageing must not destroy the required rollup. Execution is the hourly 5.17 job. |
+| `evidence.redaction` | enum | aggressive | aggressive, allowlist, none | Stored arguments and arguments visible to authorised readers | Use aggressive at write and read time; scrub historical arguments hourly. Record the time and policy on the run. Without project#view_unredacted no arguments are exposed in any mode; relaxing the policy never restores erased arguments. |
+| `evidence.allowlistedFields` | string array | [] | Unique non-empty argument-field names; not source-column names | Fields eligible for stored and read-time allowlist redaction | Expose no arguments under allowlist. SQL/prompt allowlisting never permits raw literals; literal stripping follows §4.6, failing closed where unavailable. Other modes ignore but preserve the list. |
+| `evidence.captureSamplingPercent` | number, percent | None — required before use | Finite, greater than 0 and at most 100 | Percentage of successful runs retaining detailed stages/source plans; refusals and failures remain 100% | Capture full detail until configured. Selection and percentage are pinned at open; header, completion and element facts are always captured. |
 | `poolKeyGraceSeconds` | integer seconds | 86,400 (24 hours) | 3,600–604,800 (1 hour–7 days) | Grace assigned on future pool-key rotations | Use 86,400. Changing it does not rewrite an already issued key's grace expiry. |
 | `agentHeartbeatSeconds` | integer seconds | 20 | 5–60 | Advertised heartbeat cadence; stale after three missed intervals | Use 20. This does not alter the separate fixed idle threshold of 60 seconds without a request. |
 | `agentDisconnectGraceSeconds` | integer seconds | 300 (5 minutes) | 60–3,600 (1–60 minutes) | Time from entering stale to disconnected | Use 300. Disconnected twins remain visible. |

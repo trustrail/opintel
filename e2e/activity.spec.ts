@@ -21,3 +21,10 @@ test('5.12 filters, cursor loading, empty, error, loading and incomplete states'
  state.error=true;await page.reload();await expect(page.getByText('Evidence is temporarily unavailable.')).toBeVisible();state.error=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('Unknown — incomplete')).toBeVisible();
  state.missing=true;await page.reload();await expect(page.getByText('Record not found',{exact:true})).toBeVisible();await accessible(page);
 });
+
+for(const width of [390,900,1440])test(`5.17 rollup and stored redaction at ${width}`,{tag:'@visual'},async({page})=>{
+ const state=await mockActivity(page);state.total=1;
+ state.record={...state.record,recordKind:'rollup',rolledUpAt:'2026-09-28T12:00:00Z',request:null,argumentVisibility:'hidden',elements:[],stages:[],sources:[],treatmentCounts:{clear:3,tokenized:2,withheld:1},sourceTreatmentCounts:{clear:2,tokenized:2,withheld:1},capturePercent:25,captureSelected:false,detailCaptured:false,redactions:[{at:'2026-09-01T12:00:00Z',policy:{redaction:'aggressive',allowlistedFields:[]},fields:['request']}]};state.entry=state.record;
+ await page.setViewportSize({width,height:1000});await page.goto(activityPath);await expect(page.getByRole('link',{name:'Rollup · summary only'})).toBeVisible();await expect(page.getByText('25% detail capture')).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`rollup-list-${width}.png`,{fullPage:true});
+ await page.getByRole('link',{name:'Rollup · summary only'}).click();await expect(page.getByRole('heading',{name:'Rollup · summary only'})).toBeVisible();await expect(page.getByText(/Treatment counts are summaries, not element-level delivery facts/)).toBeVisible();await expect(page.getByText(/Stored arguments redacted .* under aggressive/)).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`rollup-record-${width}.png`,{fullPage:true});
+});

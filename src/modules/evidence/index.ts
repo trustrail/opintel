@@ -9,3 +9,5 @@ export {PostgresEvidenceReader} from './infrastructure/read.js';
 export {DuckDBEvidenceText} from './infrastructure/text.js';
 export {EvidenceExportService,ExportId,type ExportRepository} from './application/export.js';
 export {PostgresEvidenceExports} from './infrastructure/export.js';
+
+export {EvidenceMaintenance} from './infrastructure/maintenance.js';

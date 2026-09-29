@@ -1,7 +1,8 @@
+import {EvidenceMaintenance} from '../src/modules/evidence/index.js';
 import {randomUUID} from 'node:crypto';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {parse} from 'csv-parse/sync';
-import {withTenant} from '../src/platform/db/scope.js';
+import {withTenant,withPlatform} from '../src/platform/db/scope.js';
 import {ok} from '../src/shared/kernel/index.js';
 import {unwrap} from './fixtures/policy-version/fixture.js';
 import {resetDatabaseBeforeEach} from './database-fixture.js';
@@ -57,4 +58,18 @@ it('keyset pages preserve all runs with identical timestamps and respect the des
  await withTenant(f.ctx,tx=>tx.query(`INSERT INTO query_run(project_id,pool_id,agent_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,'opk_future','query','SELECT 1','{"policy":1,"catalog":1,"vocabulary":1,"tokenKeyVersionSelected":null}',clock_timestamp()+interval '1 minute')`,[f.ctx.projectId,f.pool,key]));
  const link=await f.link({format:'ndjson',filters:{agentId:key}});const rows=(await (await fetch(f.base+link.downloadUrl)).text()).trim().split('\n').map(line=>EvidenceExportRecord.parse(JSON.parse(line)));
  expect(rows).toHaveLength(205);expect(new Set(rows.map(r=>r.id)).size).toBe(205);expect(new Set(rows.map(r=>r.startedAt)).size).toBe(1);expect(rows.map(r=>r.id)).toEqual(rows.map(r=>r.id).sort().reverse());
+});
+
+it('5.17: both export formats identify rollups and exclude derived deliveries from summary counts',async()=>{
+ await withPlatform(tx=>tx.query('UPDATE project SET settings=$2 WHERE id=$1',[f.ctx.projectId,{evidence:{fullRetentionDays:1,rollupRetentionDays:1}}]));
+ const id=randomUUID();await withTenant(f.ctx,async tx=>{
+  const [r]=await tx.query<{at:string}>("INSERT INTO query_run(id,project_id,pool_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,'test','query','SELECT 1','{\"policy\":1,\"catalog\":1,\"vocabulary\":1,\"tokenKeyVersionSelected\":null}',clock_timestamp()-interval '2 days') RETURNING started_at::text AS at",[id,f.ctx.projectId,f.pool]);
+  for(const element of [f.ids[0],null])await tx.query("INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment) VALUES($1,$2,$3,'field','released','clear')",[id,r!.at,element]);
+  await tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":1,\"truncated\":false}',$2)",[id,r!.at]);
+ });
+ unwrap(await new EvidenceMaintenance().project(f.ctx.projectId));
+ for(const format of ['ndjson','csv'] as const){const link=await f.link({format,filters:{}}),body=await(await fetch(f.base+link.downloadUrl)).text();
+  if(format==='ndjson')expect(EvidenceExportRecord.parse(JSON.parse(body))).toMatchObject({id,recordKind:'rollup',treatmentCounts:{clear:1},elements:[],request:null});
+  else expect(parse(body,{columns:true})).toMatchObject([{id,recordKind:'rollup',treatmentCounts:'{"clear":1}',elements:'[]'}]);
+ }
 });

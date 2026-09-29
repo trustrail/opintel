@@ -59,6 +59,26 @@ EOF
   050 database triggers, serialized on the company row. /auth/providers retains
   its defensive ambiguity handling.
 
+# From item 5.16 — SSO lockout safety
+
+- The provider-count invariant does not prove that the provider can complete a
+  sign-in. Enabling enforcement disables magic links and revokes existing
+  magic-link sessions on the next authenticated read, including the enabling
+  company administrator's session. There is therefore no window to correct a
+  mistake from the settings screen that made it. This needs a gate before
+  enforcement takes effect, not an undo after activation.
+- Plan item 5.18 requires the enabling company administrator to have signed in
+  through the exact provider and configuration being enforced, verified at write
+  time. Configuration changes invalidate the proof, including changes to client
+  id, secret reference, issuer or scope.
+- Plan item 5.19 separately retains magic links for company administrators under
+  enforcement, across provider resolution, issuance, confirmation and session
+  acceptance. The exception is stated on the enforcement screen and every use is
+  audited; non-administrators cannot use it.
+- Both items are **required for Slice 1a and not yet implemented**. Provider
+  existence alone does not make enforcement safe, and a customer who cannot sign
+  in has no product.
+
 # From item 1.13a
 
 - Added the API composition root omitted by the original plan. It registers
@@ -393,6 +413,9 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   evidence writes fail closed roughly two months after deployment. Item 5.17
   owns retention; it should own forward provisioning too, or an operational
   runbook must.
+  **Resolved by 5.17:** API startup provisions through UTC month +3 before
+  accepting requests; the hourly lifecycle job repeats provisioning before
+  redaction and retention. Missing partitions still fail closed.
 
 # Jurisdiction in industry packs
 
@@ -404,3 +427,17 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   dimension within one pack or separate packs, and whether it attaches to
   the project or to the filing party. A platform holding several provinces
   at once suggests the latter, which is a different shape from industry.
+
+# Sidecar fleet: no registry exists
+
+- Today the application points at one sidecar via a single client config.
+  Nothing records which sidecar serves which project, its address,
+  certificate, contract version or health. §8 lists "sidecar fleet health"
+  as a metric, assuming a fleet the system cannot enumerate.
+- Three open questions: how a sidecar inside a customer's network is
+  reachable at all (inbound path they open, or an outbound connection used
+  in reverse, which changes the receipt path in §2.7); what the registry
+  holds; and how one is selected when a customer runs several.
+- S5 covers packaging, not fleet management. This belongs before a second
+  customer, and the reachability decision should be made before more is
+  built on the current one-sidecar assumption.
