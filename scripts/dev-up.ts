@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { loadSidecarConfig } from '../sidecar/config.js';
 import { checkDevelopmentLandingZones } from './sidecar-landing-check.js';
@@ -54,7 +55,7 @@ async function prepareDatabase(connectionString: string, migrate = true): Promis
   } finally { await client.end(); }
 }
 
-async function main(): Promise<void> {
+export async function prepareDevelopmentServices(): Promise<void> {
   const environment = loadDevEnvironment();
   await composeUp();
   // Compose waits for Postgres/Redis healthchecks. SpiceDB's minimal image has
@@ -84,6 +85,10 @@ async function main(): Promise<void> {
     console.info('Loaded docs/opintel-schema.zed into SpiceDB.');
   } finally { client.close(); }
   await testPreflight(environment);
+}
+
+async function main(): Promise<void> {
+  await prepareDevelopmentServices();
   await prepareSidecarDevelopment();
   const { config } = await loadSidecarConfig(join(sidecarDevDirectory, 'service.json'));
   await checkDevelopmentLandingZones(config.landingZones ?? []);
@@ -91,7 +96,7 @@ async function main(): Promise<void> {
   console.info('Development services are ready. Run npm run dev:api, npm run dev, or npm test.');
 }
 
-void main().catch((error: unknown) => {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void main().catch((error: unknown) => {
   console.error(`dev:up failed: ${error instanceof Error ? error.message : 'Bootstrap failed.'}`);
   process.exitCode = 1;
 });

@@ -10,6 +10,7 @@ test-results/
 
 # Local sidecar keys, process state, and audit metadata
 tmp/sidecar/
+tmp/dev-demo.lock
 
 # Signed, pinned native scanner provisioned by sidecar:prepare-scanner
 tmp/duckdb-extensions/

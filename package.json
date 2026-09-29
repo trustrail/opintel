@@ -11,6 +11,7 @@
     "build": "vite build",
     "dev": "vite",
     "dev:up": "tsx scripts/dev-up.ts",
+    "dev:demo": "tsx scripts/dev-demo.ts",
     "sidecar:openapi": "tsx scripts/sidecar-openapi.ts",
     "dev:sidecar": "tsx sidecar/start.ts",
     "dev:api": "tsx --watch src/platform/http/start.ts",

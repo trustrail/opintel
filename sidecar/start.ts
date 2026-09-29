@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const custodyTimer=setInterval(()=>{void custody?.sweep().catch(()=>console.warn({event:'custody.cleanup_failed',category:'storage'}));},60000);custodyTimer.unref();
   const audit = await startupCheck(`audit file ${config.auditFile}`, () => FileSamplingAudit.open(config.auditFile));
   const secrets=new EnvironmentSecretStore(),scope=new PostgresSourceScope(secrets,config.limits);
-  const execution=new StagedExecutor(new PostgresStagingSource(scope,new SidecarTokenizer(secrets,new IanaZoneResolver())),r=>new DuckDBSessionEngine(undefined,undefined,config.postgresExtension,r.limits));
+  const execution=new StagedExecutor(new PostgresStagingSource(scope,new SidecarTokenizer(custody??secrets,new IanaZoneResolver())),r=>new DuckDBSessionEngine(undefined,undefined,config.postgresExtension,r.limits));
   const engineProbe=await startupCheck('query engine initialization', () => new DuckDBSessionEngine().open('privileged'));
   let queryEngineVersion:string;try{queryEngineVersion=await engineProbe.inspection!.build();}finally{engineProbe.close();}
   const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});

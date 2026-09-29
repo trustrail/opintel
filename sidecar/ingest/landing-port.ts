@@ -11,6 +11,8 @@ export interface LandingPort {
   land(input: LandingInput, rows: AsyncIterable<Result<Array<string | null>>>): Promise<Result<LandingReceipt>>;
 }
 export interface LandingReceiptPort { send(receipt: LandingReceipt): Promise<Result<void>> }
+/** Explicit bootstrap maintenance; never part of the read-only query path. */
+export interface LandingStatisticsPort { analyze(source: LandingSource): Promise<Result<void>> }
 
 export interface RegisterDeliveryPort {
   notice(notice: import('../../src/shared/landing-contract.js').ArrivalNotice): Promise<Result<void>>;

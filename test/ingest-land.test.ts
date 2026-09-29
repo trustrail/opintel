@@ -41,6 +41,22 @@ afterAll(async () => {
   });
 });
 describe('landing into customer Postgres', () => {
+  it('development bootstrap refreshes only its landing statistics without changing rows or receipts', async () => {
+    const landing = writer();
+    const targets = [input(source('append_as_at')), input(source('table_per_filing'))];
+    const receipts = [];
+    for (const target of targets) receipts.push(unwrap(await landing.land(target, rows(['100'], ['200']))));
+    const before = await landing.committed(targets[0]!.source);
+    unwrap(await landing.analyze(targets[0]!.source));
+    await fixture(async db => {
+      const count = async (table: string) => (await db.query<{ rows: number }>('SELECT reltuples::float8 AS rows FROM pg_class WHERE oid=to_regclass($1)', [table])).rows[0]!.rows;
+      expect(await count(receipts[0]!.landedTable)).toBe(2);
+      expect(await count(receipts[1]!.landedTable)).toBe(-1);
+    });
+    expect(await landing.committed(targets[0]!.source)).toEqual(before);
+    unwrap(await landing.analyze(targets[0]!.source));
+    unwrap(await landing.analyze(targets[1]!.source));
+  });
   it('parses declared periods only, with calendar leap years and no receipt-date fallback', () => {
     expect(periodAsAt('2024-02', 'month_end')).toEqual(ok('2024-02-29'));
     expect(periodAsAt('1900-02', 'month_end')).toEqual(ok('1900-02-28'));

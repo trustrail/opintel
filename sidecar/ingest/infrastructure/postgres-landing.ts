@@ -4,7 +4,7 @@ import { AsciiTransliterator, CatalogNaming } from '../../../src/modules/catalog
 import { DomainError, ExposedName, err, ok, type Result } from '../../../src/shared/kernel/index.js';
 import { landingReceiptSchema, type LandingReceipt } from '../../../src/shared/landing-contract.js';
 import type { SecretStorePort } from '../../../src/platform/secrets/index.js';
-import type { LandingInput, LandingPort, LandingSource } from '../landing-port.js';
+import type { LandingInput, LandingPort, LandingSource, LandingStatisticsPort } from '../landing-port.js';
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 const qualified = (schema: string, table: string) => `${quote(schema)}.${quote(table)}`;
@@ -31,7 +31,7 @@ const databaseFailureReasons: Readonly<Record<string, string>> = {
  * read-only connector scope and the application's handwritten metadata scopes.
  * Commit receipts live in the SAME transaction as DDL and rows. They are replay
  * protection, not a second register of arrivals/quarantines (item 3.10). */
-export class PostgresLanding implements LandingPort {
+export class PostgresLanding implements LandingPort, LandingStatisticsPort {
   constructor(private readonly secrets: Pick<SecretStorePort, 'resolve'>, private readonly statementTimeoutMs = 30_000) {}
   private async scope<T>(source: LandingSource, work: (db: Client, schema: string) => Promise<T>): Promise<Result<T>> {
     let db: Client | undefined;
@@ -92,6 +92,12 @@ export class PostgresLanding implements LandingPort {
   async connect(source: LandingSource): Promise<Result<void>> {
     if (!['append_as_at', 'table_per_filing'].includes(source.strategy)) return err(new DomainError('validation_failed', 'A landing source requires an explicit strategy.'));
     return this.scope(source, async () => undefined);
+  }
+  async analyze(source: LandingSource): Promise<Result<void>> {
+    return this.scope(source, async (db, schema) => {
+      const groups = await db.query<{ table_name: string }>(`SELECT c.relname AS table_name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='r'`, [schema]);
+      for (const group of groups.rows) await db.query(`ANALYZE ${qualified(schema, group.table_name)}`);
+    });
   }
   async land(input: LandingInput, rows: AsyncIterable<Result<Array<string | null>>>): Promise<Result<LandingReceipt>> {
     if (!['append_as_at', 'table_per_filing'].includes(input.source.strategy)) return err(new DomainError('validation_failed', 'A landing source requires an explicit strategy.'));
