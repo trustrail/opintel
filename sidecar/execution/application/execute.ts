@@ -58,7 +58,7 @@ export class StagedExecutor {
      const o=scan.object,table=stagingRef(o);
      if(!privileged.staging||!agent.staging)return err(new DomainError('dependency_unavailable','The engine cannot stage pool objects.',{cause:'component_configuration',reason:'staging_capability'}));
      let result:Result<void>;
-     if(o.readPlan.columns.every(c=>c.treatment==='clear'||c.treatment==='aggregate_only'))result=await this.source.plain(scan,privileged,table,signal);
+     if(o.readPlan.columns.every(c=>!c.numericDefault&&(c.treatment==='clear'||c.treatment==='aggregate_only')))result=await this.source.plain(scan,privileged,table,signal);
      else{
       await privileged.staging.create('memory','__staging',table,o.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));
       let count=0;let appending:Promise<void>|undefined;

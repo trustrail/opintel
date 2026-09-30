@@ -4,7 +4,9 @@ import { createApiClient } from './client.js';
 export const CatalogNode = z.object({
   kind: z.enum(['source', 'schema', 'object', 'element']),
   id: z.string(), label: z.string().nullable(), childCount: z.number().int().nullable(),
+  sourceType: z.string().nullable().optional(),
   exposedType: z.string().nullable(),
+  unsupportedReason: z.enum(['explicitly_excluded','unmapped']).nullable().optional(),
   state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable']).nullable(),
 });
 export type CatalogNode = z.infer<typeof CatalogNode>;

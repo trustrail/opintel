@@ -1162,3 +1162,16 @@ returns its usual 202 and delivers a fresh token attached to the still-pending
 invitation. Once SpiceDB recovers, that fresh link accepts it. OIDC likewise
 retains the invitation, rejects callback replay, and accepts through a fresh
 provider-start flow. Successful acceptance commits the outbox's written revision.
+
+
+## PostgreSQL type coverage and mapping repair
+
+The connector's format_type outputs must have either a supported mapping or an
+explicit unsupported disposition. An unclassified new built-in fails CI.
+Bare numeric and money use DECIMAL(38,9), with exact source-boundary checks before
+every treatment; source values never enter the refusal. Tests exercise precision
+boundaries, non-finite values, trailing zeros, arrays, SUM/AVG and money-to-numeric
+conversion. Re-introspection must preserve existing decisions and stable names
+on a same-source-type mapping repair, persist a repair diff, and refuse mapping
+removal. Single, bulk and rule decisions reject unsupported elements including
+withheld.

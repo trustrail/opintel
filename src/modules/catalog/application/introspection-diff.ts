@@ -7,9 +7,9 @@ import type { CatalogSnapshot } from '../../sources/index.js';
 type TypeFamily = 'number' | 'text' | 'boolean' | 'date' | 'time' | 'timestamp' | 'uuid' | 'json' | 'list' | 'struct' | 'unsupported';
 
 export type IntrospectionDiff = (CatalogChange | {
-  type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementOrdinalChanged' | 'CatalogElementChanged' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
+  type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementOrdinalChanged' | 'CatalogElementChanged' | 'CatalogElementMappingRepaired' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
   projectId: ProjectId; objectId: ObjectId; elementId?: CatalogChange['elementId'];
-  beforeOrdinal?: number | null; afterOrdinal?: number | null; breaking?: boolean; beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true; beforeFamily?: TypeFamily; afterFamily?: TypeFamily;
+  sourceType?: string; exposedType?: ExposedType; beforeOrdinal?: number | null; afterOrdinal?: number | null; breaking?: boolean; beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true; beforeFamily?: TypeFamily; afterFamily?: TypeFamily;
 }) & { exposedName?: string | null; before?: string | null; after?: string | null };
 function family(type: ExposedType | null): TypeFamily {
   if (type === null) return 'unsupported';
@@ -81,6 +81,15 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
       }
       if (prior.status === 'removed') diff.push({ type: 'CatalogElementRestored', projectId: source.projectId, objectId: object.state.id, elementId: next.id });
       if (prior.sourceType !== next.sourceType || prior.exposedType !== next.exposedType) {
+        const sameSourceType = prior.sourceType === next.sourceType;
+        if (sameSourceType && prior.exposedType !== null && next.exposedType === null) {
+          return err(new DomainError('validation_failed', `Mapping removal would make element ${next.exposedName ?? next.sourceIdentifier} unsupported. This is a breaking change; catalogue publication was refused.`,
+            {cause:'mapping_regression',elementId:next.id,sourceType:next.sourceType,breaking:true}));
+        }
+        if (sameSourceType && prior.exposedType === null && next.exposedType !== null) {
+          diff.push({type:'CatalogElementMappingRepaired',projectId:source.projectId,objectId:object.state.id,elementId:next.id,
+            sourceType:next.sourceType,exposedType:next.exposedType,before:null,after:next.exposedType});
+        } else {
         const beforeFamily = family(prior.exposedType);
         const afterFamily = family(next.exposedType);
         // Unknown source types are not known to share a family. Preserve the
@@ -90,6 +99,7 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
         diff.push({ type: changedFamily ? 'CatalogElementTypeFamilyChanged' : 'CatalogElementTypeChanged',
           projectId: source.projectId, objectId: object.state.id, elementId: next.id,
           beforeType: prior.sourceType, afterType: next.sourceType, ...(changedFamily ? { ...(typeFamilyChange==='revert'?{requiresEntitlementDeletion: true as const}:{}), beforeFamily, afterFamily } : {}) });
+        }
       }
       if ((prior.ordinal ?? null) !== (next.ordinal ?? null)) {
         diff.push({ type: 'CatalogElementOrdinalChanged', projectId: source.projectId, objectId: object.state.id, elementId: next.id,

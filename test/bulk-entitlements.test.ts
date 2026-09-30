@@ -14,6 +14,11 @@ describe('4.7 atomic bulk entitlement API',()=>{
  resetDatabaseBeforeEach('company');
  beforeEach(async()=>{f=await bulkFixture();host=await bulkServer(f);});
  afterEach(async()=>{await host.close();});
+ it.each(['clear','aggregate_only','withheld'] as const)('rejects bulk %s on an unsupported element without any partial decision',async treatment=>{
+  await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET exposed_type=NULL WHERE id=$1',[f.ids[0]]));
+  const response=await host.post({...f.body,treatment,justification:'Reviewed'});
+  expect(response.status).toBe(422);expect(await decisions()).toEqual([]);
+ });
  it.each(['undecided','reset','',null])('H-009: rejects treatment %j without modifying decisions',async treatment=>{
   expect((await host.post()).status).toBe(200);const before=await decisions();
   expect((await host.post({...f.body,treatment})).status).toBe(400);expect(await decisions()).toEqual(before);expect(await history()).toHaveLength(1);

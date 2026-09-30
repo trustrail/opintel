@@ -83,7 +83,7 @@ export type Reduction = z.infer<typeof reductionSchema>;
 const passThroughCauses: Readonly<Record<string, readonly string[]>> = {
  object_unavailable:['all_withheld','all_undecided','mixed_withheld_undecided'],
  not_found:['object_absent','column_absent'],
- validation_failed:['invalid_query','invalid_settings','invalid_plan','invalid_token_declaration','invalid_execution_contract'],
+ validation_failed:['invalid_query','invalid_settings','invalid_plan','invalid_token_declaration','invalid_execution_contract','numeric_not_representable'],
  forbidden:['query_disabled'],
  sql_not_permitted:['ambiguous_object','invalid_identifier'],
 };

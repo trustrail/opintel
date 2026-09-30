@@ -202,3 +202,7 @@ describe('pattern matching uses exposed metadata',()=>{
     expect(result).toMatchObject({ok:false}); if (!result.ok) expect(result.error.message).toContain('epochUnit');
   });
 });
+
+it.each(['clear','aggregate_only','withheld'] as const)('rules reject %s on unsupported elements',treatment=>{
+ expect(validateRuleTreatment({...rule,treatment},{...element,exposedType:null})).toMatchObject({ok:false,error:{code:'validation_failed'}});
+});

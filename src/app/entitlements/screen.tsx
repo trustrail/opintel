@@ -67,9 +67,10 @@ function PoolTree({projectId,poolId,sourceId,undecided,editable}:{projectId:stri
     </div>
     {root?.isPending ? <LoadingState /> : root?.isError ? <ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={() => { void root.refetch(); }} /> : root?.data?.nodes.length === 0 ? <EmptyState icon="⊟" title={prefix ? 'No matching sources' : undecided?'No undecided elements':'No catalogue yet'} description={prefix ? 'Try a shorter source-name prefix.' : undecided?'Show all decisions to inspect the existing entitlements.':'Bind a source to this pool and introspect it. Every discovered element starts undecided.'} /> : <div className="card">
       <div className="card-h"><h2>Decisions</h2><span className="meta">Expand one level at a time</span></div>
-      <SelectionTools store={store} ids={rows.flatMap(row=>'node' in row && row.node.kind==='element'?[row.node.id]:[])} editable={editable} disabled={bulk.isPending}/>
+      <SelectionTools store={store} ids={rows.flatMap(row=>'node' in row && row.node.kind==='element'&&row.node.exposedType!==null?[row.node.id]:[])} editable={editable} disabled={bulk.isPending}/>
       <TreeWindow editable={editable} disabled={bulk.isPending} store={store} rows={rows} viewport={viewport} sourceNames={new Map(sources.data?.map(source => [source.id, source.name]))} />
     </div>}
+    {rows.some(row=>'node' in row && /^money(?:\[\])*$/iu.test(row.node.sourceType??''))?<p className="note">Money columns use DECIMAL(38,9). Their fractional digits depend on the source server’s lc_monetary. Different source settings can interpret the same stored amount differently; verify the source’s monetary locale before deciding access. Opintel converts through numeric and does not correct locale differences.</p>:null}
     <DecisionBar store={store} projectId={projectId} poolId={poolId} editable={editable} bulk={bulk}/>
     <p className="note">Undecided is the absence of a decision. Withheld and undecided fields are omitted from the agent's view. Decisions cannot be reset to undecided.</p>
   </>;
@@ -95,7 +96,7 @@ function TreeWindow({store, rows, viewport, sourceNames,editable,disabled}: {
   }
   function keyboard(event: KeyboardEvent, row: Row, index: number) {
     if (event.target !== event.currentTarget) return;
-    if ('node' in row && row.node.kind==='element' && event.key===' ' && editable && !disabled){event.preventDefault();state.check([row.node.id],!state.selected.has(row.node.id));}
+    if ('node' in row && row.node.kind==='element' && event.key===' ' && row.node.exposedType!==null && editable && !disabled){event.preventDefault();state.check([row.node.id],!state.selected.has(row.node.id));}
     if (event.key === 'ArrowDown') { event.preventDefault(); focus(Math.min(rows.length - 1, index + 1)); }
     if (event.key === 'ArrowUp') { event.preventDefault(); focus(Math.max(0, index - 1)); }
     if (event.key === 'Home') { event.preventDefault(); focus(0); }
@@ -116,10 +117,10 @@ function TreeWindow({store, rows, viewport, sourceNames,editable,disabled}: {
               className={row.depth <= 2 ? 'trow lvl0' : row.depth === 3 ? 'trow lvl1' : 'trow lvl2'} onKeyDown={event => keyboard(event, row, index)}
               style={{ position: 'absolute', top: index * rowHeight, height: rowHeight, boxSizing: 'border-box', width: '100%', gridTemplateColumns: 'minmax(0, 1fr) auto' }}>
               {node ? <><div className="tname">
-                {node.kind==='element' && editable?<input type="checkbox" aria-label={`Select ${node.label??'unnameable element'}`} checked={state.selected.has(node.id)} disabled={disabled} onChange={e=>state.check([node.id],e.target.checked)}/>:null}
+                {node.kind==='element' && editable?<input type="checkbox" aria-label={`Select ${node.label??'unnameable element'}`} checked={state.selected.has(node.id)} disabled={disabled||node.exposedType===null} onChange={e=>state.check([node.id],e.target.checked)}/>:null}
                 {node.kind !== 'element' ? <button type="button" className="toolchip" aria-label={`${state.expanded[node.id] ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id] ? '▾' : '▸'}</span></button> : null}
                 <span style={{display:'flex',flexDirection:'column',minWidth:0}}><span className="nm" title={node.label ?? 'Unnameable element'}>{node.label ?? 'Unnameable element'}</span>{sourceName && sourceName !== node.label ? <span className="type" title={sourceName} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sourceName}</span> : null}</span>
-              </div><span className="tname" title={node.justification??undefined} style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}{node.kind==='element'?<TreatmentChip kind={node.treatment==='aggregate_only'?'aggregate':node.treatment??'undecided'} label={node.treatment===null?'Undecided':undefined}/>:<span className="type">{node.kind} · {node.childCount}</span>}</span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" onClick={row.action}>{row.actionLabel}</Button> : null}</>}
+              </div><span className="tname" title={node.justification??undefined} style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}{node.kind==='element'&&node.exposedType===null?<span className="type">{node.unsupportedReason==='explicitly_excluded'?'Explicitly excluded':'Unmapped type'}</span>:node.kind==='element'?<TreatmentChip kind={node.treatment==='aggregate_only'?'aggregate':node.treatment??'undecided'} label={node.treatment===null?'Undecided':undefined}/>:<span className="type">{node.kind} · {node.childCount}</span>}</span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" onClick={row.action}>{row.actionLabel}</Button> : null}</>}
             </div>;
           })}
         </div>

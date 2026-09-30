@@ -303,3 +303,30 @@ describe('R-023 introspection state machine',()=>{
     }
   });
 });
+
+it('mapping repair preserves all stored decisions and names, and is an explicit persisted/API diff',async()=>{
+ discovery=snapshot('amount','numeric');await run();
+ const pool=randomUUID();
+ await withTenant(ctx,async tx=>{
+  await tx.query('UPDATE catalog_element SET exposed_type=NULL');
+  await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Legacy')",[pool,ctx.projectId]);
+  await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'withheld','user',$2 FROM catalog_element",[pool,ctx.userId]);
+ });
+ const before=await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'));
+ const old=await withTenant(ctx,tx=>tx.query('SELECT id,exposed_name,name_revision FROM catalog_element'));
+ const repaired=await run();
+ expect(repaired.diff).toMatchObject([{type:'CatalogElementMappingRepaired',sourceType:'numeric',exposedType:'DECIMAL(38,9)',exposedName:'amount'}]);
+ expect(repaired.diff.some(d=>'requiresEntitlementDeletion' in d)).toBe(false);
+ expect(await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'))).toEqual(before);
+ expect(await withTenant(ctx,tx=>tx.query('SELECT id,exposed_name,name_revision FROM catalog_element'))).toEqual(old);
+ const view=unwrap(await new PostgresIntrospectionQuery(store).read(ctx,repaired.id));
+ expect(view.diff).toMatchObject([{change:'mapping_repaired',sourceType:'numeric',after:'DECIMAL(38,9)',breaking:false}]);
+ expect((await run()).diff).toEqual([]);
+});
+it('refuses a mapping regression for an unchanged source type and preserves the published catalogue',async()=>{
+ discovery=snapshot('custom','custom_type');await run();
+ await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET exposed_type='VARCHAR'"));
+ const before=await catalog();
+ const failed=await run();expect(failed.state).toBe('failed');expect(failed.error).toContain('breaking change');
+ expect(await catalog()).toEqual(before);
+});

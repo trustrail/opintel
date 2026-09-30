@@ -1,3 +1,4 @@
+import { exactDefaultNumeric } from '../application/exact-numeric.js';
 import { stagingType } from '../../../src/shared/staging-types.js';
 import { z } from 'zod';
 import { DomainError,ProjectId,err,ok,type Result } from '../../../src/shared/kernel/index.js';
@@ -10,13 +11,13 @@ import type { EngineSession } from '../../session/index.js';
 import type { Scan,StagingSource } from '../application/ports.js';
 import { nativeExpression } from '../application/pushdown.js';
 const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
-const selection=(s:Scan,connector=false)=>s.object.readPlan.columns.map(c=>(c.readAs==='text'?quote(c.sourceIdentifier)+'::text':connector&&stagingType(c.exposedType)!.complex?'to_json('+nativeExpression(c)+')::text':nativeExpression(c))+' AS '+quote(c.exposedName)).join(',');
+const selection=(s:Scan,connector=false)=>s.object.readPlan.columns.map(c=>(c.numericDefault==='array'?'to_json('+quote(c.sourceIdentifier)+'::numeric[]::text[])::text':c.numericDefault==='scalar'?quote(c.sourceIdentifier)+'::numeric::text':c.readAs==='text'?quote(c.sourceIdentifier)+'::text':connector&&stagingType(c.exposedType)!.complex?'to_json('+nativeExpression(c)+')::text':nativeExpression(c))+' AS '+quote(c.exposedName)).join(',');
 const select=(s:Scan,connector=false)=>`SELECT ${selection(s,connector)} FROM ${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}${s.predicate?' WHERE '+s.predicate:''}`;
 const credential=(s:Scan)=>SecretRef(s.request.sources.find(v=>v.sourceId===s.object.sourceId)!.credentialRef);
 const key=(s:Scan)=>s.object.sourceId;
 const modes: Readonly<Record<string, string>> = {
-  text: 'text', varchar: 'text', bpchar: 'text', uuid: 'text',
-  int2: 'number', int4: 'number', int8: 'number', numeric: 'number',
+  text: 'text', varchar: 'text', bpchar: 'text', name: 'text', char: 'text', uuid: 'text',
+  int2: 'number', int4: 'number', int8: 'number', numeric: 'number', money: 'number',
   date: 'date', timestamp: 'timestamp', timestamptz: 'timestamp',
 };
 const refused = () => err(new DomainError('validation_failed',
@@ -53,6 +54,7 @@ export class PostgresStagingSource implements StagingSource {
   },signal),'metadata');
  }
  plain(s:Scan,privileged:EngineSession,table:string,signal:AbortSignal):Promise<Result<void>>{
+  if(s.object.readPlan.columns.some(c=>c.numericDefault))return Promise.resolve(err(new DomainError('validation_failed','An exact numeric read must use the guarded source reader.',{cause:'invalid_plan',reason:'read_plan'})));
   return this.safe(()=>this.scope.external(key(s),credential(s),async (connection,sourceSignal)=>{
    if(!privileged.staging)throw new Error('Staging unavailable');
    const abort=()=>privileged.interrupt?.();sourceSignal.addEventListener('abort',abort,{once:true});
@@ -71,6 +73,11 @@ export class PostgresStagingSource implements StagingSource {
             FROM types JOIN pg_catalog.pg_type t ON t.oid=types.typbasetype
           ) SELECT name,typname AS type FROM types WHERE typbasetype=0`,
           [`${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}`]));
+        for (const column of s.object.readPlan.columns.filter(c=>c.numericDefault)) {
+          const type=types.find(type=>type.name===column.sourceIdentifier)?.type;
+          const allowed=column.numericDefault==='array'?['_numeric','_money']:['numeric','money'];
+          if(type===undefined||!allowed.includes(type))return err(new DomainError('validation_failed',`Column ${column.exposedName} no longer has its catalogued numeric source type. Re-introspect the source before querying it.`,{cause:'invalid_plan',reason:'read_plan',name:column.exposedName}));
+        }
         for (const column of s.object.readPlan.columns.filter(c=>c.treatment==='tokenized')) {
           const type = types.find(type => type.name === column.sourceIdentifier)?.type;
           const expected = column.token!.epochUnit ? 'number' : column.token!.mode;
@@ -86,6 +93,7 @@ export class PostgresStagingSource implements StagingSource {
     const treated:unknown[][]=[];
     try{
      for(const row of rows){const output:unknown[]=[];for(const [i,c] of s.object.readPlan.columns.entries()){
+      if(c.numericDefault){const exact=exactDefaultNumeric(row[c.exposedName],c.exposedName,c.numericDefault);if(!exact.ok)return exact;}
       const v=transforms[i]!(row[c.exposedName]);if(!v.ok)return v;if(c.treatment==='tokenized'&&v.value!==null)s.onTokenized?.();output.push(v.value);
      }treated.push(output);for(const k of Object.keys(row))row[k]=null;}
      if(signal.aborted)throw new SourceCancelled();const accepted=await consume(treated);if(!accepted.ok)return accepted;

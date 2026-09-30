@@ -250,3 +250,8 @@ generic. An unrecognized cause is not echoed as a new public enum. Unknown
 engine/transport origins are not reconstructed from prose. Secret parameters
 and suppressed counts are deliberately excluded, as required by the disclosure
 contract, rather than silently discarded as unrecognized metadata.
+
+
+| Code / cause | Selection | Retryable |
+|---|---|---|
+| validation_failed / numeric_not_representable | Exact numeric representation refusal; column and magnitude only, never value | false |

@@ -3502,7 +3502,8 @@ and ambiguous namespaces.
 | Source family | DuckDB |
 |---|---|
 | Integer types | `TINYINT` to `BIGINT`, `HUGEINT` |
-| Exact numeric, money | `DECIMAL(p,s)` |
+| Exact numeric with declared precision/scale | `DECIMAL(p,s)` where representable |
+| Bare PostgreSQL numeric; PostgreSQL money | Declared default `DECIMAL(38,9)`, checked exactly at the read boundary |
 | Float, double | `FLOAT`, `DOUBLE` |
 | Text, varchar, clob | `VARCHAR` |
 | Boolean | `BOOLEAN` |
@@ -3516,7 +3517,50 @@ and ambiguous namespaces.
 
 **Treatments constrain the mapping.** A tokenized column is always `VARCHAR` regardless of its source type, because a token is not an integer. `describe` reports the **post-treatment** type, since that is what the agent receives. Reporting the source type would make the agent write arithmetic against a token.
 
-**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released. A null catalog_element.exposed_type records this state independently of entitlement. Type-mapping metadata takes precedence over entitlement state, so a tokenized treatment cannot expose an unsupported source type. Exact numeric and money mappings require representable precision and scale; nested arrays and structs require supported child types. The describe metadata helper returns post-treatment types; the agent endpoint and view compiler remain with their owning items.
+**Types with no clean equivalent** are catalogued but not exposed, and appear in the console as *unsupported type* rather than as undecided. Nobody needs to decide about something that cannot be released. A null catalog_element.exposed_type records this state independently of entitlement. Type-mapping metadata takes precedence over entitlement state, so a tokenized treatment cannot expose an unsupported source type. Declared exact numeric mappings require representable precision and scale; nested arrays and structs require supported child types. The describe metadata helper returns post-treatment types; the agent endpoint and view compiler remain with their owning items.
+
+**Bare numeric is a declared default, not a discovered fact.** PostgreSQL
+`numeric` without precision/scale maps to `DECIMAL(38,9)`: 29 integer digits and
+nine fractional digits. Introspection reads structure only and never samples
+values to choose this mapping. At the source read boundary, before treatments or
+staging casts, every non-null value must be exactly representable. Extra trailing
+fractional zeros are harmless; excess integer digits, nonzero fractional digits
+past nine, and non-finite values refuse the whole query. The refusal names the
+column and magnitude (digit counts, never the value). A source needing more must
+declare precision and scale on its column, within the supported decimal range.
+No floating-point conversion or silently rounding cast is permitted. Arrays
+check every member before conversion; predicates on guarded columns are not
+pushed through a narrowing cast. Masking and tokenization do not bypass the check.
+
+**PostgreSQL money also uses `DECIMAL(38,9)`**, converted through PostgreSQL
+`numeric`, never through its formatted currency string. Its fractional digits
+depend on the source server's `lc_monetary`. Two servers with different monetary
+locales can interpret the same stored amount differently. This is a source-data
+issue for the customer to resolve, not something Opintel normalises away. The
+entitlement screen displays this warning when money columns are loaded, where
+an administrator makes the access decision.
+
+**Unsupported has a reason.** The mapping classification and catalogue APIs
+distinguish `explicitly_excluded` (binary and geometry) from `unmapped` (no
+implemented mapping). The latter includes network, bit strings, interval, zoned
+time, range/multirange, search, XML, reference and unresolved custom types.
+Unsupported arrays inherit their child's reason. SQL NULL in exposed_type
+remains separate from an entitlement; the reason is derived from stored
+source_type by the classification contract. Single, bulk and rule decisions
+reject unsupported elements, including withheld. Existing decisions are retained
+until an explicit repair or a genuine source-type change handles them.
+
+**Mapping repair is different from a source-type change.** An unsupported →
+supported transition with exactly the same source_type is a
+`CatalogElementMappingRepaired` diff, naming the element, source type and newly
+assigned exposed type. It preserves element identity, exposed name and every
+existing entitlement. It does not enter type-family invalidation: the source did
+not change, Opintel's understanding did. Discarding decisions during a repair
+would reduce protection an administrator intended. Supported → different
+supported types retain the existing type-change/family-change behaviour.
+Supported → unsupported with unchanged source_type means a mapping was removed;
+publication refuses it as a breaking change and preserves the previous catalogue.
+A genuine source-type change still follows the configured family-change policy.
 
 ## 4.5 Entitlements and pools
 

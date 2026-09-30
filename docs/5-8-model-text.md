@@ -191,3 +191,14 @@ causes select the approved sentences above. Unknown interruptions use the
 approved generic fallback until 5.7a establishes the first cause. The caller
 receives the known cause and safe producer distinctions even when the prose is
 generic. No sentence in this contract was reworded by implementation.
+
+
+## Exact numeric representation refusal
+
+`validation_failed / numeric_not_representable`, retryable false:
+
+> Column {name} contains a numeric with magnitude {magnitude}, which cannot be represented exactly as DECIMAL(38,9). No result was returned. Declare sufficient precision and scale on the source column.
+
+Magnitude is integer/fractional digit counts or “non-finite or unusable numeric”,
+never the source value. This refusal originates before treatments at the source
+read boundary and uses the validated configuration-refusal pass-through path.

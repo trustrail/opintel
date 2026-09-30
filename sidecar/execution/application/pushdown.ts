@@ -19,7 +19,7 @@ export function pushdown(tree:unknown,object:StagingObject,request:ExecutionRequ
   if(e.class==='COLUMN_REF'){
    const names=z.array(z.string()).safeParse(e.column_names);if(!names.success)return null;
    const col=object.readPlan.columns.find(c=>c.exposedName===names.data.at(-1));
-   if(!col||col.treatment!=='clear'||stagingType(col.exposedType)!.complex)return null;
+   if(!col||col.numericDefault||col.treatment!=='clear'||stagingType(col.exposedType)!.complex)return null;
    return nativeExpression(col)+(col.exposedType==='VARCHAR'?' COLLATE "C"':'');
   }
   if(e.class==='CONSTANT'){

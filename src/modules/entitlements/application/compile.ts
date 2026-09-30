@@ -1,5 +1,5 @@
 import type { CatalogElement, CatalogObject, ExposedType } from '../../catalog/index.js';
-import { validateTokenizedTemporal, validateTokenDeclarations } from '../../catalog/index.js';
+import { numericDefault, validateTokenizedTemporal, validateTokenDeclarations } from '../../catalog/index.js';
 import type { SourceRef } from '../../sources/index.js';
 import { DomainError, err, ok, type ElementId, type ExposedName, type PoolId, type Result } from '../../../shared/kernel/index.js';
 import type { Entitlement, MaskKind, Treatment } from '../domain/entitlement.js';
@@ -13,6 +13,7 @@ export type TokenDeclaration = Readonly<{
 export type ReadColumn = Readonly<{
   sourceIdentifier: string; exposedName: ExposedName; exposedType: ExposedType;
   treatment: Exclude<Treatment, 'withheld'>; readAs: 'text' | 'native';
+  numericDefault?: 'scalar' | 'array';
   token?: TokenDeclaration; mask?: Readonly<{ kind: MaskKind }>;
 }>;
 export type ReadPlan = Readonly<{ catalog: string; schema: string; object: string; columns: readonly ReadColumn[] }>;
@@ -150,7 +151,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
       if (e.exposedName === null || e.exposedType === null || !validIdentifier(e.sourceIdentifier)) return invalid(`The entitled element ${e.sourceIdentifier} has no usable exposed name or type.`);
       if (!['clear','tokenized','masked','aggregate_only'].includes(treatment)) return invalid('An entitlement has an unknown treatment.');
       const exposedType = treatment === 'tokenized' || treatment === 'masked' ? 'VARCHAR' : e.exposedType;
-      const column: ReadColumn = { sourceIdentifier:e.sourceIdentifier, exposedName:e.exposedName, exposedType, treatment,
+      const column: ReadColumn = { ...(numericDefault(e.sourceType)?{numericDefault:numericDefault(e.sourceType)}:{}), sourceIdentifier:e.sourceIdentifier, exposedName:e.exposedName, exposedType, treatment,
         readAs:treatment === 'tokenized' || treatment === 'masked' ? 'text' : 'native' };
       let token: TokenDeclaration | undefined, mask: ReadColumn['mask'];
       if (treatment === 'tokenized') { const declaration = tokenDeclaration(element); if (!declaration.ok) return declaration; token = declaration.value; }

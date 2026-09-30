@@ -15,6 +15,12 @@ const decision=(treatment:Treatment='masked',poolId=pool)=>Entitlement.decide({p
 const list=async()=>unwrap(await sources.list(ctx,null,100));
 describe('entitlement domain and persisted decisions',()=>{
  resetDatabaseBeforeEach('company');
+ it.each(['clear','aggregate_only','withheld'] as const)('rejects a new %s decision on an unsupported element',async treatment=>{
+  await withTenant(ctx,tx=>tx.query('UPDATE catalog_element SET exposed_type=NULL WHERE id=$1',[element]));
+  const result=await repository.set(ctx,unwrap(decision(treatment)));
+  expect(result).toMatchObject({ok:false,error:{code:'validation_failed'}});
+  expect(await withTenant(ctx,tx=>tx.query('SELECT * FROM entitlement'))).toEqual([]);
+ });
  beforeEach(async()=>{
   await withPlatform(async tx=>{
    const [industry]=await tx.query<{id:string}>('SELECT id FROM industry LIMIT 1');

@@ -7,7 +7,7 @@ export const object='018f8f9d-7f83-7abc-8def-000000000003';
 const id=(n:number)=>`018f8f9d-7f83-7abc-8def-${String(n+100).padStart(12,'0')}`;
 export async function mock(page:Page){
  await catalogMock(page);
- const state={large:false,empty:false,error:false,loading:false,viewer:false,failBulk:false,invalid:false,requests:[] as {parent:string;limit:number;cursor:string|null}[],commands:[] as {body:Record<string,unknown>;key:string|undefined}[],decisions:new Map<string,string>()};
+ const state={money:false,large:false,empty:false,error:false,loading:false,viewer:false,failBulk:false,invalid:false,requests:[] as {parent:string;limit:number;cursor:string|null}[],commands:[] as {body:Record<string,unknown>;key:string|undefined}[],decisions:new Map<string,string>()};
  await page.route('**/api/v1/**',async route=>{
  const url=new URL(route.request().url()),path=url.pathname;
  if(path.endsWith('/projects')&&state.viewer)return route.fulfill({json:{items:[{id:project,name:'Reporting',company:{id:object,name:'Example Company'},industry:{id:object,name:'General'},region:'eu-west-1',role:'viewer'}],nextCursor:null}});
@@ -27,7 +27,7 @@ export async function mock(page:Page){
  const base={treatment:null,maskKind:null,justification:null,exposedType:null,childCount:1};let nodes:unknown[]=[];let nextCursor:string|null=null;
  if(!state.empty){if(!parent)nodes=[{...base,id:source,label:'warehouse',kind:'source'}];else if(parent===source)nodes=[{...base,id:source+':public',label:'public',kind:'schema'}];else if(parent===source+':public')nodes=[{...base,id:object,label:'records',kind:'object',childCount:state.large?5000:7}];else{
  const defaults=[null,'clear','tokenized','masked','aggregate_only','withheld',null];
- const all=Array.from({length:state.large?5000:7},(_,n)=>({...base,id:id(n),label:`field_${String(n).padStart(4,'0')}`,kind:'element',childCount:null,exposedType:n===6&&!state.large?null:'VARCHAR',treatment:state.decisions.get(id(n))??(state.large?null:defaults[n]),maskKind:n===3&&!state.large?'all':null})).filter(n=>(!prefix||n.label.startsWith(prefix))&&(url.searchParams.get('undecided')!=='true'||n.treatment===null));
+ const all=Array.from({length:state.large?5000:7},(_,n)=>({...base,id:id(n),label:`field_${String(n).padStart(4,'0')}`,kind:'element',childCount:null,sourceType:state.money&&n===0?'money':null,unsupportedReason:n===6?'unmapped':null,exposedType:state.money&&n===0?'DECIMAL(38,9)':n===6&&!state.large?null:'VARCHAR',treatment:state.decisions.get(id(n))??(state.large?null:defaults[n]),maskKind:n===3&&!state.large?'all':null})).filter(n=>(!prefix||n.label.startsWith(prefix))&&(url.searchParams.get('undecided')!=='true'||n.treatment===null));
  const start=Number(cursor??0);nodes=all.slice(start,start+limit);nextCursor=start+limit<all.length?String(start+limit):null;
  }}return route.fulfill({json:{nodes,nextCursor}});
  });return state;

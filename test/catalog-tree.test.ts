@@ -55,7 +55,7 @@ describe('catalogue tree scoped to real Postgres', () => {
     expect(elements).toEqual(expect.arrayContaining([
       expect.objectContaining({label:'stored_number',exposedType:'INTEGER',state:'undecided'}),
       expect.objectContaining({label:'stored_text',exposedType:'VARCHAR',state:'undecided'}),
-      expect.objectContaining({label:'stored_unsupported',exposedType:null,state:'unsupported'}),
+      expect.objectContaining({label:'stored_unsupported',exposedType:null,state:'unsupported',unsupportedReason:'explicitly_excluded'}),
       expect.objectContaining({label:null,exposedType:null,state:'unnameable'}),
     ]));
     expect(JSON.stringify(elements)).not.toContain('Source Number');

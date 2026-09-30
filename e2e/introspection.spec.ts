@@ -71,3 +71,12 @@ test('ordinal changes show old and new positions without implying a discarded de
  await expect(row.getByRole('cell',{name:'2',exact:true})).toBeVisible();await expect(row.getByRole('cell',{name:'3',exact:true})).toBeVisible();
  await expect(page.getByText('Reverts to undecided',{exact:true})).toHaveCount(0);await accessible(page);
 });
+
+for(const width of [390,900,1440])test(`Mapping repair diff at ${width}`,{tag:'@visual'},async({page})=>{
+ const state=await mock(page);const repair={change:'mapping_repaired',elementId:id,exposedName:'premium',sourceType:'numeric',before:null,after:'DECIMAL(38,9)',breaking:false};state.run.diff=[repair];
+ await page.setViewportSize({width,height:1000});await page.goto(path);
+ await expect(page.getByText('Mapping repaired. Identity and decision retained.')).toBeVisible();
+ await expect(page.getByText('Source type: numeric',{exact:true})).toBeVisible();
+ await expect(page.getByText('Reverts to undecided')).toHaveCount(0);
+ await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`mapping-repair-${width}.png`,{fullPage:true});await accessible(page);
+});

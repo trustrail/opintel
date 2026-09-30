@@ -45,8 +45,8 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
         else {
           if (row.elementStatus !== 'active' || row.objectStatus !== 'active' || row.sourceStatus === 'archived') reasons.push('An active catalogue element and source are required.');
           if (!bound.has(row.sourceId)) reasons.push('The element source is not bound to this pool.');
-          // Withholding is valid even for an unsupported or unnameable element.
-          if (input.treatment !== 'withheld' && (row.type === null || row.name === null)) reasons.push('The element has no supported exposed type or name.');
+          // Unsupported types cannot carry new decisions, including withholding.
+          if (row.type === null || (input.treatment !== 'withheld' && row.name === null)) reasons.push('The element has no supported exposed type or name.');
           if (input.maskKind !== null) { const valid=validateMaskType(input.maskKind,row.type); if(!valid.ok)reasons.push(valid.error.message); }
           if (input.treatment === 'tokenized') {
             for (const valid of [validateTokenDeclarations(row.type,row,true),validateTokenizedTemporal(row.type,row)]) if(!valid.ok)reasons.push(valid.error.message);

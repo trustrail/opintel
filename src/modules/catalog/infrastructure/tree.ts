@@ -1,10 +1,11 @@
+import { classifySourceType } from '../domain/type-mapping.js';
 import { z } from 'zod';
 import { withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type { CatalogNode } from '../../../shared/api/catalog.js';
 import type { CatalogContext, CatalogTreeReader, TreeRead } from '../application/tree.js';
 const uuid = z.uuid();
-type Row = { id: string; label: string | null; child_count: number | null; exposed_type: string | null; position: string };
+type Row = { source_type?: string; id: string; label: string | null; child_count: number | null; exposed_type: string | null; position: string };
 export class PostgresCatalogTreeReader implements CatalogTreeReader {
   read(context: CatalogContext, query: TreeRead) {
     return withTenant(context, async tx => {
@@ -44,13 +45,14 @@ export class PostgresCatalogTreeReader implements CatalogTreeReader {
           if (!object.length) return missing();
           kind = 'element';
           rows = await tx.query<Row>(`SELECT id, id::text AS position, exposed_name AS label, NULL::int AS child_count,
-            CASE WHEN exposed_name IS NULL THEN NULL ELSE exposed_type END AS exposed_type FROM catalog_element
+            source_type, CASE WHEN exposed_name IS NULL THEN NULL ELSE exposed_type END AS exposed_type FROM catalog_element
             WHERE object_id=$1 AND status='active' AND ($2='' OR starts_with(exposed_name,$2))
             AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, [parent, prefix, after, limit]);
         }
       }
       return ok(rows.map(row => ({ position: row.position, node: {
-        kind, id: row.id, label: row.label, childCount: row.child_count, exposedType: row.exposed_type,
+        kind, ...(kind==='element'?{sourceType:row.source_type??null}:{}), id: row.id, label: row.label, childCount: row.child_count, exposedType: row.exposed_type,
+        ...(kind==='element'&&row.label!==null&&row.exposed_type===null?{unsupportedReason:classifySourceType(row.source_type ?? '').unsupportedReason??'unmapped'}:{}),
         state: kind !== 'element' ? null : row.label === null ? 'unnameable' as const : row.exposed_type === null ? 'unsupported' as const : 'undecided' as const,
       } })));
     });

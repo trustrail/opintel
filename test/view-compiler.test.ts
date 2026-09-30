@@ -101,3 +101,12 @@ describe('item 4.4 compiler acceptance cases', () => {
     expect(tokenized.ddl).toBe(plain.ddl);
   });
 });
+
+it.each(['numeric','money'])('carries the exact default guard from %s metadata into every treatment read plan',sourceType=>{
+ for(const treatment of ['clear','aggregate_only','masked','tokenized'] as const){
+  const input=fixture([{name:'records',columns:[{name:'premium',type:'DECIMAL(38,9)',treatment,declarations:{tokenDomain:'premium',canonId:'stdnum1'}}]}]);
+  input.elements=input.elements.map(e=>new CatalogElement({...e.state,sourceType}));
+  const result=unwrap(compileViews(input));
+  expect(result.views[0]!.readPlan.columns[0]!.numericDefault).toBe('scalar');
+ }
+});

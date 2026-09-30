@@ -1,5 +1,5 @@
 import type { ElementState } from './catalog.js';
-import { postTreatmentType, type Treatment } from './type-mapping.js';
+import { classifySourceType, postTreatmentType, type Treatment } from './type-mapping.js';
 
 // The future describe handler consumes this post-treatment metadata; this does
 // not compile views or implement tokenization.
@@ -11,6 +11,7 @@ export function describeElement(element: ElementState, treatment: Treatment | nu
   return {
     id: element.id, sourceIdentifier: element.sourceIdentifier, sourceType: element.sourceType,
     exposedName: element.exposedName, status,
+    unsupportedReason: element.exposedType === null ? classifySourceType(element.sourceType).unsupportedReason ?? 'unmapped' : null,
     declaredType: status === 'exposed' ? postTreatmentType(element.exposedType, treatment) : null,
   };
 }

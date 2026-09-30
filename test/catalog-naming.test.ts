@@ -118,7 +118,7 @@ describe('catalogue type mapping and describe metadata', () => {
     ['numeric(20, 4)', 'DECIMAL(20,4)'], ['numeric(10)', 'DECIMAL(10,0)'], ['real', 'FLOAT'], ['double precision', 'DOUBLE'], ['character varying(40)', 'VARCHAR'],
     ['clob', 'VARCHAR'], ['boolean', 'BOOLEAN'], ['date', 'DATE'], ['timestamp without time zone', 'TIMESTAMP'],
     ['timestamp with time zone', 'TIMESTAMPTZ'], ['uuid', 'UUID'], ['jsonb', 'JSON'], ['integer[][]', 'LIST(LIST(INTEGER))'],
-    ['geometry', null], ['bytea', null], ['unknown', null], ['numeric(39,2)', null], ['numeric', null],
+    ['geometry', null], ['bytea', null], ['unknown', null], ['numeric(39,2)', null], ['numeric', 'DECIMAL(38,9)'],
   ])('maps %s to %s without narrowing unknown types', (source, expected) => expect(mapSourceType(source)).toBe(expected));
 
   it('maps structured types recursively and refuses any unsupported nested field', () => {

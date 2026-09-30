@@ -27,3 +27,54 @@ it('J-024 execution telemetry contains only the allowlist, never source values o
  for(const [event] of logs.mock.calls){expect(Object.keys(event as object).every(k=>['event','requestId','projectId','poolId','operation','reason'].includes(k))).toBe(true);}
  expect(JSON.stringify(logs.mock.calls)).not.toContain('ROW_VALUE_SENTINEL');expect(logs).toHaveBeenCalled();}finally{logs.mockRestore();}
 },30000);
+
+function numericRequest(type:'numeric'|'money'|'numeric[]'='numeric'){
+ const r=request(),c=r.objects[0]!.readPlan.columns[0]!;
+ r.objects[0]!.readPlan.object='numeric_values';
+ c.sourceIdentifier='amount';c.exposedName='amount';c.exposedType=type==='numeric[]'?'LIST(DECIMAL(38,9))':'DECIMAL(38,9)';
+ c.numericDefault=type==='numeric[]'?'array':'scalar';
+ r.sql='SELECT SUM(amount) FROM orders';return r;
+}
+it('bare numeric SUM and AVG remain exact; money is read through numeric',async()=>{
+ for(const type of ['numeric','money'] as const){
+  await fixture(`CREATE TABLE ${schema}.numeric_values(amount ${type});INSERT INTO ${schema}.numeric_values VALUES(1.25),(2.75);ANALYZE ${schema}.numeric_values;`);
+  try{
+   const r=numericRequest(type),proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]};
+   r.sql='SELECT SUM(amount), AVG(amount) FROM orders';
+   const result=await executor(proof).execute(r);expect(result.ok,result.ok?'':result.error.message).toBe(true);
+   expect(result).toMatchObject({value:{rows:[['4.000000000',2]]}});expect(proof.attachments).toBe(0);
+  }finally{await fixture(`DROP TABLE ${schema}.numeric_values`);}
+ }
+},30000);
+it.each(['clear','aggregate_only','masked','tokenized'] as const)('refuses excessive numeric scale before %s treatment or staging',async treatment=>{
+ await fixture(`CREATE TABLE ${schema}.numeric_values(amount numeric);INSERT INTO ${schema}.numeric_values VALUES(123.1234567891);ANALYZE ${schema}.numeric_values;`);
+ try{
+  const r=numericRequest(),c=r.objects[0]!.readPlan.columns[0]!;
+  r.aggregateMinGroupSize=1;c.treatment=treatment;r.entitlements[0]!.treatment=treatment;
+  if(treatment==='tokenized'||treatment==='masked'){c.exposedType='VARCHAR';c.readAs='text';r.sql='SELECT amount FROM orders';}
+  if(treatment==='masked')c.mask={kind:'all'};
+  if(treatment==='tokenized')c.token={domain:'premium',canonId:'stdnum1',mode:'number',caseInsensitive:false};
+  const proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]},result=await executor(proof).execute(r);
+  expect(result).toMatchObject({ok:false,error:{code:'validation_failed',details:{cause:'numeric_not_representable',name:'amount'}}});
+  expect(proof.attachments).toBe(0);expect(proof.appended).toEqual([]);expect(JSON.stringify(result)).not.toContain('123.1234567891');
+ }finally{await fixture(`DROP TABLE ${schema}.numeric_values`);}
+},30000);
+it('checks bare numeric arrays as exact strings before conversion',async()=>{
+ await fixture(`CREATE TABLE ${schema}.numeric_values(amount numeric[]);INSERT INTO ${schema}.numeric_values VALUES(ARRAY[1.123456789::numeric,2]);ANALYZE ${schema}.numeric_values;`);
+ try{
+  const r=numericRequest('numeric[]');r.sql='SELECT amount FROM orders';
+  const result=await executor().execute(r);expect(result.ok,result.ok?'':result.error.message).toBe(true);
+  await fixture(`UPDATE ${schema}.numeric_values SET amount=ARRAY[0.0000000001::numeric]`);
+  expect(await executor().execute(r)).toMatchObject({ok:false,error:{details:{cause:'numeric_not_representable'}}});
+ }finally{await fixture(`DROP TABLE ${schema}.numeric_values`);}
+},30000);
+it.each(['name','"char"'])('newly mapped %s text family supports tokenization at the real source boundary',async type=>{
+ await fixture(`CREATE TABLE ${schema}.numeric_values(amount ${type});INSERT INTO ${schema}.numeric_values VALUES('Q');ANALYZE ${schema}.numeric_values;`);
+ try{
+  const r=numericRequest(),c=r.objects[0]!.readPlan.columns[0]!;
+  delete c.numericDefault;c.exposedType='VARCHAR';c.readAs='text';c.treatment='tokenized';
+  c.token={domain:'identity',canonId:'stdtext1',mode:'text',caseInsensitive:false};r.entitlements[0]!.treatment='tokenized';r.sql='SELECT amount FROM orders';
+  const result=await executor().execute(r);expect(result.ok,result.ok?'':result.error.message).toBe(true);
+  expect(result).toMatchObject({value:{rows:[[expect.stringMatching(/^v1_identity_/)]]}});
+ }finally{await fixture(`DROP TABLE ${schema}.numeric_values`);}
+},30000);

@@ -1137,6 +1137,13 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "numericDefault": {
+                                    "type": "string",
+                                    "enum": [
+                                      "scalar",
+                                      "array"
+                                    ]
+                                  },
                                   "sourceIdentifier": {
                                     "type": "string",
                                     "minLength": 1
@@ -1506,6 +1513,13 @@
                                 "items": {
                                   "type": "object",
                                   "properties": {
+                                    "numericDefault": {
+                                      "type": "string",
+                                      "enum": [
+                                        "scalar",
+                                        "array"
+                                      ]
+                                    },
                                     "sourceIdentifier": {
                                       "type": "string",
                                       "minLength": 1
@@ -1931,6 +1945,13 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "numericDefault": {
+                                    "type": "string",
+                                    "enum": [
+                                      "scalar",
+                                      "array"
+                                    ]
+                                  },
                                   "sourceIdentifier": {
                                     "type": "string",
                                     "minLength": 1
