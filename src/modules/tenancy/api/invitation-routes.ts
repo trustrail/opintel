@@ -10,6 +10,7 @@ export const CreateInvitationBody = z.object({
 export const InvitationListItem = CreateInvitationBody.extend({
   id: z.string().uuid(), email: z.string(), invitedBy: z.object({ id: z.string().uuid(), email: z.string() }),
   expiresAt: z.string().datetime({ offset: true }), createdAt: z.string().datetime({ offset: true }),
+  status: z.enum(['pending','expired']),
 });
 const params = z.object({ id: z.string().uuid() });
 const cursor = z.string().max(1024).transform((value, ctx) => {

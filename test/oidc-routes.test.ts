@@ -1,3 +1,4 @@
+import {PostgresMagicLinkAccess} from '../src/modules/identity/infrastructure/magic-link-access.js';
 import {once} from 'node:events';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -33,7 +34,7 @@ it('1.9 reachability: production OIDC factory completes start/callback HTTP rout
   expect((await fetch(callback,{redirect:'manual'})).status).toBe(401);expect(exchange).not.toHaveBeenCalled();
   const completed=await fetch(callback,{headers:{cookie},redirect:'manual'});expect(completed.status,JSON.stringify({body:await completed.clone().text(),exchanges:exchange.mock.calls.length})).toBe(302);expect(completed.headers.get('location')).toBe('https://console.example/projects');
   const session=SessionId(completed.headers.get('set-cookie')!.split(';')[0]!.split('=')[1]!);
-  expect(await new CurrentUserService(sessions,identity).read(session)).toMatchObject({id:account.id,method:'oidc:generic'});
+  expect(await new CurrentUserService(sessions,identity,new PostgresMagicLinkAccess()).read(session)).toMatchObject({id:account.id,method:'oidc:generic'});
   expect((await fetch(callback,{headers:{cookie},redirect:'manual'})).status).toBe(401);
   await sessions.revoke(session);
   const root=await readFile('src/platform/http/start.ts','utf8');expect(root).toContain('const oidc=createOidcRuntime(');expect(root).toContain('...oidcRoutes(oidc,');

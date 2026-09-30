@@ -1,3 +1,4 @@
+import {PostgresMagicLinkAccess} from '../src/modules/identity/infrastructure/magic-link-access.js';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
@@ -50,21 +51,21 @@ integration('invitations', () => {
       checkMany: async () => [], explain: async () => ({ allowed, path: [] }),
       write: async (updates) => {
         if (failWrite) throw new Error('SpiceDB unavailable');
-        // A separate scope must already see the committed membership.
+        // Nothing is committed while the authoritative relationship is being written.
         for (const update of updates) {
           const rows = await withPlatform(tx => tx.query('SELECT user_id FROM project_member WHERE project_id=$1 AND user_id=$2', [update.resource.id, update.subject.id]));
-          expect(rows).toHaveLength(1);
+          expect(rows).toHaveLength(0);
         }
         written.push(...updates); return 'invitation-zed-token' as AuthorizationRevision;
       },
     };
     outbox = new RelationshipOutbox();
-    service = new InvitationService(new PostgresInvitationRepository(outbox), outbox, authorization, clock, {
-      dispatch: async ({ tokenId, token }) => { delivered.set(tokenId, token); },
+    service = new InvitationService(new PostgresInvitationRepository(outbox), authorization, clock, {
+      dispatch: async message => { if(message.kind==='magic_link')delivered.set(message.tokenId, message.token); },
     });
-    sessions = { create: vi.fn(async () => SessionId(randomUUID())), read: async () => null, touch: async () => {}, rotate: async () => SessionId(randomUUID()), revoke: async () => {}, revokeAllFor: async () => 0, listFor: async () => [] };
+    sessions = { create: vi.fn(async () => SessionId(randomUUID())), read: async () => null, touch: async () => {}, rotate: async () => SessionId(randomUUID()), revoke: vi.fn(async () => {}), revokeAllFor: async () => 0, listFor: async () => [] };
     const identity = new PostgresIdentityRepository(clock, service);
-    links = new MagicLinkService(identity, identity, identity, { check: async () => ({ allowed: true, retryAfterSeconds: 0 }) }, sessions, clock);
+    links = new MagicLinkService(identity, identity, identity, { check: async () => ({ allowed: true, retryAfterSeconds: 0 }) }, sessions, clock, new PostgresMagicLinkAccess(), { dispatch: async message => { delivered.set(message.tokenId, message.token); } });
     server = createHttpServer([...invitationRoutes(service), ...magicLinkRoutes(links)], { authorization: { port: authorization, currentUser: async () => ({ id: creator, email: 'admin@example.com', fullName: null, timezone: 'UTC', method: 'magic_link', sessionCreatedAt: clock.now(), deviceConfirmed: true }) } });
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/v1`;
@@ -134,6 +135,25 @@ integration('invitations', () => {
     expect(written).toEqual([]); expect(sessions.create).not.toHaveBeenCalled();
   });
 
+  it('5.19: expired invitations remain in cursor listings, marked expired and never deleted',async()=>{
+    const expired=await invite('expired@example.com');clock.advance(7*24*60*60*1000);
+    const pending=await invite('pending@example.com');
+    const reply=await fetch(`${base}/projects/${project}/invitations`);expect(reply.status).toBe(200);
+    const body=await reply.json() as {items:Array<{id:string;status:string}>};
+    expect(body.items).toEqual(expect.arrayContaining([expect.objectContaining({id:expired.invitation.id,status:'expired'}),expect.objectContaining({id:pending.invitation.id,status:'pending'})]));
+    expect(await withPlatform(tx=>tx.query('SELECT id FROM pending_invite WHERE id=$1',[expired.invitation.id]))).toHaveLength(1);
+  });
+
+  it('5.19: a failed magic-link session creation leaves the invitation pending and grants nothing',async()=>{
+    const {invitation,token}=await invite();vi.mocked(sessions.create).mockRejectedValueOnce(new Error('session unavailable'));
+    await expect(accept(token)).rejects.toThrow('session unavailable');
+    expect(await withPlatform(tx=>tx.query('SELECT accepted_at FROM pending_invite WHERE id=$1',[invitation.id]))).toEqual([{accepted_at:null}]);
+    expect(await withPlatform(tx=>tx.query('SELECT * FROM project_member'))).toEqual([]);expect(written).toEqual([]);
+    const retry=await links.requestLink({email:invitation.email,deviceNonce:'retry',ip:'192.0.2.1'});
+    expect(retry.token).not.toBeNull();expect(await accept(retry.token!)).toMatchObject({kind:'session'});
+    const accepted=await withPlatform(tx=>tx.query<{accepted_at:Date|null}>('SELECT accepted_at FROM pending_invite WHERE id=$1',[invitation.id]));expect(accepted[0]!.accepted_at).not.toBeNull();
+  });
+
   it('E-013: revocation withdraws the grant while the magic link can still sign in', async () => {
     const { invitation, token } = await invite();
     expect((await fetch(`${base}/invitations/${invitation.id}`, { method: 'DELETE' })).status).toBe(204);
@@ -163,11 +183,30 @@ integration('invitations', () => {
     expect(delivered.size).toBe(0);
   });
 
-  it('retains failed relationship writes without creating a session or deleting the outbox row', async () => {
-    const { token } = await invite(); failWrite = true;
-    await expect(accept(token)).rejects.toMatchObject({ code: 'dependency_unavailable' });
-    expect(sessions.create).not.toHaveBeenCalled();
-    expect(await withPlatform(tx => tx.query('SELECT written_at, attempts FROM relationship_outbox'))).toEqual([{ written_at: null, attempts: 1 }]);
+  it.each(['callback', 'confirm'] as const)('rolls back a failed %s acceptance and recovers with a fresh requested link, never token replay', async path => {
+    const { invitation, token } = await invite(); failWrite = true;
+    const [row] = await withPlatform(tx => tx.query<{device_nonce:string}>('SELECT device_nonce FROM magic_link_token WHERE invite_id=$1', [invitation.id]));
+    const attempt = (value:string) => path === 'confirm' ? accept(value)
+      : links.callback({token:value,deviceNonce:row!.device_nonce,ip:'192.0.2.1',userAgent:'test'});
+    await expect(attempt(token)).rejects.toMatchObject({ code: 'dependency_unavailable',
+      message: 'Access could not be confirmed. Your invitation is still pending. Request a new sign-in link and try again.' });
+    expect(await withPlatform(tx => tx.query('SELECT * FROM project_member'))).toEqual([]);
+    expect(await withPlatform(tx => tx.query('SELECT accepted_at FROM pending_invite WHERE id=$1', [invitation.id]))).toEqual([{accepted_at:null}]);
+    expect(await withPlatform(tx => tx.query('SELECT * FROM relationship_outbox'))).toEqual([]);
+    expect(sessions.revoke).toHaveBeenCalledWith(await vi.mocked(sessions.create).mock.results[0]!.value);
+    expect(await attempt(token)).toEqual({kind:'invalid'});
+    const response = await fetch(base+'/auth/request-link', {method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({email:invitation.email,deviceNonce:row!.device_nonce})});
+    expect(response.status).toBe(202);
+    const fresh = [...delivered.values()].at(-1)!;
+    expect(fresh).not.toBe(token);
+    expect(await withPlatform(tx => tx.query('SELECT id FROM magic_link_token WHERE invite_id=$1 AND consumed_at IS NULL', [invitation.id]))).toHaveLength(1);
+    failWrite = false;
+    expect(await attempt(fresh)).toMatchObject({kind:'session'});
+    expect(await withPlatform(tx => tx.query('SELECT * FROM project_member'))).toHaveLength(1);
+    expect(await withPlatform(tx => tx.query('SELECT accepted_at FROM pending_invite WHERE id=$1', [invitation.id]))).toEqual([{accepted_at:expect.any(Date)}]);
+    expect(await withPlatform(tx => tx.query('SELECT written_at, authorization_revision, attempts FROM relationship_outbox'))).toEqual([
+      {written_at:expect.any(Date),authorization_revision:'invitation-zed-token',attempts:1}]);
   });
 
   it('rolls back membership and acceptance when enqueueing the relationship fails', async () => {
@@ -177,7 +216,8 @@ integration('invitations', () => {
     finally { enqueue.mockRestore(); }
     expect(await withPlatform(tx => tx.query('SELECT * FROM project_member'))).toEqual([]);
     expect(await withPlatform(tx => tx.query('SELECT accepted_at FROM pending_invite WHERE id=$1', [invitation.id]))).toEqual([{ accepted_at: null }]);
-    expect(written).toEqual([]); expect(sessions.create).not.toHaveBeenCalled();
+    expect(written).toEqual([]); expect(sessions.create).toHaveBeenCalledTimes(1);
+    expect(sessions.revoke).toHaveBeenCalledWith(await vi.mocked(sessions.create).mock.results[0]!.value);
   });
 
   it('refuses a token whose email differs from the attached invitation', async () => {

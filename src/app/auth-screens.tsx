@@ -120,10 +120,6 @@ function ApiFailure({ error, retry }: { readonly error: AppError; readonly retry
   return <AuthLayout><AuthCard><ErrorState title="We could not complete that" description={error.message} retry={retry} /></AuthCard></AuthLayout>;
 }
 
-function Redirecting({ provider }: { readonly provider: Provider }): ReactNode {
-  return <Message title="Continuing to sign in"><p className="note">Continuing with {provider.displayName}.</p></Message>;
-}
-
 function SignedIn({ message = 'Your sign-in link has been confirmed.' }: { readonly message?: string }): ReactNode {
   useEffect(() => { globalThis.location.assign(completeReturnTo()); }, []);
   return <Message title="You are signed in"><p className="note">{message}</p></Message>;
@@ -169,11 +165,6 @@ export function SignInScreen(): ReactNode {
   const availableProviders = providers.data?.providers ?? [];
   const magicLinkAvailable = providers.data?.magicLink ?? true;
 
-  useEffect(() => {
-    if (enforced !== null) globalThis.location.assign(providerStartPath(enforced,nonce));
-  }, [enforced,nonce]);
-
-  if (enforced !== null) return <Redirecting provider={enforced} />;
   if (providers.isError) return <ApiFailure error={providers.error} retry={() => { void providers.refetch(); }} />;
   if (request.isError) return <ApiFailure error={request.error} retry={() => { request.reset(); }} />;
   if (request.isPending) return <AuthLayout><AuthCard><LoadingState /></AuthCard></AuthLayout>;
@@ -194,8 +185,9 @@ export function SignInScreen(): ReactNode {
       <div aria-hidden={emailError === null} className="err-msg" id="sign-in-email-error">{emailError ?? '\u00a0'}</div>
     </div>
     <div className="enrolopts">
-      {magicLinkAvailable ? <Button disabled={!validEmail(email) || emailError !== null || providers.isFetching} style={{ width: '100%' }} type="submit" variant="go">Continue with email</Button> : null}
-      {availableProviders.map((provider) => <Button key={provider.provider} onClick={() => { globalThis.location.assign(providerStartPath(provider,nonce)); }} style={{ width: '100%' }} variant="ghost">Continue with {provider.displayName}</Button>)}
+      {enforced ? <p className="note">SSO is enforced. Continue with {enforced.displayName}, or request a recovery link. Only company administrators can receive a recovery link; every use is audited.</p> : null}
+      {magicLinkAvailable ? <Button disabled={!validEmail(email) || emailError !== null || providers.isFetching} style={{ width: '100%' }} type="submit" variant={enforced?'ghost':'go'}>{enforced ? 'Request administrator recovery link' : 'Continue with email'}</Button> : null}
+      {availableProviders.map((provider) => <Button key={provider.provider} onClick={() => { globalThis.location.assign(providerStartPath(provider,nonce)); }} style={{ width: '100%' }} variant={enforced?'go':'ghost'}>Continue with {provider.displayName}</Button>)}
       <p className="note">We will never reveal whether an account exists for an email address.</p>
     </div>
   </form></Message>;

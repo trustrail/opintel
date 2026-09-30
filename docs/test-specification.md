@@ -35,7 +35,7 @@ Version 1.0 · September 2026
 | A-001 | F | Screen renders with no email entered | Email field and "Continue with email"; after initial provider resolution, only configured platform provider buttons appear |
 | A-002 | F | `GET /auth/providers` with unknown domain | Returns configured platform defaults only. No company is revealed |
 | A-003 | F | Email at a domain with SSO **available, not enforced** | Link sent, and the screen offers "You can also continue with {provider}" |
-| A-004 | F | Email at a domain with SSO **enforced** | Redirect to the IdP. No email sent. Destination named before redirect |
+| A-004 | F | Email at a domain with SSO **enforced** | Offer the enforced IdP and identical administrator recovery option to every address. Only a qualifying company administrator receives a link (5.19) |
 | A-005 | F | Email at an unknown domain | Response identical in shape to A-003. **No email sent** |
 | A-006 | S | Timing of A-003 vs A-005 across 100 runs | Median difference under 30ms; no statistically separable distribution |
 | A-007 | F | Email with a pending invite, no company match | Link sent with the invite attached |
@@ -691,7 +691,7 @@ SAML is Slice 2. These cases were previously and incorrectly listed under Slice 
 | SA-005 | F | Group mapped to a project role | Membership follows group changes |
 | SA-006 | S | SCIM token from another company | 401 |
 | SA-007 | F | SCIM and manual invite for the same person | One account; no duplicate |
-| SA-008 | F | `sso_enforced` turned on with active magic-link sessions | Sessions invalidated; next sign-in routes to the IdP |
+| SA-008 | F | `sso_enforced` turned on with active magic-link sessions | Non-administrator sessions revoked on authenticated read; qualifying administrator sessions remain usable and each recovery use is audited (5.19) |
 
 ## S2-B · Availability and degraded mode
 
@@ -1126,3 +1126,39 @@ checking the resulting projection and advanced version.
 The project version is the invalidation generation for `(poolId, policyVersion)`.
 No session or compilation cache is introduced here. VC-17/VC-18 and propagation
 into session/evidence records remain with S2 and the evidence pipeline.
+
+
+**5.19 acceptance.** Provider resolution and request-link responses never reveal
+administrator status. Direct POST by a non-administrator under enforcement
+creates no token or mail-outbox entry and sends nothing. Company administrators
+can complete both callback paths and retain sessions across authenticated reads;
+each use is audited per restricting company. Links issued before enforcement or
+before demotion cannot complete afterward without the exemption. Old member
+sessions and demoted administrator sessions are revoked on read. Administrator
+status must hold in every enforced company restricting the account; project
+administration or a pending administrator invitation is insufficient. An audit
+failure releases no session. The enforcement screen states the exception and its
+audit explicitly; recovery stays reachable without an automatic IdP redirect.
+
+
+**5.19 enforced invitations.** Creation under enforcement persists one invitation
+and invitation mail naming the company provider, company id and invitation id;
+it creates no magic-link token. The production delivery and OIDC route path must
+accept that row after a verified matching email and successful session creation.
+A wrong-company provider or platform provider cannot accept an enforced
+invitation. Provider failure, mismatched email, session-creation failure and
+pinned-configuration rejection leave it pending and grant no membership; a later
+successful attempt can accept the same row. Magic-link session-creation failure
+also leaves acceptance pending. Expired invitations remain in cursor listings
+with `status: expired`, and are not deleted. Item 5.19b separately owns the
+invitations UI, pending/expired/revoked presentation and resend action.
+
+
+**5.19 acceptance failure recovery.** During the SpiceDB write, a separate
+database scope sees no committed membership, accepted_at or outbox entry.
+A failed write rolls back all three and releases no session. On both magic-link
+callback variants the consumed token cannot be replayed; POST request-link
+returns its usual 202 and delivers a fresh token attached to the still-pending
+invitation. Once SpiceDB recovers, that fresh link accepts it. OIDC likewise
+retains the invitation, rejects callback replay, and accepts through a fresh
+provider-start flow. Successful acceptance commits the outbox's written revision.

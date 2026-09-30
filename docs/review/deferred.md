@@ -59,6 +59,32 @@ EOF
   050 database triggers, serialized on the company row. /auth/providers retains
   its defensive ambiguity handling.
 
+# Item 1.10 enforcement gap — corrected by 5.19
+
+From 1.10 until 5.19, magic-link issuance and confirmation had no server-side
+SSO enforcement check. Provider resolution hid the option and redirected, but
+a direct POST to request-link still issued a link to a non-administrator.
+Callback or device confirmation could create a magic-link session; the next
+authenticated read revoked it. Hiding the option and revoking afterward did not
+prevent issuance or sign-in.
+
+Item 5.19 checks enforcement at issuance and both confirmation paths, applies
+the administrator exemption at those same points, and retains session-read
+revocation as defence in depth. Direct non-administrator POST coverage asserts
+no token, mail-outbox entry or delivery, not merely later revocation.
+
+The 5.19 audit also found independent issuance in
+`PostgresInvitationRepository.create`. This is now changed under enforcement:
+create the pending invitation, enqueue a company-provider sign-in URL, and issue
+no magic-link token. Both methods reuse tenancy acceptance; OIDC acceptance
+checks the invitation company against the pinned provider configuration.
+
+The invitation list previously omitted expired rows, making an invitation that
+never completed disappear. Item 5.19 retains and marks expired invitations in
+the API. Item 5.19b owns the missing invitations UI with pending, expired and
+revoked states and resend, including retaining revocation history. No reason for
+incomplete sign-in is inferred from silence at the provider.
+
 # From item 5.16 — SSO lockout safety
 
 - The provider-count invariant does not prove that the provider can complete a
@@ -82,7 +108,7 @@ EOF
   failed or abandoned flows change nothing. This is required maintenance for
   expiring client secrets, not a break-glass mechanism.
 - Both items are **required for Slice 1a**. Item 5.18 implements the gate;
-  5.19 remains unimplemented. Provider
+  5.19 now implements administrator recovery across all four layers. Provider
   existence alone does not make enforcement safe, and a customer who cannot sign
   in has no product.
 
@@ -545,3 +571,24 @@ none was removed during the OIDC repair.
 sidecar startup calls their static `open` factories. Runtime factories also
 construct other adapters transitively. A search for `new` in start files alone
 would incorrectly report those as absent.
+
+
+### Invitation acceptance committed before authoritative access (1.7–5.19)
+
+This defect was live since 1.7 on both magic-link and OIDC acceptance paths.
+Acceptance committed a member row, accepted_at and a pending relationship-outbox
+entry before awaiting SpiceDB. A dispatch failure left a member and an accepted
+invitation with no relationship: on signing in, the person failed every
+permission check. Moving session creation before acceptance alone did not fix it.
+
+5.19 now awaits the relationship write inside the acceptance transaction.
+Failure rolls back membership, accepted_at and the outbox entry, revokes the
+prepared session and leaves the invitation pending. A consumed magic-link token
+is never restored. The refusal asks for a new link; request-link must issue one
+attached to the pending invitation. OIDC uses a fresh provider flow, never a
+replayed callback.
+
+This ordering cannot make Postgres and SpiceDB one atomic system. A successful
+remote write followed by a lost acknowledgement or failed Postgres commit can
+leave the opposite divergence. Acceptance still fails closed; a fresh attempt
+uses an idempotent touch. The existing reconciliation requirement remains.

@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { DomainError, type Clock, type InviteId, type Result, type SessionId, type Timestamp, type UserId } from '../../../shared/kernel/index.js';
+import { DomainError, type Clock, type CompanyId, type CompanyIdpId, type InviteId, type Result, type SessionId, type Timestamp, type UserId } from '../../../shared/kernel/index.js';
 import type { SessionPort } from './session.js';
+import type { MagicLinkAccess } from './magic-link-access.js';
 
-export type PendingInvite = { id: InviteId; email: string; role: 'admin' | 'operator' | 'viewer'; expiresAt: Timestamp };
+export type PendingInvite = { id: InviteId; companyId:CompanyId; email: string; role: 'admin' | 'operator' | 'viewer'; expiresAt: Timestamp };
+export type InvitationAuthentication = {method:'magic_link';sessionId:SessionId}|{method:'oidc';sessionId:SessionId;companyId:CompanyId|null;idpId:CompanyIdpId|null;configurationVersion:string};
 export type UserAccount = { id: UserId; email: string };
 export type MagicLinkToken = { id: string; email: string; deviceNonce: string; inviteId: InviteId | null };
 
@@ -14,12 +16,12 @@ export interface AccountRepository {
 }
 
 export interface InviteRepository {
-  findPendingFor(email: string): Promise<PendingInvite | null>;
+  findPendingFor(email: string,companyId?:CompanyId|null): Promise<PendingInvite | null>;
   findInvitationById(id: InviteId): Promise<PendingInvite | null>;
-  markAccepted(id: InviteId, by: UserId): Promise<void>;
+  markAccepted(id: InviteId, by: UserId, authentication:InvitationAuthentication): Promise<void>;
 }
 export interface InvitationAcceptancePort {
-  accept(id: InviteId, user: UserId): Promise<Result<void, DomainError>>;
+  accept(id: InviteId, user: UserId, authentication:InvitationAuthentication): Promise<Result<void, DomainError>>;
 }
 
 export interface MagicLinkRepository {
@@ -53,6 +55,7 @@ export class MagicLinkService {
     private readonly rateLimiter: RateLimiter,
     private readonly sessions: SessionPort,
     private readonly clock: Clock,
+    private readonly access: MagicLinkAccess,
     private readonly delivery?: MagicLinkDispatchPort,
   ) {}
 
@@ -65,6 +68,7 @@ export class MagicLinkService {
     ]);
     if (!emailLimit.allowed || !ipLimit.allowed) return { allowed: false, retryAfterSeconds: Math.max(emailLimit.retryAfterSeconds, ipLimit.retryAfterSeconds), token: null };
     if (account === null && invite === null) return { allowed: true, retryAfterSeconds: 0, token: null };
+    if (!await this.access.check(input.email,{stage:'link_issuance_authorized'})) return { allowed: true, retryAfterSeconds: 0, token: null };
 
     const token = randomBytes(32).toString('base64url');
     const issued = await this.tokens.issueAndEnqueue(input.email, hash(token), input.deviceNonce, invite?.id ?? null, expiry(this.clock.now()), input.ip);
@@ -88,6 +92,7 @@ export class MagicLinkService {
   }
 
   private async complete(token: MagicLinkToken, input: Callback, deviceConfirmed: boolean): Promise<CallbackResult> {
+    if (!await this.access.check(token.email)) return {kind:'invalid'};
     const invite = token.inviteId === null ? null : await this.invites.findInvitationById(token.inviteId);
     if (invite !== null && invite.email.toLowerCase() !== token.email.toLowerCase()) {
       throw new DomainError('forbidden', 'This invitation belongs to another email address.');
@@ -98,9 +103,15 @@ export class MagicLinkService {
     const email = invite?.email ?? token.email;
     const account = await this.accounts.findByEmail(email) ?? await this.accounts.create(email, invite);
     await this.accounts.linkVerifiedIdentity(account.id, 'magic_link', token.email);
-    if (invite !== null) await this.invites.markAccepted(invite.id, account.id);
     await this.accounts.recordLogin(account.id, this.clock.now());
     const sessionId = await this.sessions.create(account.id, { ip: input.ip, userAgent: input.userAgent, deviceNonce: token.deviceNonce }, 'magic_link', deviceConfirmed);
+    try {
+      if (!await this.access.check(email,{stage:'sign_in_completed',sessionId})) {
+        await this.sessions.revoke(sessionId);
+        return {kind:'invalid'};
+      }
+      if (invite !== null) await this.invites.markAccepted(invite.id, account.id,{method:'magic_link',sessionId});
+    } catch(error) { await this.sessions.revoke(sessionId); throw error; }
     return { kind: 'session', sessionId };
   }
 

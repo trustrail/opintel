@@ -1,13 +1,13 @@
 import { ErrorReply, TimeoutError } from 'redis';
-import { DomainError, InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
+import { CompanyId,DomainError, InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { redisKeyPrefix, type RedisClient } from '../../../platform/redis/index.js';
 import type { CurrentUserAccount, CurrentUserRepository } from '../application/current-user.js';
 import type { AccountRepository, InvitationAcceptancePort, InviteRepository, MagicLinkRepository, MagicLinkToken, PendingInvite, RateLimiter, UserAccount } from '../application/magic-link.js';
 
 type AccountRow = { id: string; email: string };
-type CurrentUserRow = { id: string; email: string; full_name: string | null; timezone: string; sso_enforced:boolean };
-type InviteRow = { id: string; email: string; role: PendingInvite['role']; expires_at: string };
+type CurrentUserRow = { id: string; email: string; full_name: string | null; timezone: string };
+type InviteRow = { id: string; company_id:string;email: string; role: PendingInvite['role']; expires_at: string };
 type TokenRow = { id: string; email: string; device_nonce: string; invite_id: string | null };
 
 export class PostgresIdentityRepository implements AccountRepository, InviteRepository, MagicLinkRepository, CurrentUserRepository {
@@ -17,9 +17,9 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
     const row = rows[0]; return row === undefined ? null : { id: UserId(row.id), email: row.email };
   }
   async findById(id: UserId): Promise<CurrentUserAccount | null> {
-    const rows = await withPlatform((tx) => tx.query<CurrentUserRow>(`SELECT u.id,u.email,u.full_name,u.timezone,EXISTS(SELECT 1 FROM company_member m JOIN company c ON c.id=m.company_id WHERE m.user_id=u.id AND c.sso_enforced) AS sso_enforced FROM user_account u WHERE u.id=$1`, [id]));
+    const rows = await withPlatform((tx) => tx.query<CurrentUserRow>('SELECT id,email,full_name,timezone FROM user_account WHERE id=$1', [id]));
     const row = rows[0];
-    return row === undefined ? null : { id: UserId(row.id), email: row.email, fullName: row.full_name, timezone: row.timezone,ssoEnforced:row.sso_enforced };
+    return row === undefined ? null : { id: UserId(row.id), email: row.email, fullName: row.full_name, timezone: row.timezone };
   }
   async create(email: string, _invite: PendingInvite | null): Promise<UserAccount> {
     const rows = await withPlatform((tx) => tx.query<AccountRow>('INSERT INTO user_account (email) VALUES ($1) RETURNING id, email', [email]));
@@ -40,20 +40,20 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
     }
   }
   async recordLogin(id: UserId, at: Timestamp): Promise<void> { await withPlatform((tx) => tx.query('UPDATE user_account SET last_login_at = $2 WHERE id = $1', [id, at])); }
-  async findPendingFor(email: string): Promise<PendingInvite | null> {
-    const rows = await withPlatform((tx) => tx.query<InviteRow>('SELECT id, email, role, expires_at FROM pending_invite WHERE email = $1 AND accepted_at IS NULL AND expires_at > $2 ORDER BY expires_at DESC LIMIT 1', [email, this.now.now()]));
-    const row = rows[0]; return row === undefined ? null : { id: InviteId(row.id), email: row.email, role: row.role, expiresAt: Timestamp(new Date(row.expires_at)) };
+  async findPendingFor(email: string,companyId?:CompanyId|null): Promise<PendingInvite | null> {
+    const rows = await withPlatform((tx) => tx.query<InviteRow>('SELECT id, company_id,email, role, expires_at FROM pending_invite WHERE email = $1 AND accepted_at IS NULL AND expires_at > $2 AND ($3::uuid IS NULL OR company_id=$3) ORDER BY expires_at DESC LIMIT 1', [email, this.now.now(),companyId??null]));
+    const row = rows[0]; return row === undefined ? null : { id: InviteId(row.id),companyId:CompanyId(row.company_id), email: row.email, role: row.role, expiresAt: Timestamp(new Date(row.expires_at)) };
   }
   async findInvitationById(id: import('../../../shared/kernel/index.js').InviteId): Promise<PendingInvite | null> {
     const rows = await withPlatform((tx) => tx.query<InviteRow>(
-      'SELECT id, email, role, expires_at FROM pending_invite WHERE id = $1 AND accepted_at IS NULL', [id],
+      'SELECT id, company_id,email, role, expires_at FROM pending_invite WHERE id = $1 AND accepted_at IS NULL', [id],
     ));
     const row = rows[0];
-    return row === undefined ? null : { id: InviteId(row.id), email: row.email, role: row.role, expiresAt: Timestamp(new Date(row.expires_at)) };
+    return row === undefined ? null : { id: InviteId(row.id),companyId:CompanyId(row.company_id), email: row.email, role: row.role, expiresAt: Timestamp(new Date(row.expires_at)) };
   }
-  async markAccepted(id: import('../../../shared/kernel/index.js').InviteId, by: UserId): Promise<void> {
+  async markAccepted(id: import('../../../shared/kernel/index.js').InviteId, by: UserId,authentication:Parameters<InviteRepository['markAccepted']>[2]): Promise<void> {
     if (this.acceptance === undefined) throw new Error('Invitation acceptance is not configured.');
-    const result = await this.acceptance.accept(id, by);
+    const result = await this.acceptance.accept(id, by,authentication);
     if (!result.ok) throw result.error;
   }
   async issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: import('../../../shared/kernel/index.js').InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<void> { await withPlatform((tx) => tx.query('INSERT INTO magic_link_token (email, token_hash, device_nonce, invite_id, expires_at, requested_ip) VALUES ($1, $2, $3, $4, $5, $6)', [email, tokenHash, deviceNonce, inviteId, expiresAt, ip])); }

@@ -1,5 +1,6 @@
 import type { SessionId, Timestamp, UserId } from '../../../shared/kernel/index.js';
 import type { AuthMethod, SessionPort } from './session.js';
+import type {MagicLinkAccess} from './magic-link-access.js';
 
 export type CurrentUser = {
   readonly id: UserId;
@@ -12,7 +13,6 @@ export type CurrentUser = {
 };
 
 export type CurrentUserAccount = {
-  readonly ssoEnforced?: boolean;
   readonly id: UserId;
   readonly email: string;
   readonly fullName: string | null;
@@ -27,6 +27,7 @@ export class CurrentUserService {
   constructor(
     private readonly sessions: SessionPort,
     private readonly accounts: CurrentUserRepository,
+    private readonly access: MagicLinkAccess,
   ) {}
 
   async read(sessionId: SessionId): Promise<CurrentUser | null> {
@@ -34,7 +35,7 @@ export class CurrentUserService {
     if (session === null) return null;
     const account = await this.accounts.findById(session.userId);
     if (account === null) return null;
-    if(account.ssoEnforced&&session.method==='magic_link'){await this.sessions.revoke(sessionId);return null;}
+    if(session.method==='magic_link'&&!await this.access.check(account.email,{stage:'session_accepted',sessionId})){await this.sessions.revoke(sessionId);return null;}
     await this.sessions.touch(sessionId);
     return {
       id: account.id,

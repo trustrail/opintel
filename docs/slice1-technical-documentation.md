@@ -1307,7 +1307,11 @@ const InvitationListItem = z.object({
 
 **Item 2.7 creates project invitations only**. projectId must be non-null and match the project id in the URL, and companyId must name that project's company. Company invitations are not supported by these routes.
 
-**There is no separate acceptance endpoint**. An invitation is delivered as a magic link carrying invite_id, so acceptance is a sign-in that happens to also accept. That means one code path, one atomic transaction, and no way to accept without proving control of the address.
+**There is no separate acceptance endpoint**. Without SSO enforcement, an invitation is delivered as a magic link carrying invite_id. Under enforcement, the same pending_invite row is created, but no magic_link_token is issued: invitation mail carries the enforced company provider’s start URL with companyId and inviteId. These identifiers are routing information, not proof. Both sign-in mechanisms use the same tenancy acceptance path after verifying control of the invitation’s email.
+
+The OIDC callback scopes email-based invitation lookup to the company being used. Acceptance independently checks the provider’s company, enabled state and pinned configuration revision in its transaction. An enforced invitation cannot be accepted through a platform provider or another company’s provider. The normal platform-provider invitation path remains available for companies without enforcement.
+
+If the provider does not complete sign-in, the invitation stays outstanding. No reason is inferred: an absent IdP account and an abandoned sign-in are indistinguishable. The invitations API returns all unaccepted rows, including expired rows, with status `pending` or `expired`, the original expiry timestamp and unchanged cursor pagination. Expiry does not delete a row. Item **5.19b** owns the invitations UI, revoked-history retention and resend action; no such screen is built in 5.19.
 
 **The invitation's email is the identity**. The token's invite_id names the exact invitation; the account is found or created for the email on the invitation, not on anything the caller supplies. A magic link carrying an invitation for one address cannot enrol another.
 
@@ -2359,13 +2363,13 @@ same shape.
 
 ```ts
 type ProvidersResponse = {
-  magicLink: boolean;              // false only when sso_enforced for this domain
+  magicLink: boolean;              // under enforcement, a uniform administrator recovery option
   providers: Array<{
     provider: string;              // 'oidc:google', 'oidc:entra', 'oidc:acme'
     displayName: string;           // 'Google', 'Microsoft', 'Acme SSO'
     startPath: string;             // '/auth/oidc/oidc:google/start'
   }>;
-  enforced: string | null;         // the provider to redirect to, or null
+  enforced: string | null;         // enforced provider, displayed alongside administrator recovery
 };
 ```
 
@@ -2391,11 +2395,11 @@ configuration and no enabled company providers, `/auth/providers` returns
 link alone. Enabled company providers and uniquely enforced company SSO retain
 their existing behavior.
 
-**`enforced` is non-null only when the domain maps to a company with `sso_enforced` set.** The client redirects immediately rather than showing the form. That is the one observable difference, and it reveals only that a domain uses SSO, which is already public.
+**`enforced` is non-null only when the domain maps to a company with `sso_enforced` set.** The client offers that provider alongside administrator recovery; it does not redirect automatically. Every address at that domain receives the same options, without looking up administrator status.
 
-**When `enforced` is set, `magicLink` is false and `providers` contains exactly one entry**, the enforced provider.
+**When `enforced` is set, `magicLink` is true and `providers` contains exactly one entry**, the enforced provider. The magic-link option is labelled administrator recovery. Its presence is not a claim that the submitted address qualifies.
 
-sso_enforced requires exactly one enabled company_idp row. More than one is ambiguous: the sign-in screen is bypassed, so there is nothing to choose from. Setting sso_enforced refuses with conflict when zero or more than one provider is enabled, and disabling the last provider while sso_enforced is set refuses the same way.
+sso_enforced requires exactly one enabled company_idp row. More than one is ambiguous: enforcement must identify one provider. Setting sso_enforced refuses with conflict when zero or more than one provider is enabled, and disabling the last provider while sso_enforced is set refuses the same way.
 
 
 **Humans** authenticate with a magic link or an identity provider, hold a session cookie, and are authorized by SpiceDB.
@@ -2475,12 +2479,44 @@ One screen offers every route the person may use. On email submit:
 
 | Condition | Behaviour |
 |---|---|
-| Domain maps to a company with SSO enforced | Redirect to that provider. No link sent. Say where they are going |
+| Domain maps to a company with SSO enforced | Offer its provider and administrator recovery to everyone. Send a link only to an existing company administrator who qualifies under every applicable enforced company |
 | Domain maps to a company with SSO available | Send the link, and offer the provider as an alternative |
 | Domain matches no company but a pending invitation exists | Send the link with the invitation attached |
 | Domain matches nothing | Respond exactly as above. Send nothing. Constant time |
 
-**No account enumeration.** The observable difference is a provider redirect, which is already public information about a domain.
+**No account enumeration.** The observable difference is the domain’s SSO configuration, which is already public information. Administrator, member and unknown addresses get identical provider options and the same request-link response. Only delivery differs.
+
+### Administrator recovery under enforced SSO (5.19)
+
+Enforcement permits a deliberate exception for existing company administrators.
+The server checks current restrictions before link issuance and on both
+same-device callback and explicit device confirmation. It checks again before
+releasing the session and on every authenticated session read. A denied issuance
+returns the ordinary 202 response but creates no token or mail-outbox entry.
+A denied callback or confirmation releases no session. Session revocation remains
+defence in depth; it is not the mechanism that prevents issuance or sign-in.
+
+An enforced company restricts an address through its configured domain, existing
+company or project membership, or a live pending invitation. The account must
+already hold `company_member.role = admin` in **every** such company. A project
+administrator or an administrator invitation does not qualify. Administering A
+never bypasses B. Restrictions and roles are read afresh; loss of the exemption
+revokes an existing magic-link session on its next authenticated read. OIDC
+sessions continue through their existing acceptance path.
+
+Every recovery use writes `SsoBreakGlassUsed` to the existing append-only audit
+for each restricting company: issuance authorization, completed sign-in, and each
+accepted session read. Records name company, account, stage and timestamp.
+Issuance authorization is a system event, since an email submission does not
+establish who requested it; completed sign-in and authenticated use name the
+verified user. Session correlation is a SHA-256 fingerprint, never the bearer
+session id, link token, email or provider secret. An audit failure fails closed;
+a newly created session is revoked before any cookie can be returned.
+
+Company settings states plainly that company administrators retain magic-link
+access under enforcement and every use is audited. Recovery is displayed for
+all addresses on an enforced domain; exposing it only for administrators would
+be an enumeration oracle.
 
 ### Magic link
 
@@ -2507,7 +2543,7 @@ Slice 1 ships OIDC with PKCE: Google, Microsoft Entra, and generic. SAML and SCI
 
 **Backoff after the IP limit is 1s, 2s, 4s, 8s, 16s, capped at 16, keyed on IP in Redis with a 15 minute window. The response is 429 with retryAfter in the envelope details. It is identical whether or not the address is known.
 
-**Membership on invitation acceptance is written by the tenancy module, not identity. The callback resolves the exact invite_id attached to the token. Tenancy writes the membership, marks the invitation accepted and enqueues the relationship in one transaction, then awaits dispatch after commit. B-015 asserts the invitation is marked accepted and the intended role is granted.
+**Membership on invitation acceptance is written by the tenancy module, not identity. The callback resolves the exact invite_id attached to the token. Tenancy holds the invitation lock while writing membership and an outbox entry, awaits the SpiceDB relationship write, records its revision and marks the invitation accepted, then commits all three together. A relationship-write failure rolls back membership, acceptance and the outbox entry; the prepared session is revoked and no session cookie is released. The consumed magic-link token remains consumed: the refusal asks the person to request a new link, which request-link attaches to the still-pending invitation. OIDC recovery starts a new provider flow; callback replay remains forbidden. B-015 asserts the invitation is marked accepted and the intended role is granted.
 
 
 Just-in-time provisioning happens only where a pending invitation exists. Domain capture is Slice 2.
@@ -2935,15 +2971,17 @@ the proposed replacement, then activation is atomic. It is not implemented by
 
 **Membership is written in both places, and SpiceDB is authoritative for decisions**. Postgres holds the same facts so the application can list — which companies a user administers, who the members of a project are — without asking SpiceDB to enumerate. SpiceDB answers whether a user may do a thing; Postgres answers what exists.
 
-**Both writes happen in one command**, the Postgres row inside the transaction and the SpiceDB relationship after it commits, through the outbox. A relationship written without its row, or the reverse, is a defect, and a reconciliation job reports any divergence.
+**Both writes happen in one command**, normally the Postgres row inside the transaction and the SpiceDB relationship after it commits, through the outbox. Invitation acceptance is the exception: SpiceDB must confirm the relationship before membership, accepted_at and the completed outbox entry commit. Otherwise a failed sign-in would consume an invitation while leaving a member with no permissions. A relationship written without its row, or the reverse, is a defect, and a reconciliation job reports any divergence.
 
 **Neither table is tenant-scoped for RLS purposes**. project_member is read before a project is selected, and company_member has no project at all. Both are protected by route permissions.
 
-**The pattern is the mail outbox's, applied to authorization**. The membership row and its outbox entry are written in one transaction; a dispatcher writes to SpiceDB after commit and records the returned AuthorizationRevision. A crash between them leaves an unwritten entry, which the dispatcher retries.
+**Except for invitation acceptance, the pattern is the mail outbox's, applied to authorization**. The membership row and its outbox entry are written in one transaction; a dispatcher writes to SpiceDB after commit and records the returned AuthorizationRevision. A crash between them leaves an unwritten entry, which the dispatcher retries.
 
 **Dispatch is in-process and immediate**, as magic link mail is. A membership that takes seconds to become effective is a support call, so the command awaits the write and reports failure to the caller rather than succeeding optimistically.
 
 **The row is never deleted**, so relationship_outbox is also the audit trail of every authorization change until audit_entry arrives in item 5.10.
+
+**The invitation ordering is not a distributed transaction**. A SpiceDB write that succeeds but loses its acknowledgement, or a later Postgres commit failure, can still leave a relationship without a committed membership. Acceptance refuses in those cases; a fresh sign-in retries the same idempotent relationship touch. No callback or consumed magic-link token is replayed.
 
 **Reconciliation** compares company_member and project_member against SpiceDB nightly and reports divergence. It does not repair automatically: a relationship present in one and not the other is a fault worth a human looking at.
 
@@ -4506,7 +4544,7 @@ Migration 050 records the six existing-project discovery mappings beside the bac
 
 Personal profile adds date format (YYYY-MM-DD default, DD/MM/YYYY or MM/DD/YYYY) and reduced motion (false default: respect OS; true disables transitions/animations). The timezone is a valid IANA name, default UTC; email is read-only. Timestamp components subscribe to the profile query; explicitly UTC daily dashboard totals stay UTC.
 
-Company idle timeout is 1–43,200 minutes, default 480, bounded by the existing 30-day absolute session lifetime. New sessions pin the shortest company idle timeout among the user's memberships; later edits do not alter existing session deadlines. Enforcing SSO causes existing magic-link sessions of company members to be rejected and revoked on their next authenticated read. Allowed domains are exact DNS domains, empty by default (no domain restriction), enforced when inviting. Company default industry/region preselect unset create-project choices. Company members and project viewers see settings read-only, with an explanation.
+Company idle timeout is 1–43,200 minutes, default 480, bounded by the existing 30-day absolute session lifetime. New sessions pin the shortest company idle timeout among the user's memberships; later edits do not alter existing session deadlines. Enforcing SSO causes existing non-administrator magic-link sessions to be rejected and revoked on their next authenticated read. Company administrators retain the audited recovery exception only while they administer every enforced company restricting the account (5.19). Allowed domains are exact DNS domains, empty by default (no domain restriction), enforced when inviting. Company default industry/region preselect unset create-project choices. Company members and project viewers see settings read-only, with an explanation.
 
 The sampling wire requires both source consent and explicit project sampling permission. A false project gate returns 403 even with source consent; the application bounds a request by the configured sample size. Source registration/introspection remains metadata-only. Effective query execution settings are captured in the evidence source plan from the preparation snapshot, not re-read at completion.
 

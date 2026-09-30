@@ -1,6 +1,7 @@
 import type { SessionMeta, SessionPort, SessionRecord, SessionSummary } from '../src/modules/identity/application/session.js';
 import { describe, expect, it } from 'vitest';
 import {
+  CompanyId,
   InviteId,
   SessionId,
   TestClock,
@@ -203,7 +204,7 @@ describe('OIDC identity', () => {
   it('C-006 and C-007: verified magic-link and OIDC identities share one account in either order', async () => {
     const { service, flows, accounts, invites, sessions } = setup();
     const account = await accounts.create('person@example.com', null);
-    const magic = new MagicLinkService(accounts, invites, new MemoryMagicTokens(), new AllowAllRateLimiter(), sessions, new TestClock());
+    const magic = new MagicLinkService(accounts, invites, new MemoryMagicTokens(), new AllowAllRateLimiter(), sessions, new TestClock(), {check:async()=>true});
     const link = await magic.requestLink({ email: 'person@example.com', deviceNonce: 'device-nonce', ip: '192.0.2.1' });
     if (link.token === null) throw new Error('Magic link was not issued.');
     await magic.callback({ token: link.token, deviceNonce: 'device-nonce', ip: '192.0.2.1', userAgent: 'test' });
@@ -220,7 +221,7 @@ describe('OIDC identity', () => {
     const reverseState = [...reverse.flows.flows.keys()][0];
     if (reverseState === undefined) throw new Error('OIDC flow was not saved.');
     await reverse.service.callback(reverseState, `https://console.example/auth/callback?state=${reverseState}`, { ip: '192.0.2.1', userAgent: 'test' });
-    const reverseMagic = new MagicLinkService(reverse.accounts, reverse.invites, new MemoryMagicTokens(), new AllowAllRateLimiter(), reverse.sessions, new TestClock());
+    const reverseMagic = new MagicLinkService(reverse.accounts, reverse.invites, new MemoryMagicTokens(), new AllowAllRateLimiter(), reverse.sessions, new TestClock(), {check:async()=>true});
     const reverseLink = await reverseMagic.requestLink({ email: 'person@example.com', deviceNonce: 'device-nonce', ip: '192.0.2.1' });
     if (reverseLink.token === null) throw new Error('Magic link was not issued.');
     await reverseMagic.callback({ token: reverseLink.token, deviceNonce: 'device-nonce', ip: '192.0.2.1', userAgent: 'test' });
@@ -229,7 +230,7 @@ describe('OIDC identity', () => {
   });
 
   it('C-009, C-010 and C-011: JIT provisioning requires the pending invitation in the flow', async () => {
-    const invite = { id: InviteId('018f8f9d-7f83-7abc-8def-000000000099'), email: 'person@example.com', role: 'viewer' as const, expiresAt: Timestamp(new Date('2027-01-01T00:00:00.000Z')) };
+    const invite = { id: InviteId('018f8f9d-7f83-7abc-8def-000000000099'), companyId: CompanyId('018f8f9d-7f83-7abc-8def-000000000098'), email: 'person@example.com', role: 'viewer' as const, expiresAt: Timestamp(new Date('2027-01-01T00:00:00.000Z')) };
     const denied = setup();
     await denied.service.begin({ provider: 'google', companyId: null, inviteId: null, redirectUri: 'https://console.example/auth/callback', deviceNonce: 'device-nonce' });
     const deniedState = [...denied.flows.flows.keys()][0];

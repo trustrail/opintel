@@ -60,7 +60,7 @@ async function request(service: CurrentUserService, cookie?: string): Promise<Re
 describe('GET /auth/me', () => {
   it('assembles CurrentUser from the session and the current account record', async () => {
     const sessions = new TestSessions(session);
-    const response = await request(new CurrentUserService(sessions, new TestAccounts({ id: userId, email: 'person@example.com', fullName: 'Person Example', timezone: 'America/Toronto' })), sessionCookie(sessionId));
+    const response = await request(new CurrentUserService(sessions, new TestAccounts({ id: userId, email: 'person@example.com', fullName: 'Person Example', timezone: 'America/Toronto' }), {check:async()=>true}), sessionCookie(sessionId));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -76,7 +76,7 @@ describe('GET /auth/me', () => {
   });
 
   it('returns a 401 error envelope when the session cookie is absent or unreadable', async () => {
-    const service = new CurrentUserService(new TestSessions(null), new TestAccounts(null));
+    const service = new CurrentUserService(new TestSessions(null), new TestAccounts(null), {check:async()=>true});
     const absent = await request(service);
     const malformed = await request(service, `${sessionCookieName}=not-a-session`);
 

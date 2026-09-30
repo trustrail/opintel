@@ -98,11 +98,11 @@ describe('GET /auth/providers', () => {
     expect(await service.resolve('person@acme.example')).toEqual({magicLink:true,providers:[customProvider],enforced:null});
   });
 
-  it('A-004: returns only the uniquely enforced provider and disables magic links', async () => {
+  it('A-004/5.19: returns the enforced provider and the same administrator recovery option for everyone', async () => {
     const service = new ProviderResolutionService(new TestRepository(new Map([['acme.example', settings(true, [customProvider])]])),configuredPlatform);
 
     await expect(service.resolve('person@acme.example')).resolves.toEqual({
-      magicLink: false,
+      magicLink: true,
       providers: [customProvider],
       enforced: 'oidc:acme',
     });

@@ -75,7 +75,8 @@ export class ProviderResolutionService {
     const company = email === undefined ? null : await this.repository.findCompanyForDomain(domainForProviderLookup(email));
     if (company?.ssoEnforced && company.providers.length === 1) {
       const enforcedProvider = company.providers[0]!;
-      return { magicLink: false, providers: [enforcedProvider], enforced: enforcedProvider.provider };
+      // Uniform recovery option: never look up whether this address is an admin.
+      return { magicLink: true, providers: [enforcedProvider], enforced: enforcedProvider.provider };
     }
     const readiness = await Promise.all(platformDefaults.map(provider => this.platform.available(provider.provider)));
     const providers = [...platformDefaults.filter((_provider, index) => readiness[index]), ...(company?.providers ?? [])];

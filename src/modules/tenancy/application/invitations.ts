@@ -1,25 +1,28 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { DomainError, err, ok, Timestamp, type Clock, type CompanyId, type InviteId, type ProjectId, type Result, type UserId } from '../../../shared/kernel/index.js';
-import type { AuthorizationPort } from '../../authz/index.js';
-import type { RelationshipOutbox } from './relationship-outbox.js';
+import type { AuthorizationPort, RelationshipUpdate, AuthorizationRevision } from '../../authz/index.js';
+import type {InvitationAuthentication} from '../../identity/index.js';
 
 export type InvitationInput = { email: string; companyId: CompanyId; projectId: ProjectId | null; role: 'admin' | 'operator' | 'viewer' };
 export type Invitation = InvitationInput & {
   id: InviteId; invitedBy: { id: UserId; email: string }; expiresAt: Timestamp; createdAt: Timestamp;
+  status: 'pending' | 'expired';
 };
+export type InvitationDispatch = {kind:'magic_link';tokenId:string;token:string}|{kind:'oidc';invitationId:InviteId};
+export type InvitationDeliveryReference = {kind:'magic_link';tokenId:string}|{kind:'oidc';invitationId:InviteId};
 export interface InvitationRepository {
-  create(input: InvitationInput, project: ProjectId, creator: UserId, hash: Buffer, nonce: string, now: Timestamp, expiresAt: Timestamp): Promise<Result<{ invitation: Invitation; tokenId: string }, DomainError>>;
+  create(input: InvitationInput, project: ProjectId, creator: UserId, hash: Buffer, nonce: string, now: Timestamp, expiresAt: Timestamp): Promise<Result<{ invitation: Invitation; delivery: InvitationDeliveryReference }, DomainError>>;
   list(project: ProjectId, after: InviteId | null, limit: number, now: Timestamp): Promise<Invitation[]>;
   projectFor(id: InviteId): Promise<ProjectId | null>;
   revoke(id: InviteId): Promise<void>;
-  accept(id: InviteId, user: UserId, now: Timestamp): Promise<Result<bigint | null, DomainError>>;
+  accept(id: InviteId, user: UserId, now: Timestamp,authentication:InvitationAuthentication, writeRelationship: (update: RelationshipUpdate) => Promise<AuthorizationRevision>): Promise<Result<void, DomainError>>;
 }
 export interface InvitationDelivery {
-  dispatch(message: { tokenId: string; token: string }): Promise<void>;
+  dispatch(message: InvitationDispatch): Promise<void>;
 }
 
 export class InvitationService {
-  constructor(private readonly repository: InvitationRepository, private readonly outbox: RelationshipOutbox,
+  constructor(private readonly repository: InvitationRepository,
     private readonly authorization: AuthorizationPort, private readonly clock: Clock, private readonly delivery: InvitationDelivery) {}
 
   async create(input: InvitationInput, project: ProjectId, creator: UserId): Promise<Result<Invitation, DomainError>> {
@@ -28,7 +31,7 @@ export class InvitationService {
     const expiresAt = Timestamp(new Date(new Date(now).getTime() + 7 * 24 * 60 * 60 * 1000));
     const created = await this.repository.create(input, project, creator, createHash('sha256').update(token).digest(), randomBytes(32).toString('base64url'), now, expiresAt);
     if (!created.ok) return created;
-    try { await this.delivery.dispatch({ tokenId: created.value.tokenId, token }); }
+    try { await this.delivery.dispatch(created.value.delivery.kind==='magic_link'?{...created.value.delivery,token}:created.value.delivery); }
     catch { return err(new DomainError('dependency_unavailable', 'The invitation was saved, but its email could not be sent.', undefined, true)); }
     return ok(created.value.invitation);
   }
@@ -48,14 +51,15 @@ export class InvitationService {
     return ok(undefined);
   }
 
-  async accept(id: InviteId, user: UserId): Promise<Result<void, DomainError>> {
-    const accepted = await this.repository.accept(id, user, this.clock.now());
-    if (!accepted.ok) return accepted;
-    // A revoked invitation permits sign-in, but grants nothing.
-    if (accepted.value === null) return ok(undefined);
-    try {
-      if (await this.outbox.dispatchOne(this.authorization, accepted.value) !== null) return ok(undefined);
-    } catch { /* The committed row remains available for retry. */ }
-    return err(new DomainError('dependency_unavailable', 'The invitation was accepted, but access could not be confirmed. Request a new sign-in link after access is restored.', undefined, true));
+  async accept(id: InviteId, user: UserId,authentication:InvitationAuthentication): Promise<Result<void, DomainError>> {
+    return this.repository.accept(id, user, this.clock.now(), authentication, async update => {
+      try { return await this.authorization.write([update]); }
+      catch {
+        throw new DomainError('dependency_unavailable', authentication.method === 'magic_link'
+          ? 'Access could not be confirmed. Your invitation is still pending. Request a new sign-in link and try again.'
+          : 'Access could not be confirmed. Your invitation is still pending. Start sign-in again through your company identity provider.',
+        undefined, true);
+      }
+    });
   }
 }

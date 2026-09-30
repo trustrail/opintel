@@ -35,6 +35,17 @@ afterEach(() => {
 });
 
 describe('auth screens', () => {
+  it('5.19 enforced SSO retains a uniform administrator recovery option without automatically redirecting',async()=>{
+    const fetcher=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).includes('request-link')?response(undefined,202):response({magicLink:true,providers:[{provider:'oidc:company',displayName:'Company SSO',startPath:'/auth/oidc/oidc:company/start'}],enforced:'oidc:company'}));
+    renderRoute('/sign-in');
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Request administrator recovery link'})).toBeTruthy());
+    expect(screen.getByRole('button',{name:'Continue with Company SSO'})).toBeTruthy();
+    expect(screen.getByText(/Only company administrators can receive a recovery link; every use is audited/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Email address'),{target:{value:'person@example.com'}});
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Request administrator recovery link'}).hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getByRole('button',{name:'Request administrator recovery link'}));
+    await waitFor(()=>expect(fetcher.mock.calls.some(([input])=>String(input).includes('request-link'))).toBe(true));
+  });
   it('creates and preserves the documented 16-byte device nonce', () => {
     const first = getDeviceNonce();
     const second = getDeviceNonce();

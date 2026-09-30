@@ -113,14 +113,15 @@ export class OidcService {
     }
     if (!identity.emailVerified) return { kind: 'refused', message: invalidCallbackMessage };
 
-    const pendingInvite = flow.inviteId === null ? await this.invites.findPendingFor(identity.email) : await this.invites.findInvitationById(flow.inviteId);
+    const pendingInvite = flow.inviteId === null ? await this.invites.findPendingFor(identity.email,flow.companyId) : await this.invites.findInvitationById(flow.inviteId);
     const invite = pendingInvite?.email.toLowerCase() === identity.email.toLowerCase() ? pendingInvite : null;
+    if(flow.inviteId!==null&&pendingInvite!==null&&invite===null)return {kind:'refused',message:invalidCallbackMessage};
+    if(invite!==null&&((flow.companyId!==null&&flow.companyId!==invite.companyId)||new Date(invite.expiresAt).getTime()<=new Date(this.clock.now()).getTime()))return {kind:'refused',message:invalidCallbackMessage};
     let account = await this.accounts.findByEmail(identity.email);
     if (account === null && invite === null) return { kind: 'refused', message: invitationRequiredMessage };
     if (account === null) account = await this.accounts.create(identity.email, invite);
 
     await this.accounts.linkVerifiedIdentity(account.id, (flow.provider.startsWith('oidc:') ? flow.provider : `oidc:${flow.provider}`) as `oidc:${string}`, identity.subject);
-    if (invite !== null) await this.invites.markAccepted(invite.id, account.id);
     await this.accounts.recordLogin(account.id, this.clock.now());
     const sessionId = await this.sessions.create(
       account.id,
@@ -133,6 +134,7 @@ export class OidcService {
         await this.sessions.revoke(sessionId);
         return { kind: 'refused', message: invalidCallbackMessage };
       }
+      if(invite!==null)await this.invites.markAccepted(invite.id,account.id,{method:'oidc',sessionId,companyId:flow.companyId,idpId:flow.configuration.id,configurationVersion:flow.configuration.configurationVersion});
     } catch (error) { await this.sessions.revoke(sessionId); throw error; }
     return { kind: 'session', sessionId };
   }

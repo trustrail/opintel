@@ -1,3 +1,4 @@
+import {PostgresMagicLinkAccess} from '../src/modules/identity/infrastructure/magic-link-access.js';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { InvitationService } from '../src/modules/tenancy/application/invitations.js';
 import { PostgresInvitationRepository } from '../src/modules/tenancy/infrastructure/invitation-repository.js';
@@ -49,9 +50,9 @@ integration('magic links', () => {
       check: async () => ({ allowed: true, checkedAt: clock.now(), token: 'test' as AuthorizationRevision, snapshotAgeMs: 0 }),
       checkMany: async () => [], write: async () => 'test' as AuthorizationRevision, explain: async () => ({ allowed: true, path: [] }),
     };
-    const invitations = new InvitationService(new PostgresInvitationRepository(outbox), outbox, authorization, clock, { dispatch: async () => {} });
+    const invitations = new InvitationService(new PostgresInvitationRepository(outbox), authorization, clock, { dispatch: async () => {} });
     const repository = new PostgresIdentityRepository(clock, invitations);
-    service = new MagicLinkService(repository, repository, repository, new RedisRateLimiter(connection.client), new RedisSessionStore(connection.client, clock, new TestIdFactory()), clock);
+    service = new MagicLinkService(repository, repository, repository, new RedisRateLimiter(connection.client), new RedisSessionStore(connection.client, clock, new TestIdFactory()), clock, new PostgresMagicLinkAccess());
     await repository.create('known@example.com', null);
   });
 
@@ -118,7 +119,7 @@ integration('magic links', () => {
         new MailOutbox(),
         new LocalFileMailAdapter(directory, clock, (url) => { loggedUrls.push(url); }, 'http://localhost:5173'),
       );
-      const delivered = new MagicLinkService(repository, repository, repository, new RedisRateLimiter(redisConnection().client), new RedisSessionStore(redisConnection().client, clock, new TestIdFactory()), clock, dispatcher);
+      const delivered = new MagicLinkService(repository, repository, repository, new RedisRateLimiter(redisConnection().client), new RedisSessionStore(redisConnection().client, clock, new TestIdFactory()), clock, new PostgresMagicLinkAccess(), dispatcher);
       const known = await delivered.requestLink(request);
       if (known.token === null) throw new Error('Expected token.');
       const files = await readdir(directory);

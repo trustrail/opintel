@@ -1,3 +1,5 @@
+import {PostgresMagicLinkAccess} from '../../modules/identity/infrastructure/magic-link-access.js';
+import {OutboxInvitationDelivery} from '../../modules/tenancy/infrastructure/invitation-delivery.js';
 import {createOidcRuntime,createProviderResolutionRuntime} from '../../modules/identity/infrastructure/oidc-runtime.js';
 import {oidcRoutes} from '../../modules/identity/api/oidc-routes.js';
 import {EvidenceMaintenance} from '../../modules/evidence/index.js';
@@ -169,11 +171,12 @@ async function start(): Promise<void> {
 
   const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
   const delivery = new OutboxMagicLinkDispatcher(new MailOutbox(), mail);
-  const invitations = new InvitationService(new PostgresInvitationRepository(relationshipOutbox), relationshipOutbox, authorization, clock, delivery);
+  const invitations = new InvitationService(new PostgresInvitationRepository(relationshipOutbox), authorization, clock, new OutboxInvitationDelivery(new MailOutbox(),mail));
   const identity = new PostgresIdentityRepository(clock, invitations);
-  const currentUsers = new CurrentUserService(sessions, identity);
+  const magicLinkAccess = new PostgresMagicLinkAccess();
+  const currentUsers = new CurrentUserService(sessions, identity, magicLinkAccess);
   const oidc=createOidcRuntime(redis.client,identity,identity,sessions,clock);
-  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, delivery);
+  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, magicLinkAccess, delivery);
   const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
