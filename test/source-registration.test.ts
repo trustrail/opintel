@@ -185,4 +185,21 @@ describe('source registration against real Postgres and the sidecar',()=>{
  });
  it('generates the source OpenAPI contract from the boundary schemas',()=>{expect(sourceOpenApiDocument().paths['/api/v1/projects/{id}/sources'].post.responses).toHaveProperty('201');});
  it('runs deployment metadata migration up/down/up on a populated table',async()=>{await customer(async db=>{await db.query('BEGIN');try{const namespace='migration_'+randomUUID().replaceAll('-','');await db.query(`CREATE SCHEMA "${namespace}";SET LOCAL search_path TO "${namespace}";CREATE TABLE demo_source_template(id int);INSERT INTO demo_source_template VALUES(1)`);const up=await readFile('migrations/025_demo_deployment.up.sql','utf8');const down=await readFile('migrations/025_demo_deployment.down.sql','utf8');await db.query(up);expect((await db.query('SELECT deployment_ref FROM demo_source_template')).rows).toEqual([{deployment_ref:{}}]);await db.query(down);await db.query(up);}finally{await db.query('ROLLBACK');}});}, 30_000);
+
+it('Re-introspection names active runs and refuses archives without adding a run',async()=>{
+ const pause=vi.spyOn(service,'resume').mockResolvedValue(undefined);
+ try{
+ const created=await(await request(path(),'POST',body())).json();
+ const endpoint=`/api/v1/sources/${created.id}/introspect`;
+ const [active]=await withTenant({projectId,userId},tx=>tx.query<{id:string}>('SELECT id FROM introspection_run WHERE source_id=$1',[created.id]));
+ const refused=await request(endpoint,'POST',{projectId});expect(refused.status).toBe(409);
+ const failure=await refused.json();expect(failure.error.code).toBe('conflict');expect(failure.error.details).toEqual({runId:active!.id});expect(failure.error.message).toContain(active!.id);
+ await withTenant({projectId,userId},async tx=>{await tx.query("UPDATE introspection_run SET state='complete',ended_at=now() WHERE id=$1",[active!.id]);await tx.query("UPDATE data_source SET status='connected' WHERE id=$1",[created.id]);});
+ expect((await request(endpoint,'POST',{projectId})).status).toBe(202);
+ await withTenant({projectId,userId},tx=>tx.query("UPDATE data_source SET status='archived' WHERE id=$1",[created.id]));
+ const archived=await request(endpoint,'POST',{projectId});expect(archived.status).toBe(409);expect((await archived.json()).error.message).toBe('An archived source cannot be introspected.');
+ expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM introspection_run WHERE source_id=$1',[created.id]))).toHaveLength(2);
+ }finally{pause.mockRestore();}
+});
+
 });

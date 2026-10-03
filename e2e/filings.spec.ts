@@ -9,7 +9,7 @@ const otherId='018f8f9d-7f83-7abc-8def-000000000003';
 const prior='018f8f9d-7f83-7abc-8def-000000000004';
 const current='018f8f9d-7f83-7abc-8def-000000000005';
 const held='018f8f9d-7f83-7abc-8def-000000000006';
-const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:null};
+const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,unsupportedCount:0,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:null};
 const filing={filingId:prior,sourceId,partyCode:'4471',kind:'monthly return',period:'2026-03',outcome:'landed',quarantineCategory:null,supersedes:null,rowCount:318,receivedAt:'2026-04-01T12:00:00Z',revision:2};
 async function mock(page:Page){
  const state={strategy:'append_as_at',empty:false,error:false,loading:false,cursors:[] as string[]};
@@ -20,6 +20,7 @@ async function mock(page:Page){
   if(path.endsWith('/stats'))return route.fulfill({json:{...dashboardFixture,pools:0,sources:0}});
   if(path.endsWith('/dashboard/pools'))return route.fulfill({json:{items:[],nextCursor:null}});
   if(path.endsWith('/dashboard/feed'))return route.fulfill({json:{items:state.empty?[]:[{id:'quarantine:'+held,kind:'quarantine',filingId:held,zoneId:sourceId,category:'verification_mismatch',receivedAt:'2026-04-01T12:00:00Z'}],nextCursor:null}});
+  if(path.endsWith('/type-observations'))return route.fulfill({json:{items:[],nextCursor:null}});
   if(path.endsWith('/token-key'))return route.fulfill({json:{currentVersion:null,versions:[]}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[]});
   if(path.endsWith('/sources'))return route.fulfill({json:{items:[{...source,landingStrategy:state.strategy},{...source,id:otherId,name:'Live database',exposedAlias:'live_database',landingStrategy:null,filingCount:null}],nextCursor:null}});
@@ -39,7 +40,7 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByRole('link',{name:'Introspection runs for Monthly returns'})).toHaveText('Runs');
  const pill=page.getByRole('button',{name:'2 filings'});await expect(pill).toHaveAttribute('aria-expanded','false');
- await expect(page.getByRole('row').filter({hasText:'Live database'}).getByRole('button')).toHaveCount(0);
+ await expect(page.getByRole('row').filter({hasText:'Live database'}).getByRole('button',{name:/filing/})).toHaveCount(0);
  await pill.click();const detail=page.getByRole('region',{name:'Recent filings into this source'});
  await expect(detail.getByText('Restatement',{exact:true})).toBeVisible();await expect(detail.getByText(current,{exact:true})).toBeVisible();expect(state.cursors).toContain('next-page');
  await expect(detail.getByText(held,{exact:true})).toHaveCount(0);await expect(detail.getByText('OTHER-SOURCE',{exact:true})).toHaveCount(0);
@@ -57,7 +58,7 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  await accessible(page);
 });
 test('ING-29: loading, empty and error states recover without exposing local details',async({page})=>{
- const state=await mock(page);state.loading=true;await page.goto(`/projects/${projectId}/observations`);await expect(page.getByText('Preparing this view',{exact:true})).toBeVisible();await expect(page.getByText(held,{exact:true})).toBeVisible();state.loading=false;
+ const state=await mock(page);state.loading=true;await page.goto(`/projects/${projectId}/observations`);await expect(page.getByRole('region',{name:'Needs a decision',exact:true}).getByText('Preparing this view',{exact:true})).toBeVisible();await expect(page.getByText(held,{exact:true})).toBeVisible();state.loading=false;
  state.error=true;await page.reload();await expect(page.getByText('The filing register is temporarily unavailable.',{exact:true})).toBeVisible();state.error=false;state.empty=true;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('No quarantined filings',{exact:true})).toBeVisible();
  await page.goto(`/projects/${projectId}/data-sources`);await page.getByRole('button',{name:'2 filings'}).click();await expect(page.getByText('No landed filings yet',{exact:true})).toBeVisible();
  state.error=true;await page.reload();await page.getByRole('button',{name:'2 filings'}).click();await expect(page.getByText('The filing register is temporarily unavailable.',{exact:true})).toBeVisible();state.error=false;state.empty=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('Restatement',{exact:true})).toBeVisible();

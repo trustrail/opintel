@@ -50,6 +50,7 @@ const contracts: Record<string, GrantContract> = {
     opintel_app: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
     opintel_platform: [], opintel_platform_admin: manage,
   },
+  company_creation_request:{opintel_app:[],opintel_platform:['SELECT','INSERT','UPDATE','DELETE'],opintel_platform_admin:[...manage,'REFERENCES','TRIGGER']},
   company: platformManaged,
   project: platformManaged,
   user_account: platformManaged,

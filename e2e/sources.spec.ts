@@ -8,21 +8,21 @@ const industryId='018f8f9d-7f83-7abc-8def-000000000002';
 const sourceId='018f8f9d-7f83-7abc-8def-000000000003';
 const demoId='018f8f9d-7f83-7abc-8def-000000000004';
 const project={id:projectId,name:'Reporting',company:{id:industryId,name:'Example Company'},industry:{id:industryId,name:'General'},region:'eu-west-1',role:'admin'};
-const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,undecidedCount:7,latestIntrospectionId:null,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
+const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,unsupportedCount:2,undecidedCount:5,latestIntrospectionId:null,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
 async function mock(page:Page){
- const state={empty:false,error:false,loading:false,prepared:false,canConnect:true,retries:[] as unknown[],failure:null as string|null,creates:[] as Record<string,unknown>[],tests:[] as unknown[]};
+ const state={status:'connected',conflictRun:null as string|null,empty:false,error:false,loading:false,prepared:false,canConnect:true,retries:[] as unknown[],failure:null as string|null,creates:[] as Record<string,unknown>[],tests:[] as unknown[]};
  await page.route('**/api/v1/**',async route=>{
   const url=new URL(route.request().url());const path=url.pathname;
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id:industryId,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{...project,role:state.canConnect?'admin':'viewer'}],nextCursor:null}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[{id:demoId,name:'Industry demo',narrative:'A set of synthetic filings in inconsistent formats, processed through ordinary ingest.',prepared:state.prepared,connected:false}]});
-  if(path.endsWith('/introspect')){state.retries.push(route.request().postDataJSON());state.failure=null;return route.fulfill({status:202,json:{...source,status:'pending'}});}
+  if(path.endsWith('/introspect')){state.retries.push(route.request().postDataJSON());if(state.conflictRun)return route.fulfill({status:409,json:{error:{code:'conflict',message:`This source already has an active introspection run: ${state.conflictRun}. Wait for it to finish before re-introspecting.`,details:{runId:state.conflictRun},requestId:'test',retryable:false}}});state.failure=null;return route.fulfill({status:202,json:{...source,status:'pending'}});}
   if(path.endsWith('/sources/test')){state.tests.push(route.request().postDataJSON());return route.fulfill({json:{reachable:true,reason:null,schemas:['public','returns']}});}
   if(path.endsWith('/sources')&&route.request().method()==='POST'||path.endsWith('/sources/from-demo')){state.creates.push(route.request().postDataJSON() as Record<string,unknown>);state.empty=false;return route.fulfill({status:201,json:source});}
   if(path.endsWith('/sources')){
    if(state.loading)await new Promise(resolve=>setTimeout(resolve,3000));
    if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Sources are temporarily unavailable.',requestId:'sources-test',retryable:true}}});
-   return route.fulfill({json:{items:state.empty?[]:[{...source,...(state.failure?{status:'introspection_failed',error:state.failure,latestIntrospectionId:industryId}:{})},{...source,id:demoId,name:'Demo returns',origin:'demo',landingStrategy:'table_per_filing',filingCount:1}],nextCursor:null}});
+   return route.fulfill({json:{items:state.empty?[]:[{...source,status:state.status,...(state.failure?{status:'introspection_failed',error:state.failure,latestIntrospectionId:industryId}:{})},{...source,id:demoId,name:'Demo returns',origin:'demo',landingStrategy:'table_per_filing',filingCount:1}],nextCursor:null}});
   }
   return route.fulfill({status:404,json:{}});
  });return state;
@@ -32,7 +32,7 @@ for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at 
  let page=initialPage;let state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();await expect(page.getByText('table per filing',{exact:true})).toBeVisible();
  await expect(page).toHaveScreenshot(`sources-ready-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
- await expect(page.getByRole('button',{name:'2 filings'})).toHaveAttribute('aria-expanded','false');
+ await expect(page.getByRole('button',{name:'2 filings'})).toHaveAttribute('aria-expanded','false');await expect(page.locator(`#filings-${sourceId}`)).toHaveCount(1);await expect(page.locator(`#filings-${sourceId}`)).toBeHidden();
  // Give the empty/wizard fixture its own rendering surface after the ready-state axe scan.
  const context=page.context();await page.close();page=await context.newPage();await page.setViewportSize({width,height:1000});state=await mock(page);state.empty=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await expect(page.getByText('Not provisioned for this project.',{exact:false})).toBeVisible();expect(state.creates).toEqual([]);
  await page.getByRole('button',{name:'Connect a source',exact:true}).focus();
@@ -79,4 +79,50 @@ test('source timestamps open history and failed status opens the exact failing r
  await page.getByRole('link',{name:'introspection failed',exact:true}).click();
  await expect(page).toHaveURL(`/projects/${projectId}/introspections/${industryId}`);
  await expect(page.getByRole('alert')).toHaveText(sourceMessages.templateConflict);
+});
+
+for(const status of ['connected','pending','testing','unreachable','introspection_failed','archived'])test(`Re-introspect maintenance action for ${status}`,async({page})=>{
+ const state=await mock(page);state.status=status;await page.goto(`/projects/${projectId}/data-sources`);
+ const row=page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})});
+ const action=row.getByRole('button',{name:'Re-introspect',exact:true});
+ if(status==='archived'){await expect(row).toBeVisible();await expect(action).toHaveCount(0);return;}
+ await expect(action).toBeEnabled();await action.click();expect(state.retries).toEqual([{projectId}]);
+});
+for(const width of [390,900,1440])test(`active-run refusal names and links the run at ${width}`,{tag:'@visual'},async({page})=>{
+ const state=await mock(page);state.status='pending';state.conflictRun=industryId;
+ await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
+ await page.evaluate(()=>document.fonts.ready);
+ await page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})}).getByRole('button',{name:'Re-introspect',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText(industryId);
+ await expect(page.getByRole('link',{name:'View active run'})).toHaveAttribute('href',`/projects/${projectId}/introspections/${industryId}`);
+ await expect(page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})}).getByRole('alert')).toContainText(industryId);
+ await expect(page.getByRole('link',{name:'View active run'})).toBeInViewport();
+ await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`sources-active-conflict-${width}.png`,{fullPage:true});await accessible(page);
+});
+
+test('Re-introspect acknowledges before a delayed response, blocks repeat clicks, and retains a fast run receipt',async({page})=>{
+ await mock(page);await page.goto(`/projects/${projectId}/data-sources`);
+ const row=page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})});
+ await expect(row).toBeVisible();
+ let releasePost!:()=>void,releaseRefresh!:()=>void,calls=0;
+ const postGate=new Promise<void>(resolve=>{releasePost=resolve;}),refreshGate=new Promise<void>(resolve=>{releaseRefresh=resolve;});
+ await page.route(`**/api/v1/sources/${sourceId}/introspect`,async route=>{calls++;await postGate;await route.fulfill({status:202,json:{...source,status:'pending',latestIntrospectionId:industryId}});});
+ await page.route(`**/api/v1/projects/${projectId}/sources`,async route=>{await refreshGate;await route.fulfill({json:{items:[{...source,status:'connected',latestIntrospectionId:industryId,lastIntrospectedAt:'2026-09-19T12:00:00.400Z'}],nextCursor:null}});});
+ try{
+ await row.getByRole('button',{name:'Re-introspect',exact:true}).dblclick();
+ await expect(row.getByRole('button',{name:'Starting…',exact:true})).toBeDisabled();expect(calls).toBe(1);
+ releasePost();
+ await expect(row).toContainText('pending');
+ await expect(row.getByRole('button',{name:'Starting…',exact:true})).toBeDisabled();
+ releaseRefresh();await expect(row.getByRole('button',{name:'Re-introspect',exact:true})).toBeEnabled();
+ await expect(row.getByRole('link',{name:'View started run'})).toHaveAttribute('href',`/projects/${projectId}/introspections/${industryId}`);
+ await expect(row.getByRole('status')).toContainText('Introspection started.');expect(calls).toBe(1);
+ }finally{releasePost();releaseRefresh();}
+});
+
+test('Landing strategy remains a single left-aligned label with a long demo source name',async({page})=>{
+ await mock(page);await page.route(`**/api/v1/projects/${projectId}/sources`,route=>route.fulfill({json:{items:[{...source,name:'demo_f41a390104a447fe8aaa0ccad1c643f1',exposedAlias:'demo_f41a390104a447fe8aaa0ccad1c643f1'}],nextCursor:null}}));
+ await page.setViewportSize({width:1440,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
+ const label=page.getByText('append as at',{exact:true});await expect(label).toBeVisible();
+ expect(await label.evaluate(el=>({wrap:getComputedStyle(el).whiteSpace,align:getComputedStyle(el).textAlign,lines:el.getClientRects().length}))).toEqual({wrap:'nowrap',align:'left',lines:1});
 });

@@ -592,3 +592,7 @@ This ordering cannot make Postgres and SpiceDB one atomic system. A successful
 remote write followed by a lost acknowledgement or failed Postgres commit can
 leave the opposite divergence. Acceptance still fails closed; a fresh attempt
 uses an idempotent touch. The existing reconciliation requirement remains.
+
+- Use `caffeinate -i npm test` for full runs. Twice now a slow suite has
+  been machine sleep rather than a code problem: 3,259s and 1,713s against
+  a real 491s. Rule out sleep before investigating a slow suite.

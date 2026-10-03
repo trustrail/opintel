@@ -14,10 +14,10 @@ export function companyRoutes(service: CreateCompanyService) {
       const result = await service.create({
         ...request.body,
         defaultIndustryId: request.body.defaultIndustryId === null ? null : IndustryId(request.body.defaultIndustryId),
-      }, request.actor.id);
+      }, request.actor.id, request.headers['idempotency-key']);
       if (!result.ok) {
         return {
-          status: result.error.code === 'validation_failed' ? 400 : 503,
+          status: result.error.code === 'validation_failed' ? 400 : result.error.code === 'idempotency_key_reused' ? 409 : 503,
           body: { error: {
             code: result.error.code, message: result.error.message, details: result.error.details,
             requestId: request.requestId, retryable: result.error.retryable,

@@ -10,7 +10,7 @@ import { catalogOptions } from './data.js';
 import { createExplorerState } from './state.js';
 
 type Row = { key: string; depth: number; node: CatalogNode; position: number; size: number } |
-  { key: string; depth: number; parent: string; message: string; action?: () => void; actionLabel?: string };
+  { key: string; depth: number; parent: string; message: string; action?: () => void; disabled?: boolean; actionLabel?: string };
 // The reference's .trow is 46px high. Window geometry is independent of catalogue size.
 const rowHeight = 46; const windowRows = 24; const overscan = 6;
 export function CatalogScreen({ projectId }: { projectId: string }) {
@@ -33,7 +33,7 @@ export function CatalogScreen({ projectId }: { projectId: string }) {
       rows.push({ key: node.id, depth, node, position: index + 1, size: last?.data?.nextCursor ? -1 : entries.length });
       if (state.expanded[node.id] && node.kind !== 'element') level(node.id, depth + 1);
     });
-    if (last?.isPending) rows.push({ key: parent + ':loading', parent, depth, message: 'Loading this branch…' });
+    if (last?.isFetching) rows.push({ key: parent + ':loading', parent, depth, message: 'Loading this branch…', action:()=>undefined, actionLabel:'Loading…', disabled:true });
     else if (last?.isError) rows.push({ key: parent + ':error', parent, depth, message: (last.error as unknown as AppError).message, action: () => { void last.refetch(); }, actionLabel: 'Try again' });
     else if (last?.data?.nextCursor) { const cursor = last.data.nextCursor; rows.push({ key: parent + ':more', parent, depth, message: 'More in this branch', action: () => state.more(parent, cursor), actionLabel: 'Load more' }); }
     else if (!entries.length) rows.push({ key: parent + ':empty', parent, depth, message: state.branches[parent]?.prefix ? 'No names match this prefix. Try a shorter prefix.' : 'No catalogue entries here. Introspect the source to discover its structure.' });
@@ -41,12 +41,12 @@ export function CatalogScreen({ projectId }: { projectId: string }) {
   level('', 1);
   const prefix = state.branches[state.searchParent]?.prefix ?? '';
   return <section className="screen on"><h1>Schema explorer</h1><p className="sub">The exposed names and types agents address, with each element's decision state. Undecided elements are visible here and omitted from the agent's describe response.</p>
-    {sources.isError ? <ErrorState title="Source display names could not be loaded" description={sources.error.message} retry={() => { void sources.refetch(); }} /> : null}
+    {sources.isError ? <ErrorState title="Source display names could not be loaded" description={sources.error.message} retry={()=>sources.refetch()} /> : null}
     <div className="filters" style={{alignItems:'end'}}>
       <span className="pick"><label htmlFor="catalog-level">Search within</label><select id="catalog-level" value={state.searchParent} onChange={event => state.select(event.target.value)}>{branches.map(branch => <option key={branch.parent} value={branch.parent}>{labels.get(branch.parent) ?? branch.parent}</option>)}</select></span>
       <div className="fld" style={{marginBottom:0,maxWidth:'100%'}}><label htmlFor="catalog-prefix">Name prefix</label><input id="catalog-prefix" value={prefix} maxLength={63} onChange={event => { state.search(state.searchParent, event.target.value); if (viewport.current) viewport.current.scrollTop = 0; }} /></div>
     </div>
-    {root?.isPending ? <LoadingState /> : root?.isError ? <ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={() => { void root.refetch(); }} /> : root?.data?.nodes.length === 0 ? <EmptyState icon="⊟" title={prefix ? 'No matching sources' : 'No catalogue yet'} description={prefix ? 'Try a shorter source-name prefix.' : 'Connect a source and introspect it. Its schema will appear here, with every supported element undecided.'} /> : <div className="card">
+    {root?.isPending ? <LoadingState /> : root?.isError ? <ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={()=>root.refetch()} /> : root?.data?.nodes.length === 0 ? <EmptyState icon="⊟" title={prefix ? 'No matching sources' : 'No catalogue yet'} description={prefix ? 'Try a shorter source-name prefix.' : 'Connect a source and introspect it. Its schema will appear here, with every supported element undecided.'} /> : <div className="card">
       <div className="card-h"><h2>Exposed namespace</h2><span className="meta">Expand one level at a time</span></div>
       <TreeWindow store={store} rows={rows} viewport={viewport} sourceNames={new Map(sources.data?.map(source => [source.id, source.name]))} />
     </div>}
@@ -92,7 +92,7 @@ function TreeWindow({store, rows, viewport, sourceNames}: {
               {node ? <><div className="tname">
                 {node.kind !== 'element' ? <button type="button" className="toolchip" aria-label={`${state.expanded[node.id] ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id] ? '▾' : '▸'}</span></button> : null}
                 <span style={{display:'flex',flexDirection:'column',minWidth:0}}><span className="nm" title={node.label ?? 'Unnameable element'}>{node.label ?? 'Unnameable element'}</span>{sourceName && sourceName !== node.label ? <span className="type" title={sourceName} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sourceName}</span> : null}</span>
-              </div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}<span className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" onClick={row.action}>{row.actionLabel}</Button> : null}</>}
+              </div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}<span className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
             </div>;
           })}
         </div>

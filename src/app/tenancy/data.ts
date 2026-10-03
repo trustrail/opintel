@@ -1,3 +1,4 @@
+import { useCompanyForm } from './state.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { createApiClient, type AppError, type ApiRequest } from '../../shared/api/index.js';
@@ -10,6 +11,7 @@ export const projectKeys = {
   scope: (id: string) => ['project', id] as const,
   detail: (id: string) => ['project', id, 'detail'] as const,
 };
+export const vocabularyKeys={effective:(projectId:string)=>[...projectKeys.scope(projectId),'effectiveVocabulary'] as const};
 export const companyKeys = { lists: () => ['company', 'list'] as const };
 export const industryKeys = { lists: () => ['industry', 'list'] as const };
 export type ProjectItem = z.infer<typeof ProjectListResponse>['items'][number];
@@ -58,7 +60,7 @@ export function useCreateProject() {
 export function useCreateCompany() {
   const cache = useQueryClient();
   return useMutation<z.infer<typeof CompanyView>, AppError, NewCompany>({
-    mutationFn: (body) => request({ path: '/api/v1/companies', method: 'POST', body, response: CompanyView }),
+    mutationFn: (body) => request({ path: '/api/v1/companies', method: 'POST', headers:{'Idempotency-Key':useCompanyForm.getState().requestKey}, body, response: CompanyView }),
     onSuccess: async () => {
       await Promise.all([cache.invalidateQueries({ queryKey: companyKeys.lists() }), cache.invalidateQueries({ queryKey: authKeys.currentUser() })]);
     },

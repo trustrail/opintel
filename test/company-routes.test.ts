@@ -20,7 +20,7 @@ const unexpectedCall = async (): Promise<never> => { throw new Error('Unexpected
 const authorization: AuthorizationPort = { write, check: unexpectedCall, checkMany: unexpectedCall, explain: unexpectedCall };
 let actor: CurrentUser;
 
-async function post(body: unknown, user: CurrentUser | null = actor, outbox = new RelationshipOutbox()) {
+async function post(body: unknown, user: CurrentUser | null = actor, outbox = new RelationshipOutbox(), key: string | null = randomUUID()) {
   const service = new CreateCompanyService(new PostgresCompanyCreationRepository(outbox), outbox, authorization);
   const server = createHttpServer(companyRoutes(service), {
     authorization: { currentUser: async () => user }, logger: { error: () => {} },
@@ -31,7 +31,7 @@ async function post(body: unknown, user: CurrentUser | null = actor, outbox = ne
   const address = server.address();
   if (address === null || typeof address === 'string') throw new Error('No server address.');
   return fetch(`http://127.0.0.1:${address.port}/api/v1/companies`, {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST', headers: { 'content-type': 'application/json', ...(key===null?{}:{'Idempotency-Key':key}) }, body: JSON.stringify(body),
   });
 }
 
@@ -122,6 +122,26 @@ databaseDescribe('POST /companies with Postgres', () => {
       outbox: await tx.query('SELECT id FROM relationship_outbox WHERE subject_id = $1', [actor.id]),
     }));
     expect(rows).toEqual({ companies: [], members: [], outbox: [] });
+  });
+
+  it('requires a key and replays concurrent company creation without duplicating membership or outbox', async () => {
+    const body=input(),key=randomUUID();
+    expect((await post(body,actor,new RelationshipOutbox(),null)).status).toBe(400);
+    const replies=await Promise.all([post(body,actor,new RelationshipOutbox(),key),post(body,actor,new RelationshipOutbox(),key)]);
+    expect(replies.map(r=>r.status)).toEqual([201,201]);
+    const values=await Promise.all(replies.map(r=>r.json()));expect(values[0]).toEqual(values[1]);
+    const rows=await withPlatform(async tx=>({companies:await tx.query('SELECT id FROM company WHERE name=$1',[body.name]),outbox:await tx.query('SELECT id FROM relationship_outbox WHERE subject_id=$1',[actor.id])}));
+    expect(rows.companies).toHaveLength(1);expect(rows.outbox).toHaveLength(1);expect(write).toHaveBeenCalledTimes(1);
+    expect((await post({...body,name:body.name+' changed'},actor,new RelationshipOutbox(),key)).status).toBe(409);
+  });
+
+  it('retries the original pending administrator grant after dispatch failure without creating another company',async()=>{
+    const body=input(),key=randomUUID();write.mockRejectedValueOnce(new Error('unavailable'));
+    expect((await post(body,actor,new RelationshipOutbox(),key)).status).toBe(503);
+    const recovered=await post(body,actor,new RelationshipOutbox(),key);expect(recovered.status).toBe(201);
+    const replay=await post(body,actor,new RelationshipOutbox(),key);expect(replay.status).toBe(201);expect(await replay.json()).toEqual(await recovered.json());
+    expect(await withPlatform(tx=>tx.query('SELECT id FROM company WHERE name=$1',[body.name]))).toHaveLength(1);
+    expect(write).toHaveBeenCalledTimes(2);
   });
 
   it('requires authentication', async () => {

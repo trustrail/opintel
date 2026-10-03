@@ -7,9 +7,9 @@ import type { CurrentUser } from '../src/modules/identity/application/current-us
 import { ProjectView, UpdateProjectBody, projectUpdateRoutes } from '../src/modules/tenancy/api/project-routes.js';
 import { UpdateProjectService } from '../src/modules/tenancy/application/update-project.js';
 import { PostgresProjectUpdateRepository } from '../src/modules/tenancy/infrastructure/project-update-repository.js';
-import { withPlatform } from '../src/platform/db/scope.js';
+import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { createHttpServer } from '../src/platform/http/index.js';
-import { Timestamp, UserId } from '../src/shared/kernel/index.js';
+import { Timestamp, UserId, ProjectId } from '../src/shared/kernel/index.js';
 
 const databaseDescribe = process.env.DATABASE_URL === undefined && process.env.REQUIRE_DB_TESTS !== '1' ? describe.skip : describe;
 const servers: ReturnType<typeof createHttpServer>[] = [];
@@ -84,6 +84,14 @@ databaseDescribe('PATCH /projects/:id with Postgres', () => {
       resource: { type: 'project', id: projectId }, permission, subject: { type: 'user', id: actor.id },
     })));
     expect(write).not.toHaveBeenCalled();
+  });
+
+  it('an unchanged rename is a no-op and concurrent identical renames produce one audit entry',async()=>{
+    expect((await patch({name:'Original'})).status).toBe(200);
+    const audits=()=>withTenant({projectId:ProjectId(projectId),userId:actor.id},tx=>tx.query("SELECT before,after FROM audit_entry WHERE project_id=$1 AND action='ProjectRenamed'",[projectId]));
+    expect(await audits()).toHaveLength(0);
+    const replies=await Promise.all([patch({name:'Once'}),patch({name:'Once'})]);
+    expect(replies.map(r=>r.status)).toEqual([200,200]);expect(await audits()).toEqual([{before:{name:'Original'},after:{name:'Once'}}]);
   });
 
   it('rejects a visible project the caller cannot administer', async () => {

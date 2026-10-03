@@ -1,4 +1,6 @@
+import { useResolutionDisclosure } from './state.js';
 import {Timestamp} from '../settings/preferences.js';
+import { TypeObservations } from '../sources/type-observations.js';
 import { CustodyObservations } from '../custody/observations.js';
 import type { ReactNode } from 'react';
 import { ErrorState, EmptyState, LoadingState } from '../../shared/ui/index.js';
@@ -19,7 +21,7 @@ export function SourceFilings({ projectId, sourceId, strategy }: { projectId: st
   const query = useFilings(projectId);
   const filings = query.data?.filter(filing => filing.sourceId === sourceId && filing.outcome === 'landed') ?? [];
   return <section className="sheetb" aria-label="Recent filings into this source" style={{width:'100cqw',boxSizing:'border-box',position:'sticky',left:0}}><h3>Recent filings into this source</h3>
-    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Filings could not be loaded" description={query.error.message} retry={() => { void query.refetch(); }} /> : filings.length === 0 ? <EmptyState icon="⛁" title="No landed filings yet" description="Files appear here after landing. Check the Dashboard or Observations for quarantines." /> : <>
+    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Filings could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState icon="⛁" title="No landed filings yet" description="Files appear here after landing. Check the Dashboard or Observations for quarantines." /> : <>
       <div role="region" aria-label="Landed filing records" tabIndex={0} style={{overflowX:'auto'}}><table><thead><tr><th>Filing</th><th>Party</th><th>Kind</th><th>Period</th><th>Received</th><th>Superseded</th><th>Rows</th></tr></thead><tbody>{filings.map(filing => <tr key={filing.filingId}>
         <td className="num"><span>{filing.filingId}</span>{filing.supersedes?<><br/><span className="tr mask"><i aria-hidden="true"/>Restatement</span></>:null}</td><td className="num">{filing.partyCode ?? 'Not reported'}</td><td>{filing.kind ?? 'Not reported'}</td><td className="num">{filing.period ?? 'Not reported'}</td><td className="num"><Received value={filing.receivedAt} /></td>
         <td>{filing.supersedes ? <span className="mono">{filing.supersedes}</span> : 'None'}</td><td className="num">{filing.rowCount ?? 'Awaiting receipt'}</td>
@@ -31,23 +33,24 @@ export function SourceFilings({ projectId, sourceId, strategy }: { projectId: st
 }
 
 export function QuarantineFeed({ projectId }: { projectId: string }): ReactNode {
+  const disclosure = useResolutionDisclosure();
   const query = useFilings(projectId);
   const filings = query.data?.filter(filing => filing.outcome === 'quarantined') ?? [];
   return <section className="card" aria-labelledby="quarantine-heading"><div className="card-h"><h2 id="quarantine-heading">Needs a decision</h2><span className="meta">Quarantined filings</span></div>
-    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={() => { void query.refetch(); }} /> : filings.length === 0 ? <EmptyState icon="✓" title="No quarantined filings" description="Files needing attention will appear here. Review their local details before retrying." /> : <ul className="feed">{filings.map(filing => <li key={filing.filingId}><span className="sev hi" aria-hidden="true">!</span><div className="fb">
+    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState icon="✓" title="No quarantined filings" description="Files needing attention will appear here. Review their local details before retrying." /> : <ul className="feed">{filings.map(filing => <li key={filing.filingId}><span className="sev hi" aria-hidden="true">!</span><div className="fb">
       <p className="t">{quarantineLabels[filing.quarantineCategory ?? ''] ?? 'The filing needs local review before it can land.'}</p>
       <p className="d">Filing <span className="mono" style={{ overflowWrap: 'anywhere' }}>{filing.filingId}</span> · <Received value={filing.receivedAt} /></p>
       <p className="d">Not landed into a source. The full reason stays in your environment because it may contain file contents or cell values. Ask the sidecar operator to inspect this filing in the local register, correct its rule or file, and retry it. Attribution is checked again; it cannot be overridden.</p>
-      <details><summary>Local resolution instructions</summary><p className="d">Stop the watcher to release its register lock. Run these commands in the customer environment with the same sidecar configuration. The first ID identifies the configured landing zone, not a source this file has landed into.</p>
+      <button type="button" className="toolchip" aria-expanded={disclosure.expanded[projectId+':'+filing.filingId]??false} aria-controls={`resolution-${filing.filingId}`} onClick={()=>disclosure.toggle(projectId+':'+filing.filingId)}>Local resolution instructions</button><div id={`resolution-${filing.filingId}`} hidden={!disclosure.expanded[projectId+':'+filing.filingId]}><p className="d">Stop the watcher to release its register lock. Run these commands in the customer environment with the same sidecar configuration. The first ID identifies the configured landing zone, not a source this file has landed into.</p>
         <p className="d"><code style={{overflowWrap:'anywhere'}}>npm run sidecar:register -- show {filing.sourceId} {filing.filingId}</code></p>
         <p className="d">Correct the rule or file and re-export the rule snapshot before retrying. Keep local output out of logs.</p>
         <p className="d"><code style={{overflowWrap:'anywhere'}}>npm run sidecar:register -- retry {filing.sourceId} {filing.filingId}</code></p><p className="d">Restart the watcher afterwards. A changed file cannot be retried as the same filing.</p>
-      </details>
+      </div>
     </div></li>)}</ul>}
     <div className="sheetb"><p className="note">A filing landed against the wrong party is worse than one that did not land. Opintel quarantines uncertainty rather than guessing who it belongs to.</p></div>
   </section>;
 }
 
 export function ObservationsScreen({ projectId }: { projectId: string }): ReactNode {
-  return <section className="screen on"><h1>Observations</h1><p className="sub">Filings that need attention before they can land. Inspect and resolve them in your environment.</p><QuarantineFeed projectId={projectId} /><CustodyObservations projectId={projectId}/></section>;
+  return <section className="screen on"><h1>Observations</h1><p className="sub">Filings, key custody and source type observations in your environment.</p><QuarantineFeed projectId={projectId} /><CustodyObservations projectId={projectId}/><TypeObservations projectId={projectId}/></section>;
 }

@@ -43,7 +43,7 @@ export class PostgresIndustryMigrationRepository implements IndustryMigrationRep
         });
       }
       await tx.query(
-        'UPDATE project SET industry_id = $2, vocabulary_revision = vocabulary_revision + 1 WHERE id = $1',
+        'UPDATE project SET industry_id = $2, vocabulary_revision = vocabulary_revision + 1 WHERE id = $1 AND industry_id IS DISTINCT FROM $2',
         [input.projectId, input.industryId],
       );
       return ok({

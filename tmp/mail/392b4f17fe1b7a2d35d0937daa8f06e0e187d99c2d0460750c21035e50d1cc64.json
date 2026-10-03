@@ -1,0 +1,1 @@
+{"to":"demo@opintel.local","template":"magic_link","vars":{"tokenId":"3e653dd2-2cb6-4f9f-8074-1dc8688f3a26","url":"http://localhost:5173/auth/callback?token=VHq__EVgWbDt9nnWmzMyVdGzrFIvSF_G0sGIvaXa5G8"},"idempotencyKey":"magic_link:3e653dd2-2cb6-4f9f-8074-1dc8688f3a26","acceptedAt":"2026-09-30T15:59:30.630Z"}

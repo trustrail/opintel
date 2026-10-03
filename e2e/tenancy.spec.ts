@@ -166,3 +166,13 @@ test('each screen presents a loading state while its data is pending', async ({ 
     await page.unroute(endpoint);
   }
 });
+
+test('company creation keeps its Idempotency-Key on a retry and changes it for a new command',async({page})=>{
+ await api(page);await page.goto('/companies/new');await page.getByLabel('Company name').fill('Retry company');await page.getByLabel('Region',{exact:true}).selectOption('eu-west-1');
+ const keys:string[]=[];
+ await page.route('**/api/v1/companies',async route=>{if(route.request().method()!=='POST')return route.fallback();keys.push(route.request().headers()['idempotency-key']??'');await route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'The company was saved, but administrator access could not be confirmed.',requestId:'retry',retryable:true}}});});
+ const create=page.getByRole('button',{name:'Create company',exact:true});
+ await create.click();await expect(page.getByRole('alert')).toContainText('administrator access');await expect(create).toBeEnabled();
+ await create.click();await expect.poll(()=>keys.length).toBe(2);await expect(create).toBeEnabled();expect(keys[0]).not.toBe('');expect(keys[1]).toBe(keys[0]);
+ await page.getByLabel('Company name').fill('Different company');await create.click();await expect.poll(()=>keys.length).toBe(3);expect(keys[2]).not.toBe(keys[0]);
+});

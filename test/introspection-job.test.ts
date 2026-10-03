@@ -171,7 +171,7 @@ describe('introspection job and persisted catalogue',()=>{
   ])('G-009: %s to %s records family names',async(beforeType,afterType,beforeFamily,afterFamily)=>{
     discovery=snapshot('value',beforeType);await run();
     discovery=snapshot('value',afterType);
-    expect((await run()).diff).toMatchObject([{type:'CatalogElementTypeFamilyChanged',beforeType,afterType,beforeFamily,afterFamily,requiresEntitlementDeletion:true}]);
+    expect((await run()).diff).toMatchObject([...(afterFamily==='unsupported'?[{type:'CatalogElementUnsupported',sourceType:afterType,unsupportedReason:'unmapped'}]:[]),{type:'CatalogElementTypeFamilyChanged',beforeType,afterType,beforeFamily,afterFamily,requiresEntitlementDeletion:true}]);
   });
   it('G-009: records old decisions before deletion and rolls both back if catalogue publication fails',async()=>{
     discovery=snapshot('amount','integer');await run();
@@ -329,4 +329,34 @@ it('refuses a mapping regression for an unchanged source type and preserves the 
  const before=await catalog();
  const failed=await run();expect(failed.state).toBe('failed');expect(failed.error).toContain('breaking change');
  expect(await catalog()).toEqual(before);
+});
+
+it('persists unsupported categories, separates counts, and keeps mapping observations through failed and partial runs',async()=>{
+ discovery=snapshot('network','inet');
+ const column=discovery.objects[0]!.columns[0]!;
+ discovery.objects[0]!.columns.push({...column,sourceIdentifier:'payload',stableRef:'2',ordinal:2,sourceType:'bytea'}, {...column,sourceIdentifier:'label',stableRef:'3',ordinal:3,sourceType:'text'});
+ const first=await run();expect(first.state).toBe('complete');
+ expect(first.diff).toEqual(expect.arrayContaining([
+  expect.objectContaining({type:'CatalogElementUnsupported',sourceType:'inet',unsupportedReason:'unmapped',exposedName:'network'}),
+  expect.objectContaining({type:'CatalogElementUnsupported',sourceType:'bytea',unsupportedReason:'explicitly_excluded',exposedName:'payload'}),
+ ]));
+ const view=unwrap(await new PostgresIntrospectionQuery(store).read(ctx,first.id));
+ expect(view.diff.filter(d=>d.change==='unsupported')).toHaveLength(2);
+ const {PostgresSourceRegistrationRepository}=await import('../src/modules/sources/infrastructure/source-registration-repository.js');
+ expect(unwrap(await new PostgresSourceRegistrationRepository().list(ctx,null,10))[0]).toMatchObject({elementCount:3,unsupportedCount:2,undecidedCount:1});
+ const {PostgresTypeObservations}=await import('../src/modules/sources/infrastructure/type-observations.js');
+ const observations=new PostgresTypeObservations();
+ expect(await observations.list(ctx,null,10)).toMatchObject([{sourceType:'inet',elementCount:1,runId:first.id}]);
+ expect(await observations.list({...ctx,projectId:otherProject},null,10)).toEqual([]);
+ expect(await observations.list(ctx,{sourceId,sourceType:'inet'},10)).toEqual([]);
+ const repeat=await run();expect(repeat.diff.filter(d=>d.type==='CatalogElementUnsupported')).toHaveLength(2);
+ connector.introspect=async()=>err(new DomainError('source_unavailable','Unavailable'));
+ expect((await run()).state).toBe('failed');expect(await observations.list(ctx,null,10)).toMatchObject([{sourceType:'inet',runId:repeat.id}]);
+ connector.introspect=async()=>ok({...snapshot(),objects:[]});
+ const partial=unwrap(await job.enqueue(ctx,sourceId,['other']));unwrap(await job.execute(ctx,partial.id));
+ expect(await observations.list(ctx,null,10)).toMatchObject([{sourceType:'inet',runId:repeat.id}]);
+ // Removing the source column resolves the current observation, without erasing its run finding.
+ discovery={...snapshot(),objects:[]};connector.introspect=async()=>ok(discovery);const removal=unwrap(await job.enqueue(ctx,sourceId,['public']));expect(unwrap(await job.execute(ctx,removal.id)).state).toBe('complete');
+ expect(await observations.list(ctx,null,10)).toEqual([]);
+ expect(unwrap(await job.read(ctx,first.id)).diff).toEqual(first.diff);
 });

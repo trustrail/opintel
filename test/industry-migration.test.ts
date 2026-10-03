@@ -82,6 +82,13 @@ integration('industry migration with Postgres', () => {
     ]);
   });
 
+  it('E2-034: concurrent and later repetitions of the confirmed target increment once',async()=>{
+    const replies=await Promise.all([post(),post()]);expect(replies.map(r=>r.status)).toEqual([200,200]);
+    expect((await post()).status).toBe(200);
+    expect(await scopes.withPlatform(tx=>tx.query('SELECT industry_id,vocabulary_revision FROM project WHERE id=$1',[project]))).toEqual([{industry_id:newIndustry,vocabulary_revision:2}]);
+    expect((await post({industryId:newIndustry,confirmation:'wrong'})).status).toBe(400);
+  });
+
   it('requires project administration and hides projects from non-viewers', async () => {
     check.mockImplementation(async (request) => checked(request.permission === 'view'));
     expect((await post()).status).toBe(403);

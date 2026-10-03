@@ -8,6 +8,9 @@ async function setup(page:Page){
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00Z',deviceConfirmed:true}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id,name:'Reporting',company:{id:companyId,name:'Example Company'},industry:{id:companyId,name:'General'},region:'eu-west-1',role:'admin'},{id:other,name:'Other project',company:{id:other,name:'Other company'},industry:{id:companyId,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
   if(path.endsWith('/companies'))return route.fulfill({json:{items:[{id:companyId,name:'Example Company',role:'admin',projectCount:1},{id:other,name:'Other company',role:'admin',projectCount:1}],nextCursor:null}});
+  if(path===`/api/v1/projects/${id}/settings`)return route.fulfill({json:{settings:{discovery:{newElements:'rules_only',typeFamilyChange:'revert',renameHandling:'carry',adoptRenamedNames:false,valueSampling:false},query:{},evidence:{}}}});
+  if(path===`/api/v1/companies/${companyId}/settings`)return route.fulfill({json:{id:companyId,name:'Example Company',defaultIndustryId:companyId,defaultRegion:'eu-west-1',allowedDomains:[],idleTimeoutMins:480,ssoEnforced:false,enabledProviders:[]}});
+  if(path.endsWith('/type-observations'))return route.fulfill({json:{items:[],nextCursor:null}});
   if(path.endsWith('/token-key'))return route.fulfill({json:{currentVersion:null,versions:[]}});
   return route.fulfill({json:{items:[],nextCursor:null}});
  });
@@ -31,7 +34,9 @@ test('drawer destinations, keyboard order, collapsed state and scoped breadcrumb
  await page.getByRole('button',{name:'Collapse menu'}).click();await expect(nav.getByRole('link',{name:'Explore schema'})).toBeHidden();await expect(nav.locator('button[data-disclosure]')).toHaveCount(0);
  await page.getByRole('button',{name:'Expand menu'}).click();await expect(nav.getByRole('link',{name:'Explore schema'})).toBeVisible();
  await crumb.getByRole('link',{name:'Reporting',exact:true}).click();await expect(page).toHaveURL(`/projects/${id}/dashboard`);
- await crumb.getByRole('link',{name:'Example Company'}).click();await expect(page).toHaveURL(`/projects?companyId=${companyId}`);await expect(page.getByLabel('Company',{exact:true})).toHaveValue(companyId);
+ // This expectation was updated because the old projects-filter destination predated 5.16 company settings.
+ await crumb.getByRole('link',{name:'Example Company'}).click();await expect(page).toHaveURL(`/companies/${companyId}/settings`);await expect(page.getByRole('heading',{name:'Company settings'})).toBeVisible();
+ await page.goto(`/projects?companyId=${companyId}`);await expect(page.getByLabel('Company',{exact:true})).toHaveValue(companyId);
  await expect(page.locator('main').getByRole('link',{name:'Reporting',exact:true})).toBeVisible();await expect(page.locator('main').getByRole('link',{name:'Other project',exact:true})).toHaveCount(0);
  await page.getByLabel('Company',{exact:true}).selectOption('');await expect(page.locator('main').getByRole('link',{name:'Other project',exact:true})).toBeVisible();await page.goBack();await expect(page.getByLabel('Company',{exact:true})).toHaveValue(companyId);
 });
@@ -45,7 +50,7 @@ test('390px breadcrumb exposes only its parent back link and no drawer sub-items
 });
 
 for(const screen of ['catalog','token-key','access','data-sources','dashboard','observations','activity','releases','workbench','vocabulary','source-of-truth','relationships','knowledge','entitlements','pools','audit-log','settings']){
- test(`screens have no ad-hoc back links or buttons outside Breadcrumb: ${screen}`,async({page})=>{
+test(`screens have no ad-hoc back links or buttons outside Breadcrumb: ${screen}`,async({page})=>{
   await setup(page);await page.goto(`/projects/${id}/${screen}`);await expect(page.locator('main h1')).toBeVisible();
   const outside=page.locator(':not(nav[aria-label="Breadcrumb"] *)'),name=/^(back|back to |. back)/i;
   await expect(page.getByRole('link',{name}).and(outside)).toHaveCount(0);

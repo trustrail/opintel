@@ -10,7 +10,8 @@ const selection=`SELECT s.id,s.name,s.exposed_alias AS "exposedAlias",s.kind,s.o
  (SELECT r.id FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS "latestIntrospectionId",
  CASE WHEN s.receives_landings THEN (SELECT count(*)::int FROM arrival_notice a WHERE a.source_id=s.id AND a.payload->>'outcome'='landed') ELSE NULL END AS "filingCount",
  (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active') AS "elementCount",
- (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active' AND (NOT EXISTS(SELECT 1 FROM pool) OR EXISTS(SELECT 1 FROM pool p WHERE NOT EXISTS(SELECT 1 FROM entitlement t WHERE t.pool_id=p.id AND t.element_id=e.id)))) AS "undecidedCount",
+ (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active' AND e.exposed_type IS NULL) AS "unsupportedCount",
+ (SELECT count(*)::int FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND o.status='active' AND e.status='active' AND e.exposed_type IS NOT NULL AND e.exposed_name IS NOT NULL AND (NOT EXISTS(SELECT 1 FROM pool) OR EXISTS(SELECT 1 FROM pool p WHERE NOT EXISTS(SELECT 1 FROM entitlement t WHERE t.pool_id=p.id AND t.element_id=e.id)))) AS "undecidedCount",
  to_char(s.last_introspected_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "lastIntrospectedAt" FROM data_source s`;
 function item(row:Record<string,unknown>){return SourceListItem.parse(row);}
 export class PostgresSourceRegistrationRepository implements SourceRegistrationRepository {
@@ -65,8 +66,8 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   const [source]=await tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1 FOR UPDATE',[id]);
   if(!source)return err(new DomainError('not_found','The source was not found in this project.'));
   if(source.status==='archived')return err(new DomainError('conflict','An archived source cannot be introspected.'));
-  const active=await tx.query("SELECT id FROM introspection_run WHERE source_id=$1 AND state IN ('queued','connecting','reading','diffing')",[id]);
-  if(active.length)return err(new DomainError('conflict','This source already has an active introspection run. Wait for it to finish before retrying.'));
+  const active=await tx.query<{id:RunId}>("SELECT id FROM introspection_run WHERE source_id=$1 AND state IN ('queued','connecting','reading','diffing')",[id]);
+  if(active[0])return err(new DomainError('conflict',`This source already has an active introspection run: ${active[0].id}. Wait for it to finish before re-introspecting.`,{runId:active[0].id}));
   await this.enqueueRetry(tx,ctx,id,runId);
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}

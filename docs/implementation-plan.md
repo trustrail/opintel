@@ -81,7 +81,7 @@ The sidecar runs as a parallel track from the start of P2 and must not be compre
 | 1.12a | Frontend HTTP client: typed fetch against the API, error envelope to AppError, request id surfaced | 1.5a, 1.11 | src/shared/api | envelope parsed, network failure becomes AppError, request id available to the UI |
 | 1.13 | Auth screens | 1.10, 1.11 | four screens | A-014, A-015, B-007 to B-009 |
 1.13a | Authenticated route guard: unauthenticated visitors redirect to /sign-in, the intended path is preserved and restored after sign-in | 1.12, 1.13 | app/guard.tsx | an unauthenticated visit to a console route redirects, the path is restored |
-| 1.14 | Kitchen sink, visual snapshots, axe in CI | 1.11 | `/dev/kitchen-sink` | O-005 to O-009 |
+| 1.14 | Kitchen sink, visual snapshots, axe and every-screen control conformance in CI | 1.11 | `/dev/kitchen-sink`, rendered-control checker and route coverage gate | O-005 to O-009; unclassified controls and unvisited screen routes fail |
 | 1.15 | Observability: OTel, request id, logs with field allowlist | 1.1 | `platform/telemetry` | no customer data in telemetry |
 
 Item 1.15 must wire `EvidencePartitionTelemetryPort` to the customer's chosen
@@ -133,7 +133,7 @@ The largest change from v1.0. Two connectors, and the second is a pipeline rathe
 | **3.9** | **Ingest: landing strategy.** Per-source setting, both implementations, recorded on the source; evidence stamping follows in 5.11 | 3.8 | `ingest/land.ts` | ING-19 to ING-23, ING-25, ING-26; ING-07 landing assertions |
 | **3.10** | **Ingest: filing register.** What arrived, when, which strategy, what it superseded | 3.9 | `ingest/register.ts` | ING-27, ING-28, ING-29, ING-31, ING-32 |
 | 3.11 | Demo pack: reinsurance spreadsheets landing into a demo Postgres, twelve filing parties, inconsistent formats; resumable provisioning on the reserved source without deleting history | 3.9, 2.1 | `modules/sources/demo` | demo path identical, asserted on the port |
-| 3.12 | Data sources screen, connect wizard, origin badges, demo card; safe persisted failure messages and failed-source retry | 3.6, 1.11 | screens | F-001, F-004, F-007, O-002 |
+| 3.12 | Data sources screen, connect wizard, origin badges, demo card; safe persisted failure messages, failed-source retry and ordinary re-introspection on every non-archived source | 3.6, 1.11 | screens | F-001, F-004, F-007, O-002 |
 | 3.13 | Filings within source detail, expandable per source. Quarantine surfaced on the dashboard and in observations | 3.10, 1.11 | source screen sections | ING-27, ING-28, ING-29, ING-31, ING-32 (ING-30 remains with 4.1) |
 | 3.14 | Schema explorer, virtualised, prefix fetch; scoped catalogue endpoint and immutable source aliases | 3.1, 1.11 | screen | G-019, G-020, R-001, R-002 |
 | 3.15 | Introspection run and diff screen, live progress through SSE in 3.16 | 3.6 (3.16 upgrades progress transport) | screen | G-003 to G-009 |
@@ -636,3 +636,10 @@ at open, the latter reported by the sidecar, with equality enforced in the datab
 Migration 047 adds transaction-coalesced catalogue generation and the selected/used
 constraints. The test-stub startup assertion remains.
 See [verification results](review/5-11-implementation.md).
+
+Type-mapping visibility follow-up (3.2 / introspection and Data sources screens):
+unsupported findings are persisted separately in the introspection diff, with
+`explicitly_excluded` versus `unmapped`; Data sources counts unsupported separately
+from undecided; unmapped findings appear in the existing read-only Observations
+screen. See §4.4 and `docs/review/unsupported-type-visibility.md`. This does not add
+a general observations workflow.

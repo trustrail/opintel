@@ -1,3 +1,4 @@
+import { AsyncButton } from '../../shared/ui/index.js';
 import {Timestamp} from '../settings/preferences.js';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,9 +18,11 @@ const viaLabels = { project: 'Direct project grant', company: 'Company inheritan
 
 function Derivation({ projectId, member, company }: { projectId: string; member: Member; company: string }): ReactNode {
   const explanation = usePermissionExplanation(projectId, member.user.id);
+  const traceOpen = useAccessUi((state) => state.traceMemberId === member.user.id);
+  const toggleTrace = useAccessUi((state) => state.toggleTrace);
   if (explanation.isPending) return <LoadingState />;
-  if (explanation.isError) return <ErrorState title="Permissions could not be loaded" description={explanation.error.message} retry={() => { void explanation.refetch(); }} />;
-  if (explanation.data.permissions.length === 0) return <EmptyState icon="◉" title="No permission results" description="Refresh permissions to check this person's current access."><Button onClick={() => { void explanation.refetch(); }}>Refresh permissions</Button></EmptyState>;
+  if (explanation.isError) return <ErrorState title="Permissions could not be loaded" description={explanation.error.message} retry={()=>explanation.refetch()} />;
+  if (explanation.data.permissions.length === 0) return <EmptyState icon="◉" title="No permission results" description="Refresh permissions to check this person's current access."><AsyncButton pendingLabel="Refreshing…" refusal={null} run={()=>explanation.refetch()}>Refresh permissions</AsyncButton></EmptyState>;
   const groups = [
     { key: 'project', title: 'Allowed · Direct project grant' },
     { key: 'company', title: `Allowed · Inherited from ${company}` },
@@ -39,12 +42,14 @@ function Derivation({ projectId, member, company }: { projectId: string; member:
     })}
     {member.projectRole === 'operator' && member.companyRole !== 'admin' ? <p className="note">Operators keep agents running without widening what they see. They can export evidence and simulate, but cannot set entitlements, bind sources or map terms.</p> : null}
     <p className="note">Checked <Timestamp value={explanation.data.checkedAt}/></p>
-    <details className="seg"><summary>Authorization trace</summary><p className="note">Supplementary detail. Cached checks may return a shorter trace or no trace.</p>
-      {explanation.data.permissions.map((permission) => <div className="seg" key={permission.permission}><h4 className="seglab">{permissionLabels[permission.permission] ?? permission.permission}</h4>
-        <div className="deriv" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{permission.path.length === 0 ? 'No additional trace detail returned.' : permission.path.join('\n')}</div>
-      </div>)}
-      <p className="note" style={{ overflowWrap: 'anywhere' }}>Revision: {explanation.data.token}</p>
-    </details>
+    <div className="seg"><button type="button" className="toolchip" aria-expanded={traceOpen} aria-controls={`authorization-trace-${member.user.id}`} onClick={() => toggleTrace(member.user.id)}>Authorization trace</button>
+      <div id={`authorization-trace-${member.user.id}`} hidden={!traceOpen}><p className="note">Supplementary detail. Cached checks may return a shorter trace or no trace.</p>
+        {explanation.data.permissions.map((permission) => <div className="seg" key={permission.permission}><h4 className="seglab">{permissionLabels[permission.permission] ?? permission.permission}</h4>
+          <div className="deriv" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{permission.path.length === 0 ? 'No additional trace detail returned.' : permission.path.join('\n')}</div>
+        </div>)}
+        <p className="note" style={{ overflowWrap: 'anywhere' }}>Revision: {explanation.data.token}</p>
+      </div>
+    </div>
   </>;
 }
 
@@ -68,9 +73,9 @@ export function AccessScreen({ projectId }: { projectId: string }): ReactNode {
     }}>{project === undefined ? <option value={projectId}>{projects.isPending ? 'Loading projects…' : 'Current project'}</option> : null}{projects.data?.map((item) => <option key={item.id} value={item.id}>{item.company.name} / {item.name}</option>)}</select></span>
       <span className="pick"><label htmlFor="access-filter">Show</label><select id="access-filter" value={filter} onChange={(event) => { const value = event.target.value; if (value === 'all' || value === 'project' || value === 'company') ui.show(projectId, value); }}><option value="all">Everyone with access</option><option value="project">Direct grants</option><option value="company">Inherited access</option></select></span>
     </div>
-    {projects.isError ? <ErrorState title="Projects could not be loaded" description={projects.error.message} retry={() => { void projects.refetch(); }} /> : null}
-    {members.isPending ? <LoadingState /> : members.isError ? <ErrorState title="Members could not be loaded" description={members.error.message} retry={() => { void members.refetch(); }} />
-      : members.data.length === 0 ? <EmptyState icon="◉" title="No members found" description="Ask a company administrator to review membership, then refresh this list."><Button onClick={() => { void members.refetch(); }}>Refresh members</Button></EmptyState>
+    {projects.isError ? <ErrorState title="Projects could not be loaded" description={projects.error.message} retry={()=>projects.refetch()} /> : null}
+    {members.isPending ? <LoadingState /> : members.isError ? <ErrorState title="Members could not be loaded" description={members.error.message} retry={()=>members.refetch()} />
+      : members.data.length === 0 ? <EmptyState icon="◉" title="No members found" description="Ask a company administrator to review membership, then refresh this list."><AsyncButton pendingLabel="Refreshing…" refusal={null} run={()=>members.refetch()}>Refresh members</AsyncButton></EmptyState>
         : visible.length === 0 ? <EmptyState icon="◉" title="No members match this filter" description="Show everyone to review all direct and inherited access."><Button onClick={() => ui.show(projectId, 'all')}>Show everyone</Button></EmptyState>
           : <div className="card"><div className="card-h"><h2>People who can reach {project?.name ?? 'this project'}</h2><span className="meta">{visible.length} people · {visible.filter((member) => member.via !== 'project').length} with inheritance</span></div>
             {visible.map((member) => {

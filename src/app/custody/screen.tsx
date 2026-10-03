@@ -27,8 +27,8 @@ export function TokenKeyScreen({projectId}:{projectId:string}) {
   return <section className="screen on">
     <h1>Token key</h1><p className="sub">The key that makes tokens reproducible across sources and over time. {project?.name}</p>
     <section className="dangerzone" aria-label="Key custody responsibility"><div><b>Opintel cannot recover a lost key.</b><span>You hold the key and its escrow copy in your environment. If both are lost, earlier tokens cannot be reproduced and historical evidence cannot be verified. Keep every retained version and verify its backup.</span></div></section>
-    {query.isPending||projects.isPending?<LoadingState/>:query.isError?<ErrorState title="Token key could not be loaded" description={query.error.message} retry={()=>{void query.refetch();}}/>
-    :projects.isError?<ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>{void projects.refetch();}}/>
+    {query.isPending||projects.isPending?<LoadingState/>:query.isError?<ErrorState title="Token key could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>
+    :projects.isError?<ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>projects.refetch()}/>
     :!project?<EmptyState icon="!" title="Project unavailable" description="Return to All projects to choose a project you can administer."/>
     :query.data.currentVersion===null?<EmptyState icon="◇" title="No token key yet" description="The key is created and its escrow backup verified when the first source connects. Nothing needs to be rotated or restored yet."/>
     :<>
@@ -36,9 +36,9 @@ export function TokenKeyScreen({projectId}:{projectId:string}) {
         <p><b>Do not rely on an unverified backup.</b> Check the escrow copy and run a rehearsal again. Rotation cannot recover a missing key.</p>
         {failures.map(v=><p key={v.version}><b>Version {v.version}: {v.lastRehearsal==='mismatch'?'escrow does not match the recorded key':'escrow could not be verified'}.</b> {v.state==='current'?'New source connections are refused until verification succeeds.':'This retained key is needed to reproduce earlier tokens.'} Last checked: {time(v.lastRehearsedAt)}.</p>)}
       </div></Card></section>:null}
-      <section className="seg"><Card><CardHeader title={`Current version · ${query.data.currentVersion}`}/><div className="frow"><div className="fl"><b>Restore rehearsals</b><span>A rehearsal reads each retained escrow copy in isolation and checks that it reproduces the expected verification token. It does not replace the stored key.</span></div><Button disabled={mutation.isPending||action!==null} onClick={()=>{mutation.reset();mutation.mutate({action:'rehearse'});}}>{mutation.isPending&&mutation.variables?.action==='rehearse'?'Rehearsing…':'Rehearse now'}</Button></div>
+      <section className="seg"><Card><CardHeader title={`Current version · ${query.data.currentVersion}`}/><div className="frow"><div className="fl"><b>Restore rehearsals</b><span>A rehearsal reads each retained escrow copy in isolation and checks that it reproduces the expected verification token. It does not replace the stored key.</span></div><Button disabled={mutation.isPending||action!==null} onClick={()=>{mutation.reset();mutation.mutate({action:'rehearse'});}}>{mutation.isPending&&mutation.variables?.action==='rehearse'?'Rehearsing…':'Rehearse now'}</Button>{mutation.isError&&mutation.variables?.action==='rehearse'?<p role="alert">{mutation.error.message}</p>:null}</div>
       <div className="frow"><div className="fl"><b>Rotate deliberately</b><span>Rotation changes every future token and breaks joins against earlier results. Old keys are retained, but old tokens cannot be translated into new ones. This is not routine maintenance.</span></div><Button variant="ghost" disabled={mutation.isPending||action!==null} onClick={()=>begin('rotate')}>Rotate key</Button></div></Card></section>
-      {companies.isError?<ErrorState title="Company administration could not be checked" description={companies.error.message} retry={()=>{void companies.refetch();}}/>:null}
+      {companies.isError?<ErrorState title="Company administration could not be checked" description={companies.error.message} retry={()=>companies.refetch()}/>:null}
       {!canRestore?<p className="note">{companies.isPending?'Checking company administration…':'Restoring a key requires both project and company administration.'}</p>:null}
       <section className="seg"><Card><CardHeader title="Retained versions" meta="Never deleted"/>
         <div role="region" aria-label="Token key versions" tabIndex={0} style={{overflowX:'auto'}}><table><thead><tr><th>Version</th><th>Backup</th><th>Last rehearsal</th><th>Created</th><th>Recovery</th></tr></thead><tbody>
@@ -49,9 +49,9 @@ export function TokenKeyScreen({projectId}:{projectId:string}) {
         {action==='rotate'?<div className="fld"><label htmlFor="key-reason">Reason for rotation</label><input id="key-reason" required maxLength={500} value={ui.reason} disabled={mutation.isPending} onChange={e=>{ui.edit({reason:e.target.value});mutation.reset();}}/></div>:null}
         <div className="fld"><label htmlFor="key-confirmation">Type {project.name} to confirm</label><input ref={input} id="key-confirmation" autoComplete="off" required value={ui.confirmation} disabled={mutation.isPending} aria-describedby="key-action-impact" onChange={e=>ui.edit({confirmation:e.target.value})}/></div>
         <div className="filters"><Button type="submit" disabled={mutation.isPending||ui.confirmation!==project.name||(action==='rotate'?!ui.reason.trim():!canRestore)}>{mutation.isPending?'Working…':action==='rotate'?'Confirm rotation':'Confirm restore'}</Button><Button variant="ghost" disabled={mutation.isPending} onClick={()=>{ui.close();mutation.reset();}}>Cancel</Button></div>
-      </form></Card></section>:null}
+      {mutation.isError?<div className="fld err" role="alert"><p className="err-msg">{mutation.error.message}</p></div>:null}</form></Card></section>:null}
     </>}
-    {mutation.isError?<div className="fld err" role="alert"><p className="err-msg">{mutation.error.message}</p></div>:null}
+
     {mutation.isSuccess?<p className="note" role="status" aria-label="Token key operation">{mutation.variables?.action==='rehearse'?(mutation.data.versions.some(v=>v.lastRehearsal==='failed'||v.lastRehearsal==='mismatch')?'Rehearsal finished with failures. Review the affected versions above.':'All retained key versions passed the rehearsal.'):mutation.variables?.action==='rotate'?`Rotation complete. Current version: ${mutation.data.currentVersion}.`:'The verified escrow copy was restored.'}</p>:null}
   </section>;
 }

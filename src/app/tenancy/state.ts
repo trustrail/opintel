@@ -3,7 +3,7 @@ import { create } from 'zustand';
 type FormState = { name: string; companyId: string; industryId: string; region: string; changeCompany: boolean };
 const empty: FormState = { name: '', companyId: '', industryId: '', region: '', changeCompany: false };
 export const useProjectForm = create<FormState & { set(value: Partial<FormState>): void; reset(): void }>((set) => ({ ...empty, set, reset: () => set(empty) }));
-export const useCompanyForm = create<Omit<FormState, 'companyId' | 'changeCompany'> & { set(value: Partial<FormState>): void; reset(): void }>((set) => ({ name: '', industryId: '', region: '', set, reset: () => set({ name: '', industryId: '', region: '' }) }));
+export const useCompanyForm = create<Omit<FormState, 'companyId' | 'changeCompany'> & { requestKey:string; set(value: Partial<FormState>): void; reset(): void }>((set) => ({ name: '', industryId: '', region: '', requestKey:crypto.randomUUID(), set:value=>set(state=>({...value,requestKey:Object.entries(value).some(([key,v])=>state[key as keyof typeof state]!==v)?crypto.randomUUID():state.requestKey})), reset: () => set({ name: '', industryId: '', region: '',requestKey:crypto.randomUUID() }) }));
 export const useShellUi = create<{ collapsed: boolean; switcherOpen: boolean; sections: Partial<Record<string,boolean>>; toggleSection(path: string, current: boolean): void; toggle(): void; open(value: boolean): void }>((set) => ({
   collapsed: false, switcherOpen: false, sections: {},
   toggleSection: (path,current) => set(state => ({sections:{...state.sections,[path]:!current}})),

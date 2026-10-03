@@ -21,12 +21,16 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm run typecheck
+      - run: npm run typecheck:conformance
       - run: npm run lint
       # The full test suite runs below after service bootstrap.
       - run: npm run build
       - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
       - name: Functional browser tests in pinned Playwright image
         run: npm run test:visual:docker -- --project=functional
+      - name: Every-screen control conformance and coverage
+        if: ${{ !cancelled() }}
+        run: npm run test:conformance
       - name: Visual snapshots in pinned Playwright image
         run: npm run test:visual:docker
       - name: Isolated G-019 scroll frames

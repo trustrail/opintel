@@ -180,6 +180,20 @@
 #opintel-app .btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2);font-weight:600}
 #opintel-app .btn.ghost:hover{background:var(--surface-2)}
 #opintel-app .btn:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+#opintel-app .btn:is(:disabled, [aria-disabled="true"], [aria-busy="true"]),
+#opintel-app .btn:is(:disabled, [aria-disabled="true"], [aria-busy="true"]):hover {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  border-color: var(--rule-2);
+  cursor: not-allowed;
+}
+#opintel-app .btn[aria-busy="true"],
+#opintel-app .btn[aria-busy="true"]:hover {
+  background: var(--surface-3);
+  color: var(--ink-2);
+  border-color: var(--rule-2);
+  cursor: progress;
+}
 #opintel-app .note{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);line-height:1.7;margin-top:14px}
 #opintel-app .tr{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:3px 8px;border-radius:5px;white-space:nowrap;font-weight:500}
 #opintel-app .tr i{width:6px;height:6px;border-radius:50%}
@@ -343,7 +357,9 @@
 #opintel-app .trow.lvl2 .tname{padding-left:38px}
 #opintel-app .tname .type{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3)}
 #opintel-app .tname .flag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;background:var(--yellow);color:var(--plum);padding:1px 6px;border-radius:4px;font-weight:600}
-#opintel-app .tname input[type=checkbox]{accent-color:var(--green);width:14px;height:14px;cursor:pointer}
+#opintel-app input[type=checkbox],#opintel-app input[type=radio]{accent-color:var(--green);width:14px;height:14px;cursor:pointer}
+#opintel-app input[type=checkbox]:focus-visible,#opintel-app input[type=radio]:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+#opintel-app input[type=checkbox]:disabled,#opintel-app input[type=radio]:disabled{accent-color:var(--ink-3);cursor:not-allowed}
 #opintel-app .tsrc{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3);text-align:right}
 #opintel-app .tsel select{width:100%;font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:7px 9px;border:1px solid var(--rule);background:var(--surface);border-radius:7px;cursor:pointer;color:var(--ink);outline:none}
 #opintel-app .tsel select:hover{border-color:var(--rule-2)}

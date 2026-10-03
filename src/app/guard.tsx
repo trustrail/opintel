@@ -57,7 +57,7 @@ export function AuthGuard({ children, intendedPath }: { readonly children: React
       rememberReturnTo(intendedPath);
       return <Navigate replace search={{ next: intendedPath }} to="/sign-in" />;
     }
-    return <AppRoot><main className="authpage"><ErrorState description={currentUser.error.message} retry={() => { void currentUser.refetch(); }} title="We could not verify your session" /></main></AppRoot>;
+    return <AppRoot><main className="authpage"><ErrorState description={currentUser.error.message} retry={()=>currentUser.refetch()} title="We could not verify your session" /></main></AppRoot>;
   }
   return children;
 }

@@ -1,5 +1,5 @@
 import { CatalogObject, type CatalogChange } from '../domain/catalog.js';
-import { mapSourceType, type ExposedType } from '../domain/type-mapping.js';
+import { classifySourceType, mapSourceType, type ExposedType } from '../domain/type-mapping.js';
 import { CatalogNaming } from './naming.js';
 import { DomainError, ok, err, type IdFactory, type ObjectId, type SourceId, type ProjectId, type Result } from '../../../shared/kernel/index.js';
 import type { CatalogSnapshot } from '../../sources/index.js';
@@ -7,9 +7,9 @@ import type { CatalogSnapshot } from '../../sources/index.js';
 type TypeFamily = 'number' | 'text' | 'boolean' | 'date' | 'time' | 'timestamp' | 'uuid' | 'json' | 'list' | 'struct' | 'unsupported';
 
 export type IntrospectionDiff = (CatalogChange | {
-  type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementOrdinalChanged' | 'CatalogElementChanged' | 'CatalogElementMappingRepaired' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
+  type: 'CatalogObjectAdded' | 'CatalogObjectRemoved' | 'CatalogObjectRestored' | 'CatalogElementRestored' | 'CatalogElementOrdinalChanged' | 'CatalogElementChanged' | 'CatalogElementUnsupported' | 'CatalogElementMappingRepaired' | 'CatalogElementTypeChanged' | 'CatalogElementTypeFamilyChanged';
   projectId: ProjectId; objectId: ObjectId; elementId?: CatalogChange['elementId'];
-  sourceType?: string; exposedType?: ExposedType; beforeOrdinal?: number | null; afterOrdinal?: number | null; breaking?: boolean; beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true; beforeFamily?: TypeFamily; afterFamily?: TypeFamily;
+  unsupportedReason?: 'explicitly_excluded' | 'unmapped'; sourceType?: string; exposedType?: ExposedType; beforeOrdinal?: number | null; afterOrdinal?: number | null; breaking?: boolean; beforeType?: string; afterType?: string; requiresEntitlementDeletion?: true; beforeFamily?: TypeFamily; afterFamily?: TypeFamily;
 }) & { exposedName?: string | null; before?: string | null; after?: string | null };
 function family(type: ExposedType | null): TypeFamily {
   if (type === null) return 'unsupported';
@@ -65,7 +65,13 @@ export function reconcileSnapshot(existing: readonly CatalogObject[], snapshot: 
     }
     const changes = object.reconcile(discovered.columns.map((column) => ({ ...column, exposedType: mapSourceType(column.sourceType) })), naming.elementIdentity(ids), snapshot.takenAt,renameHandling);
     if (!changes.ok) return changes;
-    diff.push(...changes.value);
+    // Unsupported additions are findings, not newly undecided elements for the
+    // completion handler to offer to pattern rules. Keep reporting them on repeats.
+    diff.push(...changes.value.filter(change=>change.type!=='CatalogElementAdded'||object.elements.find(e=>e.state.id===change.elementId)?.state.exposedType!==null));
+    for (const {state:element} of object.elements) if(element.status==='active'&&element.exposedType===null) {
+      diff.push({type:'CatalogElementUnsupported',projectId:source.projectId,objectId:object.state.id,elementId:element.id,
+        sourceType:element.sourceType,unsupportedReason:classifySourceType(element.sourceType).unsupportedReason??'unmapped'});
+    }
     for (const current of object.elements) {
       const prior = old?.elements.find((element) => element.state.id === current.state.id)?.state;
       const next = current.state;

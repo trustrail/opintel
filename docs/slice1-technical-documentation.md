@@ -1148,7 +1148,7 @@ GET /api/v1/projects/:id/elements?cursor=eyJ…&limit=100&prefix=public.orders
 
 ## 2.4 Idempotency
 
-Every non-GET route accepts `Idempotency-Key`. It is **required** on: pool creation, key rotation, key revocation, source deletion, bulk entitlement set, and export creation.
+Every non-GET route accepts `Idempotency-Key`. It is **required** on: company creation, pool creation, key rotation, key revocation, source deletion, bulk entitlement set, and export creation.
 
 The key, the route, and a hash of the body are stored for 24 hours. A repeat with the same key and body returns the original response. A repeat with the same key and a different body returns `409 idempotency_key_reused`.
 
@@ -1182,6 +1182,28 @@ The key, the route, and a hash of the body are stored for 24 hours. A repeat wit
 | DELETE | `/invitations/:id` |
 | PATCH / DELETE | `/projects/:id/members/:userId` |
 | GET | `/projects/:id/permissions/:userId/explain` |
+
+`POST /companies` requires `Idempotency-Key` (1–200 characters). Its receipt is
+scoped by authenticated actor and concrete route for 24 hours; a changed body
+under the same key refuses with `409 idempotency_key_reused`. The receipt,
+company, administrator membership and relationship outbox entry commit together.
+Replaying returns the original company payload, even if it has since been renamed.
+A failed relationship dispatch remains a retryable refusal; retrying that key
+retries the original pending grant instead of creating another company. Success
+still requires the grant to be confirmed. The create form retains its key across
+retries and assigns a new key when its input changes or creation succeeds.
+
+Project rename to the exact current name is a no-op under the project row lock:
+no UPDATE and no `ProjectRenamed` audit event. A changed name is still audited.
+Industry migration checks authorization and typed confirmation under the same
+lock and changes the vocabulary revision only when the target differs from the
+current industry. Repeating the same confirmed target returns the current project
+without another increment; migrating to a different industry remains a new change.
+
+Repeated accepted magic-link requests deliberately issue fresh mail. They are not
+deduplicated: a person who did not receive a link must be able to request another,
+within the existing rate limits. Pending-click suppression lasts only for the
+current request, not for subsequent deliberate requests.
 
 ### Company and project payloads
 
@@ -1463,7 +1485,7 @@ A 422 lists every invalid element in `error.details.invalidElements`, each with
 its `elementId` and `reasons`; no entitlement or bulk-decision history is written.
 Validation checks tenant ownership, active catalogue/source state, source binding,
 exposed metadata and the existing mask/token-declaration compatibility rules.
-Withholding remains possible for unsupported or unnameable elements.
+Withholding remains possible for unnameable elements with a supported type. Unsupported elements cannot receive new decisions, including withheld.
 
 Successful commands persist the justification on every entitlement and append
 one `bulk_decision` row containing actor, pool, treatment, mask kind, count,
@@ -1633,9 +1655,9 @@ const SourceListItem = z.object({
 
 **Cancelling requires project#bind_source** and returns 200 with the updated IntrospectionRunView. A run not in queued, connecting or reading returns conflict, naming its current state. It invalidates the run detail, the run list and the source list.
 
-**Source recovery.** `POST /sources/:id/introspect` accepts `{ projectId }` and returns 202 with SourceListItem. The project identifies the tenant scope; `project#bind_source` is checked before the source is read, and a source outside that project returns 404. The source is locked while checking for an active run and enqueueing a new one. Archived sources and duplicate active runs return conflict. Retry keeps the existing schema selection and sampling consent. Queued/active runs appear as pending; a new run clears the displayed error without changing earlier runs.
+**Source re-introspection and recovery.** `POST /sources/:id/introspect` accepts `{ projectId }` and returns 202 with SourceListItem. The project identifies the tenant scope; `project#bind_source` is checked before the source is read, and a source outside that project returns 404. The source is locked while checking for an active run and enqueueing a new one. Archived sources and duplicate active runs return conflict. Retry keeps the existing schema selection and sampling consent. Queued/active runs appear as pending; a new run clears the displayed error without changing earlier runs.
 
-The failed-source Retry action uses this endpoint. For a demo source it resumes the prepared delivery before introspection. Repeating `POST /projects/:id/sources/from-demo` (or `demo:pack provision`) reuses the reserved source, verifies its project/template/credential/name/strategy binding and preserves prior runs and arrivals. A new source returns 201; resumed or already active work returns 202; an already completed connection returns 200. No deletion is part of recovery. Only one new run is queued. The worker claims the run in Postgres before provisioning, so API and CLI workers cannot prepare the same run concurrently. Sidecar replay keeps file bytes, filing IDs, hashes and provenance unchanged.
+Every non-archived source row offers Re-introspect to administrators, in every state. The failed-source Retry action also uses this endpoint. Re-introspection is ordinary catalogue maintenance, not only error recovery. An active run does not hide or disable the action: the server refuses with conflict, naming the active run in its message and `details.runId`; the console links to that run. Archived sources offer no action and remain refused at the server. For a demo source it resumes the prepared delivery before introspection. Repeating `POST /projects/:id/sources/from-demo` (or `demo:pack provision`) reuses the reserved source, verifies its project/template/credential/name/strategy binding and preserves prior runs and arrivals. A new source returns 201; resumed or already active work returns 202; an already completed connection returns 200. No deletion is part of recovery. Only one new run is queued. The worker claims the run in Postgres before provisioning, so API and CLI workers cannot prepare the same run concurrently. Sidecar replay keeps file bytes, filing IDs, hashes and provenance unchanged.
 
 **DELETE /sources/:id archives**. Requires project#bind_source. The source leaves every pool's view immediately and its catalogue and entitlement rows are retained, because historical evidence records reference them and must stay explainable.
 
@@ -3550,6 +3572,27 @@ source_type by the classification contract. Single, bulk and rule decisions
 reject unsupported elements, including withheld. Existing decisions are retained
 until an explicit repair or a genuine source-type change handles them.
 
+**Unsupported discovery is visible.** Every successful introspection records active
+unsupported elements in its diff as a separate `unsupported` category, naming the
+element, source type and `explicitly_excluded` or `unmapped` reason. These are
+findings even when unchanged from the preceding run. They do not fail discovery;
+Postgres types are an open set. An unmapped type is an Opintel mapping gap, not a
+fault in the customer's data. Unsupported additions are reported in this category
+rather than as additions needing a decision.
+
+Data sources shows total active elements, unsupported elements, and undecided
+supported/nameable elements separately. Unsupported elements never contribute to
+the undecided count. The existing read-only Observations screen groups unmapped
+findings by source and source type, gives their active element count and links to
+the most recent supporting run. Explicit exclusions are not mapping-gap observations.
+Findings are stored in the run, not inferred later from a changed mapping table.
+Current observations disappear on repair/removal or source archive; historical
+run findings remain. A failed or partial-schema run does not erase an outstanding
+finding. Earlier runs without type findings are not rewritten; re-introspection
+records the new categories. `GET /api/v1/projects/:id/type-observations` requires
+`project#view`, uses a project-bound source-id/type cursor, and returns metadata
+only. Nothing is sent outside the customer's environment.
+
 **Mapping repair is different from a source-type change.** An unsupported →
 supported transition with exactly the same source_type is a
 `CatalogElementMappingRepaired` diff, naming the element, source type and newly
@@ -4361,8 +4404,9 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Set entitlement | `entitlement.detail`, `pool.detail`, `catalogElement.lists`, `project.stats` |
 | Bulk set | `entitlement.all`, `pool.lists`, `catalogElement.lists`, `project.stats` |
 | Connect source | `dataSource.lists`, `project.stats` |
-| Retry source / resume demo | `dataSource.lists`, `project.stats` |
-| Introspection completes | `catalogElement.all`, `dataSource.detail`, `entitlement.all` |
+| Re-introspect / retry source / resume demo | `dataSource.lists`, `project.stats` |
+| Introspection completes | `catalogElement.all`, `dataSource.detail`, `dataSource.lists`, `dataSource.typeObservations`, `entitlement.all` |
+| Source changes / stream dataSource snapshot | `dataSource.lists`, `dataSource.detail`, `dataSource.typeObservations` |
 | Delete source | `dataSource.lists`, `catalogElement.all`, `entitlement.all`, `pool.lists` |
 | Create pool | `pool.lists`, `project.stats` |
 | Rotate pool key | `pool.detail` only |
@@ -4447,6 +4491,45 @@ The wire schemas also generate the stream OpenAPI document.
 
 
 ## 5.5 Screen contract
+
+**In-screen disclosures use the master’s button pattern**: `.toolchip` with
+`aria-expanded` and `aria-controls`, including local resolution instructions in
+Observations and Migrate industry. Do not use native `details` / `summary`.
+The migration form composes `.sheetb` and `.fld`, with `.inp` on its select.
+
+**Control conformance is a separate CI gate.** Every browser screen scenario is
+observed, including loading, empty, error, ready, open panels/dialogs and pending
+mutations exercised by the fixtures. Control kinds must match a reviewed master
+pattern, including ancestor selectors (`.fld input`, `.pick select`); a known
+utility class is not sufficient. Unclassified controls fail, including native
+checkboxes/radios with no matching pattern. Native `details` / `summary` fail.
+Disclosures must name an existing controlled target and agree with its visible
+state. The compact drawer uses its documented `.shell.collapsed` state instead:
+its icons remain visible when collapsed. A separate route coverage assertion
+requires every screen path derived from the router and drawer, including retained
+placeholder destinations, to have rendered. New routes cannot silently escape the
+check. Deliberately broken examples prove rejection; valid ancestor patterns prove
+acceptance. This checks conformance, not visual layout: axe and screenshot tests
+remain separate gates. See `docs/review/control-conformance.md` for findings and
+coverage limits.
+
+**Disabled and busy buttons.** `.btn` disables its normal variant/hover appearance
+using `--surface-2`, `--ink-3` and `--rule-2`, with a not-allowed cursor. A busy
+button uses `--surface-3`, `--ink-2`, `--rule-2` and a progress cursor, with explicit
+work text such as “Saving…”. Neither state introduces animation or colour literals.
+The component still disables execution; CSS does not implement that guard.
+
+**Actions that start work acknowledge immediately.** On click, the action disables
+itself and shows that work is starting. It stays disabled until that work is
+observable elsewhere on the screen, even if execution finishes before the next
+refresh. A refusal is rendered beside the action, not only in a toast or a
+page-level message. Re-introspection shows “Starting…” during submission and a
+persistent “Introspection started” acknowledgment with the returned run link in
+the source row, including for sub-second runs. It publishes the accepted source
+response to the cache before refreshing it. A synchronous submission guard blocks
+repeated clicks before React's next render. An already-active run still refuses
+at the server when the action is available; the inline refusal links to that run.
+
 
 ```ts
 type ScreenState<T> =

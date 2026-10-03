@@ -1,3 +1,5 @@
+import {typeObservationRoutes} from '../../modules/sources/api/type-observation-routes.js';
+import {PostgresTypeObservations} from '../../modules/sources/infrastructure/type-observations.js';
 import {PostgresMagicLinkAccess} from '../../modules/identity/infrastructure/magic-link-access.js';
 import {OutboxInvitationDelivery} from '../../modules/tenancy/infrastructure/invitation-delivery.js';
 import {createOidcRuntime,createProviderResolutionRuntime} from '../../modules/identity/infrastructure/oidc-runtime.js';
@@ -226,6 +228,7 @@ async function start(): Promise<void> {
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
     ...sourceRoutes(sources),
+    ...typeObservationRoutes(new PostgresTypeObservations()),
     ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory(),hub))),
     ...registerRoutes(register),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),

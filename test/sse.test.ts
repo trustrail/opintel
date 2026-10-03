@@ -84,3 +84,16 @@ it('shares strict wire validation with the OpenAPI description',()=>{
  expect(streamOpenApiDocument().paths['/api/v1/projects/{id}/stream'].get['x-permission']).toBe('project#view');
  expect(streamEventSchema.safeParse({type:'source.changed',sequence:1,sourceId,filename:'private.xlsx'}).success).toBe(false);
 });
+
+it('refreshes unsupported counts and type observations on completion, archive and reconnect',async()=>{
+ const {sourceKeys}=await import('../src/app/sources/data.js');
+ vi.useFakeTimers();const cache=new QueryClient();const consumer=projectStreamCache(cache,project);
+ const key=sourceKeys.typeObservations(project),counts=sourceKeys.lists(project),other=sourceKeys.typeObservations(randomUUID());
+ const reset=()=>{cache.setQueryData(key,[]);cache.setQueryData(counts,[]);cache.setQueryData(other,[]);};
+ for(const event of [
+  {type:'introspection.finished',sequence:1,sourceId,runId,state:'complete'},
+  {type:'source.changed',sequence:2,sourceId},
+  {type:'snapshot',sequence:3,at:new Date().toISOString(),invalidate:['dataSource']},
+ ]){reset();consumer.receive(event);await vi.advanceTimersByTimeAsync(50);expect(cache.getQueryState(key)?.isInvalidated).toBe(true);expect(cache.getQueryState(counts)?.isInvalidated).toBe(true);expect(cache.getQueryState(other)?.isInvalidated).toBe(false);}
+ consumer.dispose();cache.clear();
+});

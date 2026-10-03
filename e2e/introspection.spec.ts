@@ -80,3 +80,17 @@ for(const width of [390,900,1440])test(`Mapping repair diff at ${width}`,{tag:'@
  await expect(page.getByText('Reverts to undecided')).toHaveCount(0);
  await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`mapping-repair-${width}.png`,{fullPage:true});await accessible(page);
 });
+
+for(const width of [390,900,1440])test(`unsupported types are distinct findings at ${width}`,{tag:'@visual'},async({page})=>{
+ const state=await mock(page);
+ state.run.diff=[
+  {change:'unsupported',elementId:id,exposedName:'network',before:null,after:null,breaking:false,sourceType:'inet',unsupportedReason:'unmapped'},
+  {change:'unsupported',elementId:source,exposedName:'payload',before:null,after:null,breaking:false,sourceType:'bytea',unsupportedReason:'explicitly_excluded'},
+ ] as typeof state.run.diff;
+ await page.setViewportSize({width,height:1000});await page.goto(path);
+ await expect(page.getByText('Unmapped — Opintel mapping gap')).toBeVisible();
+ await expect(page.getByText('Explicitly excluded',{exact:true})).toBeVisible();
+ await expect(page.getByText('Not decidable. No access decision can expose this type.')).toHaveCount(2);
+ await expect(page.getByText('Needs a decision')).toHaveCount(0);
+ await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`unsupported-types-${width}.png`,{fullPage:true});await accessible(page);
+});

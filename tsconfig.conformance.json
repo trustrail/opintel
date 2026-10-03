@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "e2e/conformance/**/*.ts",
+    "e2e/control-conformance.spec.ts",
+    "e2e/conformance-coverage.spec.ts",
+    "e2e/fixtures.ts",
+    "playwright.conformance.config.ts"
+  ]
+}

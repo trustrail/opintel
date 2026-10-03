@@ -1,3 +1,4 @@
+import { AsyncButton } from '../../shared/ui/index.js';
 import {DashboardScreen} from '../dashboard/screen.js';
 import { Link, useSearch, useNavigate, useRouterState } from '@tanstack/react-router';
 import {useCompanySettings} from '../settings/data.js';
@@ -22,7 +23,7 @@ export function ProjectChooser(): ReactNode {
   const admin = companies.data?.some((company) => company.role === 'admin') ?? false;
   const error = projects.error ?? companies.error;
   return <section className="screen on"><h1>Your projects</h1><p className="sub">Choose a project to work with its data, permissions and evidence.</p>
-    {error !== null ? <ErrorState title="Projects could not be loaded" description={error.message} retry={() => { void projects.refetch(); void companies.refetch(); }} />
+    {error !== null ? <ErrorState title="Projects could not be loaded" description={error.message} retry={()=>Promise.all([projects.refetch(),companies.refetch()])} />
       : projects.isPending || companies.isPending ? <LoadingState /> : <>
         <div className="pgrow" style={{ marginBottom: 14 }}><Link className="btn go" to={admin ? '/projects/new' : '/companies/new'}>{admin ? 'Create project' : 'Create company'}</Link>{admin ? <Link className="btn ghost" to="/companies/new">Create company</Link> : null}</div>
         <div className="filters">{(companies.data??[]).map(c=><Link key={c.id} className="btn ghost" to="/companies/$companyId/settings" params={{companyId:c.id}}>{c.name} settings</Link>)}<span className="pick"><label htmlFor="company-filter">Company</label><select id="company-filter" value={companyId ?? ''} onChange={event => {void navigate({to:'/projects',search:event.target.value ? {companyId:event.target.value} : {}});}}><option value="">All companies</option>{(companies.data ?? []).map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></span></div>
@@ -68,10 +69,10 @@ export function CreateProjectScreen(): ReactNode {
     } catch { /* Keep every entered value; the server message appears below. */ }
   };
   return <section className="screen on"><h1>Create project</h1><p className="sub">Choose the company, vocabulary and region for this project's data.</p>
-    {error !== null ? <ErrorState title="Project options could not be loaded" description={error.message} retry={() => { void companies.refetch(); void industries.refetch(); }} />
+    {error !== null ? <ErrorState title="Project options could not be loaded" description={error.message} retry={()=>Promise.all([companies.refetch(),industries.refetch()])} />
       : companies.isPending || industries.isPending ? <LoadingState />
         : admins.length === 0 ? <EmptyState icon="◫" title="Create a company first" description="You need to administer a company to create a project. Create your own company, or ask a company administrator for access."><Link className="btn go" to="/companies/new">Create company</Link></EmptyState>
-          : (industries.data ?? []).length === 0 ? <EmptyState icon="❋" title="No industries available" description="An industry pack must be published before you can create a project. Ask your platform administrator, then refresh."><Button onClick={() => { void industries.refetch(); }}>Refresh industries</Button></EmptyState>
+          : (industries.data ?? []).length === 0 ? <EmptyState icon="❋" title="No industries available" description="An industry pack must be published before you can create a project. Ask your platform administrator, then refresh."><AsyncButton pendingLabel="Refreshing…" refusal={industries.isError?industries.error.message:null} run={()=>industries.refetch()}>Refresh industries</AsyncButton></EmptyState>
             : <Card><form className="sheetb" onSubmit={submit} aria-busy={mutation.isPending}>
               <div className="fld"><label htmlFor="project-name">Project name</label><input id="project-name" required maxLength={80} value={form.name} onChange={(event) => form.set({ name: event.target.value })} autoComplete="off" /></div>
               <div className="fld">{admins.length === 1 && !form.changeCompany ? <><p>Company: <b>{admins[0]?.name}</b></p><Button variant="ghost" onClick={() => form.set({ changeCompany: true })}>Change company</Button></> : <span className="pick"><label htmlFor="project-company">Company</label><select id="project-company" required value={companyId} onChange={(event) => form.set({ companyId: event.target.value })}><option value="">Choose a company</option>{admins.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></span>}</div>
@@ -100,7 +101,7 @@ export function CreateCompanyScreen(): ReactNode {
     } catch { /* Preserve the form when creation is refused. */ }
   };
   return <section className="screen on"><h1>Create company</h1><p className="sub">You will be its administrator. Next, create a project inside the company.</p>
-    {industries.isError ? <ErrorState title="Industries could not be loaded" description={industries.error.message} retry={() => { void industries.refetch(); }} /> : industries.isPending ? <LoadingState />
+    {industries.isError ? <ErrorState title="Industries could not be loaded" description={industries.error.message} retry={()=>industries.refetch()} /> : industries.isPending ? <LoadingState />
       : <Card><form className="sheetb" onSubmit={submit} aria-busy={mutation.isPending}><div className="fld"><label htmlFor="company-name">Company name</label><input id="company-name" required maxLength={120} value={form.name} onChange={(event) => form.set({ name: event.target.value })} autoComplete="organization" /></div>
         <RegionPicker value={form.region} onChange={(region) => form.set({ region })} />
         {(industries.data ?? []).length === 0 ? <p className="note">No industry packs are available yet. You can create a company without a default industry.</p> : <IndustryPicker optional items={industries.data ?? []} value={form.industryId} onChange={(industryId) => form.set({ industryId })} />}
@@ -115,7 +116,7 @@ export function ProjectDashboard(): ReactNode {
   const id = projectIdFromPath(path);
   const projects = useProjects();
   if (projects.isPending) return <LoadingState />;
-  if (projects.isError) return <ErrorState title="Project could not be loaded" description={projects.error.message} retry={() => { void projects.refetch(); }} />;
+  if (projects.isError) return <ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>projects.refetch()} />;
   const project = projects.data.find((item) => item.id === id);
   if (project === undefined) return <EmptyState icon="◫" title="Project unavailable" description="Choose a project you can reach using All projects in the breadcrumb."/>;
   return <DashboardScreen key={project.id} projectId={project.id} name={project.name} admin={project.role==='admin'}/>;

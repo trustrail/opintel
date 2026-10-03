@@ -1,5 +1,7 @@
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 import './styles.js';
+import { useMemo } from 'react';
+import { createStore, useStore } from 'zustand';
 
 function classNames(...classes: Array<string | undefined>): string {
   return classes.filter((name): name is string => name !== undefined && name.length > 0).join(' ');
@@ -74,11 +76,11 @@ export function EmptyState({ icon, title, description, calm = false, children }:
 export type ErrorStateProps = {
   title: string;
   description: string;
-  retry: () => void;
+  retry: () => void | Promise<unknown>;
 };
 
 export function ErrorState({ title, description, retry }: ErrorStateProps): ReactNode {
-  return <EmptyState icon="!" title={title} description={description}><Button variant="ghost" onClick={retry}>Try again</Button></EmptyState>;
+  return <EmptyState icon="!" title={title} description={description}><AsyncButton variant="ghost" pendingLabel="Trying again…" run={async()=>retry()}>Try again</AsyncButton></EmptyState>;
 }
 
 export type StageStatus = 'wait' | 'run' | 'done' | 'stop';
@@ -96,4 +98,26 @@ export function LoadingState({ stages }: { stages?: readonly Stage[] }): ReactNo
   return stages === undefined
     ? <EmptyState icon="…" title="Preparing this view" description="The information for this surface is being prepared." />
     : <StageRail title="Running" elapsed="0.0s" stages={stages} />;
+}
+
+// Local control state only; query results remain in TanStack Query.
+export function AsyncButton({run,pendingLabel,children,disabled,refusal,...props}:Omit<ButtonProps,'onClick'> & {
+  run:()=>Promise<unknown>; pendingLabel:string; refusal?:string|null;
+}) {
+  const store=useMemo(()=>createStore<{pending:boolean;error:string|null}>(()=>({pending:false,error:null})),[]);
+  const state=useStore(store);
+  async function start(){
+    if(store.getState().pending||disabled)return;
+    store.setState({pending:true,error:null});
+    try{
+      const result=await run();
+      for(const item of Array.isArray(result)?result:[result]){
+        if(typeof item==='object'&&item!==null&&'isError' in item&&item.isError&&'error' in item)throw item.error;
+      }
+    }catch(error){
+      store.setState({error:typeof error==='object'&&error!==null&&'message' in error&&typeof error.message==='string'?error.message:'The action could not be completed. Try again.'});
+    }finally{store.setState({pending:false});}
+  }
+  const message=refusal===undefined?state.error:refusal;
+  return <span><Button {...props} disabled={disabled||state.pending} aria-busy={state.pending} onClick={()=>{void start();}}>{state.pending?pendingLabel:children}</Button>{message?<span className="note" role="alert" style={{display:'block'}}>{message}</span>:null}</span>;
 }

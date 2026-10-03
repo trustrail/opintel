@@ -1,10 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, type FormEvent, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { z } from 'zod';
 import { createApiClient, requestLinkEmailSchema, type AppError } from '../shared/api/index.js';
-import { AppRoot, Button, Card, ErrorState, LoadingState } from '../shared/ui/index.js';
+import { AppRoot, Button, Card, ErrorState } from '../shared/ui/index.js';
 import { completeReturnTo, rememberReturnTo } from './guard.js';
 
 const providersResponseSchema = z.object({
@@ -22,6 +22,8 @@ type CallbackResponse = z.infer<typeof callbackResponseSchema>;
 type EmailValidationError = 'Enter your email address.' | 'That does not look like an email address.';
 
 type AuthUiState = {
+  startingProvider: string|null;
+  startProvider(provider:string|null):void;
   email: string;
   emailError: EmailValidationError | null;
   revalidateEmail: boolean;
@@ -35,6 +37,7 @@ function emailValidationError(email: string): EmailValidationError | null {
 }
 
 const useAuthUiStore = create<AuthUiState>((set, get) => ({
+  startingProvider:null,startProvider:startingProvider=>set({startingProvider}),
   email: '',
   emailError: null,
   revalidateEmail: false,
@@ -116,7 +119,7 @@ function Message({ title, children }: { readonly title: string; readonly childre
   return <AuthLayout><AuthCard><h1>{title}</h1>{children}</AuthCard></AuthLayout>;
 }
 
-function ApiFailure({ error, retry }: { readonly error: AppError; readonly retry: () => void }): ReactNode {
+function ApiFailure({ error, retry }: { readonly error: AppError; readonly retry: () => void | Promise<unknown> }): ReactNode {
   return <AuthLayout><AuthCard><ErrorState title="We could not complete that" description={error.message} retry={retry} /></AuthCard></AuthLayout>;
 }
 
@@ -165,19 +168,22 @@ export function SignInScreen(): ReactNode {
   const availableProviders = providers.data?.providers ?? [];
   const magicLinkAvailable = providers.data?.magicLink ?? true;
 
-  if (providers.isError) return <ApiFailure error={providers.error} retry={() => { void providers.refetch(); }} />;
-  if (request.isError) return <ApiFailure error={request.error} retry={() => { request.reset(); }} />;
-  if (request.isPending) return <AuthLayout><AuthCard><LoadingState /></AuthCard></AuthLayout>;
+  const submitting=useRef(false);
+  const startingProvider=useAuthUiStore(s=>s.startingProvider);
+  useEffect(()=>{const reset=()=>useAuthUiStore.getState().startProvider(null);reset();window.addEventListener('pageshow',reset);return ()=>window.removeEventListener('pageshow',reset);},[]);
+  if (providers.isError) return <ApiFailure error={providers.error} retry={()=>providers.refetch()} />;
+
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    if (validateEmail() !== null || !magicLinkAvailable || providers.isFetching) return;
+    if (submitting.current||startingProvider||validateEmail() !== null || !magicLinkAvailable || providers.isFetching) return;
+    submitting.current=true;
     try {
       await request.mutateAsync();
       await navigate({ to: '/check-email' });
     } catch {
-      // The mutation state renders the documented error state.
-    }
+      // The safe API message remains beside the request action.
+    }finally{submitting.current=false;}
   };
 
   return <Message title="Sign in"><form onSubmit={submit}>
@@ -186,8 +192,9 @@ export function SignInScreen(): ReactNode {
     </div>
     <div className="enrolopts">
       {enforced ? <p className="note">SSO is enforced. Continue with {enforced.displayName}, or request a recovery link. Only company administrators can receive a recovery link; every use is audited.</p> : null}
-      {magicLinkAvailable ? <Button disabled={!validEmail(email) || emailError !== null || providers.isFetching} style={{ width: '100%' }} type="submit" variant={enforced?'ghost':'go'}>{enforced ? 'Request administrator recovery link' : 'Continue with email'}</Button> : null}
-      {availableProviders.map((provider) => <Button key={provider.provider} onClick={() => { globalThis.location.assign(providerStartPath(provider,nonce)); }} style={{ width: '100%' }} variant={enforced?'go':'ghost'}>Continue with {provider.displayName}</Button>)}
+      {magicLinkAvailable ? <Button disabled={request.isPending||startingProvider!==null||!validEmail(email) || emailError !== null || providers.isFetching} style={{ width: '100%' }} type="submit" variant={enforced?'ghost':'go'}>{request.isPending?'Sending link…':enforced ? 'Request administrator recovery link' : 'Continue with email'}</Button> : null}
+      {request.isError?<p role="alert">{request.error.message}</p>:null}
+      {availableProviders.map((provider) => <Button key={provider.provider} disabled={request.isPending||startingProvider!==null} onClick={() => { if(useAuthUiStore.getState().startingProvider)return;useAuthUiStore.getState().startProvider(provider.provider);globalThis.location.assign(providerStartPath(provider,nonce)); }} style={{ width: '100%' }} variant={enforced?'go':'ghost'}>{startingProvider===provider.provider?'Starting sign-in…':`Continue with ${provider.displayName}`}</Button>)}
       <p className="note">We will never reveal whether an account exists for an email address.</p>
     </div>
   </form></Message>;
@@ -221,8 +228,8 @@ export function AuthCallbackScreen(): ReactNode {
 
   useEffect(() => { if (token !== null) callback.mutate(); }, [token]);
   if (token === null) return <Message title="This link is incomplete"><p className="note">Request another sign-in link and try again.</p></Message>;
-  if (callback.isPending || callback.isIdle) return <AuthLayout><AuthCard><LoadingState /></AuthCard></AuthLayout>;
-  if (callback.isError) return <ApiFailure error={callback.error} retry={() => { callback.reset(); callback.mutate(); }} />;
+  if (callback.isPending || callback.isIdle) return <Message title="Completing sign-in"><Button disabled aria-busy="true">Completing sign-in…</Button></Message>;
+  if (callback.isError) return <ApiFailure error={callback.error} retry={()=>callback.mutateAsync()} />;
   if (callback.data?.deviceMismatch === true) return <Message title="Confirm this device"><p className="note">Preparing a confirmation prompt.</p></Message>;
   return <SignedIn />;
 }
@@ -240,11 +247,10 @@ export function ConfirmDeviceScreen(): ReactNode {
   });
 
   if (token === null) return <Message title="This link is incomplete"><p className="note">Request another sign-in link and try again.</p></Message>;
-  if (confirm.isPending) return <AuthLayout><AuthCard><LoadingState /></AuthCard></AuthLayout>;
-  if (confirm.isError) return <ApiFailure error={confirm.error} retry={() => { confirm.reset(); }} />;
+
   if (confirm.data === true) return <SignedIn message="This device has been confirmed." />;
   if (confirm.data === false) return <Message title="Sign-in link declined"><p className="note">No session was created. Request a new link when you are ready.</p></Message>;
-  return <Message title="Confirm this device"><p className="note">This link was opened in a different browser. Did you open it yourself?</p><Button onClick={() => { confirm.mutate(true); }} variant="go">Yes, confirm this device</Button><Button onClick={() => { confirm.mutate(false); }} variant="ghost">No, decline this link</Button></Message>;
+  return <Message title="Confirm this device"><p className="note">This link was opened in a different browser. Did you open it yourself?</p><Button disabled={confirm.isPending} onClick={() => { if(!confirm.isPending)confirm.mutate(true); }} variant="go">{confirm.isPending&&confirm.variables?'Confirming…':'Yes, confirm this device'}</Button><Button disabled={confirm.isPending} onClick={() => { if(!confirm.isPending)confirm.mutate(false); }} variant="ghost">{confirm.isPending&&!confirm.variables?'Declining…':'No, decline this link'}</Button>{confirm.isError?<p role="alert">{confirm.error.message}</p>:null}</Message>;
 }
 
 export function isAuthPath(pathname: string): boolean {

@@ -13,6 +13,7 @@ async function mock(page:Page){
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:projectId,name:'Reporting',company:{id:companyId,name:'Example Company'},industry:{id:companyId,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
   if(path.endsWith('/companies'))return state.companyError?route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Company membership could not be checked.',requestId:'company',retryable:true}}}):route.fulfill({json:{items:[{id:companyId,name:'Example Company',role:state.companyAdmin?'admin':'member',projectCount:1}],nextCursor:null}});
   if(path.endsWith('/members'))return route.fulfill({json:{items:[],nextCursor:null}});
+  if(path.endsWith('/type-observations'))return route.fulfill({json:{items:[],nextCursor:null}});
   if(path.endsWith('/token-key')){
    state.readCount++;
    if(state.loading)await new Promise(resolve=>setTimeout(resolve,1200));

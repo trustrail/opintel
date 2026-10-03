@@ -1175,3 +1175,67 @@ conversion. Re-introspection must preserve existing decisions and stable names
 on a same-source-type mapping repair, persist a repair diff, and refuse mapping
 removal. Single, bulk and rule decisions reject unsupported elements including
 withheld.
+
+### Unsupported type visibility regression coverage
+
+Introspection must complete for a mixture of supported, deliberately excluded and
+unmapped source types. The persisted/API diff identifies unsupported elements,
+their source types and reasons. Repeated discovery still reports outstanding
+unsupported findings. Source totals count them, undecided totals exclude them.
+Unmapped findings produce source/type observations; explicit exclusions do not.
+Observations obey tenant permissions and cursor pagination, survive failed or
+partial-schema introspection, and cease to be current on repair or removal without
+rewriting earlier run findings. The console shows the categories and counts at
+390, 900 and 1440 pixels, passes axe, and supports loading/error/empty states.
+Coverage: `test/introspection-job.test.ts`, `test/type-observation-routes.test.ts`,
+`test/sse.test.ts`, and `e2e/{introspection,sources,type-observations}.spec.ts`.
+
+Re-introspection maintenance regression: every non-archived Data sources row offers
+Re-introspect to an administrator, including when a run is pending/active. The
+existing endpoint returns 409 with the active run ID in its message and details;
+the console displays that message and links to the exact run. Archived rows have
+no action, and direct requests are refused without queueing work. A completed
+source can queue another run. Coverage: `test/source-registration.test.ts` and
+`e2e/sources.spec.ts`, including 390/900/1440 conflict views with axe.
+
+
+### Action acknowledgment and command replay regression coverage
+
+E2-034 also asserts that concurrent and later repetitions of an already-current,
+confirmed industry target leave the vocabulary revision unchanged after the first
+migration. Q-007 rename to the exact current name appends no audit event; concurrent
+identical changed-name submissions append exactly one.
+
+Company creation requires an actor-scoped Idempotency-Key: identical concurrent
+commands return the same company, changed bodies refuse, and a retry after failed
+relationship dispatch recovers the original pending grant without another company.
+The browser retains the key on retries and changes it for a new form command.
+
+The §5.5 acknowledgment regression checks delay writes/reads to assert visible
+pending text, disabled initiating controls, one request for a double-click, and
+refusals beside the action. They cover settings, rename, industry migration,
+shared refresh/retry controls and sign-in link issuance. Deliberate repeated
+accepted link issuance remains correct and is not deduplicated.
+
+### Rendered control conformance (item 1.14 follow-up)
+
+`npm run test:conformance` runs all existing non-performance browser scenarios,
+including the visual-tagged scenarios, with a control observer; it does not compare
+or update screenshots. Normal visual CI remains separate. The observer checks each
+committed DOM state, including controls inside collapsed panels and controls later
+removed, and retains findings from pages subsequently closed. Hidden input fields
+are non-visual data, not controls. Unclassified interactive controls fail.
+
+The gate requires all screen routes derived from `router.tsx` and the drawer,
+including project settings sections, object details, auth and placeholder routes.
+An unvisited screen fails. This guarantees route coverage, not every possible
+combination of data and UI state; each feature's existing loading/empty/error/ready
+and action fixtures supply those states. Every application browser suite must use
+the observed fixture. Observer overhead is excluded from performance runs.
+
+Counterexamples assert that the former native disclosures and migration select,
+a utility-only button, and a raw checkbox fail; `.fld input`, `.inp`, `.pick select`
+and `.toolchip` disclosures pass. Missing disclosure state/targets and mismatched
+visibility fail. The compact drawer's collapsed state is verified independently.
+Disabled/busy rules are checked against all three button variants, including hover.
+The report names the screen, control, structural markup and violated contract.
