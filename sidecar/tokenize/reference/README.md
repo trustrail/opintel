@@ -45,16 +45,16 @@ timestamp needs a declared element or schema zone, and is **rejected** if the
 local time is ambiguous (DST overlap) or nonexistent (DST gap) in that zone.
 Seconds are required; a date alone is rejected in timestamp mode.
 
-**Reading from the source.** Tokenization runs in the sidecar before rows
+**Reading from the source.** Tokenization runs in Opintel Engine before rows
 enter DuckDB. Tokenized columns are read as the source's own text, with the
 source session's `TimeZone` set to UTC. Never tokenize a value the Postgres
 driver has parsed: it reads naive timestamps in host local time and truncates
 to milliseconds.
 
-**Key.** 32 raw bytes, resolved through VaultPort in the sidecar only. Zero
+**Key.** 32 raw bytes, resolved through VaultPort in Opintel Engine only. Zero
 buffers after use, but do not claim it as a guarantee: Node's HMAC copies the
 key into OpenSSL, and a key read from an environment variable exists as an
-immutable string. The guarantee is that the key never leaves the sidecar
+immutable string. The guarantee is that the key never leaves Opintel Engine
 process and never appears in a log, span, error, SQL string or database row.
 
 ## Requirements for the TypeScript implementation
@@ -63,7 +63,7 @@ process and never appears in a log, span, error, SQL string or database row.
   `toLowerCase()` is not case folding. Commit a table generated from Unicode's
   `CaseFolding.txt`, statuses C and F.
 - **Trim needs the explicit set above**, not `String.prototype.trim`.
-- **Record the Unicode version at sidecar startup.** Node here reports 17.0,
+- **Record the Unicode version at Opintel Engine startup.** Node here reports 17.0,
   Python 15.0. Unicode's stability policies keep NFKC and case folding fixed
   for assigned characters, so they agree on everything the vectors use. A Node
   upgrade can still change tokens for characters assigned after the running

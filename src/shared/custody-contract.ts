@@ -30,10 +30,10 @@ export const custodyMessages={
  store:'Token key primary-store write failed. Check the configured key store and retry.',
  escrow:'Token key escrow write failed. Check the configured backup location and retry.',
  verify:'Token key backup verification failed. Check escrow readability and integrity before connecting a source.',
- state:'Token key custody metadata could not be saved or read. Check the sidecar custody directory.',
+ state:'Token key custody metadata could not be saved or read. Check the Opintel Engine custody directory.',
  conflict:'The custody candidate is unknown, expired, already used, or its current version has changed. Prepare the operation again.',
  restore:'Token key restore failed. Check the primary store; the retained escrow version has not been deleted.',
  busy:'Another custody operation is in progress. Retry after it finishes.',
  mismatch:'The escrow sentinel does not match the recorded key version. The key was not restored.',
 } as const;
-export function safeCustodyMessage(value:string):string {return Object.values(custodyMessages).find(message=>message===value)??'The sidecar custody operation failed. Check its storage availability and retry.';}
+export function safeCustodyMessage(value:string):string {return Object.values(custodyMessages).find(message=>message===value)??'The Opintel Engine custody operation failed. Check its storage availability and retry.';}

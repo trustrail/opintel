@@ -22,7 +22,7 @@ export async function stopRecordedSidecar(options: { pidFile: string; entryPoint
   let pid: number | undefined;
   try {
     const recorded = (await readFile(options.pidFile,'utf8')).trim();
-    if (!/^[1-9][0-9]*$/.test(recorded) || !Number.isSafeInteger(Number(recorded))) throw new Error(`Invalid sidecar PID file: ${options.pidFile}. Inspect it before retrying dev:up.`);
+    if (!/^[1-9][0-9]*$/.test(recorded) || !Number.isSafeInteger(Number(recorded))) throw new Error(`Invalid Opintel Engine PID file: ${options.pidFile}. Inspect it before retrying dev:up.`);
     pid = Number(recorded);
   } catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error; }
   if (pid !== undefined && alive(pid)) {
@@ -30,7 +30,7 @@ export async function stopRecordedSidecar(options: { pidFile: string; entryPoint
     try { command = (await exec('ps',['-p',String(pid),'-o','command='])).stdout; }
     catch (error) { if (alive(pid)) throw error; command = ''; }
     if (command && !command.trim().split(/\s+/).includes(options.entryPoint))
-      throw new Error(`Recorded sidecar PID ${pid} belongs to another command. Refusing to signal it; inspect ${options.pidFile}.`);
+      throw new Error(`Recorded Opintel Engine PID ${pid} belongs to another command. Refusing to signal it; inspect ${options.pidFile}.`);
     if (alive(pid)) process.kill(pid,'SIGTERM');
   }
   const deadline = Date.now()+options.timeoutMs;
@@ -41,5 +41,5 @@ export async function stopRecordedSidecar(options: { pidFile: string; entryPoint
     }
     await delay(50);
   } while (Date.now()<deadline);
-  throw new Error(`Cannot restart sidecar: ${pid === undefined ? 'no recorded PID' : `recorded PID ${pid}`} or port ${options.host}:${options.port} is still active after ${options.timeoutMs}ms. No replacement was started. Inspect the process and ${options.pidFile}; stop the listener before retrying dev:up.`);
+  throw new Error(`Cannot restart Opintel Engine: ${pid === undefined ? 'no recorded PID' : `recorded PID ${pid}`} or port ${options.host}:${options.port} is still active after ${options.timeoutMs}ms. No replacement was started. Inspect the process and ${options.pidFile}; stop the listener before retrying dev:up.`);
 }

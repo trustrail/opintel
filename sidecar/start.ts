@@ -44,13 +44,13 @@ async function main(): Promise<void> {
     // This deadline covers the entire process, including watcher I/O and audit
     // flushing. exitCode alone cannot terminate a process with live handles.
     const deadline = setTimeout(() => {
-      console.error('Sidecar shutdown deadline exceeded. Unfinished register locks require operator recovery.');
+      console.error('Opintel Engine shutdown deadline exceeded. Unfinished register locks require operator recovery.');
       process.exit(1);
     }, config.shutdownTimeoutMs);
     void Promise.all([host.close(), ...watchers.map((watcher) => watcher.close())])
       .then(() => audit.close())
       .then(() => { clearTimeout(deadline); process.exit(0); })
-      .catch(() => { console.error('Sidecar shutdown failed.'); process.exit(1); });
+      .catch(() => { console.error('Opintel Engine shutdown failed.'); process.exit(1); });
   };
   process.on('SIGTERM',stop); process.on('SIGINT',stop);
   try {
@@ -72,6 +72,6 @@ async function main(): Promise<void> {
     await audit.close().catch(() => undefined);
     throw error;
   }
-  console.info('Sidecar ready.',{host:config.host,port:config.port});
+  console.info('Opintel Engine ready.',{host:config.host,port:config.port});
 }
-void startupCheck('startup initialization', main).catch((error:unknown)=>{console.error(error instanceof Error ? error.message : 'Sidecar startup failed.');process.exit(1);});
+void startupCheck('startup initialization', main).catch((error:unknown)=>{console.error(error instanceof Error ? error.message : 'Opintel Engine startup failed.');process.exit(1);});

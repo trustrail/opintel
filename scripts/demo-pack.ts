@@ -53,7 +53,7 @@ export async function demoPack(command: string, projectArg: string, userArg: str
     await withPlatformAdmin({actor:{kind:'user',id:ctx.userId}},tx=>tx.query(
       `UPDATE demo_source_template SET deployment_ref=jsonb_set(deployment_ref,ARRAY[$2::text],$3::jsonb) WHERE id=$1`,
       [templateId,ctx.projectId,JSON.stringify({sourceId,credentialRef,landingZone:join(root,'inbox'),sourceName})]));
-    console.info(`Prepared demo source ${sourceId}.` + (options.showNextSteps === false ? '' : ' Restart the sidecar with dev:up, start dev:api, then run demo:pack provision with this source ID.'));
+    console.info(`Prepared demo source ${sourceId}.` + (options.showNextSteps === false ? '' : ' Restart Opintel Engine with dev:up, start dev:api, then run demo:pack provision with this source ID.'));
     return;
   }
   if (!prepared || prepared.sourceId !== sourceId) throw new Error('Prepare this source before connecting.');
@@ -71,4 +71,4 @@ export async function demoPack(command: string, projectArg: string, userArg: str
   console.info(`Demo source ${sourceId} connected. Inspect its catalogue and register for outcomes.`);
 }
 async function main(){loadDevEnvironment();const [command,project,user,source]=process.argv.slice(2);await demoPack(command??'',project??'',user??'',source);}
-if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) void main().catch((error: unknown) => { if (error instanceof DomainError) {console.error({ event: 'demo.command_failed', errorCategory: error.code });process.stderr.write(error.message+'\n');} console.error('Demo command failed. Check the project, source, configured Secret reference, running API/sidecar and local register. No existing arrivals were replaced.'); process.exitCode=1; });
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) void main().catch((error: unknown) => { if (error instanceof DomainError) {console.error({ event: 'demo.command_failed', errorCategory: error.code });process.stderr.write(error.message+'\n');} console.error('Demo command failed. Check the project, source, configured Secret reference, running API/Opintel Engine and local register. No existing arrivals were replaced.'); process.exitCode=1; });

@@ -38,7 +38,7 @@ it('bounds real SIGTERM shutdown while a watcher is waiting on a receipt',async(
  await writeFile(file,JSON.stringify({...config,port:0,shutdownTimeoutMs:300,auditFile:join(directory,'watcher-audit.jsonl'),receiptUrl:`https://127.0.0.1:${address.port}`,landingZones:[{directory:zone,stateFile,rulesFile:rules,projectId:randomUUID(),sourceId,pollMs:10,landing:{name:'shutdown_'+sourceId.replaceAll('-',''),credentialRef:'secret://test/shutdown',strategy:'append_as_at'}}]}));
  const process=launch(file,{...globalThis.process.env,OPINTEL_SECRET_TEST_SHUTDOWN:globalThis.process.env.TEST_DATABASE_URL});
  try{
-  await vi.waitFor(()=>expect(process.output()).toContain('Sidecar ready.'),{timeout:10000});
+  await vi.waitFor(()=>expect(process.output()).toContain('Opintel Engine ready.'),{timeout:10000});
   await vi.waitFor(()=>expect(pending).toBe(true));
   process.child.kill('SIGTERM');
   // The receipt's own timeout is nine seconds: the process-wide deadline must
@@ -73,7 +73,7 @@ it('refuses an unresponsive recorded PID and an unrecorded port owner without st
  await writeFile(file,JSON.stringify({...config,port,shutdownTimeoutMs:100,auditFile:join(directory,'stale-audit.jsonl')}));
  const running=launch(file);const pidFile=join(directory,'sidecar.pid');
  try{
-  await vi.waitFor(()=>expect(running.output()).toContain('Sidecar ready.'),{timeout:10000});
+  await vi.waitFor(()=>expect(running.output()).toContain('Opintel Engine ready.'),{timeout:10000});
   await writeFile(pidFile,String(running.child.pid));running.child.kill('SIGSTOP');
   await expect(startDevelopmentSidecar(directory)).rejects.toThrow(`recorded PID ${running.child.pid}`);
   expect(await readFile(pidFile,'utf8')).toBe(String(running.child.pid));expect(await portAvailable('127.0.0.1',port)).toBe(false);
@@ -94,7 +94,7 @@ it('reports the occupied listener instead of a checklist of possible startup cau
  const running=launch(file);
  try {
   await expect(running.exited).resolves.toEqual({code:1,signal:null});
-  expect(running.output()).toContain(`Sidecar startup failed: HTTPS listener 127.0.0.1:${address.port}: the address and port are already in use.`);
+  expect(running.output()).toContain(`Opintel Engine startup failed: HTTPS listener 127.0.0.1:${address.port}: the address and port are already in use.`);
   expect(running.output()).not.toContain('Check TLS, port');
  } finally {forceCleanup(running.child);await running.exited;await new Promise<void>(resolve=>other.close(()=>resolve()));}
 },15000);
@@ -103,6 +103,6 @@ it('dev:up surfaces this child startup diagnostic without replaying an old log f
  const root=join(directory,'failed-child');await prepareSidecarDevelopment(root);
  const file=join(root,'service.json');const original=JSON.parse(await readFile(file,'utf8')) as Record<string,unknown>;
  await writeFile(file,JSON.stringify({...original,port:await availablePort(),auditFile:'.'}));
- await writeFile(join(root,'service.log'),'Sidecar startup failed: old failure\n');
- await expect(startDevelopmentSidecar(root)).rejects.toThrow(`Sidecar startup failed: audit file ${root}: the configured file is a directory.`);
+ await writeFile(join(root,'service.log'),'Opintel Engine startup failed: old failure\n');
+ await expect(startDevelopmentSidecar(root)).rejects.toThrow(`Opintel Engine startup failed: audit file ${root}: the configured file is a directory.`);
 },15000);

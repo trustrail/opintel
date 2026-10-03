@@ -41,7 +41,7 @@ The SQL below uses those current names; apply 020 before following it.
    WHERE (sheet IS NULL) = (sheet_index IS NULL);
    ```
 
-4. Re-export the rule snapshots and provision them to the sidecar. During this
+4. Re-export the rule snapshots and provision them to Opintel Engine. During this
    window, incomplete declarations refuse extraction and quarantine files;
    nullable database columns do not enable a fallback or an inferred locale.
    Existing quarantines are not silently released by editing a rule.

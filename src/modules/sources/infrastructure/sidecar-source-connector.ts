@@ -28,10 +28,10 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
   constructor(readonly kind: SourceKind, private readonly context: SourceConnectorContext, private readonly options: SidecarOptions) {
     this.url = new URL(options.baseUrl);
     if (this.url.protocol !== 'https:' || this.url.username || this.url.password || this.url.search || this.url.hash) {
-      throw new Error('Sidecar requires an HTTPS URL without credentials, query or fragment.');
+      throw new Error('Opintel Engine requires an HTTPS URL without credentials, query or fragment.');
     }
     this.timeoutMs = options.timeoutMs ?? 9_000;
-    if (!Number.isInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs >= 10_000) throw new Error('Sidecar timeout must be between 1 and 9999 milliseconds.');
+    if (!Number.isInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs >= 10_000) throw new Error('Opintel Engine timeout must be between 1 and 9999 milliseconds.');
     this.fingerprint = new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
   }
 
@@ -92,8 +92,8 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     return result.ok ? ok(result.value.rows) : result;
   }
 
-  private invalid(): Result<never> { return err(new DomainError('validation_failed', 'Invalid sidecar request.')); }
-  private malformed(): Result<never> { return err(new DomainError('dependency_unavailable', 'Sidecar returned an invalid response.')); }
+  private invalid(): Result<never> { return err(new DomainError('validation_failed', 'Invalid Opintel Engine request.')); }
+  private malformed(): Result<never> { return err(new DomainError('dependency_unavailable', 'Opintel Engine returned an invalid response.')); }
 
   private async call<T>(path: string, ref: SecretRef, payload: unknown, schema: z.ZodType<T>, abort?: AbortSignal): Promise<Result<T>> {
     const body = wire.envelope.safeParse({ requestId: this.context.requestId, projectId: this.context.projectId, sourceId: this.context.sourceId, credentialRef: ref, payload });
@@ -105,7 +105,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
       if (!this.contractChecked) {
         const response = await this.post('/health', undefined, signal);
         const version = wire.healthContract.safeParse(response);
-        if (version.success && version.data.contract !== 2) return err(new DomainError('dependency_unavailable', 'Sidecar contract mismatch: this application requires contract 2.'));
+        if (version.success && version.data.contract !== 2) return err(new DomainError('dependency_unavailable', 'Opintel Engine contract mismatch: this application requires contract 2.'));
         if (!wire.healthResponse.safeParse(response).success) return this.malformed();
         this.contractChecked = true;
       }
@@ -113,7 +113,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
       return response.success ? ok(response.data) : this.malformed();
     } catch (error) {
       if (error instanceof DomainError) return err(error);
-      return err(new DomainError('source_unavailable', abort?.aborted ? 'Source request cancelled.' : signal.aborted ? 'Source connection timed out.' : 'Sidecar connection failed or returned an invalid response.', undefined, true));
+      return err(new DomainError('source_unavailable', abort?.aborted ? 'Source request cancelled.' : signal.aborted ? 'Source connection timed out.' : 'Opintel Engine connection failed or returned an invalid response.', undefined, true));
     }
   }
 
@@ -140,17 +140,17 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
           chunks.push(chunk);
         });
         res.on('end', () => {
-          if (!/^application\/json(?:\s*;|$)/i.test(res.headers['content-type'] ?? '')) { reject(new Error('Invalid sidecar response.')); return; }
+          if (!/^application\/json(?:\s*;|$)/i.test(res.headers['content-type'] ?? '')) { reject(new Error('Invalid Opintel Engine response.')); return; }
           try {
             const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
             if (res.statusCode !== 200) {
               const parsed = serviceErrorEnvelope.safeParse(body);
-              if (!parsed.success) { reject(new Error('Invalid sidecar error response.')); return; }
+              if (!parsed.success) { reject(new Error('Invalid Opintel Engine error response.')); return; }
               reject(new DomainError(parsed.data.error.code, safeSourceMessage(parsed.data.error.code, parsed.data.error.message), undefined, parsed.data.error.retryable));
               return;
             }
             resolve(body);
-          } catch { reject(new Error('Invalid sidecar JSON.')); }
+          } catch { reject(new Error('Invalid Opintel Engine JSON.')); }
         });
       });
       req.on('error', reject);

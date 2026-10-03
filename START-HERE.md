@@ -17,7 +17,7 @@ npm run dev:up
 
 This starts Compose and waits for Postgres, Redis and SpiceDB readiness, creates
 both `opintel` and `opintel_test` if missing, applies all migrations to both, and
-loads `docs/opintel-schema.zed`, and starts the local sidecar over pinned mTLS. It is safe to run again: existing databases are
+loads `docs/opintel-schema.zed`, and starts the local Opintel Engine over pinned mTLS. It is safe to run again: existing databases are
 kept and only pending migrations run. SpiceDB dispatch caching remains enabled.
 
 Use this command after `docker compose down` / `up` or a volume reset. Compose
@@ -50,10 +50,10 @@ fail once with their names and the recovery command `npm run dev:up`, rather tha
 producing failures in every suite. Tests do not create databases or load schemas
 as a substitute for this preflight. CI uses the same bootstrap and checks.
 
-## Local sidecar (S1)
+## Local Opintel Engine (S1)
 
 `npm run dev:up` generates a local CA and separate server/client certificates
-under ignored `tmp/sidecar/tls/`, then starts the sidecar as a background Node
+under ignored `tmp/sidecar/tls/`, then starts Opintel Engine as a background Node
 process at **https://127.0.0.1:3100**. It waits for an authenticated, pinned
 `POST /health` with contract 2. A healthy existing process is reused. This is a
 local development process, not a container image or deployment package.
@@ -64,25 +64,25 @@ local development process, not a container image or deployment package.
 - Durable sampling audit: `tmp/sidecar/sampling-audit.jsonl`, identifiers and
   outcomes only. Source rows and resolved credentials are never written there.
 
-To run in the foreground after stopping the background sidecar with SIGTERM:
+To run in the foreground after stopping the background Opintel Engine with SIGTERM:
 
 ```sh
 npm run dev:sidecar -- tmp/sidecar/service.json
 ```
 
-`dev:up` restarts the recorded sidecar: it checks the PID's command, sends SIGTERM,
+`dev:up` restarts the recorded Opintel Engine: it checks the PID's command, sends SIGTERM,
 and waits for process exit and port release before starting a replacement. An
 unresponsive PID or occupied port stops bootstrap with a diagnostic; no second
-sidecar is launched and no unrecorded listener is killed. Concurrent bootstrap
+Opintel Engine is launched and no unrecorded listener is killed. Concurrent bootstrap
 is guarded by `tmp/sidecar/startup.lock`; remove a stale lock only after verifying
 that the previous `dev:up` has exited.
 
 SIGTERM cancels source requests, drains the current durable ingest operation and
 flushes the audit. `shutdownTimeoutMs` bounds the whole process. If draining fails
-or exceeds it, the sidecar exits nonzero and reports that register locks may need
+or exceeds it, Opintel Engine exits nonzero and reports that register locks may need
 operator recovery. Configuration changes take effect on the next `dev:up`.
 The generated certificates last 30 days; to regenerate them, stop the
-sidecar, move `tmp/sidecar/tls` aside, and rerun `dev:up`. Never commit keys.
+Opintel Engine, move `tmp/sidecar/tls` aside, and rerun `dev:up`. Never commit keys.
 
 The startup command accepts a configuration filename; alternatively set
 `SIDECAR_CONFIG_FILE`. Relative certificate and audit paths are resolved beside
@@ -91,7 +91,7 @@ certificate/client certificate pin, audit path, source connection ceiling,
 statement/operation timeouts, request-body bound and shutdown deadline.
 Keep `client.json` in sync when changing the server's address or identity.
 
-Source credentials belong to the sidecar. In development, supply them through
+Source credentials belong to Opintel Engine. In development, supply them through
 its environment or ignored `.env.sidecar.local`. For example, the reference
 `secret://customer/warehouse` resolves from `OPINTEL_SECRET_CUSTOMER_WAREHOUSE`.
 The value is the customer Postgres connection URI. The application sends only
@@ -117,7 +117,7 @@ and `/estimate`. `/health` has no body; the other routes use §2.7's envelope.
 Cancellation is an HTTP request abort, not another endpoint. OpenAPI is in
 `sidecar/openapi.json`, generated from the shared Zod schemas with
 `npm run sidecar:openapi`. Integration tests start isolated hosts with real
-certificates and test Postgres; they do not depend on the background dev sidecar.
+certificates and test Postgres; they do not depend on the background Opintel Engine.
 
 ## 2. Open Codex
 
@@ -237,7 +237,7 @@ writes a file into the customer's Postgres, so the defensible claims are that
 environment**. Both hold; the unqualified version did not.
 
 For item 3.7 landing-zone configuration, rule snapshot provisioning, and local
-registration/quarantine state, see [the sidecar ingest instructions](sidecar/README.md#landing-watch-and-identify-37).
+registration/quarantine state, see [the Opintel Engine ingest instructions](sidecar/README.md#landing-watch-and-identify-37).
 The watcher only identifies and hashes files; extraction and Postgres landing are later items.
 
 ## Isolated authorization timing check
@@ -256,7 +256,7 @@ after `npm test`. Do not run the two commands concurrently. Both use the normal
 service-readiness checks; bootstrap with `npm run dev:up` first.
 
 The reinsurance demo pack and its local preparation/provisioning commands are
-documented in [the sidecar demo instructions](sidecar/README.md#reinsurance-demo-pack-311).
+documented in [the Opintel Engine demo instructions](sidecar/README.md#reinsurance-demo-pack-311).
 `dev:up` also creates the separate `opintel_demo` landing database; application
 migrations run only on the application and test databases.
 
@@ -303,9 +303,9 @@ tokens. See [custody operation and recovery notes](sidecar/tokenize/README.md#ke
 These directories are not independent disaster-recovery custody; production
 KeyStore and KeyEscrow adapters must use separately controlled locations.
 
-Secret-reference upgrade (migration 036): stop the application and sidecar together,
+Secret-reference upgrade (migration 036): stop the application and Opintel Engine together,
 apply the forward migration, and change credential references in the operator's
-sidecar `service.json` (`demo.credentialRef` and
+Opintel Engine `service.json` (`demo.credentialRef` and
 `landingZones[].landing.credentialRef`) from `vault://` to `secret://` before
 restarting both. The migration rewrites source, identity-provider and demo
 preparation references in the application database. It never resolves a secret.

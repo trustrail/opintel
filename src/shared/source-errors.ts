@@ -12,9 +12,9 @@ export const sourceMessages = {
   demoRegisterUnavailable: 'The demo arrival register could not be read or validated. Ask the deployment operator to restore the register, then retry without deleting arrivals.',
   demoWriteFailed: 'Demo files could not be written to the landing zone. Ask the deployment operator to check write permissions and available storage, then retry.',
   demoUnexpected: 'Demo provisioning stopped because of an unexpected internal error. Contact the deployment operator, then retry; existing arrivals will be preserved.',
-  landingWait: 'Demo files have not finished registering. Check the sidecar and receipt listener, then retry; existing arrivals will be preserved.',
+  landingWait: 'Demo files have not finished registering. Check the Opintel Engine and receipt listener, then retry; existing arrivals will be preserved.',
   cancelled: 'Source preparation was interrupted. Retry to continue from the existing source.',
-  unexpected: 'Source preparation could not finish. Check the sidecar and source connection, then retry.',
+  unexpected: 'Source preparation could not finish. Check the Opintel Engine and source connection, then retry.',
 } as const;
 const fallback: Partial<Record<ErrorCode,string>> = {
   forbidden: 'This source operation is not permitted. Check the required permission or sampling consent before retrying.',
@@ -22,7 +22,7 @@ const fallback: Partial<Record<ErrorCode,string>> = {
   conflict: 'The source operation conflicts with existing state. Ask the deployment operator to inspect the source and local register before retrying.',
   not_found: 'The source or demo preparation was not found. Check the project preparation before retrying.',
   source_unavailable: 'The source could not be reached. Check its connection and credentials, then retry.',
-  dependency_unavailable: 'A source dependency is unavailable. Check the sidecar, secret-store configuration and receipt listener, then retry.',
+  dependency_unavailable: 'A source dependency is unavailable. Check the Opintel Engine, secret-store configuration and receipt listener, then retry.',
   object_unavailable: 'The source object is unavailable. Check the selected schemas and source permissions, then retry.',
   budget_exceeded: 'The source connection limit was reached. Wait for active operations to finish, then retry.',
 };

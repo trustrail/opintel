@@ -5,7 +5,7 @@ import { ZodError } from 'zod';
 export class StartupCheckError extends Error {
   readonly code: string | undefined;
   constructor(check: string, reason: string, options?: ErrorOptions) {
-    super(`Sidecar startup failed: ${check}: ${reason}`, options);
+    super(`Opintel Engine startup failed: ${check}: ${reason}`, options);
     this.name = 'StartupCheckError';
     const cause = options?.cause;
     this.code = typeof cause === 'object' && cause !== null && 'code' in cause && typeof cause.code === 'string' ? cause.code : undefined;
@@ -17,7 +17,7 @@ const reasons: Readonly<Record<string, string>> = {
   ENOTDIR: 'a configured path component is not a directory.',
   EISDIR: 'the configured file is a directory.',
   EACCES: 'permission denied.', EPERM: 'operation not permitted.',
-  EEXIST: 'the state lock already exists. Confirm the previous sidecar has stopped before removing the stale lock.',
+  EEXIST: 'the state lock already exists. Confirm the previous Opintel Engine has stopped before removing the stale lock.',
   EADDRINUSE: 'the address and port are already in use.',
   EADDRNOTAVAIL: 'the listen address is not available on this host.',
   ENOSPC: 'the filesystem has no space left.', EROFS: 'the filesystem is read-only.',

@@ -36,7 +36,7 @@ export type SidecarTls = { ca: string; cert: string; key: string; clientPin: str
 export async function loadSidecarConfig(file: string): Promise<{ config: SidecarConfig; tls: SidecarTls }> {
   const value = await startupCheck(`configuration file ${file}`, async () => JSON.parse(await readFile(file, 'utf8')) as unknown);
   const parsed = sidecarConfigSchema.safeParse(value);
-  if (!parsed.success) throw new StartupCheckError('configuration schema', `Invalid sidecar configuration fields: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}.`);
+  if (!parsed.success) throw new StartupCheckError('configuration schema', `Invalid Opintel Engine configuration fields: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}.`);
   const config = parsed.data;
   const read = async (field: keyof SidecarConfig['tls']) => startupCheck(`TLS ${field}`, () => readFile(resolve(dirname(file), config.tls[field]), 'utf8'));
   const [ca, cert, key, clientPin] = await Promise.all([read('caFile'), read('certFile'), read('keyFile'), read('clientPinFile')]);

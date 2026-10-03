@@ -205,7 +205,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     let output='';child.stdout.on('data',(chunk:Buffer)=>{output+=chunk.toString();});child.stderr.on('data',(chunk:Buffer)=>{output+=chunk.toString();});
     const exited=new Promise<{code:number|null;signal:NodeJS.Signals|null}>((resolve,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>resolve({code,signal}));});
     try{
-      await vi.waitFor(()=>expect(output).toContain('Sidecar ready.'),{timeout:10000});
+      await vi.waitFor(()=>expect(output).toContain('Opintel Engine ready.'),{timeout:10000});
       const result=client('slow',{...options,baseUrl:`https://127.0.0.1:${port}`,timeoutMs:9000}).sampleTopValues(ref,[elementId],2);
       await vi.waitFor(async()=>expect((await fixture(async(db)=>(await db.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND state='active' AND query LIKE '%slow%'",[role])).rows)).length).toBe(1));
       child.kill('SIGTERM');
@@ -221,7 +221,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
   it('validates configuration without reflecting secret values or accepting unknown fields',async()=>{
     expect(sidecarConfigSchema.safeParse({...config,limits:{...config.limits,maxConnectionsPerSource:0}}).success).toBe(false);
     const invalid=join(directory,'invalid.json');await writeFile(invalid,JSON.stringify({password:'sentinel-password'}));
-    await expect(loadSidecarConfig(invalid)).rejects.toThrow('Invalid sidecar configuration fields');
+    await expect(loadSidecarConfig(invalid)).rejects.toThrow('Invalid Opintel Engine configuration fields');
     await expect(loadSidecarConfig(invalid)).rejects.not.toThrow('sentinel-password');
     const object={id:ObjectId(randomUUID()),sourceId,schema,name:'records'};
     expect(await client().estimateRowCount(ref,object)).toEqual(ok(3));

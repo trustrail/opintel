@@ -11,24 +11,24 @@ import type { CanonicaliserCatalog } from '../application/canonicalisers.js';
 import type { CustodyPort } from '../application/key-custody.js';
 export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
  private checked=false;private readonly pin:string;private readonly url:URL;
- constructor(private readonly options:SidecarOptions){this.url=new URL(options.baseUrl);if(this.url.protocol!=='https:'||this.url.username||this.url.password)throw new Error('Custody requires a pinned HTTPS sidecar.');this.pin=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;}
+ constructor(private readonly options:SidecarOptions){this.url=new URL(options.baseUrl);if(this.url.protocol!=='https:'||this.url.username||this.url.password)throw new Error('Custody requires a pinned HTTPS Opintel Engine.');this.pin=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;}
  async canonicalisers():Promise<Result<readonly string[]>> {
   try {
    // Refresh discovery for assignment: a cached manifest must not hide a deployment.
    const response=await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??9000));
-   if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: canonicaliser discovery requires contract 2.'));
+   if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: canonicaliser discovery requires contract 2.'));
    return ok(healthResponse.parse(response).canonicalisers);
-  }catch{return err(new DomainError('dependency_unavailable','Canonicaliser discovery failed. Check the pinned sidecar connection and its health contract before assigning a canonicaliser.',undefined,true));}
+  }catch{return err(new DomainError('dependency_unavailable','Canonicaliser discovery failed. Check the pinned Opintel Engine connection and its health contract before assigning a canonicaliser.',undefined,true));}
  }
  async call<K extends CustodyOperation>(projectId:ProjectId,operation:K,payload:z.input<(typeof custodyOperations)[K]['request']>):Promise<Result<CustodyResponse<K>>>{
   const parsed=custodyOperations[operation].request.safeParse(payload);if(!parsed.success)return err(new DomainError('validation_failed','Invalid custody request.'));
   const signal=AbortSignal.timeout(this.options.timeoutMs??9000);
   try{
-   if(!this.checked){const response=await this.post('/health',undefined,signal);if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Sidecar contract mismatch: custody requires contract 2.'));healthResponse.parse(response);this.checked=true;}
+   if(!this.checked){const response=await this.post('/health',undefined,signal);if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: custody requires contract 2.'));healthResponse.parse(response);this.checked=true;}
    const body=custodyEnvelope.parse({requestId:randomUUID(),projectId,payload:parsed.data});
    const value=custodyOperations[operation].response.parse(await this.post('/custody/'+operation,body,signal));
    return ok(value as CustodyResponse<K>);
-  }catch(error){return err(error instanceof DomainError?error:new DomainError('dependency_unavailable','The custody sidecar could not be reached or returned an invalid response. Check its connection and retry.',undefined,true));}
+  }catch(error){return err(error instanceof DomainError?error:new DomainError('dependency_unavailable','The Opintel Engine custody service could not be reached or returned an invalid response. Check its connection and retry.',undefined,true));}
  }
  private post(path:string,body:unknown,signal:AbortSignal):Promise<unknown>{return new Promise((resolve,reject)=>{
   const encoded=body===undefined?undefined:JSON.stringify(body);

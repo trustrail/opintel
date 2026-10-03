@@ -21,9 +21,9 @@ export async function prepareSidecarDevelopment(directory=sidecarDevDirectory): 
   await mkdir(tlsDir,{recursive:true,mode:0o700});
   const complete=await access(resolve(tlsDir,'client.pem')).then(()=>true,()=>false);
   if (!complete) {
-    const openssl=async(...args:string[])=>{try{await exec('openssl',args,{cwd:tlsDir});}catch{throw new Error('Local sidecar certificate generation failed. Install OpenSSL; inspect tmp/sidecar/tls for an incomplete setup.');}};
+    const openssl=async(...args:string[])=>{try{await exec('openssl',args,{cwd:tlsDir});}catch{throw new Error('Local Opintel Engine certificate generation failed. Install OpenSSL; inspect tmp/sidecar/tls for an incomplete setup.');}};
     // Refuse to overwrite keys after an interrupted setup.
-    if(await access(resolve(tlsDir,'ca.key')).then(()=>true,()=>false))throw new Error('Incomplete sidecar TLS setup. Move tmp/sidecar/tls aside and rerun dev:up.');
+    if(await access(resolve(tlsDir,'ca.key')).then(()=>true,()=>false))throw new Error('Incomplete Opintel Engine TLS setup. Move tmp/sidecar/tls aside and rerun dev:up.');
     await openssl('req','-x509','-newkey','rsa:2048','-nodes','-keyout','ca.key','-out','ca.pem','-subj','/CN=Opintel local development CA','-days','30');
     for(const name of ['server','client']){
       await openssl('req','-newkey','rsa:2048','-nodes','-keyout',`${name}.key`,'-out',`${name}.csr`,'-subj',`/CN=Opintel local ${name}`);
@@ -49,11 +49,11 @@ export async function checkLocalSidecar(file=resolve(sidecarDevDirectory,'client
   const fingerprint=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
   await new Promise<void>((resolve,reject)=>{
     const req=request(new URL('/health',options.baseUrl),{method:'POST',agent:false,...options.tls,minVersion:'TLSv1.3',rejectUnauthorized:true,signal:AbortSignal.timeout(1500),
-      checkServerIdentity:(host,cert)=>checkServerIdentity(host,cert)??(cert.fingerprint256===fingerprint?undefined:new Error('Sidecar pin mismatch.'))},(res)=>{
+      checkServerIdentity:(host,cert)=>checkServerIdentity(host,cert)??(cert.fingerprint256===fingerprint?undefined:new Error('Opintel Engine pin mismatch.'))},(res)=>{
       let body='';
       res.on('error',reject);
       res.on('data',(chunk:Buffer)=>{body+=chunk.toString('utf8');if(body.length>8192)res.destroy(new Error('Invalid health response.'));});
-      res.on('end',()=>{try{const health=healthResponse.parse(JSON.parse(body) as unknown);if(res.statusCode!==200||health.contract!==2)throw new Error('Contract mismatch');resolve();}catch{reject(new Error('Local sidecar has an invalid health response or contract mismatch.'));}});
+      res.on('end',()=>{try{const health=healthResponse.parse(JSON.parse(body) as unknown);if(res.statusCode!==200||health.contract!==2)throw new Error('Contract mismatch');resolve();}catch{reject(new Error('Local Opintel Engine has an invalid health response or contract mismatch.'));}});
     });
     req.on('error',reject);req.end();
   });
@@ -62,7 +62,7 @@ export async function checkLocalSidecar(file=resolve(sidecarDevDirectory,'client
 export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Promise<void> {
   await prepareSidecarDevelopment(directory);
   const lockFile=resolve(directory,'startup.lock');
-  const lock=await open(lockFile,'wx',0o600).catch(()=>{throw new Error(`Sidecar startup is locked: ${lockFile}. Check for another dev:up or an interrupted startup before removing the lock.`);});
+  const lock=await open(lockFile,'wx',0o600).catch(()=>{throw new Error(`Opintel Engine startup is locked: ${lockFile}. Check for another dev:up or an interrupted startup before removing the lock.`);});
   try {
   const {config}=await loadSidecarConfig(resolve(directory,'service.json'));
   const entryPoint=fileURLToPath(new URL('../sidecar/start.ts',import.meta.url));
@@ -73,8 +73,8 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
   const logOffset=(await output.stat()).size;
   const startupFailure=async()=>{
     const log=await readFile(resolve(directory,'service.log'));
-    const message=log.subarray(logOffset).toString('utf8').split('\n').find(line=>line.startsWith('Sidecar startup failed:'));
-    return new Error(message ?? `Sidecar process exited without a startup diagnostic. Inspect ${resolve(directory,'service.log')}.`);
+    const message=log.subarray(logOffset).toString('utf8').split('\n').find(line=>line.startsWith('Opintel Engine startup failed:'));
+    return new Error(message ?? `Opintel Engine process exited without a startup diagnostic. Inspect ${resolve(directory,'service.log')}.`);
   };
   const child=spawn(process.execPath,['--import','tsx',entryPoint,resolve(directory,'service.json')],{
     cwd:fileURLToPath(new URL('../',import.meta.url)),detached:true,stdio:['ignore',output.fd,output.fd],env:process.env,
@@ -86,11 +86,11 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
     if(child.pid!==undefined)await writeFile(pidFile,String(child.pid)+'\n',{mode:0o600});
     for(let attempt=0;attempt<40;attempt++){
       if(failed)throw await startupFailure();
-      try{await checkLocalSidecar(resolve(directory,'client.json'));if(failed)throw new Error('Sidecar exited');
-        child.unref();console.info(`Local sidecar ready. Client configuration: ${resolve(directory,'client.json')}.`);return;
+      try{await checkLocalSidecar(resolve(directory,'client.json'));if(failed)throw new Error('Opintel Engine exited');
+        child.unref();console.info(`Local Opintel Engine ready. Client configuration: ${resolve(directory,'client.json')}.`);return;
       }catch{await delay(250);}
     }
-    throw new Error('Local sidecar did not become healthy. Check tmp/sidecar/service.log.');
+    throw new Error('Local Opintel Engine did not become healthy. Check tmp/sidecar/service.log.');
   }catch(error:unknown){child.kill('SIGTERM');await stop();throw error;}
   } finally {await lock.close();await unlink(lockFile);}
 }

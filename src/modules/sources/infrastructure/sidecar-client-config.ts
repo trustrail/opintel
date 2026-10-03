@@ -14,5 +14,5 @@ export async function loadSidecarClientOptions(file: string): Promise<SidecarOpt
     const read = (path:string)=>readFile(resolve(dirname(file),path),'utf8');
     const [ca,cert,key,pinnedCertificate] = await Promise.all([read(config.caFile),read(config.certFile),read(config.keyFile),read(config.serverPinFile)]);
     return {baseUrl:config.baseUrl,timeoutMs:config.timeoutMs,tls:{ca,cert,key,pinnedCertificate}};
-  } catch { throw new Error('Sidecar client configuration or TLS files are missing or invalid. Run npm run dev:up for local configuration.'); }
+  } catch { throw new Error('Opintel Engine client configuration or TLS files are missing or invalid. Run npm run dev:up for local configuration.'); }
 }

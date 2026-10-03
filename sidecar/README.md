@@ -3,14 +3,14 @@
 S1 supplies the runnable HTTPS host in `start.ts` and `http/server.ts`, validated
 file configuration, pinned mTLS, the five wire endpoints, a durable local sampling
 audit sink, disconnect cancellation, and graceful shutdown. Item 3.4 supplies its
-connector logic. See [START-HERE.md](../START-HERE.md#local-sidecar-s1) for local
+connector logic. See [START-HERE.md](../START-HERE.md#local-opintel-engine-s1) for local
 startup and application client configuration. Application code contacts this
 runtime through `SidecarSourceConnector`; it never imports the Postgres adapter.
 
 Use `createPostgresConnector({ secrets, audit, limits })` once per host. Supply the
 existing `SecretStorePort`: `EnvironmentSecretStore` in development, or a production
 secret manager adapter. For example, `secret://customer/warehouse` resolves from
-`OPINTEL_SECRET_CUSTOMER_WAREHOUSE` in the sidecar's development environment.
+`OPINTEL_SECRET_CUSTOMER_WAREHOUSE` in the Opintel Engine development environment.
 Provision credentials in that environment or secret manager; the application
 receives only the reference. This wiring never calls `store`, persists a resolved
 credential, or caches one between operations. A missing reference refuses with
@@ -70,7 +70,7 @@ Add optional `landingZones` to the service JSON. Each entry has `projectId`,
 1000). Paths resolve relative to the service configuration. The input directory
 must exist; keep the state and rule files outside it, on the customer's disk.
 Provision one watcher per source. No HTTP endpoint or customer file upload is
-involved. Restart the sidecar after changing its zone configuration.
+involved. Restart Opintel Engine after changing its zone configuration.
 
 Provision `rulesFile` as the JSON metadata snapshot returned by the application's
 `readIdentificationRules({projectId, userId})`, using its normal tenant scope.
@@ -125,7 +125,7 @@ log a fixed warning without paths, file contents, or captured labels.
 
 ## Extraction (3.8)
 
-The runnable sidecar inspects each ready filing and records its extraction summary
+The runnable Opintel Engine inspects each ready filing and records its extraction summary
 on that same arrival: selected sheet name/index, header row, row count, and ordered
 columns with their original headers, stable output names and inferred types.
 Arrivals are committed before extraction opens the workbook. Existing ready
@@ -178,7 +178,7 @@ never writes a landing table. Item 3.9 must consume the iterator transactionally
 rolling back if a later read fails. The file's SHA-256 is checked before and after reads.
 
 Both readers stream rows. XLSX shared strings use an indexed temporary directory
-on the sidecar's local filesystem, cleaned up when the reader closes; values do
+on Opintel Engine's local filesystem, cleaned up when the reader closes; values do
 not leave the customer's environment. Memory is bounded by row and metadata
 limits, not row count. A row/shared string or CSV record exceeding 1 MiB refuses;
 Expanded rows have the same limit, and active merged values have an 8 MiB limit.
@@ -188,7 +188,7 @@ not evaluate formulas, resolve external workbook links, or contact a database.
 
 ### Landing into customer Postgres (3.9)
 
-The sidecar now consumes extraction rows transactionally. It still sends no file
+Opintel Engine now consumes extraction rows transactionally. It still sends no file
 or row values to the application. Provision the source's `receives_landings=true`
 and explicitly choose `landing_strategy` through the tenant scope. Existing
 ordinary Postgres sources retain `receives_landings=false` and no strategy.
@@ -251,15 +251,16 @@ register; item 3.10 must reconcile it with the existing arrival history.
 
 `npm run dev:api` starts a separate pinned-mTLS listener on `127.0.0.1:3101` when
 `tmp/sidecar/client.json` exists. In deployments set
-`LANDING_RECEIPT_CLIENT_CONFIG` to the application sidecar-client TLS configuration,
-`LANDING_RECEIPT_HOST` to the bind address, and optionally `LANDING_RECEIPT_PORT`.
+`LANDING_RECEIPT_CLIENT_CONFIG` to the application's mTLS client configuration
+for Opintel Engine, `LANDING_RECEIPT_HOST` to the bind address, and optionally
+`LANDING_RECEIPT_PORT`.
 This route is not exposed on the browser API listener. It uses the application
-certificate as its server identity and pins the sidecar certificate as client.
-The sidecar sends using its server certificate and pins the application's
+certificate as its server identity and pins the Opintel Engine certificate as client.
+Opintel Engine sends using its server certificate and pins the application's
 certificate. **Both certificates therefore need serverAuth and clientAuth EKUs
 and appropriate server DNS/IP SANs.** Newly generated development certificates
 include both usages. Existing S1 development certificates must be replaced during
-a coordinated local restart: stop API/sidecar, move `tmp/sidecar/tls` aside, run
+a coordinated local restart: stop API and Opintel Engine, move `tmp/sidecar/tls` aside, run
 `npm run dev:up`, then restart the API. Do not reuse the old running process's pins.
 The existing TLS configuration paths continue to point at the new pair.
 
@@ -280,7 +281,7 @@ customer rows as a substitute for receipt reconciliation.
 
 ### Upgrade to industry-neutral filing parties
 
-Stop the application workers and sidecars for the upgrade. Apply migrations 020
+Stop the application workers and Opintel Engine instances for the upgrade. Apply migrations 020
 and 021; migrations 017–019 are unchanged historical inputs. Migration 020 renames
 `cedant` to `filing_party`, `cedant_file_rule` to `filing_party_rule`, and
 `cedant_id` to `party_id` in place, including named indexes/constraints. Existing
@@ -288,7 +289,7 @@ IDs, rows, forced RLS, grants and foreign keys remain intact. Downgrade refuses
 if new free-text kinds cannot fit the old enum; it does not delete those rows.
 
 Re-export the rule snapshot with `filingParties` and rule `partyId` fields before
-starting the new sidecar. On startup the watcher validates version-1 arrival
+starting the new Opintel Engine. On startup the watcher validates version-1 arrival
 history, converts `cedantId` to `partyId`, and atomically persists version 2 under
 its exclusive state lock. It retains all filing IDs, fingerprints, hashes,
 duplicate/restatement links, extraction summaries and registration outcomes.
@@ -344,7 +345,7 @@ nothing is silently reported as accounted for. Only counts and `checkedAt` leave
 via `/reconciliation-report`. The pinned request carries `x-opintel-project-id`
 for tenant scope; the payload contains no file list.
 
-Stop the sidecar before a local command: the register retains exclusive state
+Stop Opintel Engine before a local command: the register retains exclusive state
 ownership, including for inspection. Use the same config and state path:
 
 ```sh
@@ -359,7 +360,7 @@ reason. This output is not telemetry; do not forward it to a log collector.
 Correct the rule and re-export the snapshot before retry. Retry preserves the
 filing ID and re-runs identification, extraction and landing; it offers no manual
 attribution. Changed bytes require a new arrival rather than rewriting history.
-Restart the sidecar after the command. Rule edits alone never release quarantine.
+Restart Opintel Engine after the command. Rule edits alone never release quarantine.
 Ingest logs and span attributes use an enforced field allowlist: only a fixed
 event, UTC timestamp, source/project/filing UUIDs, fixed error category and attempt count.
 Raw reasons, filenames, column names, file contents and cell values are never logged.
@@ -422,12 +423,12 @@ strategy default in the connector. The development pack setup deliberately
 selects `append_as_at` to demonstrate both versions of the restatement.
 
 For the local development workflow, first run `npm run dev:up`; it creates
-`opintel_demo` without application migrations and passes its URL to the sidecar's
+`opintel_demo` without application migrations and passes its URL to Opintel Engine's
 read-only environment secret store. Start with an existing reinsurance project:
 
 ```sh
 npm run demo:pack -- prepare PROJECT_ID USER_ID
-# dev:up stops the recorded sidecar before loading the prepared configuration.
+# dev:up stops the recorded Opintel Engine before loading the prepared configuration.
 npm run dev:up
 npm run dev:api
 # Open the project’s Data sources screen and click Connect on its demo card.
@@ -482,4 +483,4 @@ reservation is valid before Connect creates the source row. After a development
 database reset, an orphaned zone reports its path and project/source IDs; removing
 `tmp/sidecar` and rerunning `npm run dev:up` resolves that development state. This
 is a development reset, not a production recovery procedure. The standalone
-sidecar does not query the application's database or wait for its API.
+Opintel Engine does not query the application's database or wait for its API.

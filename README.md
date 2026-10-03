@@ -9,7 +9,7 @@ npm run dev:demo
 npm run dev:api
 ```
 
-`dev:demo` starts the local data services and sidecar, applies migrations, and
+`dev:demo` starts the local data services and Opintel Engine, applies migrations, and
 creates `demo@opintel.local`, its company, a project on the reinsurance pack,
 the prepared and connected spreadsheet demo source, and a bound pool with
 clear, tokenized, masked, aggregate-only and withheld decisions. Synthetic
@@ -37,7 +37,7 @@ configuration is backed up; landing files and registers remain. Zones for other
 existing projects are preserved and checked normally.
 
 The command refuses non-development `NODE_ENV`, non-loopback service URLs,
-and custom sidecar configuration. It uses `tmp/sidecar` and serializes its own
+and custom Opintel Engine configuration. It uses `tmp/sidecar` and serializes its own
 runs with `tmp/dev-demo.lock`. After an interrupted process, check that no
 `dev:demo` is still running before removing that lock and retrying. The API
 can already be running; otherwise start it with the command above.

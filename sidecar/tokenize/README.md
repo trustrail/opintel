@@ -67,7 +67,7 @@ they do not satisfy independent disaster custody. Production adapters remain
 out of scope. The environment secret store stays read-only.
 
 `FileCustody` implements binary resolution of the current token-key reference
-for the sidecar tokenizer. Version files are immutable except an explicitly
+for the Opintel Engine tokenizer. Version files are immutable except an explicitly
 confirmed restore. Ordinary tokenization reserves the `sentinel` domain;
 custody derives the fixed case-sensitive `stdtext1` sentinel through a separate
 entry point. Keys never cross HTTP. The application stores and compares only
@@ -78,7 +78,7 @@ only its ID. The application stores an operation intent before committing, so
 a lost rotation response can be reconciled without generating another key.
 Candidate expiry cleans unpublished keys only; committed versions remain in
 both stores. Missing history alongside existing keys refuses initialization.
-A lock left by an unclean shutdown refuses operations: stop all sidecars using
+A lock left by an unclean shutdown refuses operations: stop all Opintel Engines using
 that store, verify no operation remains alive, and remove only the project's
 `lock` file. Never remove `state.json` or version files to recover a request.
 

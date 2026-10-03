@@ -22,7 +22,7 @@ class Inspection {
   constructor(private readonly views: readonly ViewDefinition[],private readonly omitted:readonly OmittedObject[]=[],private readonly onObject?:(view:ViewDefinition)=>void) {}
 
   refuse(construct: string): void {
-    this.failure ??= new DomainError('sql_not_permitted', `The application pre-filter cannot interpret ${construct}. Rewrite the query; sidecar inspection is still required.`, { cause:'prohibited_construct',construct, stage: 'application_pre_filter' });
+    this.failure ??= new DomainError('sql_not_permitted', `The application pre-filter cannot interpret ${construct}. Rewrite the query; Opintel Engine inspection is still required.`, { cause:'prohibited_construct',construct, stage: 'application_pre_filter' });
   }
 
   read<T>(schema: z.ZodType<T>, value: unknown, construct: string): T | undefined {
@@ -302,10 +302,10 @@ export class QueryPreFilter {
 
   async inspect(input: QueryPreFilterInput,onObject?:(view:ViewDefinition)=>void,onReturned?:(elements:readonly ElementId[])=>void): Promise<Result<QueryPreFilterOutcome>> {
     const boundary = z.object({ sql: z.string().min(1), queryEngineBuild: z.string().min(1) }).safeParse(input);
-    if (!boundary.success) return err(new DomainError('sql_not_permitted', 'A SQL statement and the sidecar engine build are required.'));
+    if (!boundary.success) return err(new DomainError('sql_not_permitted', 'A SQL statement and the Opintel Engine build are required.'));
     const parsed = await this.parser.parse(input.sql);
     if (!parsed.ok) return parsed;
-    if (parsed.value.parserBuild !== input.queryEngineBuild) return err(new DomainError('sql_not_permitted', 'The application parser and sidecar engine builds differ. Align their builds before retrying.', { cause:'parser_engine_mismatch',construct: 'parser_engine_build', stage: 'application_pre_filter' }));
+    if (parsed.value.parserBuild !== input.queryEngineBuild) return err(new DomainError('sql_not_permitted', 'The application parser and Opintel Engine builds differ. Align their builds before retrying.', { cause:'parser_engine_mismatch',construct: 'parser_engine_build', stage: 'application_pre_filter' }));
     const inspection = new Inspection(input.views,input.omitted,onObject);
     const document = inspection.read(syntax.document, parsed.value.tree, 'DuckDB statement');
     const output=document?inspection.query(document.statements[0]!.node):[];

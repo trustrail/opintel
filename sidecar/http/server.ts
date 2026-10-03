@@ -20,7 +20,7 @@ const statusFor = (code: string) => code === 'forbidden' ? 403 : code === 'valid
 const errorMessages: Readonly<Record<string,string>> = {
   forbidden: 'Sampling requires source consent.', validation_failed: 'The request did not pass validation.',
   object_unavailable: 'The source object is unavailable.', budget_exceeded: 'Source connection limit reached.',
-  source_unavailable: 'The source is unavailable.', dependency_unavailable: 'A sidecar dependency is unavailable.',
+  source_unavailable: 'The source is unavailable.', dependency_unavailable: 'An Opintel Engine dependency is unavailable.',
   conflict: 'The demo template or delivery path conflicts with an existing delivery.',
 };
 
@@ -43,8 +43,8 @@ export function createSidecarServer(options: {
     '/sample': { permission:'pinned_application_certificate', response:wire.sampleResponse, invoke:(body,signal)=>options.connector.sampleTopValues(body,signal) },
     '/estimate': { permission:'pinned_application_certificate', response:wire.estimateResponse, invoke:(body,signal)=>options.connector.estimateRowCount(body,signal) },
   };
-  for(const operation of Object.keys(custodyOperations) as CustodyOperation[]) routes['/custody/'+operation]={permission:'pinned_application_certificate',response:custodyOperations[operation].response,invoke:async body=>{const request=custodyEnvelope.parse(body);return options.custody?options.custody.invoke(operation,request.projectId,request.payload):{ok:false,error:new DomainError('dependency_unavailable','Token key custody metadata could not be saved or read. Check the sidecar custody directory.')};}};
-  for (const route of Object.values(routes)) if (route.permission !== 'pinned_application_certificate') throw new Error('Sidecar route lacks a declared permission.');
+  for(const operation of Object.keys(custodyOperations) as CustodyOperation[]) routes['/custody/'+operation]={permission:'pinned_application_certificate',response:custodyOperations[operation].response,invoke:async body=>{const request=custodyEnvelope.parse(body);return options.custody?options.custody.invoke(operation,request.projectId,request.payload):{ok:false,error:new DomainError('dependency_unavailable','Token key custody metadata could not be saved or read. Check the Opintel Engine custody directory.')};}};
+  for (const route of Object.values(routes)) if (route.permission !== 'pinned_application_certificate') throw new Error('Opintel Engine route lacks a declared permission.');
   const sockets = new Set<Socket>();
   const active = new Map<AbortController, Promise<void>>();
   let shuttingDown = false;
@@ -61,7 +61,7 @@ export function createSidecarServer(options: {
     let requestId: string = randomUUID();
     const socket = req.socket as TLSSocket;
     if (!socket.authorized || socket.getPeerCertificate()?.fingerprint256 !== pin) { socket.destroy(); return; }
-    if (shuttingDown) { fail(res,503,'dependency_unavailable','Sidecar is shutting down.',requestId,true); return; }
+    if (shuttingDown) { fail(res,503,'dependency_unavailable','Opintel Engine is shutting down.',requestId,true); return; }
     const path = req.url ?? '';
     const route = Object.hasOwn(routes,path) ? routes[path] : undefined;
     if (route === undefined) { fail(res,404,'not_found','The endpoint does not exist.',requestId); req.resume(); return; }
@@ -87,7 +87,7 @@ export function createSidecarServer(options: {
       if (controller.signal.aborted) return;
       if (!result.ok) {
         const code = result.error.code;
-        fail(res,execution&&['sql_not_permitted','unsupported_on_token','unsupported_on_aggregate_only','unsupported_pushdown'].includes(code)?422:statusFor(code),code,execution?result.error.message:path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The sidecar operation failed.',requestId,result.error.retryable,execution?result.error.details:undefined);
+        fail(res,execution&&['sql_not_permitted','unsupported_on_token','unsupported_on_aggregate_only','unsupported_pushdown'].includes(code)?422:statusFor(code),code,execution?result.error.message:path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The Opintel Engine operation failed.',requestId,result.error.retryable,execution?result.error.details:undefined);
         return;
       }
       const response = route.response.safeParse(result.value);
@@ -100,7 +100,7 @@ export function createSidecarServer(options: {
         fail(res,413,'validation_failed','The request is too large.',requestId);
         return;
       }
-      if (!controller.signal.aborted) fail(res,503,'dependency_unavailable','The sidecar operation failed.',requestId,true);
+      if (!controller.signal.aborted) fail(res,503,'dependency_unavailable','The Opintel Engine operation failed.',requestId,true);
     }
   }
   const server = createServer({ ...options.tls, minVersion:'TLSv1.3', requestCert:true, rejectUnauthorized:true },(req,res)=>{
@@ -111,7 +111,7 @@ export function createSidecarServer(options: {
     req.on('error',abort);
     res.once('close',closed);
     const work = handle(req,res,controller).catch(()=>{
-      if(!controller.signal.aborted)fail(res,503,'dependency_unavailable','The sidecar operation failed.',randomUUID(),true);
+      if(!controller.signal.aborted)fail(res,503,'dependency_unavailable','The Opintel Engine operation failed.',randomUUID(),true);
     }).finally(()=>{
       req.removeListener('aborted',abort); res.removeListener('close',closed); active.delete(controller);
     });
@@ -137,7 +137,7 @@ export function createSidecarServer(options: {
         server.listen(options.config.port,options.config.host,()=>{server.removeListener('error',reject);resolve();});
       });
       const address = server.address();
-      if (address === null || typeof address === 'string') throw new Error('Sidecar failed to listen.');
+      if (address === null || typeof address === 'string') throw new Error('Opintel Engine failed to listen.');
       return address.port;
     },
     async close(): Promise<void> {

@@ -23,7 +23,7 @@ class Inspection {
   constructor(private readonly views: readonly PolicyTable[], private readonly namespace: PoolNamespace, private readonly policy: TreatmentPolicy) {}
 
   refuse(construct: string): void {
-    this.failure ??= new DomainError('sql_not_permitted', `The sidecar cannot interpret construct ${construct}; a column was not found or the construct is unavailable or ambiguous. Rewrite the query using a supported construct.`, { cause:'prohibited_construct',construct, proofCategory: 'sql_not_permitted', stage: 'treatment' });
+    this.failure ??= new DomainError('sql_not_permitted', `The Opintel Engine cannot interpret construct ${construct}; a column was not found or the construct is unavailable or ambiguous. Rewrite the query using a supported construct.`, { cause:'prohibited_construct',construct, proofCategory: 'sql_not_permitted', stage: 'treatment' });
   }
 
   read<T>(schema: z.ZodType<T>, value: unknown, construct: string): T | undefined {
@@ -290,7 +290,7 @@ export type TreatmentInspection={aggregate?: {elementId:ElementId;name:string;th
 export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:TreatmentPolicy, tables:PolicyTable[]):Result<TreatmentInspection>{
  if(!tables.some(t=>t.columns.some(c=>c.treatment==='aggregate_only'||c.treatment==='tokenized')))return ok({});
  const i=new Inspection(tables,namespace,policy),doc=syntax.document.safeParse(tree);
- if(!doc.success)return err(new DomainError('sql_not_permitted','The sidecar cannot interpret the statement.'));
+ if(!doc.success)return err(new DomainError('sql_not_permitted','The Opintel Engine cannot interpret the statement.'));
  const root=doc.data.statements[0]!.node;
  i.query(root);
  if(i.failure)return err(i.failure);

@@ -2,7 +2,7 @@
 
 `StagedExecutor` serves `/validate` and `/execute` behind the pinned application
 certificate. The shared Zod contract is `src/shared/execution-contract.ts` and
-also generates the OpenAPI document. It is an application-to-sidecar contract,
+also generates the OpenAPI document. It is an application-to-Opintel Engine contract,
 not an agent-selectable entitlement or resource policy. Item 5.7 supplies that
 transport from authenticated pool requests.
 
@@ -23,14 +23,14 @@ refuse an underestimated object that exceeds the configured bound.
 
 Clear/aggregate-only objects use the signed PostgreSQL scanner in the privileged
 instance: read-only attach, explicit entitled projection, materialize, detach.
-Treated objects use the sidecar's scoped cursor reader, source base-type checks,
+Treated objects use the Opintel Engine's scoped cursor reader, source base-type checks,
 canonicalisation/tokenization/masking, then bound appends of treated rows. No
 attachment is made for those objects. In-memory chunks transfer the staging
 tables into the independent agent instance. Its search path is the declared pool
 namespace. C.2 hardening and configuration lock follow staging; only that instance
 inspects, binds and executes agent SQL.
 
-The execution semaphore and FIFO queue are shared by one sidecar host, keyed by
+The execution semaphore and FIFO queue are shared by one Opintel Engine host, keyed by
 project and pool. The project queue setting is a waiting bound per pool, not a
 second concurrency limit. Queued requests own no source or DuckDB session. The
 execution deadline includes queueing, validation, estimates, staging and execution.
@@ -61,7 +61,7 @@ Provision the extension outside query execution:
 npm run sidecar:prepare-scanner
 ```
 
-Set `postgresExtension` in sidecar configuration to that file (relative paths
+Set `postgresExtension` in Opintel Engine configuration to that file (relative paths
 resolve beside the configuration file). The download is pinned to DuckDB 1.4.3
 and the runtime platform; DuckDB verifies its signature. CI provisions it before
 tests. Missing scanner configuration refuses clear staging with an actionable

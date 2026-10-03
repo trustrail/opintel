@@ -473,31 +473,25 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   the project or to the filing party. A platform holding several provinces
   at once suggests the latter, which is a different shape from industry.
 
-# Sidecar fleet: no registry exists
+# Opintel Engine fleet mapping
 
-- Today the application points at one sidecar via a single client config.
-  Nothing records which sidecar serves which project, its address,
-  certificate, contract version or health. §8 lists "sidecar fleet health"
-  as a metric, assuming a fleet the system cannot enumerate.
-- Three open questions: how a sidecar inside a customer's network is
-  reachable at all (inbound path they open, or an outbound connection used
-  in reverse, which changes the receipt path in §2.7); what the registry
-  holds; and how one is selected when a customer runs several.
-- S5 covers packaging, not fleet management. This belongs before a second
-  customer, and the reachability decision should be made before more is
-  built on the current one-sidecar assumption.
-
-- Deployment direction (provisional): single-tenant, customer deploys
-  application and sidecars in their own network, two zones, sidecars behind
-  a load balancer. Other models later.
-- Not all sidecar work fans out. Query execution is stateless per request
-  and scales freely. Ingest does not: landing zone registers and filing
-  history are per-instance disk state, so a zone must be pinned to one
-  instance. Key custody must move to a shared store, or two instances would
-  generate different token keys for one project and tokens would stop
-  joining across them.
-- Cancellation is per-connection: an abort only reaches the instance holding
-  it. Fine while a query is one request; a problem if that changes.
+- Opintel Engine is the customer-network data plane. One project maps to many
+  Engines; each source maps to exactly one Engine, and the application routes
+  by source. A project's sources can therefore be hosted by Engines in separate
+  customer network segments while the application selects the Engine
+  responsible for each source.
+- Three drivers require this mapping: sources can live in separate network
+  segments; ingest must remain pinned to a host with that source's local
+  landing register while query execution need not be pinned; and deployments
+  need to scale or route around an unavailable Engine.
+- The token key remains per project. Every Engine serving any source in that
+  project must resolve the same key, or identical values read through
+  different sources produce different tokens and cease to join. This is
+  shared state even though requests route by source; routing does not partition
+  key custody.
+- The earlier single-Engine assumption and provisional topology are superseded
+  by this mapping. Fleet discovery, health and the production supervisor
+  remain packaging/observability work; the mapping itself is settled.
 
 # Reachability is part of done
 

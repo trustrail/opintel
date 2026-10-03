@@ -84,7 +84,7 @@ describe('SourceConnector sidecar wire contract', () => {
   });
   it('refuses the original contract-1 health payload before source contact', async () => {
     responses['/health'] = { version: '1.0.0', contract: 1, duckdb: '1.4.3', canonicalisers: ['stdtext1'] };
-    expect(await client().testConnection(ref)).toMatchObject({ ok: false, error: { message: 'Sidecar contract mismatch: this application requires contract 2.' } });
+    expect(await client().testConnection(ref)).toMatchObject({ ok: false, error: { message: 'Opintel Engine contract mismatch: this application requires contract 2.' } });
     expect(seen.map(({ path }) => path)).toEqual(['/health']);
   });
   it('rejects an unpinned server even when its CA is trusted', async () => {
