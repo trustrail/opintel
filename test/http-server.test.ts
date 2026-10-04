@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { Timestamp, UserId } from '../src/shared/kernel/index.js';
 import type { AuthorizationPort, CheckRequest, CheckResult, RelationshipUpdate, AuthorizationRevision } from '../src/modules/authz/index.js';
@@ -67,6 +67,34 @@ class TestAuthorizationPort implements AuthorizationPort {
 }
 
 describe('HTTP server boundaries', () => {
+  it('S4a / J-024: logs an exception without its sentinel message or cause', async () => {
+    const sentinel = 'S4A_CUSTOMER_VALUE_972163';
+    const message = `Constraint violation: row contains ${sentinel}`;
+    const error = new Error(message, { cause: new Error(`SQL literal '${sentinel}'`) });
+    error.name = sentinel;
+    error.stack = `${sentinel}: ${message}\n    at ${sentinel} (file:///customer/${sentinel}.js:12:34)\nSQL: SELECT '${sentinel}'`;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const response = await request([defineRoute({
+        method: 'POST', path: '/api/v1/failure', params: z.object({}), permission: 'public',
+        request: z.object({}), response: z.object({}),
+        handle: async () => { throw error; },
+      })], '/api/v1/failure', 'POST', {});
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: {
+        code: 'internal_error', message: 'An unexpected error occurred.', requestId: 'req-test', retryable: false,
+      } });
+      expect(log).toHaveBeenCalledTimes(1);
+      const line = log.mock.calls[0]![0] as string;
+      expect(line).not.toContain(sentinel);
+      expect(line).not.toContain(message);
+      expect(JSON.parse(line)).toEqual({
+        event: 'http.request_failed', requestId: 'req-test', type: 'Error', message: '[exception message withheld]',
+        stack: ['at [stack frame location withheld]:12:34', '[stack content withheld]'],
+      });
+    } finally { log.mockRestore(); }
+  });
+
   it.each(['authenticated', 'resource'] as const)('hands the authenticated actor to a %s route', async (kind) => {
     const response = await request([defineRoute({
       method: 'POST', path: '/api/v1/actor', params: z.object({}),

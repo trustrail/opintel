@@ -289,7 +289,7 @@ no hard-coded provider fallback and retains enabled company providers.
 | J-021 | R | Query exceeds timeout | Cancelled; session released; source connections closed within 2s |
 | J-022 | R | Sidecar killed mid-query | No partial data anywhere; workspace reported degraded |
 | J-023 | R | Sidecar unreachable | API fails closed |
-| J-024 | S | Row values in logs or traces | Absent (assert against the allowlist) |
+| J-024 | S | Row values in logs or traces | Absent (assert against the allowlist); S4a HTTP exception tests inject sentinels into messages, stack headers, frame labels and locations, custom type names and causes; logged messages are allowlisted or explicitly withheld, sanitised frames retain safe locations and coordinates, and the response envelope remains unchanged |
 | J-025 | P | Concurrency ceiling reached | Queued to the bound, then refused, never unbounded |
 | J-026 | F | Row limit exceeded | `truncated: true` returned, not a silent cut |
 

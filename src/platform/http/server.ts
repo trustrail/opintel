@@ -5,6 +5,7 @@ import { DomainError, type JsonObject } from '../../shared/kernel/index.js';
 import type { CurrentUser } from '../../modules/identity/application/current-user.js';
 import type { AuthorizationPort, CheckRequest } from '../../modules/authz/index.js';
 import { z } from 'zod';
+import { sanitiseException } from '../telemetry/exception-log.js';
 
 export const requestIdHeader = 'x-request-id';
 
@@ -112,8 +113,7 @@ class InvalidJsonBody extends Error {
 
 const defaultLogger: HttpLogger = {
   error(error: unknown, requestId: string): void {
-    const stack = error instanceof Error ? error.stack : undefined;
-    console.error('Unhandled HTTP request error.', { requestId, stack });
+    console.error(JSON.stringify({ event: 'http.request_failed', requestId, ...sanitiseException(error) }));
   },
 };
 

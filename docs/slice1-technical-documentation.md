@@ -4958,6 +4958,24 @@ Structured JSON, one line per event, with `requestId`, `projectId`, `poolId` and
 
 **Refusals log at `info`**, not `warn`. They are normal operation.
 
+S4a's HTTP exception logger emits a structured `http.request_failed` event
+with the request id, a safe exception type, an exact allowlisted message and
+sanitised stack frames. An unreviewed message becomes
+`[exception message withheld]`, including an empty unreviewed message.
+Dynamic custom type names are withheld. Frames retain line and column
+numbers and only application file locations inventoried before requests;
+function labels, dependency and runtime paths, eval text and unrecognised
+stack content are withheld. The raw stack header, cause chain and all other
+exception properties are never emitted. This does not change §2.2's response
+envelope or permit SQL text or statement shape in telemetry.
+
+The migration and schema-loader CLIs use the same exception allowlist:
+PostgreSQL primary messages can contain row values, and raw RPC messages
+are not restricted to reviewed names. Suppressed migration diagnostics
+require the database log; schema-loader diagnostics require the SpiceDB
+server log. Engine startup configuration field paths stay: paths are
+metadata, not configuration values.
+
 ## 8.5 Dashboards
 
 Three, and no more, because a dashboard nobody reads is worse than none. **These are operational dashboards for the team running Opintel**, not the product's Dashboard screen, which is a different thing in a different place.

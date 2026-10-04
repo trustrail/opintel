@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { v1 } from '@authzed/authzed-node';
 import { config as loadEnvironmentFile } from 'dotenv';
+import { cliExceptionLine } from '../../../platform/telemetry/exception-log.js';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 if (process.env.NODE_ENV !== 'production') loadEnvironmentFile({ path: path.join(repositoryRoot, '.env') });
@@ -29,8 +30,7 @@ async function main(): Promise<void> {
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   void main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'SpiceDB schema load failed.';
-    process.stderr.write(`SpiceDB schema load failed: ${message}\n`);
+    process.stderr.write(cliExceptionLine('schema_load', error));
     process.exitCode = 1;
   });
 }

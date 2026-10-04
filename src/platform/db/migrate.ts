@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config as loadEnvironmentFile } from 'dotenv';
 import { Client } from 'pg';
+import { cliExceptionLine } from '../telemetry/exception-log.js';
 
 type QueryResult<Row> = { rows: Row[] };
 
@@ -255,8 +256,7 @@ async function main(): Promise<void> {
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   void main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'Migration runner failed.';
-    process.stderr.write(`Migration failed: ${message}\n`);
+    process.stderr.write(cliExceptionLine('migration', error));
     process.exitCode = 1;
   });
 }
