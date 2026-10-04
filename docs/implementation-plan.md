@@ -366,13 +366,13 @@ The application and engine code is the same; the network requirements are not.
 
 **S5 packages for both models**, using the same codebase and documenting the
 different network, certificate-distribution and operating assumptions. Packaging
-does not settle 5.20's reachability decision or its open choice between operator
-registration in settings and engine self-registration with a token.
+did not settle reachability or registration. The subsequent 5.20 decision chooses single-tenant direct private routing and operator registration; the multi-tenant proposal remains deferred.
 
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | S5 | Package both multi-tenant and single-tenant deployments: VNet mode, OCI image, egress restricted to declared source and receipt hosts; read-only root, `/tmp`, `/dev/shm`, non-root, no swap/core; only `/audit`, `/custody`, optional `/ingest` writable; converge S4 onto shipping image with external controller; document reachability, certificate distribution and engine-operator responsibilities for each | S2 | packaging | SD-005 subset; both deployment models have explicit network and operating prerequisites, with multi-tenant reachability still subject to 5.20's decision |
-| 5.20 | Engine registry: an engine record per project with address, pinned certificate, contract version and last-seen health; data_source names the engine that serves it; a settings screen listing engines, their health and their sources | S5, 5.16, reachability decision | `modules/engines`, screen | A source without an engine cannot be introspected or queried, and the refusal names it; an engine reporting a different contract version is refused; the registry is visible in settings |
+| 5.20 | Single-tenant engine registry: project engines with private HTTPS address, SHA-256 certificate pin, verified contract and last-seen health; register then test connection before assigning sources; route introspection/query by source and custody by the designated verified engine; primary-key sentinel/version gates tokenized-source assignment and tokenized execution; Settings lists engines, health and sources; migrate every client-file reader | S5, 5.16 | `modules/engines`, screen, migrations 057–058 | Missing engine is named; wrong pin fails verification before use; contract mismatch refuses; keys mismatching project metadata cannot produce tokens; sources and certificates cannot cross projects |
+| 5.21 | Multi-engine token-key distribution and rotation coordination. Until reviewed and implemented, customer operators provision matching project key versions themselves. 5.20 detects and refuses mismatches; it never distributes or repairs keys | 5.20, 4.3a | Key management design, custody adapters | Provisioned engines share the recorded sentinel; coordinated rotation retains history and fails closed |
 
 S5's package is in [deploy/engine/README.md](../deploy/engine/README.md).
 [Its local review](review/s5-packaging.md) records the complete SD-005/S4 run
@@ -387,8 +387,7 @@ prove everything Slice 1 claims. It is insufficient for a second customer or a
 customer with sources in two network segments. Item 5.20's Engine registry closes
 that gap. It is deployment and operations work in the sidecar track, dependent on
 S5's packaging and the reachability decision, and is a prerequisite for a first
-deployment rather than for Slice 1. Customer-network reachability and operator
-versus token-based registration remain open decisions for this item.
+deployment rather than for Slice 1. The chosen 5.20 implementation is single-tenant: the application dials private engine listeners and operators register engines in Settings. The multi-tenant outbound-connector/enrollment proposal is considered, not chosen; see review/deferred.md.
 
 **The sidecar is the critical path and the highest technical risk.** S1b is new in v2.0 and it is the right home for landing: the sidecar already runs inside the customer's environment, already holds credentials they control, and already sends nothing out. Putting ingest anywhere else would break the claim that files never leave their network.
 
@@ -686,3 +685,7 @@ unsupported findings are persisted separately in the introspection diff, with
 from undecided; unmapped findings appear in the existing read-only Observations
 screen. See §4.4 and `docs/review/unsupported-type-visibility.md`. This does not add
 a general observations workflow.
+
+**5.20 custody decision.** One verified engine is designated per project. Custody requests route there. Assignment of a tokenized source to another engine requires its current primary key version and derived sentinel to match the recorded project key. Rotation immediately makes stale engines unavailable for tokenized execution. Distribution remains customer-owned provisioning pending 5.21. Clear-only execution does not require a key match. Cross-engine queries refuse with `sources_cannot_be_joined`; this item implements routing, not distributed execution.
+
+**5.20 configuration.** `APPLICATION_TLS_CONFIG` names a strict application identity/trust file containing only `caFile`, `certFile`, `keyFile`. Addresses, pins, engine contract/health, source assignments and custody designation live in the registry. `SIDECAR_CLIENT_CONFIG`, `LANDING_RECEIPT_CLIENT_CONFIG`, and client.json are no longer read. Receipt listener bind host/port remain environment configuration. Development operator tools explicitly register their supplied service deployment; isolated transport fixtures read their explicit service deployment, not an application routing fallback.

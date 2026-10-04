@@ -110,6 +110,6 @@ export class PostgresStagingSource implements StagingSource {
     const transform=run.prepare(config,builtin?undefined:registered);if(!transform.ok)return transform;base[i]=transform.value;
    }
    return read(base);
-  },s.request.tokenKeyVersionSelected);
+  },s.request.tokenKeyVersionSelected,s.request.expectedTokenSentinel);
  }
 }

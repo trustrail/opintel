@@ -37,7 +37,7 @@ export const navGroups: readonly NavGroup[] = [
   ] },
   { label: 'Manage', items: [
     { label: 'All projects', path: '/projects', icon: '◫' },
-    { label: 'Settings', path: '/settings', icon: '⚙', children:[{label:'Discovery',screen:'settings-discovery'},{label:'Query',screen:'settings-query'},{label:'Evidence',screen:'settings-evidence'},{label:'Agents and keys',screen:'settings-agents'}] },
+    { label: 'Settings', path: '/settings', icon: '⚙', children:[{label:'Engines',screen:'settings-engines'},{label:'Discovery',screen:'settings-discovery'},{label:'Query',screen:'settings-query'},{label:'Evidence',screen:'settings-evidence'},{label:'Agents and keys',screen:'settings-agents'}] },
   ] },
 ];
 
@@ -47,7 +47,7 @@ export function labelForPath(pathname: string): string {
   if (/^\/projects\/[^/]+\/introspections\/[^/]+$/u.test(pathname)) return 'Introspection run';
   if (/^\/projects\/[^/]+\/sources\/[^/]+\/introspections$/u.test(pathname)) return 'Introspection runs';
   if (/^\/projects\/[^/]+\/runs\/[^/]+$/u.test(pathname)) return 'Run record';
-  if(pathname.startsWith('/settings-'))return ({'settings-discovery':'Discovery','settings-query':'Query','settings-evidence':'Evidence','settings-agents':'Agents and keys'} as Record<string,string>)[pathname.slice(1)]??'Settings';
+  if(pathname.startsWith('/settings-'))return ({'settings-engines':'Engines','settings-discovery':'Discovery','settings-query':'Query','settings-evidence':'Evidence','settings-agents':'Agents and keys'} as Record<string,string>)[pathname.slice(1)]??'Settings';
   if(/^\/companies\/[^/]+\/settings$/u.test(pathname))return 'Company settings';
   if (pathname === '/token-key') return 'Token key';
   if (pathname === '/catalog') return 'Explore schema';

@@ -1,3 +1,4 @@
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp,readFile,writeFile,rm,symlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -13,7 +14,7 @@ import { SidecarTokenizer,IanaZoneResolver,TokenKey,TokenizationRun } from '../s
 import { SecretRef } from '../src/platform/secrets/index.js';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
-import { loadSidecarClientOptions } from '../src/modules/sources/index.js';
+
 import { createSidecarServer } from '../sidecar/http/server.js';
 import { createHttpServer } from '../src/platform/http/index.js';
 import { keyCustodyRoutes } from '../src/modules/entitlements/api/key-custody-routes.js';
@@ -38,7 +39,7 @@ beforeAll(async()=>{
  custody=new FileCustody(store,escrow,()=>now);
  const unused=async()=>ok({reachable:true as const});
  host=createSidecarServer({config:{...config,port:0},tls,custody,connector:{testConnection:unused,introspect:unused,sampleTopValues:unused,estimateRowCount:unused} as Parameters<typeof createSidecarServer>[0]['connector']});
- const port=await host.listen();const options=await loadSidecarClientOptions(join(directory,'client.json'));client=new SidecarCustodyClient({...options,baseUrl:`https://127.0.0.1:${port}`});
+ const port=await host.listen();const options=await developmentEngineOptions(join(directory,'service.json'));client=new SidecarCustodyClient({...options,baseUrl:`https://127.0.0.1:${port}`});
  service=new KeyCustodyService(new PostgresCustodyRepository(),client,auth as ConstructorParameters<typeof KeyCustodyService>[2]);
 },30000);
 afterAll(async()=>{await host?.close();await rm(directory,{recursive:true,force:true});},30000);

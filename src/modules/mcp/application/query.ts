@@ -38,7 +38,7 @@ export class QueryService implements QueryTool {
    const executable=executionRequest.safeParse(plan.request);
    if(!executable.success)return refused(new DomainError('validation_failed','The configured query limits are invalid.',{cause:'invalid_settings',reason:'query_limits'}));
    progress='unknown';
-   const response=await this.execution.execute(executable.data,signal);if(!response.ok){
+   const response=await this.execution.execute(executable.data,signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId});if(!response.ok){
     const proof=response.error.details?.proofCategory;
     const reported=z.object({tokenKeyVersionUsed:z.number().int().positive().nullable(),sourceIdsReached:z.array(z.string())}).safeParse(response.error.details);
     if(reported.success)usage=reported.data;

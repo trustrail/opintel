@@ -23,5 +23,5 @@ export function assertDevelopmentDemo(environment:Record<string,string|undefined
  }
  const spice=environment.SPICEDB_ENDPOINT;
  if(spice&&!/^(localhost|127\.0\.0\.1|\[::1\]):\d+$/u.test(spice))throw new Error('dev:demo requires loopback SpiceDB.');
- if(environment.SIDECAR_CONFIG_FILE||environment.SIDECAR_CLIENT_CONFIG)throw new Error('dev:demo uses tmp/sidecar; remove custom Opintel Engine configuration overrides.');
+ if(environment.SIDECAR_CONFIG_FILE||environment.APPLICATION_TLS_CONFIG)throw new Error('dev:demo uses tmp/sidecar; remove custom Opintel Engine configuration overrides.');
 }

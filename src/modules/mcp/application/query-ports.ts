@@ -10,12 +10,12 @@ export interface QuerySnapshotReader {
  read(principal:McpPrincipal):Promise<Result<{compilation:CompileResult;evidence?:{versions:import('../../evidence/index.js').VersionStamp;currentTokenKeyVersion:number|null;withheldReasons?:Record<string,string|null>;sources:import('../../evidence/index.js').EvidenceSource[]};policyVersion:number;aggregateMinGroupSize:number;settings:ExecutionRequest['settings'];limits?:ExecutionRequest['limits'];executionNotes?:string[];sources:Array<{id:SourceId;alias:string;credentialRef:string|null;status:string}>}>>;
 }
 export interface QueryExecutionPort {
- health(signal?:AbortSignal):Promise<Result<{queryEngineVersion:string}>>;
- execute(input:ExecutionRequest,signal?:AbortSignal):Promise<Result<z.infer<typeof executionResponse>>>;
+ health(signal?:AbortSignal,ctx?:import('../../engines/index.js').EngineContext&{sources:SourceId[];parserOnly?:boolean}):Promise<Result<{queryEngineVersion:string}>>;
+ execute(input:ExecutionRequest,signal?:AbortSignal,ctx?:import('../../engines/index.js').EngineContext):Promise<Result<z.infer<typeof executionResponse>>>;
 }
 export interface QueryTool {query(principal:McpPrincipal,input:unknown,signal?:AbortSignal):Promise<Result<z.infer<typeof QueryOutput>&{reduction?:Reduction}>>}
 
 export interface QueryValidationPort {
- health(signal?:AbortSignal):Promise<Result<{queryEngineVersion:string}>>;
- validate(input:ValidationRequest,signal?:AbortSignal):Promise<Result<z.infer<typeof validationResponse>>>;
+ health(signal?:AbortSignal,ctx?:import('../../engines/index.js').EngineContext&{sources:SourceId[];parserOnly?:boolean}):Promise<Result<{queryEngineVersion:string}>>;
+ validate(input:ValidationRequest,signal?:AbortSignal,ctx?:import('../../engines/index.js').EngineContext):Promise<Result<z.infer<typeof validationResponse>>>;
 }

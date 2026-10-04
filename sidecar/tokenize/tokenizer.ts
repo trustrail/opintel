@@ -62,7 +62,7 @@ export class TokenizationRun {
 }
 export class SidecarTokenizer {
     constructor(private readonly secrets: Pick<SecretStorePort, 'resolveBytes'>, private readonly zones: ZoneResolver, private readonly audit: TokenAudit = consoleTokenAudit) { }
-    async run<T>(projectId: ProjectId, work: (run: TokenizationRun) => Promise<Result<T>> | Result<T>, selectedVersion?: number|null): Promise<Result<T>> {
+    async run<T>(projectId: ProjectId, work: (run: TokenizationRun) => Promise<Result<T>> | Result<T>, selectedVersion?: number|null,expectedSentinel?:string|null): Promise<Result<T>> {
         const ref = SecretRef(`secret://opintel/token-key/${projectId}${selectedVersion===undefined?'':'/v'+selectedVersion}`);
         let key: TokenKey | undefined;
         try {
@@ -73,7 +73,9 @@ export class SidecarTokenizer {
                 return err(new DomainError('dependency_unavailable', `Token key ${ref} must contain exactly 32 raw bytes.`,{cause:'component_configuration',reason:'token_key_size'}));
             }
             key = resolved.value;
-            const result = await work(new TokenizationRun(key, this.zones));
+            const run=new TokenizationRun(key,this.zones);
+            if(expectedSentinel){const actual=run.sentinel();if(!actual.ok||actual.value!==expectedSentinel){this.audit.record({event:'tokenization.refused',projectId,category:'key_resolution'});return err(new DomainError('source_unavailable',"This engine's token key does not match the project's recorded sentinel. Ask the operator to provision the matching key before querying."));}}
+            const result = await work(run);
             this.audit.record(result.ok ? { event: 'tokenization.complete', projectId } : { event: 'tokenization.refused', projectId, category: 'declaration' });
             return result;
         }

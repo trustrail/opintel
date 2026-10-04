@@ -1,21 +1,21 @@
 import { z } from 'zod';
 import {TypeObservationPage} from './type-observations.js';
-import { DemoSourceId, SourceId, RunId } from '../kernel/value-objects.js';
+import { DemoSourceId, SourceId, RunId, EngineId } from '../kernel/value-objects.js';
 import type { SecretRef } from '../../platform/secrets/types.js';
 import { landingStrategySchema } from '../landing-contract.js';
-export const TestSourceBody = z.strictObject({ kind: z.literal('postgres'), credentialRef: z.string().startsWith('secret://').min(10) });
+export const TestSourceBody = z.strictObject({ engineId:z.uuid().transform(EngineId), kind: z.literal('postgres'), credentialRef: z.string().startsWith('secret://').min(10) });
 export const TestSourceResponse = z.object({ reachable: z.boolean(), reason: z.string().nullable(), schemas: z.array(z.string()) });
 export const CreateSourceBody = TestSourceBody.extend({ name: z.string().trim().min(1).max(80), includeSchemas: z.array(z.string().min(1)), samplingConsent: z.boolean(), receivesLandings: z.boolean(), landingStrategy: landingStrategySchema.nullable() }).refine(v=>v.receivesLandings ? v.landingStrategy!==null : v.landingStrategy===null,{message:'Choose a landing strategy only for a source receiving landings.',path:['landingStrategy']});
-export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),name:z.string(),exposedAlias:z.string(),kind:z.string(),origin:z.enum(['customer','demo']),status:z.string(),error:z.string().nullable(),landingStrategy:landingStrategySchema.nullable(),filingCount:z.number().int().nullable(),elementCount:z.number().int(),unsupportedCount:z.number().int().nonnegative(),undecidedCount:z.number().int(),latestIntrospectionId:z.uuid().transform(RunId).nullable(),lastIntrospectedAt:z.iso.datetime({offset:true}).nullable() });
+export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),engineId:z.uuid().transform(EngineId).nullable().optional(),name:z.string(),exposedAlias:z.string(),kind:z.string(),origin:z.enum(['customer','demo']),status:z.string(),error:z.string().nullable(),landingStrategy:landingStrategySchema.nullable(),filingCount:z.number().int().nullable(),elementCount:z.number().int(),unsupportedCount:z.number().int().nonnegative(),undecidedCount:z.number().int(),latestIntrospectionId:z.uuid().transform(RunId).nullable(),lastIntrospectedAt:z.iso.datetime({offset:true}).nullable() });
 export const SourceListResponse=z.object({items:z.array(SourceListItem),nextCursor:z.string().nullable()});
 export const IntrospectSourceBody=z.strictObject({projectId:z.uuid()});
 export const FromDemoBody=z.strictObject({demoTemplateId:z.uuid().transform(DemoSourceId)});
-export const Deployment=z.strictObject({sourceId:z.uuid().transform(SourceId),credentialRef:z.string().startsWith('secret://').min(10).transform(value=>value as SecretRef),landingZone:z.string().min(1).nullable(),sourceName:z.string().min(1).max(80)});
+export const Deployment=z.strictObject({sourceId:z.uuid().transform(SourceId),credentialRef:z.string().startsWith('secret://').min(10).transform(value=>value as SecretRef),landingZone:z.string().min(1).nullable(),engineId:z.uuid().transform(EngineId).optional(),sourceName:z.string().min(1).max(80)});
 export const DeploymentRef=z.record(z.uuid(),Deployment);
 export const DemoTemplateItem=z.object({id:z.uuid().transform(DemoSourceId),name:z.string(),narrative:z.string().nullable(),prepared:z.boolean(),connected:z.boolean()});
 export const DemoTemplateList=z.array(DemoTemplateItem);
 export type SourceItem=z.infer<typeof SourceListItem>;
-export type NewSource=z.infer<typeof CreateSourceBody>;
+export type NewSource=Omit<z.infer<typeof CreateSourceBody>,'engineId'>&{engineId?:import('../kernel/value-objects.js').EngineId};
 
 export function sourceOpenApiDocument(){
  const id={name:'id',in:'path',required:true,schema:{type:'string',format:'uuid'}};

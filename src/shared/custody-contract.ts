@@ -5,6 +5,7 @@ export const custodyEnvelope = z.strictObject({ requestId:z.string().min(1), pro
 export const keyResult = z.strictObject({ keyVersion, sentinelToken:sentinel });
 export const candidate = keyResult.extend({ candidateId:z.uuid() });
 export const custodyOperations = {
+ attest:{request:z.strictObject({}),response:keyResult},
  initialize:{request:z.strictObject({}),response:keyResult.extend({created:z.boolean()})},
  'rotate/prepare':{request:z.strictObject({expectedCurrentVersion:keyVersion}),response:candidate},
  'restore/prepare':{request:z.strictObject({keyVersion}),response:candidate},

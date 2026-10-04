@@ -1,3 +1,4 @@
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
@@ -19,7 +20,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
-import { loadSidecarClientOptions } from '../src/modules/sources/index.js';
+
 import { createSidecarServer } from '../sidecar/http/server.js';
 import { canonicalisers, createCanonicaliserRegistry } from '../sidecar/tokenize/canonicalisers/index.js';
 import { fixture1, fixture2 } from './fixtures/canonicalisers/reviewed.js';
@@ -49,7 +50,7 @@ describe('4.3c canonicaliser assignments',()=>{
     const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
     const unused=async()=>ok({reachable:true as const});
     host=createSidecarServer({config:{...config,port:0},tls,canonicalisers:createCanonicaliserRegistry([...canonicalisers.entries,fixture1,fixture2]),connector:{testConnection:unused,introspect:unused,sampleTopValues:unused,estimateRowCount:unused} as Parameters<typeof createSidecarServer>[0]['connector']});
-    const port=await host.listen();const options=await loadSidecarClientOptions(join(directory,'client.json'));
+    const port=await host.listen();const options=await developmentEngineOptions(join(directory,'service.json'));
     client=new SidecarCustodyClient({...options,baseUrl:`https://127.0.0.1:${port}`});assignments=new PostgresCanonicaliserAssignments(client);
   },30000);
   afterAll(async()=>{await host?.close();await rm(directory,{recursive:true,force:true});},30000);

@@ -1,3 +1,4 @@
+import {EnginesScreen} from './engines/screen.js';
 import {ProjectSettingsScreen,PersonalSettingsScreen,CompanySettingsScreen} from './settings/screens.js';
 import {PoolsScreen,PoolDetailScreen,AgentTwinScreen} from './pools/screens.js';
 import {ActivityScreen,RecordScreen} from './activity/screens.js';
@@ -45,6 +46,7 @@ const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, pat
 const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined)}).parse(search), component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
   const search=projectScreenRoute.useSearch(),navigate=projectScreenRoute.useNavigate();
+  if(screen==='settings-engines')return <EnginesScreen key={projectId} projectId={projectId}/>;
   if(screen==='settings'||screen.startsWith('settings-'))return <ProjectSettingsScreen key={projectId+screen} projectId={projectId} section={screen}/>;
   if(screen==='pools')return <RouteErrorBoundary><PoolsScreen key={projectId} projectId={projectId}/></RouteErrorBoundary>;
   if(screen==='entitlements')return <RouteErrorBoundary><EntitlementsScreen projectId={projectId} search={search} onSearch={next=>{void navigate({search:next});}}/></RouteErrorBoundary>;

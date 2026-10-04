@@ -1,3 +1,5 @@
+import {X509Certificate} from 'node:crypto';
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import {StagedValidator} from '../sidecar/execution/application/validate.js';
 import {DuckDBValidationSessions,type InspectionEvent,type SessionStatement} from '../sidecar/session/index.js';
 import { StagedExecutor } from '../sidecar/execution/application/execute.js';
@@ -19,7 +21,7 @@ import { FileSamplingAudit } from '../sidecar/infrastructure/file-sampling-audit
 import { PostgresConnector } from '../sidecar/infrastructure/postgres-connector.js';
 import { PostgresSourceScope, type SourceSession } from '../sidecar/infrastructure/postgres-source-scope.js';
 import { EnvironmentSecretStore, SecretRef } from '../src/platform/secrets/index.js';
-import { SidecarSourceConnector, loadSidecarClientOptions, type SidecarOptions } from '../src/modules/sources/index.js';
+import { SidecarSourceConnector,  type SidecarOptions } from '../src/modules/sources/index.js';
 import { ElementId, ObjectId, ProjectId, SourceId, ok } from '../src/shared/kernel/index.js';
 import * as wire from '../src/shared/sidecar-contract.js';
 
@@ -105,7 +107,7 @@ beforeAll(async()=>{
   const validator=new StagedValidator(new DuckDBValidationSessions(s=>validationStatements.push(s),e=>validationEvents.push(e)));
   host=createSidecarServer({config,tls,connector,execution:{execute:(body,signal)=>{executionReached();return executor.execute(body,signal);},validate:(body,signal)=>validator.validate(body,signal)}});
   const port=await host.listen();
-  options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
+  options={...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`};
 },60000);
 beforeEach(()=>{resolveSpy.mockClear();queryFailures.length=0;});
 afterAll(async()=>{
@@ -146,7 +148,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(resolveSpy).not.toHaveBeenCalled();
   });
   it('application pinning rejects a different server certificate',async()=>{
-    expect(await client('records',{...options,tls:{...options.tls,pinnedCertificate:alternate.cert}}).testConnection(ref)).toMatchObject({ok:false});
+    expect(await client('records',{...options,tls:{...options.tls,certificatePin:new X509Certificate(alternate.cert).fingerprint256.replaceAll(':','')}}).testConnection(ref)).toMatchObject({ok:false});
     expect(resolveSpy).not.toHaveBeenCalled();
   });
   it.each([0,1,3])('refuses contract %s before any source contact',async(contract)=>{
@@ -190,7 +192,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await limited.close();}
     const specification=wire.sidecarOpenApiDocument();
-    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/execute','/health','/introspect','/provision-demo','/sample','/test-connection','/validate']);
+    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/attest','/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/execute','/health','/introspect','/provision-demo','/sample','/test-connection','/validate']);
     expect(JSON.parse(await readFile(new URL('../sidecar/openapi.json',import.meta.url),'utf8'))).toEqual(specification);
   });
 

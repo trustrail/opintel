@@ -59,7 +59,7 @@ process at **https://127.0.0.1:3100**. It waits for an authenticated, pinned
 local development process, not a container image or deployment package.
 
 - Server configuration: `tmp/sidecar/service.json`.
-- Application client configuration: `tmp/sidecar/client.json`.
+- Application TLS identity/trust: `tmp/sidecar/application-tls.json` (`caFile`, `certFile`, `keyFile` only). Engine routing and pins are registered and verified in project Settings → Engines.
 - Process log and PID: `tmp/sidecar/service.log`, `tmp/sidecar/sidecar.pid`.
 - Durable sampling audit: `tmp/sidecar/sampling-audit.jsonl`, identifiers and
   outcomes only. Source rows and resolved credentials are never written there.
@@ -89,7 +89,7 @@ The startup command accepts a configuration filename; alternatively set
 that file. Server configuration contains the bind host/port, CA/server key and
 certificate/client certificate pin, audit path, source connection ceiling,
 statement/operation timeouts, request-body bound and shutdown deadline.
-Keep `client.json` in sync when changing the server's address or identity.
+Update the engine record in Settings when its address or certificate pin changes, then Test connection again. Application identity/trust changes require updating application-tls.json and restarting the application.
 
 Source credentials belong to Opintel Engine. In development, supply them through
 its environment or ignored `.env.sidecar.local`. For example, the reference
@@ -101,10 +101,11 @@ secret manager; the CLI uses the existing development environment adapter.
 Application-side setup uses the existing connector:
 
 ```ts
-import { loadSidecarClientOptions, SidecarSourceConnector } from './src/modules/sources/index.js';
+import { EngineRegistry, PostgresEngineRepository, HttpsEngineProbe, loadApplicationTls, registryConnector } from './src/modules/engines/index.js';
 
-const options = await loadSidecarClientOptions('tmp/sidecar/client.json');
-const connector = new SidecarSourceConnector('postgres', sourceContext, options);
+const registry = new EngineRegistry(new PostgresEngineRepository(), new HttpsEngineProbe(),
+  await loadApplicationTls('tmp/sidecar/application-tls.json'));
+const connector = registryConnector(registry, tenantContext, sourceContext);
 ```
 
 `sourceContext` supplies the request, project and source IDs and the existing
@@ -311,3 +312,5 @@ restarting both. The migration rewrites source, identity-provider and demo
 preparation references in the application database. It never resolves a secret.
 Keep the reference path, `OPINTEL_SECRET_*` environment keys, custody directories
 and filing registers unchanged; no key or arrival history is regenerated.
+
+For operator demo preparation, set `DEMO_ENGINE_ID` to a verified engine record in the project. `dev:demo` explicitly registers its local deployment, initializes designated custody, and supplies that record id; provisioning routes through the saved deployment's engine id.

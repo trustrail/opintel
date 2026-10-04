@@ -1,3 +1,4 @@
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { z } from 'zod';
 import { filingSchema, type WatchedFiling } from '../sidecar/ingest/register.js';
 import { randomUUID } from 'node:crypto';
@@ -15,7 +16,7 @@ import { demoIdentification } from '../src/modules/sources/demo/metadata.js';
 import { readDemoTemplate } from '../src/modules/sources/demo/templates.js';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
-import { loadSidecarClientOptions, SidecarSourceConnector, IntrospectionJob, PostgresIntrospectionStore } from '../src/modules/sources/index.js';
+import {  SidecarSourceConnector, IntrospectionJob, PostgresIntrospectionStore } from '../src/modules/sources/index.js';
 import { createSidecarServer } from '../sidecar/http/server.js';
 import { createPostgresConnector } from '../sidecar/create-postgres-connector.js';
 import { SpreadsheetDemoProvisioner } from '../sidecar/demo/provision.js';
@@ -117,7 +118,7 @@ describe('reinsurance demo pack through ordinary ingest', () => {
   const { config,tls } = await loadSidecarConfig(join(directory,'service.json'));
   host = createSidecarServer({config:{...config,port:0},tls,connector:createPostgresConnector({secrets,audit:{record:async()=>undefined},limits:config.limits}),demo:provision});
   const port = await host.listen();
-  const options = await loadSidecarClientOptions(join(directory,'client.json')); options.baseUrl=`https://127.0.0.1:${port}`;
+  const options = await developmentEngineOptions(join(directory,'service.json')); options.baseUrl=`https://127.0.0.1:${port}`;
   const connector = (id: SourceId) => new SidecarSourceConnector('postgres',{sourceId:id,projectId:ctx.projectId,requestId:randomUUID(),sampling:async()=>ok({consentGiven:false,elements:[]})},options);
   const demo = connector(sourceId); const native = connector(nativeId);
   const payload = provisionDemoPayload.parse({templateId,schemaSpec:template.schemaSpec,generatorSpec:template.generatorSpec,landingZone:zone.directory});

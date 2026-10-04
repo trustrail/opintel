@@ -1,3 +1,4 @@
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { createPostgresConnector } from '../sidecar/create-postgres-connector.js';
 import { IntrospectionJob, PostgresIntrospectionStore, type SourceConnector } from '../src/modules/sources/index.js';
 import { randomUUID } from 'node:crypto';
@@ -7,7 +8,7 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { beforeAll, beforeEach, afterAll, afterEach, describe, it, expect, vi } from 'vitest';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
-import { loadSidecarClientOptions } from '../src/modules/sources/index.js';
+
 import { loadSidecarConfig } from '../sidecar/config.js';
 import { FilingRegister, type LandingZone } from '../sidecar/ingest/register.js';
 import { FilingLander } from '../sidecar/ingest/land.js';
@@ -59,8 +60,8 @@ describe('filing register', () => {
  beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), 'filing-register-'));
   await prepareSidecarDevelopment(directory);
-  const options = await loadSidecarClientOptions(join(directory, 'client.json'));
-  server = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()), repository);
+  const options = await developmentEngineOptions(join(directory, 'service.json'));
+  server = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()), repository,async pin=>pin.replaceAll(':','')===options.tls.certificatePin);
   // Inspect actual sidecar HTTP egress, before the application schema parses it.
   server.prependListener('request', (request) => {
    const chunks: Buffer[] = [];

@@ -6,10 +6,10 @@ import { loadDevEnvironment } from './dev-environment.js';
 import { prepareSidecarDevelopment, sidecarDevDirectory } from './sidecar-dev.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
 import { demoIdentification } from '../src/modules/sources/demo/metadata.js';
-import { ProjectId, UserId, SourceId, DemoSourceId, IndustryId, DomainError } from '../src/shared/kernel/index.js';
+import { ProjectId, UserId, SourceId, EngineId, DemoSourceId, IndustryId, DomainError } from '../src/shared/kernel/index.js';
 import { SecretRef } from '../src/platform/secrets/types.js';
 
-export async function demoPack(command: string, projectArg: string, userArg: string, sourceArg?: string, options: { showNextSteps?: boolean } = {}): Promise<void> {
+export async function demoPack(command: string, projectArg: string, userArg: string, sourceArg?: string, options: { showNextSteps?: boolean;engineId?:import('../src/shared/kernel/index.js').EngineId } = {}): Promise<void> {
   if (!['prepare','provision'].includes(command ?? '') || !projectArg || !userArg)
     throw new Error('Usage: npm run demo:pack -- prepare|provision PROJECT_ID USER_ID [SOURCE_ID]');
   const ctx = { projectId: ProjectId(projectArg), userId: UserId(userArg) };
@@ -29,6 +29,10 @@ export async function demoPack(command: string, projectArg: string, userArg: str
   if (prepared) { if (sourceArg && sourceArg !== prepared.sourceId) throw new Error("The project already reserves another source ID."); sourceId = prepared.sourceId; }
   const serviceFile = process.env.SIDECAR_CONFIG_FILE ?? join(sidecarDevDirectory,'service.json');
   if (command === 'prepare') {
+    const preparedEngineId=options.engineId??(process.env.DEMO_ENGINE_ID?EngineId(process.env.DEMO_ENGINE_ID):undefined);
+    if(!preparedEngineId)throw new Error('Prepare requires DEMO_ENGINE_ID naming a verified engine in this project.');
+    const [registeredEngine]=await withTenant(ctx,tx=>tx.query('SELECT id FROM engine WHERE id=$1 AND verified_at IS NOT NULL AND contract_version=2',[preparedEngineId]));
+    if(!registeredEngine)throw new Error('The selected demo engine is not verified in this project.');
     await prepareSidecarDevelopment(dirname(serviceFile));
     const credentialRef = SecretRef('secret://demo/postgres');
     const sourceName = `demo_${sourceId.replaceAll('-','')}`;
@@ -50,14 +54,14 @@ export async function demoPack(command: string, projectArg: string, userArg: str
       landing:{name:sourceName,credentialRef,strategy:'append_as_at'}});
     const updated = {...original,demo:{database:'opintel_demo',credentialRef},receiptUrl:config.receiptUrl ?? 'https://127.0.0.1:3101',landingZones:zones};
     await writeFile(serviceFile+'.next',JSON.stringify(updated,null,2)+'\n',{mode:0o600}); await rename(serviceFile+'.next',serviceFile);
-    await withPlatformAdmin({actor:{kind:'user',id:ctx.userId}},tx=>tx.query(
+    await withPlatformAdmin({actor:{kind:'user',id:ctx.userId}},async tx=>tx.query(
       `UPDATE demo_source_template SET deployment_ref=jsonb_set(deployment_ref,ARRAY[$2::text],$3::jsonb) WHERE id=$1`,
-      [templateId,ctx.projectId,JSON.stringify({sourceId,credentialRef,landingZone:join(root,'inbox'),sourceName})]));
+      [templateId,ctx.projectId,JSON.stringify({sourceId,credentialRef,landingZone:join(root,'inbox'),sourceName,engineId:preparedEngineId})]));
     console.info(`Prepared demo source ${sourceId}.` + (options.showNextSteps === false ? '' : ' Restart Opintel Engine with dev:up, start dev:api, then run demo:pack provision with this source ID.'));
     return;
   }
   if (!prepared || prepared.sourceId !== sourceId) throw new Error('Prepare this source before connecting.');
-  const { loadSidecarClientOptions } = await import('../src/modules/sources/index.js');
+  const {loadApplicationTls,EngineRegistry,PostgresEngineRepository,HttpsEngineProbe}=await import('../src/modules/engines/index.js');
   const { createSourceRuntime } = await import('../src/modules/sources/infrastructure/source-runtime.js');
   const { createRedisConnection } = await import('../src/platform/redis/index.js');
   const { RedisProjectHub } = await import('../src/platform/sse/redis-hub.js');
@@ -65,7 +69,7 @@ export async function demoPack(command: string, projectArg: string, userArg: str
   const redis = createRedisConnection({ url: process.env.REDIS_URL });
   await redis.connect();
   const hub = new RedisProjectHub(redis.client, process.env.REDIS_URL);
-  const runtime=createSourceRuntime(await loadSidecarClientOptions(process.env.SIDECAR_CLIENT_CONFIG ?? join(sidecarDevDirectory,'client.json')),hub);
+  const runtime=createSourceRuntime(new EngineRegistry(new PostgresEngineRepository(),new HttpsEngineProbe(),await loadApplicationTls(process.env.APPLICATION_TLS_CONFIG??join(sidecarDevDirectory,'application-tls.json'))),hub);
   try { const result=await runtime.demo(ctx,templateId);if(!result.ok)throw result.error;const completed=await runtime.idle();if(!completed.ok)throw completed.error; }
   finally {await runtime.close();await hub.close();await redis.close();}
   console.info(`Demo source ${sourceId} connected. Inspect its catalogue and register for outcomes.`);

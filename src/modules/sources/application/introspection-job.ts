@@ -7,7 +7,7 @@ import type { IntrospectionContext, IntrospectionRun, IntrospectionSource, Intro
 export class IntrospectionJob {
   private readonly active = new Map<RunId, { controller: AbortController; done: Promise<Result<IntrospectionRun>> }>();
   constructor(private readonly store: IntrospectionStore,
-    private readonly connector: (source: IntrospectionSource, runId: RunId) => SourceConnector,
+    private readonly connector: (source: IntrospectionSource, runId: RunId,ctx:IntrospectionContext) => SourceConnector,
     private readonly lifecycle: (runId: RunId, state: string) => void = () => {},
     private readonly authorization?: AuthorizationPort) {}
   async enqueue(ctx: IntrospectionContext, sourceId: SourceId, include: string[] = [], options: { adoptRenamedNames?: boolean } = {}) {
@@ -67,20 +67,20 @@ export class IntrospectionJob {
         return await this.store.fail(ctx,id,'Source is unavailable for introspection.',false);
       }
       if (source.value.receivesLandings && !source.value.landingStrategy) return await this.store.fail(ctx,id,'A landing source requires an explicit strategy before connection.',false);
-      const connector = this.connector(source.value,id);
+      const connector = this.connector(source.value,id,ctx);
       const connected = await connector.testConnection(source.value.credentialRef,controller.signal);
       if (controller.signal.aborted) return await this.store.cancel(ctx,id);
-      if (!connected.ok) return await this.store.fail(ctx,id,safeSourceMessage(connected.error.code,connected.error.message),connected.error.code === 'source_unavailable',connected.error.code);
+      if (!connected.ok) return await this.store.fail(ctx,id,connected.error.details?.cause==='engine_registry'?connected.error.message:safeSourceMessage(connected.error.code,connected.error.message),connected.error.code==='source_unavailable'&&connected.error.details?.cause!=='engine_registry',connected.error.code);
       if (prepare) {
         const prepared = await prepare(controller.signal);
         if (controller.signal.aborted) return await this.store.cancel(ctx,id);
-        if (!prepared.ok) return await this.store.fail(ctx,id,safeSourceMessage(prepared.error.code,prepared.error.message),false,prepared.error.code);
+        if (!prepared.ok) return await this.store.fail(ctx,id,prepared.error.details?.cause==='engine_registry'?prepared.error.message:safeSourceMessage(prepared.error.code,prepared.error.message),false,prepared.error.code);
       }
       const reading = await advance('connecting','reading');
       if (!reading.ok) return reading;
       const snapshot = await connector.introspect(source.value.credentialRef,claim.value.include,controller.signal);
       if (controller.signal.aborted) return await this.store.cancel(ctx,id);
-      if (!snapshot.ok) return await this.store.fail(ctx,id,safeSourceMessage(snapshot.error.code,snapshot.error.message),snapshot.error.code === 'source_unavailable',snapshot.error.code);
+      if (!snapshot.ok) return await this.store.fail(ctx,id,snapshot.error.details?.cause==='engine_registry'?snapshot.error.message:safeSourceMessage(snapshot.error.code,snapshot.error.message),snapshot.error.code==='source_unavailable'&&snapshot.error.details?.cause!=='engine_registry',snapshot.error.code);
       if (claim.value.adoptRenamedNames && !await this.canAdopt(ctx)) return await this.store.fail(ctx,id,'Project administration is required to adopt renamed names.',false);
       const diffing = await advance('reading','diffing');
       if (!diffing.ok) return diffing;

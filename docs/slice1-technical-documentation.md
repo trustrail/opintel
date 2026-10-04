@@ -5311,3 +5311,46 @@ Every clarification item that can be remembered offers it. Accepting writes a pr
 | CLR-06 | Readiness after declaring | The concept moves from ambiguous to declared |
 | CLR-07 | Export | Contains every term with its readiness state |
 | CLR-08 | Discovery question coverage | Reports asked, clarified, and unresolved counts |
+
+
+## 5.20 Single-tenant engine registry
+
+The application dials registered private HTTPS engine listeners. Project
+administrators register and edit name/address/SHA-256 certificate pin in
+Settings → Engines, then explicitly test the connection. Registration and
+edits are unverified; malformed pin syntax is rejected at entry and a valid
+hex typo fails verification. Successful authenticated health with contract 2
+is required before assignment. Failed checks and contract mismatches are
+recorded; health labels describe the last check, not continuous monitoring.
+
+A source has one nullable engine_id during migration/setup and exactly one
+assigned engine before introspection/query. A composite project foreign key
+prevents cross-project assignments. Missing engine refusals name the source.
+Routing rechecks health rather than trusting an old successful test. Queries
+whose touched sources belong to different engines refuse sources_cannot_be_joined;
+there is no distributed execution in this item.
+
+One verified engine is explicitly designated for project custody. Assignment of a source with tokenized entitlements
+requires current primary key version and sentinel matching token_key_version.
+The read-only /custody/attest operation derives the sentinel from the primary
+key, never from escrow and never initializing a missing key. Tokenized
+execution repeats attestation and checks the selected version; the execution
+request carries expectedTokenSentinel and the tokenizer compares the sentinel
+of the actual loaded key before producing tokens. Clear queries can continue
+when an engine's token key is stale. Key distribution is customer provisioning
+until separate item 5.21.
+
+The strict APPLICATION_TLS_CONFIG file contains only caFile, certFile, keyFile.
+Private addresses, expected pins, health and source/custody routing are solely
+in engine records; no legacy client-file fallback exists. Development tools
+register an explicitly supplied service deployment. Standalone transport
+fixtures read explicit service deployments and application identity files.
+The receipt listener uses the application's identity and authorizes the
+sending engine pin against both the claimed project and assigned source.
+Bind host/port stay deployment environment settings. Public certificates and
+trust are provisioned internally; private keys never enter the registry.
+
+Registry reads require project view; registration, edits, verification, custody
+designation and source assignment require project administer. Routes reuse
+shared Zod request/response schemas. Mutations invalidate engine.list, source.list,
+project.stats and custody.status, including failed verification updates.

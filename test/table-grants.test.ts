@@ -24,6 +24,7 @@ const platformManaged: GrantContract = {
 // Explicit contracts, not an exclusion list: discovery below fails on every new
 // public table until its owning scope and privileges have been reviewed.
 const contracts: Record<string, GrantContract> = {
+  engine:{opintel_app:['SELECT','INSERT','UPDATE'],opintel_platform:[],opintel_platform_admin:[...manage,'REFERENCES','TRIGGER']},
   evidence_redaction:{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
   evidence_rollup:{opintel_app:['SELECT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
   evidence_export:{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:manage},

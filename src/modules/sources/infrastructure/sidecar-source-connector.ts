@@ -14,7 +14,7 @@ import * as wire from './sidecar-wire.js';
 
 export interface SidecarOptions {
   baseUrl: string;
-  tls: { ca: string; cert: string; key: string; pinnedCertificate: string };
+  tls: { ca: string; cert: string; key: string; pinnedCertificate?: string; certificatePin?: string };
   /** Entire operation, including first-use health negotiation; always under 10s. */
   timeoutMs?: number;
 }
@@ -32,7 +32,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     }
     this.timeoutMs = options.timeoutMs ?? 9_000;
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs >= 10_000) throw new Error('Opintel Engine timeout must be between 1 and 9999 milliseconds.');
-    this.fingerprint = new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
+    this.fingerprint = options.tls.certificatePin ? options.tls.certificatePin.match(/.{2}/gu)!.join(':') : new X509Certificate(options.tls.pinnedCertificate!).fingerprint256;
   }
 
   async provisionDemo(ref: SecretRef, payload: ProvisionDemoPayload, signal?: AbortSignal) {

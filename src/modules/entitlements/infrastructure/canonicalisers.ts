@@ -15,7 +15,7 @@ export class PostgresCanonicaliserAssignments implements CanonicaliserAssignment
   async assign(ctx: EntitlementContext, element: ElementId, input: unknown) {
     const parsed = canonicaliserAssignment.safeParse(input);
     if (!parsed.success) return err(new DomainError('validation_failed', 'Choose a lowercase alphanumeric canonId advertised by the Opintel Engine.'));
-    const available = await this.catalog.canonicalisers();
+    const available = await this.catalog.canonicalisers(ctx,element);
     if (!available.ok) return available;
     if (!available.value.includes(parsed.data.canonId)) return err(new DomainError('validation_failed', 'This canonId is not available on the Opintel Engine. Deploy the reviewed canonicaliser before assigning it.'));
     return withTenant(ctx, async tx => {

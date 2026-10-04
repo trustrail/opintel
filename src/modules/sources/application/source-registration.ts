@@ -26,11 +26,11 @@ export class SourceRegistrationService {
  private readonly stop=new AbortController();
  private failure:DomainError|undefined;
  constructor(private readonly repository:SourceRegistrationRepository,private readonly ids:IdFactory,
-  private readonly connector:(ctx:SourceContext,id:SourceId)=>SourceConnector & DemoProvisioningPort,
+  private readonly connector:(ctx:SourceContext,id:SourceId,engineId?:import('../../../shared/kernel/index.js').EngineId)=>SourceConnector & DemoProvisioningPort,
   private readonly jobs:IntrospectionJob,private readonly fail:(ctx:SourceContext,id:RunId,message:string)=>Promise<void>,private readonly events?:ProjectEvents,private readonly custody?:{ensure(ctx:SourceContext):Promise<Result<void>>}){}
- async test(ctx:SourceContext,ref:string){
+ async test(ctx:SourceContext,ref:string,engineId?:import('../../../shared/kernel/index.js').EngineId){
   if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
-  const connector=this.connector(ctx,this.ids.create<SourceId>());
+  const connector=this.connector(ctx,this.ids.create<SourceId>(),engineId);
   const tested=await connector.testConnection(SecretRef(ref));
   if(!tested.ok)return ok({reachable:false,reason:tested.error.message,schemas:[] as string[]});
   const snapshot=await connector.introspect(SecretRef(ref),[]);
@@ -39,7 +39,7 @@ export class SourceRegistrationService {
  async create(ctx:SourceContext,input:NewSource){
   if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const id=this.ids.create<SourceId>();
-  const tested=await this.connector(ctx,id).testConnection(SecretRef(input.credentialRef));
+  const tested=await this.connector(ctx,id,input.engineId).testConnection(SecretRef(input.credentialRef));
   if(!tested.ok)return tested;
   const created=await this.repository.create(ctx,id,this.ids.create<RunId>(),input,null);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
@@ -50,8 +50,9 @@ export class SourceRegistrationService {
   const template=await this.repository.template(ctx,id);if(!template.ok)return template;
   const deployment=template.value.deployment;
   if(!deployment)return err(new DomainError('dependency_unavailable','The industry pack is not provisioned for this project. Ask the deployment operator to prepare it.'));
-  const tested=await this.connector(ctx,deployment.sourceId).testConnection(deployment.credentialRef);if(!tested.ok)return tested;
-  const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{name:deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
+  if(!deployment.engineId)return err(new DomainError('source_unavailable','This demo source has no assigned engine. Ask the operator to prepare it with a verified engine.'));
+  const tested=await this.connector(ctx,deployment.sourceId,deployment.engineId).testConnection(deployment.credentialRef);if(!tested.ok)return tested;
+  const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{engineId:deployment.engineId,name:deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created;
  }
@@ -99,7 +100,7 @@ export class SourceRegistrationService {
   const prepare=work.templateId?(signal:AbortSignal)=>this.prepareDemo(ctx,work,signal).catch(()=>err(new DomainError('dependency_unavailable',sourceMessages.unexpected))):undefined;
   const result=await this.jobs.execute(ctx,work.runId,this.stop.signal,prepare);
   if(!result.ok&&result.error.code==='conflict')return ok(undefined); // Another worker already claimed this run.
-  if(!result.ok)return err(new DomainError(result.error.code,safeSourceMessage(result.error.code,result.error.message)));
+  if(!result.ok)return err(new DomainError(result.error.code,result.error.details?.cause==='engine_registry'?result.error.message:safeSourceMessage(result.error.code,result.error.message)));
   if(result.value.state==='failed')this.failure=new DomainError(result.value.errorCode??'dependency_unavailable',result.value.error??sourceMessages.unexpected);
   return ok(undefined);
  }

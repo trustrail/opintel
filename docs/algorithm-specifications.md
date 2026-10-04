@@ -1281,3 +1281,22 @@ The policy in force is recorded on every run, so a record explains why a request
 | CLR-03 | Three ambiguities in one prompt | **One** clarification with three items |
 | CLR-04 | Save as default accepted | Term or registry entry written; the identical prompt does not ask again |
 | CLR-05 | Policy recorded | Every run states which policy applied |
+
+### 5.20 — engine routing and token-key attestation
+
+Single-tenant dispatch uses the source's project-scoped engine record, never a
+process-wide client URL. Registration/edit stores a private HTTPS address and
+SHA-256 full-certificate pin; authenticated health with the required contract
+must succeed before assignment. Every dispatched operation rechecks health.
+Missing assignments name the source; different contracts refuse. Multi-engine
+queries refuse `sources_cannot_be_joined`; distributed execution is outside 5.20.
+
+Custody uses one explicitly designated verified engine per project. Other
+engines must attest the sentinel derived from their current primary key, with
+the same version as the application's current recorded key, before assigning a tokenized source
+and before tokenized dispatch. Escrow rehearsal is not primary attestation. The engine
+checks `expectedTokenSentinel` against the actual loaded execution key before
+performing tokenization, protecting the interval between attestation and use.
+A wrong/stale/missing key refuses, never producing tokens. Distribution remains
+customer-owned provisioning pending the separate key-management item 5.21.
+This adds no SQL or statement-shape telemetry and persists no query values.

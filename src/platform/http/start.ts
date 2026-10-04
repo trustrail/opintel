@@ -21,7 +21,7 @@ import {PostgresEvidenceWriter} from '../../modules/evidence/index.js';
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
 import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
-import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader,ExplainService,QueryService,PostgresQueryReader,SidecarQueryExecution,assertEvidenceWriter } from '../../modules/mcp/index.js';
+import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader,ExplainService,QueryService,PostgresQueryReader,assertEvidenceWriter } from '../../modules/mcp/index.js';
 import { PostgresKeyVerifier } from '../../modules/pools/index.js';
 import { entitlementReadRoutes } from '../../modules/entitlements/api/read-routes.js';
 import { PostgresEntitlementReader,QueryPreFilter,DuckDBQueryParser } from '../../modules/entitlements/index.js';
@@ -29,7 +29,7 @@ import { BulkEntitlementService, PostgresBulkEntitlements } from '../../modules/
 import { bulkEntitlementRoutes } from '../../modules/entitlements/api/bulk-routes.js';
 import { PostgresOrdinalRepair } from '../../modules/sources/infrastructure/ordinal-repair.js';
 import { recoverIntrospectionCompletions } from '../../modules/sources/infrastructure/introspection-completion-recovery.js';
-import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../../modules/entitlements/index.js';
+import { KeyCustodyService,PostgresCustodyRepository } from '../../modules/entitlements/index.js';
 import { keyCustodyRoutes } from '../../modules/entitlements/api/key-custody-routes.js';
 import { RedisProjectHub } from '../sse/redis-hub.js';
 import { projectStreamRoutes } from '../sse/routes.js';
@@ -39,7 +39,6 @@ import { PostgresIntrospectionStore } from '../../modules/sources/infrastructure
 import { catalogRoutes } from '../../modules/catalog/api/tree-routes.js';
 import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/tree.js';
 import dotenv from 'dotenv';
-import { existsSync } from 'node:fs';
 
 function loadDevelopmentEnvironment(): void {
   if (process.env.NODE_ENV !== 'production') dotenv.config();
@@ -181,9 +180,10 @@ async function start(): Promise<void> {
   const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, magicLinkAccess, delivery);
   const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
   const register = new PostgresFilingRegister(hub);
-  const [{createSourceRuntime},{sourceRoutes},{loadSidecarClientOptions:sourceOptions}]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/sources/index.js')]);
-  const sidecarOptions=await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json');
-  const sources=createSourceRuntime(sidecarOptions,hub);
+  const [{createSourceRuntime},{sourceRoutes},engines]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/engines/index.js')]);
+  const applicationTls=await engines.loadApplicationTls(process.env.APPLICATION_TLS_CONFIG ?? 'tmp/sidecar/application-tls.json');
+  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(),applicationTls);
+  const sources=createSourceRuntime(engineRegistry,hub);
   // Durable startup repair runs through the ordinary worker, without waiting
   // for source contact before serving the API. Unknown ordinals still fail closed.
   const repair = async () => {
@@ -201,7 +201,7 @@ async function start(): Promise<void> {
   };
   deliverCompletions();
   const completionTimer = setInterval(deliverCompletions,30000); completionTimer.unref();
-  const custody=new KeyCustodyService(new PostgresCustodyRepository(),new SidecarCustodyClient(await sourceOptions(process.env.SIDECAR_CLIENT_CONFIG ?? 'tmp/sidecar/client.json')),authorization);
+  const custody=new KeyCustodyService(new PostgresCustodyRepository(),new engines.RegistryCustodyClient(engineRegistry),authorization);
   const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
   const presence = new PostgresAgentPresence(hub);
@@ -227,7 +227,7 @@ async function start(): Promise<void> {
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
-    ...sourceRoutes(sources),
+    ...sourceRoutes(sources),...engines.engineRoutes(engineRegistry),
     ...typeObservationRoutes(new PostgresTypeObservations()),
     ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory(),hub))),
     ...registerRoutes(register),
@@ -246,7 +246,7 @@ async function start(): Promise<void> {
     ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
   const evidence=new PostgresEvidenceWriter();assertEvidenceWriter(evidence);
-  const execution=new SidecarQueryExecution(sidecarOptions),filter=new QueryPreFilter(new DuckDBQueryParser());
+  const execution=new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),filter=new QueryPreFilter(new DuckDBQueryParser());
   const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence);
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory());
   const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization),query,explain);
@@ -268,14 +268,11 @@ async function start(): Promise<void> {
   });
   // Dedicated mTLS listener: the receipt route is never mounted on the browser API.
   let receiptServer: import('node:https').Server | undefined;
-  const receiptConfig = process.env.LANDING_RECEIPT_CLIENT_CONFIG ?? (process.env.NODE_ENV !== 'production' && existsSync('tmp/sidecar/client.json') ? 'tmp/sidecar/client.json' : undefined);
-  if (receiptConfig) {
-    const [{ loadSidecarClientOptions }, { createLandingReceiptServer }, { AcceptLandingReceipt }, { PostgresLandingReceiptRepository }] = await Promise.all([
-      import('../../modules/sources/index.js'), import('../../modules/ingest/api/landing-receipt-server.js'),
-      import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
+  if (process.env.LANDING_RECEIPT_PORT || process.env.NODE_ENV !== 'production') {
+    const [{ createLandingReceiptServer }, { AcceptLandingReceipt }, { PostgresLandingReceiptRepository }] = await Promise.all([
+      import('../../modules/ingest/api/landing-receipt-server.js'), import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
     ]);
-    const options = await loadSidecarClientOptions(receiptConfig);
-    receiptServer = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository(hub)), register);
+    receiptServer = createLandingReceiptServer(applicationTls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository(hub)), register, engines.authorizeEngineReceipt);
     const receiptPort = Number(process.env.LANDING_RECEIPT_PORT ?? '3101');
     if (!Number.isInteger(receiptPort) || receiptPort < 1 || receiptPort > 65535) throw new Error('Invalid landing receipt port.');
     await new Promise<void>((resolve, reject) => {

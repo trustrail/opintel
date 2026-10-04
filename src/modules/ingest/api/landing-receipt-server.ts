@@ -1,17 +1,16 @@
 import { z } from 'zod';
-import { ProjectId } from '../../../shared/kernel/index.js';
+import { ProjectId,SourceId } from '../../../shared/kernel/index.js';
 import type { FilingRegisterRepository } from '../application/register.js';
 import { createServer } from 'node:https';
-import { X509Certificate, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { TLSSocket } from 'node:tls';
 import { arrivalNoticeSchema, reconciliationReportSchema, landingReceiptSchema } from '../../../shared/landing-contract.js';
 import type { AcceptLandingReceipt } from '../application/landing-receipts.js';
 
-export function createLandingReceiptServer(tls: { ca: string; cert: string; key: string; pinnedCertificate: string }, service: AcceptLandingReceipt, register?: FilingRegisterRepository) {
+export function createLandingReceiptServer(tls: { ca: string; cert: string; key: string }, service: AcceptLandingReceipt, register: FilingRegisterRepository | undefined, authorize: (pin:string,project:ProjectId,source:SourceId)=>Promise<boolean>) {
   const routes = ['/landing-receipt', ...(register ? ['/arrival-notice', '/reconciliation-report'] : [])]
     .map((path) => ({ path, permission: 'pinned_sidecar_certificate' as const }));
   for (const route of routes) if (route.permission !== 'pinned_sidecar_certificate') throw new Error('Ingest routes must declare their certificate permission.');
-  const pin = new X509Certificate(tls.pinnedCertificate).fingerprint256;
   return createServer({ ...tls, minVersion: 'TLSv1.3', requestCert: true, rejectUnauthorized: true }, (req, res) => {
     const requestId = randomUUID();
     const fail = (status: number, code: string, message: string) => {
@@ -20,7 +19,7 @@ export function createLandingReceiptServer(tls: { ca: string; cert: string; key:
       res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: { code, message, requestId, retryable: status >= 500 } }));
     };
     const socket = req.socket as TLSSocket;
-    if (!socket.authorized || socket.getPeerCertificate().fingerprint256 !== pin) { socket.destroy(); return; }
+    if (!socket.authorized) { socket.destroy(); return; }
     if (req.method !== 'POST' || !routes.some((route) => route.path === req.url)) { req.resume(); fail(404, 'not_found', 'The endpoint does not exist.'); return; }
     if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] ?? '')) { req.resume(); fail(415, 'validation_failed', 'A JSON receipt is required.'); return; }
     void (async () => {
@@ -34,6 +33,9 @@ export function createLandingReceiptServer(tls: { ca: string; cert: string; key:
         let body: unknown;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown; }
         catch { fail(400, 'validation_failed', 'The receipt is not valid JSON.'); return; }
+        const binding=z.object({projectId:z.uuid().optional(),sourceId:z.uuid()}).safeParse(body);
+        const project=z.uuid().safeParse(binding.success?binding.data.projectId??req.headers['x-opintel-project-id']:undefined);
+        if(!binding.success||!project.success||!await authorize(socket.getPeerCertificate().fingerprint256,ProjectId(project.data),SourceId(binding.data.sourceId))){fail(403,'forbidden','This engine is not verified and assigned to the source in this project.');return;}
         const result = await (async () => {
           if (req.url === '/arrival-notice' && register) {
             const parsed = arrivalNoticeSchema.safeParse(body);

@@ -18,7 +18,7 @@ export class QueryPreparation {
    const s=snapshot.value;
    const evidence:EvidencePlan|undefined=s.evidence?{requiresTokenization:false,versions:{...s.evidence.versions},elements:[],sources:[],sourcePlan:{executionSettings:{...(s.limits?{limits:s.limits}:{}),settings:s.settings,aggregateMinGroupSize:s.aggregateMinGroupSize}},stages:[]}:undefined;
    if(evidence)capture?.(evidence);
-   const health=await this.execution.health(signal);if(!health.ok)return err(health.error);
+   const health=await this.execution.health(signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId,sources:s.sources.map(s=>s.id),parserOnly:true});if(!health.ok)return err(health.error);
    const touched:ViewDefinition[]=[];const returned=new Set<ElementId>();
    const filterStarted=performance.now();
    const filtered=await this.filter.inspect({sql:input.sql,queryEngineBuild:health.value.queryEngineVersion,views:s.compilation.views,omitted:s.compilation.omitted},v=>{if(!touched.includes(v))touched.push(v);},ids=>{for(const id of ids)returned.add(id);});
@@ -40,6 +40,7 @@ export class QueryPreparation {
    const resolveStarted=performance.now();
    const checks=sources.length?await this.authorization.checkMany(sources.map(source=>({resource:{type:'datasource',id:source.id},permission:'reachable',subject:{type:'pool',id:principal.pool.id}}))):[];
    if(sources.some((_,i)=>!checks[i]?.allowed))return err(new DomainError('sql_not_permitted','A referenced source is not bound to this pool.',{cause:'source_not_bound'}));
+   if(sources.length){const routed=await this.execution.health(signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId,sources:sources.map(s=>s.id)});if(!routed.ok)return routed;if(routed.value.queryEngineVersion!==health.value.queryEngineVersion)return err(new DomainError('sql_not_permitted','The engines report different query builds. Align their builds before querying.'));}
    if(sources.some(source=>source.status!=='connected'||source.credentialRef===null))return err(new DomainError('source_unavailable','A referenced source is unavailable. No cached or partial result was returned.',{cause:'source_not_ready',reason:sources.some(source=>source.status!=='connected')?(sources.some(source=>source.credentialRef===null)?'source_status_and_credential_missing':'source_status'):'credential_missing'},true));
    if(evidence)evidence.stages.push({stage:'resolve_sources',result:'ok',detail:{checks:checks.map((check,i)=>({sourceId:sources[i]!.id,allowed:check.allowed,token:check.token,checkedAt:check.checkedAt,snapshotAgeMs:check.snapshotAgeMs}))},ms:Math.max(0,Math.round(performance.now()-resolveStarted))});
    const first=touched[0];

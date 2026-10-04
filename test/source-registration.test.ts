@@ -1,3 +1,7 @@
+import {unwrap} from './fixtures/policy-version/fixture.js';
+import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe} from '../src/modules/engines/index.js';
+import type {EngineId} from '../src/shared/kernel/index.js';
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { FileCustody } from '../sidecar/custody/infrastructure/file-custody.js';
 import { DevelopmentFileKeyStore,DevelopmentFileKeyEscrow } from '../sidecar/custody/infrastructure/development-file-keys.js';
 import { KeyCustodyService,PostgresCustodyRepository,SidecarCustodyClient } from '../src/modules/entitlements/index.js';
@@ -18,7 +22,7 @@ import { sourceRoutes } from '../src/modules/sources/api/source-routes.js';
 import { SourceRegistrationService } from '../src/modules/sources/application/source-registration.js';
 import { PostgresSourceRegistrationRepository } from '../src/modules/sources/infrastructure/source-registration-repository.js';
 import { PostgresIntrospectionStore } from '../src/modules/sources/infrastructure/postgres-introspection-store.js';
-import { IntrospectionJob,SidecarSourceConnector,loadSidecarClientOptions } from '../src/modules/sources/index.js';
+import { IntrospectionJob,SidecarSourceConnector } from '../src/modules/sources/index.js';
 import { createSidecarServer } from '../sidecar/http/server.js';
 import { createPostgresConnector } from '../sidecar/create-postgres-connector.js';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
@@ -33,10 +37,11 @@ let repository:PostgresSourceRegistrationRepository;let provisionDemo=false;let 
 let origin:string;let industryId:string;let denied=false;let projectId=ProjectId(randomUUID());const userId=UserId(randomUUID());
 const templateId='31100000-0000-4000-8000-000000000001';
 const suffix=randomUUID().replaceAll('-','');const schema='source_'+suffix;const landed='landed_'+suffix;const role='read_'+suffix;const password=randomUUID();
-let options:Awaited<ReturnType<typeof loadSidecarClientOptions>>;
+let options:Awaited<ReturnType<typeof developmentEngineOptions>>;
 const connectors:SidecarSourceConnector[]=[];
 async function customer<T>(fn:(db:Client)=>Promise<T>){const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();try{return await fn(db);}finally{await db.end();}}
-const body=(name='Warehouse',receivesLandings=false)=>({name,kind:'postgres',credentialRef:'secret://test/readonly',includeSchemas:[receivesLandings?landed:schema],samplingConsent:false,receivesLandings,landingStrategy:receivesLandings?'append_as_at':null});
+let registeredEngineId:EngineId;
+const body=(name='Warehouse',receivesLandings=false)=>({engineId:registeredEngineId,name,kind:'postgres',credentialRef:'secret://test/readonly',includeSchemas:[receivesLandings?landed:schema],samplingConsent:false,receivesLandings,landingStrategy:receivesLandings?'append_as_at':null});
 async function request(path:string,method='GET',payload?:unknown){return fetch(origin+path,{method,headers:payload?{'content-type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});}
 const path=()=>`/api/v1/projects/${projectId}/sources`;
 beforeAll(async()=>{
@@ -45,7 +50,7 @@ beforeAll(async()=>{
  const url=new URL(process.env.TEST_DATABASE_URL!);url.username=role;url.password=password;
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
  host=createSidecarServer({custody:new FileCustody(await DevelopmentFileKeyStore.open(config.custody!.keyStore),await DevelopmentFileKeyEscrow.open(config.custody!.keyEscrow)),demo:{provision:async()=>{if(provisionFailure instanceof Error)throw provisionFailure;return provisionFailure?err(provisionFailure):ok({credentialRef:'secret://test/readonly',database:'prepared_demo'});}},config:{...config,port:0},tls,connector:createPostgresConnector({secrets:new EnvironmentSecretStore({OPINTEL_SECRET_TEST_READONLY:url.toString()}),audit:{record:async()=>{}},limits:config.limits})});
- const port=await host.listen();options={...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`};
+ const port=await host.listen();options={...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`};
 },30000);
 afterAll(async()=>{await host?.close();await customer(async db=>{await db.query(`DROP SCHEMA "${schema}" CASCADE;DROP SCHEMA "${landed}" CASCADE;DROP ROLE "${role}"`);});await rm(directory,{recursive:true,force:true});});
 afterEach(async()=>{await service?.close();if(api)await new Promise<void>(resolve=>api.close(()=>resolve()));});
@@ -54,6 +59,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  beforeEach(async()=>{
   denied=false;provisionDemo=false;provisionFailure=undefined;projectId=ProjectId(randomUUID());connectors.length=0;
   await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[userId,userId+'@source.test']);const [industry]=await tx.query<{id:string}>("SELECT id FROM industry WHERE slug='reinsurance-treaty'");industryId=industry!.id;const [company]=await tx.query<{id:string}>("INSERT INTO company(name,default_region) VALUES('Sources','eu-west-1') RETURNING id");await tx.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,'Sources','eu-west-1')",[projectId,company!.id,industryId]);});
+  const registry=new EngineRegistry(new PostgresEngineRepository(),new HttpsEngineProbe(),options.tls);registeredEngineId=unwrap(await registry.register({projectId,userId},{name:'Fixture engine',address:options.baseUrl,certificatePin:options.tls.certificatePin!})).id;unwrap(await registry.verify({projectId,userId},registeredEngineId));
   const ids=new UuidV7IdFactory();const store=new PostgresIntrospectionStore(ids);
   const factory=(ctx:{projectId:ProjectId},id:SourceId)=>{const port=new SidecarSourceConnector('postgres',{projectId:ctx.projectId,sourceId:id,requestId:randomUUID(),sampling:async()=>ok({consentGiven:false,elements:[]})},options);vi.spyOn(port,'testConnection');vi.spyOn(port,'introspect');if(provisionDemo)vi.spyOn(port,'provisionDemo').mockImplementation(async(ref)=>{expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM data_source'))).toHaveLength(1);return ok({credentialRef:ref,database:'prepared_demo'});});connectors.push(port);return port;};
   const jobs=new IntrospectionJob(store,source=>factory(source,source.id));
@@ -69,7 +75,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   }finally{custody.mockRestore();}
  });
  it('F-001: tests without saving, then saves and queues the selected schemas through the real connector port',async()=>{
-  const tested=await request(path()+'/test','POST',{kind:'postgres',credentialRef:body().credentialRef});expect(tested.status).toBe(200);expect(await tested.json()).toMatchObject({reachable:true,schemas:expect.arrayContaining([schema,landed])});
+  const tested=await request(path()+'/test','POST',{engineId:registeredEngineId,kind:'postgres',credentialRef:body().credentialRef});expect(tested.status).toBe(200);expect(await tested.json()).toMatchObject({reachable:true,schemas:expect.arrayContaining([schema,landed])});
   expect((await (await request(path())).json()).items).toEqual([]);
   const created=await request(path(),'POST',body());expect(created.status).toBe(201);const source=await created.json();expect(source).toMatchObject({origin:'customer',elementCount:0,filingCount:null});expect(source).not.toHaveProperty('credentialRef');
   await service.idle();const rows=await withTenant({projectId,userId},tx=>tx.query<{state:string;include_schemas:string[]}>('SELECT state,include_schemas FROM introspection_run'));expect(rows).toEqual([{state:'complete',include_schemas:[schema]}]);
@@ -103,7 +109,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   expect((await request(endpoint+'/introspect','POST',{projectId})).status).toBe(409);
   expect((await request(path(),'POST',body())).status).toBe(409);
  });
- it('F-007: bind_source denial prevents testing, saving and demo provisioning',async()=>{denied=true;for(const [suffix,payload]of [['',body()],['/test',{kind:'postgres',credentialRef:body().credentialRef}],['/from-demo',{demoTemplateId:templateId}]] as const)expect((await request(path()+suffix,'POST',payload)).status).toBe(403);expect(connectors).toHaveLength(0);});
+ it('F-007: bind_source denial prevents testing, saving and demo provisioning',async()=>{denied=true;for(const [suffix,payload]of [['',body()],['/test',{engineId:registeredEngineId,kind:'postgres',credentialRef:body().credentialRef}],['/from-demo',{demoTemplateId:templateId}]] as const)expect((await request(path()+suffix,'POST',payload)).status).toBe(403);expect(connectors).toHaveLength(0);});
  it('refuses literal credentials and missing landing strategies at the API boundary',async()=>{expect((await request(path(),'POST',{...body(),credentialRef:'postgres://secret'})).status).toBe(400);expect((await request(path(),'POST',{...body(),receivesLandings:true})).status).toBe(400);expect(connectors).toHaveLength(0);});
  it('E2-013/O-002: an unprepared offer creates nothing, and operator preparation reserves without connecting',async()=>{
   const url=`/api/v1/industries/${industryId}/demo-sources?projectId=${projectId}`;
@@ -111,14 +117,14 @@ describe('source registration against real Postgres and the sidecar',()=>{
   const rejected=await request(path()+'/from-demo','POST',{demoTemplateId:templateId});expect(rejected.status).toBe(503);expect((await rejected.json()).error.code).toBe('dependency_unavailable');
   const reserved=randomUUID();const config=join(directory,'prepared','service.json');
   const other=new URL(process.env.TEST_DATABASE_URL!);other.pathname+='_unused';
-  await exec(process.execPath,['--import','tsx','scripts/demo-pack.ts','prepare',projectId,userId,reserved],{env:{...process.env,DATABASE_URL:process.env.TEST_DATABASE_URL,TEST_DATABASE_URL:other.toString(),SIDECAR_CONFIG_FILE:config},timeout:20000});
+  await exec(process.execPath,['--import','tsx','scripts/demo-pack.ts','prepare',projectId,userId,reserved],{env:{...process.env,DATABASE_URL:process.env.TEST_DATABASE_URL,TEST_DATABASE_URL:other.toString(),SIDECAR_CONFIG_FILE:config,DEMO_ENGINE_ID:registeredEngineId},timeout:20000});
   expect((await(await request(path())).json()).items).toEqual([]);expect(await (await request(url)).json()).toEqual([expect.objectContaining({prepared:true,connected:false})]);
   const [row]=await withPlatform(tx=>tx.query<{deployment_ref:Record<string,{sourceId:string}>}>('SELECT deployment_ref FROM demo_source_template WHERE id=$1',[templateId]));expect(row!.deployment_ref[projectId]!.sourceId).toBe(reserved);
   expect(connectors).toHaveLength(0);
  },25000);
  it('Connect inserts the reserved demo source and uses the same connector port for introspection',async()=>{
   const reserved=randomUUID();provisionDemo=true;
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   vi.spyOn(repository,'settledFilings').mockResolvedValue(13);
   expect((await(await request(path())).json()).items).toEqual([]);
   const response=await request(path()+'/from-demo','POST',{demoTemplateId:templateId});expect(response.status).toBe(201);expect(await response.json()).toMatchObject({id:reserved,origin:'demo'});
@@ -129,7 +135,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  it.each([false,true])('persists the exact safe provisioning message and exposes it in the source response (unexpected=%s)',async(unexpected)=>{
   const reserved=randomUUID();
   provisionFailure=unexpected?new Error('SELECT password FROM credentials: SECRET'):new DomainError('conflict',sourceMessages.templateConflict);
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);
   const result=await service.idle();expect(result).toMatchObject({ok:false,error:{code:unexpected?'dependency_unavailable':'conflict'}});
   const listed=await(await request(path())).json();
@@ -157,7 +163,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  });
  it.each(['connect','retry'] as const)('resumes failed demo provisioning through %s without replacing identity or history',async(entry)=>{
   const reserved=randomUUID();provisionFailure=new DomainError('conflict',sourceMessages.templateConflict);
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);expect((await service.idle()).ok).toBe(false);
   const before=await withTenant({projectId,userId},tx=>tx.query('SELECT id,state,error FROM introspection_run'));
   const filingId=randomUUID();const payload={filingId,sourceId:reserved,projectId,revision:1,outcome:'quarantined',quarantineCategory:'merged_header',receivedAt:new Date().toISOString(),fileSha256:'0'.repeat(64),partyCode:null,period:null,kind:null};

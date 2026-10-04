@@ -1,3 +1,4 @@
+import {developmentEngineOptions} from '../../../scripts/development-engine.js';
 import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
@@ -25,7 +26,7 @@ import {PostgresStagingSource} from '../../../sidecar/execution/infrastructure/p
 import {StagedExecutor} from '../../../sidecar/execution/application/execute.js';
 import {DuckDBSessionEngine} from '../../../sidecar/session/index.js';
 import {SidecarTokenizer,IanaZoneResolver} from '../../../sidecar/tokenize/index.js';
-import {loadSidecarClientOptions} from '../../../src/modules/sources/index.js';
+
 export function unwrap<T>(r:Result<T>):T{if(!r.ok)throw new Error(`${r.error.code}: ${r.error.message}`);return r.value;}
 export class UnavailableEvidenceWriter {
  readonly implementation='test-stub' as const;
@@ -81,7 +82,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const boundary={executions:0};
  const executor=new StagedExecutor(source,r=>new DuckDBSessionEngine(undefined,event=>{if(event.stage==='execute_started')boundary.executions++;},resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),r.limits));
  const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.4.3/d1dc88f950'}});const port=await host.listen();cleanup.push(()=>host.close());
- const execution=new SidecarQueryExecution({...await loadSidecarClientOptions(join(directory,'client.json')),baseUrl:`https://127.0.0.1:${port}`});
+ const execution=new SidecarQueryExecution({...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`});
  const reader=new PostgresQueryReader(),filter=new QueryPreFilter(new DuckDBQueryParser()),service=new QueryService(reader,filter,execution,authorization,writer);
  const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory());
  const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),new DescribeService(new PostgresDescribeReader(),authorization),service,explain);

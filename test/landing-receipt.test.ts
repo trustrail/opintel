@@ -1,3 +1,4 @@
+import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -5,7 +6,7 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prepareSidecarDevelopment } from '../scripts/sidecar-dev.js';
-import { loadSidecarClientOptions } from '../src/modules/sources/index.js';
+
 import { loadSidecarConfig, sidecarConfigSchema } from '../sidecar/config.js';
 import { createLandingReceiptServer } from '../src/modules/ingest/api/landing-receipt-server.js';
 import { AcceptLandingReceipt } from '../src/modules/ingest/application/landing-receipts.js';
@@ -29,8 +30,8 @@ describe('landing receipt over pinned mutual TLS', () => {
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), 'opintel-receipts-'));
     await prepareSidecarDevelopment(directory);
-    const options = await loadSidecarClientOptions(join(directory, 'client.json'));
-    server = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()));
+    const options = await developmentEngineOptions(join(directory, 'service.json'));
+    server = createLandingReceiptServer(options.tls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository()),undefined,async pin=>pin.replaceAll(':','')===options.tls.certificatePin);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('No listener.');
     url = `https://127.0.0.1:${address.port}`;
@@ -89,7 +90,7 @@ describe('landing receipt over pinned mutual TLS', () => {
     expect(sidecarConfigSchema.safeParse({ ...(await loadSidecarConfig(join(directory, 'service.json'))).config, receiptUrl: url, landingZones: [{ sourceId, projectId: context.projectId, directory: '/zone', rulesFile: '/rules', stateFile: '/state', landing: { name: 'land', credentialRef: 'secret://test/source' } }] }).success).toBe(false);
   });
   it('rejects the wrong certificate on either end and a receipt for a foreign project', async () => {
-    const options = await loadSidecarClientOptions(join(directory, 'client.json'));
+    const options = await developmentEngineOptions(join(directory, 'service.json'));
     expect(await new HttpsLandingReceipts(url, { ...tls, cert: options.tls.cert, key: options.tls.key }).send(receipt())).toMatchObject({ ok: false });
     expect(await new HttpsLandingReceipts(url, { ...tls, pinnedCertificate: tls.cert }).send(receipt())).toMatchObject({ ok: false });
     expect(await client.send({ ...receipt(), projectId: ProjectId(randomUUID()) })).toMatchObject({ ok: false });

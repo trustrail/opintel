@@ -8,7 +8,7 @@ import { checkServerIdentity } from 'node:tls';
 import { X509Certificate } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { loadSidecarClientOptions } from '../src/modules/sources/index.js';
+import {developmentEngineOptions} from './development-engine.js';
 import { healthResponse } from '../src/shared/sidecar-contract.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
 
@@ -34,8 +34,8 @@ export async function prepareSidecarDevelopment(directory=sidecarDevDirectory): 
     await chmod(resolve(tlsDir,'ca.key'),0o600);
   }
   const service={custody:{keyStore:'keys/development-primary',keyEscrow:'keys/development-escrow'},demo:{database:'opintel_demo',credentialRef:'secret://demo/postgres'},host:'127.0.0.1',port:3100,tls:{caFile:'tls/ca.pem',certFile:'tls/server.pem',keyFile:'tls/server.key',clientPinFile:'tls/client.pem'},auditFile:'sampling-audit.jsonl',limits:{maxConnectionsPerSource:4,statementTimeoutMs:8000,operationTimeoutMs:9000}};
-  const client={baseUrl:'https://127.0.0.1:3100',caFile:'tls/ca.pem',certFile:'tls/client.pem',keyFile:'tls/client.key',serverPinFile:'tls/server.pem',timeoutMs:9000};
-  for(const [name,value]of [['service.json',service],['client.json',client]] as const){
+  const client={caFile:'tls/ca.pem',certFile:'tls/client.pem',keyFile:'tls/client.key'};
+  for(const [name,value]of [['service.json',service],['application-tls.json',client]] as const){
     try{await writeFile(resolve(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600});}
     catch(error:unknown){if(!(typeof error==='object'&&error!==null&&'code'in error&&error.code==='EEXIST'))throw error;}
   }
@@ -44,8 +44,8 @@ export async function prepareSidecarDevelopment(directory=sidecarDevDirectory): 
   await loadSidecarConfig(resolve(directory,'service.json'));
 }
 
-export async function checkLocalSidecar(file=resolve(sidecarDevDirectory,'client.json')): Promise<void> {
-  const options=await loadSidecarClientOptions(file);
+export async function checkLocalSidecar(file=resolve(sidecarDevDirectory,'service.json')): Promise<void> {
+  const options=await developmentEngineOptions(file);
   const fingerprint=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;
   await new Promise<void>((resolve,reject)=>{
     const req=request(new URL('/health',options.baseUrl),{method:'POST',agent:false,...options.tls,minVersion:'TLSv1.3',rejectUnauthorized:true,signal:AbortSignal.timeout(1500),
@@ -86,8 +86,8 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
     if(child.pid!==undefined)await writeFile(pidFile,String(child.pid)+'\n',{mode:0o600});
     for(let attempt=0;attempt<40;attempt++){
       if(failed)throw await startupFailure();
-      try{await checkLocalSidecar(resolve(directory,'client.json'));if(failed)throw new Error('Opintel Engine exited');
-        child.unref();console.info(`Local Opintel Engine ready. Client configuration: ${resolve(directory,'client.json')}.`);return;
+      try{await checkLocalSidecar(resolve(directory,'service.json'));if(failed)throw new Error('Opintel Engine exited');
+        child.unref();console.info(`Local Opintel Engine ready. Deployment: ${resolve(directory,'service.json')}; application TLS: ${resolve(directory,'application-tls.json')}.`);return;
       }catch{await delay(250);}
     }
     throw new Error('Local Opintel Engine did not become healthy. Check tmp/sidecar/service.log.');

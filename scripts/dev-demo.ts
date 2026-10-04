@@ -51,22 +51,26 @@ async function provision(){
   await writeFile(serviceFile+'.next',JSON.stringify({...original,landingZones:zones},null,2)+'\n',{mode:0o600});await rename(serviceFile+'.next',serviceFile);
   console.info(`Retired ${config.landingZones!.length-zones.length} stale landing zone(s); previous configuration saved in ${backup}. Landing files and registers are retained.`);
  }
- const {demoPack}=await import('./demo-pack.js');await demoPack('prepare',projectId,userId,undefined,{showNextSteps:false});
+ await startDevelopmentSidecar();
+ const {registerDevelopmentEngine}=await import('./development-engine.js');const {registry:developmentRegistry,engineId:developmentEngineId}=await registerDevelopmentEngine(ctx,serviceFile);
+ const {KeyCustodyService,PostgresCustodyRepository}=await import('../src/modules/entitlements/index.js');const {RegistryCustodyClient}=await import('../src/modules/engines/index.js');unwrap(await new KeyCustodyService(new PostgresCustodyRepository(),new RegistryCustodyClient(developmentRegistry),auth).ensure(ctx));
+ const {demoPack}=await import('./demo-pack.js');await demoPack('prepare',projectId,userId,undefined,{showNextSteps:false,engineId:developmentEngineId});
  const [deployment]=await withPlatform(tx=>tx.query<{source:SourceId}>("SELECT deployment_ref->($1::text)->>'sourceId' AS source FROM demo_source_template WHERE id='31100000-0000-4000-8000-000000000001'",[projectId]));if(!deployment?.source)throw new Error('Demo preparation did not reserve a source.');
  const sourceId=SourceId(deployment.source);
  const {checkDevelopmentLandingZones}=await import('./sidecar-landing-check.js');await checkDevelopmentLandingZones((await loadSidecarConfig(serviceFile)).config.landingZones??[]);
  await startDevelopmentSidecar();
  // Use the real receipt application even when dev:api has not started yet.
- const {loadSidecarClientOptions}=await import('../src/modules/sources/index.js');
- const options=await loadSidecarClientOptions(join(sidecarDevDirectory,'client.json'));
+ const {loadApplicationTls,authorizeEngineReceipt}=await import('../src/modules/engines/index.js');
+ const applicationTls=await loadApplicationTls(join(sidecarDevDirectory,'application-tls.json'));
  const {createLandingReceiptServer}=await import('../src/modules/ingest/api/landing-receipt-server.js');
  const {AcceptLandingReceipt}=await import('../src/modules/ingest/application/landing-receipts.js');
  const {PostgresLandingReceiptRepository}=await import('../src/modules/ingest/infrastructure/landing-receipts.js');
  const {PostgresFilingRegister}=await import('../src/modules/ingest/infrastructure/register.js');
- const receipts=createLandingReceiptServer(options.tls,new AcceptLandingReceipt(new PostgresLandingReceiptRepository()),new PostgresFilingRegister());
+ const receipts=createLandingReceiptServer(applicationTls,new AcceptLandingReceipt(new PostgresLandingReceiptRepository()),new PostgresFilingRegister(),authorizeEngineReceipt);
  const listening=await new Promise<boolean>((resolve,reject)=>{receipts.once('error',(error:Error & {code?:string})=>error.code==='EADDRINUSE'?resolve(false):reject(error));receipts.listen(3101,'127.0.0.1',()=>resolve(true));});
  try{
   const [source]=await withTenant(ctx,tx=>tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1',[sourceId]));
+  if(source)unwrap(await developmentRegistry.assign(ctx,sourceId,developmentEngineId));
   if(source?.status!=='connected')await demoPack('provision',projectId,userId,sourceId);
  }finally{if(listening)await new Promise<void>((resolve,reject)=>receipts.close(e=>e?reject(e):resolve()));}
  // New landing tables have no planner statistics until ANALYZE/autovacuum.

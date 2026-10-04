@@ -18,7 +18,7 @@ describe('development demo bootstrap safeguards',()=>{
   for(const NODE_ENV of ['production','staging','test'])expect(()=>assertDevelopmentDemo({NODE_ENV})).toThrow('development only');
   for(const key of ['DATABASE_URL','MIGRATION_DATABASE_URL','TEST_DATABASE_URL','REDIS_URL','APP_BASE_URL'])expect(()=>assertDevelopmentDemo({[key]:'https://example.com/db'})).toThrow('loopback');
   expect(()=>assertDevelopmentDemo({SPICEDB_ENDPOINT:'example.com:50051'})).toThrow('loopback');
-  for(const key of ['SIDECAR_CONFIG_FILE','SIDECAR_CLIENT_CONFIG'])expect(()=>assertDevelopmentDemo({[key]:'/elsewhere/config.json'})).toThrow('tmp/sidecar');
+  for(const key of ['SIDECAR_CONFIG_FILE','APPLICATION_TLS_CONFIG'])expect(()=>assertDevelopmentDemo({[key]:'/elsewhere/config.json'})).toThrow('tmp/sidecar');
  });
  it('covers all five decisions on landed demo columns, without tokenizing provenance',()=>{
   const column=(sourceIdentifier:string,exposedType:string,ordinal=1)=>({sourceIdentifier,exposedType,ordinal});

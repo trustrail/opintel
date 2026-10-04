@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { DomainError, err, ok, type Result, type ElementId } from '../../../shared/kernel/index.js';
 import type { ExposedType } from '../../catalog/index.js';
 import type { EntitlementContext } from './entitlement-repository.js';
-export interface CanonicaliserCatalog { canonicalisers(): Promise<Result<readonly string[]>>; }
+export interface CanonicaliserCatalog { canonicalisers(ctx?:EntitlementContext,element?:ElementId): Promise<Result<readonly string[]>>; }
 export const canonicaliserAssignment = z.strictObject({ canonId: z.string().regex(/^[a-z0-9]+$(?![\s\S])/u), confirmation: z.string().optional() });
 export function standardCanonId(type: ExposedType | null, epochUnit: string | null): string {
   if (epochUnit !== null || type === 'TIMESTAMP' || type === 'TIMESTAMPTZ') return 'stdtime1';

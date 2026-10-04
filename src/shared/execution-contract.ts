@@ -1,3 +1,4 @@
+import {sentinel} from './custody-contract.js';
 import {numericProjectSetting} from './project-settings.js';
 import { stagingType } from './staging-types.js';
 import { z } from 'zod';
@@ -19,7 +20,7 @@ const column=z.strictObject({numericDefault:z.enum(['scalar','array']).optional(
 export const stagingObject=z.strictObject({catalog:name,schema:name,name:name,sourceId:z.uuid(),
  readPlan:z.strictObject({catalog:name,schema:name,object:name,columns:z.array(column).min(1)}),
 });
-export const executionRequest=z.strictObject({requestId:name,tokenKeyVersionSelected:positive.nullable().default(null),projectId:z.uuid(),poolId:z.uuid(),policyVersion:z.number().int().nonnegative(),
+export const executionRequest=z.strictObject({requestId:name,tokenKeyVersionSelected:positive.nullable().default(null),expectedTokenSentinel:sentinel.nullable().optional(),projectId:z.uuid(),poolId:z.uuid(),policyVersion:z.number().int().nonnegative(),
  sql:z.string().min(1),namespace:z.strictObject({catalog:name,schema:name}),
  entitlements:z.array(z.strictObject({elementId:z.uuid(),treatment:z.enum(['clear','aggregate_only','masked','tokenized','withheld'])})),
  sources:z.array(z.strictObject({sourceId:z.uuid(),credentialRef:z.string().startsWith('secret://')})),objects:z.array(stagingObject),

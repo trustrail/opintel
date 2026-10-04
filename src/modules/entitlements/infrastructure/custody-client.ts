@@ -11,7 +11,7 @@ import type { CanonicaliserCatalog } from '../application/canonicalisers.js';
 import type { CustodyPort } from '../application/key-custody.js';
 export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
  private checked=false;private readonly pin:string;private readonly url:URL;
- constructor(private readonly options:SidecarOptions){this.url=new URL(options.baseUrl);if(this.url.protocol!=='https:'||this.url.username||this.url.password)throw new Error('Custody requires a pinned HTTPS Opintel Engine.');this.pin=new X509Certificate(options.tls.pinnedCertificate).fingerprint256;}
+ constructor(private readonly options:SidecarOptions){this.url=new URL(options.baseUrl);if(this.url.protocol!=='https:'||this.url.username||this.url.password)throw new Error('Custody requires a pinned HTTPS Opintel Engine.');this.pin=options.tls.certificatePin ? options.tls.certificatePin.match(/.{2}/gu)!.join(':') : new X509Certificate(options.tls.pinnedCertificate!).fingerprint256;}
  async canonicalisers():Promise<Result<readonly string[]>> {
   try {
    // Refresh discovery for assignment: a cached manifest must not hide a deployment.

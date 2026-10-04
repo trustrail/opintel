@@ -14,6 +14,7 @@ async function mock(page:Page){
  await page.route('**/api/v1/**',async route=>{
   const url=new URL(route.request().url());const path=url.pathname;
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id:industryId,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
+  if(path.endsWith('/engines'))return route.fulfill({json:{items:[{id:demoId,name:'Reporting engine',address:'https://engine.internal:3100',certificatePin:'AB'.repeat(32),contractVersion:2,verifiedAt:'2026-10-04T12:00:00Z',lastSeenAt:'2026-10-04T12:00:00Z',health:'healthy',healthMessage:null,custody:true,sources:[]}],nextCursor:null}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{...project,role:state.canConnect?'admin':'viewer'}],nextCursor:null}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[{id:demoId,name:'Industry demo',narrative:'A set of synthetic filings in inconsistent formats, processed through ordinary ingest.',prepared:state.prepared,connected:false}]});
   if(path.endsWith('/introspect')){state.retries.push(route.request().postDataJSON());if(state.conflictRun)return route.fulfill({status:409,json:{error:{code:'conflict',message:`This source already has an active introspection run: ${state.conflictRun}. Wait for it to finish before re-introspecting.`,details:{runId:state.conflictRun},requestId:'test',retryable:false}}});state.failure=null;return route.fulfill({status:202,json:{...source,status:'pending'}});}
@@ -39,12 +40,12 @@ for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at 
  await expect(page.getByRole('button',{name:'Connect a source',exact:true})).toBeFocused();
  await expect(page).toHaveScreenshot(`sources-empty-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
  await page.getByRole('button',{name:'Connect a source',exact:true}).click();await page.getByLabel('Source name',{exact:true}).fill('Reporting');await page.getByLabel('Secret reference',{exact:true}).fill('secret://test/reporting');
- await page.getByRole('button',{name:'Test connection',exact:true}).click();await expect(page.getByText('Connection passed.',{exact:false})).toBeVisible();
+ await page.getByLabel('Verified engine',{exact:true}).selectOption(demoId);await page.getByRole('button',{name:'Test connection',exact:true}).click();await expect(page.getByText('Connection passed.',{exact:false})).toBeVisible();
  await page.getByLabel('This source receives landed spreadsheets').check();
  await expect(page).toHaveScreenshot(`sources-wizard-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
  await page.getByLabel('Landing strategy',{exact:true}).selectOption('table_per_filing');await page.getByLabel('returns',{exact:true}).check();
  await page.getByRole('button',{name:'Connect and introspect'}).click();await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();
- expect(state.creates).toEqual([{name:'Reporting',kind:'postgres',credentialRef:'secret://test/reporting',includeSchemas:['returns'],samplingConsent:false,receivesLandings:true,landingStrategy:'table_per_filing'}]);
+ expect(state.creates).toEqual([{engineId:demoId,name:'Reporting',kind:'postgres',credentialRef:'secret://test/reporting',includeSchemas:['returns'],samplingConsent:false,receivesLandings:true,landingStrategy:'table_per_filing'}]);
 });
 test('O-002: loading and error can recover, viewers cannot connect, and demos require an explicit click',async({page})=>{
  const state=await mock(page);state.loading=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('Preparing this view',{exact:true}).first()).toBeVisible();state.loading=false;await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();

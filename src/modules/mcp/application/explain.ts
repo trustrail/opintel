@@ -24,7 +24,7 @@ export class ExplainService implements ExplainTool {
    if(!prepared.ok)return prepared;
    const plan=prepared.value;
    // Application inspection never suffices for permitted:true (C.3.1).
-   const validated=await this.validation.validate(plan.request,signal);
+   const validated=await this.validation.validate(plan.request,signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId});
    if(!validated.ok)return validated;
    if(validated.value.queryEngineVersion!==plan.queryEngineVersion)return err(new DomainError('sql_not_permitted','The application parser and Opintel Engine builds differ. Align their builds before retrying.',{cause:'parser_engine_mismatch'}));
    if(validated.value.treatmentEvidence.stage2Ran)return err(new DomainError('dependency_unavailable','The Opintel Engine returned an inconsistent validation result.',{cause:'unclassified'}));

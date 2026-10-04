@@ -1239,3 +1239,17 @@ and `.toolchip` disclosures pass. Missing disclosure state/targets and mismatche
 visibility fail. The compact drawer's collapsed state is verified independently.
 Disabled/busy rules are checked against all three button variants, including hover.
 The report names the screen, control, structural markup and violated contract.
+
+
+### Item 5.20 — single-tenant engines
+
+| ID | Assertion |
+|---|---|
+| ENG-001 | Registration/edit is unverified; a valid hex typo fails the live pinned TLS health check before source assignment; correction requires reverification |
+| ENG-002 | Multiple engines per project, one engine per source; missing engine refusal names source; routing follows assignment |
+| ENG-003 | Wrong contract is recorded and refused; project RLS and composite FK prevent cross-project use |
+| ENG-004 | Custody routes to the designated verified engine; primary sentinel/version checks refuse unprovisioned or stale engines after rotation |
+| ENG-005 | Actual tokenization rejects a mismatched loaded key, even after earlier attestation |
+| ENG-006 | Receipt certificate authorization is bound to the registered project and assigned source |
+| ENG-007 | Settings has loading/empty/error/ready, permission-gated operator actions, axe and snapshots at 390/900/1440; no new CSS |
+| ENG-008 | Migration rolls down/up; every former client configuration reader is explicitly migrated without fallback |

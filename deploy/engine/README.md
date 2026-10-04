@@ -123,3 +123,30 @@ Examples printed with `npm run sidecar:register --` have the equivalent containe
 prefix `node sidecar/ingest/command.js`; the development TypeScript runner is not
 shipped. [Local validation](../../docs/review/s5-packaging.md) records the tested
 image ID; promote that tested image digest rather than rebuilding during release.
+
+## Single-tenant registry (5.20)
+
+The application dials this engine's private HTTPS listener. In project
+Settings → Engines, register its address and SHA-256 certificate fingerprint,
+then Test connection. A valid hex typo fails verification before assignment.
+After verification, designate the project's custody engine, initialize custody,
+and assign sources. Each source has one engine; multiple engines are allowed.
+Editing the address/pin requires verification again. Exchange application trust
+and public certificates internally; keep private keys at their endpoints.
+
+Application `APPLICATION_TLS_CONFIG` contains only `caFile`, `certFile`, `keyFile`.
+No application code reads the former `client.json`, `SIDECAR_CLIENT_CONFIG`, or
+`LANDING_RECEIPT_CLIENT_CONFIG`. Engine addresses/pins and source/custody mappings
+live in the registry. The engine's own `service.json` remains its deployment
+configuration; it is not application routing configuration. The receipt listener
+uses registry certificate authorization bound to the sending engine's project
+and assigned source. Customer operators provision matching project key versions
+on additional engines until separate item 5.21 implements distribution; stale
+or unprovisioned engines refuse tokenized work. No relay or enrollment is added.
+
+On an operator workstation, obtain the pin from the provisioned engine public
+certificate with `openssl x509 -in engine.pem -noout -fingerprint -sha256`.
+Settings accepts its colon-separated fingerprint or 64 hex characters and
+checks it against the live peer during verification. Trust-chain and hostname
+validation remain enabled; the pin does not replace either. Coordinate pin
+replacement with certificate rotation and verify the replacement before use.

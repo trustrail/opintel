@@ -57,13 +57,11 @@ it('bounds real SIGTERM shutdown while a watcher is waiting on a receipt',async(
 it('dev:up replaces the recorded sidecar only after it exits and its port is free',async()=>{
  const file=join(directory,'service.json');const original=JSON.parse(await readFile(file,'utf8')) as Record<string,unknown>;const port=await availablePort();
  await writeFile(file,JSON.stringify({...original,port,shutdownTimeoutMs:500}));
- const clientFile=join(directory,'client.json');const client=JSON.parse(await readFile(clientFile,'utf8')) as Record<string,unknown>;
- await writeFile(clientFile,JSON.stringify({...client,baseUrl:`https://127.0.0.1:${port}`}));
  const pidFile=join(directory,'sidecar.pid');const stop={pidFile,entryPoint,host:'127.0.0.1',port,timeoutMs:2500};
  try{
   await startDevelopmentSidecar(directory);const first=Number(await readFile(pidFile,'utf8'));
   await startDevelopmentSidecar(directory);const second=Number(await readFile(pidFile,'utf8'));
-  expect(second).not.toBe(first);expect(()=>globalThis.process.kill(first,0)).toThrow();await checkLocalSidecar(clientFile);
+  expect(second).not.toBe(first);expect(()=>globalThis.process.kill(first,0)).toThrow();await checkLocalSidecar(file);
  }finally{await stopRecordedSidecar(stop);}
  expect(await portAvailable('127.0.0.1',port)).toBe(true);
 },15000);

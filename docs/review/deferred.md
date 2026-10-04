@@ -491,11 +491,11 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   key custody.
 - This mapping is the deployment target. Slice 1 retains the single-deployment
   assumption: one application and one Engine, configured in files. The mapping
-  itself is settled, but its registry is not yet implemented. Item **5.20** in `docs/implementation-plan.md` records the Engine
+  itself is settled; 5.20 implements its registry for single-tenant deployment. Item **5.20** in `docs/implementation-plan.md` records the Engine
   registry, source-to-Engine binding, contract-version refusal and Settings
   visibility. The production supervisor remains packaging work.
 
-## Item 5.20 — Engine registry (recorded, not implemented)
+## Item 5.20 — former registry gap (closed for single-tenant deployment)
 
 Item 5.20 sits in the sidecar track after S5 as deployment and operations work.
 It depends on S5's packaging, Settings (5.16) and the reachability decision. The
@@ -503,23 +503,16 @@ single deployment suffices to build and prove Slice 1's claims, but cannot serve
 a second customer or a customer with sources in two network segments. The
 registry is a prerequisite for a first deployment, not for Slice 1.
 
-Today one client configuration points at one Engine. Nothing maps a source to
-an Engine, the console cannot name which Engine serves a filing, and §8's Engine
-fleet health metric assumes a fleet the system cannot enumerate. Item 5.20 closes
+Before 5.20, one client configuration points at one Engine. Nothing mapped a source to
+an Engine, the console could not name which Engine serves a filing, and §8's Engine
+fleet health metric assumed a fleet the system cannot enumerate. Item 5.20 closes
 these gaps with project-scoped Engine records containing address, pinned
 certificate, contract version and last-seen health; each `data_source` names its
 serving Engine. Settings lists Engines, their health and their sources. A source
 without an Engine is refused for introspection and query, with the source named;
 an Engine reporting a different contract version is refused.
 
-Two questions remain open for item 5.20 and must be resolved before implementation:
-
-- How is an Engine inside a customer network reachable at all, given that many
-  customers refuse inbound connections?
-- Are Engines registered by an operator in Settings, or do they register
-  themselves with a token?
-
-Recording this item does not decide either question or authorize implementation.
+The single-tenant decision is now explicit: internal application-to-engine routing, operator registration in Settings, and verification before assignment. The considered multi-tenant proposal remains deferred below; no relay or token enrollment is implemented.
 
 # Reachability is part of done
 
@@ -618,3 +611,31 @@ uses an idempotent touch. The existing reconciliation requirement remains.
 - Use `caffeinate -i npm test` for full runs. Twice now a slow suite has
   been machine sleep rather than a code problem: 3,259s and 1,713s against
   a real 491s. Rule out sleep before investigating a slow suite.
+
+
+### Multi-tenant reachability and enrollment — considered, not chosen (5.20)
+
+5.20 implements only single-tenant direct application-to-engine routing and
+operator registration by private address and certificate pin. The considered
+multi-tenant design uses a customer-side connector dialing an explicitly
+declared hosted HTTPS gateway, forwarding application-to-engine mutual TLS
+without terminating it. A settings operator creates a pending engine and a
+short-lived, single-use enrollment token bound to that project and engine;
+proof of private-key possession and operator approval activate its pin. No
+relay, connection identity, enrollment token or network tunnel is implemented.
+This requires reviewed gateway/connector data handling and customer approval
+of persistent outbound access; receipt delivery is not reverse reachability.
+
+### Multi-engine key distribution (5.21)
+
+Distribution is customer-owned provisioning until its own key-management item.
+5.20 routes custody to one designated verified engine, compares other engines'
+current primary sentinel/version before tokenized-source assignment and tokenized execution,
+and refuses stale or unprovisioned engines after rotation. It does not copy
+keys or repair a mismatch. An execution-side sentinel check protects against
+a primary-key change between application attestation and use.
+
+5.20 closes the former single-client-file limitation: engines are enumerable
+per project, sources identify their engine, and the console can name each
+engine's sources and last-seen health. This supplies the fleet enumeration
+previously assumed by §8; it does not add a background fleet-health exporter.

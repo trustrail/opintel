@@ -249,13 +249,14 @@ register; item 3.10 must reconcile it with the existing arrival history.
 
 ### Receiving landing receipts
 
-`npm run dev:api` starts a separate pinned-mTLS listener on `127.0.0.1:3101` when
-`tmp/sidecar/client.json` exists. In deployments set
-`LANDING_RECEIPT_CLIENT_CONFIG` to the application's mTLS client configuration
-for Opintel Engine, `LANDING_RECEIPT_HOST` to the bind address, and optionally
-`LANDING_RECEIPT_PORT`.
+`npm run dev:api` starts a separate registry-authorized mTLS listener on
+`127.0.0.1:3101` in development. In deployments set `LANDING_RECEIPT_PORT`
+to enable it and `LANDING_RECEIPT_HOST` to its private bind address.
+`APPLICATION_TLS_CONFIG` supplies only the application's identity and trust
+(`caFile`, `certFile`, `keyFile`); addresses and expected engine pins live in the
+project registry. There is no legacy client configuration fallback.
 This route is not exposed on the browser API listener. It uses the application
-certificate as its server identity and pins the Opintel Engine certificate as client.
+certificate as its server identity and authorizes the registered engine certificate pin for the claimed project and assigned source.
 Opintel Engine sends using its server certificate and pins the application's
 certificate. **Both certificates therefore need serverAuth and clientAuth EKUs
 and appropriate server DNS/IP SANs.** Newly generated development certificates
