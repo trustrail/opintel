@@ -346,6 +346,16 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | **S2b** | **Streaming execution path — deferred until after S2e staged execution**, condition evaluated conservatively, same bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
 | S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Hand-written** | S2 | test harness | J-019 (requires staged data to scan), TOK-38 (with S2 staging) |
 | S5 | VNet mode, OCI image, egress restricted to declared hosts | S2 | packaging | SD-005 subset |
+| 5.20 | Engine registry: an engine record per project with address, pinned certificate, contract version and last-seen health; data_source names the engine that serves it; a settings screen listing engines, their health and their sources | S5, 5.16, reachability decision | `modules/engines`, screen | A source without an engine cannot be introspected or queried, and the refusal names it; an engine reporting a different contract version is refused; the registry is visible in settings |
+
+**Slice 1 deployment assumption.** Slice 1 assumes a single deployment: one
+application and one Engine, configured in files. This is sufficient to build and
+prove everything Slice 1 claims. It is insufficient for a second customer or a
+customer with sources in two network segments. Item 5.20's Engine registry closes
+that gap. It is deployment and operations work in the sidecar track, dependent on
+S5's packaging and the reachability decision, and is a prerequisite for a first
+deployment rather than for Slice 1. Customer-network reachability and operator
+versus token-based registration remain open decisions for this item.
 
 **The sidecar is the critical path and the highest technical risk.** S1b is new in v2.0 and it is the right home for landing: the sidecar already runs inside the customer's environment, already holds credentials they control, and already sends nothing out. Putting ingest anywhere else would break the claim that files never leave their network.
 

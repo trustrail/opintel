@@ -489,9 +489,37 @@ to handwritten item 5.8; 5.7 returns the structured query result only.
   different sources produce different tokens and cease to join. This is
   shared state even though requests route by source; routing does not partition
   key custody.
-- The earlier single-Engine assumption and provisional topology are superseded
-  by this mapping. Fleet discovery, health and the production supervisor
-  remain packaging/observability work; the mapping itself is settled.
+- This mapping is the deployment target. Slice 1 retains the single-deployment
+  assumption: one application and one Engine, configured in files. The mapping
+  itself is settled, but its registry is not yet implemented. Item **5.20** in `docs/implementation-plan.md` records the Engine
+  registry, source-to-Engine binding, contract-version refusal and Settings
+  visibility. The production supervisor remains packaging work.
+
+## Item 5.20 — Engine registry (recorded, not implemented)
+
+Item 5.20 sits in the sidecar track after S5 as deployment and operations work.
+It depends on S5's packaging, Settings (5.16) and the reachability decision. The
+single deployment suffices to build and prove Slice 1's claims, but cannot serve
+a second customer or a customer with sources in two network segments. The
+registry is a prerequisite for a first deployment, not for Slice 1.
+
+Today one client configuration points at one Engine. Nothing maps a source to
+an Engine, the console cannot name which Engine serves a filing, and §8's Engine
+fleet health metric assumes a fleet the system cannot enumerate. Item 5.20 closes
+these gaps with project-scoped Engine records containing address, pinned
+certificate, contract version and last-seen health; each `data_source` names its
+serving Engine. Settings lists Engines, their health and their sources. A source
+without an Engine is refused for introspection and query, with the source named;
+an Engine reporting a different contract version is refused.
+
+Two questions remain open for item 5.20 and must be resolved before implementation:
+
+- How is an Engine inside a customer network reachable at all, given that many
+  customers refuse inbound connections?
+- Are Engines registered by an operator in Settings, or do they register
+  themselves with a token?
+
+Recording this item does not decide either question or authorize implementation.
 
 # Reachability is part of done
 
