@@ -304,6 +304,15 @@ Everything here is natural language. Nothing above depends on anything below, wh
 
 ### P6 Language
 
+**E.6 estimator ownership.** Query-cardinality estimation serves L2 prompt
+confirmation only and moves with its consumer to Slice 1b, item 6.11. Its
+arithmetic and safe/large/huge band boundaries are unspecified; resolve them
+with the prompt pipeline rather than designing an early contract the consumer
+will need to change. CLS-15 is proved in 6.11. This is separate from S2d's B.4
+disclosure group sizes and S2e's post-pushdown staging scan admission. J-021
+cancellation and J-025 bounded concurrency are already implemented in S2e;
+S3 does not reimplement them.
+
 | # | Item | Depends | Creates | Proves |
 |---|---|---|---|---|
 | 6.1 | Vocabulary domain: four term kinds, project overrides shadow industry | 2.1 | `modules/vocabulary` | R-021, E2-028 |
@@ -316,7 +325,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | 6.8 | Parameter value resolution: categorical value maps, then string distance for typos | 6.6, 3.4 | `querying/values.ts` | CLS-08, CLS-09, CLS-18 to CLS-20, L-006, L-007 |
 | 6.9 | Source resolution by matching. Two equal join paths refuse and name both | 6.6, 3.1 | `querying/sources.ts` | CLS-11, CLS-12, L-014 to L-016 |
 | 6.10 | Composition, grain rule required on measures | 6.9, 6.1 | `querying/compose.ts` | CLS-13, L-013 |
-| 6.11 | QQC L1, L2, L3, rewrite once | 6.10, S3 | `querying/qqc.ts` | CLS-14 to CLS-16, L-017 to L-019 |
+| 6.11 | QQC L1, L2, L3, rewrite once; E.6 deterministic query-cardinality estimator from statistics and join fan-out, bands and L2 confirmation | 6.10 | `querying/qqc.ts`, L2 estimator | CLS-14 to CLS-16, L-017 to L-019; CLS-15 is proved here by confirmation above the threshold with no execution |
 | 6.11a | **L3 adversarial corpus**, gating CI and any model pin change | 6.11 | `querying/qqc-corpus/` | CLS-21 to CLS-26 |
 | 6.12 | Durable clarification: pause, resume, TTL, survives restart | 6.8 | `querying/clarify.ts` | L-008 to L-010, CLS-10 |
 | 6.13 | Clarification policy per pool, ambiguities collected and asked once | 6.12, 5.1 | setting and logic | CLR-01 to CLR-05 |
@@ -342,7 +351,7 @@ Everything here is natural language. Nothing above depends on anything below, wh
 | S2c | Parse, serialize, explicit subset inspection, then PREPARE binding and retained-handle execution | S2a | sidecar/sql | C.3 refusals, J-015 to J-018; no prohibited statement reaches prepare/execute |
 | S2d | Authoritative treatment enforcement: aggregate-only two stages, token ordering | S2c, 4.4 | sidecar/sql | VC-10 to VC-14, VC-23 to VC-30 |
 | S2e | Staging paths, execute, cancellation, governance, ephemerality | S2c | sidecar/session | J-022 onward, C.4, C.5 |
-| S3 | Cardinality estimation, cancellation, concurrency governance | S2 | | J-021, J-025, CLS-15 |
+| S3 | Shared source connection ceiling: connector operations and staged queries use the same globally unique sourceId key, replacing the connector's projectId:sourceId key; one source has one counter | S2e | `sidecar/infrastructure/postgres-connector.ts`, cross-path ceiling regression tests | Concurrent introspection and staged-query work against one source cannot exceed its configured ceiling, whichever path enters first; releasing the lease permits the other path |
 | **S2b** | **Streaming execution path — deferred until after S2e staged execution**, condition evaluated conservatively, same bypass suite run against it | S2 | `sidecar/stream.ts` | bypass cases 11 to 14 |
 | S4 | **Ephemerality proof**, sentinel scan of disk and mapped memory. **Delegated by reviewed decision; AGENTS.md conditions and C.5 design apply** | S2 | Linux test harness | J-019 (requires staged data to scan), TOK-38 (with S2 staging); live positive controls, write observation, complete declared coverage and separate memory-residual reporting |
 | S4a | Sanitise logged exceptions independently of S4: retain only a safe type, a message from the known-safe set and a sanitised stack; withhold all other content with explicit markers. Raw exception messages and stack headers can carry engine values, constraint rows or SQL literals. Include migration and schema-loader CLI failure sinks; suppressed native diagnosis requires the database or SpiceDB server log. Startup configuration field paths stay by decision: paths are not values | 1.1 | `platform/http`, shared exception logging, migration and schema-loader CLIs | Engine errors, constraint violations and parse errors containing sentinel values emit no values; only the allowlisted type/message and safe stack frames are logged, including CLI failure output |

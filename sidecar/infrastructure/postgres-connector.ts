@@ -132,7 +132,7 @@ export class PostgresConnector implements SidecarConnector {
     const parsed = wire.envelope.extend({ payload: schema }).safeParse(request);
     if (!parsed.success) return invalid();
     try {
-      const value = await this.scope.run(`${parsed.data.projectId}:${parsed.data.sourceId}`, SecretRef(parsed.data.credentialRef),
+      const value = await this.scope.run(parsed.data.sourceId, SecretRef(parsed.data.credentialRef),
         (session) => work(session, parsed.data.payload), signal);
       return ok(value);
     } catch (error: unknown) {

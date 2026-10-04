@@ -3,10 +3,14 @@ import { SecretRef } from '../src/platform/secrets/types.js';
 import { PostgresSourceScope,SourceTimeout,SourceBusy,SourceCancelled,type SourceDeadlineClock } from '../sidecar/infrastructure/postgres-source-scope.js';
 import { PostgresConnector } from '../sidecar/infrastructure/postgres-connector.js';
 import { randomUUID } from 'node:crypto';
+import { PostgresStagingSource } from '../sidecar/execution/infrastructure/postgres-source.js';
+import { SidecarTokenizer, IanaZoneResolver } from '../sidecar/tokenize/index.js';
+import { executionRequest } from '../src/shared/execution-contract.js';
+import type { EngineSession } from '../sidecar/session/index.js';
 
 type FakeConnection={ended:boolean;statements:string[]};
 const driver=vi.hoisted(()=>({clients:[] as FakeConnection[]}));
-vi.mock('pg',()=>({Client:class {
+vi.mock('pg',async importOriginal=>({...await importOriginal<typeof import('pg')>(),Client:class {
  ended=false;statements:string[]=[];
  constructor(){driver.clients.push(this);}
  on(){return this;}
@@ -25,6 +29,39 @@ function deferred<T>(){let resolve!:(value:T)=>void,reject!:(reason:unknown)=>vo
 const ref=SecretRef('secret://test/source');
 const limits={maxConnectionsPerSource:1,statementTimeoutMs:5000,operationTimeoutMs:100};
 beforeEach(()=>{driver.clients.length=0;});
+
+for(const first of ['connector','staging'] as const)it(`S3: introspection and staged queries share one source ceiling with ${first} admitted first`,async()=>{
+ const projectId=randomUUID(),sourceId=randomUUID(),elementId=randomUUID();
+ const credential=deferred<string>(),materialized=deferred<void>(),entered=deferred<void>();
+ const clock=new ManualDeadlineClock();
+ const scope=new PostgresSourceScope({resolve:async()=>credential.promise},limits,clock);
+ const connector=new PostgresConnector(scope,{record:async()=>{}});
+ const source=new PostgresStagingSource(scope,new SidecarTokenizer({resolveBytes:async()=>Buffer.alloc(32,1)},new IanaZoneResolver()));
+ const request=executionRequest.parse({projectId,poolId:randomUUID(),requestId:'shared-ceiling',policyVersion:1,sql:'SELECT id FROM orders',namespace:{catalog:'warehouse',schema:'public'},
+  sources:[{sourceId,credentialRef:ref}],entitlements:[{elementId,treatment:'clear'}],objects:[{catalog:'warehouse',schema:'public',name:'orders',sourceId,readPlan:{catalog:'warehouse',schema:'public',object:'orders',columns:[{sourceIdentifier:'id',exposedName:'id',exposedType:'INTEGER',elementId,treatment:'clear',readAs:'native'}]}}],aggregateMinGroupSize:5,limits:{memoryMb:64,threads:1,timeoutMs:10000,rowLimit:2,concurrency:1},entitlementContext:null});
+ const scan={object:request.objects[0]!,request,predicate:null};
+ const materialize=vi.fn(async()=>{entered.resolve();await materialized.promise;});
+ const unused=async()=>{throw new Error('The saturated source must not reach engine work.');};
+ const session:EngineSession={execute:unused,close:()=>{},staging:{namespace:unused,create:unused,append:unused,transfer:unused,materialize}};
+ const introspect=()=>connector.introspect({requestId:'shared-ceiling',projectId,sourceId,credentialRef:ref,payload:{include:[]}});
+ const stage=()=>source.plain(scan,session,'orders',new AbortController().signal);
+ if(first==='connector'){
+  materialized.resolve();
+  const running=introspect();
+  try{
+   expect(await stage()).toMatchObject({ok:false,error:{code:'budget_exceeded',retryable:true,details:{cause:'source_connections_saturated'}}});
+   expect(await source.estimate(scan,new AbortController().signal)).toMatchObject({ok:false,error:{code:'budget_exceeded'}});
+   expect(materialize).not.toHaveBeenCalled();expect(driver.clients).toHaveLength(0);
+  }finally{credential.resolve('test-only-credential');await running;}
+  materialized.resolve();expect(await stage()).toMatchObject({ok:true});
+ }else{
+  credential.resolve('test-only-credential');const running=stage();await entered.promise;
+  try{expect(await introspect()).toMatchObject({ok:false,error:{code:'budget_exceeded',retryable:true}});expect(driver.clients).toHaveLength(0);}
+  finally{materialized.resolve();expect(await running).toMatchObject({ok:true});}
+  expect(await introspect()).toMatchObject({ok:true});
+ }
+ expect(driver.clients.every(client=>client.ended)).toBe(true);expect(clock.pending).toBe(0);
+});
 
 it('C.4: the operation deadline fires at the injected boundary, cancels the backend and releases the slot',async()=>{
  const clock=new ManualDeadlineClock(),scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},limits,clock);

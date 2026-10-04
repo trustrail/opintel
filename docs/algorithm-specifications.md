@@ -821,6 +821,11 @@ missing execution limits are explain notes, not dry-run refusals.
 
 **The customer's database is the scarce resource, not the sidecar.** An accidental cartesian join hits their production Postgres. Statement timeouts on the source side matter as much as the sidecar's own limits, and both appear in the console's query settings.
 
+The source ceiling is keyed by globally unique `sourceId` across connector
+operations and staged queries sharing the engine's source scope. A source
+belongs to one project, so adding `projectId` to one path's counter would split
+the ceiling. Project authorization remains independent of this resource key.
+
 **maxStagingRows defaults to 5,000,000 and is a project setting**, bounded between 10,000 and 100,000,000. It bounds what one execution pulls out of the customer's database, and the right value depends on their hardware rather than on Opintel. The estimate comes from estimateRowCount after predicates are pushed down; where the source cannot estimate, the refusal is on the unestimated object, since an unknown size is not a small one.
 
 **maxQueuedExecutions defaults to 8 per pool** and is a project setting, bounded between 1 and 64. An agent that waits indefinitely is worse than one told to retry: it holds a connection, its own caller times out, and nobody learns the pool is saturated. The refusal carries retryable: true and the current queue depth.
