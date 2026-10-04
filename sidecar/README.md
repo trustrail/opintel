@@ -349,6 +349,7 @@ Stop Opintel Engine before a local command: the register retains exclusive state
 ownership, including for inspection. Use the same config and state path:
 
 ```sh
+npm run sidecar:register -- --help
 npm run sidecar:register -- list SOURCE_ID - path/to/service.json
 npm run sidecar:register -- show SOURCE_ID FILING_ID path/to/service.json
 npm run sidecar:register -- reconcile SOURCE_ID - path/to/service.json

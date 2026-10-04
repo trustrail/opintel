@@ -1,4 +1,3 @@
-import { useResolutionDisclosure } from './state.js';
 import {Timestamp} from '../settings/preferences.js';
 import { TypeObservations } from '../sources/type-observations.js';
 import { CustodyObservations } from '../custody/observations.js';
@@ -15,6 +14,15 @@ export const quarantineLabels: Record<string, string> = {
   verification_mismatch: 'The content does not match the attributed filing party.', column_type_changed: 'A column type differs from earlier filings.',
   rule_invalid: 'The filing rule is invalid.', attribution_missing: 'The filing could not be attributed to a party.', header_invalid: 'The declared header is invalid.',
 };
+export function QuarantineResolutionSummary({ zoneId, filingId }: { zoneId: string; filingId: string }): ReactNode {
+  const copyStyle = { userSelect: 'all' as const, overflowWrap: 'anywhere' as const };
+  return <>
+    <p className="d">Nothing landed, so this filing's data is not in the catalogue.</p>
+    <p className="d">The full reason stays in the customer environment because it may contain file contents.</p>
+    <p className="d">Ask whoever operates the Opintel Engine to resolve it. Give them these IDs:</p>
+    <p className="d">Landing zone ID: <span className="mono" style={copyStyle}>{zoneId}</span><br/>Filing ID: <span className="mono" style={copyStyle}>{filingId}</span></p>
+  </>;
+}
 function Received({ value }: { value: string }) { return <Timestamp value={value}/>; }
 
 export function SourceFilings({ projectId, sourceId, strategy }: { projectId: string; sourceId: string; strategy: keyof typeof landingLabels | null }): ReactNode {
@@ -33,19 +41,13 @@ export function SourceFilings({ projectId, sourceId, strategy }: { projectId: st
 }
 
 export function QuarantineFeed({ projectId }: { projectId: string }): ReactNode {
-  const disclosure = useResolutionDisclosure();
   const query = useFilings(projectId);
   const filings = query.data?.filter(filing => filing.outcome === 'quarantined') ?? [];
   return <section className="card" aria-labelledby="quarantine-heading"><div className="card-h"><h2 id="quarantine-heading">Needs a decision</h2><span className="meta">Quarantined filings</span></div>
-    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState icon="✓" title="No quarantined filings" description="Files needing attention will appear here. Review their local details before retrying." /> : <ul className="feed">{filings.map(filing => <li key={filing.filingId}><span className="sev hi" aria-hidden="true">!</span><div className="fb">
+    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState icon="✓" title="No quarantined filings" description="Files needing attention will appear here." /> : <ul className="feed">{filings.map(filing => <li key={filing.filingId}><span className="sev hi" aria-hidden="true">!</span><div className="fb">
       <p className="t">{quarantineLabels[filing.quarantineCategory ?? ''] ?? 'The filing needs local review before it can land.'}</p>
-      <p className="d">Filing <span className="mono" style={{ overflowWrap: 'anywhere' }}>{filing.filingId}</span> · <Received value={filing.receivedAt} /></p>
-      <p className="d">Not landed into a source. The full reason stays in your environment because it may contain file contents or cell values. Ask whoever operates your Opintel Engine to inspect this filing in the local register, correct its rule or file, and retry it. Attribution is checked again; it cannot be overridden.</p>
-      <button type="button" className="toolchip" aria-expanded={disclosure.expanded[projectId+':'+filing.filingId]??false} aria-controls={`resolution-${filing.filingId}`} onClick={()=>disclosure.toggle(projectId+':'+filing.filingId)}>Local resolution instructions</button><div id={`resolution-${filing.filingId}`} hidden={!disclosure.expanded[projectId+':'+filing.filingId]}><p className="d">Stop the watcher to release its register lock. Run these commands in the customer environment with the same Opintel Engine configuration. The first ID identifies the configured landing zone, not a source this file has landed into.</p>
-        <p className="d"><code style={{overflowWrap:'anywhere'}}>npm run sidecar:register -- show {filing.sourceId} {filing.filingId}</code></p>
-        <p className="d">Correct the rule or file and re-export the rule snapshot before retrying. Keep local output out of logs.</p>
-        <p className="d"><code style={{overflowWrap:'anywhere'}}>npm run sidecar:register -- retry {filing.sourceId} {filing.filingId}</code></p><p className="d">Restart the watcher afterwards. A changed file cannot be retried as the same filing.</p>
-      </div>
+      <p className="d"><Received value={filing.receivedAt} /></p>
+      <QuarantineResolutionSummary zoneId={filing.sourceId} filingId={filing.filingId}/>
     </div></li>)}</ul>}
     <div className="sheetb"><p className="note">A filing landed against the wrong party is worse than one that did not land. Opintel quarantines uncertainty rather than guessing who it belongs to.</p></div>
   </section>;

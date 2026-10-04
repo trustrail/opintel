@@ -11,9 +11,29 @@ import { SpreadsheetExtractor } from './extract.js';
 import { LocalWorkbookReader } from './infrastructure/workbook-reader.js';
 import { FilingLander } from './land.js';
 
+const help = `Opintel Engine local filing register
+
+Stop Opintel Engine before using a local register command.
+Use the same source ID and configuration that identify the landing zone.
+
+  npm run sidecar:register -- list SOURCE_ID - [CONFIG]
+  npm run sidecar:register -- show SOURCE_ID FILING_ID [CONFIG]
+  npm run sidecar:register -- reconcile SOURCE_ID - [CONFIG]
+  npm run sidecar:register -- retry SOURCE_ID FILING_ID [CONFIG]
+
+Use show to inspect local filing detail. Correct the rule and re-export its
+snapshot before retrying. Retry preserves the filing ID and re-runs validation.
+Changed file contents require a new arrival. Restart Opintel Engine afterwards.
+See sidecar/README.md, Filing register (3.10), for the operator procedure.
+`;
+
 async function main(): Promise<void> {
   loadEnvironment({ path: resolve('.env.sidecar.local'), quiet: true });
   const [command, source, filing, configFile] = process.argv.slice(2);
+  if (command === '--help' || command === '-h' || command === 'help') {
+    process.stdout.write(help);
+    return;
+  }
   if (!['list', 'show', 'retry', 'reconcile'].includes(command ?? '') || !z.uuid().safeParse(source).success)
     throw new Error('Usage: npm run sidecar:register -- list|show|retry|reconcile SOURCE_ID FILING_ID_OR_DASH [CONFIG]');
   const { config, tls } = await loadSidecarConfig(configFile ?? process.env.SIDECAR_CONFIG_FILE ?? resolve('tmp/sidecar/service.json'));
