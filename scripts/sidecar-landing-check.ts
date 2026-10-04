@@ -7,6 +7,8 @@ import { startupCheck, StartupCheckError } from '../sidecar/startup-check.js';
 export async function checkDevelopmentLandingZones(zones: readonly LandingZone[]): Promise<void> {
   if (!zones.length) return;
   const { withPlatform, withTenant } = await import('../src/platform/db/scope.js');
+  // Scope metadata only: these project-bound reads neither authenticate a user
+  // nor write a user foreign key. No synthetic user_account row is required.
   const serviceActor = UserId('00000000-0000-4000-8000-000000000001');
   for (const zone of zones) {
     const check = `development landing zone ${zone.directory} (project ${zone.projectId}, source ${zone.sourceId})`;

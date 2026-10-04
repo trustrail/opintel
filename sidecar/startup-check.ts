@@ -1,7 +1,7 @@
 import { ZodError } from 'zod';
 
-/** Only explicitly authored diagnostics reach startup logs. Never print an
- * arbitrary exception: database errors and schema values can contain secrets. */
+/** Startup failures retain native type/message for operator diagnosis.
+ * Schema field diagnostics retain the reviewed value-redaction policy. */
 export class StartupCheckError extends Error {
   readonly code: string | undefined;
   constructor(check: string, reason: string, options?: ErrorOptions) {
@@ -24,7 +24,7 @@ const reasons: Readonly<Record<string, string>> = {
   EMFILE: 'the process has too many open files.', EIO: 'filesystem I/O failed.',
 };
 
-export async function startupCheck<T>(check: string, work: () => T | Promise<T>, fallback = 'an unexpected failure occurred; no safe diagnostic is available.'): Promise<T> {
+export async function startupCheck<T>(check: string, work: () => T | Promise<T>, fallback = ''): Promise<T> {
   try { return await work(); }
   catch (error) {
     if (error instanceof StartupCheckError) throw error;
@@ -32,6 +32,10 @@ export async function startupCheck<T>(check: string, work: () => T | Promise<T>,
     const reason = error instanceof ZodError
       ? `invalid configuration fields: ${error.issues.map(issue => issue.path.join('.')).join(', ')}.`
       : error instanceof SyntaxError ? 'the file is not valid JSON.' : reasons[code] ?? fallback;
-    throw new StartupCheckError(check, reason, { cause: error });
+    const diagnostic = error instanceof ZodError || error instanceof SyntaxError
+      ? `${error.name}: ${reason}`
+      : error instanceof Error ? `${error.name}: ${error.message || '<empty message>'}`
+      : `${typeof error}: ${String(error)}`;
+    throw new StartupCheckError(check, [reason,diagnostic].filter(Boolean).join(' '), { cause: error });
   }
 }

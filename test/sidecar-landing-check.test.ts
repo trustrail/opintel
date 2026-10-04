@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { checkDevelopmentLandingZones } from '../scripts/sidecar-landing-check.js';
 import { withPlatform, withPlatformAdmin, withTenant } from '../src/platform/db/scope.js';
@@ -31,9 +33,20 @@ async function reserve(projectId = ctx.projectId, reservedSource = sourceId) {
   templates.push(template!.id);
 }
 it('accepts a connected source in the matching project', async () => {
+  const [actor]=await withPlatform(tx=>tx.query<{present:boolean}>('SELECT EXISTS(SELECT 1 FROM user_account WHERE id=$1) AS present',['00000000-0000-4000-8000-000000000001']));
+  expect(actor?.present).toBe(false);
   await withTenant(ctx, tx => tx.query("INSERT INTO data_source(id,project_id,kind,name,exposed_alias,credential_ref) VALUES ($1,$2,'postgres','Startup','startup','secret://test/startup')", [sourceId, ctx.projectId]));
   await expect(checkDevelopmentLandingZones([zone])).resolves.toBeUndefined();
 });
+it('bootstrap imports cannot capture database configuration before the environment is loaded',async()=>{
+ const script=`delete process.env.DATABASE_URL;
+ await import('./scripts/sidecar-dev.ts');
+ process.env.DATABASE_URL=process.env.TEST_DATABASE_URL;
+ const {withPlatform}=await import('./src/platform/db/scope.ts');
+ try { await withPlatform(tx=>tx.query('SELECT 1')); process.exit(0); }
+ catch(error){console.error(error.name+': '+error.message);process.exit(1);}`;
+ await expect(promisify(execFile)(process.execPath,['--import','tsx','--input-type=module','-e',script],{timeout:15000})).resolves.toBeDefined();
+},20000);
 it('accepts E2-013 preparation before Connect creates data_source', async () => {
   await reserve();
   await expect(checkDevelopmentLandingZones([zone])).resolves.toBeUndefined();

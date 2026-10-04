@@ -639,3 +639,8 @@ a primary-key change between application attestation and use.
 per project, sources identify their engine, and the console can name each
 engine's sources and last-seen health. This supplies the fleet enumeration
 previously assumed by §8; it does not add a background fleet-health exporter.
+
+- Two unexplained timeouts during 5.20 validation: ING-17's large CSV
+  (60s) and tokenization-source's afterAll cleanup (30s). Both passed on
+  rerun; neither cause was established. Both involve a fixture database
+  teardown or a large stream under concurrent load.

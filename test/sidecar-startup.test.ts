@@ -36,10 +36,15 @@ it('names the missing landing directory', async () => {
   const zone = await fixture(); await rm(zone.directory, { recursive: true });
   await expect(LandingWatcher.open(zone)).rejects.toThrow(`landing directory ${zone.directory}: the configured file or directory does not exist.`);
 });
-it('does not log arbitrary exception text or invalid schema values', async () => {
+it('retains native exception type and message, while configuration diagnostics redact schema values', async () => {
   await expect(startupCheck('listener', () => { throw Object.assign(new Error('secret-marker'), { code: 'EADDRINUSE' }); })).rejects.toThrow('listener: the address and port are already in use.');
   await expect(startupCheck('rules', () => z.object({ mode: z.literal('valid') }).parse({ mode: 'secret-marker' }))).rejects.toThrow('rules: invalid configuration fields: mode.');
-  await expect(startupCheck('engine', () => { throw new Error('secret-marker'); })).rejects.toThrow('engine: an unexpected failure occurred; no safe diagnostic is available.');
+  const native=Object.assign(new Error('SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string'),{code:'AUTH_FAILURE'});
+  const failed=await startupCheck('engine',()=>{throw native;}).catch((error:unknown)=>error);
+  expect(failed).toMatchObject({name:'StartupCheckError',code:'AUTH_FAILURE',cause:native});
+  expect((failed as Error).message).toContain('Error: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string');
+  const schema=await startupCheck('rules',()=>z.object({mode:z.literal('valid')}).parse({mode:'secret-marker'})).catch((error:unknown)=>error);
+  expect((schema as Error).message).not.toContain('secret-marker');
 });
 it('names the missing TLS file and mismatched private key separately', async () => {
   const zone = await fixture(); const root = join(zone.directory, 'tls-test');
