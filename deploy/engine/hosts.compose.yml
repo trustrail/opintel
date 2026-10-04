@@ -1,0 +1,6 @@
+# Shared network namespaces cannot use Docker --add-host. Bind a customer-owned
+# static hosts file read-only when source/receipt certificate names require DNS.
+services:
+  engine:
+    volumes:
+      - ${ENGINE_HOSTS_FILE:?operator-provisioned static name resolution}:/etc/hosts:ro

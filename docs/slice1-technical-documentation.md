@@ -4861,6 +4861,22 @@ The pilot criteria are the acceptance tests. Each is automated.
 
 **The ephemerality test.** The reviewed Linux S4 harness returns 100k synthetic sentinel rows through the real query path, verifies file and heap positive controls at their expected locations, observes writes and scans persistent sinks and process mappings at defined checkpoints. It verifies treatment before DuckDB, resource teardown before response serialization, disabled spill, and zero workload markers in prohibited persistent sinks. Missing exports, unreadable regions, short reads and permission failures report incomplete coverage and cannot pass verification. Immediate post-response mapped-memory matches are reported separately without forced GC; they do not imply persistence or establish secure erasure. Managed objects become eligible for reclamation when references are removed, but a garbage-collected runtime guarantees neither immediate collection nor erasure; native allocator and transport buffers may also retain bytes. Immediate erasure would require an execution architecture that does not hold results in a managed heap. That is a different design, and this proof does not pretend otherwise. See algorithm specifications C.5 and tests J-019/TOK-38 for scope and acceptance.
 
+**S5 deployment enforcement.** The Engine ships as the `engine` target of
+`deploy/engine/Dockerfile`, with manifests for the same application/engine code
+in multi-tenant and single-tenant deployments. The package makes root, `/tmp`
+and `/dev/shm` read-only, drops capabilities, runs UID 65534, disables container
+swap and core dumps, and restricts outbound IPv4/IPv6 to declared source and
+receipt endpoints. Only customer-owned `/audit`, `/custody` and optional
+`/ingest` storage is writable. Linux tmpfs `size=0` is unlimited and is not a
+write restriction. S4 inspects this shipping image with an outside controller;
+SD-005 actively tests forbidden writes and connections and declared receipt
+delivery. Image identity and runtime configuration are retained as evidence.
+Cross-organisation dispatch reachability and engine registry remain 5.20;
+[deployment instructions](../deploy/engine/README.md) name provisioning,
+certificate/pin distribution, rotation and operator responsibilities for both
+models. Host/hypervisor swap, dumps and collectors remain operator controls.
+
+
 **The append-only test.** Assert the application role cannot `UPDATE` or `DELETE` evidence, at the grant level rather than by trying and catching.
 
 **The tokenization test.** The same input produces the same token in two different sources, so a cross-source join holds without either releasing the real identifier.

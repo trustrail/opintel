@@ -1,0 +1,15 @@
+services:
+  engine:
+    read_only: true
+    user: 65534:65534
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: ${ENGINE_MEMORY:-1g}
+    memswap_limit: ${ENGINE_MEMORY:-1g}
+    ulimits:
+      core: 0
+    # Explicit read-only overlays. size=0 would mean unlimited, not no writes.
+    tmpfs:
+      - /tmp:ro,noexec,nosuid,nodev,size=1m
+      - /dev/shm:ro,noexec,nosuid,nodev,size=1m

@@ -14,6 +14,8 @@ from pathlib import Path
 import queue
 import re
 import secrets
+import socket
+import signal
 import ssl
 import subprocess
 import sys
@@ -24,8 +26,8 @@ import uuid
 from scanner import Scanner, descendants, frozen, observed_writes
 
 REPORTS = Path("/reports")
-SINKS = Path("/sinks")
-CONTROL = Path("/control")
+SINKS = Path("/audit/sinks")
+CONTROL = Path("/ingest/control")
 EXCLUSIONS = ["/proc", "/sys", "/dev", "/reports"]
 
 
@@ -59,25 +61,43 @@ class Target:
         self.messages = queue.Queue()
         self.trace = REPORTS / (case + "-syscalls-" + uuid.uuid4().hex)
         self.log = SINKS / (case + ".log")
-        self.log_handle = self.log.open("wb")
-        self.process = subprocess.Popen([
-            "strace", "--seccomp-bpf", "-ttt", "-T", "-u", "nobody", "-ff", "-yy", "-xx", "-s", "16777216", "-o", str(self.trace),
+        self.log = SINKS / "target.log"
+        self.log.write_bytes(b"")
+        os.chown(self.log, 65534, 65534)
+        self.log.chmod(0o600)
+        self.socket = socket.create_connection(("127.0.0.1", 4545), timeout=30)
+        # Event waits and HTTP/test deadlines bound the run. A transport timeout
+        # must not expire during an otherwise permitted scan or native pause.
+        self.socket.settimeout(None)
+        self.stream = self.socket.makefile("rw", encoding="utf8", buffering=1)
+        spawned = json.loads(self.stream.readline())
+        self.pid = spawned["pid"]
+        deadline = time.monotonic() + 30
+        while "State:\tT" not in Path(f"/proc/{self.pid}/status").read_text():
+            if time.monotonic() > deadline: raise RuntimeError("target_stop_timeout")
+            time.sleep(0.01)
+        self.tracer = subprocess.Popen([
+            "strace", "-ttt", "-T", "-ff", "-yy", "-xx", "-s", "16777216", "-o", str(self.trace),
             "-e", "trace=write,writev,pwrite64,pwritev,pwritev2,openat,open,creat,close,unlink,unlinkat,rename,renameat,renameat2,mkdir,truncate,ftruncate,link,symlink,mmap,munmap,msync,sendfile,copy_file_range,splice,io_uring_setup,io_uring_enter,io_uring_register",
-            "node", "--import", "tsx", "scripts/ephemerality/infrastructure/target.ts",
-        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log_handle, text=True, bufsize=1)
+            "-p", str(self.pid),
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        while "TracerPid:\t0" in Path(f"/proc/{self.pid}/status").read_text():
+            if self.tracer.poll() is not None or time.monotonic() > deadline: raise RuntimeError("tracer_attach_failed")
+            time.sleep(0.01)
+        os.kill(self.pid, signal.SIGCONT)
         def read():
             try:
-                for line in self.process.stdout:
+                for line in self.stream:
                     self.messages.put(json.loads(line))
-            except Exception:
-                self.messages.put({"event": "protocol_failure"})
+            except Exception as exc:
+                self.messages.put({"event": "protocol_failure", "reason": type(exc).__name__})
             self.messages.put({"event": "exited"})
         self.reader = threading.Thread(target=read, daemon=True)
         self.reader.start()
 
     def send(self, **value):
-        self.process.stdin.write(json.dumps(value) + "\n")
-        self.process.stdin.flush()
+        self.stream.write(json.dumps(value) + "\n")
+        self.stream.flush()
 
     def until(self, event, timeout=180):
         deadline = time.monotonic() + timeout
@@ -90,16 +110,16 @@ class Target:
                 raise RuntimeError("target_" + item["event"])
 
     def stop(self):
-        if self.process.poll() is None:
+        if self.tracer.poll() is None:
             self.send(op="stop")
             try:
-                self.process.wait(timeout=30)
+                self.tracer.wait(timeout=30)
             except subprocess.TimeoutExpired:
-                # Failure to shut down is incomplete; never silently discard it.
-                self.process.kill()
-                self.process.wait()
+                os.kill(self.pid, signal.SIGKILL)
+                self.tracer.wait(timeout=30)
                 raise RuntimeError("target_shutdown_timeout")
-        self.log_handle.close()
+        self.stream.close()
+        self.socket.close()
 
 
 def request_for(kind, scenario):
@@ -125,7 +145,7 @@ def request_for(kind, scenario):
         "tokenKeyVersionSelected": 1, "sql": statement, "namespace": {"catalog": "memory", "schema": "main"},
         "sources": [{"sourceId": source, "credentialRef": "secret://test/source"}], "entitlements": entitlements,
         "objects": [{"catalog": "memory", "schema": "main", "name": "records", "sourceId": source, "readPlan": {"catalog": "memory", "schema": "s4_source", "object": table, "columns": columns}}],
-        "aggregateMinGroupSize": 5, "limits": {"memoryMb": 8 if scenario == "memory_pressure" else 256, "threads": 1, "timeoutMs": 500000, "rowLimit": 100000, "concurrency": 1},
+        "aggregateMinGroupSize": 5, "limits": {"memoryMb": 8 if scenario == "memory_pressure" else 256, "threads": 1, "timeoutMs": 1000000, "rowLimit": 100000, "concurrency": 1},
         "settings": {"maxStagingRows": 100000, "maxQueuedExecutions": 1}, "entitlementContext": None,
     }
 
@@ -157,13 +177,15 @@ def snapshot(target, ready, scanner, name):
                     except OSError as exc:
                         result["incomplete"].append({"pid": pid, "fd": fd.name, "reason": type(exc).__name__})
             result["openUnlinkedFiles"] = deleted
-            roots = ["/", "/dev/shm"] if name == "immediate_after_response_no_forced_gc" else ["/control/live.bin", "/sinks", "/dev/shm"]
+            roots = ["/", "/dev/shm"] if name == "immediate_after_response_no_forced_gc" else ["/ingest/control/live.bin", "/audit/sinks", "/dev/shm"]
             result["filesystemRoots"] = roots
-            result["filesystem"] = scanner.filesystem(roots, EXCLUSIONS)
+            result["filesystem"] = scanner.filesystem(["/proc/1/root" + root for root in roots], ["/proc/1/root" + exclusion for exclusion in EXCLUSIONS])
+            for item in result["filesystem"].get("matches", []):
+                item["path"] = item["path"].removeprefix("/proc/1/root")
     except Exception as exc:
         result["incomplete"].append({"reason": type(exc).__name__})
     result["complete"] = not result["incomplete"] and all(item["complete"] for item in result.get("memory", [])) and result.get("filesystem", {}).get("complete", False)
-    live_file = next((item for item in result.get("filesystem", {}).get("matches", []) if item["path"] == "/control/live.bin"), None)
+    live_file = next((item for item in result.get("filesystem", {}).get("matches", []) if item["path"] == "/ingest/control/live.bin"), None)
     result["controlsFound"] = all(item["complete"] and any(key.startswith(item["name"] + ":") for key in item["counts"]) for item in result.get("heapControls", [])) and len(result.get("heapControls", [])) == len(ready["ranges"]) and live_file is not None and all(any(key.startswith(item["name"] + ":") for key in live_file["counts"]) for item in ready["ranges"])
     return result
 
@@ -171,7 +193,7 @@ def snapshot(target, ready, scanner, name):
 def main(case):
     REPORTS.mkdir(exist_ok=True); SINKS.mkdir(exist_ok=True); CONTROL.mkdir(exist_ok=True)
     REPORTS.chmod(0o700)
-    CONTROL.chmod(0o777)
+    CONTROL.chmod(0o700)
     markers = {name: new_marker() for name in ["clear", "mixed_clear", "token_plain", "masked_plain", "aggregate", "withheld", "undecided", "application", "query_literal", "query_alias", "heap_utf8", "heap_utf16"]}
     expected_token = token(markers["token_plain"])
     markers["token_output"] = expected_token
@@ -181,12 +203,11 @@ def main(case):
         "filesystem": "container regular files, writable layer and mounts, /dev/shm, open unlinked files; root scan plus syscall writes",
         "telemetry": "actual stdout/stderr logs; production span exporter is not configured (no invented span proof)",
         "exclusions": {"/proc": "memory and descriptors inspected through explicit APIs", "/sys": "kernel virtual filesystem", "/dev": "devices; /dev/shm scanned separately", "/reports": "external controller's syscall records and reports, not writable by target code", "sourceDatabase": "legitimate original values", "receiver": "authorized external response verifier"},
-        "deployment": "test container, not S5 production-image proof; swap disabled/core limit zero in test configuration",
+        "deployment": "S5 shipping engine image; read-only root/tmp/shm, three customer-owned mounts, no swap/core, non-root; separate privileged controller",
         "ioBackend": "Docker default seccomp and UV_USE_IO_URING=0: syscall-observable backend. Successful io_uring activity, shared file stores and zero-copy writes are incomplete, never treated as zero matches",
         "rawHostDiskKernelHypervisor": "outside container-level proof",
     }}
-    # The target is allowed no access to report files. The controller stays root,
-    # target drops privileges through strace's -u in the runner (see below).
+    # The shipping target stays non-root and cannot access controller reports.
     target = None
     try:
         report["phase"] = "fixture"
@@ -209,17 +230,21 @@ def main(case):
         report["phase"] = "target_start"
         target.send(op="start", mode="application" if case == "application" else "engine", controls=controls)
         ready = target.until("ready")
+        attempts = [event for event in target.events if event["event"] == "forbidden_writes"]
+        report["forbiddenWrites"] = attempts
+        if len(attempts) != 1 or len(attempts[0]["attempts"]) != 4:
+            report["failures"].append("forbidden_filesystem_writes_not_proven")
         report["runtime"] = {"node": ready["nodeVersion"], "gcForced": False}
         report["phase"] = "positive_controls"
         baseline = snapshot(target, ready, scanner, "positive_controls_before_query")
         report["checkpoints"].append(baseline)
         if not baseline["controlsFound"]:
             report["failures"].append("heap_positive_control_missing")
-        file_controls = scanner.file("/control/live.bin")
+        file_controls = scanner.file("/ingest/control/live.bin")
         if not all(any(key.startswith(control["name"] + ":") for key in file_controls["counts"]) for control in controls):
             report["failures"].append("filesystem_positive_control_missing")
-        context = ssl.create_default_context(cafile="/control/tls-config/tls/ca.pem")
-        context.load_cert_chain("/control/tls-config/tls/client.pem", "/control/tls-config/tls/client.key")
+        context = ssl.create_default_context(cafile="/ingest/control/tls-config/tls/ca.pem")
+        context.load_cert_chain("/ingest/control/tls-config/tls/client.pem", "/ingest/control/tls-config/tls/client.key")
         report["phase"] = "request"
         if case == "application":
             schema = ready["schema"]
@@ -229,7 +254,7 @@ def main(case):
             target.send(op="scenario", name="success"); target.until("configured")
             from urllib.parse import urlparse
             url = urlparse(ready["url"])
-            connection = http.client.HTTPConnection(url.hostname, url.port, timeout=540)
+            connection = http.client.HTTPConnection(url.hostname, url.port, timeout=1040)
             headers = {"x-opintel-agent-id": "unverified-agent", "mcp-protocol-version": "2025-03-26", "authorization": "Bearer " + ready["key"], "mcp-session-id": ready["session"], "content-type": "application/json", "accept": "application/json, text/event-stream"}
             # Keep this application's configured 100-row delivery cap; the direct
             # Engine cases independently verify 100k delivered rows.
@@ -256,7 +281,7 @@ def main(case):
             request = request_for(kind, scenario)
             if case == "clear":
                 request["sql"] = 'SELECT clear AS "' + markers["query_alias"] + '" FROM records WHERE clear <> \'' + markers["query_literal"] + "' ORDER BY id"
-            connection = http.client.HTTPSConnection("127.0.0.1", ready["port"], context=context, timeout=540)
+            connection = http.client.HTTPSConnection("127.0.0.1", ready["port"], context=context, timeout=1040)
             headers = {"content-type": "application/json"}
             with ThreadPoolExecutor(max_workers=1) as workers:
                 pending = workers.submit(receive, connection, "/execute", request, headers)
@@ -270,7 +295,7 @@ def main(case):
                     else:
                         target.send(op="expire")
                 try:
-                    status, response = pending.result(timeout=540)
+                    status, response = pending.result(timeout=1040)
                 except (OSError, http.client.HTTPException):
                     if scenario != "cancel":
                         raise
@@ -323,12 +348,12 @@ def main(case):
         report["writeObservation"] = observation
         if not observation["complete"]:
             report["incomplete"].append("filesystem_write_observation_incomplete")
-        if not any(item["sink"].startswith("/control/transient.bin") and any(key.startswith("heap_utf8:") for key in item["counts"]) for item in observation["matches"]):
+        if not any(item["sink"].startswith("/ingest/control/transient.bin") and any(key.startswith("heap_utf8:") for key in item["counts"]) for item in observation["matches"]):
             report["failures"].append("transient_write_positive_control_missing")
         if observation["mappedWritableFiles"]:
             report["incomplete"].append("shared_writable_file_mapping_requires_store_observation")
         for item in observation["fileWrites"]:
-            if not item["sink"].startswith(("/control/", "/sinks/", "/tmp/tsx-", "/tmp/opintel-query-")):
+            if not item["sink"].startswith(("/ingest/", "/audit/", "/custody/")):
                 report["incomplete"].append("unclassified_filesystem_write:" + item["sink"])
         for checkpoint in report["checkpoints"]:
             if not checkpoint["complete"]:
@@ -370,6 +395,7 @@ def main(case):
         report["incomplete"].append({"reason": type(exc).__name__, "frames": [{"file": frame.filename, "line": frame.lineno, "function": frame.name} for frame in traceback.extract_tb(exc.__traceback__)]})
     finally:
         if target:
+            report["transportFailures"] = [event for event in target.events if event["event"] in ("protocol_failure", "exited")]
             with contextlib.suppress(Exception):
                 target.stop()
         # No row values or complete memory snapshots are exported in the report.

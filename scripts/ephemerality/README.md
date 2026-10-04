@@ -3,7 +3,8 @@
 Run `npm run test:ephemerality`. Docker runs the separate, serial
 `vitest.ephemerality.config.ts` project on Linux; `/proc`, ptrace and syscall
 observation are mandatory. A host invocation fails rather than skipping tests.
-The runner builds its image, starts disposable source/metadata Postgres,
+The runner builds S5's shipping `engine` target and a separate controller target
+from `deploy/engine/Dockerfile`, then starts disposable source/metadata Postgres,
 SpiceDB and Redis services, and removes those services and volumes on exit.
 It never uses the developer's databases. CI runs this as its own job.
 
@@ -23,8 +24,13 @@ staging failure and memory pressure exercise cleanup. The harness counts
 sessions and governed prepared handles, checks the actual spill settings of
 every opened session, and verifies source backends have gone after the response.
 It reports teardown counters before the host receives the execution result.
-The tracing fixture configures a 500-second permitted operation budget; this is
-not a latency benchmark and does not change production defaults. Memory pressure
+The tracing fixture configures a 1,000-second permitted operation budget; this is
+not a latency benchmark and does not change production defaults. External
+attachment cannot use strace's launch-time seccomp-BPF filter; its increased
+tracing overhead exhausted the original 500-second fixture budget after 79,872
+rows. The higher allowance retains all 100,000-row, live-control, coverage and
+write-observation assertions; explicit cancellation/deadline cases retain their
+triggered refusal checks. Memory pressure
 is applied with an 8 MB native limit after partial staging. A classified native
 allocation failure must be observed: an arbitrary source failure cannot satisfy
 that scenario. The actual refusal code is retained, including today's
@@ -61,8 +67,8 @@ to files subsequently removed. Payload truncation, unresolved descriptors,
 missing traces, positional writes without offset reconstruction, or overlapping file writes
 without offset reconstruction report **INCOMPLETE**. Per-thread traces are merged
 by syscall timestamp; sequential writes are checked across call boundaries,
-including between threads. The seccomp-BPF tracer filter reduces overhead without
-removing any declared syscall from observation. Successful io_uring activity,
+including between threads. The outside controller attaches `strace` before
+the target imports production modules. Successful io_uring activity,
 zero-copy writes and shared writable file mappings likewise require independent
 observation and cannot produce a verified result. The test uses Docker's default
 seccomp policy and `UV_USE_IO_URING=0`; this is an explicitly declared I/O backend,
@@ -75,8 +81,8 @@ not a zero-match span test. Detecting tracing SDKs, instrumentation or tracing
 environment configuration without a collection adapter makes coverage incomplete.
 There are no configured proxy or collector spools or query-result caches in
 this fixture. Adding those requires extending the coverage adapter and its
-positive controls. The existing HTTP exception logger is unchanged; its separate
-remediation is plan item S4a.
+positive controls. Exception sanitisation is implemented separately as S4a; this proof does not
+replace that control.
 
 A verified result requires live positive controls, complete declared coverage,
 correct treatment/delivery, cleanup on the tested exits, disabled spill, and no
@@ -86,7 +92,7 @@ scanner's adversarial self-tests verify these distinctions and write parsing.
 
 ## Reading the reports
 
-`test-results/ephemerality/<case>.json` records coverage, exclusions, resource
+`test-results/ephemerality/<run>/<case>.json` records coverage, exclusions, resource
 counters, writes and memory residuals at each checkpoint. Counts include all
 matches in the scanned ranges; sample offsets are capped at 12 per range.
 Counts are occurrences of marker representations, not distinct rows or values.
@@ -103,7 +109,23 @@ be pointed at actual customer sources.
 This proves the declared fixture's query-path persistence properties. It does
 not establish immediate erasure in managed heaps, native allocators or transport
 buffers. Physical disk remnants, kernel buffers and hypervisor memory are outside
-scope. The test container disables swap and core dumps, but it deliberately has
-writable controls and is not S5's production image. Production filesystem,
-host logging, swap, dump, proxy and collector controls require deployment evidence.
+scope. The target is now S5's shipping image, with read-only root, `/tmp` and
+`/dev/shm`, non-root UID 65534, no capabilities, zero core limits and no swap.
+Only `/audit`, `/custody`, optional `/ingest` are writable; controls reside in
+those mounts and workload markers there are never exempted. Forbidden writes
+are attempted in every scenario. `shipping-runtime.json` proves actual image
+identity and Docker controls; `sd-005.json` records active egress, receipt and
+shipping-entry-point probes. Host logging/swap/dump and proxy/collector controls
+still require operator evidence. Linux tmpfs size=0 means unlimited, not zero.
+
+The shipping image lacks Python, strace, Vitest, certificate generation, the
+Postgres fixture CLI and the address addon. Its outside controller supplies
+those tools and reports, with shared PID/network namespaces for attachment and
+receiving requests. Only the controller has SYS_PTRACE. Read-only test mounts
+supply instrumentation and the allocation addon, while baked production modules
+remain unchanged. No controller report mount is accessible in the engine.
+The proof declares loopback for variable local test transport ports; the
+application fixture adds explicit Redis/SpiceDB destinations to its network
+policy; these are test dependencies, not production-engine source hosts.
+See [deployment instructions](../../deploy/engine/README.md) for both models.
 C.5 explains why immediate erasure needs a different execution architecture.

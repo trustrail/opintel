@@ -729,7 +729,7 @@ SAML is Slice 2. These cases were previously and incorrectly listed under Slice 
 | SD-002 | R | Connection dropped | Re-established with backoff; in-flight work fails cleanly |
 | SD-003 | S | Signed binary verification | Signature checked before execution |
 | SD-004 | F | Upgrade | Rolls forward; rollback tested |
-| SD-005 | S | Sidecar egress | Only to declared source hosts |
+| SD-005 | S | Shipping Engine image: active destination and write probes | Declared source reachable; live undeclared host and undeclared port blocked; declared receipt endpoint reaches the application over mTLS. IPv4/IPv6 default deny; read-only root, `/tmp` and `/dev/shm` reject writes; non-root, no capabilities, no swap and no cores. S4 target image identity matches the shipping image |
 | SD-006 | D | Customer holds credentials | Opintel never receives them; assert on the payloads |
 | SD-007 | M | Deployment guide followed by someone unfamiliar | Working sidecar without vendor assistance |
 

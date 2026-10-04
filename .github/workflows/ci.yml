@@ -73,9 +73,9 @@ jobs:
         if: always()
 
   ephemerality:
-    name: Linux S4 ephemerality proof
+    name: Linux S4 ephemerality and S5 shipping controls (SD-005)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -87,6 +87,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: s4-ephemerality-reports
-          path: test-results/ephemerality/*.json
+          path: test-results/ephemerality/**/*.json
           if-no-files-found: error
           retention-days: 7

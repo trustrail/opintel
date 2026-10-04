@@ -38,7 +38,7 @@ export class TestEvidenceWriter implements EvidenceWriterPort {
  async open(principal:Parameters<EvidenceWriterPort['open']>[0],sql:string){const id=RunId(randomUUID());this.records.set(id,{principal,sql});return ok(id);}
  async close(id:RunId,outcome:Parameters<EvidenceWriterPort['close']>[1]){const record=this.records.get(id);if(!record||record.outcome)throw new Error('Missing or already finished record');record.outcome=outcome;return ok(undefined);}
 }
-export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWriter(),fixtureOptions:Pick<SpiceDbAuthorizationPortOptions,'security'>&{sourceLimits?:SourceLimits;queryTimeoutSeconds?:number}={}){
+export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWriter(),fixtureOptions:Pick<SpiceDbAuthorizationPortOptions,'security'>&{sourceLimits?:SourceLimits;queryTimeoutSeconds?:number;sidecarDirectory?:string}={}){
  const cleanup:Array<()=>Promise<void>>=[];
  const close=async()=>{for(const fn of cleanup.splice(0).reverse())await fn();};
  try{
@@ -72,7 +72,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
    }
   });unwrap(await bindings.set(f.ctx,pool,sourceId,true));return sourceId;
  };
- const directory=await mkdtemp(join(tmpdir(),'opintel-query-'));cleanup.push(()=>rm(directory,{recursive:true,force:true}));await prepareSidecarDevelopment(directory);
+ const directory=fixtureOptions.sidecarDirectory??await mkdtemp(join(tmpdir(),'opintel-query-'));if(!fixtureOptions.sidecarDirectory){cleanup.push(()=>rm(directory,{recursive:true,force:true}));await prepareSidecarDevelopment(directory);}
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
  const secrets={resolve:async()=>process.env.TEST_DATABASE_URL!};
  const scope=new PostgresSourceScope(secrets,fixtureOptions.sourceLimits??{maxConnectionsPerSource:2,statementTimeoutMs:10000,operationTimeoutMs:15000});

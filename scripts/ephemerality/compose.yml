@@ -10,38 +10,144 @@ services:
       test: [CMD-SHELL, pg_isready -U opintel -d opintel_test]
       interval: 1s
       retries: 60
+    networks:
+      default:
+        ipv4_address: 172.30.84.10
   redis:
     image: redis:7-alpine
     command: redis-server --save "" --appendonly no
+    networks:
+      default:
+        ipv4_address: 172.30.84.11
   spicedb:
     image: authzed/spicedb:latest
     command: serve --grpc-preshared-key synthetic-only --datastore-engine memory
+    networks:
+      default:
+        ipv4_address: 172.30.84.12
+  egress:
+    image: opintel-engine-egress:local
+    build:
+      context: ../..
+      dockerfile: deploy/engine/Dockerfile
+      target: egress
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    volumes:
+      - ./infrastructure/egress.json:/policy/egress.json:ro
+    healthcheck:
+      test: [CMD, node, -e, "require('node:fs').accessSync('/run/egress-ready')"]
+      interval: 1s
+      retries: 60
+  engine:
+    image: opintel-engine:local
+    build:
+      context: ../..
+      dockerfile: deploy/engine/Dockerfile
+      target: engine
+    depends_on:
+      egress:
+        condition: service_healthy
+    network_mode: service:egress
+    extends:
+      file: ../../deploy/engine/runtime.compose.yml
+      service: engine
+    mem_limit: 3g
+    memswap_limit: 3g
+    command: [node, /bridge.mjs]
+    environment:
+      UV_USE_IO_URING: "0"
+      DATABASE_URL: postgres://opintel:synthetic-only@172.30.84.10:5432/opintel_test
+      TEST_DATABASE_URL: postgres://opintel:synthetic-only@172.30.84.10:5432/opintel_test
+      REDIS_URL: redis://172.30.84.11:6379
+      SPICEDB_ENDPOINT: 172.30.84.12:50051
+      SPICEDB_TOKEN: synthetic-only
+    volumes:
+      - ./infrastructure/bridge.mjs:/bridge.mjs:ro
+      - ./infrastructure/hosts:/etc/hosts:ro
+      - harness:/work/scripts:ro
+      - test-harness:/work/test:ro
+      - docs-harness:/work/docs:ro
+      - audit:/audit
+      - custody:/custody
+      - ingest:/ingest
+  receipt:
+    image: node:22-bookworm-slim
+    command: [node, /peer.mjs]
+    volumes:
+      - ./infrastructure/peer.mjs:/peer.mjs:ro
+      - ingest:/ingest:ro
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8444').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 1s
+      retries: 60
+    networks:
+      default:
+        ipv4_address: 172.30.84.13
+  undeclared:
+    image: node:22-bookworm-slim
+    command: [node, -e, "require('node:http').createServer((q,s)=>s.end('reachable')).listen(8444,'0.0.0.0')"]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8444').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 1s
+      retries: 60
+    networks:
+      default:
+        ipv4_address: 172.30.84.14
+  witness:
+    image: node:22-bookworm-slim
+    depends_on:
+      undeclared:
+        condition: service_healthy
+    command: [node, -e, "fetch('http://172.30.84.14:8444').then(async r=>{if(await r.text()!=='reachable')throw Error('Peer unavailable');require('node:fs').writeFileSync('/ingest/witness','reachable');setInterval(()=>{},60000)})"]
+    volumes:
+      - ingest:/ingest
   proof:
     build:
       context: ../..
-      dockerfile: scripts/ephemerality/infrastructure/Dockerfile
+      dockerfile: deploy/engine/Dockerfile
+      target: controller
     depends_on:
+      engine:
+        condition: service_started
       source:
         condition: service_healthy
       redis:
         condition: service_started
       spicedb:
         condition: service_started
+      witness:
+        condition: service_started
+    pid: service:engine
+    network_mode: service:egress
     cap_add: [SYS_PTRACE]
-    ulimits:
-      core: 0
-    mem_limit: 3g
-    memswap_limit: 3g
+    command: [node, scripts/ephemerality/infrastructure/controller.mjs]
     environment:
+      S4_LINUX: "1"
       PYTHONDONTWRITEBYTECODE: "1"
       UV_USE_IO_URING: "0"
-      DATABASE_URL: postgres://opintel:synthetic-only@source:5432/opintel_test
-      TEST_DATABASE_URL: postgres://opintel:synthetic-only@source:5432/opintel_test
-      REDIS_URL: redis://redis:6379
-      SPICEDB_ENDPOINT: spicedb:50051
+      DATABASE_URL: postgres://opintel:synthetic-only@172.30.84.10:5432/opintel_test
+      TEST_DATABASE_URL: postgres://opintel:synthetic-only@172.30.84.10:5432/opintel_test
+      REDIS_URL: redis://172.30.84.11:6379
+      SPICEDB_ENDPOINT: 172.30.84.12:50051
       SPICEDB_TOKEN: synthetic-only
     volumes:
-      - ../../test-results/ephemerality:/reports
-      - ./infrastructure:/work/scripts/ephemerality/infrastructure:ro
-      - ../../test/ephemerality:/work/test/ephemerality:ro
-      - ../../test/fixtures/query/fixture.ts:/work/test/fixtures/query/fixture.ts:ro
+      - ${S4_REPORT_DIRECTORY:-../../test-results/ephemerality}:/reports
+      - harness:/harness/scripts
+      - test-harness:/harness/test
+      - docs-harness:/harness/docs
+      - audit:/audit
+      - custody:/custody
+      - ingest:/ingest
+volumes:
+  harness:
+  test-harness:
+  docs-harness:
+  audit:
+  custody:
+  ingest:
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.84.0/24

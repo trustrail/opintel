@@ -97,8 +97,9 @@ this fixture. Spans are reported NOT_CONFIGURED, not as a zero-match export
 check; detected tracing without a collection adapter is incomplete. The proof
 uses a declared syscall-observable Linux backend. Successful io_uring,
 zero-copy writes, shared file mappings, positional writes or overlapping file
-writes require further observation and cannot pass as complete. The writable
-test image is not S5's production filesystem/egress package. Host swap/dump/logging
+writes require further observation and cannot pass as complete. The original writable
+test image was not S5's production filesystem/egress package; S5 now converges the
+target onto the shipping image with an external controller (new validation below). Host swap/dump/logging
 controls, physical remnants, kernel buffers and hypervisor memory are separate
 deployment concerns.
 
@@ -110,3 +111,33 @@ That classification remains a finding, not a corrected contract or a claim that
 resource-error classification is correct. S4 records the actual code and requires
 native allocation evidence; an arbitrary source failure cannot satisfy this case.
 No production error mapping was changed inside the proof.
+
+
+## S5 convergence
+
+The current runner uses `deploy/engine/Dockerfile`'s shipping `engine` target;
+a separate `controller` target supplies Python, strace, Vitest, fixture CLI,
+certificate generation and the allocation addon. Production engine modules are
+baked into the shipped image. Test instrumentation is mounted read-only; the
+controller attaches externally through the shared Linux PID namespace, and
+records traces/reports outside the engine filesystem. Only the controller has
+SYS_PTRACE. Runtime image IDs, Docker controls, active SD-005 results and renewed
+S4 findings are retained in the local reports. The earlier counts above remain
+historical observations, not results for the new image.
+
+The target has only `/audit`, `/custody` and `/ingest` as writable storage mounts;
+every scenario actively attempts writes outside them. The file/log controls live
+in permitted mounts, whose workload sentinels remain subject to the same failure
+checks. Root, `/tmp` and `/dev/shm` are read-only; Linux tmpfs size=0 is unlimited
+and is expressly not used as a control. SD-005 attempts undeclared-host and
+undeclared-port connections and sends an mTLS receipt to a declared synthetic
+application receiver. Its outside witness first proves the blocked host is live.
+The packaged shipping entry point also starts under the controls. No registry or
+cross-organisation reachability mechanism is added.
+
+
+The complete S5 invocation now passed all 11 checks (SD-005, scanner gate,
+all nine S4 scenarios) on the shipping image, with empty failure/incomplete lists.
+[The S5 review report](s5-packaging.md) records the exact image ID, renewed
+residual counts, harness corrections and deployment limits. The earlier table
+above is historical, not the renewed image's result.

@@ -841,7 +841,17 @@ the ceiling. Project authorization remains independent of this resource key.
 | Execution resources close before response serialization | DuckDB instances, prepared statements and source scopes close on success, refusal, failure and cancellation; closing resources does not establish erasure of their former contents |
 | Nothing in logs | Field allowlist in the logger. Row values are not loggable |
 | Telemetry policy (decided) | §8 governs: telemetry records execution metadata only, no SQL text and no statement shape. Row values, prompt text and SQL literals are never emitted. Aliases can carry values; future shape recording requires its own reviewed sanitisation, not the evidence stripper |
-| No swap, no core dumps | Container configuration |
+| No swap, no core dumps | S5 Linux container: memory and memory+swap limits equal; core soft/hard limits zero; customer operator also disables host dump/swap mechanisms |
+| Writes confined to customer-owned storage | Read-only root filesystem, `/tmp` and `/dev/shm`; non-root UID 65534, no capabilities. The only writable storage mounts are `/audit` (sampling audit), `/custody` (primary and escrow custody stores in separate subdirectories), and optional `/ingest` (landing files, register and spreadsheet scratch). All other disk writes must fail, verified by attempted writes in S4/SD-005 |
+| Declared network destinations only | S5 firewall companion owns the engine network namespace: source IP/port declarations and an optional declared HTTPS receipt endpoint; IPv4/IPv6 default-deny, no general DNS egress |
+
+**Do not use `tmpfs size=0` as a no-write control:** on Linux it means unlimited
+size, not zero capacity. S5 mounts `/tmp` and `/dev/shm` read-only; their size
+is not the enforcement. Optional ingest sets `TMPDIR=/ingest/scratch`; without
+that customer-owned mount, operations requiring scratch storage fail. Audit,
+custody and ingest writes are intentional customer-environment writes, not
+permission to persist query rows. S4 scans these mounts without exempting
+workload sentinels.
 
 Query results and staging data are not persisted by the query path. DuckDB
 instances, prepared statements and source scopes are closed before execution
@@ -874,8 +884,13 @@ the heap control stays live and must still be found during post-response scans.
 Encoding, chunk-boundary and log collection controls establish scanner and sink
 coverage. A configured span exporter requires its own live collection control;
 an absent exporter is reported as not configured, not as zero span matches.
-A test-only writable control mount is not evidence of production filesystem
-restrictions.
+The file control lives in permitted `/ingest` storage. S4 uses the shipping S5
+engine image with the same filesystem, user, capability, swap and core controls;
+it actively attempts writes outside the three permitted mounts. Its separate
+controller supplies scanning, tracing, fixture provisioning and private reports
+from outside the engine. Read-only test instrumentation changes neither baked
+production modules nor the image identity; test-only Redis/SpiceDB destinations
+are explicit fixture dependencies, not production source declarations.
 
 The harness observes writes during execution and scans the container filesystem,
 writable mounts, DuckDB temporary locations, open-but-unlinked files, logs and

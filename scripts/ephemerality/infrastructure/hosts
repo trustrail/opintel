@@ -1,0 +1,5 @@
+127.0.0.1 localhost
+::1 localhost
+172.30.84.10 source.opintel.test
+172.30.84.13 receipt.opintel.test
+172.30.84.14 undeclared.opintel.test

@@ -1,0 +1,42 @@
+# Set ENGINE_* variables in an operator-owned env file. Never bake secrets.
+services:
+  egress:
+    image: opintel-engine-egress:local
+    build:
+      context: ../..
+      dockerfile: deploy/engine/Dockerfile
+      target: egress
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ${ENGINE_POLICY_FILE:?declare sources and receipt}:/policy/egress.json:ro
+    healthcheck:
+      test: [CMD, node, -e, "require('node:fs').accessSync('/run/egress-ready')"]
+      interval: 1s
+      retries: 60
+    ports:
+      - ${ENGINE_BIND_ADDRESS:-127.0.0.1}:${ENGINE_PORT:-3100}:3100
+  engine:
+    image: opintel-engine:local
+    build:
+      context: ../..
+      dockerfile: deploy/engine/Dockerfile
+      target: engine
+    depends_on:
+      egress:
+        condition: service_healthy
+    network_mode: service:egress
+    extends:
+      file: runtime.compose.yml
+      service: engine
+    volumes:
+      - ${ENGINE_CONFIG_DIRECTORY:?provision config and certificates}:/config:ro
+      - ${ENGINE_AUDIT_DIRECTORY:?customer-owned audit}:/audit
+      - ${ENGINE_CUSTODY_DIRECTORY:?customer-owned custody}:/custody
+    environment:
+      SIDECAR_CONFIG_FILE: /config/service.json
+      UV_USE_IO_URING: "0"
+    env_file:
+      - ${ENGINE_SECRET_ENV_FILE:?operator-provisioned secret references}
+    restart: unless-stopped

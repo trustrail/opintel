@@ -25,7 +25,7 @@ const emit = (value: unknown) => process.stdout.write(JSON.stringify(value) + '\
 console.info = (...values: unknown[]) => { process.stderr.write(JSON.stringify(values) + '\n'); };
 console.warn = console.info;
 console.error = console.info;
-const native = createRequire(import.meta.url)('/opt/s4-address.node') as { address(buffer: Buffer): bigint };
+const native = createRequire(import.meta.url)('/work/scripts/ephemerality/infrastructure/address.node') as { address(buffer: Buffer): bigint };
 const command = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('start'), mode: z.enum(['engine', 'application']), controls: z.array(z.strictObject({ name: z.string(), value: z.string(), encoding: z.enum(['utf8', 'utf16le']) })).min(2) }),
   z.strictObject({ op: z.literal('scenario'), name: z.enum(['success', 'cancel', 'deadline', 'source_failure', 'staging_failure', 'memory_pressure']) }),
@@ -102,18 +102,27 @@ async function start(input: Extract<z.infer<typeof command>, { op: 'start' }>): 
     ranges.push({ name: control.name, start: String(native.address(buffer) + BigInt(offset)), size: bytes.length });
     bytes.copy(file, 1024 * 1024 - 7 + index * 256);
   }
-  await writeFile('/control/live.bin', file);
+  const forbiddenWrites = [];
+  for (const path of ['/tmp/s4-write', '/dev/shm/s4-write', '/work/s4-write', '/s4-write']) {
+    try { await writeFile(path, 'S4 forbidden write'); throw new Error('Forbidden write succeeded'); }
+    catch (error: unknown) {
+      if (!(typeof error === 'object' && error !== null && 'code' in error && ['EROFS', 'EACCES'].includes(String(error.code)))) throw error;
+      forbiddenWrites.push({path, code: String(error.code)});
+    }
+  }
+  emit({event: 'forbidden_writes', attempts: forbiddenWrites});
+  await writeFile('/ingest/control/live.bin', file);
   // The end-of-run filesystem scan cannot find this; syscall observation must.
-  await writeFile('/control/transient.bin', Buffer.from(input.controls[0]!.value));
-  await unlink('/control/transient.bin');
+  await writeFile('/ingest/control/transient.bin', Buffer.from(input.controls[0]!.value));
+  await unlink('/ingest/control/transient.bin');
   console.info({ event: 's4.positive-control', marker: input.controls[0]!.value });
   if (input.mode === 'application') {
-    app = await queryFixture(new PostgresEvidenceWriter(), { security: v1.ClientSecurity.INSECURE_PLAINTEXT_CREDENTIALS, sourceLimits: { maxConnectionsPerSource: 2, statementTimeoutMs: 500000, operationTimeoutMs: 500000 }, queryTimeoutSeconds: 500 }); stop = app.close;
+    app = await queryFixture(new PostgresEvidenceWriter(), { security: v1.ClientSecurity.INSECURE_PLAINTEXT_CREDENTIALS, sourceLimits: { maxConnectionsPerSource: 2, statementTimeoutMs: 1000000, operationTimeoutMs: 1000000 }, queryTimeoutSeconds: 1000, sidecarDirectory: '/ingest/control/tls-config' }); stop = app.close;
     emit({ event: 'ready', mode: input.mode, pid: process.pid, nodeVersion: process.versions.node, ranges, schema: app.schema, url: app.url.toString(), key: app.issued.key, session: app.transport.sessionId });
     return;
   }
-  const { config, tls } = await loadSidecarConfig('/control/tls-config/service.json');
-  const scope = new ObservedScope({ resolve: async () => process.env.TEST_DATABASE_URL! }, { maxConnectionsPerSource: 2, statementTimeoutMs: 500000, operationTimeoutMs: 500000 });
+  const { config, tls } = await loadSidecarConfig('/ingest/control/tls-config/service.json');
+  const scope = new ObservedScope({ resolve: async () => process.env.TEST_DATABASE_URL! }, { maxConnectionsPerSource: 2, statementTimeoutMs: 1000000, operationTimeoutMs: 1000000 });
   const source = new PostgresStagingSource(scope, new SidecarTokenizer({ resolveBytes: async () => Buffer.alloc(32, 1) }, new IanaZoneResolver()));
   const observed: StagingSource = {
     estimate: (scan, signal) => source.estimate(scan, signal),

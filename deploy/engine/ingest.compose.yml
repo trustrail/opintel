@@ -1,0 +1,6 @@
+services:
+  engine:
+    volumes:
+      - ${ENGINE_INGEST_DIRECTORY:?customer-owned ingest storage}:/ingest
+    environment:
+      TMPDIR: /ingest/scratch

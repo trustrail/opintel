@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process';
+import { connect } from 'node:net';
+import { readFile, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { beforeAll, expect, it } from 'vitest';
 
@@ -10,12 +12,27 @@ beforeAll(async () => {
   await execute('node', ['--import', 'tsx', 'scripts/ephemerality/infrastructure/provision.ts'], { timeout: 180000 });
 }, 180000);
 
+it('SD-005 shipping image: declared sources and receipt, forbidden egress and writes', async () => {
+  expect(await readFile('/ingest/witness', 'utf8')).toBe('reachable');
+  await new Promise(resolve=>setTimeout(resolve,1000));
+  const output = await new Promise<string>((resolve,reject) => {
+    const socket = connect({host:'127.0.0.1',port:4546}); let value='';
+    socket.on('data',chunk=>{value+=chunk.toString();});
+    socket.on('error',reject);socket.on('end',()=>resolve(value));
+  });
+  await writeFile('/reports/sd-005-output.log', output);
+  const lines = output.trim().split('\n');
+  expect(JSON.parse(lines.at(-1)!)).toEqual({exitCode:0});
+  expect(JSON.parse(lines.at(-2)!)).toMatchObject({status:'VERIFIED',receiptDelivered:true,undeclaredHostBlocked:true,shippingStartup:true});
+  await writeFile('/reports/sd-005.json', JSON.stringify({probe:JSON.parse(lines.at(-2)!),process:JSON.parse(lines.at(-1)!)},null,2)+'\n');
+});
+
 it('S4 scanner controls: chunk boundaries, encodings, incomplete reads and missing sinks', async () => {
   await execute('python3', ['scripts/ephemerality/infrastructure/scanner.py']);
 });
 for (const name of ['clear', 'treated', 'aggregate', 'cancel', 'deadline', 'source_failure', 'staging_failure', 'memory_pressure', 'application']) {
   it(`J-019/TOK-38 S4: ${name}, live controls, write observation and honest residual report`, async () => {
-    const result = await execute('python3', ['scripts/ephemerality/infrastructure/proof.py', name], { timeout: 590000, maxBuffer: 1024 * 1024 }).catch((error: unknown) => {
+    const result = await execute('python3', ['scripts/ephemerality/infrastructure/proof.py', name], { timeout: 1090000, maxBuffer: 1024 * 1024 }).catch((error: unknown) => {
       if (typeof error === 'object' && error !== null && 'stdout' in error && typeof error.stdout === 'string') console.info(error.stdout.trim());
       throw error;
     });

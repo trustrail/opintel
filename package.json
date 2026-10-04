@@ -34,7 +34,8 @@
     "test:performance": "tsx scripts/test.ts --config vitest.performance.config.ts",
     "demo:pack": "tsx scripts/demo-pack.ts",
     "test:tokenization-collision": "vitest run --config vitest.tokenization.config.ts",
-    "sidecar:prepare-scanner": "tsx scripts/prepare-duckdb-scanner.ts"
+    "sidecar:prepare-scanner": "tsx scripts/prepare-duckdb-scanner.ts",
+    "test:deployment": "node scripts/ephemerality/run.mjs"
   },
   "dependencies": {
     "@authzed/authzed-node": "^1.6.1",
