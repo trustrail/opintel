@@ -51,7 +51,8 @@ failure. Engine spill is disabled from instance creation, before staging starts.
 Connector batches are cleared in `finally`, token keys are disposed, and source
 connections are released. Execution logging uses an explicit identifier/outcome
 allowlist; native errors and rows never enter it. This is cleanup enforcement,
-not S4's handwritten proof that no sentinel remains in disk or mapped memory.
+not S4's reviewed sentinel proof of no persistence and its separate, honest
+mapped-memory residual report.
 JavaScript strings and driver buffers cannot be claimed to have been securely
 erased by assigning null to a batch.
 

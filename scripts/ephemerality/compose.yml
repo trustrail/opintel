@@ -1,0 +1,47 @@
+services:
+  source:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: opintel
+      POSTGRES_PASSWORD: synthetic-only
+      POSTGRES_DB: opintel_test
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U opintel -d opintel_test]
+      interval: 1s
+      retries: 60
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+  spicedb:
+    image: authzed/spicedb:latest
+    command: serve --grpc-preshared-key synthetic-only --datastore-engine memory
+  proof:
+    build:
+      context: ../..
+      dockerfile: scripts/ephemerality/infrastructure/Dockerfile
+    depends_on:
+      source:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      spicedb:
+        condition: service_started
+    cap_add: [SYS_PTRACE]
+    ulimits:
+      core: 0
+    mem_limit: 3g
+    memswap_limit: 3g
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      UV_USE_IO_URING: "0"
+      DATABASE_URL: postgres://opintel:synthetic-only@source:5432/opintel_test
+      TEST_DATABASE_URL: postgres://opintel:synthetic-only@source:5432/opintel_test
+      REDIS_URL: redis://redis:6379
+      SPICEDB_ENDPOINT: spicedb:50051
+      SPICEDB_TOKEN: synthetic-only
+    volumes:
+      - ../../test-results/ephemerality:/reports
+      - ./infrastructure:/work/scripts/ephemerality/infrastructure:ro
+      - ../../test/ephemerality:/work/test/ephemerality:ro
+      - ../../test/fixtures/query/fixture.ts:/work/test/fixtures/query/fixture.ts:ro

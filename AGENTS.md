@@ -44,7 +44,7 @@ Most rules below exist to protect that sentence.
    | Item | What |
    |---|---|
    | 1.4 | Tenant isolation wrapper |
-   | S4 | Ephemerality proof |
+   | S4 | Ephemerality proof. **Delegated by decision**, on the condition that the reviewed design is implemented as specified: positive controls that stay live during the scan, incomplete coverage reported as incomplete rather than as zero matches, filesystem writes observed rather than inspected only at the end, and memory residuals reported honestly rather than suppressed |
    | S2 | DuckDB two-session construction. **Delegated by decision.** The bypass suite is specified in docs/bypass-attacks.md, written independently of the implementation, and is the verification hand-writing would otherwise provide. A session may implement any S2 item, including the suite, but must not weaken, remove or narrow an attack in the list |
    | C.6 | The bypass suite. **Delegated as item S2b by decision**, implemented from docs/bypass-attacks.md. Changing what an attack tests is a decision for review, not an implementation choice |
 

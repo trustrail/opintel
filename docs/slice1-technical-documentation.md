@@ -4859,7 +4859,7 @@ The pilot criteria are the acceptance tests. Each is automated.
 
 **The bypass suite.** Ten named tests that agent SQL cannot reach a base catalog: fully qualified reference, withheld column via the base catalog, `duckdb_tables()`, `information_schema`, `duckdb_views()`, reference inside a CTE, inside a prepared statement, quoted or case-varied identifier, `ATTACH` of an attached source, `search_path` manipulation. A newly discovered bypass is added in the same pull request as its fix.
 
-**The ephemerality test.** Run a query returning 100k rows of sentinel values, then scan the container filesystem and mapped memory. Zero matches, or the slice fails. "We do not persist anything" is unverifiable. This is verifiable.
+**The ephemerality test.** The reviewed Linux S4 harness returns 100k synthetic sentinel rows through the real query path, verifies file and heap positive controls at their expected locations, observes writes and scans persistent sinks and process mappings at defined checkpoints. It verifies treatment before DuckDB, resource teardown before response serialization, disabled spill, and zero workload markers in prohibited persistent sinks. Missing exports, unreadable regions, short reads and permission failures report incomplete coverage and cannot pass verification. Immediate post-response mapped-memory matches are reported separately without forced GC; they do not imply persistence or establish secure erasure. Managed objects become eligible for reclamation when references are removed, but a garbage-collected runtime guarantees neither immediate collection nor erasure; native allocator and transport buffers may also retain bytes. Immediate erasure would require an execution architecture that does not hold results in a managed heap. That is a different design, and this proof does not pretend otherwise. See algorithm specifications C.5 and tests J-019/TOK-38 for scope and acceptance.
 
 **The append-only test.** Assert the application role cannot `UPDATE` or `DELETE` evidence, at the grant level rather than by trying and catching.
 
@@ -4887,7 +4887,7 @@ Traceability, not percentage. Every normative statement in this document maps to
 
 Opintel sits in the request path of someone else's agents and fails closed. When it is slow or refusing, their agents are slow or refusing. Observability is therefore an availability requirement, not a nicety.
 
-**One rule governs everything below: no customer data in telemetry.** Not in span attributes, not in log fields, not in metric labels. Row values, prompt text and SQL literals are never emitted. Field names and identifiers are, because they are metadata and they are what makes a trace useful.
+**One rule governs everything below: no customer data in telemetry.** Not in span attributes, not in log fields, not in metric labels. Row values, prompt text and SQL literals are never emitted. Execution telemetry records metadata only: no SQL text or statement shape, since aliases can carry values. Future shape recording requires its own reviewed sanitisation, not the evidence stripper (C.5, decided). Field names and identifiers are, because they are metadata and they are what makes a trace useful.
 
 ## 8.2 Traces
 
@@ -5065,7 +5065,7 @@ The API declares a minimum sidecar version and refuses to dispatch below it, wit
 |---|---|---|
 | Customer data in the source | An agent reads what it should not | Per-field entitlements compiled into per-pool views; undecided is absent from the namespace |
 | Customer data in flight | Interception | TLS 1.3 everywhere, including to the sidecar |
-| Customer data at rest, in Opintel | There is none | Opintel persists no customer rows. The query path holds results in memory and releases them after the response |
+| Customer data at rest, in Opintel | There is none | Opintel persists no customer rows. The query path holds results transiently for delivery and releases application references when no longer needed; garbage collection and immediate byte erasure are not guaranteed. See C.5 |
 | Customer data at rest, in the customer's environment | Landed spreadsheets are written to the customer's own Postgres | This is a copy, and it is theirs. It is made by software they run, inside their network, from a file they already had. **Opintel never receives the file** |
 | Source credentials | Theft | Secret references only. A literal in the database fails a constraint |
 | Pool keys | Leak or misplacement | Hashed at rest, shown once, rotatable with a grace window, narrow pools bound to few sources |

@@ -245,7 +245,7 @@ customer source --plaintext--> sidecar read loop --treated rows--> DuckDB stagin
 - **The key never appears in SQL.** A function registered in DuckDB would carry the key into statement text or a closure inside the SQL engine, where it could surface in query logs, profiling output or error messages
 - **One implementation.** There is no second engine whose Unicode normalisation, case folding or trimming could differ byte for byte from the sidecar's
 
-**Plaintext still passes through sidecar memory** for the instant it takes to canonicalise and hash each value. That is unavoidable, since a value cannot be hashed without reading it, and the ephemerality proof (C.5) covers the sidecar's row buffers as well as DuckDB.
+**Plaintext still passes through sidecar and source-driver memory** to canonicalise and hash each value. A value cannot be hashed without reading it. Clearing row references does not erase their former bytes; C.5 covers row buffers and DuckDB and reports residual memory without an immediate-erasure claim.
 
 ### Reading from the source
 
@@ -324,7 +324,7 @@ J-047 in `bypass-attacks.md`).
 | TOK-35 | Naive timestamp in a declared zone during a DST overlap, and during a DST gap | Both refused |
 | TOK-36 | A full tokenization run with log capture | The key, in raw, hex and base64 forms, appears in no log line, span or error |
 | TOK-37 | A tokenized column read through the sidecar | Read as source text; a driver-parsed `Date` or `number` never reaches the canonicaliser |
-| TOK-38 | Staged DuckDB tables and DuckDB's temp directory after a run with tokenized columns | Contain no plaintext value of any tokenized or masked column |
+| TOK-38 | Tokenized and masked columns at the staging boundary, in both live DuckDB sessions, and in persistent outputs | Only the expected token or masked representation crosses into DuckDB and delivery; untreated values never enter DuckDB tables or spill files. Transient source-driver and treatment buffers may contain plaintext. Scan coverage and residual mapped-memory matches are reported separately under C.5; teardown is not secure erasure |
 
 ---
 
@@ -673,7 +673,7 @@ AGENT SESSION (runs agent SQL)
 
 **The treated staging table is the enforcement point**, not the view. Since A.6 the view carries no treatment expression, so an agent that reached a base catalog would not merely bypass a projection: it would find untreated values. That is why step 4 holds without exception, and why the streaming path in C.1.1 is confined to objects whose columns are all clear.
 
-**Plaintext for a treated object never enters DuckDB at all.** It exists in the sidecar's row buffer for the instant between reading and treating, which C.5 covers, and nothing written to a DuckDB structure, including its temp directory, holds it.
+**Plaintext for a treated object never crosses into DuckDB staging.** It is read and treated in sidecar/source-driver buffers. Residual bytes may remain after those references are cleared; C.5 reports them honestly. DuckDB tables and spill files must contain only the treated representation.
 
 **Pushdown is weaker on the treated path.** A predicate on a tokenized column cannot be evaluated by the source, which holds only plaintext (A.6), so the sidecar reads, treats, then filters. Predicates on clear columns in the same object still push down. Where an object is large and its predicates are all on tokenized columns, the execution refuses with `unsupported_pushdown` rather than reading it whole.
 
@@ -832,13 +832,68 @@ missing execution limits are explain notes, not dry-run refusals.
 
 | Guarantee | Enforcement |
 |---|---|
-| Nothing on disk | `temp_directory` empty, spill disabled, read-only root filesystem, `tmpfs` sized zero |
-| Nothing after the response | Instance closed in a `finally`, memory freed before the response returns |
+| Query rows and staging data are not persisted | `temp_directory` empty, spill disabled; deployment filesystem, swap and dump controls are verified separately |
+| Execution resources close before response serialization | DuckDB instances, prepared statements and source scopes close on success, refusal, failure and cancellation; closing resources does not establish erasure of their former contents |
 | Nothing in logs | Field allowlist in the logger. Row values are not loggable |
-| Nothing in traces | Span attribute allowlist. SQL text is recorded, result values are not |
+| Telemetry policy (decided) | §8 governs: telemetry records execution metadata only, no SQL text and no statement shape. Row values, prompt text and SQL literals are never emitted. Aliases can carry values; future shape recording requires its own reviewed sanitisation, not the evidence stripper |
 | No swap, no core dumps | Container configuration |
 
-**The proof:** a query returning 100k rows of known sentinel values, then a scan of the container filesystem and the process's mapped memory. Zero matches, or the slice fails.
+Query results and staging data are not persisted by the query path. DuckDB
+instances, prepared statements and source scopes are closed before execution
+results are handed to response serialization, including on failure and
+cancellation. Application-owned row collections are cleared when no longer
+needed; response data remains transiently available for delivery.
+
+Cleanup does not guarantee immediate garbage collection or erasure of bytes
+from JavaScript heaps, native allocator memory or transport buffers. Residual
+bytes may remain after response completion. This is a property of a
+garbage-collected runtime: removing references makes managed objects eligible
+for reclamation, but neither its timing nor byte erasure is guaranteed.
+Immediate erasure would require an execution architecture that does not hold
+results in a managed heap. That is a different design, and this proof does not
+pretend otherwise.
+
+**The proof:** the reviewed S4 harness runs on Linux against the real Engine,
+source connector, pinned DuckDB build and HTTP response path. A query returns
+100k synthetic sentinel rows. Distinct clear, tokenized, masked, aggregate-only,
+withheld and undecided placements exercise both source-scanner and treated
+connector paths, including a clear column beside a tokenized column. Live
+staging contents and append boundaries establish treatment before DuckDB;
+whole-process memory scanning cannot attribute a plaintext match to DuckDB
+rather than a permitted source-driver buffer.
+
+Each scenario first verifies positive controls: a deliberately written file
+sentinel and a retained heap sentinel found at their independently identified
+path and allocation range. Control markers are distinct from workload markers;
+the heap control stays live and must still be found during post-response scans.
+Encoding, chunk-boundary and log collection controls establish scanner and sink
+coverage. A configured span exporter requires its own live collection control;
+an absent exporter is reported as not configured, not as zero span matches.
+A test-only writable control mount is not evidence of production filesystem
+restrictions.
+
+The harness observes writes during execution and scans the container filesystem,
+writable mounts, DuckDB temporary locations, open-but-unlinked files, logs and
+configured span exports at defined checkpoints and after completion. Related
+application response handling, evidence storage and configured proxy/collector
+spools are checked for persisted result rows; absent components are enumerated,
+not reported as scanned empty sinks. Customer source databases and original ingest files are
+out of scope because they legitimately contain the values; authorized response
+recipients are a separate delivery boundary. Physical disk remnants, kernel
+buffers and hypervisor memory are outside this container-level proof. Swap,
+dump and host logging controls require deployment configuration evidence.
+
+Mapped-memory scanning reports coverage and residual matches at defined
+checkpoints, including immediately after response completion without forced GC.
+Permission errors, unreadable regions, short reads and missing exports report
+incomplete coverage rather than zero matches. Optional forced-GC diagnostics do
+not override immediate residual findings. Success, cancellation, deadline,
+source failure after partial reads, staging failure and memory-pressure refusal
+all exercise teardown. Acceptance requires working positive controls, complete
+declared coverage, correct treatment and delivery, teardown on every tested exit,
+disabled spill, and zero workload markers in prohibited persistent sinks.
+Residual mapped-memory matches are reported separately and honestly; they are
+not suppressed to pass and are not a secure-erasure claim.
 
 ## C.6 The bypass suite
 

@@ -12,14 +12,14 @@ import {PoolId,SourceId,RunId,SystemClock,UuidV7IdFactory,ok,err,DomainError,typ
 import {PoolKeyCreationResponse} from '../../../src/shared/api/pool-keys.js';
 import {PoolKeyService,PostgresPoolKeys,PostgresKeyVerifier,AgentPresenceService,PostgresAgentPresence,PoolBindingService,PostgresPoolBindings} from '../../../src/modules/pools/index.js';
 import {RelationshipOutbox} from '../../../src/modules/tenancy/index.js';
-import {SpiceDbAuthorizationPort} from '../../../src/modules/authz/infrastructure/spicedb-authorization-port.js';
+import {SpiceDbAuthorizationPort,type SpiceDbAuthorizationPortOptions} from '../../../src/modules/authz/infrastructure/spicedb-authorization-port.js';
 import {DescribeService,PostgresDescribeReader,McpAccess,McpHttpServer,PostgresMcpConfiguration,ExplainService,QueryService,PostgresQueryReader,SidecarQueryExecution,type EvidenceWriterPort} from '../../../src/modules/mcp/index.js';
 import {QueryPreFilter,DuckDBQueryParser} from '../../../src/modules/entitlements/index.js';
 import {createHttpServer} from '../../../src/platform/http/index.js';
 import {prepareSidecarDevelopment} from '../../../scripts/sidecar-dev.js';
 import {loadSidecarConfig} from '../../../sidecar/config.js';
 import {createSidecarServer,sidecarBuild} from '../../../sidecar/http/server.js';
-import {PostgresSourceScope} from '../../../sidecar/infrastructure/postgres-source-scope.js';
+import {PostgresSourceScope,type SourceLimits} from '../../../sidecar/infrastructure/postgres-source-scope.js';
 import {PostgresConnector} from '../../../sidecar/infrastructure/postgres-connector.js';
 import {PostgresStagingSource} from '../../../sidecar/execution/infrastructure/postgres-source.js';
 import {StagedExecutor} from '../../../sidecar/execution/application/execute.js';
@@ -38,7 +38,7 @@ export class TestEvidenceWriter implements EvidenceWriterPort {
  async open(principal:Parameters<EvidenceWriterPort['open']>[0],sql:string){const id=RunId(randomUUID());this.records.set(id,{principal,sql});return ok(id);}
  async close(id:RunId,outcome:Parameters<EvidenceWriterPort['close']>[1]){const record=this.records.get(id);if(!record||record.outcome)throw new Error('Missing or already finished record');record.outcome=outcome;return ok(undefined);}
 }
-export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWriter()){
+export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWriter(),fixtureOptions:Pick<SpiceDbAuthorizationPortOptions,'security'>&{sourceLimits?:SourceLimits;queryTimeoutSeconds?:number}={}){
  const cleanup:Array<()=>Promise<void>>=[];
  const close=async()=>{for(const fn of cleanup.splice(0).reverse())await fn();};
  try{
@@ -46,10 +46,10 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const db=async(sql:string,values?:unknown[])=>{const c=new PgClient({connectionString:process.env.TEST_DATABASE_URL});try{await c.connect();return await c.query(sql,values);}finally{await c.end();}};
  await db(`CREATE SCHEMA ${schema}; CREATE TABLE ${schema}.records(field_1 integer,field_2 integer,field_3 integer,field_4 text,field_5 text,field_6 text); INSERT INTO ${schema}.records SELECT i,1000+i,10,CASE WHEN i<=6 THEN 'large' ELSE 'small' END,'WITHHELD_SENTINEL','UNDECIDED_SENTINEL' FROM generate_series(1,7) i; ANALYZE ${schema}.records`);
  cleanup.push(async()=>{await db(`DROP SCHEMA ${schema} CASCADE`);});
- const authorization=new SpiceDbAuthorizationPort({endpoint:process.env.SPICEDB_ENDPOINT!,token:process.env.SPICEDB_TOKEN!,clock:new SystemClock(),stalenessCeilingMs:10000});cleanup.push(async()=>authorization.close());
+ const authorization=new SpiceDbAuthorizationPort({endpoint:process.env.SPICEDB_ENDPOINT!,token:process.env.SPICEDB_TOKEN!,clock:new SystemClock(),stalenessCeilingMs:10000,security:fixtureOptions.security});cleanup.push(async()=>authorization.close());
  await authorization.loadSchema(await readFile('docs/opintel-schema.zed','utf8'));
  await authorization.write([{operation:'touch',resource:{type:'project',id:f.ctx.projectId},relation:'admin',subject:{type:'user',id:f.ctx.userId}}]);
- await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]);await tx.query('UPDATE project SET settings=$2,token_key_version=1 WHERE id=$1',[f.ctx.projectId,JSON.stringify({query:{rowLimit:100,timeoutSeconds:15,memoryLimitMb:128,concurrencyPerPool:2,aggregateMinGroupSize:5}})]);});
+ await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]);await tx.query('UPDATE project SET settings=$2,token_key_version=1 WHERE id=$1',[f.ctx.projectId,JSON.stringify({query:{rowLimit:100,timeoutSeconds:fixtureOptions.queryTimeoutSeconds??15,memoryLimitMb:128,concurrencyPerPool:2,aggregateMinGroupSize:5}})]);});
  const presence=new PostgresAgentPresence({publish:async()=>{}}),keys=new PoolKeyService(new PostgresPoolKeys(),presence),outbox=new RelationshipOutbox(),bindings=new PoolBindingService(new PostgresPoolBindings(outbox),outbox,authorization);
  const issue=async(name:string)=>{const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name},randomUUID())));if(!issued.keyShown)throw new Error('Missing key');await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[issued.poolId,JSON.stringify({threads:1})]));return issued;};
  const issued=await issue('Query pool'),pool=PoolId(issued.poolId);
@@ -75,7 +75,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const directory=await mkdtemp(join(tmpdir(),'opintel-query-'));cleanup.push(()=>rm(directory,{recursive:true,force:true}));await prepareSidecarDevelopment(directory);
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
  const secrets={resolve:async()=>process.env.TEST_DATABASE_URL!};
- const scope=new PostgresSourceScope(secrets,{maxConnectionsPerSource:2,statementTimeoutMs:10000,operationTimeoutMs:15000});
+ const scope=new PostgresSourceScope(secrets,fixtureOptions.sourceLimits??{maxConnectionsPerSource:2,statementTimeoutMs:10000,operationTimeoutMs:15000});
  const tokenSecrets={resolveBytes:async(_ref:unknown)=>Buffer.alloc(32,1)};
  const source=new PostgresStagingSource(scope,new SidecarTokenizer(tokenSecrets,new IanaZoneResolver()));
  const boundary={executions:0};

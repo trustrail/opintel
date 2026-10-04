@@ -6,6 +6,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+scripts/ephemerality/**/__pycache__/
 *.local
 
 # Local sidecar keys, process state, and audit metadata

@@ -284,7 +284,7 @@ no hard-coded provider fallback and retains enabled company providers.
 | J-016 | S | `read_csv`, `read_parquet`, `httpfs` | `sql_not_permitted` |
 | J-017 | S | `INSTALL` / `LOAD` | `sql_not_permitted` |
 | J-018 | S | `INSERT` / `UPDATE` / `DELETE` / `CREATE` | `sql_not_permitted` |
-| J-019 | D | 100k sentinel rows, then scan disk and mapped memory | Zero matches |
+| J-019 | D | Linux S4 harness: 100k sentinel rows, file/heap positive controls, write observation, persistent-sink and mapped-memory scans on success and teardown failures | Controls found at their expected locations; complete declared coverage; correct staging/delivery, teardown and disabled spill; zero workload markers in prohibited persistent sinks. Incomplete coverage fails verification. Residual mapped-memory matches are reported separately without forced GC or an immediate-erasure claim; see C.5 |
 | J-020 | R | Memory limit exceeded | Fails; does **not** spill to disk |
 | J-021 | R | Query exceeds timeout | Cancelled; session released; source connections closed within 2s |
 | J-022 | R | Sidecar killed mid-query | No partial data anywhere; workspace reported degraded |
