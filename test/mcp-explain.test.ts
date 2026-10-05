@@ -25,7 +25,7 @@ describe('5.9 explain through authenticated MCP and pinned sidecar validation',{
   expect(output.objects).toEqual(['warehouse.public.records']);
   expect(output.columns).toEqual(['field_1','field_2','field_3','field_4'].map(name=>`warehouse.public.records.${name}`));
   expect(output.notes).toContain('Dry run. No source was contacted. Nothing was read.');
-  expect(output.notes).toContain('Elements that would be withheld: field_5.');
+  expect(output.notes.some(note=>note.includes('withheld'))).toBe(false);
   expect(output.notes).toContain('Elements that would be returned tokenized: field_2.');
   expect(output.notes).toContain('Elements that would be returned masked: field_4.');
   expect(response.content).toEqual([{type:'text',text:JSON.stringify(output)}]);
@@ -36,6 +36,30 @@ describe('5.9 explain through authenticated MCP and pinned sidecar validation',{
   // Positive control: the same instrumentation sees source contact by query.
   expect((await f.query('SELECT field_1 FROM warehouse.public.records')).isError).not.toBe(true);
   expect(connections[0]).toHaveBeenCalled();expect(f.boundary.executions).toBeGreaterThan(0);
+ });
+ it('JOIN-006: real explain refuses a cross-object join of derived domains and records both inspection paths without a query run',async()=>{
+  const f=await fixture();await f.addSource('second');
+  await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain=NULL WHERE project_id=$1 AND exposed_name='field_2'",[f.ctx.projectId]));
+  const connections=sourceConnections(f),validate=vi.spyOn(f.execution,'validate');
+  const sql='SELECT a.field_2 FROM warehouse.public.records a JOIN second.public.records b ON a.field_2=b.field_2';
+  for(const engineOnly of [false,true]){
+   if(engineOnly)vi.spyOn(f.filter,'inspect').mockImplementation(async(input,onObject)=>{for(const v of input.views)onObject?.(v);return {ok:true,value:{kind:'requires_sidecar_inspection'}};});
+   const before=new Date();const response=await f.explain(sql);
+   expect(response).toMatchObject({isError:true,structuredContent:{permitted:false,code:'unsupported_on_token'},_meta:{cause:'unsatisfiable_token_join'}});
+   const rows=await withTenant(f.ctx,tx=>tx.query<{operation:string;run_id:null;statement:string;agent_id:string;left_name:string;right_name:string;attempted_at:Date}>('SELECT * FROM token_join_candidate WHERE project_id=$1 ORDER BY attempted_at',[f.ctx.projectId]));
+   expect(rows).toHaveLength(engineOnly?2:1);
+   expect(rows.at(-1)).toMatchObject({operation:'explain',run_id:null,statement:sql,agent_id:'unverified-agent',left_name:'warehouse.public.records.field_2',right_name:'second.public.records.field_2'});
+   expect(rows.at(-1)!.attempted_at.getTime()).toBeGreaterThanOrEqual(before.getTime());
+   expect(rows.at(-1)!.attempted_at.getTime()).toBeLessThanOrEqual(Date.now());
+  }
+  expect(validate).toHaveBeenCalledOnce();for(const spy of connections)expect(spy).not.toHaveBeenCalled();
+  expect(f.writer.records.size).toBe(0);expect(await withTenant(f.ctx,tx=>tx.query('SELECT id FROM query_run WHERE pool_id=$1',[f.pool]))).toEqual([]);
+ });
+ it('JOIN-006: a failed explain candidate write does not claim the attempt was recorded',async()=>{
+  const f=await fixture();await f.addSource('second');await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain=NULL WHERE project_id=$1 AND exposed_name='field_2'",[f.ctx.projectId]));
+  vi.spyOn(f.candidates,'record').mockRejectedValue(new Error('PRIVATE_WRITE_SENTINEL'));
+  const response=await f.explain('SELECT a.field_2 FROM warehouse.public.records a JOIN second.public.records b ON a.field_2=b.field_2');
+  expect(response).toMatchObject({isError:true,structuredContent:{permitted:false,code:'dependency_unavailable'}});expect(JSON.stringify(response)).not.toContain('PRIVATE_WRITE_SENTINEL');
  });
  it('N-003: query and explain share refusal codes and exact model text, including sidecar-only refusals',async()=>{
   const f=await fixture(),connections=sourceConnections(f);

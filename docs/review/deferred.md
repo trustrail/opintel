@@ -658,3 +658,7 @@ previously assumed by §8; it does not add a background fleet-health exporter.
   treatment, which would turn thirty decisions into three rules.
 - 5.22's panel accommodates either, since it already distinguishes a stored
   declaration from an effective value with its provenance.
+
+# Whole-view staging cost
+
+A measured one-column query stages seven entitled columns and performs tokenization on entitled tokenized columns the query does not return. Source rows read follow the supported pushed-down predicates, not projection width; tokenization and staging memory cover the whole view. Statement-specific column pruning is a known optimisation, deferred because whole-view materialisation makes the view the enforcement point and keeps its staged shape stable across statements.

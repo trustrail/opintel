@@ -1,3 +1,4 @@
+import {PostgresExplainJoinCandidates} from '../../../src/modules/evidence/index.js';
 import {developmentEngineOptions} from '../../../scripts/development-engine.js';
 import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
@@ -84,12 +85,13 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.4.3/d1dc88f950'}});const port=await host.listen();cleanup.push(()=>host.close());
  const execution=new SidecarQueryExecution({...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`});
  const reader=new PostgresQueryReader(),filter=new QueryPreFilter(new DuckDBQueryParser()),service=new QueryService(reader,filter,execution,authorization,writer);
- const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory());
+ const candidates=new PostgresExplainJoinCandidates();
+ const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),candidates);
  const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),new DescribeService(new PostgresDescribeReader(),authorization),service,explain);
  const server=createHttpServer([],{agentInterface:mcp});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');cleanup.push(async()=>{await mcp.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const url=new URL(`http://127.0.0.1:${address.port}/mcp/v1/p/${f.ctx.projectId}`);
  const connect=async(key:string)=>{const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(url,{requestInit:{headers:{authorization:`Bearer ${key}`,'x-opintel-agent-id':'unverified-agent'}}});await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};
  const agent=await connect(issued.key);
- return {...f,pool,schema,db,issued,issue,keys,bindings,authorization,writer,reader,filter,execution,service,secrets,tokenSecrets,stagingSource:source,sourceScope:scope,boundary,addSource,host,connect,url,...agent,close};
+ return {...f,pool,schema,db,issued,issue,keys,bindings,authorization,writer,reader,filter,execution,service,secrets,tokenSecrets,stagingSource:source,sourceScope:scope,boundary,candidates,addSource,host,connect,url,...agent,close};
  }catch(error){await close();throw error;}
 }

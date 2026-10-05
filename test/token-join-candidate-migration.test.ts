@@ -23,12 +23,29 @@ it('JOIN-005: tenants cannot read or insert another project’s candidate or mut
  await withTenant(other.ctx,async tx=>{
   const [run]=await tx.query<{at:string}>(`INSERT INTO query_run(id,project_id,pool_id,key_prefix,mode,versions,started_at)
    VALUES($1,$2,$3,'test','query','{"policy":1,"catalog":1,"vocabulary":1,"tokenKeyVersionSelected":null}',clock_timestamp()) RETURNING started_at::text AS at`,[id,other.ctx.projectId,other.pool]);
-  await tx.query(`INSERT INTO token_join_candidate(run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at)
-   VALUES($1,$2,$3,$4,$5,'left.id','right.id','observed-agent','SELECT 1',$6)`,[id,other.ctx.projectId,other.pool,...other.ids,run!.at]);
+  await tx.query(`INSERT INTO token_join_candidate(id,run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at)
+   VALUES($1,$1,$2,$3,$4,$5,'left.id','right.id','observed-agent','SELECT 1',$6)`,[id,other.ctx.projectId,other.pool,...other.ids,run!.at]);
  });
  expect(await withTenant(own.ctx,tx=>tx.query('SELECT run_id FROM token_join_candidate WHERE run_id=$1',[id]))).toEqual([]);
- await expect(withTenant(own.ctx,tx=>tx.query(`INSERT INTO token_join_candidate SELECT $1,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at FROM token_join_candidate WHERE run_id=$2`,[randomUUID(),id]))).resolves.toEqual([]);
- await expect(withTenant(own.ctx,tx=>tx.query(`INSERT INTO token_join_candidate(run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at)
-  VALUES($1,$2,$3,$4,$5,'left.id','right.id','observed-agent','SELECT 1',clock_timestamp())`,[randomUUID(),other.ctx.projectId,other.pool,...other.ids]))).rejects.toMatchObject({code:'42501'});
+ await expect(withTenant(own.ctx,tx=>tx.query(`INSERT INTO token_join_candidate(id,run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at,operation) SELECT $1,$1,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at,operation FROM token_join_candidate WHERE run_id=$2`,[randomUUID(),id]))).resolves.toEqual([]);
+ await expect(withTenant(own.ctx,tx=>tx.query(`INSERT INTO token_join_candidate(id,run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at)
+  VALUES($1,$1,$2,$3,$4,$5,'left.id','right.id','observed-agent','SELECT 1',clock_timestamp())`,[randomUUID(),other.ctx.projectId,other.pool,...other.ids]))).rejects.toMatchObject({code:'42501'});
  for(const statement of ['UPDATE token_join_candidate SET statement=statement','DELETE FROM token_join_candidate'])await expect(withTenant(other.ctx,tx=>tx.query(statement))).rejects.toMatchObject({code:'42501'});
+});
+
+it('JOIN-005: explain migration round-trips without attempts and refuses to destroy explain provenance',async()=>{
+ const f=await policyFixture(2);
+ const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
+ try{
+  await db.query('BEGIN');
+  await db.query('TRUNCATE token_join_candidate');
+  const up=await readFile('migrations/061_explain_join_candidates.up.sql','utf8'),down=await readFile('migrations/061_explain_join_candidates.down.sql','utf8');
+  await db.query(down);await db.query(up);
+  await db.query(`INSERT INTO token_join_candidate(id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at,operation)
+   VALUES($1,$2,$3,$4,$5,'left.id','right.id','agent','SELECT 1',clock_timestamp(),'explain')`,[randomUUID(),f.ctx.projectId,f.pool,...f.ids]);
+  await db.query('SAVEPOINT downgrade');
+  await expect(db.query(down)).rejects.toThrow('Cannot downgrade while explain join candidates exist');
+  await db.query('ROLLBACK TO SAVEPOINT downgrade');
+  expect((await db.query("SELECT operation,run_id FROM token_join_candidate")).rows).toEqual([{operation:'explain',run_id:null}]);
+ }finally{await db.query('ROLLBACK');await db.end();}
 });

@@ -1,3 +1,4 @@
+import {PostgresExplainJoinCandidates} from '../../modules/evidence/index.js';
 import { declarationRoutes } from '../../modules/catalog/api/declaration-routes.js';
 import { PostgresElementDeclarations, PostgresTemporalRepository } from '../../modules/catalog/index.js';
 import {typeObservationRoutes} from '../../modules/sources/api/type-observation-routes.js';
@@ -251,7 +252,7 @@ async function start(): Promise<void> {
   const evidence=new PostgresEvidenceWriter();assertEvidenceWriter(evidence);
   const execution=new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),filter=new QueryPreFilter(new DuckDBQueryParser());
   const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence);
-  const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory());
+  const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),new PostgresExplainJoinCandidates());
   const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization),query,explain);
   mcp.start();
   const server = createHttpServer(routes, {

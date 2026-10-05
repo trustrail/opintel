@@ -10,8 +10,8 @@ in the wording, which is why it was hand-written rather than generated.
 what was refused.**
 
 A model that sees a field simply absent concludes the data does not exist
-and reasons confidently over a partial picture (§2.6). So a withheld element
-is **named**. A refusal, by contrast, says why the shape of the request was
+and reasons confidently over a partial picture (§2.6). So a withheld element omitted by a star expansion
+is **named**. Explicit projections do not name unrelated withheld elements; an explicit withheld reference refuses by name. Qualified stars cover only their relation, and outer explicit projections do not inherit unrelated omissions from an inner star. A refusal, by contrast, says why the shape of the request was
 refused and never how close it came: never a group count, never a row count
 for a suppressed group, never a value.
 

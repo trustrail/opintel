@@ -19,9 +19,9 @@ export class QueryPreparation {
    const evidence:EvidencePlan|undefined=s.evidence?{requiresTokenization:false,versions:{...s.evidence.versions},elements:[],sources:[],sourcePlan:{executionSettings:{...(s.limits?{limits:s.limits}:{}),settings:s.settings,aggregateMinGroupSize:s.aggregateMinGroupSize}},stages:[]}:undefined;
    if(evidence)capture?.(evidence);
    const health=await this.execution.health(signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId,sources:s.sources.map(s=>s.id),parserOnly:true});if(!health.ok)return err(health.error);
-   const touched:ViewDefinition[]=[];const returned=new Set<ElementId>();
+   const touched:ViewDefinition[]=[];const returned=new Set<ElementId>();const starOmitted=new Set<ElementId>();
    const filterStarted=performance.now();
-   const filtered=await this.filter.inspect({sql:input.sql,queryEngineBuild:health.value.queryEngineVersion,views:s.compilation.views,omitted:s.compilation.omitted},v=>{if(!touched.includes(v))touched.push(v);},ids=>{for(const id of ids)returned.add(id);});
+   const filtered=await this.filter.inspect({sql:input.sql,queryEngineBuild:health.value.queryEngineVersion,views:s.compilation.views,omitted:s.compilation.omitted},v=>{if(!touched.includes(v))touched.push(v);},ids=>{for(const id of ids)returned.add(id);},ids=>{for(const id of ids)starOmitted.add(id);});
    if(evidence&&s.evidence){
     evidence.sources=s.evidence.sources.filter(source=>touched.some(v=>s.sources.find(s=>s.id===source.id)?.alias===v.catalog));
     const tokenized=touched.some(v=>v.readPlan.columns.some(c=>c.treatment==='tokenized'));
@@ -30,7 +30,7 @@ export class QueryPreparation {
     evidence.sourcePlan={...evidence.sourcePlan,queryEngineVersion:health.value.queryEngineVersion,tokenDeclarations:touched.flatMap(v=>v.readPlan.columns.flatMap(c=>c.token?[{elementId:v.columns.find(column=>column.exposedName===c.exposedName)!.elementId,qualifiedName:`${v.catalog}.${v.schema}.${v.name}.${c.exposedName}`,...c.token}]:[])),objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,columns:v.columns.map(c=>({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:c.treatment}))})),sources:evidence.sources};
     for(const v of touched)for(const c of v.columns){
      if(c.exposedName===null)continue;
-     if(c.state==='withheld'||c.state==='undecided')evidence.elements.push({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:null,withheldReason:c.state==='withheld'?(s.evidence.withheldReasons?.[c.elementId]??'Withheld by the pool policy.'):'No entitlement decision exists.'});
+     if(c.state==='undecided'||c.state==='withheld'&&(starOmitted.has(c.elementId)||!filtered.ok&&filtered.error.details?.elementId===c.elementId))evidence.elements.push({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:null,withheldReason:c.state==='withheld'?(s.evidence.withheldReasons?.[c.elementId]??'Withheld by the pool policy.'):'No entitlement decision exists.'});
      else if(returned.has(c.elementId)&&c.treatment!==null&&c.treatment!=='withheld')evidence.elements.push({elementId:c.elementId,exposedName:c.exposedName,state:c.treatment==='aggregate_only'?'aggregated':'released',treatment:c.treatment,withheldReason:null});
     }
    }
@@ -55,7 +55,7 @@ export class QueryPreparation {
    // Compilation is already ordered by object address and source ordinal.
    for(const view of s.compilation.views.filter(v=>touched.includes(v)))for(const column of view.columns){
     if(column.exposedName===null||column.state==='undecided')continue;
-    if(column.state==='withheld')reduction.withheld.push(column.exposedName);
+    if(column.state==='withheld'&&starOmitted.has(column.elementId))reduction.withheld.push(column.exposedName);
     else if(returned.has(column.elementId)&&column.treatment!==null&&column.treatment!=='clear'&&column.treatment!=='withheld')reduction[column.treatment].push(column.exposedName);
    }
    return ok({executionNotes:s.executionNotes??[],request:request.data,queryEngineVersion:health.value.queryEngineVersion,reduction});

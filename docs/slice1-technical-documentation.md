@@ -1879,7 +1879,9 @@ Tool availability is driven by pool configuration and a `notifications/tools/lis
 }
 ```
 
-If a withheld field is merely absent from the JSON, the model concludes the data does not exist and reasons confidently over a partial picture. Everything else in the system degrades visibly. This degrades silently, which is why it is a contract and not a nicety.
+This example covers withheld columns omitted by a star expansion (`*` or a qualified star). Name only those omissions, preserving their lineage through CTEs and subqueries when the outer projection also expands them. A successful explicit projection does not list unrelated withheld columns: that would describe the object’s policy rather than the answer. An explicitly named withheld column refuses by name instead.
+
+If a withheld field requested through a star is merely absent from the JSON, the model concludes the data does not exist and reasons confidently over a partial picture. Everything else in the system degrades visibly. This degrades silently, which is why it is a contract and not a nicety.
 
 ### Item 5.7 execution boundary
 
@@ -2033,12 +2035,12 @@ Only successful authoritative parsing, treatment inspection and preparation
 against empty pool tables can produce `permitted: true`; application acceptance
 alone cannot. It opens no source connection, estimates no source and reads no
 rows. It remains callable with query mode disabled and does not depend on the
-future evidence writer.
+future evidence writer. A dedicated tenant-scoped writer records unsatisfiable join refusals from explain as suggestion candidates, with both columns, agent id, submitted statement and attempt time. It creates no query run or evidence id and never contacts a source; a failed candidate write fails closed.
 
 Successful `objects` are three-part exposed object names. `columns` are their
 fully qualified exposed read-plan columns, including columns staged even when
 not projected by the query. Notes distinguish these planned reads from returned
-token/mask lineage, name withheld decisions and aggregate-only use, and state
+token/mask lineage, name withheld omissions from star expansions and aggregate-only use, and state
 that no source was contacted and nothing was read. Undecided elements, raw
 source identifiers, credentials and aggregate thresholds are not exposed.
 `permitted: true` is a dry-run verdict, not an execution guarantee: notes identify

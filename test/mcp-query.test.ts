@@ -13,13 +13,23 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   expect(response.isError,JSON.stringify(response)).not.toBe(true);const output=QueryOutput.parse(response.structuredContent);
   expect(output.columns).toEqual([{name:'field_1',type:'INTEGER'},{name:'field_2',type:'VARCHAR'},{name:'field_4',type:'VARCHAR'}]);expect(output.rows).toHaveLength(2);expect(output.truncated).toBe(true);
   expect(output.rows[0]).toEqual([1,expect.stringMatching(/^v1_customer_/),'large']);
-  expect(f.writer.records.get(RunId(output.evidenceId))).toMatchObject({outcome:{kind:'answered',rows:2}});expect(response.content).toEqual([{type:'text',text:'2 rows. The result was truncated at 2 rows; there are more. 1 element was withheld: field_5. field_2 was returned tokenized. Tokens are stable: the same value is always the same token, so they can be grouped and joined, but not ordered or compared.'}]);expect(f.boundary.executions).toBeGreaterThan(0);
+  expect(f.writer.records.get(RunId(output.evidenceId))).toMatchObject({outcome:{kind:'answered',rows:2}});expect(response.content).toEqual([{type:'text',text:'2 rows. The result was truncated at 2 rows; there are more. field_2 was returned tokenized. Tokens are stable: the same value is always the same token, so they can be grouped and joined, but not ordered or compared.'}]);expect(f.boundary.executions).toBeGreaterThan(0);
   expect(JSON.stringify(response)).not.toMatch(/1001|WITHHELD_SENTINEL|UNDECIDED_SENTINEL/u);
  });
  it('I-009: star names withheld in exact model text while omitting withheld and undecided data',async()=>{
   const f=await fixture();await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='clear' WHERE pool_id=$1 AND element_id=ANY($2::uuid[])",[f.pool,[f.ids[1],f.ids[2]]]));
   const response=await f.query('SELECT * FROM warehouse.public.records ORDER BY field_1');expect(response.isError,JSON.stringify(response)).not.toBe(true);const output=QueryOutput.parse(response.structuredContent);
   expect(output.columns.map(c=>c.name)).toEqual(['field_1','field_2','field_3','field_4']);expect(output.rows[0]).toEqual([1,1001,10,'large']);expect(response.content).toEqual([{type:'text',text:'7 rows. 1 element was withheld: field_5.'}]);expect(JSON.stringify(output)).not.toContain('field_5');expect(JSON.stringify(response)).not.toMatch(/field_6|WITHHELD_SENTINEL|UNDECIDED_SENTINEL/u);
+ });
+ it('I-009: only star omissions affecting the output are named, including qualified stars and CTEs',async()=>{
+  const f=await fixture();await f.addSource('second');
+  await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='clear' WHERE pool_id=$1 AND treatment='aggregate_only'",[f.pool]));
+  await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='withheld' WHERE pool_id=$1 AND element_id IN(SELECT e.id FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id WHERE s.exposed_alias='second' AND e.exposed_name='field_1')",[f.pool]));
+  const qualified=await f.query('SELECT a.* FROM warehouse.public.records a JOIN second.public.records b ON a.field_2=b.field_2');
+  expect(qualified.content[0]).toMatchObject({text:expect.stringContaining('1 element was withheld: field_5.')});expect(JSON.stringify(qualified._meta)).not.toContain('field_1');
+  const propagated=await f.query('WITH q AS (SELECT * FROM warehouse.public.records) SELECT * FROM q');expect(propagated.content[0]).toMatchObject({text:expect.stringContaining('1 element was withheld: field_5.')});
+  const explicit=await f.query('WITH q AS (SELECT * FROM warehouse.public.records) SELECT field_1 FROM q');expect(explicit.content).toEqual([{type:'text',text:'7 rows.'}]);
+  const projected=await f.query('WITH q AS (SELECT field_1 FROM warehouse.public.records) SELECT * FROM q');expect(projected.content).toEqual([{type:'text',text:'7 rows.'}]);
  });
  it('I-010/I-011/I-012: withheld, undecided and absent are distinct recorded refusals',async()=>{
   const f=await fixture();
@@ -104,16 +114,18 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
    await tx.query("UPDATE catalog_element SET ordinal=20 WHERE id=$1",[f.ids[1]]);
    await tx.query("UPDATE entitlement SET treatment='masked',mask_kind='all' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[3]]);
   });
+  await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='clear' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[2]]));
+  const star=await f.query('SELECT * FROM warehouse.public.records');expect(star.content[0]).toMatchObject({text:expect.stringContaining('2 elements were withheld: field_5, field_2.')});
   const result=await f.query('SELECT field_4 AS renamed FROM warehouse.public.records');
-  expect(result.content).toEqual([{type:'text',text:'7 rows. 2 elements were withheld: field_5, field_2. field_4 was returned masked.'}]);
+  expect(result.content).toEqual([{type:'text',text:'7 rows. field_4 was returned masked.'}]);
   const maximum=await f.query('SELECT MAX(field_4) FROM warehouse.public.records');
-  expect(maximum.content).toEqual([{type:'text',text:'1 row. 2 elements were withheld: field_5, field_2. field_4 was returned masked.'}]);
+  expect(maximum.content).toEqual([{type:'text',text:'1 row. field_4 was returned masked.'}]);
   const count=await f.query('SELECT COUNT(field_4) FROM warehouse.public.records');
-  expect(count.content).toEqual([{type:'text',text:'1 row. 2 elements were withheld: field_5, field_2.'}]);
+  expect(count.content).toEqual([{type:'text',text:'1 row.'}]);
  });
  it('5.8: COUNT(DISTINCT token) is a count, not a returned token',async()=>{
   const f=await fixture();
-  expect((await f.query('SELECT COUNT(DISTINCT field_2) FROM warehouse.public.records')).content).toEqual([{type:'text',text:'1 row. 1 element was withheld: field_5.'}]);
+  expect((await f.query('SELECT COUNT(DISTINCT field_2) FROM warehouse.public.records')).content).toEqual([{type:'text',text:'1 row.'}]);
  });
  it('5.8: all resolver states survive the actual MCP metadata allowlist',async()=>{
   const f=await fixture(),read=f.reader.read.bind(f.reader);

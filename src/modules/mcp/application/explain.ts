@@ -5,27 +5,36 @@ import type { QueryPreFilter } from '../../entitlements/index.js';
 import type { AuthorizationPort } from '../../authz/index.js';
 import type { McpPrincipal } from './access.js';
 import type { QuerySnapshotReader, QueryValidationPort } from './query-ports.js';
+import type {ExplainJoinCandidateWriterPort} from '../../evidence/index.js';
 import { QueryPreparation } from './query-preparation.js';
 
 export interface ExplainTool {
  explain(principal:McpPrincipal,input:unknown,signal?:AbortSignal):Promise<Result<z.infer<typeof ExplainOutput>>>;
 }
-/** No execution or evidence-writing capability is supplied to this service. */
+/** No execution or query-run writing capability; refused join candidates only. */
 export class ExplainService implements ExplainTool {
  private readonly preparation:QueryPreparation;
- constructor(reader:QuerySnapshotReader,filter:QueryPreFilter,private readonly validation:QueryValidationPort,authorization:AuthorizationPort,private readonly ids:IdFactory) {
+ constructor(reader:QuerySnapshotReader,filter:QueryPreFilter,private readonly validation:QueryValidationPort,authorization:AuthorizationPort,private readonly ids:IdFactory,private readonly candidates:ExplainJoinCandidateWriterPort) {
   this.preparation=new QueryPreparation(reader,filter,validation,authorization);
  }
  async explain(principal:McpPrincipal,input:unknown,signal?:AbortSignal):Promise<Result<z.infer<typeof ExplainOutput>>> {
   const parsed=ExplainInput.safeParse(input);
   if(!parsed.success)return err(new DomainError('validation_failed','The query arguments do not match their schema.',{cause:'invalid_query'}));
+  const attemptedAt=new Date();
+  const refuse=async(error:DomainError)=>{
+   if(error.details?.cause==='unsatisfiable_token_join'){
+    const saved=await this.candidates.record(principal,parsed.data.sql,error.details,attemptedAt);
+    if(!saved.ok)return saved;
+   }
+   return err(error);
+  };
   try {
    const prepared=await this.preparation.prepare(principal,parsed.data,this.ids.create(),signal);
-   if(!prepared.ok)return prepared;
+   if(!prepared.ok)return await refuse(prepared.error);
    const plan=prepared.value;
    // Application inspection never suffices for permitted:true (C.3.1).
    const validated=await this.validation.validate(plan.request,signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId});
-   if(!validated.ok)return validated;
+   if(!validated.ok)return await refuse(validated.error);
    if(validated.value.queryEngineVersion!==plan.queryEngineVersion)return err(new DomainError('sql_not_permitted','The application parser and Opintel Engine builds differ. Align their builds before retrying.',{cause:'parser_engine_mismatch'}));
    if(validated.value.treatmentEvidence.stage2Ran)return err(new DomainError('dependency_unavailable','The Opintel Engine returned an inconsistent validation result.',{cause:'unclassified'}));
    const notes=['Dry run. No source was contacted. Nothing was read.',...plan.executionNotes];

@@ -246,7 +246,7 @@ no hard-coded provider fallback and retains enabled company providers.
 | I-006 | S | Agent connects with a revoked key | 401 |
 | I-007 | F | `describe` | Entitled elements with post-treatment types; withheld marked; undecided absent |
 | I-008 | D | `describe` type for a tokenized integer | `VARCHAR`, not the source type |
-| I-009 | F | `SELECT *` on a table with a withheld column *(proved by 5.8)* | Other columns returned; withheld named in the text content the model reads |
+| I-009 | F | `SELECT *` on a table with a withheld column *(proved by 5.8)* | Other columns returned; withheld star omissions named in model-readable text; qualified stars name only their relation; outer explicit projections and successful explicit selections omit unrelated withheld notices; explicit withheld references still refuse by name |
 | I-010 | F | Query naming a withheld column | `element_withheld`, not a binder error |
 | I-011 | F | Query naming an undecided column | `entitlement_missing` |
 | I-012 | F | Query naming a non-existent column | Ordinary error, distinguishable from the two above |
@@ -1297,4 +1297,5 @@ The report names the screen, control, structural markup and violated contract.
 | JOIN-002 | F | Tokenized/clear equality in either operand order, including aliases, CTEs and FROM subqueries | Both inspectors retain column identity, treatment and domain lineage and refuse before execution |
 | JOIN-003 | F | Shared-domain equality, self-join, different-domain inequality, or equality against a held-token literal | No new refusal or notice; existing treatment restrictions remain |
 | JOIN-004 | D | Application refusal and engine refusal with permissive application pre-filter | Durable refusal and candidate retain both element ids and qualified names, submitted statement, agent id and attempt timestamp; candidate storage failure releases no result; no suggestion UI or automatic merge |
-| JOIN-005 | S | Candidate migration and tenant isolation | Up/down/up succeeds; tenant cannot read another project's candidates, update/delete attempts or insert another project's attempt |
+| JOIN-005 | S | Candidate migration and tenant isolation | Up/down/up succeeds before explain facts exist; downgrade refuses rather than losing explain provenance afterwards; tenant cannot read another project's candidates, update/delete attempts or insert another project's attempt |
+| JOIN-006 | F | Authenticated MCP explain, cross-object equality join with distinct derived domains | Application and independent engine refuse; each explain attempt records both columns, agent id, submitted statement and time without a query run or source access; candidate-write failure fails closed |

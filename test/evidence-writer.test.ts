@@ -58,9 +58,9 @@ describe('5.11 durable evidence writer',{timeout:60000},()=>{
   const response=await f.query('SELECT field_1,field_2,field_4 FROM warehouse.public.records ORDER BY field_1',2);
   if(response.isError){await opened.mock.results[0]?.value;await closed.mock.results[0]?.value;}
   expect(response.isError,JSON.stringify(response)).not.toBe(true);
-  const [r]=await records(f);expect(r).toMatchObject({outcome:{kind:'reduced',rowCount:2,truncated:true,withheld:1},used:1,synthetic:false,versions:{tokenKeyVersionSelected:1}});
+  const [r]=await records(f);expect(r).toMatchObject({outcome:{kind:'answered',rowCount:2,truncated:true},used:1,synthetic:false,versions:{tokenKeyVersionSelected:1}});
   const elements=await withTenant(f.ctx,tx=>tx.query('SELECT exposed_name,state,treatment,withheld_reason FROM run_element WHERE run_id=$1 ORDER BY exposed_name',[r!.id]));
-  expect(elements).toMatchObject([{exposed_name:'field_1',state:'released',treatment:'clear'},{exposed_name:'field_2',state:'released',treatment:'tokenized'},{exposed_name:'field_4',state:'released',treatment:'clear'},{exposed_name:'field_5',state:'withheld',treatment:null,withheld_reason:expect.any(String)},{exposed_name:'field_6',state:'undecided',treatment:null}]);
+  expect(elements).toMatchObject([{exposed_name:'field_1',state:'released',treatment:'clear'},{exposed_name:'field_2',state:'released',treatment:'tokenized'},{exposed_name:'field_4',state:'released',treatment:'clear'},{exposed_name:'field_6',state:'undecided',treatment:null}]);
   expect(r!.freshness).toMatchObject({sources:[{id:f.source,freshnessMode:'live'}]});
   expect(JSON.stringify(r)).not.toContain('WITHHELD_SENTINEL');
  });
@@ -71,9 +71,10 @@ describe('5.11 durable evidence writer',{timeout:60000},()=>{
   });
   expect((await f.query('SELECT field_4 FROM warehouse.public.records')).isError).not.toBe(true);
   expect((await f.query('SELECT SUM(field_3) FROM warehouse.public.records')).isError).not.toBe(true);
+  const omitted=await withTenant(f.ctx,tx=>tx.query("SELECT exposed_name FROM run_element WHERE state='withheld' AND run_id IN(SELECT id FROM query_run WHERE pool_id=$1)",[f.pool]));expect(omitted).toEqual([]);
   const runs=await records(f);
   const elements=await withTenant(f.ctx,tx=>tx.query('SELECT run_id,exposed_name,state,treatment,withheld_reason FROM run_element WHERE run_id=ANY($1::uuid[])',[runs.map(r=>r.id)]));
-  expect(elements).toEqual(expect.arrayContaining([{run_id:runs[0]!.id,exposed_name:'field_4',state:'released',treatment:'masked',withheld_reason:null},{run_id:runs[1]!.id,exposed_name:'field_3',state:'aggregated',treatment:'aggregate_only',withheld_reason:null},{run_id:runs[1]!.id,exposed_name:'field_5',state:'withheld',treatment:null,withheld_reason:'Restricted by data owner'}]));
+  expect(elements).toEqual(expect.arrayContaining([{run_id:runs[0]!.id,exposed_name:'field_4',state:'released',treatment:'masked',withheld_reason:null},{run_id:runs[1]!.id,exposed_name:'field_3',state:'aggregated',treatment:'aggregate_only',withheld_reason:null}]));
  });
  it('M-011: records a refused request and its reason, selected but unused',async()=>{
   const f=await fixture();const execute=vi.spyOn(f.execution,'execute');

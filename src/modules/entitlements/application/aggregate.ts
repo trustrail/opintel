@@ -6,7 +6,7 @@ import { resolveIdentifier } from './resolve.js';
 import * as syntax from './query-syntax.js';
 
 type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only'; threshold: number; domain?: string };
-type Field = { name: string; references: Reference[]; omitted?:'withheld'|'undecided' };
+type Field = { name: string; references: Reference[]; omitted?:'withheld'|'undecided'; elementId?:ElementId; starOmissions?:ElementId[] };
 type Relation = { qualifiers: string[][]; fields: Field[] };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
 type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean; aggregateArgument?: boolean; aggregateContext?: boolean; negated?: boolean };
@@ -74,7 +74,7 @@ class Inspection {
     const matches = candidates.length ? candidates : aliases;
     if(matches.length===0){this.failure??=new DomainError('not_found',`Column ${names.join('.')} was not found in the pool query.`,{cause:'column_absent',name:names.join('.')});return [];}
     if (matches.length !== 1) { this.refuse(`ambiguous identifier ${names.join('.')}`); return []; }
-    if(matches[0]!.omitted){const withheld=matches[0]!.omitted==='withheld';this.failure??=new DomainError(withheld?'element_withheld':'entitlement_missing',withheld?`Column ${names.join('.')} is withheld by the pool's decision.`:`No entitlement has been decided for column ${names.join('.')}. Ask an administrator to decide its treatment.`,{cause:withheld?'withheld':'undecided',name:names.join('.')});return [];}
+    if(matches[0]!.omitted){const withheld=matches[0]!.omitted==='withheld';this.failure??=new DomainError(withheld?'element_withheld':'entitlement_missing',withheld?`Column ${names.join('.')} is withheld by the pool's decision.`:`No entitlement has been decided for column ${names.join('.')}. Ask an administrator to decide its treatment.`,{cause:withheld?'withheld':'undecided',name:names.join('.'),...(matches[0]!.elementId?{elementId:matches[0]!.elementId}:{})});return [];}
     return matches[0]!.references;
   }
 
@@ -185,7 +185,7 @@ class Inspection {
           const fields: Field[] = [];
           for (const col of view.columns) {
             if(col.exposedName===null)continue;
-            if(col.state!=='emitted'){fields.push({name:col.exposedName,references:[],omitted:col.state});continue;}
+            if(col.state!=='emitted'){fields.push({name:col.exposedName,references:[],omitted:col.state,elementId:col.elementId});continue;}
             const refs: Reference[] = [];
             if (col.treatment === 'aggregate_only' || col.treatment === 'tokenized') {
               const constraint = view.constraints.find(c => c.elementId === col.elementId);
@@ -269,7 +269,13 @@ class Inspection {
           if (!star) continue;
           const selected = relations.filter(r => !star.relation_name || r.qualifiers.some(n => n.length === 1 && fold(n[0]!) === fold(star.relation_name)));
           if (!selected.length) this.refuse('star qualifier');
-          for (const field of selected.flatMap(r => r.fields).filter(f=>!f.omitted)) { this.check(field.references, { relations, clause: 'SELECT' }); output.push(field); }
+          for (const relation of selected) {
+            const omitted=relation.fields.filter(f=>f.omitted==='withheld').flatMap(f=>f.elementId?[f.elementId]:[]);
+            for (const field of relation.fields.filter(f=>!f.omitted)) {
+              this.check(field.references, { relations, clause: 'SELECT' });
+              output.push({...field,starOmissions:[...omitted,...(field.starOmissions??[])]});
+            }
+          }
         } else {
           const refs = this.expression(expr, { relations, clause: 'SELECT' });
           const col = syntax.column.safeParse(expr);
@@ -313,7 +319,7 @@ export type QueryPreFilterOutcome = Readonly<{ kind: 'requires_sidecar_inspectio
 export class QueryPreFilter {
   constructor(private readonly parser: QueryParserPort) {}
 
-  async inspect(input: QueryPreFilterInput,onObject?:(view:ViewDefinition)=>void,onReturned?:(elements:readonly ElementId[])=>void): Promise<Result<QueryPreFilterOutcome>> {
+  async inspect(input: QueryPreFilterInput,onObject?:(view:ViewDefinition)=>void,onReturned?:(elements:readonly ElementId[])=>void,onStarOmitted?:(elements:readonly ElementId[])=>void): Promise<Result<QueryPreFilterOutcome>> {
     const boundary = z.object({ sql: z.string().min(1), queryEngineBuild: z.string().min(1) }).safeParse(input);
     if (!boundary.success) return err(new DomainError('sql_not_permitted', 'A SQL statement and the Opintel Engine build are required.'));
     const parsed = await this.parser.parse(input.sql);
@@ -326,6 +332,7 @@ export class QueryPreFilter {
     for(const id of inspection.aggregated)returned.add(id);
     if(inspection.failure)return err(inspection.failure);
     onReturned?.([...returned]);
+    onStarOmitted?.([...new Set(output.flatMap(f=>f.starOmissions??[]))]);
     return ok({ kind: 'requires_sidecar_inspection' });
   }
 }
