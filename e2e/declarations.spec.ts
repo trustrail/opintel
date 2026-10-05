@@ -32,7 +32,7 @@ test('DECL-001/002/003/004: drawer to declarations, defaults, first domain and c
  await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();
  await expect(page.getByText(/Stored: Not assigned. Effective: stdnum1 — derived from mode/)).toBeVisible();
  await expect(page.getByText(/Stored on element: Not declared. Schema declaration: America\/Toronto/)).toBeVisible();
- await expect(page.getByText(/Effective: opintelisolated.*derived from element identity/)).toBeVisible();
+ await expect(page.getByText(/Effective: Isolated — joins only this element/)).toBeVisible();
  await page.getByLabel('Token domain',{exact:true}).fill('customer');await expect(page.getByLabel(/Type project name/)).toHaveCount(0);
  await page.getByRole('button',{name:'Declare token domain',exact:true}).click();await expect(page.getByText('Declarations saved.',{exact:true})).toBeVisible();expect(state.writes[0]?.tokenDomain).toBe('customer');
  state.data.tokenizedEntitlements=2;state.data.stored.canonId='stdnum1';await page.reload();
@@ -43,10 +43,18 @@ test('DECL-001/002/003/004: drawer to declarations, defaults, first domain and c
  await page.getByLabel('Type project name: Reporting',{exact:true}).fill('Reporting');await page.getByRole('button',{name:'Save declarations',exact:true}).click();await expect(page.getByText('Declarations saved.',{exact:true})).toBeVisible();expect(state.writes.at(-1)).toMatchObject({epochUnit:'seconds',canonId:'stdtime1',confirmation:'Reporting'});
  await page.getByRole('button',{name:'Edit schema timezone',exact:true}).click();await expect(page.getByRole('heading',{name:'Schema timezone declaration',exact:true})).toBeVisible();await accessible(page);
 });
+test('ISO-004: isolated domain stays behind a keyboard-accessible diagnostic disclosure',async({page})=>{
+ const state=await declarations(page);await page.setViewportSize({width:390,height:1000});await page.goto(`/projects/${project}/catalog?elementId=${element}`);
+ await expect(page.getByText(/Effective: Isolated — joins only this element/)).toBeVisible();
+ const domain=page.getByText(state.data.effective.tokenDomain,{exact:true});await expect(domain).toBeHidden();
+ const disclosure=page.getByText('Show derived domain',{exact:true});await disclosure.focus();await page.keyboard.press('Enter');await expect(domain).toBeVisible();
+ await expect(page.getByText('Derived from element identity. For token diagnostics.',{exact:true})).toBeVisible();await accessible(page);
+ await disclosure.focus();await page.keyboard.press('Enter');await expect(domain).toBeHidden();
+});
 test('ISO-004: first shared domain and return to isolation require confirmation when already tokenized',async({page})=>{
  const state=await declarations(page);state.data.tokenizedEntitlements=1;
  await page.goto(`/projects/${project}/catalog?elementId=${element}`);
- await expect(page.getByText(/Stored: Not declared. Effective: opintelisolated.*derived from element identity/)).toBeVisible();
+ await expect(page.getByText(/Stored: Not declared. Effective: Isolated — joins only this element/)).toBeVisible();
  await page.getByLabel('Token domain',{exact:true}).fill('shared');
  await expect(page.getByRole('button',{name:'Declare token domain',exact:true})).toBeDisabled();
  await page.getByLabel('Type project name: Reporting',{exact:true}).fill('Reporting');
@@ -54,7 +62,7 @@ test('ISO-004: first shared domain and return to isolation require confirmation 
  expect(state.writes.at(-1)).toMatchObject({tokenDomain:'shared',confirmation:'Reporting'});
  await page.getByLabel('Token domain',{exact:true}).fill('');await expect(page.getByRole('button',{name:'Save declarations',exact:true})).toBeDisabled();
  await page.getByLabel('Type project name: Reporting',{exact:true}).fill('Reporting');await page.getByRole('button',{name:'Save declarations',exact:true}).click();
- await expect(page.getByText(/Stored: Not declared. Effective: opintelisolated.*derived from element identity/)).toBeVisible();
+ await expect(page.getByText(/Stored: Not declared. Effective: Isolated — joins only this element/)).toBeVisible();
  expect(state.writes.at(-1)).toMatchObject({tokenDomain:null,confirmation:'Reporting'});await accessible(page);
 });
 test('DECL-009: deep-linked element survives unloaded tree; loading, error and retry states',async({page})=>{
