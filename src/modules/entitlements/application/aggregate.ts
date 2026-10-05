@@ -5,11 +5,11 @@ import type { QueryParserPort } from './query-parser-port.js';
 import { resolveIdentifier } from './resolve.js';
 import * as syntax from './query-syntax.js';
 
-type Reference = { elementId: ElementId; name: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only'; threshold: number };
+type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only'; threshold: number; domain?: string };
 type Field = { name: string; references: Reference[]; omitted?:'withheld'|'undecided' };
 type Relation = { qualifiers: string[][]; fields: Field[] };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
-type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean; aggregateArgument?: boolean; aggregateContext?: boolean };
+type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean; aggregateArgument?: boolean; aggregateContext?: boolean; negated?: boolean };
 const fold = (name: string) => name.toLowerCase();
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => fold(v) === fold(b[i]!));
 
@@ -119,7 +119,18 @@ class Inspection {
         case 'COMPARISON': {
           const e = this.read(syntax.comparison, value, 'comparison');
           if (!e) return [];
-          const refs = [e.left, e.right].flatMap(child => this.expression(child, { ...context, directAggregate: false }));
+          const left = this.expression(e.left, { ...context, directAggregate: false });
+          const right = this.expression(e.right, { ...context, directAggregate: false });
+          const refs = [...left, ...right];
+          if (e.type === 'COMPARE_EQUAL' && !context.negated && (context.clause === 'JOIN' || context.clause === 'WHERE')) {
+            for (const a of left) for (const b of right) {
+              const incompatible = a.treatment === 'tokenized' && (b.treatment === 'clear' || b.treatment === 'tokenized' && a.domain !== b.domain)
+                || b.treatment === 'tokenized' && a.treatment === 'clear';
+              if (incompatible) this.failure ??= new DomainError('unsupported_on_token',
+                `Columns ${a.qualifiedName ?? a.name} and ${b.qualifiedName ?? b.name} cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.`,
+                {cause:'unsatisfiable_token_join',columns:[{elementId:a.elementId,name:a.qualifiedName ?? a.name},{elementId:b.elementId,name:b.qualifiedName ?? b.name}],operation:'=',stage:'application_pre_filter',proofCategory:'sql_not_permitted'});
+            }
+          }
           if (!['COMPARE_EQUAL', 'COMPARE_NOTEQUAL'].includes(e.type)) this.check(refs, context, e.type);
           // Equality and predicates produce booleans, not tokens. ORDER BY on a token
           // is still refused while visiting the operand in its original clause.
@@ -134,7 +145,7 @@ class Inspection {
         case 'OPERATOR': case 'CONJUNCTION': {
           const e = this.read(syntax.operator, value, 'operator');
           if (!e) return [];
-          e.children.forEach(child => this.expression(child, { ...context, directAggregate: false }));
+          e.children.forEach(child => this.expression(child, { ...context, directAggregate: false, negated: e.type === 'OPERATOR_NOT' ? !context.negated : context.negated }));
           return [];
         }
         case 'WINDOW': {
@@ -179,8 +190,10 @@ class Inspection {
             if (col.treatment === 'aggregate_only' || col.treatment === 'tokenized') {
               const constraint = view.constraints.find(c => c.elementId === col.elementId);
               if (col.treatment === 'aggregate_only' && (!constraint || !Number.isSafeInteger(constraint.minGroupSize) || constraint.minGroupSize < 1)) this.refuse(`aggregate constraint for ${col.exposedName}`);
-              refs.push({ elementId: col.elementId, name: col.exposedName, treatment: col.treatment, threshold: constraint?.minGroupSize ?? 0 });
-            } else if(col.treatment==='clear'||col.treatment==='masked')refs.push({elementId:col.elementId,name:col.exposedName,treatment:col.treatment,threshold:0});
+              const domain = view.readPlan.columns.find(c => c.exposedName === col.exposedName)?.token?.domain;
+              if (col.treatment === 'tokenized' && !domain) this.refuse(`token domain for ${col.exposedName}`);
+              refs.push({ elementId: col.elementId, name: col.exposedName, qualifiedName: `${view.catalog}.${view.schema}.${view.name}.${col.exposedName}`, treatment: col.treatment, threshold: constraint?.minGroupSize ?? 0, domain });
+            } else if(col.treatment==='clear'||col.treatment==='masked')refs.push({elementId:col.elementId,name:col.exposedName,qualifiedName:`${view.catalog}.${view.schema}.${view.name}.${col.exposedName}`,treatment:col.treatment,threshold:0});
             else this.refuse(`treatment for ${col.exposedName}`);
             fields.push({ name: col.exposedName, references: refs });
           }

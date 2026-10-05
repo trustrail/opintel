@@ -1287,3 +1287,14 @@ The report names the screen, control, structural markup and violated contract.
 | ISO-002 | Equal values in two undeclared elements produce different tokens and HMAC bodies; project scope separates derived domains; reserved namespace cannot be declared through commands or direct storage; migration 059 up/down/up |
 | ISO-003 | Real persisted introspections preserve identity and token values on matches and stable-reference carry renames; new renames, renames without stable references and table/schema replacements get new identities/domains, with old entitlements not carried |
 | ISO-004 | Panel shows stored absence separately from “Isolated — joins only this element”; the full domain and “derived from element identity” provenance appear only when the diagnostic disclosure is opened, including by keyboard; explicit domains override; assignment/reset for an already-tokenized element needs exact project-name confirmation; axe and Linux snapshots at 390/900/1440 |
+
+
+## Item 5.24a · Unsatisfiable token equality joins
+
+| ID | Type | Case | Expected |
+|---|---|---|---|
+| JOIN-001 | F | Equality compares tokenized columns with different effective domains, in ON or implicit WHERE | Application and engine independently refuse; no preparation, source scan or execution; both qualified column names and administrator/shared-domain remedy are given, without domain values |
+| JOIN-002 | F | Tokenized/clear equality in either operand order, including aliases, CTEs and FROM subqueries | Both inspectors retain column identity, treatment and domain lineage and refuse before execution |
+| JOIN-003 | F | Shared-domain equality, self-join, different-domain inequality, or equality against a held-token literal | No new refusal or notice; existing treatment restrictions remain |
+| JOIN-004 | D | Application refusal and engine refusal with permissive application pre-filter | Durable refusal and candidate retain both element ids and qualified names, submitted statement, agent id and attempt timestamp; candidate storage failure releases no result; no suggestion UI or automatic merge |
+| JOIN-005 | S | Candidate migration and tenant isolation | Up/down/up succeeds; tenant cannot read another project's candidates, update/delete attempts or insert another project's attempt |

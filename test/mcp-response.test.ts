@@ -54,3 +54,10 @@ describe('I-009 exact success fragments',()=>{
   expect(queryResponse({...base,rows:[[938173]]}).structuredContent.rows).toEqual([[938173]]);
  });
 });
+
+it('JOIN-001: MCP names both validated columns and the remedy without forwarding raw diagnostics',()=>{
+ const columns=[{elementId:'00000000-0000-4000-8000-000000000001',name:'warehouse.public.lefts.id'},{elementId:'00000000-0000-4000-8000-000000000002',name:'warehouse.public.rights.id'}];
+ const response=refusalResponse(new DomainError('unsupported_on_token','PRIVATE_SENTINEL',{cause:'unsatisfiable_token_join',columns,domain:'PRIVATE_DOMAIN',statement:'PRIVATE_SQL'},true));
+ expect(response).toMatchObject({_meta:{cause:'unsatisfiable_token_join',columns,retryable:false},content:[{text:'Columns warehouse.public.lefts.id and warehouse.public.rights.id cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.'}]});
+ expect(JSON.stringify(response)).not.toContain('PRIVATE');
+});

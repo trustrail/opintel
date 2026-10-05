@@ -5356,3 +5356,10 @@ Registry reads require project view; registration, edits, verification, custody
 designation and source assignment require project administer. Routes reuse
 shared Zod request/response schemas. Mutations invalidate engine.list, source.list,
 project.stats and custody.status, including failed verification updates.
+
+
+### Item 5.24a: token equality join inspection
+
+The application pre-filter and authoritative engine inspector independently refuse equality joins between tokenized columns with different effective token domains, or between a tokenized and a clear column. This includes implicit WHERE joins. Both inspectors preserve the read plan's domain and column identity through aliases, CTEs and subqueries. The refusal names both qualified columns and asks an administrator to tokenize both under a shared domain, without exposing domain values. Shared-domain equality, token literals and inequality retain their existing behaviour; no separate notice is emitted for a useless inequality. See algorithm B.4a and C.3.1.
+
+The durable evidence writer records a `token_join_candidate` atomically with the refusal. It retains both element ids and qualified names, agent id, original submitted statement and attempt timestamp. This tenant-scoped administrative record may contain SQL literals; it is separate from the redacted evidence request and is never emitted to logs, spans or the agent interface. No candidate reader or suggestion screen is added by this item. Relationship review belongs to 5.25; domain migration belongs to 5.24. Domains are never merged automatically.

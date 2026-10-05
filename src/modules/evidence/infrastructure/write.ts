@@ -1,3 +1,4 @@
+import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import {readSetting,projectSettingSchema} from '../../../shared/project-settings.js';
 import {evidencePolicy,storedArgument} from '../application/lifecycle.js';
@@ -44,6 +45,13 @@ export class PostgresEvidenceWriter implements EvidenceWriterPort {
    const reached=(plan?.sources??[]).filter(s=>finish.sourceIdsReached?.includes(s.id));
    const completion={outcome,tokenKeyVersionUsed:finish.tokenKeyVersionUsed??null,cil:null,sourcePlan:detailCaptured?plan?.sourcePlan??null:plan?.sourcePlan.tokenDeclarations!==undefined?{tokenDeclarations:plan.sourcePlan.tokenDeclarations}:null,generatedSql:null,latencyMs:finish.elapsedMs??null,freshness:{sources:reached},synthetic:reached.some(s=>s.origin==='demo'),completedAt:new Date().toISOString()};
    const record=parseQueryRun({header:row.header,elements,stages,completion});if(!record.ok)return record;
+   if(finish.kind==='refused'&&finish.details?.cause==='unsatisfiable_token_join'){
+    const candidate=z.object({columns:z.tuple([z.object({elementId:z.uuid(),name:z.string().min(1)}),z.object({elementId:z.uuid(),name:z.string().min(1)})])}).safeParse(finish.details);
+    if(!candidate.success||!finish.attemptedStatement)return err(new DomainError('dependency_unavailable','The refused join attempt could not be recorded.'));
+    const [left,right]=candidate.data.columns;
+    await tx.query(`INSERT INTO token_join_candidate(run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[id,ctx.projectId,principal.pool.id,left.elementId,right.elementId,left.name,right.name,principal.agentId,finish.attemptedStatement,row.startedAt]);
+   }
    for(const s of record.value.state.stages)await tx.query('INSERT INTO run_stage(run_id,started_at,stage,result,detail,ms) VALUES($1,$2,$3,$4,$5,$6)',[id,row.startedAt,s.stage,s.result,s.detail,s.ms]);
    for(const e of record.value.state.elements)await tx.query('INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment,withheld_reason) VALUES($1,$2,$3,$4,$5,$6,$7)',[id,row.startedAt,e.elementId,e.exposedName,e.state,e.treatment,e.withheldReason]);
    await tx.query("INSERT INTO run_stage(run_id,started_at,stage,result,detail,ms) VALUES($1,$2,'record','ok',NULL,$3)",[id,row.startedAt,Math.max(0,Math.round(performance.now()-recordingStarted))]);

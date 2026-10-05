@@ -4,11 +4,11 @@ import * as syntax from './syntax.js';
 import { foldIdentifier, type PoolNamespace } from './subset.js';
 import { type TreatmentPolicy, type PolicyTable } from './treatment-policy.js';
 
-type Reference = { elementId: ElementId; name: string; treatment: 'tokenized' | 'aggregate_only'; threshold: number };
+type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only'; threshold: number; domain?: string };
 type Field = { name: string; references: Reference[] };
 type Relation = { qualifiers: string[][]; fields: Field[]; opaque?: boolean };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
-type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean; aggregateArgument?: boolean; aggregateContext?: boolean };
+type Context = { relations: Relation[]; clause: Clause; aliases?: Field[]; directAggregate?: boolean; aggregateArgument?: boolean; aggregateContext?: boolean; negated?: boolean };
 const fold = foldIdentifier;
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => fold(v) === fold(b[i]!));
 
@@ -63,7 +63,7 @@ class Inspection {
     const aliases = qualifier.length === 0 ? context.aliases?.filter(f => fold(f.name) === fold(name)) ?? [] : [];
     // Ambiguous input/output aliases are refused rather than guessing DuckDB's precedence.
     if (aliases.length && candidates.length) {
-      if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references) !== JSON.stringify(candidates[0]!.references)) {
+      if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only')) !== JSON.stringify(candidates[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'))) {
         this.refuse(names.at(-1)!); return [];
       }
     }
@@ -116,7 +116,18 @@ class Inspection {
         case 'COMPARISON': {
           const e = this.read(syntax.comparison, value, 'comparison');
           if (!e) return [];
-          const refs = [e.left, e.right].flatMap(child => this.expression(child, { ...context, directAggregate: false }));
+          const left = this.expression(e.left, { ...context, directAggregate: false });
+          const right = this.expression(e.right, { ...context, directAggregate: false });
+          const refs = [...left, ...right];
+          if (e.type === 'COMPARE_EQUAL' && !context.negated && (context.clause === 'JOIN' || context.clause === 'WHERE')) {
+            for (const a of left) for (const b of right) {
+              const incompatible = a.treatment === 'tokenized' && (b.treatment === 'clear' || b.treatment === 'tokenized' && a.domain !== b.domain)
+                || b.treatment === 'tokenized' && a.treatment === 'clear';
+              if (incompatible) this.failure ??= new DomainError('unsupported_on_token',
+                `Columns ${a.qualifiedName ?? a.name} and ${b.qualifiedName ?? b.name} cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.`,
+                {cause:'unsatisfiable_token_join',columns:[{elementId:a.elementId,name:a.qualifiedName ?? a.name},{elementId:b.elementId,name:b.qualifiedName ?? b.name}],operation:'=',stage:1,proofCategory:'sql_not_permitted'});
+            }
+          }
           const operation={COMPARE_EQUAL:'=',COMPARE_NOTEQUAL:'<>',COMPARE_LESSTHAN:'<',COMPARE_GREATERTHAN:'>',COMPARE_LESSTHANOREQUALTO:'<=',COMPARE_GREATERTHANOREQUALTO:'>='}[e.type];
           if (!['COMPARE_EQUAL', 'COMPARE_NOTEQUAL'].includes(e.type)) this.check(refs, context, operation);
           // Equality and predicates produce booleans, not tokens. ORDER BY on a token
@@ -132,7 +143,7 @@ class Inspection {
         case 'OPERATOR': case 'CONJUNCTION': {
           const e = this.read(syntax.operator, value, 'operator');
           if (!e) return [];
-          e.children.forEach(child => this.expression(child, { ...context, directAggregate: false }));
+          e.children.forEach(child => this.expression(child, { ...context, directAggregate: false, negated: e.type === 'OPERATOR_NOT' ? !context.negated : context.negated }));
           return [];
         }
         case 'CASE': {const e=this.read(syntax.caseExpression,value,'CASE');if(!e)return [];return [...e.case_checks.flatMap(c=>[c.when_expr,c.then_expr]),e.else_expr].flatMap(c=>this.expression(c,{...context,directAggregate:false}));}
@@ -171,8 +182,7 @@ class Inspection {
           if(matches.length!==1){this.refuse(t.table_name);return [];}
           const view=matches[0]!;
           const fields:Field[]=view.columns.map(col=>({name:col.name,references:
-            col.treatment==='aggregate_only'||col.treatment==='tokenized'
-              ? [{elementId:col.elementId,name:col.name,treatment:col.treatment,threshold:this.policy.aggregateMinGroupSize}] : []}));
+            [{elementId:col.elementId,name:col.name,qualifiedName:`${catalog}.${schema}.${view.name}.${col.name}`,treatment:col.treatment,threshold:this.policy.aggregateMinGroupSize,domain:col.tokenDomain}]}));
           return [{ qualifiers: t.alias ? [[t.alias]] : [[t.table_name], [schema, t.table_name], [catalog, schema, t.table_name]], fields }];
         }
         case 'JOIN': {

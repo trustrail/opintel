@@ -21,7 +21,7 @@ export class StagedValidator {
    const decisions=new Map<string,(typeof r.entitlements)[number]>();
    for(const d of r.entitlements){if(decisions.has(d.elementId)&&decisions.get(d.elementId)!.treatment!==d.treatment)return err(new DomainError('validation_failed','Conflicting element treatments.',{cause:'invalid_plan',reason:'conflicting_treatments'}));decisions.set(d.elementId,d);}
    session=await this.sessions.open(r,controller.signal);
-   return validateStatement(session,r.sql,{...r.namespace,objects:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name}))},{aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId)}))})),entitlements:[...decisions.values()].map(e=>({...e,elementId:ElementId(e.elementId)}))});
+   return validateStatement(session,r.sql,{...r.namespace,objects:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name}))},{aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),entitlements:[...decisions.values()].map(e=>({...e,elementId:ElementId(e.elementId)}))});
   };
   try{
    const result=await run();

@@ -12,6 +12,21 @@ afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).re
 async function fixture(){const writer=new PostgresEvidenceWriter(),f=await queryFixture(writer);cleanup.push(f.close);return {...f,writer};}
 async function records(f:Awaited<ReturnType<typeof fixture>>){return withTenant(f.ctx,tx=>tx.query<{id:string;versions:{policy:number;catalog:number;vocabulary:number;tokenKeyVersionSelected:number|null};outcome:{kind:string};used:number|null;synthetic:boolean;source_plan:unknown;freshness:unknown}>(`SELECT r.id,r.versions,c.outcome,c.token_key_version_used AS used,c.synthetic,c.source_plan,c.freshness FROM query_run r LEFT JOIN run_completion c ON c.run_id=r.id AND c.started_at=r.started_at WHERE r.pool_id=$1 ORDER BY r.started_at`,[f.pool]));}
 describe('5.11 durable evidence writer',{timeout:60000},()=>{
+ it('JOIN-004: early and independent engine refusals persist the attempt with the original statement',async()=>{
+  const f=await fixture();await f.addSource('second');
+  await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain='otherdomain' WHERE object_id IN(SELECT id FROM catalog_object WHERE source_id=(SELECT id FROM data_source WHERE project_id=$1 AND exposed_alias='second')) AND exposed_name='field_2'",[f.ctx.projectId]));
+  const reads=vi.spyOn(f.stagingSource,'estimate');
+  const sql="SELECT a.field_1, 'JOIN_ATTEMPT_SENTINEL' AS marker FROM warehouse.public.records a JOIN second.public.records b ON a.field_2=b.field_2";
+  for(const authoritative of [false,true]){
+   if(authoritative)vi.spyOn(f.filter,'inspect').mockImplementation(async(input,onObject)=>{for(const v of input.views)onObject?.(v);return ok({kind:'requires_sidecar_inspection'});});
+   const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'unsupported_on_token',cause:'unsatisfiable_token_join'}});
+   expect(JSON.stringify(response)).not.toMatch(/JOIN_ATTEMPT_SENTINEL|otherdomain/);
+   const candidates=await withTenant(f.ctx,tx=>tx.query('SELECT * FROM token_join_candidate WHERE project_id=$1 ORDER BY attempted_at',[f.ctx.projectId]));
+   expect(candidates).toHaveLength(authoritative?2:1);
+   expect(candidates.at(-1)).toMatchObject({statement:sql,agent_id:'unverified-agent',left_name:'warehouse.public.records.field_2',right_name:'second.public.records.field_2',left_element_id:f.ids[1],right_element_id:expect.any(String),attempted_at:expect.any(Date)});
+  }
+  expect(reads).not.toHaveBeenCalled();expect(f.boundary.executions).toBe(0);
+ });
  it('DECL-008: past answers retain key versions and effective declarations after edits and when optional detail is sampled out',async()=>{
   const f=await fixture();const declarations=new PostgresElementDeclarations({canonicalisers:async()=>ok(['stdnum1','stdtime1'])});
   const firstAnswer=await f.query('SELECT field_2 FROM warehouse.public.records');expect(firstAnswer.isError).not.toBe(true);

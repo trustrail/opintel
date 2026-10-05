@@ -576,6 +576,12 @@ for each tokenized element E referenced in the query:
 
 **Equality against a literal is permitted**, since an agent holding a token from an earlier result must be able to filter on it. That is the property tokenization exists to provide.
 
+**Equality joins require compatible tokenization (5.24a).** In JOIN conditions and implicit joins expressed in WHERE, refuse `a = b` when both columns are tokenized under different effective domains, or one is tokenized and the other clear. Name both qualified columns and ask an administrator to tokenize both under a shared token domain; do not disclose domain values. The read plan already carries effective domains. Both inspectors preserve them through column lineage, aliases, CTEs and subqueries: the application refuses early and the engine independently refuses authoritatively per C.3.1, before preparation or source reads.
+
+Across different token domains, `a = b` can never be satisfied, which is why it is refused. `a <> b` is always satisfied for non-null operands, making it useless rather than impossible; refusing it would reject a query that returns rows. This refusal prevents a silent empty result being misreported as a finding. That reasoning does not extend to a predicate that returns everything. No additional agent notice is required for that ordinary query mistake. Other token operation restrictions remain unchanged.
+
+Record the refused attempt as a candidate for 5.25: both element identities and qualified names, agent id, submitted statement and attempt timestamp. Store it atomically with the durable refusal in tenant-scoped storage, outside logs and telemetry, without a new agent-facing reader. This item records only; it neither merges domains nor presents suggestions. Candidate statement retention is separate from the evidence request's redaction policy: the submitted statement is retained for administrator review and may contain literals.
+
 **`LIKE` is refused** because a prefix or substring of a token means nothing about the value: Crockford base32 of an HMAC shares no structure with its input.
 
 Refusal code: `unsupported_on_token`, naming the element and the operation, and stating that tokens preserve equality only. An agent can then rewrite the question, or an administrator can decide that the column needs a different treatment. **Where order genuinely matters, the treatment is wrong, not the query.** A date whose ordering is needed can be masked to the year, which preserves ordering at year granularity; an identifier whose ordering is needed was never an identifier.

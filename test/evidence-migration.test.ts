@@ -6,7 +6,7 @@ it('046 down/up/down/up recreates monthly partitions with forced RLS and append-
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  const up=await readFile('migrations/046_evidence.up.sql','utf8'),down=await readFile('migrations/046_evidence.down.sql','utf8');
  try {
-  await db.query('BEGIN');await db.query('TRUNCATE query_run,evidence_redaction,evidence_rollup CASCADE');await db.query(await readFile('migrations/052_evidence_lifecycle.down.sql','utf8'));
+  await db.query('BEGIN');await db.query(await readFile('migrations/060_token_join_candidates.down.sql','utf8'));await db.query('TRUNCATE query_run,evidence_redaction,evidence_rollup CASCADE');await db.query(await readFile('migrations/052_evidence_lifecycle.down.sql','utf8'));
   for(let attempt=0;attempt<2;attempt++) {
    await db.query(down);expect((await db.query("SELECT to_regclass('query_run') AS table")).rows).toEqual([{table:null}]);
    await db.query(up);

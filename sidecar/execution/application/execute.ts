@@ -31,7 +31,7 @@ export class StagedExecutor {
   try{
    const lease=await this.queue.acquire(ProjectId(r.projectId),PoolId(r.poolId),r.limits.concurrency,r.settings.maxQueuedExecutions,signal);
    if(!lease.ok)return lease;release=lease.value;
-   const policy:TreatmentPolicy={aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId)}))})),
+   const policy:TreatmentPolicy={aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),
     entitlements:r.entitlements.map(e=>({...e,elementId:ElementId(e.elementId)}))};
    if(r.objects.some(o=>o.readPlan.columns.some(c=>!r.entitlements.some(e=>e.elementId===c.elementId&&e.treatment===c.treatment))))return err(new DomainError('sql_not_permitted','The read plan and authoritative entitlements disagree.',{cause:'inspection_inconsistent',reason:'policy'}));
    // Duplicate references to an element may appear in more than one view, but

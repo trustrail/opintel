@@ -160,3 +160,26 @@ describe('4.5 application pre-filter — real DuckDB syntax, no execution permis
     expect(JSON.stringify(views)).toBe(before);
   });
 });
+
+
+describe('5.24a application equality join inspection',()=>{
+ const joined=unwrap(compileViews(fixture([{name:'lefts',columns:[{name:'id',treatment:'tokenized',declarations:{tokenDomain:'leftdomain'}},{name:'plain',treatment:'clear'}]},{name:'rights',columns:[{name:'id',treatment:'tokenized',declarations:{tokenDomain:'rightdomain'}}]}]))).views;
+ const run=(sql:string)=>inspector.inspect({sql,queryEngineBuild,views:joined});
+ const l='fixture_catalog.fixture_schema.lefts',r='fixture_catalog.fixture_schema.rights';
+ it.each([
+  `SELECT a.id FROM ${l} a JOIN ${r} b ON a.id=b.id`,
+  `SELECT a.id FROM ${l} a, ${r} b WHERE a.id=b.id`,
+  `SELECT a.id FROM ${l} a JOIN ${l} b ON a.id=b.plain`,
+  `WITH q AS (SELECT id AS renamed FROM ${l}) SELECT q.renamed FROM q JOIN ${r} b ON q.renamed=b.id`,
+  `SELECT q.renamed FROM (SELECT id AS renamed FROM ${l}) q JOIN ${r} b ON q.renamed=b.id`,
+ ])('JOIN-001/JOIN-002: refuses %s',async sql=>{
+  const result=await run(sql);expect(result).toMatchObject({ok:false,error:{code:'unsupported_on_token',details:{cause:'unsatisfiable_token_join',columns:expect.arrayContaining([expect.objectContaining({elementId:expect.any(String),name:expect.stringContaining('fixture_catalog.fixture_schema.')})])}}});
+  if(!result.ok){expect(result.error.message).toContain('administrator');expect(result.error.message).toContain('shared token domain');expect(result.error.message).not.toMatch(/leftdomain|rightdomain/);expect(result.error.details?.columns).toHaveLength(2);}
+ });
+ it.each([
+  `SELECT a.id FROM ${l} a JOIN ${l} b ON a.id=b.id`,
+  `SELECT a.id FROM ${l} a JOIN ${r} b ON a.id<>b.id`,
+  `SELECT a.id FROM ${l} a JOIN ${r} b ON NOT(a.id=b.id)`,
+  `SELECT id FROM ${l} WHERE id='held-token'`,
+ ])('JOIN-003: leaves compatible equality, inequality and token literals unchanged: %s',async sql=>expect((await run(sql)).ok).toBe(true));
+});

@@ -202,3 +202,12 @@ generic. No sentence in this contract was reworded by implementation.
 Magnitude is integer/fractional digit counts or “non-finite or unusable numeric”,
 never the source value. This refusal originates before treatments at the source
 read boundary and uses the validated configuration-refusal pass-through path.
+
+
+### Item 5.24a: unsatisfiable token equality join
+
+`unsupported_on_token / unsatisfiable_token_join` is non-retryable. The message is rendered from two validated qualified column names, never an engine diagnostic or token domain value:
+
+> Columns {left} and {right} cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.
+
+The metadata retains both element identities and qualified names. It never includes the submitted statement or token domain values. There is no additional notice for a different-domain inequality; it remains an ordinary query mistake.

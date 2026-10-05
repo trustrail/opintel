@@ -26,11 +26,13 @@ export const messages = {
   "Evidence-after": "The query ran but its record could not be completed, so no result was returned. Every answer carries a record of what it read.",
   "Version": "The query could not be run because a component is out of step with this deployment. No source was contacted. This needs an operator; retrying will not help.",
   "Result": "The query ran but returned a result this interface cannot trust, so nothing was released. This needs an operator; retrying will not help.",
+  "T-join": "Columns {left} and {right} cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.",
   "Unknown": "The query could not be completed. Whether it reached a source is not established. This needs an operator."
 } as const;
 const mapping: Readonly<Record<string, readonly [keyof typeof messages, boolean | 'inherit']>> = {
  'element_withheld/withheld': ['W', false],
  'entitlement_missing/undecided': ['E', false],
+ 'unsupported_on_token/unsatisfiable_token_join': ['T-join', false],
  'unsupported_on_token/unsupported_operation': ['T', false],
  'unsupported_on_aggregate_only/row_access': ['A-row', false],
  'unsupported_on_aggregate_only/not_direct_aggregate_argument': ['A-direct', false],
@@ -111,6 +113,11 @@ export function refusalResponse(error:DomainError) {
   const value=details[field];
   if(typeof value==='string')text=text.replaceAll(`{${field}}`,value);
   else {label=error.code==='sql_not_permitted'||error.code==='unsupported_on_aggregate_only'?'Q-fallback':'Unknown';text=messages[label];break;}
+ }
+ if(label==='T-join'){
+  const columns=queryRefusalDetails.shape.columns.safeParse(details.columns);
+  if(columns.success&&columns.data)text=text.replace('{left}',columns.data[0].name).replace('{right}',columns.data[1].name);
+  else text=messages.Unknown;
  }
  if(passThroughCauses[error.code]&&error.code!=='sql_not_permitted')text=error.message;
  if(label==='Unknown'||label==='Version'||label==='Result'||text.includes('operator'))retryable=false;

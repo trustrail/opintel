@@ -146,3 +146,29 @@ describe('S2d authoritative treatment enforcement',{timeout:30000},()=>{
   expectCode(await f.run(sql),'unsupported_on_aggregate_only');
  });
 });
+
+
+describe('5.24a independent authoritative equality join inspection',{timeout:30000},()=>{
+ const tables=[{catalog:'memory',schema:'main',name:'lefts'},{catalog:'memory',schema:'main',name:'rights'}];
+ const ns={catalog:'memory',schema:'main',objects:tables};
+ const policy=sqlPolicy(tables.map((t,i)=>({...t,columns:[{name:'id',treatment:'tokenized' as const,tokenDomain:i?'rightdomain':'leftdomain'},{name:'plain'}]})));
+ const run=async(sql:string)=>{
+  const events:InspectionEvent[]=[];const driver=new DuckDBSessionEngine();
+  const engine:SessionEngine={open:async role=>{const session=await driver.open(role);if(role==='agent')for(const t of tables){await session.execute(`CREATE TABLE ${t.name}(id VARCHAR, plain VARCHAR)`);await session.execute(`INSERT INTO ${t.name} VALUES ('token_${t.name}', 'plain')`);}return session;}};
+  const result=await new InspectedSessionExecutor(engine,e=>events.push(e)).execute(sql,limits,ns,policy);return {result,events};
+ };
+ it.each([
+  'SELECT a.id FROM lefts a JOIN rights b ON a.id=b.id',
+  'SELECT a.id FROM lefts a, rights b WHERE a.id=b.id',
+  'SELECT a.id FROM lefts a JOIN rights b ON a.id=b.plain',
+  'SELECT a.id FROM lefts a JOIN rights b ON b.plain=a.id',
+  'WITH q AS (SELECT id AS renamed FROM lefts) SELECT q.renamed FROM q JOIN rights b ON q.renamed=b.id',
+  'SELECT q.renamed FROM (SELECT id AS renamed FROM lefts) q JOIN rights b ON q.renamed=b.id',
+ ])('JOIN-001/JOIN-002: refuses before PREPARE: %s',async sql=>{
+  const {result,events}=await run(sql);expectCode(result,'unsupported_on_token');
+  if(!result.ok){expect(result.error.details).toMatchObject({cause:'unsatisfiable_token_join',columns:expect.any(Array)});expect(result.error.message).toContain('memory.main.lefts.id');expect(result.error.message).toContain('memory.main.rights.');expect(result.error.message).not.toMatch(/leftdomain|rightdomain/);}
+  expect(events.some(e=>e.stage==='prepare_started'||e.stage==='execute_started')).toBe(false);
+ });
+ it.each(['SELECT a.id FROM lefts a JOIN lefts b ON a.id=b.id','SELECT a.id FROM lefts a JOIN rights b ON a.id<>b.id','SELECT a.id FROM lefts a JOIN rights b ON NOT(a.id=b.id)',"SELECT id FROM lefts WHERE id='held-token'"])
+ ('JOIN-003: accepts unchanged semantics: %s',async sql=>{const {result}=await run(sql);expect(result.ok).toBe(true);if(result.ok&&!sql.includes('held-token'))expect(result.value.rows).toHaveLength(1);});
+});
