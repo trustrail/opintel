@@ -9,7 +9,7 @@ import { demoIdentification } from '../src/modules/sources/demo/metadata.js';
 import { ProjectId, UserId, SourceId, EngineId, DemoSourceId, IndustryId, DomainError } from '../src/shared/kernel/index.js';
 import { SecretRef } from '../src/platform/secrets/types.js';
 
-export async function demoPack(command: string, projectArg: string, userArg: string, sourceArg?: string, options: { showNextSteps?: boolean;engineId?:import('../src/shared/kernel/index.js').EngineId } = {}): Promise<void> {
+export async function demoPack(command: string, projectArg: string, userArg: string, sourceArg?: string, options: { showNextSteps?: boolean;registrationName?:string;engineId?:import('../src/shared/kernel/index.js').EngineId } = {}): Promise<void> {
   if (!['prepare','provision'].includes(command ?? '') || !projectArg || !userArg)
     throw new Error('Usage: npm run demo:pack -- prepare|provision PROJECT_ID USER_ID [SOURCE_ID]');
   const ctx = { projectId: ProjectId(projectArg), userId: UserId(userArg) };
@@ -56,7 +56,7 @@ export async function demoPack(command: string, projectArg: string, userArg: str
     await writeFile(serviceFile+'.next',JSON.stringify(updated,null,2)+'\n',{mode:0o600}); await rename(serviceFile+'.next',serviceFile);
     await withPlatformAdmin({actor:{kind:'user',id:ctx.userId}},async tx=>tx.query(
       `UPDATE demo_source_template SET deployment_ref=jsonb_set(deployment_ref,ARRAY[$2::text],$3::jsonb) WHERE id=$1`,
-      [templateId,ctx.projectId,JSON.stringify({sourceId,credentialRef,landingZone:join(root,'inbox'),sourceName,engineId:preparedEngineId})]));
+      [templateId,ctx.projectId,JSON.stringify({sourceId,credentialRef,landingZone:join(root,'inbox'),sourceName,registrationName:options.registrationName,engineId:preparedEngineId})]));
     console.info(`Prepared demo source ${sourceId}.` + (options.showNextSteps === false ? '' : ' Restart Opintel Engine with dev:up, start dev:api, then run demo:pack provision with this source ID.'));
     return;
   }

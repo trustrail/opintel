@@ -40,3 +40,7 @@ intact. Other existing projects' zones, including prepared reservations, remain.
 - Strict typecheck, lint/boundary checks and `git diff --check` passed.
 - No existing database volume was destroyed during verification. Stale-project
   retention and retirement are covered by the development guard tests.
+
+Fresh `dev:demo` provisioning registers the source as **Reinsurance**, giving it the catalog alias `reinsurance`. Its physical landing schema remains the generated `demo_<sourceId>` schema. There is no administrator control for assigning an exposed schema name, so that component remains generated rather than being changed to `public` for presentation.
+
+An existing provisioned demo keeps its current alias: aliases are immutable by design, and rerunning the bootstrap does not rename them. Fresh provisioning is required to see the readable alias.

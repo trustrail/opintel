@@ -662,3 +662,9 @@ previously assumed by §8; it does not add a background fleet-health exporter.
 # Whole-view staging cost
 
 A measured one-column query stages seven entitled columns and performs tokenization on entitled tokenized columns the query does not return. Source rows read follow the supported pushed-down predicates, not projection width; tokenization and staging memory cover the whole view. Statement-specific column pruning is a known optimisation, deferred because whole-view materialisation makes the view the enforcement point and keeps its staged shape stable across statements.
+
+- No administrator control over the exposed schema. Element exposed names
+  can be aliased; the schema segment is derived from the physical schema and
+  cannot be changed. A customer whose physical schema is prod_warehouse_v3
+  or dbo has agents carrying that in every three-part name, with no remedy.
+  Source aliases cover the catalog segment only.

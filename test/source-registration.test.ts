@@ -124,10 +124,10 @@ describe('source registration against real Postgres and the sidecar',()=>{
  },25000);
  it('Connect inserts the reserved demo source and uses the same connector port for introspection',async()=>{
   const reserved=randomUUID();provisionDemo=true;
-  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
+  await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema,registrationName:'Reinsurance'}})]));
   vi.spyOn(repository,'settledFilings').mockResolvedValue(13);
   expect((await(await request(path())).json()).items).toEqual([]);
-  const response=await request(path()+'/from-demo','POST',{demoTemplateId:templateId});expect(response.status).toBe(201);expect(await response.json()).toMatchObject({id:reserved,origin:'demo'});
+  const response=await request(path()+'/from-demo','POST',{demoTemplateId:templateId});expect(response.status).toBe(201);expect(await response.json()).toMatchObject({id:reserved,origin:'demo',name:'Reinsurance',exposedAlias:'reinsurance'});
   await service.idle();expect((await(await request(path())).json()).items).toEqual([expect.objectContaining({id:reserved,origin:'demo',elementCount:2,status:'connected'})]);
   expect(connectors.some(port=>vi.isMockFunction(port.provisionDemo)&&vi.mocked(port.provisionDemo).mock.calls.length===1)).toBe(true);
   expect(connectors.some(port=>vi.mocked(port.introspect).mock.calls.some(call=>call[1][0]===schema))).toBe(true);

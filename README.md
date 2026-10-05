@@ -41,3 +41,7 @@ and custom Opintel Engine configuration. It uses `tmp/sidecar` and serializes it
 runs with `tmp/dev-demo.lock`. After an interrupted process, check that no
 `dev:demo` is still running before removing that lock and retrying. The API
 can already be running; otherwise start it with the command above.
+
+Fresh `dev:demo` provisioning registers the source as **Reinsurance**, giving it the catalog alias `reinsurance`. Its physical landing schema remains the generated `demo_<sourceId>` schema. There is no administrator control for assigning an exposed schema name, so that component remains generated rather than being changed to `public` for presentation.
+
+An existing provisioned demo keeps its current alias: aliases are immutable by design, and rerunning the bootstrap does not rename them. Fresh provisioning is required to see the readable alias.

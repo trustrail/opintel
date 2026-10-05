@@ -52,7 +52,7 @@ export class SourceRegistrationService {
   if(!deployment)return err(new DomainError('dependency_unavailable','The industry pack is not provisioned for this project. Ask the deployment operator to prepare it.'));
   if(!deployment.engineId)return err(new DomainError('source_unavailable','This demo source has no assigned engine. Ask the operator to prepare it with a verified engine.'));
   const tested=await this.connector(ctx,deployment.sourceId,deployment.engineId).testConnection(deployment.credentialRef);if(!tested.ok)return tested;
-  const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{engineId:deployment.engineId,name:deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
+  const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{engineId:deployment.engineId,name:deployment.registrationName??deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created;
  }

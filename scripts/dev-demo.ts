@@ -54,7 +54,7 @@ async function provision(){
  await startDevelopmentSidecar();
  const {registerDevelopmentEngine}=await import('./development-engine.js');const {registry:developmentRegistry,engineId:developmentEngineId}=await registerDevelopmentEngine(ctx,serviceFile);
  const {KeyCustodyService,PostgresCustodyRepository}=await import('../src/modules/entitlements/index.js');const {RegistryCustodyClient}=await import('../src/modules/engines/index.js');unwrap(await new KeyCustodyService(new PostgresCustodyRepository(),new RegistryCustodyClient(developmentRegistry),auth).ensure(ctx));
- const {demoPack}=await import('./demo-pack.js');await demoPack('prepare',projectId,userId,undefined,{showNextSteps:false,engineId:developmentEngineId});
+ const {demoPack}=await import('./demo-pack.js');await demoPack('prepare',projectId,userId,undefined,{showNextSteps:false,registrationName:'Reinsurance',engineId:developmentEngineId});
  const [deployment]=await withPlatform(tx=>tx.query<{source:SourceId}>("SELECT deployment_ref->($1::text)->>'sourceId' AS source FROM demo_source_template WHERE id='31100000-0000-4000-8000-000000000001'",[projectId]));if(!deployment?.source)throw new Error('Demo preparation did not reserve a source.');
  const sourceId=SourceId(deployment.source);
  const {checkDevelopmentLandingZones}=await import('./sidecar-landing-check.js');await checkDevelopmentLandingZones((await loadSidecarConfig(serviceFile)).config.landingZones??[]);

@@ -10,7 +10,7 @@ export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),engineI
 export const SourceListResponse=z.object({items:z.array(SourceListItem),nextCursor:z.string().nullable()});
 export const IntrospectSourceBody=z.strictObject({projectId:z.uuid()});
 export const FromDemoBody=z.strictObject({demoTemplateId:z.uuid().transform(DemoSourceId)});
-export const Deployment=z.strictObject({sourceId:z.uuid().transform(SourceId),credentialRef:z.string().startsWith('secret://').min(10).transform(value=>value as SecretRef),landingZone:z.string().min(1).nullable(),engineId:z.uuid().transform(EngineId).optional(),sourceName:z.string().min(1).max(80)});
+export const Deployment=z.strictObject({sourceId:z.uuid().transform(SourceId),credentialRef:z.string().startsWith('secret://').min(10).transform(value=>value as SecretRef),landingZone:z.string().min(1).nullable(),engineId:z.uuid().transform(EngineId).optional(),sourceName:z.string().min(1).max(80),registrationName:z.string().min(1).max(80).optional()});
 export const DeploymentRef=z.record(z.uuid(),Deployment);
 export const DemoTemplateItem=z.object({id:z.uuid().transform(DemoSourceId),name:z.string(),narrative:z.string().nullable(),prepared:z.boolean(),connected:z.boolean()});
 export const DemoTemplateList=z.array(DemoTemplateItem);
