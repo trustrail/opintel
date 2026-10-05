@@ -24,7 +24,7 @@ export class PostgresEntitlements implements EntitlementRepository {
    if(rows[0]!.exposed_type===null)return err(new DomainError('validation_failed','The element has no supported exposed type. No entitlement decision can be made, including withheld.'));
    if(s.treatment==='tokenized' && rows[0]!.canon_id!==null){const valid=validateCanonicaliserType(rows[0]!.canon_id!,rows[0]!.exposed_type,rows[0]!.epochUnit);if(!valid.ok)return valid;}
    if(s.treatment==='tokenized'){const valid=validateTokenizedTemporal(rows[0]!.exposed_type,rows[0]!);if(!valid.ok)return valid;}
-   if(s.treatment==='tokenized'){const valid=validateTokenDeclarations(rows[0]!.exposed_type,rows[0]!,true);if(!valid.ok)return valid;}
+   if(s.treatment==='tokenized'){const valid=validateTokenDeclarations(rows[0]!.exposed_type,rows[0]!);if(!valid.ok)return valid;}
    if(s.maskKind!==null){const valid=validateMaskType(s.maskKind,rows[0]!.exposed_type);if(!valid.ok)return valid;}
    const pools=await tx.query('SELECT id FROM pool WHERE id=$1',[s.poolId]);
    if(!pools.length)return err(new DomainError('not_found','The pool was not found in this project.'));

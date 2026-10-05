@@ -110,16 +110,22 @@ describe('4.6 persisted pattern rule application at introspection completion',()
     expect(unwrap(await query.read(ctx,completed.id)).ruleObservations).toEqual(observations);
   });
 
-  it('R-026: missing token domain and timezone leave the element undecided without failing introspection',async()=>{
+  it('R-026: missing timezone leaves the element undecided without failing introspection',async()=>{
     const rule=await create({treatment:'tokenized'}); const completed=await run(snapshot(['event_at'],'timestamp without time zone'));
     expect(completed.state).toBe('complete'); expect(await decisions()).toEqual([]);
     const observations=unwrap(await query.read(ctx,completed.id)).ruleObservations;
     expect(observations).toHaveLength(2);
-    for (const observation of observations) for (const word of [rule.id,'event_at','tokenDomain','sourceTimezone']) expect(observation.message).toContain(word);
+    for (const observation of observations) for (const word of [rule.id,'event_at','sourceTimezone']) expect(observation.message).toContain(word);
     // A refusal is a terminal receipt for this discovery, not permission to
     // grant later when declarations or policy change.
     await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET token_domain='event1',source_timezone='UTC'"));
     await store.dispatchCompleted(ctx); expect(await decisions()).toEqual([]);
+  });
+
+  it('ISO-001/R-026: tokenized rules apply with no declared domain',async()=>{
+    await create({treatment:'tokenized'});const completed=await run(snapshot());
+    expect(await decisions()).toHaveLength(2);expect(unwrap(await query.read(ctx,completed.id)).ruleObservations).toEqual([]);
+    expect(await withTenant(ctx,tx=>tx.query('SELECT token_domain FROM catalog_element'))).toEqual([{token_domain:null}]);
   });
 
   it('R-027: incompatible mask creates an observation, while a compatible masked rule applies',async()=>{
@@ -152,7 +158,7 @@ describe('4.6 persisted pattern rule application at introspection completion',()
 
   it('an inapplicable highest-priority rule never falls back to a more permissive rule',async()=>{
     await create({priority:1}); const invalid=await create({priority:2,treatment:'tokenized'});
-    const completed=await run(); expect(await decisions()).toEqual([]);
+    const completed=await run(snapshot(['event_at'],'timestamp without time zone')); expect(await decisions()).toEqual([]);
     for (const observation of unwrap(await query.read(ctx,completed.id)).ruleObservations) expect(observation.ruleIds).toEqual([invalid.id]);
   });
 

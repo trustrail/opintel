@@ -18,7 +18,7 @@ export class PostgresTokenDeclarations implements TokenDeclarationRepository {
   }
   setElement(ctx: TemporalContext, element: ElementId, input: unknown) {
     const parsed = tokenDeclarationPatch.safeParse(input);
-    if (!parsed.success) return Promise.resolve(err(new DomainError('validation_failed', 'Declare tokenDomain as lowercase letters and digits (sentinel is reserved), and caseInsensitive as a boolean.')));
+    if (!parsed.success) return Promise.resolve(err(new DomainError('validation_failed', 'Declare tokenDomain as lowercase letters and digits (sentinel and opintelisolated domains are reserved), and caseInsensitive as a boolean.')));
     const patch = parsed.data;
     return withTenant(ctx, async tx => {
       const locked = await tx.query('SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 FOR UPDATE OF s', [element]);
@@ -27,7 +27,7 @@ export class PostgresTokenDeclarations implements TokenDeclarationRepository {
       if (!row) return missing();
       const next = { tokenDomain: patch.tokenDomain === undefined ? row.tokenDomain : patch.tokenDomain,
         caseInsensitive: patch.caseInsensitive === undefined ? row.caseInsensitive : patch.caseInsensitive };
-      const valid = validateTokenDeclarations(row.exposedType, next, row.tokenized);
+      const valid = validateTokenDeclarations(row.exposedType, next);
       if (!valid.ok) return valid;
       const changing = next.tokenDomain !== row.tokenDomain
         || ((row.exposedType === 'VARCHAR' || row.exposedType === 'UUID') && (next.caseInsensitive ?? true) !== (row.caseInsensitive ?? true));

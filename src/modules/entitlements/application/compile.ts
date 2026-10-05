@@ -1,3 +1,4 @@
+import { effectiveTokenDomain } from '../../../shared/token-domain.js';
 import type { CatalogElement, CatalogObject, ExposedType } from '../../catalog/index.js';
 import { numericDefault, validateTokenizedTemporal, validateTokenDeclarations } from '../../catalog/index.js';
 import type { SourceRef } from '../../sources/index.js';
@@ -47,10 +48,9 @@ const invalid = (message: string) => err(new DomainError('validation_failed', me
 function tokenDeclaration(element: CatalogElement): Result<TokenDeclaration> {
   const e = element.state;
   if (e.exposedType === 'FLOAT' || e.exposedType === 'DOUBLE') return invalid(`Floating-point element ${e.sourceIdentifier} cannot be tokenized. Cast it upstream to numeric or integer minor units.`);
-  const valid = validateTokenDeclarations(e.exposedType, {tokenDomain:e.tokenDomain ?? null,caseInsensitive:e.caseInsensitive ?? null}, true);
+  const valid = validateTokenDeclarations(e.exposedType, {tokenDomain:e.tokenDomain ?? null,caseInsensitive:e.caseInsensitive ?? null});
   if (!valid.ok) return valid;
-  const domain = e.tokenDomain;
-  if (!domain || !/^[a-z0-9]+$(?![\s\S])/u.test(domain) || domain === 'sentinel') return invalid(`Declare a valid tokenDomain for ${e.sourceIdentifier} before tokenization; sentinel is reserved.`);
+  const domain = effectiveTokenDomain(e.tokenDomain,{projectId:e.projectId,elementId:e.id});
   const epochUnit = e.epochUnit ?? null;
   const sourceTimezone = e.sourceTimezone ?? e.schemaTimezone ?? null;
   const temporal = validateTokenizedTemporal(e.exposedType, { sourceTimezone, epochUnit });

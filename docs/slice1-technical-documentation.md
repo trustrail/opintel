@@ -1601,7 +1601,7 @@ const MigrateIndustryPreview = z.object({
 
 **Bulk set is all-or-nothing**. If any element in the selection is invalid, nothing is written and the response names every invalid element with its reason. A partial result would leave an administrator believing a decision was applied while some columns remained readable, and "483 of 500 applied" is not a decision anyone made.
 
-**Validation happens before any write**, so the failure is a 422 listing the problems rather than a partial commit. The common causes are the ones item 4.6 already names: a tokenized treatment on an element with no declared token domain, timezone or epoch unit, and a mask kind that does not suit the type family.
+**Validation happens before any write**, so the failure is a 422 listing the problems rather than a partial commit. The common causes are the ones item 4.6 already names: a tokenized treatment on a naive timestamp with no declared timezone or an explicitly temporal integer missing its epoch unit, and a mask kind that does not suit the type family.
 
 **This is one transaction over one aggregate type**, so it does not need an exception to the transaction rule.
 
@@ -3230,7 +3230,7 @@ create table catalog_element (
   unique (object_id, exposed_name),
   unique (object_id, source_identifier),
   ordinal          integer,              -- source order; legacy NULL until startup re-introspection
-  token_domain     text check (token_domain ~ '^[a-z0-9]+$'),
+  token_domain     text check (token_domain ~ '^[a-z0-9]+$' AND token_domain <> 'sentinel' AND token_domain NOT LIKE 'opintelisolated%'),
   case_insensitive boolean               -- text elements only; null elsewhere
 );
 create index on catalog_element (project_id, status);
@@ -3273,7 +3273,7 @@ refuses unknown ordinals naming the object until repair completes. A later
 migration sets NOT NULL once no unknown ordinals remain (including retained
 removed elements, which need an explicit historical-data decision).
 
-**Setting a tokenized entitlement on an element with no token_domain is refused**, naming the missing declaration, exactly as a missing timezone or epoch unit is (A.3.1). Changing the effective token domain or text-mode case folding on an already-tokenized element requires the project name as typed confirmation. Compare effective values, including default case folding; assigning the default explicitly is harmless, while first disabling it changes tokens.
+**A missing token_domain uses an isolated effective domain**, `opintelisolated` plus the project UUID and element UUID as lowercase hex without hyphens. It is not written into `token_domain`. The namespace is reserved from explicit declarations in commands and migration 059. Tokenization needs no domain declaration; explicit domains win and enable intentional cross-element joins. The explorer shows the effective value with “derived from element identity” provenance separately from the stored value. Changing the effective token domain or text-mode case folding on an already-tokenized element requires the project name as typed confirmation. A first explicit domain assignment or clearing a domain changes effective tokens and requires confirmation when already tokenized. Compare effective values, including default case folding; assigning the default explicitly is harmless, while first disabling it changes tokens.
 
 
 ```sql
@@ -3926,7 +3926,7 @@ Valid last4 and email values use the fixed prefixes shown in B.3 (`••••`
 
 **Full masking preserves length only where length is already public**, which it never is here, so the result is a fixed ****.
 
-**A rule that cannot be applied creates nothing and raises an observation** naming the rule, the element and what is missing. Three cases: a tokenized rule matching an element with no declared token domain, or a naive timestamp with no declared zone, or an epoch column with no declared unit; and a masked rule whose kind does not suit the element's type family, such as year on text.
+**A rule that cannot be applied creates nothing and raises an observation** naming the rule, the element and what is missing. Cases include a tokenized naive timestamp with no declared zone, or an explicitly temporal integer with no declared epoch unit; and a masked rule whose kind does not suit the element's type family, such as year on text.
 
 **The element stays undecided**, which is the correct state: nobody has decided. Applying a fallback treatment would be the rule deciding something its author did not write, and silently skipping would leave an administrator wondering why a rule they wrote did nothing.
 
@@ -4611,7 +4611,7 @@ Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `pref
 |---|---|---|---|---|---|
 | `discovery.newElements` | enum | rules_only; persisted at creation and backfilled for existing projects | hold, rules_only | Entitlements for newly discovered elements | Use rules_only. hold leaves them undecided; rules_only applies matching rules and leaves unmatched elements undecided. |
 | `discovery.typeFamilyChange` | enum | revert; persisted at creation and backfilled for existing projects | revert, carry | Existing decisions when a type changes family | Use revert. Both choices retain an observation of the change. |
-| `discovery.renameHandling` | enum | carry; persisted at creation and backfilled for existing projects | carry, new | Decisions on a detected rename | Use carry. new treats the element as new and undecided. |
+| `discovery.renameHandling` | enum | carry; persisted at creation and backfilled for existing projects | carry, new | Decisions on a detected rename | Use carry. new treats the element as new and undecided, with a new derived domain and different tokens. |
 | `discovery.adoptRenamedNames` | boolean | false; persisted at creation and backfilled for existing projects | true, false | Whether a detected rename changes the exposed name | Use false. true is labelled a breaking change; old exposed-name references can fail. |
 | `discovery.valueSampling` | boolean | false; persisted at creation and backfilled for existing projects | true, false | Project gate for source value sampling | Refuse sampling (403). Explicit true still requires per-source consent; false refuses even with consent. Metadata-only introspection does not require sampling. |
 | `discovery.sampleSize` | integer | None; required only when enabling sampling | 1–10,000 | Maximum requested sampling size | Refuse sampling until configured, even when both consent gates allow it. No source values are read to determine a default. |
@@ -4640,7 +4640,7 @@ Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `pref
 |---|---|---|
 | newElements | Introspection enqueues newly added elements for bound pools. The completion handler applies eligible active rules older than discovery, without overwriting existing decisions. Unmatched, conflicting or invalid matches remain undecided. See `src/modules/sources/infrastructure/introspection-completed.ts` and `src/modules/entitlements/infrastructure/pattern-rules.ts`. | rules_only, not hold. With no matching rules this still leaves elements undecided. |
 | typeFamilyChange | Reconciliation flags a family change (also a changed unsupported type); publication records the previous decisions in the run diff and deletes them, making the element undecided. See `src/modules/catalog/application/introspection-diff.ts` and `src/modules/sources/infrastructure/postgres-introspection-store.ts`. | revert |
-| renameHandling | A matching stable reference preserves element identity and decisions across a rename. Without a stable reference, changed identifiers are treated as removal plus addition; the system does not guess that they are a rename. Type-family invalidation still takes precedence. See `src/modules/catalog/domain/catalog.ts`. | carry, with that same detected-rename limitation |
+| renameHandling | A matching stable reference preserves element identity and decisions across a rename. Without a stable reference, changed identifiers are treated as removal plus addition; the system does not guess that they are a rename. `new` replaces a detected renamed element, changing its derived domain and tokens. Table/schema renames also create new identities. Exposed-name adoption does not. Removal/addition is reported in the introspection diff; tokens are stable only for matched identities with unchanged key and canonicalisation. Type-family invalidation still takes precedence. See `src/modules/catalog/domain/catalog.ts`. | carry, with that same detected-rename limitation |
 | adoptRenamedNames | Defaults false on enqueue and in stored-run reads. An explicit, administrator-authorised per-run option can adopt the new exposed name. See `src/modules/sources/application/introspection-job.ts` and `src/modules/sources/infrastructure/postgres-introspection-store.ts`. | false; preserve explicit already-queued per-run options |
 | valueSampling | Production source runtime refuses sampling as outside source registration. Introspection reads metadata only and never calls sampleTopValues. The lower-level connector separately supports explicit consent-bearing sampling; no project gate is currently read. See `src/modules/sources/infrastructure/source-runtime.ts` and `src/modules/sources/infrastructure/sidecar-source-connector.ts`. | false preserves the production introspection path. This is not a claim that the lower-level /sample transport is globally disabled today. |
 | sampleSize | sampleTopValues requires a caller-supplied limit; samplePayload accepts a positive safe integer with no default. There are no production calls supplying a standard size. See `src/shared/sidecar-contract.ts` and `src/modules/sources/infrastructure/sidecar-source-connector.ts`. | Retain absence for existing projects while sampling is off; require 1–10,000 before enabling sampling. Unset sampleSize with valueSampling false is coherent, not incomplete; the screen must not flag it. Metadata introspection continues. |

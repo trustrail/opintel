@@ -25,12 +25,13 @@ describe('5.22 declarations end to end',()=>{
  beforeEach(async()=>{f=await bulkFixture(1);repository=new PostgresElementDeclarations(discovery);discovery.canonicalisers.mockClear();permitted='all';});
  afterEach(async()=>{if(server){await new Promise<void>((resolve,reject)=>server!.close(e=>e?reject(e):resolve()));server=undefined;}});
  async function listen(){server=createHttpServer([...declarationRoutes(repository,new PostgresTemporalRepository()),...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements()))],{authorization:{currentUser:async()=>f.actor,port:{...allowBulk,check:async request=>{expect(['view','administer','set_entitlement']).toContain(request.permission);return {...await allowBulk.check(request),allowed:permitted==='all'||(permitted==='view'&&request.permission==='view')};}}},logger:{error:()=>{}}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');origin=`http://127.0.0.1:${address.port}`;}
- it('DECL-001/006: mounted declarations and bulk routes enable tokenization without SQL declarations',async()=>{
+ it('ISO-001/DECL-001/006: mounted bulk routes apply isolated tokenization and declarations deliberately enable sharing',async()=>{
   await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL WHERE id=$1',[f.ids[0]]));await listen();
   const url=origin+declarationsPath(f.ctx.projectId,f.ids[0]!);
   const initial=ElementDeclarations.parse(await (await fetch(url)).json());expect(initial.stored.tokenDomain).toBeNull();
-  const assigned=await fetch(url,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({...initial.stored,tokenDomain:'customer1'})});expect(assigned.status).toBe(200);expect(ElementDeclarations.parse(await assigned.json()).effective.tokenDomain).toBe('customer1');
+  expect(initial.effective.tokenDomain).toMatch(/^opintelisolated[0-9a-f]{64}$/);
   const decision=await fetch(`${origin}/api/v1/pools/${f.pool}/entitlements/bulk`,{method:'POST',headers:{'content-type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({...f.body,treatment:'tokenized'})});expect(decision.status).toBe(200);
+  const assigned=await fetch(url,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({...initial.stored,tokenDomain:'customer1',confirmation:'Bulk project'})});expect(assigned.status).toBe(200);expect(ElementDeclarations.parse(await assigned.json()).effective.tokenDomain).toBe('customer1');
   expect(discovery.canonicalisers).toHaveBeenCalledWith(f.ctx,f.ids[0]);
   const schema=await fetch(origin+schemaDeclarationsPath(f.ctx.projectId,f.source,'public'));expect(schema.status).toBe(200);
   const timezone=await fetch(origin+schemaDeclarationsPath(f.ctx.projectId,f.source,'public'),{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({sourceTimezone:'America/Toronto'})});expect(timezone.status).toBe(200);
@@ -54,7 +55,9 @@ describe('5.22 declarations end to end',()=>{
   expect(await save({tokenDomain:'other',confirmation:'Bulk project '})).toMatchObject({ok:false,error:{code:'conflict'}});
   unwrap(await save({caseInsensitive:false,tokenDomain:'other',confirmation:'Bulk project'}));
   unwrap(await new PostgresCanonicaliserAssignments(discovery).assign(f.ctx,f.ids[0]!,{canonId:'stdtext1'}));
-  expect(await save({tokenDomain:null,confirmation:'Bulk project'})).toMatchObject({ok:false,error:{code:'validation_failed'}});
+  expect(await save({tokenDomain:null})).toMatchObject({ok:false,error:{code:'conflict'}});
+  unwrap(await save({tokenDomain:null,confirmation:'Bulk project'}));
+  expect(unwrap(await read()).effective.tokenDomain).toMatch(/^opintelisolated[0-9a-f]{64}$/);
  });
  it('DECL-003/004: first epoch assignment changes effective tokens; explicit canonicalisers are never overridden',async()=>{
   await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET source_type='bigint',exposed_type='BIGINT' WHERE id=$1",[f.ids[0]]));unwrap(await tokenized());
@@ -86,9 +89,9 @@ describe('5.22 declarations end to end',()=>{
   discovery.canonicalisers.mockResolvedValueOnce(err(new DomainError('dependency_unavailable','The source has no Engine assigned.')));expect(unwrap(await read()).discoveryError).toContain('no Engine');
  });
  it('DECL-007: validation names authorized qualified elements and structured declaration fields, never foreign names',async()=>{
-  await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL WHERE id=$1',[f.ids[0]]));const foreign=await bulkFixture(1);
+  await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL,source_type=\'timestamp\',exposed_type=\'TIMESTAMP\' WHERE id=$1',[f.ids[0]]));const foreign=await bulkFixture(1);
   const result=unwrap(await new PostgresBulkEntitlements().set(f.ctx,f.pool,BulkEntitlementBody.parse({...f.body,elementIds:[...f.ids,...foreign.ids],treatment:'tokenized'}),randomUUID(),'test'));
-  expect(result).toMatchObject({status:422,body:{error:{details:{invalidElements:[{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['tokenDomain'],reasons:[expect.stringContaining('Explore schema')]},{elementId:foreign.ids[0],qualifiedName:'Unavailable element',declarationFields:[]}]}}}});
+  expect(result).toMatchObject({status:422,body:{error:{details:{invalidElements:[{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['sourceTimezone'],reasons:[expect.stringContaining('Explore schema')]},{elementId:foreign.ids[0],qualifiedName:'Unavailable element',declarationFields:[]}]}}}});
  });
  it('DECL-003: concurrent first decision and declaration serialize without an unconfirmed token change',async()=>{
   const [declaration,decision]=await Promise.all([save({caseInsensitive:false}),tokenized()]);expect(unwrap(decision).status).toBe(200);

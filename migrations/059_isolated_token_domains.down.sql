@@ -1,0 +1,1 @@
+ALTER TABLE catalog_element DROP CONSTRAINT catalog_element_token_domain_namespace;

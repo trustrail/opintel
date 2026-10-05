@@ -525,7 +525,7 @@ Entities whose behaviour is not covered by the flows above.
 | R-006 | F | `patternRule` deleted | Existing entitlements it set are retained |
 | R-007 | D | `patternRule` provenance | Entitlements it sets record `source: rule`, distinct from `user` |
 | R-025 | F | Two `patternRule`s match one element at the same priority | No entitlement created; an observation names both rules and the element |
-| R-026 | F | Tokenized rule matches an element with no declared token domain | No entitlement created; element stays undecided; an observation names the rule, the element and the missing declaration |
+| R-026 | F | Tokenized rule matches an undeclared domain; naive timestamp has no declared timezone | Undeclared domains use isolated tokenization; missing temporal prerequisites still leave the element undecided with an observation |
 | R-027 | F | Masked rule whose kind does not suit the element's type family | No entitlement created; observation names the mismatch |
 | R-008 | F | `subject` with aliases | Each alias classifies to the canonical subject |
 | R-009 | F | `operation` result shape | Drives the result renderer; a mismatch is a defect |
@@ -649,6 +649,15 @@ Landing happens inside the customer's environment and writes to their Postgres. 
 | ING-34 | F | An unmapped header *(1b)* | Refused and named. Never guessed |
 | ING-35 | F | Two filing parties, different headers, one term *(1b)* | Both resolve, aggregate correctly |
 | ING-36 | D | A question answered from a landed bordereau *(1b)* | Same pipeline, same record shape, same trace as a native table |
+
+**ING-17 execution.** The 100,000-row, 206 MB CSV heap proof lives in
+`test/performance/ingest-extract.test.ts`, run by `npm run test:performance`
+serially after the functional suite, without concurrent browser or load work.
+It retains the 96 MiB sampled heap-growth ceiling, exact emitted row count and
+60-second timeout. Five full-file integrity hashes and two parsing passes make
+this CPU and filesystem intensive; its wall-time budget does not belong in the
+functional suite. The XLSX shared-string proof and small CSV correctness cases
+remain in `test/ingest-extract.test.ts`.
 
 **ING-08 and ING-26 are the two that matter most.** A bordereau attributed to the wrong filing party is worse than one that did not land, and a reserve that moved silently is a wrong number nobody can trace.
 
@@ -1262,10 +1271,19 @@ The report names the screen, control, structural markup and violated contract.
 |---|---|
 | DECL-001 | Console declaration through mounted production routes enables a tokenized entitlement without SQL |
 | DECL-002 | Stored declarations and effective defaults/inheritance are visibly distinct; no host timezone inference |
-| DECL-003 | First domain assignment versus effective changes; exact project-name confirmation across all tokenized pools, including first epoch assignment and disabling default case folding; effective no-ops need none |
+| DECL-003 | First domain assignment on an undecided element versus effective changes on an already-tokenized element; exact project-name confirmation across all tokenized pools, including first epoch assignment and disabling default case folding; effective no-ops need none |
 | DECL-004 | Epoch/canonicaliser conflicts in both directions refuse atomically; compatible deliberate joint changes succeed and inferred standards follow mode |
 | DECL-005 | Domain, IANA timezone, integer epoch and available canonicaliser validation preserve every field on rejection |
 | DECL-006 | Mounted routes and production construction, source-routed discovery, project view/administer permissions and tenant isolation |
 | DECL-007 | Bulk validation names the authorized qualified element and links to its declarations, including elements absent from loaded tree pages; foreign elements disclose no names |
 | DECL-008 | Changes advance catalogue generation and subsequent execution uses new declarations. A past answer's evidence continues to name its selected/used key version and effective declarations in force when given; editing declarations cannot make that answer unexplainable, including when optional detail is sampled out |
 | DECL-009 | Loading, empty, error and ready panel states, keyboard access, axe and snapshots at 390/900/1440; reached from drawer and contextual link |
+
+## Item 5.23: isolated tokenization by default
+
+| ID | Proof |
+|---|---|
+| ISO-001 | Single, bulk and pattern-rule tokenized entitlements apply without a declared domain; no generated domain is persisted |
+| ISO-002 | Equal values in two undeclared elements produce different tokens and HMAC bodies; project scope separates derived domains; reserved namespace cannot be declared through commands or direct storage; migration 059 up/down/up |
+| ISO-003 | Real persisted introspections preserve identity and token values on matches and stable-reference carry renames; new renames, renames without stable references and table/schema replacements get new identities/domains, with old entitlements not carried |
+| ISO-004 | Panel shows stored absence separately from effective value with “derived from element identity”; explicit domains override; assignment/reset for an already-tokenized element needs exact project-name confirmation; axe and Linux snapshots at 390/900/1440 |

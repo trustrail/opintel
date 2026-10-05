@@ -25,20 +25,22 @@ beforeEach(async()=>{
   await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Analysis')",[pool,ctx.projectId]);
  });
 });
-it('requires tokenDomain at entitlement time; persists declarations and protects token-breaking changes',async()=>{
- expect(await decide()).toMatchObject({ok:false,error:{message:expect.stringContaining('tokenDomain')}});
- expect(unwrap(await decisions.forElement(ctx,pool,element))).toBeNull();
- unwrap(await repository.setElement(ctx,element,{tokenDomain:'customer1',caseInsensitive:true}));
+it('ISO-001: accepts isolated tokenization and protects assignment/change/reset of shared domains',async()=>{
+ unwrap(await decide());
+ expect(await repository.setElement(ctx,element,{tokenDomain:'customer1',caseInsensitive:true})).toMatchObject({ok:false,error:{code:'conflict'}});
+ unwrap(await repository.setElement(ctx,element,{tokenDomain:'customer1',caseInsensitive:true,confirmation:'Compiler project'}));
  unwrap(await decide());
  expect(await repository.setElement(ctx,element,{tokenDomain:'customer2'})).toMatchObject({ok:false,error:{code:'conflict'}});
  expect(await repository.setElement(ctx,element,{caseInsensitive:false,confirmation:'wrong'})).toMatchObject({ok:false,error:{code:'conflict'}});
  unwrap(await repository.setElement(ctx,element,{tokenDomain:'customer2',caseInsensitive:false,confirmation:'Compiler project'}));
  expect(unwrap(await new PostgresTokenDeclarations().read(ctx,element))).toEqual({tokenDomain:'customer2',caseInsensitive:false});
  unwrap(await repository.setElement(ctx,element,{tokenDomain:'customer2',caseInsensitive:false}));
- expect(await repository.setElement(ctx,element,{tokenDomain:null,confirmation:'Compiler project'})).toMatchObject({ok:false,error:{code:'validation_failed'}});
+ expect(await repository.setElement(ctx,element,{tokenDomain:null})).toMatchObject({ok:false,error:{code:'conflict'}});
+ unwrap(await repository.setElement(ctx,element,{tokenDomain:null,confirmation:'Compiler project'}));
+ expect(unwrap(await repository.read(ctx,element)).tokenDomain).toBeNull();
 });
 it('validates declarations, permits first assignment, isolates tenants, and rechecks the type at entitlement time',async()=>{
- for(const domain of ['','sentinel','bad_domain','Upper','customer\n'])expect(await repository.setElement(ctx,element,{tokenDomain:domain})).toMatchObject({ok:false});
+ for(const domain of ['','sentinel','opintelisolatedreserved','bad_domain','Upper','customer\n'])expect(await repository.setElement(ctx,element,{tokenDomain:domain})).toMatchObject({ok:false});
  unwrap(await repository.setElement(ctx,element,{tokenDomain:'customer'}));unwrap(await decide());
  expect(await repository.setElement(ctx,element,{caseInsensitive:false})).toMatchObject({ok:false,error:{code:'conflict'}});
  unwrap(await repository.setElement(ctx,element,{caseInsensitive:false,confirmation:'Compiler project'})); // Disables effective default folding.

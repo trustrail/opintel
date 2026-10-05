@@ -59,7 +59,7 @@ export function validateRuleTreatment(rule: PatternRule, element: RuleElement): 
     if (!valid.ok) problems.push(`Mask ${rule.maskKind} does not suit ${element.exposedType ?? 'unsupported type'}. ${valid.error.message}`);
   }
   if (rule.treatment === 'tokenized') {
-    const declarations = validateTokenDeclarations(element.exposedType, element, true);
+    const declarations = validateTokenDeclarations(element.exposedType, element);
     if (!declarations.ok) problems.push(declarations.error.message);
     const temporal = validateTokenizedTemporal(element.exposedType, element);
     if (!temporal.ok) problems.push(temporal.error.message);

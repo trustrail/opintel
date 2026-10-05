@@ -55,10 +55,10 @@ describe('4.7 atomic bulk entitlement API',()=>{
   expect(await response.json()).toMatchObject({error:{code:'validation_failed',details:{invalidElements:[{elementId:f.ids[1],reasons:[expect.stringContaining('active')]},{elementId:absent,reasons:[expect.stringContaining('not found')]}]}}});
   expect(await decisions()).toEqual(before);expect(await history()).toHaveLength(1);
  });
- it('collects token domain, timezone and canonicaliser failures without writing decisions',async()=>{
+ it('collects timezone and canonicaliser failures with an undeclared domain without writing decisions',async()=>{
   await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain=NULL,exposed_type='TIMESTAMP',canon_id='stdnum1' WHERE id=$1",[f.ids[0]]));
   const response=await host.post({...f.body,treatment:'tokenized'});expect(response.status).toBe(422);
-  const body=await response.json();expect(body.error.details.invalidElements).toEqual([{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['tokenDomain','sourceTimezone','canonId'],reasons:expect.arrayContaining([expect.stringContaining('tokenDomain'),expect.stringContaining('sourceTimezone'),expect.stringContaining('canonicaliser')])}]);
+  const body=await response.json();expect(body.error.details.invalidElements).toEqual([{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['sourceTimezone','canonId'],reasons:expect.arrayContaining([expect.stringContaining('sourceTimezone'),expect.stringContaining('canonicaliser')])}]);
   expect(await decisions()).toEqual([]);expect(await history()).toEqual([]);
  });
  it('rejects incompatible masks and unbound sources for the whole selection',async()=>{
@@ -77,11 +77,11 @@ describe('4.7 atomic bulk entitlement API',()=>{
   expect((await host.post({...f.body,treatment:'aggregate_only'},key)).status).toBe(200);expect(await history()).toHaveLength(2);
  });
  it('a 422 writes nothing, including no idempotency receipt; a corrected selection can be retried',async()=>{
-  await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL'));
+  await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL,exposed_type=\'TIMESTAMP\',source_type=\'timestamp\''));
   const key=randomUUID(),first=await host.post({...f.body,treatment:'tokenized'},key);expect(first.status).toBe(422);
   expect(await decisions()).toEqual([]);expect(await history()).toEqual([]);
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT * FROM bulk_entitlement_request'))).toEqual([]);
-  await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain='customer'"));
+  await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET source_timezone='UTC'"));
   expect((await host.post({...f.body,treatment:'tokenized'},key)).status).toBe(200);
  });
  it('reports a missing epoch unit explicitly for an integer timestamp',async()=>{

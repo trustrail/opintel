@@ -25,7 +25,7 @@ export class PostgresElementDeclarations implements DeclarationRepository {
   // Resolve authorization/tenant ownership before Engine discovery; foreign IDs
   // must neither contact another project's Engine nor disclose its diagnostics.
   const available=await this.canonicalisers.canonicalisers(ctx,element);
-  return ok({elementId:row.elementId,sourceId:row.sourceId,schemaName:row.schemaName,qualifiedName:row.qualifiedName,exposedType:row.exposedType,projectName:await projectName(ctx),stored:stored(row),schemaTimezone:row.schemaTimezone,effective:effectiveDeclarations(row.exposedType,row,row.schemaTimezone),tokenizedEntitlements:row.tokenizedEntitlements,canonicalisers:available.ok?[...available.value]:[],discoveryError:available.ok?null:available.error.message});
+  return ok({elementId:row.elementId,sourceId:row.sourceId,schemaName:row.schemaName,qualifiedName:row.qualifiedName,exposedType:row.exposedType,projectName:await projectName(ctx),stored:stored(row),schemaTimezone:row.schemaTimezone,effective:effectiveDeclarations(row.exposedType,row,row.schemaTimezone,{projectId:ctx.projectId,elementId:element}),tokenizedEntitlements:row.tokenizedEntitlements,canonicalisers:available.ok?[...available.value]:[],discoveryError:available.ok?null:available.error.message});
  }
  async save(ctx:TemporalContext,element:ElementId,input:unknown){
   const parsed=DeclarationCommand.safeParse(input);
@@ -35,12 +35,12 @@ export class PostgresElementDeclarations implements DeclarationRepository {
   const result=await withTenant(ctx,async tx=>{
    const locked=await tx.query('SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 FOR UPDATE OF s',[element]);if(!locked.length)return missing();
    const [row]=await tx.query<Row>(select+' FOR UPDATE OF e',[element]);if(!row)return missing();
-   for(const validation of [validateTokenDeclarations(row.exposedType,next,row.tokenizedEntitlements>0),validateTemporalType(row.exposedType,next),...(next.canonId===null?[]:[validateCanonicaliserType(next.canonId,row.exposedType,next.epochUnit)]),...(row.tokenizedEntitlements>0?[validateTokenizedTemporal(row.exposedType,{...next,sourceTimezone:next.sourceTimezone??row.schemaTimezone})]:[])])if(!validation.ok)return validation;
+   for(const validation of [validateTokenDeclarations(row.exposedType,next),validateTemporalType(row.exposedType,next),...(next.canonId===null?[]:[validateCanonicaliserType(next.canonId,row.exposedType,next.epochUnit)]),...(row.tokenizedEntitlements>0?[validateTokenizedTemporal(row.exposedType,{...next,sourceTimezone:next.sourceTimezone??row.schemaTimezone})]:[])])if(!validation.ok)return validation;
    if(next.canonId!==null&&next.canonId!==row.canonId){
     const available=await this.canonicalisers.canonicalisers(ctx,element);if(!available.ok)return available;
     if(!available.value.includes(next.canonId))return err(new DomainError('validation_failed','This canonicaliser is not advertised by the source’s Engine. Deploy it before assigning it.',{fields:['canonId']}));
    }
-   if(row.tokenizedEntitlements>0&&tokenBehaviour(row.exposedType,row,row.schemaTimezone)!==tokenBehaviour(row.exposedType,next,row.schemaTimezone)&&parsed.data.confirmation!==await projectName(ctx))return err(new DomainError('conflict','This changes effective tokenization for an already-tokenized element. Previously issued tokens will no longer match subsequent tokens. Type the project name exactly to confirm.',{fields:['confirmation']}));
+   if(row.tokenizedEntitlements>0&&tokenBehaviour(row.exposedType,row,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})!==tokenBehaviour(row.exposedType,next,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})&&parsed.data.confirmation!==await projectName(ctx))return err(new DomainError('conflict','This changes effective tokenization for an already-tokenized element. Previously issued tokens will no longer match subsequent tokens. Type the project name exactly to confirm.',{fields:['confirmation']}));
    if(JSON.stringify(stored(row))!==JSON.stringify(next))await tx.query('UPDATE catalog_element SET token_domain=$2,case_insensitive=$3,source_timezone=$4,epoch_unit=$5,canon_id=$6 WHERE id=$1',[element,next.tokenDomain,next.caseInsensitive,next.sourceTimezone,next.epochUnit,next.canonId]);
    return ok(undefined);
   });

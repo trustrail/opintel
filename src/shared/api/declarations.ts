@@ -1,3 +1,4 @@
+import { declaredTokenDomain } from '../token-domain.js';
 import { z } from 'zod';
 import { createApiClient } from './client.js';
 // Reads preserve the stored facts, including an invalid legacy declaration an
@@ -8,12 +9,12 @@ export const IanaTimezone = z.string().refine(value => {
 }, 'Use a valid IANA timezone such as America/Toronto.');
 export const DeclarationValues = z.strictObject({tokenDomain:z.string().nullable(),caseInsensitive:z.boolean().nullable(),sourceTimezone:z.string().nullable(),epochUnit:z.enum(['seconds','milliseconds']).nullable(),canonId:z.string().nullable()});
 export const DeclarationCommand = DeclarationValues.extend({
-  tokenDomain:z.string().regex(/^[a-z0-9]+$(?![\s\S])/u,'Use lowercase letters and digits for the token domain.').refine(value=>value!=='sentinel','sentinel is reserved.').nullable(),
+  tokenDomain:declaredTokenDomain.nullable(),
   sourceTimezone:IanaTimezone.nullable(),canonId:z.string().regex(/^[a-z0-9]+$(?![\s\S])/u,'Choose an advertised lowercase alphanumeric canonicaliser ID.').nullable(),confirmation:z.string().optional(),
 });
 export type DeclarationValues = z.infer<typeof DeclarationValues>;
 export type DeclarationCommand = z.infer<typeof DeclarationCommand>;
-export const EffectiveDeclarations = z.object({ tokenDomain: z.string().nullable(), caseInsensitive: z.boolean(), sourceTimezone: z.string().nullable(), epochUnit: z.enum(['seconds','milliseconds']).nullable(), canonId: z.string(), mode: z.enum(['text','number','date','timestamp']) });
+export const EffectiveDeclarations = z.object({ tokenDomain: z.string(), caseInsensitive: z.boolean(), sourceTimezone: z.string().nullable(), epochUnit: z.enum(['seconds','milliseconds']).nullable(), canonId: z.string(), mode: z.enum(['text','number','date','timestamp']) });
 export const ElementDeclarations = z.object({
   elementId: z.uuid(), sourceId: z.uuid(), schemaName: z.string(), qualifiedName: z.string(), exposedType: z.string().nullable(),
   projectName: z.string(), stored: DeclarationValues, schemaTimezone: z.string().nullable(), effective: EffectiveDeclarations,

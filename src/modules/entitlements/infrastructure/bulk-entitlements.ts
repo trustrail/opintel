@@ -49,7 +49,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
           if (row.type === null || (input.treatment !== 'withheld' && row.name === null)) reasons.push('The element has no supported exposed type or name.');
           if (input.maskKind !== null) { const valid=validateMaskType(input.maskKind,row.type); if(!valid.ok)reasons.push(valid.error.message); }
           if (input.treatment === 'tokenized') {
-            const token=validateTokenDeclarations(row.type,row,true),temporal=validateTokenizedTemporal(row.type,row);
+            const token=validateTokenDeclarations(row.type,row),temporal=validateTokenizedTemporal(row.type,row);
             if(!token.ok){reasons.push(token.error.message);declarationFields.push(...BulkInvalidElement.shape.declarationFields.unwrap().parse(token.error.details?.fields));}
             if(!temporal.ok){reasons.push(temporal.error.message);declarationFields.push(...BulkInvalidElement.shape.declarationFields.unwrap().parse(temporal.error.details?.fields));}
             if (row.canonId === 'stdtime1' && row.type !== null && ['TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(row.type) && row.epochUnit === null) {reasons.push('Declare epochUnit for the integer timestamp before tokenization.');declarationFields.push('epochUnit');}

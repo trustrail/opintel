@@ -1,3 +1,5 @@
+import {ProjectId,ElementId} from '../src/shared/kernel/value-objects.js';
+import {derivedTokenDomain} from '../src/shared/token-domain.js';
 import {test} from './fixtures.js';
 import {expect,type Page} from '@playwright/test';
 import axe from 'axe-core';
@@ -39,6 +41,6 @@ test('DECL-007: qualified validation error links to declarations without requiri
  const state=await mock(page);state.invalid=true;await page.goto(`/projects/${project}/entitlements`);await expand(page);
  await page.getByLabel('Select field_0000',{exact:true}).check();await page.getByLabel('Treatment',{exact:true}).selectOption('tokenized');await page.getByRole('button',{name:/Apply to/}).click();
  const error=page.getByRole('alert');await expect(error).toContainText('warehouse.public.records.field_0000');await expect(error).toContainText('Data sources → Explore schema');await expect(error).not.toContainText('018f8f9d-7f83-7abc-8def-000000000100');
- await page.route('**/catalog/elements/*/declarations',route=>route.fulfill({json:{elementId:'018f8f9d-7f83-7abc-8def-000000000100',sourceId:source,schemaName:'public',qualifiedName:'warehouse.public.records.field_0000',exposedType:'VARCHAR',projectName:'Reporting',stored:{tokenDomain:null,caseInsensitive:null,sourceTimezone:null,epochUnit:null,canonId:null},schemaTimezone:null,effective:{tokenDomain:null,caseInsensitive:true,sourceTimezone:null,epochUnit:null,canonId:'stdtext1',mode:'text'},tokenizedEntitlements:0,canonicalisers:['stdtext1'],discoveryError:null}}));
+ await page.route('**/catalog/elements/*/declarations',route=>route.fulfill({json:{elementId:'018f8f9d-7f83-7abc-8def-000000000100',sourceId:source,schemaName:'public',qualifiedName:'warehouse.public.records.field_0000',exposedType:'VARCHAR',projectName:'Reporting',stored:{tokenDomain:null,caseInsensitive:null,sourceTimezone:null,epochUnit:null,canonId:null},schemaTimezone:null,effective:{tokenDomain:derivedTokenDomain({projectId:ProjectId(project),elementId:ElementId('018f8f9d-7f83-7abc-8def-000000000100')}),caseInsensitive:true,sourceTimezone:null,epochUnit:null,canonId:'stdtext1',mode:'text'},tokenizedEntitlements:0,canonicalisers:['stdtext1'],discoveryError:null}}));
  await page.getByRole('link',{name:'Open declarations',exact:true}).click();await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();await expect(page.getByLabel('Token domain',{exact:true})).toHaveValue('');await expect(page).toHaveURL(/elementId=018f8f9d-7f83-7abc-8def-000000000100/);
 });
