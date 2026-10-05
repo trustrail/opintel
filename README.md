@@ -45,3 +45,9 @@ can already be running; otherwise start it with the command above.
 Fresh `dev:demo` provisioning registers the source as **Reinsurance**, giving it the catalog alias `reinsurance`. Its physical landing schema remains the generated `demo_<sourceId>` schema. There is no administrator control for assigning an exposed schema name, so that component remains generated rather than being changed to `public` for presentation.
 
 An existing provisioned demo keeps its current alias: aliases are immutable by design, and rerunning the bootstrap does not rename them. Fresh provisioning is required to see the readable alias.
+
+## Verification
+
+After `npm run dev:up`, run `npm run check` for sequential verification: typecheck, conformance typecheck, lint, build, functional tests, bypass, performance, tokenization collision proof, Linux browser functional tests, control conformance, snapshots, browser performance and ephemerality. Each command must finish successfully before the next starts. On macOS, use `caffeinate -i npm run check` to prevent sleep during the run.
+
+Individual npm commands remain available for focused checks. Run them one at a time; do not overlap suites with typecheck, lint, builds, browser installation or another validation process. npm cannot prevent overlap caused by independently launched terminals or direct tool invocations. CI steps are already sequential per runner; its parallel jobs use separate runners.

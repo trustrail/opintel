@@ -639,10 +639,6 @@ per project, sources identify their engine, and the console can name each
 engine's sources and last-seen health. This supplies the fleet enumeration
 previously assumed by §8; it does not add a background fleet-health exporter.
 
-- Two unexplained timeouts during 5.20 validation: ING-17's large CSV
-  (60s) and tokenization-source's afterAll cleanup (30s). Both passed on
-  rerun; neither cause was established. Both involve a fixture database
-  teardown or a large stream under concurrent load.
 
 # Token domain friction
 
@@ -669,12 +665,52 @@ A measured one-column query stages seven entitled columns and performs tokenizat
   or dbo has agents carrying that in every three-part name, with no remedy.
   Source aliases cover the catalog segment only.
 
-# Activity UI timing during 5.24 verification
+# Wall-clock-sensitive validation: consolidated timing record
 
-The Linux Playwright combined declarations/activity run passed 13 checks but
-`5.12 filters, cursor loading, empty, error, loading and incomplete states`
-exceeded its 30-second total budget during the error-state page reload. The
-unchanged test passed in 12.7 seconds in a subsequent Activity-only functional
-run. The cause is not established; the narrower pass does not make the combined
-run green. Its timeout was not increased. Assignment-version display passed in
-the same subsequent run, and all 390/900/1440 snapshots passed in the combined run.
+One recurring pattern, several possible mechanisms: substantial external work
+exceeds a wall-clock test budget in a combined run and passes unchanged in a
+narrower run. This establishes unreliable headroom under observed conditions,
+not a common root cause or a passing original run.
+
+| Test / hook | Budget | Recorded observation |
+|---|---|---|
+| ING-17 large CSV | 60s | Repeated full-run timeouts and isolated passes; browser setup overlapped an earlier ING-17 failure. Now isolated in the performance project. Roughly 200 MB of generation, hashing, inspection and row streaming; no database. |
+| tokenization-source afterAll | 30s | Failed during 5.20 validation, passed on rerun; connection close and temporary Postgres database teardown. No recorded wait diagnosis. |
+| Activity: 5.12 filters, cursor loading, empty, error, loading and incomplete states | 30s | Combined Linux declarations/activity run: 13 passes, this test timed out during the error-state reload. Unchanged Activity-only rerun passed in 12.7s. All three-width snapshots passed. |
+| DOMAIN-001/003: domain migrations append immutable versions, no-op stays put and revert restores tokens | 5s | Timed out in focused RLS/history/grants verification while typecheck/lint overlapped; unchanged history-only rerun passed after those finished. Two complete MCP fixtures, declaration transactions and three staged queries. RLS-10 and grants passed unchanged. |
+
+These are four distinct locations, not six distinct named tests; repeated
+incidents do not create another test. An additional historical ING-17 XLSX
+failure is recorded in test-timeout-headroom.md (20,000 compressed workbook
+rows and a disk-backed shared-string index); it also passed in isolation.
+
+Command overlap is the mechanism with recorded evidence of simultaneous work:
+browser setup alongside ING-17, and typecheck/lint alongside domain history.
+That coincidence has not established causality. CPU saturation, filesystem
+pressure, database waits, cumulative leaked resources and browser scheduling
+remain distinct possibilities. CSV/XLSX, Postgres teardown, browser navigation
+and MCP execution do not share one specific dependency.
+
+Vitest already serializes files and test cases; the Linux browser runner uses
+one worker. CI steps run sequentially within each job, and parallel jobs have
+separate GitHub-hosted runners. npm scripts did not launch competing gates:
+independent local/tool command invocations introduced overlap. `npm run check`
+now provides one sequential path; AGENTS.md and README require focused commands
+and browser setup to follow the same rule. No per-test or job timeout changed.
+
+Recorded successful functional runs grew from 937 tests / 281.79s to 1,357 /
+479.57s; later reports exceed 1,470 tests without comparable elapsed timings.
+Suite duration does not consume per-test budgets: those clocks restart. More
+work may increase contention, resource accumulation or exposure to slow tails,
+but elapsed suite time alone proves none of those. Runs lasting 3,259s and
+1,713s involved host sleep and must not establish a performance trend.
+
+At the next failure, capture concurrent commands and child processes, awake
+elapsed time, CPU/run-queue and memory/swap pressure, filesystem I/O, Postgres
+active queries/wait events/locks/connections, and test phase timings. For the
+browser, retain navigation timing and a trace around the failing reload; for
+teardown, identify the blocking operation and remaining sessions. Compare the
+same test under sequential commands and controlled overlap, without changing
+its timeout. That evidence would distinguish shared host contention from a
+specific blocked dependency or cumulative resource leak. An isolated pass is
+additional evidence, never a replacement for the failed combined result.

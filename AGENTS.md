@@ -115,6 +115,9 @@ Most rules below exist to protect that sentence.
 
 ---
 
+**Validation scheduling**
+- Run typecheck, lint, builds, browser setup and test suites sequentially on one machine. Never overlap separate validation commands. `npm run check` supplies the full ordered path; focused checks follow the same rule.
+
 ## Definition of done
 
 An item is finished when all of these hold. This is the pull request template.
