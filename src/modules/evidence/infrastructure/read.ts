@@ -11,6 +11,7 @@ export const childColumns=`COALESCE((SELECT jsonb_agg(jsonb_build_object('elemen
 const joined='FROM evidence_run_read r LEFT JOIN evidence_completion_read c ON c.run_id=r.id AND c.started_at=r.started_at';
 const legacyVersions=z.object({policy:z.number(),catalog:z.number(),vocabulary:z.number(),tokenKey:z.number()});
 const storedObjects=z.object({objects:EvidenceDetail.shape.objects});
+const storedTokens=z.object({tokenDeclarations:EvidenceDetail.shape.tokenDeclarations});
 const storedSources=z.object({sources:EvidenceDetail.shape.sources.default([])});
 function entry(row:Record<string,unknown>){const legacy=typeof row.versions==='object'&&row.versions!==null&&'tokenKey' in row.versions?legacyVersions.safeParse(row.versions):null;return ActivityEntry.parse({...row,versions:legacy?.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
 export class PostgresEvidenceReader implements EvidenceReader {
@@ -37,5 +38,6 @@ export class PostgresEvidenceReader implements EvidenceReader {
 export function detailRecord(row:Record<string,unknown>):EvidenceDetail {
  const objects=storedObjects.safeParse(row.sourcePlan??{});
  const sources=storedSources.safeParse(row.freshness??{});
- return EvidenceDetail.parse({...row,...entry(row),objects:objects.success?objects.data.objects:[],sources:sources.success?sources.data.sources:[]});
+ const tokens=storedTokens.safeParse(row.sourcePlan??{});
+ return EvidenceDetail.parse({...row,...entry(row),tokenDeclarations:tokens.success?tokens.data.tokenDeclarations:null,objects:objects.success?objects.data.objects:[],sources:sources.success?sources.data.sources:[]});
 }

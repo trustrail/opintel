@@ -15,3 +15,8 @@ export { PostgresTokenDeclarations } from './infrastructure/token-declarations.j
 export { validateTokenDeclarations } from './application/token-declarations.js';
 export type { TokenDeclarationRepository, TokenDeclarations } from './application/token-declarations.js';
 export { hydrateCatalogObject, type CatalogObjectRow, type CatalogElementRow } from './infrastructure/hydration.js';
+
+export { standardCanonId, validateCanonicaliserType } from './application/canonicaliser-mode.js';
+export { PostgresElementDeclarations } from './infrastructure/declarations.js';
+export { effectiveDeclarations, tokenBehaviour } from './application/declarations.js';
+export type { DeclarationRepository, DeclarationCanonicalisers } from './application/declarations.js';

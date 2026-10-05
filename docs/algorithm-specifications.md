@@ -117,7 +117,7 @@ Converting to UTC is correct only when the source value carries a zone. Where it
 
 **Refusing is the right default and it will be unpopular.** The alternative is a join that works in staging and fails in production because the sidecar moved. The declaration is a one-line setting on the element and it belongs in the six week deployment alongside the other data decisions.
 
-`sourceTimezone` and `epochUnit` are per-element settings. Neither has a default. A schema may declare `sourceTimezone` as an inherited default; an element declaration overrides it. Zone names must be valid IANA names, checked when set. Changing an existing declaration affecting an element with a tokenized entitlement requires the project name as typed confirmation. Setting a declaration for the first time does not.
+`sourceTimezone` and `epochUnit` are per-element settings. Neither has a default. A schema may declare `sourceTimezone` as an inherited default; an element declaration overrides it. Zone names must be valid IANA names, checked when set. Confirmation requires the exact project name when a change alters effective tokenization behaviour for an already-tokenized element, across all pools. Compare the effective token domain, mode and canonicaliser, case folding in text mode, epoch unit, and timezone where a naive timestamp uses it; do not compare only stored values. A first token-domain assignment is harmless because no tokenized entitlement can exist without a domain. A first epoch assignment is different: the stored value goes from absent to present but tokenization changes from number to timestamp, breaking joins. Tying confirmation to storage would let that join break without anyone confirming anything. Assigning an override equal to the inherited or derived value does not alter effective behaviour and needs no confirmation.
 
 **epochUnit is the epoch declaration**. Setting it marks the element as a Unix epoch and names its unit in one act, so there is no state in which an element is known to be an epoch but its unit is not. It may only be set on an integer column. An integer column without it is a number and tokenizes in number mode, **never inferred to be an epoch from its magnitude**.
 
@@ -151,12 +151,16 @@ interface Canonicaliser {
 | Registered per element, never global | The same rule is right for one column and wrong for another |
 | Pure and deterministic. No network, no clock, no locale lookup | Anything else reintroduces the drift A.3.1 just closed |
 | `canonId` carries the version and is recorded on the element. It enters the HMAC payload (A.2) | Changing a canonicaliser changes every token of that element, exactly like a key rotation. Putting the id in the payload guarantees two canonicaliser versions can never produce the same token |
-| Assigning or changing it on an element with a tokenized entitlement requires the project name as typed confirmation | Because the consequence is the same: joins break |
+| A change to the effective canonicaliser on an already-tokenized element requires the project name as typed confirmation | Compare effective behaviour, not absent versus present storage: joins break when the effective id changes |
 | Ships as part of the industry pack where the domain is common | Address and roll-number handling is reusable within a market |
 
 **A canonicaliser is established during the deployment**, alongside vocabulary and landing strategy. It is a data decision made with the customer, not a library choice made by an engineer.
 
 **Where a canonicaliser exists it runs first**, then the remaining text-mode steps run on its output. The order matters: normalising Unicode before a domain rule sees the value would hide the distinctions the rule needs.
+
+**Explicit canonicalisers are preserved.** An epoch-mode edit incompatible with an explicit canonicaliser is refused, never silently overridden. With no explicit assignment, the standard canonicaliser follows the resulting mode. An administrator may deliberately save a compatible epoch unit and canonicaliser together; validate and commit the complete declaration atomically, leaving every field unchanged on refusal.
+
+**Historical explanation.** Evidence for a past answer retains the selected and used key versions and the effective token declarations in force for that answer. Later declaration edits never reinterpret past evidence against today's catalogue. These execution declarations remain captured even when successful-run detail sampling omits optional detail; historical records without the capture are labelled unavailable, never reconstructed from current declarations.
 
 **Every tokenized element has a `canon_id`, even without a domain canonicaliser.** The built-in ids are `stdtext1`, `stdnum1`, `stddate1` and `stdtime1`, one per mode. A domain canonicaliser replaces `stdtext1` with its own id.
 

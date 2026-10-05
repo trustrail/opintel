@@ -1254,3 +1254,18 @@ The report names the screen, control, structural markup and violated contract.
 | ENG-007 | Settings has loading/empty/error/ready, permission-gated operator actions, axe and snapshots at 390/900/1440; no new CSS |
 | ENG-008 | Migration rolls down/up; every former client configuration reader is explicitly migrated without fallback |
 | ENG-009 | Startup exposes the full public certificate SHA-256 pin beside the actual listener host/port; the read-only pin CLI prints the same hash while running, needs no private-key files and changes no process state |
+
+
+## Item 5.22: element declaration administration
+
+| ID | Proof |
+|---|---|
+| DECL-001 | Console declaration through mounted production routes enables a tokenized entitlement without SQL |
+| DECL-002 | Stored declarations and effective defaults/inheritance are visibly distinct; no host timezone inference |
+| DECL-003 | First domain assignment versus effective changes; exact project-name confirmation across all tokenized pools, including first epoch assignment and disabling default case folding; effective no-ops need none |
+| DECL-004 | Epoch/canonicaliser conflicts in both directions refuse atomically; compatible deliberate joint changes succeed and inferred standards follow mode |
+| DECL-005 | Domain, IANA timezone, integer epoch and available canonicaliser validation preserve every field on rejection |
+| DECL-006 | Mounted routes and production construction, source-routed discovery, project view/administer permissions and tenant isolation |
+| DECL-007 | Bulk validation names the authorized qualified element and links to its declarations, including elements absent from loaded tree pages; foreign elements disclose no names |
+| DECL-008 | Changes advance catalogue generation and subsequent execution uses new declarations. A past answer's evidence continues to name its selected/used key version and effective declarations in force when given; editing declarations cannot make that answer unexplainable, including when optional detail is sampled out |
+| DECL-009 | Loading, empty, error and ready panel states, keyboard access, axe and snapshots at 390/900/1440; reached from drawer and contextual link |

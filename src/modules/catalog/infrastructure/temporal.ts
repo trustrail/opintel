@@ -1,12 +1,13 @@
+import { validateCanonicaliserType } from '../application/canonicaliser-mode.js';
 import { withPlatform, withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, type ElementId, type SourceId } from '../../../shared/kernel/index.js';
 import { temporalPatch, schemaTimezonePatch, validateTemporalType, validateTokenizedTemporal, type TemporalContext, type TemporalRepository, type TemporalView } from '../application/temporal.js';
 import type { ExposedType } from '../domain/type-mapping.js';
 
-type Row = TemporalView & { exposedType: ExposedType | null; tokenized: boolean };
+type Row = TemporalView & { exposedType: ExposedType | null; tokenized: boolean; canonId: string | null };
 const select = `SELECT e.source_timezone AS "sourceTimezone", e.epoch_unit AS "epochUnit",
  d.source_timezone AS "schemaTimezone", COALESCE(e.source_timezone,d.source_timezone) AS "effectiveSourceTimezone",
- e.exposed_type AS "exposedType", EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS tokenized
+ e.canon_id AS "canonId", e.exposed_type AS "exposedType", EXISTS(SELECT 1 FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS tokenized
  FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id
  LEFT JOIN catalog_schema_temporal d ON d.source_id=o.source_id AND d.schema_name=o.schema_name`;
 const view = (row: Row): TemporalView => ({ sourceTimezone: row.sourceTimezone, epochUnit: row.epochUnit, schemaTimezone: row.schemaTimezone, effectiveSourceTimezone: row.effectiveSourceTimezone });
@@ -38,9 +39,8 @@ export class PostgresTemporalRepository implements TemporalRepository {
       const valid = validateTemporalType(row.exposedType, next);
       if (!valid.ok) return valid;
       const effective = next.sourceTimezone ?? row.schemaTimezone;
-      const changing = (row.sourceTimezone !== null && next.sourceTimezone !== row.sourceTimezone)
-        || (row.effectiveSourceTimezone !== null && effective !== row.effectiveSourceTimezone)
-        || (row.epochUnit !== null && next.epochUnit !== row.epochUnit);
+      if (row.canonId !== null) { const compatible = validateCanonicaliserType(row.canonId,row.exposedType,next.epochUnit); if (!compatible.ok) return compatible; }
+      const changing = (row.exposedType === 'TIMESTAMP' && effective !== row.effectiveSourceTimezone) || next.epochUnit !== row.epochUnit;
       if (row.tokenized && changing && !await confirmed(ctx, patch.confirmation)) return confirmationRequired();
       if (row.tokenized) {
         const validDecision = validateTokenizedTemporal(row.exposedType, { ...next, sourceTimezone: effective });
@@ -61,7 +61,7 @@ export class PostgresTemporalRepository implements TemporalRepository {
       const [old] = await tx.query<{ zone: string }>('SELECT source_timezone AS zone FROM catalog_schema_temporal WHERE source_id=$1 AND schema_name=$2', [source, schema]);
       const next = parsed.data.sourceTimezone;
       const affected = await tx.query<Row>(select + ' WHERE o.source_id=$1 AND o.schema_name=$2 AND e.source_timezone IS NULL', [source, schema]);
-      if (old && old.zone !== next && affected.some(row => row.tokenized) && !await confirmed(ctx, parsed.data.confirmation)) return confirmationRequired();
+      if ((old?.zone ?? null) !== next && affected.some(row => row.tokenized && row.exposedType === 'TIMESTAMP') && !await confirmed(ctx, parsed.data.confirmation)) return confirmationRequired();
       for (const row of affected.filter(row => row.tokenized)) {
         const valid = validateTokenizedTemporal(row.exposedType, { sourceTimezone: next, epochUnit: row.epochUnit });
         if (!valid.ok) return valid;

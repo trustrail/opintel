@@ -16,7 +16,7 @@ export async function mock(page:Page){
  if(path.endsWith('/entitlements/bulk')){
  const body=route.request().postDataJSON() as Record<string,unknown>;state.commands.push({body,key:route.request().headers()['idempotency-key']});
  if(state.failBulk)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Decisions could not be saved. Try again.',requestId:'bulk-test',retryable:true}}});
- if(state.invalid)return route.fulfill({status:422,json:{error:{code:'validation_failed',message:'No decisions changed.',requestId:'bulk-test',retryable:false,details:{invalidElements:[{elementId:id(0),reasons:['A token domain is missing.']}]}}}});
+ if(state.invalid)return route.fulfill({status:422,json:{error:{code:'validation_failed',message:'No decisions changed.',requestId:'bulk-test',retryable:false,details:{invalidElements:[{elementId:id(0),qualifiedName:'warehouse.public.records.field_0000',declarationFields:['tokenDomain'],reasons:['A token domain is missing. Declare it in Data sources → Explore schema → Token declarations.']}]}}}});
  for(const element of body.elementIds as string[])state.decisions.set(element,body.treatment as string);
  return route.fulfill({json:{decisionId:object,poolId:pool,treatment:body.treatment,count:(body.elementIds as string[]).length,decidedAt:'2026-01-01T00:00:00.000Z'}});
  }

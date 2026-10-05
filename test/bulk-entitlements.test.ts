@@ -58,7 +58,7 @@ describe('4.7 atomic bulk entitlement API',()=>{
  it('collects token domain, timezone and canonicaliser failures without writing decisions',async()=>{
   await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain=NULL,exposed_type='TIMESTAMP',canon_id='stdnum1' WHERE id=$1",[f.ids[0]]));
   const response=await host.post({...f.body,treatment:'tokenized'});expect(response.status).toBe(422);
-  const body=await response.json();expect(body.error.details.invalidElements).toEqual([{elementId:f.ids[0],reasons:expect.arrayContaining([expect.stringContaining('tokenDomain'),expect.stringContaining('sourceTimezone'),expect.stringContaining('canonicaliser')])}]);
+  const body=await response.json();expect(body.error.details.invalidElements).toEqual([{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['tokenDomain','sourceTimezone','canonId'],reasons:expect.arrayContaining([expect.stringContaining('tokenDomain'),expect.stringContaining('sourceTimezone'),expect.stringContaining('canonicaliser')])}]);
   expect(await decisions()).toEqual([]);expect(await history()).toEqual([]);
  });
  it('rejects incompatible masks and unbound sources for the whole selection',async()=>{
@@ -87,7 +87,7 @@ describe('4.7 atomic bulk entitlement API',()=>{
  it('reports a missing epoch unit explicitly for an integer timestamp',async()=>{
   await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET exposed_type='BIGINT',canon_id='stdtime1',epoch_unit=NULL WHERE id=$1",[f.ids[0]]));
   const response=await host.post({...f.body,treatment:'tokenized'});expect(response.status).toBe(422);
-  expect((await response.json()).error.details.invalidElements).toEqual([{elementId:f.ids[0],reasons:[expect.stringContaining('epochUnit')]}]);
+  expect((await response.json()).error.details.invalidElements).toEqual([{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['epochUnit'],reasons:[expect.stringContaining('epochUnit')]}]);
   expect(await history()).toEqual([]);
  });
  it('checks project permission before replay and cannot cross tenant, pool or element boundaries',async()=>{

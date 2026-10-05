@@ -29,8 +29,8 @@ export class PostgresTokenDeclarations implements TokenDeclarationRepository {
         caseInsensitive: patch.caseInsensitive === undefined ? row.caseInsensitive : patch.caseInsensitive };
       const valid = validateTokenDeclarations(row.exposedType, next, row.tokenized);
       if (!valid.ok) return valid;
-      const changing = (row.tokenDomain !== null && next.tokenDomain !== row.tokenDomain)
-        || (row.caseInsensitive !== null && next.caseInsensitive !== row.caseInsensitive);
+      const changing = next.tokenDomain !== row.tokenDomain
+        || ((row.exposedType === 'VARCHAR' || row.exposedType === 'UUID') && (next.caseInsensitive ?? true) !== (row.caseInsensitive ?? true));
       if (row.tokenized && changing) {
         const [project] = await withPlatform(platform => platform.query<{ name: string }>('SELECT name FROM project WHERE id=$1', [ctx.projectId]));
         if (patch.confirmation === undefined || project?.name !== patch.confirmation) {

@@ -16,7 +16,7 @@ export type BulkEntitlementBody = z.infer<typeof BulkEntitlementBody>;
 export const BulkIdempotencyKey = z.string().min(1).refine(value => value.trim().length > 0);
 export const BulkEntitlementResponse = z.object({ decisionId: z.uuid(), poolId: z.uuid(), treatment: BulkEntitlementBody.shape.treatment, count: z.number().int().positive(), decidedAt: z.iso.datetime() });
 export type BulkEntitlementResponse = z.infer<typeof BulkEntitlementResponse>;
-export const BulkInvalidElement = z.object({ elementId: z.uuid(), reasons: z.array(z.string()).min(1) });
+export const BulkInvalidElement = z.object({ elementId: z.uuid(), qualifiedName:z.string().optional(), declarationFields:z.array(z.enum(['tokenDomain','caseInsensitive','sourceTimezone','epochUnit','canonId'])).optional(), reasons: z.array(z.string()).min(1) });
 export const BulkEntitlementError = z.object({ error: z.object({ code: z.string(), message: z.string(), requestId: z.string(), retryable: z.boolean(), details: z.object({ invalidElements: z.array(BulkInvalidElement) }).optional() }) });
 export const BulkStoredResponse = z.discriminatedUnion('status', [
   z.object({status:z.literal(200),body:BulkEntitlementResponse}),

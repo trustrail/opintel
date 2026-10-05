@@ -1,3 +1,4 @@
+import { DeclarationPanel, SchemaDeclarationPanel } from './declaration-panel.js';
 import { useMemo, useRef, type KeyboardEvent, type RefObject } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useStore } from 'zustand';
@@ -13,7 +14,7 @@ type Row = { key: string; depth: number; node: CatalogNode; position: number; si
   { key: string; depth: number; parent: string; message: string; action?: () => void; disabled?: boolean; actionLabel?: string };
 // The reference's .trow is 46px high. Window geometry is independent of catalogue size.
 const rowHeight = 46; const windowRows = 24; const overscan = 6;
-export function CatalogScreen({ projectId }: { projectId: string }) {
+export function CatalogScreen({ projectId,search={},onSearch=()=>undefined }: { projectId: string;search?:{elementId?:string;declarationSchema?:string};onSearch?:(search:{elementId?:string;declarationSchema?:string})=>void }) {
   const store = useMemo(createExplorerState, [projectId]); const state = useStore(store, useShallow(s => ({ branches: s.branches, expanded: s.expanded, searchParent: s.searchParent,
     toggle: s.toggle, search: s.search, select: s.select, more: s.more })));
   const viewport = useRef<HTMLDivElement>(null);
@@ -41,6 +42,8 @@ export function CatalogScreen({ projectId }: { projectId: string }) {
   level('', 1);
   const prefix = state.branches[state.searchParent]?.prefix ?? '';
   return <section className="screen on"><h1>Schema explorer</h1><p className="sub">The exposed names and types agents address, with each element's decision state. Undecided elements are visible here and omitted from the agent's describe response.</p>
+    {search.elementId?<DeclarationPanel projectId={projectId} elementId={search.elementId} onSchema={id=>onSearch({...search,declarationSchema:id})}/>:<p className="note">Select an element's Declarations button to inspect or edit its token domain, canonicaliser and temporal declarations.</p>}
+    {search.declarationSchema?<SchemaDeclarationPanel projectId={projectId} schemaId={search.declarationSchema}/>:null}
     {sources.isError ? <ErrorState title="Source display names could not be loaded" description={sources.error.message} retry={()=>sources.refetch()} /> : null}
     <div className="filters" style={{alignItems:'end'}}>
       <span className="pick"><label htmlFor="catalog-level">Search within</label><select id="catalog-level" value={state.searchParent} onChange={event => state.select(event.target.value)}>{branches.map(branch => <option key={branch.parent} value={branch.parent}>{labels.get(branch.parent) ?? branch.parent}</option>)}</select></span>
@@ -48,7 +51,7 @@ export function CatalogScreen({ projectId }: { projectId: string }) {
     </div>
     {root?.isPending ? <LoadingState /> : root?.isError ? <ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={()=>root.refetch()} /> : root?.data?.nodes.length === 0 ? <EmptyState icon="⊟" title={prefix ? 'No matching sources' : 'No catalogue yet'} description={prefix ? 'Try a shorter source-name prefix.' : 'Connect a source and introspect it. Its schema will appear here, with every supported element undecided.'} /> : <div className="card">
       <div className="card-h"><h2>Exposed namespace</h2><span className="meta">Expand one level at a time</span></div>
-      <TreeWindow store={store} rows={rows} viewport={viewport} sourceNames={new Map(sources.data?.map(source => [source.id, source.name]))} />
+      <TreeWindow store={store} rows={rows} viewport={viewport} onElement={elementId=>onSearch({elementId})} sourceNames={new Map(sources.data?.map(source => [source.id, source.name]))} />
     </div>}
     <p className="note">Source aliases are assigned once. Renaming the display name does not change the namespace. Unsupported types cannot be exposed; unnameable elements need a source-column rename or an explicit alias.</p>
   </section>;
@@ -56,8 +59,8 @@ export function CatalogScreen({ projectId }: { projectId: string }) {
 
 // Only this window subscribes to scrolling. The query observers and flattened
 // tree above update on structural changes, never on each animation frame.
-function TreeWindow({store, rows, viewport, sourceNames}: {
-  store: ReturnType<typeof createExplorerState>; rows: Row[];
+function TreeWindow({store, rows, viewport, sourceNames,onElement}: {
+  onElement:(elementId:string)=>void; store: ReturnType<typeof createExplorerState>; rows: Row[];
   viewport: RefObject<HTMLDivElement | null>; sourceNames: ReadonlyMap<string, string>;
 }) {
   const state = useStore(store);
@@ -74,6 +77,7 @@ function TreeWindow({store, rows, viewport, sourceNames}: {
     if (event.key === 'ArrowUp') { event.preventDefault(); focus(Math.max(0, index - 1)); }
     if (event.key === 'Home') { event.preventDefault(); focus(0); }
     if (event.key === 'End') { event.preventDefault(); focus(rows.length - 1); }
+    if ('node' in row && row.node.kind === 'element' && ['Enter',' '].includes(event.key)) { event.preventDefault(); onElement(row.node.id); }
     if ('node' in row && row.node.kind !== 'element' && ['ArrowRight', 'ArrowLeft', 'Enter', ' '].includes(event.key)) {
       event.preventDefault();
       if (event.key === 'ArrowRight' && state.expanded[row.node.id]) return;
@@ -92,7 +96,7 @@ function TreeWindow({store, rows, viewport, sourceNames}: {
               {node ? <><div className="tname">
                 {node.kind !== 'element' ? <button type="button" className="toolchip" aria-label={`${state.expanded[node.id] ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id] ? '▾' : '▸'}</span></button> : null}
                 <span style={{display:'flex',flexDirection:'column',minWidth:0}}><span className="nm" title={node.label ?? 'Unnameable element'}>{node.label ?? 'Unnameable element'}</span>{sourceName && sourceName !== node.label ? <span className="type" title={sourceName} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sourceName}</span> : null}</span>
-              </div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}<span className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
+              {node.kind==='element'?<button type="button" className="toolchip" aria-label={`Declarations for ${node.label??'unnameable element'}`} onClick={()=>onElement(node.id)}>Declarations</button>:null}</div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}<span className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
             </div>;
           })}
         </div>

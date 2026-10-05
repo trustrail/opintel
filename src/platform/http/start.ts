@@ -1,3 +1,5 @@
+import { declarationRoutes } from '../../modules/catalog/api/declaration-routes.js';
+import { PostgresElementDeclarations, PostgresTemporalRepository } from '../../modules/catalog/index.js';
 import {typeObservationRoutes} from '../../modules/sources/api/type-observation-routes.js';
 import {PostgresTypeObservations} from '../../modules/sources/infrastructure/type-observations.js';
 import {PostgresMagicLinkAccess} from '../../modules/identity/infrastructure/magic-link-access.js';
@@ -227,6 +229,7 @@ async function start(): Promise<void> {
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
+    ...declarationRoutes(new PostgresElementDeclarations(new engines.RegistryCustodyClient(engineRegistry)),new PostgresTemporalRepository()),
     ...sourceRoutes(sources),...engines.engineRoutes(engineRegistry),
     ...typeObservationRoutes(new PostgresTypeObservations()),
     ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory(),hub))),

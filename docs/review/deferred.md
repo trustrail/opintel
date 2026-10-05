@@ -530,24 +530,23 @@ an unregistered handler or unconstructed service do not establish delivery.
 Audit scope: the API and sidecar start files, their imported runtime factories,
 module exports, constructors and factory calls; development scripts and tests
 were checked separately. An export or import alone does not establish a call.
-These are administrator controls with implementations but no reachable runtime
-write path. They remain open; the OIDC repair does not wire them incidentally.
+These were administrator controls with implementations but no reachable runtime
+write path at the audit. Item 5.22 closes the three declaration paths below through
+the schema explorer, with permissioned production routes and atomic element writes.
+The OIDC repair did not wire them incidentally; pool/source binding remains open.
 
-- **Temporal declarations — item 4.3b.** `PostgresTemporalRepository` implements
-  element timezone/epoch declarations and schema timezone inheritance. It has no
-  production construction or registered writer route. **4.3b completion owns
-  wiring** its permissioned API and administrator controls; execution already
-  consumes these declarations.
-- **Token declarations — item 4.4** (declaration persistence, commit `71b9f1b`). `PostgresTokenDeclarations` implements
-  `tokenDomain` and `caseInsensitive` writes and token-change confirmation. It has
-  no production construction or writer route. **4.4 completion owns wiring** the
-  declaration API, with the element controls integrated into 4.8's Entitlements
-  screen. Demo bootstrap writes are not an administrator control.
-- **Canonicaliser assignment — item 4.3c.** `PostgresCanonicaliserAssignments`
-  implements assignment against the sidecar-advertised registry and confirmation
-  of token changes. Neither it nor its `CanonicaliserCatalog` dependency is
-  composed for production administration. **4.3c completion owns wiring** the
-  assignment API and its administrator control; the execution registry is live.
+- **Temporal declarations — item 4.3b; closed by 5.22.** Element timezone/epoch
+  and schema timezone administration are mounted in production and exposed in
+  Data sources → Explore schema. Confirmation compares effective tokenization,
+  including a first epoch assignment, rather than non-null storage transitions.
+- **Token declarations — item 4.4; closed by 5.22.** Token domain and case folding
+  are administered in the element declaration panel. Stored values and defaults
+  are separate. Entitlements links to this panel rather than owning another editor.
+- **Canonicaliser assignment — item 4.3c; closed by 5.22.** The atomic declaration
+  command uses the source's registered Engine for pinned canonicaliser discovery.
+  Conflicting epoch edits preserve an explicit canonicaliser and refuse; a
+  deliberate compatible joint change is validated before one atomic write.
+
 - **Pool/source binding management — item 5.3.** `PoolBindingService` and
   `PostgresPoolBindings` are constructed by `scripts/dev-demo.ts`, but not by the
   API, and have no registered management route. **5.3 completion owns wiring**
@@ -644,3 +643,18 @@ previously assumed by §8; it does not add a background fleet-health exporter.
   (60s) and tokenization-source's afterAll cleanup (30s). Both passed on
   rerun; neither cause was established. Both involve a fixture database
   teardown or a large stream under concurrent load.
+
+# Token domain friction
+
+- A token domain is currently required with no default, so every tokenized
+  element needs an explicit declaration. For a source with thirty
+  identifiers that is thirty decisions, most of which carry no judgement.
+- Proposal, after 5.22: default an element's domain to one derived from its
+  own exposed name. Safe, since a column then joins only to itself and no
+  false join is possible, and it covers the common case where tokenization
+  conceals rather than joins. An administrator widens the domain only where
+  a cross-column join is actually wanted, which is where the judgement is.
+- Also worth considering: pattern rules declaring a domain alongside a
+  treatment, which would turn thirty decisions into three rules.
+- 5.22's panel accommodates either, since it already distinguishes a stored
+  declaration from an effective value with its provenance.

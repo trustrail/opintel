@@ -1,0 +1,4 @@
+import { createStore } from 'zustand/vanilla';
+import type { DeclarationValues } from '../../shared/api/declarations.js';
+export function createDeclarationForm(stored:DeclarationValues){return createStore<{errors:Record<string,string>;invalid:(errors:Record<string,string>)=>void;values:DeclarationValues;confirmation:string;edit:(patch:Partial<DeclarationValues>)=>void;confirm:(value:string)=>void}>(set=>({errors:{},invalid:errors=>set({errors}),values:{...stored},confirmation:'',edit:patch=>set(state=>({values:{...state.values,...patch},confirmation:'',errors:{}})),confirm:confirmation=>set({confirmation})}));}
+export function createSchemaDeclarationForm(zone:string|null){return createStore<{zone:string;confirmation:string;edit:(zone:string)=>void;confirm:(confirmation:string)=>void}>(set=>({zone:zone??'',confirmation:'',edit:zone=>set({zone,confirmation:''}),confirm:confirmation=>set({confirmation})}));}

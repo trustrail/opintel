@@ -25,7 +25,7 @@ export class PostgresCanonicaliserAssignments implements CanonicaliserAssignment
       if (!row) return missing();
       const valid = validateCanonicaliserType(parsed.data.canonId,row.exposed_type,row.epoch_unit);
       if (!valid.ok) return valid;
-      if (row.tokenized && row.canon_id !== parsed.data.canonId) {
+      if (row.tokenized && (row.canon_id ?? standardCanonId(row.exposed_type,row.epoch_unit)) !== parsed.data.canonId) {
         const [project] = await withPlatform(p => p.query<{name:string}>('SELECT name FROM project WHERE id=$1',[ctx.projectId]));
         if (parsed.data.confirmation !== project?.name) return err(new DomainError('conflict', 'Assigning or changing a canonicaliser changes tokens. Type the project name exactly to confirm.'));
       }

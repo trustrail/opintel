@@ -27,7 +27,7 @@ export class QueryPreparation {
     const tokenized=touched.some(v=>v.readPlan.columns.some(c=>c.treatment==='tokenized'));
     evidence.requiresTokenization=tokenized;
     evidence.versions={...evidence.versions,tokenKeyVersionSelected:tokenized?s.evidence.currentTokenKeyVersion:null};
-    evidence.sourcePlan={...evidence.sourcePlan,queryEngineVersion:health.value.queryEngineVersion,objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,columns:v.columns.map(c=>({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:c.treatment}))})),sources:evidence.sources};
+    evidence.sourcePlan={...evidence.sourcePlan,queryEngineVersion:health.value.queryEngineVersion,tokenDeclarations:touched.flatMap(v=>v.readPlan.columns.flatMap(c=>c.token?[{elementId:v.columns.find(column=>column.exposedName===c.exposedName)!.elementId,qualifiedName:`${v.catalog}.${v.schema}.${v.name}.${c.exposedName}`,...c.token}]:[])),objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,columns:v.columns.map(c=>({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:c.treatment}))})),sources:evidence.sources};
     for(const v of touched)for(const c of v.columns){
      if(c.exposedName===null)continue;
      if(c.state==='withheld'||c.state==='undecided')evidence.elements.push({elementId:c.elementId,exposedName:c.exposedName,state:c.state,treatment:null,withheldReason:c.state==='withheld'?(s.evidence.withheldReasons?.[c.elementId]??'Withheld by the pool policy.'):'No entitlement decision exists.'});

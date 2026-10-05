@@ -3244,9 +3244,7 @@ uses its mode's built-in (`stdtext1`, `stdnum1`, `stddate1`, `stdtime1`); epoch
 units select timestamp mode. The assignment command discovers available ids from
 pinned sidecar `/health` before writing, validates mode compatibility, and locks
 the source with the entitlement-setting path. Domain extensions apply only to
-text. Assigning an id for the first time, or changing it, on an element with a
-tokenized entitlement requires the project name exactly; an unchanged explicit
-assignment does not. No application code imports a canonicaliser. There is no
+text. Changing the effective canonicaliser on an already-tokenized element requires the project name exactly; assigning the already-effective standard explicitly is a no-op for tokens and needs no confirmation. No application code imports a canonicaliser. There is no
 runtime code-registration endpoint. Entitlement-setting rechecks compatibility
 against the current catalogue type and declarations.
 
@@ -3261,13 +3259,9 @@ schema default. Zone names are validated when declared.
 The catalogue temporal repository exposes read, element declaration and schema
 declaration commands. Entitlement writes resolve the effective zone in their
 transaction and refuse tokenized naive timestamps without `sourceTimezone`.
-Changing an existing declaration affecting a tokenized element requires the
-project name; this includes replacing an inherited zone with a different
-override and changing a schema default used by such an element. First declarations
-and unchanged values need no confirmation. Removing the last effective zone
-cannot leave a tokenized naive timestamp. Writes share the source lock with
-entitlement setting and introspection. The read-plan integration belongs to 4.4;
-these commands add no routes or sidecar read-path wiring.
+Confirmation requires the exact project name when effective tokenization changes for an already-tokenized element, rather than when a stored non-null value changes. A first epoch assignment changes number tokens into timestamp tokens although storage merely goes from absent to present; storage-based confirmation would allow an unconfirmed broken join. The same applies to explicitly disabling default case folding. Equal inherited overrides and effective no-ops need no confirmation. Removing the last effective zone cannot leave a tokenized naive timestamp. Writes share the source lock with entitlement setting and introspection.
+
+**Declaration administration (5.22).** Data sources → Explore schema owns the element panel and schema timezone panel. Project-view GET routes expose stored values separately from effective defaults and inheritance; project-administer writes validate the complete element declaration atomically. Canonicaliser choices come from that source's registered, pinned Engine. Preserve explicit canonicalisers and refuse conflicting epoch edits; accept a deliberate compatible joint edit. Entitlements failures show the authorized qualified element name and link to its declaration panel. Changes invalidate `catalogElement` lists/declarations, entitlement lists/definitions and project statistics; evidence queries are not invalidated by declaration edits because past records are immutable.
 
 **Ordinal migration (037).** Existing ordinals remain NULL rather than being
 guessed from UUID order. Startup queues ordinary introspection for active sources
@@ -3279,7 +3273,7 @@ refuses unknown ordinals naming the object until repair completes. A later
 migration sets NOT NULL once no unknown ordinals remain (including retained
 removed elements, which need an explicit historical-data decision).
 
-**Setting a tokenized entitlement on an element with no token_domain is refused**, naming the missing declaration, exactly as a missing timezone or epoch unit is (A.3.1). Changing token_domain or case_insensitive on an element with a tokenized entitlement is token-breaking and requires the project name as typed confirmation.
+**Setting a tokenized entitlement on an element with no token_domain is refused**, naming the missing declaration, exactly as a missing timezone or epoch unit is (A.3.1). Changing the effective token domain or text-mode case folding on an already-tokenized element requires the project name as typed confirmation. Compare effective values, including default case folding; assigning the default explicitly is harmless, while first disabling it changes tokens.
 
 
 ```sql
@@ -4174,6 +4168,8 @@ source work. Failure to close releases no answer and leaves the header incomplet
 An interrupted sidecar response with no trustworthy execution evidence also
 leaves the header incomplete, rather than inventing a null key usage fact.
 
+`source_plan.tokenDeclarations` always captures each touched tokenized element's effective domain, canonicaliser, mode, case folding, timezone and epoch unit alongside its element ID. This minimal explanation is retained even when successful-run detail sampling omits optional source-plan detail. Selected and used key versions remain the immutable header/completion facts. Later catalogue changes never substitute current declarations; historical records without this capture explicitly report it unavailable.
+
 `source_plan` captures the prepared object/element declarations and per-source
 origin, freshness mode, landing strategy and last introspection timestamp.
 `freshness.sources` contains those captured facts for sources the sidecar reports
@@ -4402,7 +4398,8 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Mutation | Invalidates |
 |---|---|
 | Set entitlement | `entitlement.detail`, `pool.detail`, `catalogElement.lists`, `project.stats` |
-| Bulk set | `entitlement.all`, `pool.lists`, `catalogElement.lists`, `project.stats` |
+| Bulk set | `entitlement.all`, `pool.lists`, `catalogElement.lists`, `catalogElement.declarations`, `project.stats` |
+| Save element or schema declarations | `catalogElement.lists`, `catalogElement.declarations`, `entitlement.all`, `project.stats`; past evidence is immutable |
 | Connect source | `dataSource.lists`, `project.stats` |
 | Re-introspect / retry source / resume demo | `dataSource.lists`, `project.stats` |
 | Introspection completes | `catalogElement.all`, `dataSource.detail`, `dataSource.lists`, `dataSource.typeObservations`, `entitlement.all` |

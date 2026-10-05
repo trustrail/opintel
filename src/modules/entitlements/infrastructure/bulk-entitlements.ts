@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, ElementId, type PoolId, type SourceId, type Result } from '../../../shared/kernel/index.js';
-import { BulkStoredResponse, type BulkEntitlementBody } from '../../../shared/api/bulk-entitlements.js';
+import { BulkStoredResponse, BulkInvalidElement, type BulkEntitlementBody } from '../../../shared/api/bulk-entitlements.js';
 import { validateTokenDeclarations, validateTokenizedTemporal, type ExposedType, type TemporalDeclarations } from '../../catalog/index.js';
 import { validateMaskType } from '../application/mask-compatibility.js';
 import { validateCanonicaliserType } from '../application/canonicalisers.js';
@@ -9,7 +9,7 @@ import type { BulkEntitlementRepository } from '../application/bulk.js';
 import type { EntitlementContext } from '../application/entitlement-repository.js';
 
 type ElementRow = TemporalDeclarations & {
-  id: ElementId; sourceId: SourceId; name: string | null; type: ExposedType | null;
+  qualifiedName:string; id: ElementId; sourceId: SourceId; name: string | null; type: ExposedType | null;
   elementStatus: string; objectStatus: string; sourceStatus: string;
   tokenDomain: string | null; caseInsensitive: boolean | null; canonId: string | null;
 };
@@ -32,7 +32,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
       if (!pools.length) return err(new DomainError('not_found','The pool was not found in this project.'));
       const bindings = await tx.query<{source_id:SourceId}>('SELECT source_id FROM pool_source_binding WHERE pool_id=$1 ORDER BY source_id FOR SHARE',[pool]);
       const bound = new Set(bindings.map(row=>row.source_id));
-      const elements = await tx.query<ElementRow>(`SELECT e.id,o.source_id AS "sourceId",e.exposed_name AS name,e.exposed_type AS type,
+      const elements = await tx.query<ElementRow>(`SELECT concat_ws('.',s.exposed_alias,o.exposed_schema,o.exposed_name,COALESCE(e.exposed_name,'[unnameable element]')) AS "qualifiedName",e.id,o.source_id AS "sourceId",e.exposed_name AS name,e.exposed_type AS type,
         e.status AS "elementStatus",o.status AS "objectStatus",s.status AS "sourceStatus",e.token_domain AS "tokenDomain",e.case_insensitive AS "caseInsensitive",e.canon_id AS "canonId",
         COALESCE(e.source_timezone,d.source_timezone) AS "sourceTimezone",e.epoch_unit AS "epochUnit"
         FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id
@@ -40,7 +40,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
         WHERE e.id=ANY($1::uuid[]) ORDER BY e.id FOR UPDATE OF e`,[ids]);
       const byId = new Map(elements.map(row=>[row.id,row]));
       const invalidElements = ids.flatMap(elementId=>{
-        const row = byId.get(elementId), reasons: string[] = [];
+        const row = byId.get(elementId), reasons: string[] = [], declarationFields: ('tokenDomain'|'caseInsensitive'|'sourceTimezone'|'epochUnit'|'canonId')[]=[];
         if (!row) reasons.push('The element was not found in this project.');
         else {
           if (row.elementStatus !== 'active' || row.objectStatus !== 'active' || row.sourceStatus === 'archived') reasons.push('An active catalogue element and source are required.');
@@ -49,13 +49,15 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
           if (row.type === null || (input.treatment !== 'withheld' && row.name === null)) reasons.push('The element has no supported exposed type or name.');
           if (input.maskKind !== null) { const valid=validateMaskType(input.maskKind,row.type); if(!valid.ok)reasons.push(valid.error.message); }
           if (input.treatment === 'tokenized') {
-            for (const valid of [validateTokenDeclarations(row.type,row,true),validateTokenizedTemporal(row.type,row)]) if(!valid.ok)reasons.push(valid.error.message);
-            if (row.canonId === 'stdtime1' && row.type !== null && ['TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(row.type) && row.epochUnit === null) reasons.push('Declare epochUnit for the integer timestamp before tokenization.');
-            else if (row.canonId !== null) { const valid=validateCanonicaliserType(row.canonId,row.type,row.epochUnit);if(!valid.ok)reasons.push(valid.error.message); }
+            const token=validateTokenDeclarations(row.type,row,true),temporal=validateTokenizedTemporal(row.type,row);
+            if(!token.ok){reasons.push(token.error.message);declarationFields.push(...BulkInvalidElement.shape.declarationFields.unwrap().parse(token.error.details?.fields));}
+            if(!temporal.ok){reasons.push(temporal.error.message);declarationFields.push(...BulkInvalidElement.shape.declarationFields.unwrap().parse(temporal.error.details?.fields));}
+            if (row.canonId === 'stdtime1' && row.type !== null && ['TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(row.type) && row.epochUnit === null) {reasons.push('Declare epochUnit for the integer timestamp before tokenization.');declarationFields.push('epochUnit');}
+            else if (row.canonId !== null) { const valid=validateCanonicaliserType(row.canonId,row.type,row.epochUnit);if(!valid.ok){reasons.push(valid.error.message);declarationFields.push('canonId');} }
             if (row.type !== null && !['VARCHAR','UUID','DATE','TIMESTAMP','TIMESTAMPTZ','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(row.type) && !row.type.startsWith('DECIMAL(')) reasons.push(`Type ${row.type} cannot be tokenized; cast it to a supported type upstream.`);
           }
         }
-        return reasons.length ? [{elementId,reasons}] : [];
+        return reasons.length ? [{elementId,qualifiedName:row?.qualifiedName??'Unavailable element',declarationFields,reasons:reasons.map(reason=>declarationFields.length?reason+' Declare it in Data sources → Explore schema → Token declarations.':reason)}] : [];
       });
       let response: BulkStoredResponse;
       if (invalidElements.length) {

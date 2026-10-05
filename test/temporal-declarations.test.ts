@@ -53,7 +53,8 @@ describe('4.3b persisted temporal declarations', () => {
   it('TOK-21: integers without epochUnit remain numbers; explicit units persist and only integer columns accept them', async () => {
     unwrap(await decide(ids.integer));
     expect(unwrap(await temporal.read(ctx,ids.integer)).epochUnit).toBeNull();
-    unwrap(await temporal.setElement(ctx,ids.integer,{epochUnit:'seconds'})); // First declaration needs no confirmation.
+    expect(await temporal.setElement(ctx,ids.integer,{epochUnit:'seconds'})).toMatchObject({ok:false,error:{code:'conflict'}});
+    unwrap(await temporal.setElement(ctx,ids.integer,{epochUnit:'seconds',confirmation:'Temporal project'})); // First epoch assignment changes effective tokens.
     expect(unwrap(await new PostgresTemporalRepository().read(ctx,ids.integer)).epochUnit).toBe('seconds');
     expect(await temporal.setElement(ctx,ids.integer,{epochUnit:'milliseconds'})).toMatchObject({ok:false,error:{code:'conflict'}});
     unwrap(await temporal.setElement(ctx,ids.integer,{epochUnit:'milliseconds',confirmation:'Temporal project'}));

@@ -1,13 +1,32 @@
+import {QueryOutput} from '../src/shared/api/mcp.js';
+import {PostgresElementDeclarations} from '../src/modules/catalog/index.js';
+import {PostgresEvidenceReader} from '../src/modules/evidence/index.js';
+import {ok,RunId} from '../src/shared/kernel/index.js';
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {PostgresEvidenceWriter} from '../src/modules/evidence/index.js';
 import {withTenant,withPlatform,withPlatformAdmin} from '../src/platform/db/scope.js';
 import {DomainError,err} from '../src/shared/kernel/index.js';
-import {queryFixture} from './fixtures/query/fixture.js';
+import {queryFixture,unwrap} from './fixtures/query/fixture.js';
 const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).reverse())await close();});
 async function fixture(){const writer=new PostgresEvidenceWriter(),f=await queryFixture(writer);cleanup.push(f.close);return {...f,writer};}
 async function records(f:Awaited<ReturnType<typeof fixture>>){return withTenant(f.ctx,tx=>tx.query<{id:string;versions:{policy:number;catalog:number;vocabulary:number;tokenKeyVersionSelected:number|null};outcome:{kind:string};used:number|null;synthetic:boolean;source_plan:unknown;freshness:unknown}>(`SELECT r.id,r.versions,c.outcome,c.token_key_version_used AS used,c.synthetic,c.source_plan,c.freshness FROM query_run r LEFT JOIN run_completion c ON c.run_id=r.id AND c.started_at=r.started_at WHERE r.pool_id=$1 ORDER BY r.started_at`,[f.pool]));}
 describe('5.11 durable evidence writer',{timeout:60000},()=>{
+ it('DECL-008: past answers retain key versions and effective declarations after edits and when optional detail is sampled out',async()=>{
+  const f=await fixture();const declarations=new PostgresElementDeclarations({canonicalisers:async()=>ok(['stdnum1','stdtime1'])});
+  const firstAnswer=await f.query('SELECT field_2 FROM warehouse.public.records');expect(firstAnswer.isError).not.toBe(true);
+  const [first]=await records(f);expect(first).toMatchObject({versions:{tokenKeyVersionSelected:1},used:1,source_plan:{tokenDeclarations:[{elementId:f.ids[1],domain:'customer',canonId:'stdnum1',mode:'number',caseInsensitive:false}]}});
+  const initial=unwrap(await declarations.read(f.ctx,f.ids[1]!));unwrap(await declarations.save(f.ctx,f.ids[1]!,{...initial.stored,tokenDomain:'revised',confirmation:'Bulk project'}));
+  const secondAnswer=await f.query('SELECT field_2 FROM warehouse.public.records');expect(secondAnswer.isError).not.toBe(true);expect(QueryOutput.parse(secondAnswer.structuredContent).rows).not.toEqual(QueryOutput.parse(firstAnswer.structuredContent).rows);
+  const rows=await records(f);expect(rows[0]).toEqual(first);expect(rows[1]).toMatchObject({versions:{catalog:first!.versions.catalog+1,tokenKeyVersionSelected:1},used:1,source_plan:{tokenDeclarations:[{domain:'revised'}]}});
+  const [timestamp]=await withTenant(f.ctx,tx=>tx.query<{at:string}>('SELECT started_at::text AS at FROM query_run WHERE id=$1',[first!.id]));
+  const detail=unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(first!.id),timestamp!.at));expect(detail.tokenDeclarations).toMatchObject([{domain:'customer',canonId:'stdnum1',mode:'number'}]);expect(detail.tokenKeyVersionUsed).toBe(1);
+  // Force a legitimate unsampled successful header: the writer must still retain
+  // the declarations required to explain tokens, without optional object detail.
+  await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{evidence}','{\"captureSamplingPercent\":0.000000001}'::jsonb) WHERE id=$1",[f.ctx.projectId]));
+  expect((await f.query('SELECT field_2 FROM warehouse.public.records')).isError).not.toBe(true);
+  const last=(await records(f)).at(-1)!;expect(last.source_plan).toEqual({tokenDeclarations:expect.arrayContaining([expect.objectContaining({domain:'revised',canonId:'stdnum1'})])});
+ });
  it('Q-037: an in-flight query retains and records the limits pinned at preparation',async()=>{
   const f=await fixture(),execute=f.execution.execute.bind(f.execution);
   const [before]=await withPlatform(tx=>tx.query<{settings:{query:{rowLimit:number}}}>('SELECT settings FROM project WHERE id=$1',[f.ctx.projectId]));

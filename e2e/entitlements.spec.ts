@@ -1,7 +1,7 @@
 import {test} from './fixtures.js';
 import {expect,type Page} from '@playwright/test';
 import axe from 'axe-core';
-import {mock,project,expand,pool} from './entitlements-fixture.js';
+import {mock,project,expand,pool,source} from './entitlements-fixture.js';
 test.use({reducedMotion:'reduce'});
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
 for(const width of [390,900,1440])test(`Entitlements tree and bulk bar at ${width}`,{tag:'@visual'},async({page})=>{
@@ -33,4 +33,12 @@ for(const width of [390,900,1440])test(`Money locale and unsupported diagnosis a
  await expect(page.getByLabel('Select field_0006',{exact:true})).toBeDisabled();
  await expect(page.getByText('Unmapped type',{exact:true})).toBeVisible();
  await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`money-type-diagnostics-${width}.png`,{fullPage:true});await accessible(page);
+});
+
+test('DECL-007: qualified validation error links to declarations without requiring a loaded explorer branch',async({page})=>{
+ const state=await mock(page);state.invalid=true;await page.goto(`/projects/${project}/entitlements`);await expand(page);
+ await page.getByLabel('Select field_0000',{exact:true}).check();await page.getByLabel('Treatment',{exact:true}).selectOption('tokenized');await page.getByRole('button',{name:/Apply to/}).click();
+ const error=page.getByRole('alert');await expect(error).toContainText('warehouse.public.records.field_0000');await expect(error).toContainText('Data sources → Explore schema');await expect(error).not.toContainText('018f8f9d-7f83-7abc-8def-000000000100');
+ await page.route('**/catalog/elements/*/declarations',route=>route.fulfill({json:{elementId:'018f8f9d-7f83-7abc-8def-000000000100',sourceId:source,schemaName:'public',qualifiedName:'warehouse.public.records.field_0000',exposedType:'VARCHAR',projectName:'Reporting',stored:{tokenDomain:null,caseInsensitive:null,sourceTimezone:null,epochUnit:null,canonId:null},schemaTimezone:null,effective:{tokenDomain:null,caseInsensitive:true,sourceTimezone:null,epochUnit:null,canonId:'stdtext1',mode:'text'},tokenizedEntitlements:0,canonicalisers:['stdtext1'],discoveryError:null}}));
+ await page.getByRole('link',{name:'Open declarations',exact:true}).click();await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();await expect(page.getByLabel('Token domain',{exact:true})).toHaveValue('');await expect(page).toHaveURL(/elementId=018f8f9d-7f83-7abc-8def-000000000100/);
 });

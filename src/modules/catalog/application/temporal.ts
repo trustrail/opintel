@@ -2,11 +2,8 @@ import { z } from 'zod';
 import { DomainError, err, ok, type Result, type ElementId, type ProjectId, type SourceId, type UserId } from '../../../shared/kernel/index.js';
 import type { ExposedType } from '../domain/type-mapping.js';
 
-export const sourceTimezone = z.string().refine(value => {
-  // Reject offset strings: declarations name an IANA zone, never a host default.
-  if (!/^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/u.test(value)) return false;
-  try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; }
-}, 'sourceTimezone must name a valid IANA timezone.');
+export { IanaTimezone as sourceTimezone } from '../../../shared/api/declarations.js';
+import { IanaTimezone as sourceTimezone } from '../../../shared/api/declarations.js';
 export const epochUnit = z.enum(['seconds', 'milliseconds']);
 export const temporalPatch = z.strictObject({
   sourceTimezone: sourceTimezone.nullable().optional(),
@@ -24,7 +21,7 @@ export interface TemporalRepository {
 }
 export function validateTemporalType(type: ExposedType | null, declarations: TemporalDeclarations): Result<void> {
   if (declarations.epochUnit !== null && (type === null || !['TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(type))) {
-    return err(new DomainError('validation_failed', 'epochUnit may only be declared on an integer column.'));
+    return err(new DomainError('validation_failed', 'epochUnit may only be declared on an integer column.',{fields:['epochUnit']}));
   }
   return ok(undefined);
 }
@@ -32,7 +29,7 @@ export function validateTokenizedTemporal(type: ExposedType | null, declarations
   const valid = validateTemporalType(type, declarations);
   if (!valid.ok) return valid;
   if (type === 'TIMESTAMP' && declarations.sourceTimezone === null) {
-    return err(new DomainError('validation_failed', 'Declare sourceTimezone on this element or its schema before setting a tokenized entitlement on a timestamp without a zone.'));
+    return err(new DomainError('validation_failed', 'Declare sourceTimezone on this element or its schema before setting a tokenized entitlement on a timestamp without a zone.',{fields:['sourceTimezone']}));
   }
   return ok(undefined);
 }

@@ -40,7 +40,8 @@ it('requires tokenDomain at entitlement time; persists declarations and protects
 it('validates declarations, permits first assignment, isolates tenants, and rechecks the type at entitlement time',async()=>{
  for(const domain of ['','sentinel','bad_domain','Upper','customer\n'])expect(await repository.setElement(ctx,element,{tokenDomain:domain})).toMatchObject({ok:false});
  unwrap(await repository.setElement(ctx,element,{tokenDomain:'customer'}));unwrap(await decide());
- unwrap(await repository.setElement(ctx,element,{caseInsensitive:false})); // First explicit declaration.
+ expect(await repository.setElement(ctx,element,{caseInsensitive:false})).toMatchObject({ok:false,error:{code:'conflict'}});
+ unwrap(await repository.setElement(ctx,element,{caseInsensitive:false,confirmation:'Compiler project'})); // Disables effective default folding.
  expect(await repository.read(other,element)).toMatchObject({ok:false,error:{code:'not_found'}});
  expect(await repository.setElement(other,element,{tokenDomain:'other'})).toMatchObject({ok:false,error:{code:'not_found'}});
  await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET exposed_type='INTEGER',source_type='integer' WHERE id=$1",[element]));

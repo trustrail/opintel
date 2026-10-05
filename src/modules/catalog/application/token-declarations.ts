@@ -14,10 +14,10 @@ export interface TokenDeclarationRepository {
 }
 export function validateTokenDeclarations(type: ExposedType | null, value: TokenDeclarations, required = false): Result<void> {
   if ((required || value.tokenDomain !== null) && !tokenDomain.safeParse(value.tokenDomain).success) {
-    return err(new DomainError('validation_failed', 'Declare tokenDomain using lowercase letters and digits before setting a tokenized entitlement; sentinel is reserved.'));
+    return err(new DomainError('validation_failed', 'Declare tokenDomain using lowercase letters and digits before setting a tokenized entitlement; sentinel is reserved.',{fields:['tokenDomain']}));
   }
   if (value.caseInsensitive !== null && type !== 'VARCHAR' && type !== 'UUID') {
-    return err(new DomainError('validation_failed', 'caseInsensitive may only be declared on a text-mode column.'));
+    return err(new DomainError('validation_failed', 'caseInsensitive may only be declared on a text-mode column.',{fields:['caseInsensitive']}));
   }
   return ok(undefined);
 }
