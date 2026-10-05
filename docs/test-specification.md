@@ -1253,3 +1253,4 @@ The report names the screen, control, structural markup and violated contract.
 | ENG-006 | Receipt certificate authorization is bound to the registered project and assigned source |
 | ENG-007 | Settings has loading/empty/error/ready, permission-gated operator actions, axe and snapshots at 390/900/1440; no new CSS |
 | ENG-008 | Migration rolls down/up; every former client configuration reader is explicitly migrated without fallback |
+| ENG-009 | Startup exposes the full public certificate SHA-256 pin beside the actual listener host/port; the read-only pin CLI prints the same hash while running, needs no private-key files and changes no process state |

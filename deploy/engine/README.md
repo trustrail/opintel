@@ -144,9 +144,32 @@ and assigned source. Customer operators provision matching project key versions
 on additional engines until separate item 5.21 implements distribution; stale
 or unprovisioned engines refuse tokenized work. No relay or enrollment is added.
 
-On an operator workstation, obtain the pin from the provisioned engine public
-certificate with `openssl x509 -in engine.pem -noout -fingerprint -sha256`.
+The Engine's `Opintel Engine ready.` startup output prints `certificatePin`
+beside its bound host and port. Copy that 64-character SHA-256 fingerprint into
+Settings. To print it again while the Engine is running:
+
+```sh
+docker compose -f deploy/engine/compose.yml --env-file OPERATOR_ENV exec engine node sidecar/pin-command.js
+```
+
+For a source checkout, use `npm run sidecar:pin -- [CONFIG]`. The command defaults
+to `SIDECAR_CONFIG_FILE`, then `tmp/sidecar/service.json`; the shipping container
+sets that variable to `/config/service.json`. It reads only configuration and
+the public server certificate, requiring neither private-key access nor a stop
+or state lock. If certificate files have been replaced while the Engine remains
+running, restart before updating Settings: the command reports the configured
+file, while the listener retains its previously loaded certificate.
+
+As a fallback for an operator working from a certificate file on a workstation,
+use `openssl x509 -in engine.pem -noout -fingerprint -sha256`.
 Settings accepts its colon-separated fingerprint or 64 hex characters and
 checks it against the live peer during verification. Trust-chain and hostname
 validation remain enabled; the pin does not replace either. Coordinate pin
 replacement with certificate rotation and verify the replacement before use.
+
+The startup host/port describe the listener, not necessarily the address the
+application can reach. The operator supplies its private DNS name/IP and published
+port; a bind address of `0.0.0.0` is not a registration address. That name/IP must
+match the certificate and be reachable from the application. Contract version
+comes from authenticated `/health` during Test connection and is shown in Settings;
+it is not an operator-entered value. The engine name is an operator-chosen label.

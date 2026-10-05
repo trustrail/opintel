@@ -21,6 +21,7 @@ import { loadSidecarConfig } from './config.js';
 import { createPostgresConnector } from './create-postgres-connector.js';
 import { FileSamplingAudit } from './infrastructure/file-sampling-audit.js';
 import { createSidecarServer,sidecarBuild } from './http/server.js';
+import {certificatePin} from './certificate.js';
 
 async function main(): Promise<void> {
   console.info({event:'tokenization.unicode', runtime:process.versions.unicode, folding:foldingVersion});
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
   const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;
+  let boundPort=config.port;
   const stop = () => {
     if (stopping) return;
     stopping = true;clearInterval(custodyTimer);
@@ -65,13 +67,13 @@ async function main(): Promise<void> {
       const lander = new FilingLander(zone.directory, source, writer, extractor, receipts);
       watchers.push(await startupCheck(`landing register for project ${zone.projectId}, source ${zone.sourceId}`, () => LandingWatcher.open(zone, undefined, extractor, lander, receipts)));
     }
-    await startupCheck(`HTTPS listener ${config.host}:${config.port}`, () => host.listen());
+    boundPort=await startupCheck(`HTTPS listener ${config.host}:${config.port}`, () => host.listen());
     for (const watcher of watchers) watcher.start();
   } catch (error) {
     await Promise.allSettled(watchers.map((watcher) => watcher.close()));
     await audit.close().catch(() => undefined);
     throw error;
   }
-  console.info('Opintel Engine ready.',{host:config.host,port:config.port});
+  console.info('Opintel Engine ready.',{host:config.host,port:boundPort,certificatePin:certificatePin(tls.cert)});
 }
 void startupCheck('startup initialization', main).catch((error:unknown)=>{console.error(error instanceof Error ? error.message : 'Opintel Engine startup failed.');process.exit(1);});

@@ -1,11 +1,12 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn,execFile, type ChildProcess } from 'node:child_process';
+import {promisify} from 'node:util';
 import { createServer as tcpServer } from 'node:net';
 import { createServer as httpsServer } from 'node:https';
 import { mkdtemp, readFile, writeFile, mkdir, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,X509Certificate } from 'node:crypto';
 import { beforeAll, afterAll, it, expect, vi } from 'vitest';
 import { prepareSidecarDevelopment, startDevelopmentSidecar, checkLocalSidecar } from '../scripts/sidecar-dev.js';
 import { stopRecordedSidecar, portAvailable } from '../scripts/sidecar-process.js';
@@ -39,6 +40,8 @@ it('bounds real SIGTERM shutdown while a watcher is waiting on a receipt',async(
  const process=launch(file,{...globalThis.process.env,OPINTEL_SECRET_TEST_SHUTDOWN:globalThis.process.env.TEST_DATABASE_URL});
  try{
   await vi.waitFor(()=>expect(process.output()).toContain('Opintel Engine ready.'),{timeout:10000});
+  expect(process.output()).toContain(new X509Certificate(tls.cert).fingerprint256.replaceAll(':',''));
+  expect(process.output()).toMatch(/port: [1-9]\d*/);
   await vi.waitFor(()=>expect(pending).toBe(true));
   process.child.kill('SIGTERM');
   // The receipt's own timeout is nine seconds: the process-wide deadline must
@@ -60,6 +63,9 @@ it('dev:up replaces the recorded sidecar only after it exits and its port is fre
  const pidFile=join(directory,'sidecar.pid');const stop={pidFile,entryPoint,host:'127.0.0.1',port,timeoutMs:2500};
  try{
   await startDevelopmentSidecar(directory);const first=Number(await readFile(pidFile,'utf8'));
+  const {stdout}=await promisify(execFile)(process.execPath,['--import','tsx',fileURLToPath(new URL('../sidecar/pin-command.ts',import.meta.url)),file]);
+  expect(stdout.trim()).toBe(new X509Certificate(await readFile(join(directory,'tls/server.pem'),'utf8')).fingerprint256.replaceAll(':',''));
+  expect(Number(await readFile(pidFile,'utf8'))).toBe(first);
   await startDevelopmentSidecar(directory);const second=Number(await readFile(pidFile,'utf8'));
   expect(second).not.toBe(first);expect(()=>globalThis.process.kill(first,0)).toThrow();await checkLocalSidecar(file);
  }finally{await stopRecordedSidecar(stop);}

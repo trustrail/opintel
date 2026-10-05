@@ -5317,7 +5317,12 @@ Every clarification item that can be remembered offers it. Accepting writes a pr
 
 The application dials registered private HTTPS engine listeners. Project
 administrators register and edit name/address/SHA-256 certificate pin in
-Settings → Engines, then explicitly test the connection. Registration and
+Settings → Engines, then explicitly test the connection.
+Engine readiness output supplies the certificate pin beside host/port; the
+read-only `sidecar:pin` command prints it on demand from the configured public
+certificate. The operator supplies a reachable private address, since a listener
+bind address does not describe published routing. Contract is discovered during
+verification, not entered by the operator. Registration and
 edits are unverified; malformed pin syntax is rejected at entry and a valid
 hex typo fails verification. Successful authenticated health with contract 2
 is required before assignment. Failed checks and contract mismatches are

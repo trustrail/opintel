@@ -7,6 +7,12 @@ connector logic. See [START-HERE.md](../START-HERE.md#local-opintel-engine-s1) f
 startup and application client configuration. Application code contacts this
 runtime through `SidecarSourceConnector`; it never imports the Postgres adapter.
 
+For registry registration, copy `certificatePin` from the Engine's readiness
+output. Run `npm run sidecar:pin -- [CONFIG]` to print the configured public
+certificate's SHA-256 pin again, including while the Engine is running. Packaged
+engines use `node sidecar/pin-command.js [CONFIG]`; see
+[deployment instructions](../deploy/engine/README.md#single-tenant-registry-520).
+
 Use `createPostgresConnector({ secrets, audit, limits })` once per host. Supply the
 existing `SecretStorePort`: `EnvironmentSecretStore` in development, or a production
 secret manager adapter. For example, `secret://customer/warehouse` resolves from
