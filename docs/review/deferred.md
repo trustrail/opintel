@@ -668,3 +668,13 @@ A measured one-column query stages seven entitled columns and performs tokenizat
   cannot be changed. A customer whose physical schema is prod_warehouse_v3
   or dbo has agents carrying that in every three-part name, with no remedy.
   Source aliases cover the catalog segment only.
+
+# Activity UI timing during 5.24 verification
+
+The Linux Playwright combined declarations/activity run passed 13 checks but
+`5.12 filters, cursor loading, empty, error, loading and incomplete states`
+exceeded its 30-second total budget during the error-state page reload. The
+unchanged test passed in 12.7 seconds in a subsequent Activity-only functional
+run. The cause is not established; the narrower pass does not make the combined
+run green. Its timeout was not increased. Assignment-version display passed in
+the same subsequent run, and all 390/900/1440 snapshots passed in the combined run.

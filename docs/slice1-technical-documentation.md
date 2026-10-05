@@ -3939,6 +3939,11 @@ Valid last4 and email values use the fixed prefixes shown in B.3 (`••••`
 
 ## 4.6 Evidence
 
+**5.24 domain assignments.** Each element has append-only assignment history with its declared and effective domain, version, time and actor. Migrations 062–063 establish history and platform-only root teardown privileges. Migration 062 records current declarations as a baseline, not invented past history. New evidence token-declaration snapshots name that assignment version alongside the effective domain and existing key version. Legacy snapshots without a version remain unknown; past evidence is never updated. Application roles can read only their project's history and cannot insert, update or delete it; a database-owned trigger records all domain writers atomically. Matched introspection preserves assignment history. A downgrade refuses if it would destroy migration history.
+
+Domain changes use this confirmation text: “Changing this domain changes tokens produced by future queries. Tokens an agent received before this change will not match tokens it receives afterwards. No stored data is rewritten.” Effective-behaviour confirmation still applies to already-tokenized elements. Existing catalog generation and declaration cache invalidation make future requests use the new assignment; in-flight requests keep the pinned old one.
+
+
 Append-only and partitioned by the request's start month in UTC. Item 5.10
 provides the immutable domain and storage structure; item 5.11 writes records.
 

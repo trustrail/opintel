@@ -11,3 +11,5 @@ export function derivedTokenDomain(identity: TokenIdentity): string {
 export function effectiveTokenDomain(declared: string | null | undefined, identity: TokenIdentity): string {
  return declared ?? derivedTokenDomain(identity);
 }
+
+export const domainMigrationConfirmation = "Changing this domain changes tokens produced by future queries. Tokens an agent received before this change will not match tokens it receives afterwards. No stored data is rewritten.";

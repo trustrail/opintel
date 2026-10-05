@@ -1299,3 +1299,11 @@ The report names the screen, control, structural markup and violated contract.
 | JOIN-004 | D | Application refusal and engine refusal with permissive application pre-filter | Durable refusal and candidate retain both element ids and qualified names, submitted statement, agent id and attempt timestamp; candidate storage failure releases no result; no suggestion UI or automatic merge |
 | JOIN-005 | S | Candidate migration and tenant isolation | Up/down/up succeeds before explain facts exist; downgrade refuses rather than losing explain provenance afterwards; tenant cannot read another project's candidates, update/delete attempts or insert another project's attempt |
 | JOIN-006 | F | Authenticated MCP explain, cross-object equality join with distinct derived domains | Application and independent engine refuse; each explain attempt records both columns, agent id, submitted statement and time without a query run or source access; candidate-write failure fails closed |
+
+## Item 5.24 · Token domain assignment history
+
+| ID | Type | Case | Expected |
+|---|---|---|---|
+| DOMAIN-001 | D | Assign a domain, no-op, change and revert | Immutable ordered history; no-op does not append; reverting restores prior tokens with unchanged key/canonicalisation |
+| DOMAIN-002 | F | Query before and after a change | Evidence retains the domain assignment version used at preparation and its key version; old evidence is unchanged |
+| DOMAIN-003 | S | History migration and tenant grants | Up/down/up before changes; destructive downgrade refused; foreign history hidden; application insert/update/delete denied |

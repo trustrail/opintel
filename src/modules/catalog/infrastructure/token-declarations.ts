@@ -1,3 +1,4 @@
+import {domainMigrationConfirmation} from '../../../shared/token-domain.js';
 import { withPlatform, withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, type ElementId } from '../../../shared/kernel/index.js';
 import { tokenDeclarationPatch, validateTokenDeclarations, type TokenDeclarationRepository, type TokenDeclarations } from '../application/token-declarations.js';
@@ -34,7 +35,7 @@ export class PostgresTokenDeclarations implements TokenDeclarationRepository {
       if (row.tokenized && changing) {
         const [project] = await withPlatform(platform => platform.query<{ name: string }>('SELECT name FROM project WHERE id=$1', [ctx.projectId]));
         if (patch.confirmation === undefined || project?.name !== patch.confirmation) {
-          return err(new DomainError('conflict', 'Changing a declaration used by a tokenized entitlement changes its tokens. Type the project name exactly to confirm.'));
+          return err(new DomainError('conflict', (next.tokenDomain!==row.tokenDomain?domainMigrationConfirmation:'Changing a declaration used by a tokenized entitlement changes its tokens.')+' Type the project name exactly to confirm.'));
         }
       }
       await tx.query('UPDATE catalog_element SET token_domain=$2,case_insensitive=$3 WHERE id=$1', [element, next.tokenDomain, next.caseInsensitive]);

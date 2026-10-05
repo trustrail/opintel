@@ -1,5 +1,5 @@
 import {ProjectId,ElementId} from '../src/shared/kernel/value-objects.js';
-import {derivedTokenDomain} from '../src/shared/token-domain.js';
+import {domainMigrationConfirmation,derivedTokenDomain} from '../src/shared/token-domain.js';
 import {test} from './fixtures.js';
 import {expect,type Page} from '@playwright/test';
 import axe from 'axe-core';
@@ -56,6 +56,7 @@ test('ISO-004: first shared domain and return to isolation require confirmation 
  await page.goto(`/projects/${project}/catalog?elementId=${element}`);
  await expect(page.getByText(/Stored: Not declared. Effective: Isolated — joins only this element/)).toBeVisible();
  await page.getByLabel('Token domain',{exact:true}).fill('shared');
+ await expect(page.getByText(domainMigrationConfirmation,{exact:false})).toBeVisible();
  await expect(page.getByRole('button',{name:'Declare token domain',exact:true})).toBeDisabled();
  await page.getByLabel('Type project name: Reporting',{exact:true}).fill('Reporting');
  await page.getByRole('button',{name:'Declare token domain',exact:true}).click();await expect(page.getByText('Declarations saved.',{exact:true})).toBeVisible();

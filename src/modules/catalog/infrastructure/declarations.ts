@@ -1,3 +1,4 @@
+import {domainMigrationConfirmation} from '../../../shared/token-domain.js';
 import { withTenant, withPlatform } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, type ElementId, type SourceId } from '../../../shared/kernel/index.js';
 import { DeclarationCommand, type DeclarationValues } from '../../../shared/api/declarations.js';
@@ -40,7 +41,7 @@ export class PostgresElementDeclarations implements DeclarationRepository {
     const available=await this.canonicalisers.canonicalisers(ctx,element);if(!available.ok)return available;
     if(!available.value.includes(next.canonId))return err(new DomainError('validation_failed','This canonicaliser is not advertised by the source’s Engine. Deploy it before assigning it.',{fields:['canonId']}));
    }
-   if(row.tokenizedEntitlements>0&&tokenBehaviour(row.exposedType,row,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})!==tokenBehaviour(row.exposedType,next,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})&&parsed.data.confirmation!==await projectName(ctx))return err(new DomainError('conflict','This changes effective tokenization for an already-tokenized element. Previously issued tokens will no longer match subsequent tokens. Type the project name exactly to confirm.',{fields:['confirmation']}));
+   if(row.tokenizedEntitlements>0&&tokenBehaviour(row.exposedType,row,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})!==tokenBehaviour(row.exposedType,next,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})&&parsed.data.confirmation!==await projectName(ctx))return err(new DomainError('conflict',(next.tokenDomain!==row.tokenDomain?domainMigrationConfirmation:'This changes effective tokenization for an already-tokenized element. Previously issued tokens will no longer match subsequent tokens.')+' Type the project name exactly to confirm.',{fields:['confirmation']}));
    if(JSON.stringify(stored(row))!==JSON.stringify(next))await tx.query('UPDATE catalog_element SET token_domain=$2,case_insensitive=$3,source_timezone=$4,epoch_unit=$5,canon_id=$6 WHERE id=$1',[element,next.tokenDomain,next.caseInsensitive,next.sourceTimezone,next.epochUnit,next.canonId]);
    return ok(undefined);
   });

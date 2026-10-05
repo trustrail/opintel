@@ -27,15 +27,16 @@ describe('5.11 durable evidence writer',{timeout:60000},()=>{
   }
   expect(reads).not.toHaveBeenCalled();expect(f.boundary.executions).toBe(0);
  });
- it('DECL-008: past answers retain key versions and effective declarations after edits and when optional detail is sampled out',async()=>{
+ it('DOMAIN-002/DECL-008: past answers retain key versions and effective declarations after edits and when optional detail is sampled out',async()=>{
   const f=await fixture();const declarations=new PostgresElementDeclarations({canonicalisers:async()=>ok(['stdnum1','stdtime1'])});
   const firstAnswer=await f.query('SELECT field_2 FROM warehouse.public.records');expect(firstAnswer.isError).not.toBe(true);
   const [first]=await records(f);expect(first).toMatchObject({versions:{tokenKeyVersionSelected:1},used:1,source_plan:{tokenDeclarations:[{elementId:f.ids[1],domain:'customer',canonId:'stdnum1',mode:'number',caseInsensitive:false}]}});
+  const [assignment]=await withTenant(f.ctx,tx=>tx.query<{version:number}>('SELECT max(version)::int AS version FROM token_domain_assignment WHERE element_id=$1',[f.ids[1]]));expect(first!.source_plan).toMatchObject({tokenDeclarations:[{domainVersion:assignment!.version}]});
   const initial=unwrap(await declarations.read(f.ctx,f.ids[1]!));unwrap(await declarations.save(f.ctx,f.ids[1]!,{...initial.stored,tokenDomain:'revised',confirmation:'Bulk project'}));
   const secondAnswer=await f.query('SELECT field_2 FROM warehouse.public.records');expect(secondAnswer.isError).not.toBe(true);expect(QueryOutput.parse(secondAnswer.structuredContent).rows).not.toEqual(QueryOutput.parse(firstAnswer.structuredContent).rows);
-  const rows=await records(f);expect(rows[0]).toEqual(first);expect(rows[1]).toMatchObject({versions:{catalog:first!.versions.catalog+1,tokenKeyVersionSelected:1},used:1,source_plan:{tokenDeclarations:[{domain:'revised'}]}});
+  const rows=await records(f);expect(rows[0]).toEqual(first);expect(rows[1]).toMatchObject({versions:{catalog:first!.versions.catalog+1,tokenKeyVersionSelected:1},used:1,source_plan:{tokenDeclarations:[{domain:'revised',domainVersion:assignment!.version+1}]}});
   const [timestamp]=await withTenant(f.ctx,tx=>tx.query<{at:string}>('SELECT started_at::text AS at FROM query_run WHERE id=$1',[first!.id]));
-  const detail=unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(first!.id),timestamp!.at));expect(detail.tokenDeclarations).toMatchObject([{domain:'customer',canonId:'stdnum1',mode:'number'}]);expect(detail.tokenKeyVersionUsed).toBe(1);
+  const detail=unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(first!.id),timestamp!.at));expect(detail.tokenDeclarations).toMatchObject([{domain:'customer',domainVersion:assignment!.version,canonId:'stdnum1',mode:'number'}]);expect(detail.tokenKeyVersionUsed).toBe(1);
   // Force a legitimate unsampled successful header: the writer must still retain
   // the declarations required to explain tokens, without optional object detail.
   await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{evidence}','{\"captureSamplingPercent\":0.000000001}'::jsonb) WHERE id=$1",[f.ctx.projectId]));

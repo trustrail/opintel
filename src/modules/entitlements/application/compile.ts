@@ -19,7 +19,7 @@ export type ReadColumn = Readonly<{
 }>;
 export type ReadPlan = Readonly<{ catalog: string; schema: string; object: string; columns: readonly ReadColumn[] }>;
 export type CompiledColumn = Readonly<{
-  elementId: ElementId; exposedName: ExposedName | null; sourceIdentifier: string;
+  elementId: ElementId; tokenDomainVersion?: number; exposedName: ExposedName | null; sourceIdentifier: string;
   declaredType: ExposedType | null; state: 'emitted' | 'withheld' | 'undecided';
   treatment: Treatment | null; expression: string | null;
 }>;
@@ -161,7 +161,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
         mask = Object.freeze({kind:decision.maskKind});
       }
       readColumns.push(Object.freeze({...column,...(token ? {token} : {}),...(mask ? {mask} : {})}));
-      columns.push(Object.freeze({elementId:e.id,exposedName:e.exposedName,sourceIdentifier:e.sourceIdentifier,declaredType:exposedType,state:'emitted',treatment,expression:quoteIdent(e.exposedName)}));
+      columns.push(Object.freeze({elementId:e.id,tokenDomainVersion:e.tokenDomainVersion,exposedName:e.exposedName,sourceIdentifier:e.sourceIdentifier,declaredType:exposedType,state:'emitted',treatment,expression:quoteIdent(e.exposedName)}));
       if (treatment === 'aggregate_only') constraints.push(Object.freeze({elementId:e.id,exposedName:e.exposedName,object:o.exposedName,minGroupSize:input.aggregateMinGroupSize}));
     }
     if (!readColumns.length) {

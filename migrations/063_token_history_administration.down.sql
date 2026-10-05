@@ -1,0 +1,1 @@
+REVOKE TRUNCATE ON token_domain_assignment FROM opintel_platform_admin;

@@ -50,6 +50,8 @@ Where:
 
 Matched introspections preserve element IDs and therefore tokens, provided key and effective canonicalisation remain unchanged. `renameHandling=carry` preserves identity on a stable-reference column rename. Without a stable reference, a changed column name is removal plus addition; `renameHandling=new` also replaces a detected renamed column. Table/schema renames replace objects and elements because object matching uses names. Replacement produces a new derived domain and tokens; it is reported as removal/addition and old decisions are not carried. Explicit exposed-name adoption leaves identity and derived tokens unchanged.
 
+**Assignment history (5.24).** Domain assignment versions are historical metadata only and do not enter the HMAC payload. A per-element version in that payload would make two elements explicitly assigned the same domain produce different tokens, defeating shared domains. The domain string identifies the namespace and is what the HMAC hashes. Changing a domain from `a` to `b` and back to `a` restores its original tokens, provided key and canonicalisation are unchanged. This is a property of the construction; administrators reverting a mistaken change recover their old tokens. Staging is per query: a migration appends assignment history and invalidates current compilation/UI metadata, with no stored token data to rewrite. In-flight requests retain their preparation snapshot.
+
 **The 0x00 delimiters prevent boundary sliding.** Without them, domain `a` with value `bc` and domain `ab` with value `c` would produce the same bytes.
 
 **Result:** `v1_c_AQQBQ9RC399G23350RD6V757AC` for `ACME-001` in domain `c` under the test key in A.8's reference vectors, always `v1_`, then the domain, then `_`, then 26 characters.

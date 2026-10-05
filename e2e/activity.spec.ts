@@ -28,3 +28,14 @@ for(const width of [390,900,1440])test(`5.17 rollup and stored redaction at ${wi
  await page.setViewportSize({width,height:1000});await page.goto(activityPath);await expect(page.getByRole('link',{name:'Rollup · summary only'})).toBeVisible();await expect(page.getByText('25% detail capture')).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`rollup-list-${width}.png`,{fullPage:true});
  await page.getByRole('link',{name:'Rollup · summary only'}).click();await expect(page.getByRole('heading',{name:'Rollup · summary only'})).toBeVisible();await expect(page.getByText(/Treatment counts are summaries, not element-level delivery facts/)).toBeVisible();await expect(page.getByText(/Stored arguments redacted .* under aggressive/)).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`rollup-record-${width}.png`,{fullPage:true});
 });
+
+test('DOMAIN-002: past evidence displays its recorded assignment version and identifies legacy unknown versions',async({page})=>{
+ const state=await mockActivity(page);
+ state.record.tokenDeclarations=[{elementId:state.record.id,qualifiedName:'warehouse.public.treaties.treaty_ref',domain:'customer',domainVersion:2,canonId:'stdtext1',mode:'text',caseInsensitive:true}];
+ await page.goto(detailPath);
+ await expect(page.getByText(/Domain: customer · Assignment version: 2 · Canonicaliser: stdtext1/)).toBeVisible();
+ await accessible(page);
+ state.record.tokenDeclarations[0]!.domainVersion=null;
+ await page.reload();
+ await expect(page.getByText(/Assignment version: Not recorded/)).toBeVisible();
+});
