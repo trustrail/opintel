@@ -738,8 +738,10 @@ not a common root cause or a passing original run.
 | tokenization-source afterAll | 30s | Failed during 5.20 validation, passed on rerun; connection close and temporary Postgres database teardown. No recorded wait diagnosis. |
 | Activity: 5.12 filters, cursor loading, empty, error, loading and incomplete states | 30s | Combined Linux declarations/activity run: 13 passes, this test timed out during the error-state reload. Unchanged Activity-only rerun passed in 12.7s. All three-width snapshots passed. |
 | DOMAIN-001/003: domain migrations append immutable versions, no-op stays put and revert restores tokens | 5s | Timed out in focused RLS/history/grants verification while typecheck/lint overlapped; unchanged history-only rerun passed after those finished. Two complete MCP fixtures, declaration transactions and three staged queries. RLS-10 and grants passed unchanged. |
+| Dashboard: O-004 findings and quiet states at 1440px | 30s | Relative-age baseline update timed out at the clean-state screenshot; the closed-page overlay error followed the timeout. Unchanged automatic retry passed in 15.7s. Validation commands were sequential; no concurrent validation command was running. Cause not measured; this is a retry-only pass, not a clean original run. |
 
-These are four distinct locations, not six distinct named tests; repeated
+These are now five distinct locations; the earlier inventory had four,
+not six distinct named tests. Repeated
 incidents do not create another test. An additional historical ING-17 XLSX
 failure is recorded in test-timeout-headroom.md (20,000 compressed workbook
 rows and a disk-backed shared-string index); it also passed in isolation.
@@ -844,3 +846,17 @@ measurement method whose variance is smaller than the effect, or if a person
 reports that the explorer feels slow. G-019 stays failing honestly in the
 performance project; its assertion and threshold are not accommodated.
 Containment and the diagnostic markup change remain reverted.
+
+**Audit log drawer placeholder (2026-10-06).** The drawer's Audit log item led
+to `/projects/<projectId>/audit-log`, which renders only a heading. Item 5.10
+and migration 046 built append-only `audit_entry` storage; later settings
+(5.16) and identity recovery (5.19) write audit entries. There is no audit-list
+API or React audit screen. This is an unbuilt screen explicitly deferred to
+Slice 3 by §5.6, not a completed screen missing navigation.
+
+Decision: hide the Audit log drawer item until its screen exists. Offering a
+heading with nothing behind it teaches people that the console is unfinished.
+The route label and direct placeholder remain for existing route coverage;
+they do not constitute an audit reader. Restore the drawer item when Slice 3
+provides the permission-gated reader and screen, with loading, empty, error
+and ready states.

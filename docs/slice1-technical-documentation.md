@@ -4600,6 +4600,8 @@ The feed contains current undecided pairs grouped by pool/source, current source
 Sign in, check email, auth callback, confirm device, accept invitation, project chooser, create project (industry picker), dashboard, workbench, vocabulary (with readiness), synonym candidates, discovery coverage, data sources, source detail, introspection run, entitlements, pools, pool detail, agent twin, activity, run detail, access, project settings (details, discovery, query, evidence, access), personal settings, kitchen sink.
 
 Deferred to Slice 3: releases, source of truth, the full relationships model (excluding 5.25 attempt-backed token-domain review), knowledge, audit log, and the **observations register** as a workflow surface with state.
+The Audit log drawer item is hidden until that screen exists; append-only
+audit storage alone is not a destination an administrator can use.
 
 **The Dashboard is in Slice 1a**, as item 5.15. It shows the decided ratio, the treatment spectrum, counts, the needs-a-decision feed and the pool shields. Findings surface inline in that feed rather than in a register with acknowledge and resolve states, which is what Slice 3 adds.
 

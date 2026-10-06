@@ -47,7 +47,7 @@ function Drawer(): ReactNode {
         <div className="pmsep" /><button className="pmfoot" onClick={() => { ui.open(false); void navigate({ to: '/projects' }); }}>View all projects</button><button className="pmfoot" onClick={() => { ui.open(false); void navigate({ to: '/projects/new' }); }}>New project</button>
       </div>
     </div>
-    <nav className="dnav" aria-label="Primary navigation">{navGroups.map((group) => <div key={group.label}><div className="dgroup" style={{ color: 'var(--rule-2)' }}>{group.label}</div>{group.items.map((item) => {
+    <nav className="dnav" aria-label="Primary navigation">{navGroups.map((group) => <div key={group.label}><div className="dgroup" style={{ color: 'var(--rule-2)' }}>{group.label}</div>{group.items.filter(item=>!item.hidden).map((item) => {
       const children = id === null ? [] : item.children?.filter(child => !child.adminOnly || active?.role === 'admin') ?? [];
       const selected = activePath === item.path;
       const expanded = (ui.sections[item.path] ?? selected) && !ui.collapsed && !narrow && id !== null;

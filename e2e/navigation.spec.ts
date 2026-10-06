@@ -15,6 +15,14 @@ async function setup(page:Page){
   return route.fulfill({json:{items:[],nextCursor:null}});
  });
 }
+for(const width of [390,900,1440])test(`deferred Audit log is absent from the drawer at ${width}`,async({page})=>{
+ await setup(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${id}/token-key`);
+ const nav=page.getByRole('navigation',{name:'Primary navigation'});
+ await expect(nav.getByRole('button',{name:'Audit log',exact:true})).toHaveCount(0);
+ await page.goto(`/projects/${id}/audit-log`);
+ await expect(page.getByRole('heading',{name:'Audit log',exact:true})).toBeVisible();
+ await expect(nav.getByRole('button',{name:'Audit log',exact:true})).toHaveCount(0);
+});
 test('drawer destinations, keyboard order, collapsed state and scoped breadcrumbs',async({page})=>{
  await setup(page);await page.setViewportSize({width:1440,height:1000});await page.goto(`/projects/${id}/access`);
  const nav=page.getByRole('navigation',{name:'Primary navigation'}),crumb=page.getByRole('navigation',{name:'Breadcrumb'});

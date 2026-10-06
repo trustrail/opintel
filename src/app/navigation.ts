@@ -9,6 +9,7 @@ export type NavItem = {
   readonly icon: string;
   readonly count?: string;
   readonly dim?: boolean;
+  readonly hidden?: boolean;
   readonly children?: readonly {label: string; screen: string; adminOnly?: boolean}[];
 };
 
@@ -33,7 +34,7 @@ export const navGroups: readonly NavGroup[] = [
     { label: 'Entitlements', path: '/entitlements', icon: '⊟' },
     { label: 'Pools', path: '/pools', icon: '◇' },
     { label: 'Access', path: '/access', icon: '◉', children: [{label: 'Token key', screen: 'token-key', adminOnly: true}] },
-    { label: 'Audit log', path: '/audit-log', icon: '⧉' },
+    { label: 'Audit log', path: '/audit-log', icon: '⧉', hidden: true },
   ] },
   { label: 'Manage', items: [
     { label: 'All projects', path: '/projects', icon: '◫' },
