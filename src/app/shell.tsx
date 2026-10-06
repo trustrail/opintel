@@ -1,3 +1,4 @@
+import {Mark,type MarkName} from '../shared/ui/index.js';
 import {DisplayPreferences} from './settings/preferences.js';
 import {usePool} from './pools/data.js';
 import { useIntrospection } from './introspection/data.js';
@@ -47,13 +48,13 @@ function Drawer(): ReactNode {
         <div className="pmsep" /><button className="pmfoot" onClick={() => { ui.open(false); void navigate({ to: '/projects' }); }}>View all projects</button><button className="pmfoot" onClick={() => { ui.open(false); void navigate({ to: '/projects/new' }); }}>New project</button>
       </div>
     </div>
-    <nav className="dnav" aria-label="Primary navigation">{navGroups.map((group) => <div key={group.label}><div className="dgroup" style={{ color: 'var(--rule-2)' }}>{group.label}</div>{group.items.filter(item=>!item.hidden).map((item) => {
+    <nav data-mark-navigation="true" className="dnav" aria-label="Primary navigation">{navGroups.map((group) => <div key={group.label}><div className="dgroup" style={{ color: 'var(--rule-2)' }}>{group.label}</div>{group.items.filter(item=>!item.hidden).map((item) => {
       const children = id === null ? [] : item.children?.filter(child => !child.adminOnly || active?.role === 'admin') ?? [];
       const selected = activePath === item.path;
       const expanded = (ui.sections[item.path] ?? selected) && !ui.collapsed && !narrow && id !== null;
-      const navigation = <button aria-label={item.label} data-active={selected || undefined} aria-current={selected && !['catalog','relationship-suggestions','token-key','sources','introspections','runs'].includes(section ?? '') ? 'page' : undefined} onClick={() => go(item.path)} type="button"><span className="ic" aria-hidden="true">{item.icon}</span><span className="lb">{item.label}</span></button>;
+      const navigation = <button aria-label={item.label} data-active={selected || undefined} aria-current={selected && !['catalog','relationship-suggestions','token-key','sources','introspections','runs'].includes(section ?? '') ? 'page' : undefined} onClick={() => go(item.path)} type="button"><span className="ic" aria-hidden="true"><Mark name={item.icon} size={19}/></span><span className="lb">{item.label}</span></button>;
       return <Fragment key={item.path}>{children.length && !ui.collapsed && !narrow ? <div data-nav-row="true" data-active={selected || undefined}>{navigation}<button type="button" data-disclosure="true" aria-label={`${expanded ? 'Hide' : 'Show'} sub-items of ${item.label}`} aria-expanded={expanded} aria-controls={`nav-${item.path.slice(1)}`} onClick={() => ui.toggleSection(item.path,expanded)}><span aria-hidden="true">›</span></button></div> : navigation}
-      {children.length ? <ul id={`nav-${item.path.slice(1)}`} hidden={!expanded}>{children.map(child => <li key={child.screen}><Link to="/projects/$projectId/$screen" params={{projectId:id ?? '',screen:child.screen}} aria-current={section === child.screen ? 'page' : undefined}>{child.label}</Link></li>)}</ul> : null}</Fragment>;
+      {children.length ? <ul id={`nav-${item.path.slice(1)}`} hidden={!expanded}>{children.map(child => <li key={child.screen}><Link to="/projects/$projectId/$screen" params={{projectId:id ?? '',screen:child.screen}} aria-current={section === child.screen ? 'page' : undefined}><Mark name={({catalog:'element','relationship-suggestions':'nav-relationships','token-key':'pool-key','settings-engines':'engine'} as Readonly<Record<string,MarkName>>)[child.screen]??'nav-settings'} size={12} navigation/>{' '}{child.label}</Link></li>)}</ul> : null}</Fragment>;
     })}</div>)}</nav>
     <div className="dfoot"><button className="acct" type="button" aria-label="Your account"><span className="av" aria-hidden="true">U</span><span className="tx"><b>Your account</b><span>{active?.role ?? 'Signed in'}</span></span></button></div>
   </aside>;

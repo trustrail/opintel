@@ -1,3 +1,5 @@
+import {Mark} from './marks.js';
+export {Mark,markNames,type MarkName,type MarkSize} from './marks.js';
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 import './styles.js';
 import { useMemo } from 'react';
@@ -59,18 +61,19 @@ const treatmentLabel: Readonly<Record<TreatmentKind, string>> = {
 };
 
 export function Treatment({ kind, label }: { kind: TreatmentKind; label?: string }): ReactNode {
-  return <span className={classNames('tr', treatmentClass[kind])}><i aria-hidden="true" />{label ?? treatmentLabel[kind]}</span>;
+  return <span className={classNames('tr', treatmentClass[kind])}>{kind==='reference'?null:<Mark name={`treatment-${kind}`} size={16}/ >}{label ?? treatmentLabel[kind]}</span>;
 }
 
 export type EmptyStateProps = PropsWithChildren<{
-  icon: string;
+  /** Contextual error/loading affordances only; never a screen identity. */
+  icon?: '!' | '…';
   title: string;
   description: string;
   calm?: boolean;
 }>;
 
 export function EmptyState({ icon, title, description, calm = false, children }: EmptyStateProps): ReactNode {
-  return <section className={classNames('blank', calm ? 'calm' : undefined)}><div className="bi" aria-hidden="true">{icon}</div><b>{title}</b><p>{description}</p>{children}</section>;
+  return <section className={classNames('blank', calm ? 'calm' : undefined)}>{icon==='!'||icon==='…'?<div className="bi" aria-hidden="true">{icon}</div>:null}<b>{title}</b><p>{description}</p>{children}</section>;
 }
 
 export type ErrorStateProps = {

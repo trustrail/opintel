@@ -1,3 +1,4 @@
+import type {MarkName} from '../shared/ui/index.js';
 export type NavPath =
   | '/dashboard' | '/observations' | '/activity' | '/releases' | '/workbench'
   | '/data-sources' | '/vocabulary' | '/source-of-truth' | '/relationships' | '/knowledge'
@@ -6,7 +7,7 @@ export type NavPath =
 export type NavItem = {
   readonly label: string;
   readonly path: NavPath;
-  readonly icon: string;
+  readonly icon: MarkName;
   readonly count?: string;
   readonly dim?: boolean;
   readonly hidden?: boolean;
@@ -17,28 +18,28 @@ export type NavGroup = { readonly label: string; readonly items: readonly NavIte
 
 export const navGroups: readonly NavGroup[] = [
   { label: 'Watch', items: [
-    { label: 'Dashboard', path: '/dashboard', icon: '◎' },
-    { label: 'Observations', path: '/observations', icon: '▲' },
-    { label: 'Activity', path: '/activity', icon: '≡' },
-    { label: 'Releases', path: '/releases', icon: '⧉' },
+    { label: 'Dashboard', path: '/dashboard', icon: 'nav-dashboard' },
+    { label: 'Observations', path: '/observations', icon: 'nav-observations' },
+    { label: 'Activity', path: '/activity', icon: 'nav-activity' },
+    { label: 'Releases', path: '/releases', icon: 'nav-releases' },
   ] },
-  { label: 'Work', items: [{ label: 'Workbench', path: '/workbench', icon: '▶' }] },
+  { label: 'Work', items: [{ label: 'Workbench', path: '/workbench', icon: 'nav-workbench' }] },
   { label: 'Understand', items: [
-    { label: 'Data sources', path: '/data-sources', icon: '⛁', children: [{label: 'Explore schema', screen: 'catalog'}, {label:'Suggestions',screen:'relationship-suggestions'}] },
-    { label: 'Vocabulary', path: '/vocabulary', icon: '❋' },
-    { label: 'Source of truth', path: '/source-of-truth', icon: '◉' },
-    { label: 'Relationships', path: '/relationships', icon: '⇄' },
-    { label: 'Knowledge', path: '/knowledge', icon: '◈' },
+    { label: 'Data sources', path: '/data-sources', icon: 'nav-data-sources', children: [{label: 'Explore schema', screen: 'catalog'}, {label:'Suggestions',screen:'relationship-suggestions'}] },
+    { label: 'Vocabulary', path: '/vocabulary', icon: 'nav-vocabulary' },
+    { label: 'Source of truth', path: '/source-of-truth', icon: 'nav-source-of-truth' },
+    { label: 'Relationships', path: '/relationships', icon: 'nav-relationships' },
+    { label: 'Knowledge', path: '/knowledge', icon: 'nav-knowledge' },
   ] },
   { label: 'Govern', items: [
-    { label: 'Entitlements', path: '/entitlements', icon: '⊟' },
-    { label: 'Pools', path: '/pools', icon: '◇' },
-    { label: 'Access', path: '/access', icon: '◉', children: [{label: 'Token key', screen: 'token-key', adminOnly: true}] },
-    { label: 'Audit log', path: '/audit-log', icon: '⧉', hidden: true },
+    { label: 'Entitlements', path: '/entitlements', icon: 'nav-entitlements' },
+    { label: 'Pools', path: '/pools', icon: 'nav-pools' },
+    { label: 'Access', path: '/access', icon: 'nav-access', children: [{label: 'Token key', screen: 'token-key', adminOnly: true}] },
+    { label: 'Audit log', path: '/audit-log', icon: 'nav-audit-log', hidden: true },
   ] },
   { label: 'Manage', items: [
-    { label: 'All projects', path: '/projects', icon: '◫' },
-    { label: 'Settings', path: '/settings', icon: '⚙', children:[{label:'Engines',screen:'settings-engines'},{label:'Discovery',screen:'settings-discovery'},{label:'Query',screen:'settings-query'},{label:'Evidence',screen:'settings-evidence'},{label:'Agents and keys',screen:'settings-agents'}] },
+    { label: 'All projects', path: '/projects', icon: 'nav-all-projects' },
+    { label: 'Settings', path: '/settings', icon: 'nav-settings', children:[{label:'Engines',screen:'settings-engines'},{label:'Discovery',screen:'settings-discovery'},{label:'Query',screen:'settings-query'},{label:'Evidence',screen:'settings-evidence'},{label:'Agents and keys',screen:'settings-agents'}] },
   ] },
 ];
 

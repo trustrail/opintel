@@ -22,7 +22,7 @@ function Derivation({ projectId, member, company }: { projectId: string; member:
   const toggleTrace = useAccessUi((state) => state.toggleTrace);
   if (explanation.isPending) return <LoadingState />;
   if (explanation.isError) return <ErrorState title="Permissions could not be loaded" description={explanation.error.message} retry={()=>explanation.refetch()} />;
-  if (explanation.data.permissions.length === 0) return <EmptyState icon="◉" title="No permission results" description="Refresh permissions to check this person's current access."><AsyncButton pendingLabel="Refreshing…" refusal={null} run={()=>explanation.refetch()}>Refresh permissions</AsyncButton></EmptyState>;
+  if (explanation.data.permissions.length === 0) return <EmptyState title="No permission results" description="Refresh permissions to check this person's current access."><AsyncButton pendingLabel="Refreshing…" refusal={null} run={()=>explanation.refetch()}>Refresh permissions</AsyncButton></EmptyState>;
   const groups = [
     { key: 'project', title: 'Allowed · Direct project grant' },
     { key: 'company', title: `Allowed · Inherited from ${company}` },
@@ -75,8 +75,8 @@ export function AccessScreen({ projectId }: { projectId: string }): ReactNode {
     </div>
     {projects.isError ? <ErrorState title="Projects could not be loaded" description={projects.error.message} retry={()=>projects.refetch()} /> : null}
     {members.isPending ? <LoadingState /> : members.isError ? <ErrorState title="Members could not be loaded" description={members.error.message} retry={()=>members.refetch()} />
-      : members.data.length === 0 ? <EmptyState icon="◉" title="No members found" description="Ask a company administrator to review membership, then refresh this list."><AsyncButton pendingLabel="Refreshing…" refusal={null} run={()=>members.refetch()}>Refresh members</AsyncButton></EmptyState>
-        : visible.length === 0 ? <EmptyState icon="◉" title="No members match this filter" description="Show everyone to review all direct and inherited access."><Button onClick={() => ui.show(projectId, 'all')}>Show everyone</Button></EmptyState>
+      : members.data.length === 0 ? <EmptyState title="No members found" description="Ask a company administrator to review membership, then refresh this list."><AsyncButton pendingLabel="Refreshing…" refusal={null} run={()=>members.refetch()}>Refresh members</AsyncButton></EmptyState>
+        : visible.length === 0 ? <EmptyState title="No members match this filter" description="Show everyone to review all direct and inherited access."><Button onClick={() => ui.show(projectId, 'all')}>Show everyone</Button></EmptyState>
           : <div className="card"><div className="card-h"><h2>People who can reach {project?.name ?? 'this project'}</h2><span className="meta">{visible.length} people · {visible.filter((member) => member.via !== 'project').length} with inheritance</span></div>
             {visible.map((member) => {
               const expanded = selected === member.user.id;

@@ -4533,6 +4533,25 @@ separator, rather than splitting either value or clipping a long combined line.
 Observations and Migrate industry. Do not use native `details` / `summary`.
 The migration form composes `.sheetb` and `.fld`, with `.inp` on its select.
 
+**Visual identity (5.27).** `docs/visual-language.html` specifies shared inline
+SVG marks using existing master tokens and containers. Marks identify kind only
+where kinds are mixed; navigation always carries marks; state is marked only
+when it changes what someone does; one mark per thing. Uniform lists, including
+entitlement elements, have no kind marks. A row has at most one kind, state or
+treatment mark. Headings and empty states do not repeat the screen's identity.
+The six exposure marks replace treatment dots and retain text labels; by-reference
+is outside this spectrum and remains text-only. Prompt and Audit log marks are
+designed but unsurfaced; the Audit log remains hidden until Slice 3.
+
+Marks expose `data-mark` and `data-mark-category`, are decorative and
+non-focusable, and do not register new control patterns. A separate rendered
+placement check counts each row's own marks, excluding nested child rows and
+ordinary control affordances. List scope comes from its logical data contract,
+not its current page or virtualised window. Navigation is explicitly identified
+and checked for one mark per destination. Visual review and fixtures still
+establish whether a state changes an action and whether list classification is
+honest; the scanner does not infer unseen data.
+
 **Control conformance is a separate CI gate.** Every browser screen scenario is
 observed, including loading, empty, error, ready, open panels/dialogs and pending
 mutations exercised by the fixtures. Control kinds must match a reviewed master

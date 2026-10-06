@@ -423,7 +423,7 @@ direct monthly partitions, with actual SQL attempts rejected by grants.
 | O-003 | F | Every screen, error | States what happened and the fix, with retry |
 | O-004 | F | Every screen, ready | Renders |
 | O-005 | X | axe on every screen | Zero violations |
-| O-006 | X | Every treatment badge | Dot **and** text label |
+| O-006 | X | Every treatment badge | Specified exposure-spectrum geometry **and** text label (5.27); by-reference remains text-only, outside the six-mark spectrum |
 | O-007 | X | Colour-blindness simulation, six treatments | All distinguishable |
 | O-008 | X | `prefers-reduced-motion` | Every transition disabled |
 | O-009 | F | Visual snapshots, three viewports | Match baseline |
@@ -1318,3 +1318,21 @@ The report names the screen, control, structural markup and violated contract.
 | SUG-004 | F | Reject, not sure or unanswered suggestion | No domain or entitlement changes; Not sure persists, stays visible and is raised again by later attempts; confirmed/rejected actor/time and assignment-version history remains intact |
 | SUG-005 | A | Candidate SQL contains literals | Same Activity policy, parsed stripping and view_unredacted permission; no second redaction path; unprivileged SQL hidden |
 | SUG-006 | F | Suggestion screen | Mounted and drawer-linked; loading, empty, error and ready; axe and 390/900/1440 snapshots; no source reads |
+
+### Visual identity (5.27)
+
+`docs/visual-language.html` specifies the geometry and palette. These checks are
+separate from control conformance; passive SVG marks do not register a control.
+
+| ID | Type | Case | Proves |
+|---|---|---|---|
+| VIS-001 | U | Shared mark inventory | All six spectrum, eight object, three request, five state and sixteen navigation designs use specified geometry and existing tokens, identifiable by `data-mark` and category; passive, hidden from assistive technology |
+| VIS-002 | U | Sizes | Shared geometry renders at 12–48 in existing containers, without new classes |
+| VIS-003 | F | Row placement | Uniform lists have no kind marks; a row has at most one kind, state or treatment mark; nested child rows count independently; navigation carries marks and is exempt from uniform-list prohibition |
+| VIS-004 | U/F | No invented homes | No screen identity marks in headings or empty states; Prompt and Audit log designs remain unsurfaced; current uniform request lists do not manufacture a mixed-kind reason for a query mark |
+| VIS-005 | F | Logical list scope | Scope is declared independently of the visible page/window; row kinds are independently identifiable; invalid scope, missing kind metadata and duplicate marks produce readable findings |
+
+Application browser fixtures check final placement; the conformance project also
+observes committed DOM changes and retains findings from transient states. At
+390 / 900 / 1440, visual review checks mark legibility, navigation contrast,
+existing row bounds and labels. No new colour or stylesheet container is added.

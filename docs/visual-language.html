@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Opintel · visual language</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+
+  /* Tokens from docs/opintel-master.css. */
+  --plum:#1B0232; --plum-2:#2E1147;
+  --green:#0CC655; --green-dk:#05582A; --green-bg:#E4FAEE;
+  --yellow:#FFF730; --yellow-br:#E8DF3A; --yellow-bg:#FFFCE0;
+  --bg:#F2EFF6; --surface:#FFFFFF; --surface-2:#F8F6FB; --surface-3:#EDE8F3;
+  --ink:#1B0232; --ink-2:#5A4A6B; --ink-3:#675878;
+  --rule:#E1DAEA; --rule-2:#C7BDD6;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:980px;margin:0 auto;padding:48px 24px 120px}
+header{margin-bottom:56px}
+h1{font-size:34px;line-height:1.15;margin:0 0 10px;letter-spacing:-.02em;color:var(--plum)}
+.sub{color:var(--ink-2);font-size:17px;margin:0;max-width:62ch}
+h2{font-size:21px;margin:56px 0 6px;letter-spacing:-.01em}
+h2:first-of-type{margin-top:40px}
+.note{color:var(--ink-2);margin:0 0 22px;max-width:68ch}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:26px}
+
+/* ---- spectrum ---- */
+.spectrum{display:grid;grid-template-columns:repeat(6,1fr);gap:0;overflow-x:auto}
+.sp{padding:20px 10px;text-align:center;border-right:1px solid var(--rule);min-width:112px}
+.sp:last-child{border-right:0}
+.sp .mk{margin-bottom:12px}
+.sp .nm{font-weight:600;font-size:13.5px;letter-spacing:-.01em}
+.sp .ds{color:var(--ink-2);font-size:12px;margin-top:4px;line-height:1.45}
+.axis{display:flex;justify-content:space-between;color:var(--ink-3);
+  font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;margin-top:18px;
+  padding-top:14px;border-top:1px solid var(--rule)}
+
+/* ---- mark sizes ---- */
+.sizes{display:flex;gap:34px;align-items:flex-end;flex-wrap:wrap}
+.sz{text-align:center}
+.sz small{display:block;color:var(--ink-3);font-size:11px;margin-top:8px}
+
+/* ---- badges in context ---- */
+.row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--rule)}
+.row:last-child{border-bottom:0}
+.row .nm{font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .ty{color:var(--ink-3);font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.tr{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;
+  padding:3px 10px 3px 7px;border-radius:999px;border:1px solid var(--rule-2);
+  background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.tr.undec{border-style:dashed;color:var(--ink-3)}
+
+/* ---- objects ---- */
+.objs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px}
+.ob{padding:18px 12px;text-align:center}
+.ob .nm{font-weight:600;font-size:13.5px;margin-top:10px}
+.ob .ds{color:var(--ink-2);font-size:12px;margin-top:3px}
+
+/* ---- direction ---- */
+.dirs{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:620px){.dirs{grid-template-columns:1fr}.spectrum{grid-template-columns:repeat(3,1fr)}}
+.dir{padding:20px;border-radius:12px;border:1px solid var(--rule)}
+.dir.open{background:var(--yellow-bg);border-color:var(--yellow-br)}
+.dir.shut{background:var(--green-bg);border-color:var(--green)}
+.dir h3{margin:12px 0 6px;font-size:15px}
+.dir p{margin:0;color:var(--ink-2);font-size:13.5px;line-height:1.55}
+
+/* ---- bulk bar demo ---- */
+.bulk{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:16px 18px;border-radius:12px;border:1px solid var(--yellow-br);background:var(--yellow-bg)}
+.bulk .txt{flex:1;min-width:240px;font-size:13.5px;line-height:1.55}
+.bulk .txt b{font-weight:650}
+.btn{border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);
+  border-radius:8px;padding:8px 16px;font:inherit;font-size:13.5px;font-weight:500;cursor:pointer}
+.btn.pri{background:var(--plum);border-color:var(--plum);color:#fff}
+
+ul.pts{margin:14px 0 0;padding-left:20px;color:var(--ink-2);max-width:68ch}
+ul.pts li{margin-bottom:7px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+  background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:2px 18px}
+.ng{grid-column:1/-1;color:var(--ink-3);font-size:11px;letter-spacing:.11em;text-transform:uppercase;margin:16px 0 4px}
+.ng:first-child{margin-top:0}
+.ni{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:8px;color:var(--ink-2);font-size:14px}
+.ni:hover{background:var(--surface-2);color:var(--ink)}
+.ni svg{width:19px;height:19px;flex:none}
+.foot{margin-top:60px;padding-top:22px;border-top:1px solid var(--rule);color:var(--ink-3);font-size:13px;max-width:70ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>A visual language for Opintel</h1>
+  <p class="sub">The console asks someone to make irreversible decisions about data they cannot see. Every concept it deals in — a treatment, a state, an object, a direction of change — should be recognisable before it is read. This proposes the marks.</p>
+</header>
+
+<h2>Exposure is a spectrum</h2>
+<p class="note">One base shape, filled according to how much of a value reaches an agent. A screen then looks permissive or restrictive before anyone reads a word, and a change is visible as movement along the axis.</p>
+
+<div class="card">
+  <div class="spectrum">
+    <div class="sp">
+      <div class="mk"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg></div>
+      <div class="nm">Clear</div>
+      <div class="ds">The whole value</div>
+    </div>
+    <div class="sp">
+      <div class="mk"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><path d="M17 5a12 12 0 0 0 0 24z" fill="var(--plum)"/><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2"/></svg></div>
+      <div class="nm">Masked</div>
+      <div class="ds">Part of the value</div>
+    </div>
+    <div class="sp">
+      <div class="mk"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2"/><circle cx="11" cy="20" r="3" fill="var(--plum)"/><circle cx="17" cy="12" r="3" fill="var(--plum)"/><circle cx="23" cy="20" r="3" fill="var(--plum)"/></svg></div>
+      <div class="nm">Aggregate</div>
+      <div class="ds">Only across a group</div>
+    </div>
+    <div class="sp">
+      <div class="mk"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg></div>
+      <div class="nm">Tokenized</div>
+      <div class="ds">Identity, not value</div>
+    </div>
+    <div class="sp">
+      <div class="mk"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" stroke-width="2"/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" stroke-width="2"/></svg></div>
+      <div class="nm">Withheld</div>
+      <div class="ds">Nothing, decided</div>
+    </div>
+    <div class="sp">
+      <div class="mk"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2" stroke-dasharray="3.6 3.6"/></svg></div>
+      <div class="nm">Undecided</div>
+      <div class="ds">Nothing, yet</div>
+    </div>
+  </div>
+  <div class="axis"><span>Everything reaches the agent</span><span>Nothing does</span></div>
+</div>
+
+<ul class="pts">
+  <li><b>Fill carries exposure.</b> Solid is the whole value; an outline is none of it. Nothing about the spectrum depends on colour, so it survives a monochrome export and a reader who cannot distinguish hues.</li>
+  <li><b>Tokenized is an outline with a centre.</b> No value reaches the agent, but something persists: the same input always produces the same token. The dot is that persistence.</li>
+  <li><b>Aggregate is three marks, not one.</b> The value exists only as part of a group, and the mark says so.</li>
+  <li><b>Undecided is the only dashed mark and the only yellow one.</b> It is not a sixth treatment: it is work waiting. Yellow already means “needs your decision” in this console, and it sits behind an ink outline rather than carrying the line.</li>
+  <li><b>Withheld is grey, undecided is yellow.</b> Both show nothing to an agent and they are entirely different situations. One is a decision; the other is its absence.</li>
+</ul>
+
+<h2>At the sizes it will be used</h2>
+<p class="note">The marks are drawn as geometry, so they stay legible small and never need a separate icon file.</p>
+<div class="card sizes">
+  <div class="sz"><svg width="12" height="12" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.6"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg><small>12 · inline</small></div>
+  <div class="sz"><svg width="16" height="16" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.4"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg><small>16 · badge</small></div>
+  <div class="sz"><svg width="22" height="22" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.2"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg><small>22 · row</small></div>
+  <div class="sz"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg><small>34 · panel</small></div>
+  <div class="sz"><svg width="48" height="48" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="1.8"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg><small>48 · empty state</small></div>
+</div>
+
+<h2>In a list</h2>
+<p class="note">The same screen, scanned rather than read. The shape of this object's exposure is apparent before any column name is.</p>
+<div class="card" style="padding:6px 8px">
+  <div class="row">
+    <svg width="18" height="18" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg>
+    <span class="nm">inception_date</span><span class="ty">DATE</span>
+    <span class="tr">Clear</span>
+  </div>
+  <div class="row">
+    <svg width="18" height="18" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.3"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg>
+    <span class="nm">treaty_ref</span><span class="ty">VARCHAR</span>
+    <span class="tr">Tokenized</span>
+  </div>
+  <div class="row">
+    <svg width="18" height="18" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.3"/><circle cx="11" cy="20" r="3" fill="var(--plum)"/><circle cx="17" cy="12" r="3" fill="var(--plum)"/><circle cx="23" cy="20" r="3" fill="var(--plum)"/></svg>
+    <span class="nm">written_premium</span><span class="ty">DECIMAL</span>
+    <span class="tr">Aggregate only</span>
+  </div>
+  <div class="row">
+    <svg width="18" height="18" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" stroke-width="2.3"/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" stroke-width="2.3"/></svg>
+    <span class="nm">broker_contact</span><span class="ty">VARCHAR</span>
+    <span class="tr">Withheld</span>
+  </div>
+  <div class="row">
+    <svg width="18" height="18" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.3" stroke-dasharray="3.4 3.4"/></svg>
+    <span class="nm">unit_owner_name</span><span class="ty">VARCHAR</span>
+    <span class="tr undec">Undecided</span>
+  </div>
+</div>
+
+<h2>The things themselves</h2>
+<p class="note">These are not Opintel concepts — they are things people already recognise, so they should look like what they are rather than share a geometry. One stroke weight, one corner radius, drawn on a 24 grid.</p>
+<div class="card objs">
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 7.5a9 3.5 0 1 0 18 0 9 3.5 0 1 0-18 0"/>
+      <path d="M3 7.5v9c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5v-9"/>
+      <path d="M3 12c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5"/>
+    </svg>
+    <div class="nm">Source</div><div class="ds">Where the data is</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+      <path d="M3 8.5h18"/><path d="M9.5 8.5V20"/><path d="M15 8.5V20"/>
+      <rect x="9.5" y="8.5" width="5.5" height="11.5" fill="var(--plum)" stroke="none" opacity=".16"/>
+    </svg>
+    <div class="nm">Element</div><div class="ds">One column of one object</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="4" y="8" width="16" height="11" rx="3"/>
+      <path d="M12 8V4.8"/><circle cx="12" cy="3.6" r="1.3"/>
+      <circle cx="9" cy="13" r="1.25" fill="var(--ink-2)" stroke="none"/>
+      <circle cx="15" cy="13" r="1.25" fill="var(--ink-2)" stroke="none"/>
+      <path d="M9.5 16.3h5"/>
+    </svg>
+    <div class="nm">Agent</div><div class="ds">Who is asking</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="2.5" y="9" width="9" height="7" rx="2.2"/>
+      <path d="M7 9V6.6"/><circle cx="7" cy="5.7" r="1"/>
+      <rect x="12.5" y="12" width="9" height="7" rx="2.2"/>
+      <path d="M17 12V9.6"/><circle cx="17" cy="8.7" r="1"/>
+    </svg>
+    <div class="nm">Pool</div><div class="ds">An audience of agents</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="7" width="18" height="10" rx="2.5"/>
+      <path d="M7 11.5h2.5M7 14h4.5"/>
+      <circle cx="17.5" cy="12.5" r="1.4" fill="var(--green-bg)" stroke="var(--green-dk)" stroke-width=".9"/>
+      <path d="M7 7V4.5M17 7V4.5M7 19.5V17M17 19.5V17"/>
+    </svg>
+    <div class="nm">Engine</div><div class="ds">Reads beside the data</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M13.5 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9.5z"/>
+      <path d="M13.5 3v6.5H20"/>
+      <path d="M8 13.5h8M8 17h5"/>
+    </svg>
+    <div class="nm">Filing</div><div class="ds">A document that arrived</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M13.5 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9.5z"/>
+      <path d="M13.5 3v6.5H20"/>
+      <circle cx="12" cy="15" r="5" fill="var(--green-bg)" stroke="none"/>
+      <path d="M8.5 15.3l2.3 2.3 4.3-4.6" stroke="var(--green-dk)"/>
+    </svg>
+    <div class="nm">Evidence</div><div class="ds">What an answer read</div>
+  </div>
+
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="8" cy="12" r="4.2"/>
+      <path d="M12.2 12H21"/><path d="M17.5 12v3.4"/><path d="M20.4 12v2.4"/>
+    </svg>
+    <div class="nm">Pool key</div><div class="ds">What an agent presents</div>
+  </div>
+
+</div>
+
+<ul class="pts">
+  <li><b>Recognition beats system here.</b> A database looks like a database and an agent looks like an agent, because nobody should have to learn what a triangle means. The treatments above are the opposite case: they are concepts only this product has, so they need a system that teaches how they relate.</li>
+  <li><b>One colour accent each, at most.</b> The engine's status light and evidence's check are the only departures from a single ink, and each carries a fact.</li>
+  <li><b>A pool is two agents, not an abstraction.</b> It is an audience, and the mark says so without a legend.</li>
+</ul>
+
+<h2>Request kinds</h2>
+<p class="note">Activity mixes three kinds of request, and they leave different evidence behind. A reader scanning the list should see which without reading.</p>
+<div class="card objs">
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 6.5h16M4 11h11M4 15.5h14M4 20h8"/>
+    </svg>
+    <div class="nm">Query</div><div class="ds">A statement someone composed</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--plum)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 12.5c0 3.9-3.6 7-8 7a9.6 9.6 0 0 1-2.6-.35L4.5 21l1.2-3.4A6.6 6.6 0 0 1 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"/>
+      <path d="M9.6 10.4a2.5 2.5 0 1 1 3 2.45v1.1"/>
+      <circle cx="12.6" cy="16.1" r=".9" fill="var(--plum)" stroke="none"/>
+    </svg>
+    <div class="nm">Prompt</div><div class="ds">A question in words, interpreted</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="9" cy="9" r="3.2"/><circle cx="16" cy="9" r="3.2"/>
+      <path d="M5 19c0-2.4 1.8-4.2 4-4.2s4 1.8 4 4.2"/>
+      <path d="M12.6 15.2c.9-.3 1.9-.4 2.9-.3 2.1.2 3.7 1.9 3.7 4.1"/>
+    </svg>
+    <div class="nm">Dereference</div><div class="ds">Resolving one thing to another</div>
+  </div>
+</div>
+<ul class="pts">
+  <li><b>Prompt is the only one in plum.</b> A query is a statement; a prompt passed through a model that decided what it meant. The interpretation is the part that can be wrong, and the colour says to look at it.</li>
+</ul>
+
+<h2>States worth marking</h2>
+<p class="note">The normal outcome gets no mark. A list where only the actionable rows are marked can be scanned; a list where every row has a status icon is wallpaper.</p>
+<div class="card objs">
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/>
+    </svg>
+    <div class="nm">Refused</div><div class="ds">Nothing was returned</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3.5 21 19.5H3Z" fill="var(--yellow-bg)"/><path d="M12 10v4"/><circle cx="12" cy="16.9" r=".95" fill="var(--ink)" stroke="none"/>
+    </svg>
+    <div class="nm">Needs a decision</div><div class="ds">Waiting on a person</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" fill="var(--yellow-bg)"/>
+      <path d="M3.5 10.5h17"/><path d="M9 14.5h6"/>
+    </svg>
+    <div class="nm">Quarantined</div><div class="ds">Set aside, not processed</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3.5a8.5 8.5 0 1 1-8.2 6.3"/>
+      <path d="M3.4 5.2v4.8h4.8"/>
+    </svg>
+    <div class="nm">Incomplete</div><div class="ds">Started and did not finish</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke-dasharray="3.4 3.4"/>
+      <path d="M12 7.8V12l2.8 1.8"/>
+    </svg>
+    <div class="nm">Stale</div><div class="ds">Not heard from lately</div>
+  </div>
+</div>
+
+<h2>Navigation</h2>
+<p class="note">The one place every item is a different kind and the eye is scanning. Sixteen marks, always present, learned once.</p>
+<div class="card">
+  <div class="nav">
+    <div class="ng">Watch</div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4.6-4.6"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg><span>Dashboard</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.2H3Z"/><path d="M12 10.3v4"/><circle cx="12" cy="16.6" r=".95" fill="currentColor" stroke="none"/></svg><span>Observations</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2.5-6 4 12 2.5-6H21"/></svg><span>Activity</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="12" rx="2.3"/><path d="M6.5 5.5h11M8.5 2.8h7"/></svg><span>Releases</span></div>
+
+    <div class="ng">Work</div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 6.2 17 12l-8.5 5.8Z"/></svg><span>Workbench</span></div>
+
+    <div class="ng">Understand</div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/><path d="M3.8 12c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2"/></svg><span>Data sources</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M15.5 4.2v4.5H20"/><path d="M9 11.5h7M9 15h4.5"/></svg><span>Vocabulary</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.6 2.6 4.9-5.2"/></svg><span>Source of truth</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="7" r="2.6"/><circle cx="17.5" cy="7" r="2.6"/><circle cx="12" cy="17.5" r="2.6"/><path d="M8.6 8.8 10.9 15M15.4 8.8 13.1 15M9.1 7h5.8"/></svg><span>Relationships</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3 20 7.9v8.2L12 20.7 4 16.1V7.9Z"/><path d="M12 12v8.7M12 12 4 7.9M12 12l8-4.1"/></svg><span>Knowledge</span></div>
+
+    <div class="ng">Govern</div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg><span>Entitlements</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><path d="M6.9 8.6V6.4"/><circle cx="6.9" cy="5.5" r="1"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/><path d="M17.1 11.4V9.2"/><circle cx="17.1" cy="8.3" r="1"/></svg><span>Pools</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="4"/><path d="M12 12h8.5"/><path d="M17.2 12v3.2"/><path d="M20 12v2.3"/></svg><span>Access</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.8h9.5L20 8.3V20.2H6Z"/><path d="M15.5 3.8v4.5H20"/><path d="M9.2 13.4l1.9 1.9 3.9-4.1"/></svg><span>Audit log</span></div>
+
+    <div class="ng">Manage</div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.3" y="4.3" width="7.4" height="7.4" rx="2"/><rect x="13.3" y="4.3" width="7.4" height="7.4" rx="2"/><rect x="3.3" y="13.3" width="7.4" height="7.4" rx="2"/><rect x="13.3" y="13.3" width="7.4" height="7.4" rx="2"/></svg><span>All projects</span></div>
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.9v2.6M12 18.5v2.6M21.1 12h-2.6M5.5 12H2.9M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6"/></svg><span>Settings</span></div>
+  </div>
+</div>
+
+<ul class="pts">
+  <li><b>Observations and "needs a decision" share a mark.</b> That is the point: the drawer item and the state it collects are the same idea, and a reader should connect them without being told.</li>
+  <li><b>Audit log and Source of truth both use a check.</b> One on a document, one on a circle — a verified record against a verified fact.</li>
+  <li><b>Pools in the drawer is the pool object mark.</b> Every navigation item that names an object kind reuses that object's mark rather than inventing a second one for the same thing.</li>
+</ul>
+
+<h2>Which way a change goes</h2>
+<p class="note">The console's existing audit convention has the right instinct: in a governance product the risky act is the permissive one. This makes it a visual rule rather than a colour choice in one screen.</p>
+<div class="dirs">
+  <div class="dir open">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10.5" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M13 18V8m0 0l-4 4m4-4l4 4" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h3>Exposing</h3>
+    <p>More reaches an agent than before. Reversible as configuration, not in consequence: once a value has been read, it has been read, and a record says so.</p>
+  </div>
+  <div class="dir shut">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10.5" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M13 8v10m0 0l-4-4m4 4l4-4" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h3>Restricting</h3>
+    <p>Less reaches an agent than before. Answers already given are unchanged; future ones carry less.</p>
+  </div>
+</div>
+
+<h2>Weight, before the click</h2>
+<p class="note">The same control, carrying what it will do. Not a confirmation dialog — those train clicking through — but the consequence in the view where the decision is made.</p>
+<div class="bulk">
+  <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" style="flex:none"><circle cx="13" cy="13" r="10.5" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M13 18V8m0 0l-4 4m4-4l4 4" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div class="txt"><b>23 elements will become readable by Reporting.</b> Agents have asked for 4 of them. Answers already given are unaffected; future answers will include these values.</div>
+  <button class="btn">Cancel</button>
+  <button class="btn pri">Set to clear</button>
+</div>
+
+<h2>What this is not</h2>
+<ul class="pts">
+  <li><b>Not decoration.</b> Every mark carries one fact that is otherwise only in text. Anything that adds no information does not earn a place, because a screen where everything is decorated has nothing that stands out.</li>
+  <li><b>Not a colour system.</b> The spectrum reads in monochrome. Background fills distinguish undecided from decided; ink arrows distinguish exposing from restricting.</li>
+  <li><b>Not new tokens.</b> Everything here is drawn with <code>--plum</code>, <code>--ink-2</code>, <code>--ink-3</code>, <code>--ink</code>, <code>--yellow-bg</code>, <code>--green-bg</code> and <code>--green-dk</code>. The values on this page are the real tokens from <code>docs/opintel-master.css</code>.</li>
+</ul>
+
+<p class="foot">A proposal, not an implementation. If the marks are right, they become a small set of inline SVGs in the master stylesheet's existing badge and row patterns, used everywhere a treatment, a state, an object or a direction appears — the entitlements tree, the schema explorer, evidence records, suggestions, the dashboard feed and the agent twin.</p>
+
+</div>
+</body>
+</html>

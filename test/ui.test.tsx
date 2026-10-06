@@ -25,7 +25,7 @@ describe('shared UI primitives', () => {
 
   it('O-002, O-003 and O-004: renders purposeful empty, error, and ready primitives', () => {
     const retry = vi.fn();
-    const markup = renderToStaticMarkup(<AppRoot><EmptyState icon="◎" title="Nothing here yet" description="Choose the next action."><Button variant="go">Continue</Button></EmptyState><ErrorState title="Could not load this view" description="Check the connection and try again." retry={retry} /><Card><CardHeader title="Ready" meta="Current" /></Card></AppRoot>);
+    const markup = renderToStaticMarkup(<AppRoot><EmptyState title="Nothing here yet" description="Choose the next action."><Button variant="go">Continue</Button></EmptyState><ErrorState title="Could not load this view" description="Check the connection and try again." retry={retry} /><Card><CardHeader title="Ready" meta="Current" /></Card></AppRoot>);
     expect(markup).toContain('id="opintel-app"');
     expect(markup).toContain('class="blank"');
     expect(markup).toContain('Try again');
@@ -33,12 +33,13 @@ describe('shared UI primitives', () => {
     expect(markup).toContain('class="card-h"');
   });
 
-  it('O-006 and O-007: treatment badges always render their dot and text label', () => {
+  it('O-006 and O-007: treatment badges render their spectrum mark and text label', () => {
     const kinds: readonly TreatmentKind[] = ['clear', 'tokenized', 'masked', 'reference', 'aggregate', 'withheld'];
     for (const kind of kinds) {
       const markup = renderToStaticMarkup(<Treatment kind={kind} />);
       expect(markup).toContain('class="tr ');
-      expect(markup).toContain('<i aria-hidden="true"></i>');
+      if(kind==='reference')expect(markup).not.toContain('data-mark=');
+      else expect(markup).toContain(`data-mark="treatment-${kind}"`);
       expect(markup).toMatch(/>[A-Z][^<]+<\/span>$/u);
     }
   });

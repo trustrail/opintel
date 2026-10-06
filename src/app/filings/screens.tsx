@@ -1,3 +1,4 @@
+import {Mark} from '../../shared/ui/index.js';
 import {Timestamp} from '../settings/preferences.js';
 import { TypeObservations } from '../sources/type-observations.js';
 import { CustodyObservations } from '../custody/observations.js';
@@ -29,7 +30,7 @@ export function SourceFilings({ projectId, sourceId, strategy }: { projectId: st
   const query = useFilings(projectId);
   const filings = query.data?.filter(filing => filing.sourceId === sourceId && filing.outcome === 'landed') ?? [];
   return <section className="sheetb" aria-label="Recent filings into this source" style={{width:'100cqw',boxSizing:'border-box',position:'sticky',left:0}}><h3>Recent filings into this source</h3>
-    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Filings could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState icon="⛁" title="No landed filings yet" description="Files appear here after landing. Check the Dashboard or Observations for quarantines." /> : <>
+    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Filings could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState title="No landed filings yet" description="Files appear here after landing. Check the Dashboard or Observations for quarantines." /> : <>
       <div role="region" aria-label="Landed filing records" tabIndex={0} style={{overflowX:'auto'}}><table><thead><tr><th>Filing</th><th>Party</th><th>Kind</th><th>Period</th><th>Received</th><th>Superseded</th><th>Rows</th></tr></thead><tbody>{filings.map(filing => <tr key={filing.filingId}>
         <td className="num"><span>{filing.filingId}</span>{filing.supersedes?<><br/><span className="tr mask"><i aria-hidden="true"/>Restatement</span></>:null}</td><td className="num">{filing.partyCode ?? 'Not reported'}</td><td>{filing.kind ?? 'Not reported'}</td><td className="num">{filing.period ?? 'Not reported'}</td><td className="num"><Received value={filing.receivedAt} /></td>
         <td>{filing.supersedes ? <span className="mono">{filing.supersedes}</span> : 'None'}</td><td className="num">{filing.rowCount ?? 'Awaiting receipt'}</td>
@@ -44,7 +45,7 @@ export function QuarantineFeed({ projectId }: { projectId: string }): ReactNode 
   const query = useFilings(projectId);
   const filings = query.data?.filter(filing => filing.outcome === 'quarantined') ?? [];
   return <section className="card" aria-labelledby="quarantine-heading"><div className="card-h"><h2 id="quarantine-heading">Needs a decision</h2><span className="meta">Quarantined filings</span></div>
-    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState icon="✓" title="No quarantined filings" description="Files needing attention will appear here." /> : <ul className="feed">{filings.map(filing => <li key={filing.filingId}><span className="sev hi" aria-hidden="true">!</span><div className="fb">
+    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState title="No quarantined filings" description="Files needing attention will appear here." /> : <ul data-mark-list="uniform" className="feed">{filings.map(filing => <li data-mark-row="true" data-row-kind="finding" key={filing.filingId}><span className="sev hi" aria-hidden="true"><Mark name="quarantined" size={18}/></span><div className="fb">
       <p className="t">{quarantineLabels[filing.quarantineCategory ?? ''] ?? 'The filing needs local review before it can land.'}</p>
       <p className="d"><Received value={filing.receivedAt} /></p>
       <QuarantineResolutionSummary zoneId={filing.sourceId} filingId={filing.filingId}/>

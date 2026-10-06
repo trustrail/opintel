@@ -30,7 +30,7 @@ export function TokenKeyScreen({projectId}:{projectId:string}) {
     {query.isPending||projects.isPending?<LoadingState/>:query.isError?<ErrorState title="Token key could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>
     :projects.isError?<ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>projects.refetch()}/>
     :!project?<EmptyState icon="!" title="Project unavailable" description="Return to All projects to choose a project you can administer."/>
-    :query.data.currentVersion===null?<EmptyState icon="◇" title="No token key yet" description="The key is created and its escrow backup verified when the first source connects. Nothing needs to be rotated or restored yet."/>
+    :query.data.currentVersion===null?<EmptyState title="No token key yet" description="The key is created and its escrow backup verified when the first source connects. Nothing needs to be rotated or restored yet."/>
     :<>
       {failures.length?<section className="seg" role="alert" aria-label="Rehearsal failure"><Card><CardHeader title="Key backup verification needs attention"/><div className="sheetb">
         <p><b>Do not rely on an unverified backup.</b> Check the escrow copy and run a rehearsal again. Rotation cannot recover a missing key.</p>

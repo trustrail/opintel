@@ -15,7 +15,7 @@ export function ProjectSettingsScreen({projectId,section='settings'}:{projectId:
  const query=useProjectSettings(projectId),projects=useProjects();
  if(query.isPending||projects.isPending)return <LoadingState/>;
  if(query.isError||projects.isError)return <ErrorState title="Settings could not be loaded" description={(query.error??projects.error)?.message??'Try again.'} retry={()=>Promise.all([query.refetch(),projects.refetch()])}/>;
- const project=projects.data?.find(p=>p.id===projectId);if(!project)return <EmptyState icon="⚙" title="Project unavailable" description="Choose a project you can view." ><Link to="/projects">Choose project</Link></EmptyState>;
+ const project=projects.data?.find(p=>p.id===projectId);if(!project)return <EmptyState title="Project unavailable" description="Choose a project you can view." ><Link to="/projects">Choose project</Link></EmptyState>;
  return <section className="screen on"><h1>{section==='settings'?'Project settings':section==='settings-discovery'?'Discovery settings':section==='settings-query'?'Query settings':section==='settings-evidence'?'Evidence settings':'Agent and key settings'}</h1><p className="sub">{project.name} · Every limit, default and unset state is explicit.</p>{project.role!=='admin'?<p className="note">Read-only. A project administrator can change these settings.</p>:null}
  {section==='settings'?<Details project={project}/>:null}
  <SettingForm key={projectId+section} projectId={projectId} settings={query.data!.settings} disabled={project.role!=='admin'} section={section}/>

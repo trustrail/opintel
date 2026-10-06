@@ -11,7 +11,7 @@ import {reviewForm} from './state.js';
 export function SuggestionsScreen({projectId}:{projectId:string}){
  const query=useSuggestions(projectId),projects=useProjects(),admin=projects.data?.find(p=>p.id===projectId)?.role==='admin';
  return <section className="screen on"><h1>Suggested relationships</h1><p className="sub">An agent attempted these joins. That demonstrates a need; deciding that the columns identify the same entity belongs to an administrator. No source values are read.</p>
- {query.isPending?<LoadingState/>:query.isError?<ErrorState title="Suggestions could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>:!query.data.items.length?<EmptyState icon="⇄" title="No join suggestions" description="Refused equality joins will appear here. Unanswered suggestions never change tokens."/>:query.data.items.map(item=><Review key={item.id} item={item} projectId={projectId} projectName={query.data.projectName} admin={admin}/>)}
+ {query.isPending?<LoadingState/>:query.isError?<ErrorState title="Suggestions could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>:!query.data.items.length?<EmptyState title="No join suggestions" description="Refused equality joins will appear here. Unanswered suggestions never change tokens."/>:query.data.items.map(item=><Review key={item.id} item={item} projectId={projectId} projectName={query.data.projectName} admin={admin}/>)}
  </section>;
 }
 function Review({item,projectId,projectName,admin}:{item:Suggestion;projectId:string;projectName:string;admin:boolean}){

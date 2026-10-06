@@ -18,7 +18,7 @@ export function DeclarationPanel({projectId,elementId,onSchema}:{projectId:strin
  const query=useDeclarations(projectId,elementId),projects=useProjects(),save=useDeclarationSave(projectId,elementId);
  if(query.isPending||projects.isPending)return <LoadingState/>;
  if(query.isError||projects.isError)return <ErrorState title="Declarations could not be loaded" description={(query.error as AppError|null)?.message??projects.error?.message??'Try again.'} retry={()=>Promise.all([query.refetch(),projects.refetch()])}/>;
- if(!query.data)return <EmptyState icon="⊟" title="No element selected" description="Select an element to inspect its declarations."/>;
+ if(!query.data)return <EmptyState title="No element selected" description="Select an element to inspect its declarations."/>;
  return <ElementForm key={JSON.stringify(query.data.stored)+query.data.schemaTimezone} projectId={projectId} data={query.data} save={save} admin={projects.data?.find(p=>p.id===projectId)?.role==='admin'} onSchema={onSchema}/>;
 }
 function ElementForm({projectId,data,admin,onSchema,save}:{projectId:string;save:ReturnType<typeof useDeclarationSave>;data:z.infer<typeof ElementDeclarations>;admin:boolean;onSchema:(id:string)=>void}){
@@ -52,7 +52,7 @@ export function SchemaDeclarationPanel({projectId,schemaId}:{projectId:string;sc
  const query=useSchemaDeclarations(projectId,schemaId),projects=useProjects(),save=useSchemaDeclarationSave(projectId,schemaId);
  if(query.isPending||projects.isPending)return <LoadingState/>;
  if(query.isError||projects.isError)return <ErrorState title="Schema declaration could not be loaded" description={(query.error as AppError|null)?.message??projects.error?.message??'Try again.'} retry={()=>Promise.all([query.refetch(),projects.refetch()])}/>;
- if(!query.data)return <EmptyState icon="⊟" title="No schema selected" description="Select an element, then edit its schema timezone."/>;
+ if(!query.data)return <EmptyState title="No schema selected" description="Select an element, then edit its schema timezone."/>;
  return <SchemaForm key={query.data.sourceTimezone} projectId={projectId} schemaId={schemaId} data={query.data} save={save} admin={projects.data?.find(p=>p.id===projectId)?.role==='admin'}/>;
 }
 function SchemaForm({data,admin,save}:{projectId:string;schemaId:string;save:ReturnType<typeof useSchemaDeclarationSave>;data:z.infer<typeof SchemaDeclarations>;admin:boolean}){

@@ -55,3 +55,20 @@ test('compact drawer is checked by its master state, not whole-drawer visibility
  await page.locator('.shell').evaluate(shell=>shell.classList.remove('collapsed'));
  expect((await page.evaluate(inspectControls,controlPatterns)).findings).toEqual([]);
 });
+
+test('VIS-003/VIS-005: placement counts rows and knows uniform scope beyond a rendered window',async({page})=>{
+ const {inspectMarkPlacement}=await import('./conformance/mark-placement.js');
+ const mark=(name:string,category:string)=>`<svg aria-hidden="true" focusable="false" data-mark="${name}" data-mark-category="${category}"><circle cx="8" cy="8" r="5"/></svg>`;
+ await page.setContent(`<div id="opintel-app"><div data-mark-list="uniform" role="tree"><div data-mark-row data-row-kind="element" role="treeitem">${mark('treatment-clear','treatment')}</div></div><ul data-mark-list="mixed"><li data-mark-row data-row-kind="source">${mark('source','kind')}<ul data-mark-list="uniform"><li data-mark-row data-row-kind="element">${mark('treatment-tokenized','treatment')}</li></ul></li></ul><nav data-mark-navigation><ul data-mark-list="uniform"><li data-mark-row data-row-kind="navigation">${mark('nav-pools','kind')}</li></ul></nav><svg aria-hidden="true"><path d="M0 0h1"/></svg><button class="toolchip"><svg aria-hidden="true"><path d="m0 0 1 1"/></svg>Expand</button></div>`);
+ expect(await page.evaluate(inspectMarkPlacement)).toEqual([]);
+ await page.setContent(`<div id="opintel-app"><div data-mark-list="uniform" role="tree"><div data-mark-row data-row-kind="element" role="treeitem">${mark('element','kind')}</div></div><ul data-mark-list="mixed"><li data-mark-row data-row-kind="query">${mark('query','kind')}${mark('refused','state')}</li></ul><h1>${mark('nav-activity','kind')}Activity</h1><section class="blank">${mark('source','kind')}Data sources</section></div>`);
+ const reasons=(await page.evaluate(inspectMarkPlacement)).map(f=>f.reason);
+ expect(reasons).toHaveLength(4);
+ expect(reasons).toContain('Uniform list carries a kind mark.');
+ expect(reasons).toContain('Row carries more than one identity mark.');
+ expect(reasons.filter(r=>r==='Kind mark repeats a heading or empty state identity.')).toHaveLength(2);
+ await page.setContent(`<div id="opintel-app"><ul data-mark-list="mixed"><li data-mark-row>${mark('source','kind')}</li></ul></div>`);
+ expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toEqual(['Row kind is missing; scope cannot be checked independently of marks.']);
+ await page.setContent('<div id="opintel-app"><nav data-mark-navigation><button class="btn">Sources</button></nav></div>');
+ expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toEqual(['Navigation destination must carry exactly one identity mark.']);
+});

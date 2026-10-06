@@ -28,8 +28,8 @@ export function KitchenSinkScreen(): ReactNode {
     </div>
 
     <div className="tiles">
-      <KitchenCard title="Empty states"><EmptyState icon="◎" title="Nothing to review" description="When work arrives, it will appear here."><Button variant="go">Add a source</Button></EmptyState></KitchenCard>
-      <KitchenCard title="Calm empty state"><EmptyState calm icon="✓" title="Everything is decided" description="No elements need a decision right now." /></KitchenCard>
+      <KitchenCard title="Empty states"><EmptyState title="Nothing to review" description="When work arrives, it will appear here."><Button variant="go">Add a source</Button></EmptyState></KitchenCard>
+      <KitchenCard title="Calm empty state"><EmptyState calm title="Everything is decided" description="No elements need a decision right now." /></KitchenCard>
       <KitchenCard title="Error state"><ErrorState title="The service is unavailable" description="Try again after the dependency recovers." retry={() => {}} /></KitchenCard>
     </div>
 
