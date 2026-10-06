@@ -47,9 +47,9 @@ test('ISO-004: isolated domain stays behind a keyboard-accessible diagnostic dis
  const state=await declarations(page);await page.setViewportSize({width:390,height:1000});await page.goto(`/projects/${project}/catalog?elementId=${element}`);
  await expect(page.getByText(/Effective: Isolated — joins only this element/)).toBeVisible();
  const domain=page.getByText(state.data.effective.tokenDomain,{exact:true});await expect(domain).toBeHidden();
- const disclosure=page.getByText('Show derived domain',{exact:true});await disclosure.focus();await page.keyboard.press('Enter');await expect(domain).toBeVisible();
+ const disclosure=page.getByRole('button',{name:'Show derived domain',exact:true});await expect(disclosure).toHaveAttribute('aria-expanded','false');const target=await disclosure.getAttribute('aria-controls');expect(target).toBeTruthy();const panel=page.locator(`[id="${target}"]`);await expect(panel).toBeHidden();await disclosure.focus();await page.keyboard.press('Enter');await expect(disclosure).toHaveAttribute('aria-expanded','true');await expect(panel).toBeVisible();await expect(domain).toBeVisible();
  await expect(page.getByText('Derived from element identity. For token diagnostics.',{exact:true})).toBeVisible();await accessible(page);
- await disclosure.focus();await page.keyboard.press('Enter');await expect(domain).toBeHidden();
+ await disclosure.focus();await page.keyboard.press('Space');await expect(disclosure).toHaveAttribute('aria-expanded','false');await expect(panel).toBeHidden();await expect(domain).toBeHidden();expect(state.writes).toEqual([]);
 });
 test('ISO-004: first shared domain and return to isolation require confirmation when already tokenized',async({page})=>{
  const state=await declarations(page);state.data.tokenizedEntitlements=1;

@@ -1,6 +1,6 @@
 import {domainMigrationConfirmation} from '../../shared/token-domain.js';
 import {ProjectId,ElementId} from '../../shared/kernel/value-objects.js';
-import {useMemo} from 'react';
+import {useMemo,useId} from 'react';
 import {useStore} from 'zustand';
 import type {z} from 'zod';
 import {DeclarationCommand,ElementDeclarations,SchemaDeclarations,type DeclarationValues} from '../../shared/api/declarations.js';
@@ -13,7 +13,7 @@ import type {AppError} from '../../shared/api/index.js';
 const integerTypes=['TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'];
 const display=(value:string|boolean|null)=>value===null?'Not declared':typeof value==='boolean'?value?'Enabled':'Disabled':value;
 const domainDisplay=(stored:string|null,effective:string)=>stored===null?'Isolated — joins only this element':effective;
-function DerivedDomain({domain,open,onToggle}:{domain:string;open:boolean;onToggle:(open:boolean)=>void}){return <details className="hint" open={open} onToggle={e=>onToggle(e.currentTarget.open)}><summary>Show derived domain</summary><p>Derived from element identity. For token diagnostics.</p><code className="mono" style={{display:'block',overflowWrap:'anywhere'}}>{domain}</code></details>;}
+function DerivedDomain({domain,open,onToggle}:{domain:string;open:boolean;onToggle:(open:boolean)=>void}){const id=useId();return <div className="hint"><button type="button" className="toolchip" aria-expanded={open} aria-controls={id} onClick={()=>onToggle(!open)}>Show derived domain</button><div id={id} hidden={!open}><p>Derived from element identity. For token diagnostics.</p><code className="mono" style={{display:'block',overflowWrap:'anywhere'}}>{domain}</code></div></div>;}
 export function DeclarationPanel({projectId,elementId,onSchema}:{projectId:string;elementId:string;onSchema:(id:string)=>void}){
  const query=useDeclarations(projectId,elementId),projects=useProjects(),save=useDeclarationSave(projectId,elementId);
  if(query.isPending||projects.isPending)return <LoadingState/>;
