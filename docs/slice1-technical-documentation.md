@@ -9,7 +9,7 @@ This document establishes the conventions for all three slices. Slices 2 and 3 a
 
 **In scope:** foundation and auth, companies and projects, two source connectors, per-field entitlements, pools and the agent interface, evidence records, natural language querying without the compounding layer, and the query sidecar in customer-network mode.
 
-**Explicitly out:** fragments, protocols, fast lane, learning loops, source of truth registry, relationships, knowledge, the **observations register** as a workflow surface, key-policy release, SAML, SCIM.
+**Explicitly out:** fragments, protocols, fast lane, learning loops, source of truth registry, the full relationships model (attempt-backed token-domain review is implemented by 5.25), knowledge, the **observations register** as a workflow surface, key-policy release, SAML, SCIM.
 
 **The Dashboard screen is in.** Findings surface in its needs-a-decision feed. What Slice 3 adds is the register behind them, with acknowledge and resolve states and a history.
 
@@ -4567,7 +4567,7 @@ The feed contains current undecided pairs grouped by pool/source, current source
 
 Sign in, check email, auth callback, confirm device, accept invitation, project chooser, create project (industry picker), dashboard, workbench, vocabulary (with readiness), synonym candidates, discovery coverage, data sources, source detail, introspection run, entitlements, pools, pool detail, agent twin, activity, run detail, access, project settings (details, discovery, query, evidence, access), personal settings, kitchen sink.
 
-Deferred to Slice 3: releases, source of truth, relationships, knowledge, audit log, and the **observations register** as a workflow surface with state.
+Deferred to Slice 3: releases, source of truth, the full relationships model (excluding 5.25 attempt-backed token-domain review), knowledge, audit log, and the **observations register** as a workflow surface with state.
 
 **The Dashboard is in Slice 1a**, as item 5.15. It shows the decided ratio, the treatment spectrum, counts, the needs-a-decision feed and the pool shields. Findings surface inline in that feed rather than in a register with acknowledge and resolve states, which is what Slice 3 adds.
 
@@ -5370,3 +5370,18 @@ project.stats and custody.status, including failed verification updates.
 The application pre-filter and authoritative engine inspector independently refuse equality joins between tokenized columns with different effective token domains, or between a tokenized and a clear column. This includes implicit WHERE joins. Both inspectors preserve the read plan's domain and column identity through aliases, CTEs and subqueries. The refusal names both qualified columns and asks an administrator to tokenize both under a shared domain, without exposing domain values. Shared-domain equality, token literals and inequality retain their existing behaviour; no separate notice is emitted for a useless inequality. See algorithm B.4a and C.3.1.
 
 The durable evidence writer records a `token_join_candidate` atomically with the refusal. It retains both element ids and qualified names, agent id, original submitted statement and attempt timestamp. This tenant-scoped administrative record may contain SQL literals; it is separate from the redacted evidence request and is never emitted to logs, spans or the agent interface. No candidate reader or suggestion screen is added by this item. Relationship review belongs to 5.25; domain migration belongs to 5.24. Domains are never merged automatically.
+
+
+### 5.25 Attempt-backed relationship review
+
+Data sources → Suggestions (`/projects/:projectId/relationship-suggestions`) presents refused query and explain equality-join attempts grouped by unordered element pair. Frequency counts attempts, not independent business needs. It reads catalogue and attempt metadata only: no overlap analysis, source values or format preview. Unrelated columns may overlap; related columns may be disjoint. An attempt demonstrates a need; an administrator decides whether the columns identify the same entity.
+
+Project view permits `GET /projects/:id/suggestions`, `/suggestions/domains` and `/suggestions/:suggestionId/attempts`, all cursor-paged and non-cacheable. Original statements may contain literals. Their presentation calls Activity's shared visibility and parsed SQL stripping implementation with the same `project#view_unredacted` permission; stripping failure hides the statement. Project administration permits `POST /projects/:id/suggestions/:suggestionId/decisions`.
+
+Confirmation requires choosing an existing or new shared domain explicitly. Existing options name every member, including inactive elements, before selection: choosing that namespace enables compatible joins beyond this pair. The server rechecks the membership's assignment versions and the latest attempted join. It locks project sources in deterministic order before elements, matching declaration writers' source-before-element order, to prevent concurrent domain assignments changing the reviewed membership. Both columns must currently be tokenized in every pool that attempted the join. Clear/undecided candidates remain visible, but confirmation is blocked with a link to Entitlements; domain changes do not change treatments. Canonicalisation declarations are preserved.
+
+Typed project-name confirmation uses 5.24's exact wording. The domain updates and an append-only `token_join_review` containing actor, timestamp, domain and resulting assignment versions commit together. 5.24's database trigger writes assignment history; no tokens are persisted or rewritten. The HMAC construction is unchanged. Reject and Not sure append review facts without domain or entitlement changes. Not sure remains visible and a later attempt raises it again. Confirmed and rejected histories remain available alongside their assignment version references. Migration 065 grants tenant SELECT/INSERT only; no UPDATE/DELETE, forced RLS, and downgrade refuses to destroy recorded review history.
+
+Mutation invalidation: every decision outcome refreshes suggestion lists, domain choices, attempts, element lists/declarations, entitlements and project statistics. A stale refusal therefore refreshes the membership the administrator must review before reconfirming. The drawer mounts Suggestions under Data sources. The screen covers loading, empty, error and ready states; viewers can read but cannot act.
+
+Evidence-settings changes invalidate suggestion attempt queries alongside Activity. Attempt SQL uses Activity’s zero-retention browser cache policy (`staleTime: 0`, `gcTime: 0`) and is fetched only while its disclosure is open.

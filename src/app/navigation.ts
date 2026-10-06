@@ -23,7 +23,7 @@ export const navGroups: readonly NavGroup[] = [
   ] },
   { label: 'Work', items: [{ label: 'Workbench', path: '/workbench', icon: '▶' }] },
   { label: 'Understand', items: [
-    { label: 'Data sources', path: '/data-sources', icon: '⛁', children: [{label: 'Explore schema', screen: 'catalog'}] },
+    { label: 'Data sources', path: '/data-sources', icon: '⛁', children: [{label: 'Explore schema', screen: 'catalog'}, {label:'Suggestions',screen:'relationship-suggestions'}] },
     { label: 'Vocabulary', path: '/vocabulary', icon: '❋' },
     { label: 'Source of truth', path: '/source-of-truth', icon: '◉' },
     { label: 'Relationships', path: '/relationships', icon: '⇄' },
@@ -50,6 +50,7 @@ export function labelForPath(pathname: string): string {
   if(pathname.startsWith('/settings-'))return ({'settings-engines':'Engines','settings-discovery':'Discovery','settings-query':'Query','settings-evidence':'Evidence','settings-agents':'Agents and keys'} as Record<string,string>)[pathname.slice(1)]??'Settings';
   if(/^\/companies\/[^/]+\/settings$/u.test(pathname))return 'Company settings';
   if (pathname === '/token-key') return 'Token key';
+  if(pathname==='/relationship-suggestions')return 'Suggestions';
   if (pathname === '/catalog') return 'Explore schema';
   if (pathname === '/') return 'Dashboard';
   if (pathname === '/projects/new') return 'Create project';

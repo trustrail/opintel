@@ -1,0 +1,2 @@
+import {projectKeys} from '../tenancy/data.js';
+export const suggestionKeys={all:(p:string)=>[...projectKeys.scope(p),'suggestions'] as const,list:(p:string)=>[...suggestionKeys.all(p),'list'] as const,domains:(p:string)=>[...suggestionKeys.all(p),'domains'] as const,attemptLists:(p:string)=>[...suggestionKeys.all(p),'attempts'] as const,attempts:(p:string,id:string)=>[...suggestionKeys.attemptLists(p),id] as const};

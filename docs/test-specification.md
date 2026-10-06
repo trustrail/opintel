@@ -1307,3 +1307,14 @@ The report names the screen, control, structural markup and violated contract.
 | DOMAIN-001 | D | Assign a domain, no-op, change and revert | Immutable ordered history; no-op does not append; reverting restores prior tokens with unchanged key/canonicalisation |
 | DOMAIN-002 | F | Query before and after a change | Evidence retains the domain assignment version used at preparation and its key version; old evidence is unchanged |
 | DOMAIN-003 | S | History migration and tenant grants | Up/down/up before changes; destructive downgrade refused; foreign history hidden; application insert/update/delete denied |
+
+## Item 5.25 · Attempt-backed suggestions
+
+| ID | Type | Case | Expected |
+|---|---|---|---|
+| SUG-001 | D | Repeated attempts and reversed operands | Pair frequency and recency computed from attempt facts, with query and explain counts separate |
+| SUG-002 | A | Another project or reader lacking administration attempts a decision | No cross-project disclosure or unauthorised mutation |
+| SUG-003 | D | Administrator confirms a compatible tokenized pair | Reviewed shared-domain selection invokes 5.24; explicit existing/new domain selection names all members first; stale attempt or membership refuses; typed confirmation protects effective changes; review and assignment history commit atomically; clear pairs cannot confirm; old evidence stays interpretable |
+| SUG-004 | F | Reject, not sure or unanswered suggestion | No domain or entitlement changes; Not sure persists, stays visible and is raised again by later attempts; confirmed/rejected actor/time and assignment-version history remains intact |
+| SUG-005 | A | Candidate SQL contains literals | Same Activity policy, parsed stripping and view_unredacted permission; no second redaction path; unprivileged SQL hidden |
+| SUG-006 | F | Suggestion screen | Mounted and drawer-linked; loading, empty, error and ready; axe and 390/900/1440 snapshots; no source reads |

@@ -714,3 +714,6 @@ same test under sequential commands and controlled overlap, without changing
 its timeout. That evidence would distinguish shared host contention from a
 specific blocked dependency or cumulative resource leak. An isolated pass is
 additional evidence, never a replacement for the failed combined result.
+
+
+**5.25a source-reading authority.** Attempt-backed suggestions ship without value-overlap evidence, diff-time column analysis or a format-checking join preview. These require source reads that neither the query read plan nor sampling consent authorises. Before implementation, review who authorises such reads, the eligible columns, and execution/disclosure limits. Unrelated columns can overlap and related columns can be disjoint; overlap cannot establish the identity judgement. 5.25 records real attempted joins and leaves that judgement to an administrator.

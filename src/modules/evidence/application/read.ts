@@ -18,11 +18,16 @@ export class EvidenceQuery {
   const [checks,settings]=await Promise.all([this.authorization.checkMany([{resource:{type:'project',id:ctx.projectId},subject:{type:'user',id:ctx.userId},permission:'view_unredacted'}]),this.reader.settings(ctx)]);
   const parsed=policy.safeParse(settings);return checks[0]?.allowed&&parsed.success?parsed.data.evidence:{redaction:'aggressive' as const,allowlistedFields:[]};
  }
- private async redact<T extends ActivityEntry>(row:T,settings:Awaited<ReturnType<EvidenceQuery['visibility']>>):Promise<T>{
+ private async redact<T extends Pick<ActivityEntry,'request'|'mode'|'redactions'|'argumentVisibility'>>(row:T,settings:Awaited<ReturnType<EvidenceQuery['visibility']>>):Promise<T>{
   if(settings.redaction==='none')return {...row,argumentVisibility:row.request===null?'hidden':row.redactions.some(e=>e.fields.includes('request')&&e.policy.redaction==='allowlist')?'literal_stripped':'raw'};
   // Prompts have no parsed SQL structure in Slice 1a. Never fall back to raw prose.
   const request=settings.redaction==='allowlist'&&row.mode==='query'&&settings.allowlistedFields.includes('sql')&&row.request!==null?await this.text.stripSql(row.request):null;
   return {...row,request,argumentVisibility:request===null?'hidden':'literal_stripped'};
+ }
+ async redactSql(ctx:EvidenceContext,statements:readonly string[]){
+  const settings=await this.visibility(ctx),items:Array<{statement:string|null;argumentVisibility:ActivityEntry['argumentVisibility']}>=[];
+  for(const statement of statements){const row=await this.redact({request:statement,mode:'query' as const,redactions:[],argumentVisibility:'raw' as ActivityEntry['argumentVisibility']},settings);items.push({statement:row.request,argumentVisibility:row.argumentVisibility});}
+  return ok(items);
  }
  async list(ctx:EvidenceContext,filters:ActivityFilters,after:EvidencePosition|null,limit:number){
   const settings=await this.visibility(ctx),rows=await this.reader.list(ctx,filters,after,limit);if(!rows.ok)return rows;

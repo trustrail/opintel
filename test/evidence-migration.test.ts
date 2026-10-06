@@ -1,12 +1,15 @@
 import { readFile } from 'node:fs/promises';
-import { Client } from 'pg';
+import {migrationDatabase} from './fixtures/migration-database.js';
 import { expect, it } from 'vitest';
+const database=migrationDatabase();
 it('046 down/up/down/up recreates monthly partitions with forced RLS and append-only grants',async()=>{
  // Owner is used only for migration DDL in a rollback-only transaction.
- const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
+ const db=database();
  const up=await readFile('migrations/046_evidence.up.sql','utf8'),down=await readFile('migrations/046_evidence.down.sql','utf8');
  try {
-  await db.query('BEGIN');await db.query(await readFile('migrations/060_token_join_candidates.down.sql','utf8'));await db.query('TRUNCATE query_run,evidence_redaction,evidence_rollup CASCADE');await db.query(await readFile('migrations/052_evidence_lifecycle.down.sql','utf8'));
+  await db.query('BEGIN');
+  // Empty isolated fixture: guards stay active, and dependants unwind first.
+  for(const migration of ['065_relationship_review','061_explain_join_candidates','060_token_join_candidates','052_evidence_lifecycle'])await db.query(await readFile(`migrations/${migration}.down.sql`,'utf8'));
   for(let attempt=0;attempt<2;attempt++) {
    await db.query(down);expect((await db.query("SELECT to_regclass('query_run') AS table")).rows).toEqual([{table:null}]);
    await db.query(up);
@@ -17,5 +20,5 @@ it('046 down/up/down/up recreates monthly partitions with forced RLS and append-
    const bounds=await db.query<{bounds:string}>("SELECT pg_get_expr(relpartbound,oid) AS bounds FROM pg_class WHERE oid='query_run_203102'::regclass");
    expect(bounds.rows[0]?.bounds).toContain('2031-02-01');expect(bounds.rows[0]?.bounds).toContain('2031-03-01');
   }
- } finally {await db.query('ROLLBACK');await db.end();}
+ } finally {await db.query('ROLLBACK');}
 },30000);

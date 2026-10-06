@@ -1,3 +1,4 @@
+import {PostgresSuggestions,suggestionRoutes} from '../../modules/relationships/index.js';
 import {PostgresExplainJoinCandidates} from '../../modules/evidence/index.js';
 import { declarationRoutes } from '../../modules/catalog/api/declaration-routes.js';
 import { PostgresElementDeclarations, PostgresTemporalRepository } from '../../modules/catalog/index.js';
@@ -221,6 +222,7 @@ async function start(): Promise<void> {
     ...settingsRoutes(new PostgresSettings()),
     ...evidenceExportRoutes(new EvidenceExportService(new PostgresEvidenceExports(),evidenceQuery,authorization)),
     ...evidenceRoutes(evidenceQuery),
+    ...suggestionRoutes(new PostgresSuggestions(evidenceQuery)),
     ...dashboardRoutes(new PostgresDashboardReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), presence)),
