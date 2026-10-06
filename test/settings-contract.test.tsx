@@ -29,7 +29,7 @@ it('Q-025 configuration: rollups cannot expire before full records; required lim
 });
 it('Q-001: dates honour the selected timezone and date format',async()=>{
  const {formatTimestamp}=await import('../src/app/settings/preferences.js');
- expect(formatTimestamp('2026-01-02T01:00:00Z','America/Toronto','DD/MM/YYYY')).toBe('01/01/2026 20:00:00 America/Toronto');
+ expect(formatTimestamp('2026-01-02T01:00:00Z','America/Toronto','DD/MM/YYYY')).toBe('01/01/2026 20:00:00 EST');
  expect(formatTimestamp('2026-01-02T01:00:00Z','UTC','YYYY-MM-DD')).toBe('2026-01-02 01:00:00 UTC');
 });
 

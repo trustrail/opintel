@@ -716,3 +716,14 @@ a general observations workflow.
 **5.20 custody decision.** One verified engine is designated per project. Custody requests route there. Assignment of a tokenized source to another engine requires its current primary key version and derived sentinel to match the recorded project key. Rotation immediately makes stale engines unavailable for tokenized execution. Distribution remains customer-owned provisioning pending 5.21. Clear-only execution does not require a key match. Cross-engine queries refuse with `sources_cannot_be_joined`; this item implements routing, not distributed execution.
 
 **5.20 configuration.** `APPLICATION_TLS_CONFIG` names a strict application identity/trust file containing only `caFile`, `certFile`, `keyFile`. Addresses, pins, engine contract/health, source assignments and custody designation live in the registry. `SIDECAR_CLIENT_CONFIG`, `LANDING_RECEIPT_CLIENT_CONFIG`, and client.json are no longer read. Receipt listener bind host/port remain environment configuration. Development operator tools explicitly register their supplied service deployment; isolated transport fixtures read their explicit service deployment, not an application routing fallback.
+
+**A — Timestamp presentation: absolute plus relative time.** Extends 5.16's
+personal date/time preferences using §5.5's reviewed elapsed-age boundaries,
+actual-zone labels, cached formatters and one shared 60-second clock with
+visibility refresh. Existing `.when`, `.rwhen` and `.audw` styles only.
+Focused verification covers boundary/future wording, Toronto EST/EDT and UTC,
+preference changes, shared-clock cleanup and visibility refresh.
+Visual fixtures tagged `@visual` share a fixed `2026-10-06T15:43:00Z`
+clock before navigation, including additional pages in the same context.
+Only Date is fixed; polling and rendering timers continue running. This keeps
+relative ages reproducible when committed snapshots are compared on later days.

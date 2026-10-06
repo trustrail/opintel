@@ -23,7 +23,7 @@ export function QuarantineResolutionSummary({ zoneId, filingId }: { zoneId: stri
     <p className="d">Landing zone ID: <span className="mono" style={copyStyle}>{zoneId}</span><br/>Filing ID: <span className="mono" style={copyStyle}>{filingId}</span></p>
   </>;
 }
-function Received({ value }: { value: string }) { return <Timestamp value={value}/>; }
+function Received({ value }: { value: string }) { return <Timestamp value={value} appearance="when"/>; }
 
 export function SourceFilings({ projectId, sourceId, strategy }: { projectId: string; sourceId: string; strategy: keyof typeof landingLabels | null }): ReactNode {
   const query = useFilings(projectId);

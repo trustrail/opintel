@@ -273,7 +273,7 @@
 #opintel-app .feed .fb{flex:1;min-width:0}
 #opintel-app .feed .t{font-size:13.5px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
 #opintel-app .feed .d{font-size:12.5px;color:var(--ink-2);margin:0;line-height:1.5;font-weight:500}
-#opintel-app .feed .when{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);white-space:nowrap}
+#opintel-app .feed .when{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);white-space:normal}
 #opintel-app /* activity */
 .modebar{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:16px 18px;margin-bottom:14px}
 #opintel-app .modebar h3{font-size:14px;font-weight:700;margin:0 0 3px;letter-spacing:-.02em}

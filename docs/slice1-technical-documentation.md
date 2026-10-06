@@ -4496,6 +4496,38 @@ The wire schemas also generate the stream OpenAPI document.
 
 ## 5.5 Screen contract
 
+**Timestamp presentation (A: relative time).** Every displayed timestamp shows
+its absolute value and relative age together, separated by ` · `. The absolute
+form preserves 5.16's selected date format, timezone and seconds precision.
+UTC is the default when no preference is set. Its label names the zone actually
+shown, including daylight-saving time: for example
+`2026-10-06 09:43:00 EDT · 2 hours ago` for America/Toronto in October,
+and EST in winter. Where an abbreviation is unavailable, the formatter's
+zone offset label is used; a non-UTC value must never be labelled UTC.
+The underlying `<time datetime>` retains the original timestamp. Explicitly
+UTC daily totals remain UTC; their separate "as of" timestamp follows the
+person's display preferences.
+
+Relative age uses elapsed duration, not local calendar boundaries. Under one
+minute reads "just now"; one through 59 minutes reads "N minute(s) ago";
+one through 23 hours reads "N hour(s) ago"; 24 hours onward reads
+"N day(s) ago". Units round down, with singular at one. Beyond a week it
+continues counting days ("8 days ago", "30 days ago"); it does not switch to
+"Yesterday", weekday labels, weeks or months. Future timestamps use
+"in N minute(s)/hour(s)/day(s)" at the same boundaries, and "in less than
+a minute" below one minute. Missing timestamps retain their contextual
+absence label (for example "Never"), not an invented age.
+
+A single shared clock refreshes on first mount, every 60 seconds while any
+timestamp is mounted, and immediately when the tab becomes visible again.
+Only timestamp components subscribe; the clock must not rerender screen/query
+parents or reconstruct formatters during scroll. Absolute formatters are
+cached by locale and timezone. Use the existing `.when` feed, `.rwhen`
+Activity and `.audw` timestamp styles; no new stylesheet class is required.
+Feed timestamps keep the absolute value and relative age in separate,
+unbreakable `.audw` spans. The `.when` wrapper permits wrapping at their
+separator, rather than splitting either value or clipping a long combined line.
+
 **In-screen disclosures use the master’s button pattern**: `.toolchip` with
 `aria-expanded` and `aria-controls`, including local resolution instructions in
 Observations and Migrate industry. Do not use native `details` / `summary`.
