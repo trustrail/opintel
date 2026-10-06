@@ -51,7 +51,7 @@ Most rules below exist to protect that sentence.
 
    If asked to implement one, say so and stop, unless its row records a decision otherwise. A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
 2. **Never modify `docs/opintel-master.css` without being told to.** It is the product's stylesheet, extracted from the console. Port markup to its existing classes.
-3. **Never invent a CSS class.** If one is genuinely missing, say so and stop. Adding it is a reviewed change to the master file.
+3. **Never invent a CSS class.** If one is genuinely missing, say so and stop. Adding it is a reviewed change to the master file. Properties that affect rendering performance without affecting appearance, such as containment, are set where they apply and do not require a master pattern. This rule prevents ad hoc visual decisions; behavioural containment is not one.
 4. **Never use `any`.** `strict` and `noUncheckedIndexedAccess` are on.
 5. **Never write a raw hex colour or an arbitrary Tailwind value** (`text-[13px]`, `bg-[#1B0232]`). Tokens only.
 6. **Never import a vendor SDK in feature code.** Everything external sits behind a port in `infrastructure/`.

@@ -667,6 +667,66 @@ A measured one-column query stages seven entitled columns and performs tokenizat
 
 # Wall-clock-sensitive validation: consolidated timing record
 
+**Scroll traces (M-015 Activity / G-019 Catalog, 2026-10-06).** These
+reproduced failures contain application work and must not be grouped with
+unexplained wall-clock timeouts as environment failures. The pinned Linux
+browser measured a 16.7 ms baseline in both. Scroll-only CDP capture produced
+44 / 43 long intervals; median renderer CPU between their callback markers
+was 27.3 / 27.9 ms, scripting 18.3 / 16.1 ms, and style/layout/paint 5.5 /
+10.7 ms. Tracing raised failure counts above the original 9 / 7; even the
+lighter capture perturbs execution. These are traces of reproduced failures,
+not a reconstruction of the original failures or uninstrumented cost estimates.
+
+Activity's scroll updates name `ActivityRecords` through React's
+`updateSyncExternalStore()`. Across the scroll, React reports 119 renders
+(median 12.9 ms), with median event handling 3.9 ms and commit 0.7 ms.
+These phase medians cover the whole scroll, whereas the figures above cover
+long intervals; nested phase/component durations must not be added together.
+The store already suppresses updates within the same 116 px row. Only the
+12-row window subscribes; the parent does not reflatten loaded pages on scroll.
+The test has a million-record server dataset but loads 500 rows. Its roughly
+eight-row jumps replace most of the window and rerender retained children.
+Every row renders `Timestamp`, which constructs an `Intl.DateTimeFormat` and
+formats parts anew. The trace contains 1,423 timed Timestamp executions with
+median 0.3 ms and aggregate 658.9 ms, inside 1,905.3 ms of aggregate React
+render time. This identifies real repeated formatting work, not exclusive
+native formatter CPU or proof that it accounts for all scripting cost.
+
+Catalog updates name `TreeWindow`; the parent query observers and flattened
+5,000-element tree do not subscribe to scroll position. The window is bounded
+at 36 rows, but this test jumps roughly 85 rows each frame, replacing the entire
+window on most steps. Its rows contain grid/flex layouts, text, declaration
+buttons and treatment badges. Layout events report 480 dirty layout objects
+out of 693 on 116 steps, with `partialLayout: false` and `#document` as the
+layout root. The longest Layout event is 16.8 ms. Thus layout is bounded by
+the mounted DOM, not 5,000 mounted rows, but its scope reaches the document
+root; unlike Activity, the viewport has no layout/paint containment.
+The trace does not identify each dirty node, prove that every outside-screen
+node was recalculated, or establish how much containment would save.
+
+No production code, test assertion or threshold changed. Temporary diagnostic
+copies were removed. Raw traces and the interval report remain in the ignored
+`test-results/scroll-diagnostics/` directory. The traces distinguish active
+work from an empty gap in these runs, but do not isolate every function's CPU
+cost, prove a particular fix, or exclude additional scheduling delays.
+
+**Authorised single-change comparison.** Reusing timestamp formatters by
+locale/timezone reduced Activity's aggregate React Render time from 1,905.3
+to 1,082.0 ms (119 renders in each capture), median Render from 12.9 to
+7.7 ms, and long intervals from 44 to 10. Median scripting in long callback
+intervals fell from 18.27 to 10.11 ms. Adding inline `contain: layout paint`
+to Catalog's existing viewport did not improve its measurements: long
+intervals 43 → 47, median style/layout/paint in long intervals 10.75 →
+12.77 ms, aggregate Layout 450.73 → 624.68 ms, median Layout 2.34 →
+4.18 ms. Layout events still name `#document`. Both traced tests failed
+their unchanged threshold. No second performance change was attempted.
+These single before/after captures used the same scroll-only tracing method
+and both measured a 16.7 ms refresh baseline. They include run variation and
+tracing overhead; they do not prove a universal regression from containment.
+Long-interval medians cover different subsets, so whole-scroll aggregates
+are retained too. The comparison and both sets of traces are retained in
+`test-results/scroll-diagnostics/` (ignored artifacts).
+
 One recurring pattern, several possible mechanisms: substantial external work
 exceeds a wall-clock test budget in a combined run and passes unchanged in a
 narrower run. This establishes unreliable headroom under observed conditions,
@@ -717,3 +777,70 @@ additional evidence, never a replacement for the failed combined result.
 
 
 **5.25a source-reading authority.** Attempt-backed suggestions ship without value-overlap evidence, diff-time column analysis or a format-checking join preview. These require source reads that neither the query read plan nor sampling consent authorises. Before implementation, review who authorises such reads, the eligible columns, and execution/disclosure limits. Unrelated columns can overlap and related columns can be disjoint; overlap cannot establish the identity judgement. 5.25 records real attempted joins and leaves that judgement to an administrator.
+
+**Catalog containment null result and row structure (2026-10-06).** The
+inline containment was reverted after the same-method comparison above:
+long intervals 43 → 47, median style/layout/paint 10.75 → 12.77 ms,
+aggregate Layout 450.73 → 624.68 ms. It supplied no measured benefit;
+do not reintroduce it on the assumption that document-root layout scope
+explains the cost. Activity formatter caching remains. No test or threshold
+changed, and no further rendering change was made.
+
+A pinned Chromium DOMSnapshot of the uncontained, loaded Catalog window
+reports 36 element rows, each contributing 12 DOM-backed layout-tree nodes
+(432 in total), plus four text boxes per row. One row comprises a grid root
+(1 node); the left name/declaration group (6: flex container, flex label
+wrapper, name span/text, button/text); and the right type/state group
+(5: flex container, type span/text, flex badge/text). Thus it introduces one
+grid and four flex formatting containers; the declaration button itself is
+computed block, not another flex container. The two sides contribute 11 of
+12 exposed nodes. The label wrapper adds a flex context despite holding
+only one label for element rows; the badge adds another around one text.
+All 36 measured element rows have the same shape. The long-jump test replaces
+them on most steps, so it repeatedly constructs and lays out this structure.
+
+These are measured DOM-backed layout nodes, not a count of every internal
+Blink layout object: DOMSnapshot does not expose all anonymous layout boxes.
+The earlier 480 dirty objects must not be divided by 36 and presented as an
+exact row count. The structural breakdown identifies where the nodes and
+formatting contexts are; neither snapshot nor existing traces attributes
+exclusive layout milliseconds to individual row children. It identifies row
+structure as a possible cost, but cannot prove which wrapper is the
+largest time consumer. Snapshot and representative HTML were captured in
+`test-results/catalog-layout/`; temporary diagnostic test removed.
+
+**Catalog label-wrapper diagnostic (2026-10-06).** Same pinned browser and
+scroll-only CDP categories/markers as earlier captures, with a fresh baseline
+and a temporary variant removing only the single-child label flex wrapper
+from element rows. Snapshot confirms 12 → 11 DOM-backed layout nodes per
+row. Both baseline refreshes were 16.7 ms. Aggregate Layout across the
+scroll was 260.77 → 308.65 ms; median Layout 1.734 → 2.087 ms;
+aggregate style/layout/paint 618.13 → 756.33 ms; long intervals 14 → 39.
+Both unchanged zero-missed-frame assertions failed. The simpler markup
+provided no measured improvement and was restored; no permanent row change
+or second diagnostic simplification was added. The fresh baseline differs
+substantially from earlier captures, underscoring run variation and tracing
+perturbation. This single comparison does not establish a universal regression
+from removing the wrapper, but supplies no evidence to justify that change.
+It also does not establish that the separate badge flex context is free.
+Artifacts are in ignored `test-results/row-diagnostics/` and copied to
+`/tmp/opintel-row-diagnostics/` to survive browser output cleanup.
+
+**Catalog optimisation stopped by decision (2026-10-06).** Catalog's scroll
+performance costs real application work inside the virtualised window;
+escaping layout scope did not explain a removable cost. Containment and
+label-wrapper simplification both measured null: neither supplied evidence
+of an improvement. Captures of the unchanged row markup produced **14, 43
+and 47 long intervals** (14 and 43 without containment; 47 with the temporary
+containment property). That spread exceeds the effect these experiments
+were trying to resolve. Tracing overhead also increased failure counts, so
+the harness cannot resolve an optimisation of this magnitude reliably.
+
+Each element row contributes 12 DOM-backed layout nodes, and the long-jump
+test replaces the 36-row window on most steps. Repeated row layout is the
+likely cost, not an established attribution to a particular child. Further
+experiments with this measurement would be guessing. Revisit only with a
+measurement method whose variance is smaller than the effect, or if a person
+reports that the explorer feels slow. G-019 stays failing honestly in the
+performance project; its assertion and threshold are not accommodated.
+Containment and the diagnostic markup change remain reverted.
