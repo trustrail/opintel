@@ -11,11 +11,14 @@ test('O-005: kitchen sink has no axe violations', async ({ page }) => {
   expect(violations).toEqual([]);
 });
 
-test('O-006 and O-007: every treatment badge includes a dot and text label', async ({ page }) => {
+test('O-006 and O-007: every spectrum badge includes its mark and text label', async ({ page }) => {
   await page.goto('/dev/kitchen-sink');
   const badges = page.locator('.speclegend .tr');
   await expect(badges).toHaveCount(treatmentLabels.length);
-  await expect(badges.locator('i')).toHaveCount(treatmentLabels.length);
+  await expect(badges.locator('[data-mark-category="treatment"]')).toHaveCount(6);
+  await expect(badges.locator('i')).toHaveCount(0);
+  for(const kind of ['clear','tokenized','masked','aggregate','withheld','undecided'])await expect(badges.locator(`[data-mark="treatment-${kind}"]`)).toHaveCount(1);
+  await expect(badges.filter({hasText:'By reference'}).locator('[data-mark]')).toHaveCount(0);
   for (const label of treatmentLabels) await expect(badges.filter({ hasText: label })).toHaveCount(1);
 });
 

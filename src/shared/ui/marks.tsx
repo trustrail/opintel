@@ -2,12 +2,12 @@ import type {ReactNode} from 'react';
 
 /** Geometry transcribed from docs/visual-language.html; no controls or CSS classes. */
 const marks = {
-  'treatment-clear': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: <><circle cx="17" cy="17" r="12" fill="var(--plum)"/></>},
-  'treatment-masked': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: <><path d="M17 5a12 12 0 0 0 0 24z" fill="var(--plum)"/><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth="2"/></>},
-  'treatment-aggregate': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth="2"/><circle cx="11" cy="20" r="3" fill="var(--plum)"/><circle cx="17" cy="12" r="3" fill="var(--plum)"/><circle cx="23" cy="20" r="3" fill="var(--plum)"/></>},
-  'treatment-tokenized': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth="2"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></>},
-  'treatment-withheld': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" strokeWidth="2"/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" strokeWidth="2"/></>},
-  'treatment-undecided': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: <><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" strokeWidth="2" strokeDasharray="3.6 3.6"/></>},
+  'treatment-clear': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="var(--plum)"/></>},
+  'treatment-masked': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><path d="M17 5a12 12 0 0 0 0 24z" fill="var(--plum)"/><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/></>},
+  'treatment-aggregate': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/><circle cx="11" cy="20" r="3" fill="var(--plum)"/><circle cx="17" cy="12" r="3" fill="var(--plum)"/><circle cx="23" cy="20" r="3" fill="var(--plum)"/></>},
+  'treatment-tokenized': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></>},
+  'treatment-withheld': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" strokeWidth={_stroke}/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" strokeWidth={_stroke}/></>},
+  'treatment-undecided': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" strokeWidth={_stroke} strokeDasharray="3.6 3.6"/></>},
   'source': {category: 'kind', viewBox: '0 0 24 24', props: {fill: 'none',stroke: 'var(--ink-2)',strokeWidth: '1.7',strokeLinecap: 'round',strokeLinejoin: 'round'}, geometry: <>
       <path d="M3 7.5a9 3.5 0 1 0 18 0 9 3.5 0 1 0-18 0"/>
       <path d="M3 7.5v9c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5v-9"/>
@@ -102,8 +102,9 @@ const marks = {
 } as const;
 export type MarkName = keyof typeof marks;
 export type MarkSize = 12 | 16 | 18 | 19 | 22 | 24 | 26 | 30 | 34 | 48;
+const treatmentStrokeWeights:Partial<Record<MarkSize,number>>={12:2.6,16:2.4,18:2.3,22:2.2,34:2,48:1.8};
 export const markNames = Object.keys(marks) as MarkName[];
-export function Mark({name,size=16,navigation=false}:{name:MarkName;size?:MarkSize;navigation?:boolean}):ReactNode {
+export function Mark({name,size=16,navigation=false,label}:{name:MarkName;size?:MarkSize;navigation?:boolean;label?:string}):ReactNode {
  const mark=marks[name];
- return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={{verticalAlign:'middle',flexShrink:0}} aria-hidden="true" focusable="false" data-mark={name} data-mark-category={mark.category}>{mark.geometry}</svg>;
+ return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={{verticalAlign:'middle',flexShrink:0}} aria-hidden={label?undefined:true} role={label?'img':undefined} aria-label={label} focusable="false" data-mark={name} data-mark-category={mark.category}>{typeof mark.geometry==='function'?mark.geometry(treatmentStrokeWeights[size]??2):mark.geometry}</svg>;
 }

@@ -1,6 +1,6 @@
 import {Mark} from '../../shared/ui/index.js';
 import { DeclarationPanel, SchemaDeclarationPanel } from './declaration-panel.js';
-import { useMemo, useRef, type KeyboardEvent, type RefObject } from 'react';
+import { useMemo, useRef, useSyncExternalStore, type KeyboardEvent, type RefObject } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
@@ -14,7 +14,13 @@ import { createExplorerState } from './state.js';
 type Row = { key: string; depth: number; node: CatalogNode; position: number; size: number } |
   { key: string; depth: number; parent: string; message: string; action?: () => void; disabled?: boolean; actionLabel?: string };
 // The reference's .trow is 46px high. Window geometry is independent of catalogue size.
-const rowHeight = 46; const windowRows = 24; const overscan = 6;
+const rowHeight = 46; const narrowElementHeight = 76; const windowRows = 24; const overscan = 6;
+const isNarrow = () => window.matchMedia('(max-width: 820px)').matches;
+function subscribeNarrow(listener: () => void) {
+  const media = window.matchMedia('(max-width: 820px)');
+  media.addEventListener('change', listener);
+  return () => media.removeEventListener('change', listener);
+}
 export function CatalogScreen({ projectId,search={},onSearch=()=>undefined }: { projectId: string;search?:{elementId?:string;declarationSchema?:string};onSearch?:(search:{elementId?:string;declarationSchema?:string})=>void }) {
   const store = useMemo(createExplorerState, [projectId]); const state = useStore(store, useShallow(s => ({ branches: s.branches, expanded: s.expanded, searchParent: s.searchParent,
     toggle: s.toggle, search: s.search, select: s.select, more: s.more })));
@@ -65,11 +71,28 @@ function TreeWindow({store, rows, viewport, sourceNames,onElement}: {
   viewport: RefObject<HTMLDivElement | null>; sourceNames: ReadonlyMap<string, string>;
 }) {
   const state = useStore(store);
-  const start = Math.max(0, Math.min(Math.floor(state.scrollTop / rowHeight) - overscan, rows.length - 1));
+  const narrow = useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
+  const geometry = useMemo(() => {
+    let total = 0;
+    const positions = rows.map(row => {
+      const height = narrow && 'node' in row && row.node.kind === 'element' ? narrowElementHeight : rowHeight;
+      const top = total; total += height;
+      return {top, height};
+    });
+    return {positions, total};
+  }, [rows, narrow]);
+  let low = 0; let high = rows.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    const position = geometry.positions[middle]!;
+    if (position.top + position.height <= state.scrollTop) low = middle + 1;
+    else high = middle;
+  }
+  const start = Math.max(0, Math.min(low - overscan, rows.length - 1));
   const visible = rows.slice(start, start + windowRows + overscan * 2);
   function focus(index: number) {
     const row = rows[index]; if (!row || !viewport.current) return;
-    viewport.current.scrollTop = index * rowHeight; state.scroll(viewport.current.scrollTop);
+    viewport.current.scrollTop = geometry.positions[index]!.top; state.scroll(viewport.current.scrollTop);
     requestAnimationFrame(() => document.getElementById(`catalog-row-${index}`)?.focus());
   }
   function keyboard(event: KeyboardEvent, row: Row, index: number) {
@@ -87,17 +110,17 @@ function TreeWindow({store, rows, viewport, sourceNames,onElement}: {
     }
   }
   return (
-      <div ref={viewport} role="tree" data-mark-list="uniform" aria-label="Catalogue" tabIndex={0} style={{ height: `min(60vh, ${rows.length * rowHeight}px)`, maxHeight: rowHeight * windowRows, overflow: 'auto' }} onScroll={event => state.scroll(event.currentTarget.scrollTop)}>
-        <div role="none" style={{ height: rows.length * rowHeight, position: 'relative', minWidth: 0 }}>
+      <div ref={viewport} data-catalog-tree role="tree" data-mark-list="uniform" aria-label="Catalogue" tabIndex={0} style={{ height: `min(60vh, ${geometry.total}px)`, maxHeight: rowHeight * windowRows, overflow: 'auto' }} onScroll={event => state.scroll(event.currentTarget.scrollTop)}>
+        <div role="none" style={{ height: geometry.total, position: 'relative', minWidth: 0 }}>
           {visible.map((row, offset) => { const index = start + offset; const node = 'node' in row ? row.node : null;
             const sourceName = node?.kind === 'source' ? sourceNames.get(node.id) : undefined;
             return <div key={row.key} id={`catalog-row-${index}`} role="treeitem" data-mark-row="true" data-row-kind={node?.kind??'message'} tabIndex={0} aria-level={row.depth} aria-expanded={node && node.kind !== 'element' ? !!state.expanded[node.id] : undefined} aria-posinset={'position' in row ? row.position : undefined} aria-setsize={'size' in row ? row.size : undefined}
               className={row.depth <= 2 ? 'trow lvl0' : row.depth === 3 ? 'trow lvl1' : 'trow lvl2'} onKeyDown={event => keyboard(event, row, index)}
-              style={{ position: 'absolute', top: index * rowHeight, height: rowHeight, boxSizing: 'border-box', width: '100%', gridTemplateColumns: 'minmax(0, 1fr) auto' }}>
+              style={{ position: 'absolute', top: geometry.positions[index]!.top, height: geometry.positions[index]!.height, boxSizing: 'border-box', width: '100%', gridTemplateColumns: narrow && node?.kind === 'element' ? undefined : 'minmax(0, 1fr) auto' }}>
               {node ? <><div className="tname">
                 {node.kind !== 'element' ? <button type="button" className="toolchip" aria-label={`${state.expanded[node.id] ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id] ? '▾' : '▸'}</span></button> : null}
-                <span style={{display:'flex',flexDirection:'column',minWidth:0}}><span className="nm" title={node.label ?? 'Unnameable element'}>{node.label ?? 'Unnameable element'}</span>{sourceName && sourceName !== node.label ? <span className="type" title={sourceName} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sourceName}</span> : null}</span>
-              {node.kind==='element'?<button type="button" className="toolchip" aria-label={`Declarations for ${node.label??'unnameable element'}`} onClick={()=>onElement(node.id)}>Declarations</button>:null}</div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span className="type">{node.exposedType}</span> : null}<span className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state==='undecided'?<Mark name="treatment-undecided" size={16}/>:null}{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
+                <span data-column-name={node.kind==='element'?true:undefined} style={{display:'flex',flexDirection:'column',minWidth:0}}><span className="nm" title={node.label ?? 'Unnameable element'}>{node.label ?? 'Unnameable element'}</span>{sourceName && sourceName !== node.label ? <span className="type" title={sourceName} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sourceName}</span> : null}</span>
+              {node.kind==='element'?<button data-column-declarations type="button" className="toolchip" aria-label={`Declarations for ${node.label??'unnameable element'}`} onClick={()=>onElement(node.id)}>Declarations</button>:null}</div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span data-column-type className="type">{node.exposedType}</span> : null}<span data-column-treatment={node.kind==='element'?true:undefined} className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state==='undecided'?<Mark name="treatment-undecided" size={16} label={narrow?'Undecided':undefined}/>:null}<span data-treatment-label={node.state==='undecided'?true:undefined}>{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
             </div>;
           })}
         </div>

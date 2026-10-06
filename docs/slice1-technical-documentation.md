@@ -4539,12 +4539,15 @@ where kinds are mixed; navigation always carries marks; state is marked only
 when it changes what someone does; one mark per thing. Uniform lists, including
 entitlement elements, have no kind marks. A row has at most one kind, state or
 treatment mark. Headings and empty states do not repeat the screen's identity.
-The six exposure marks replace treatment dots and retain text labels; by-reference
+The six exposure marks replace treatment dots and retain text labels, except
+for narrow catalogue rows where the accessibly named mark replaces the visible
+treatment label. By-reference
 is outside this spectrum and remains text-only. Prompt and Audit log marks are
 designed but unsurfaced; the Audit log remains hidden until Slice 3.
 
-Marks expose `data-mark` and `data-mark-category`, are decorative and
-non-focusable, and do not register new control patterns. A separate rendered
+Marks expose `data-mark` and `data-mark-category` and are non-focusable.
+Marks accompanying text are decorative; standalone treatment marks use
+`role="img"` and an accessible treatment name. They do not register new control patterns. A separate rendered
 placement check counts each row's own marks, excluding nested child rows and
 ordinary control affordances. List scope comes from its logical data contract,
 not its current page or virtualised window. Navigation is explicitly identified

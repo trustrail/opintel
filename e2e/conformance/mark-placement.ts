@@ -5,11 +5,14 @@ export function inspectMarkPlacement():MarkFinding[]{
  if(!root)return [];
  const findings:MarkFinding[]=[];
  const rowSelector='[data-mark-row],tr,[role="listitem"],[role="treeitem"]';
+ for(const legacy of root.querySelectorAll('.tr > i,.sbpill > i'))findings.push({mark:'legacy-dot',reason:'Legacy badge dot is not a specified identity mark.',row:legacy.closest(rowSelector)?.tagName.toLowerCase()??''});
  const report=(mark:Element,reason:string,row:Element|null)=>findings.push({mark:mark.getAttribute('data-mark')??'',reason,row:row?.getAttribute('data-row-kind')??row?.tagName.toLowerCase()??''});
  for(const mark of root.querySelectorAll('[data-mark]')){
   const category=mark.getAttribute('data-mark-category');
   if(!['kind','state','treatment'].includes(category??''))report(mark,'Mark category is missing or unknown.',null);
-  if(mark.tagName.toLowerCase()!=='svg'||mark.getAttribute('aria-hidden')!=='true'||mark.getAttribute('focusable')!=='false')report(mark,'Identity marks must be passive decorative SVGs.',null);
+  const decorative=mark.getAttribute('aria-hidden')==='true';
+  const named=category==='treatment'&&mark.getAttribute('role')==='img'&&!!mark.getAttribute('aria-label')?.trim()&&mark.getAttribute('aria-hidden')!=='true';
+  if(mark.tagName.toLowerCase()!=='svg'||(!decorative&&!named)||mark.getAttribute('focusable')!=='false')report(mark,'Identity marks must be passive SVGs, decorative or accessibly named treatments.',null);
   const navigation=mark.closest('[data-mark-navigation]');
   if(category==='kind'&&mark.closest('h1,h2,h3,h4,h5,h6,.blank'))report(mark,'Kind mark repeats a heading or empty state identity.',null);
   if(navigation)continue;
@@ -29,7 +32,7 @@ export function inspectMarkPlacement():MarkFinding[]{
  }
  for(const list of root.querySelectorAll('[data-mark-list]')){
   if(!['uniform','mixed'].includes(list.getAttribute('data-mark-list')??''))findings.push({mark:'',reason:'List kind scope is unknown.',row:''});
-  for(const row of list.querySelectorAll('[data-mark-row]'))if(row.closest('[data-mark-list]')===list&&!row.getAttribute('data-row-kind'))findings.push({mark:'',reason:'Row kind is missing; scope cannot be checked independently of marks.',row:''});
+  for(const row of list.querySelectorAll(rowSelector))if(row.closest('[data-mark-list]')===list&&!row.getAttribute('data-row-kind'))findings.push({mark:'',reason:'Row kind is missing; scope cannot be checked independently of marks.',row:''});
  }
  return findings;
 }

@@ -22,7 +22,7 @@ export function KitchenSinkScreen(): ReactNode {
         <p className="note">Notes explain consequences without obscuring the action.</p>
       </KitchenCard>
       <KitchenCard title="Pills and treatments">
-        <p><span className="sbpill"><i aria-hidden="true" />Connected</span></p>
+        <p><span className="sbpill">Connected</span></p>
         <div className="speclegend">{treatments.map((kind) => <Treatment key={kind} kind={kind} />)}</div>
       </KitchenCard>
     </div>

@@ -11,6 +11,20 @@ for(const width of [390,900,1440])test(`schema explorer states, types and aliase
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/catalog`);await expand(page);
  await expect(page.getByText('Renamed Warehouse',{exact:true})).toBeVisible();
  await expect(page.getByText('INTEGER',{exact:true})).toBeVisible();await expect(page.getByText('Unsupported type',{exact:true})).toBeVisible();await expect(page.getByText('Unnameable element',{exact:true})).toBeVisible();
+ if(width===390){
+  const element=page.getByRole('treeitem').filter({has:page.getByText('record_name',{exact:true})});
+  await expect(element.getByRole('img',{name:'Undecided',exact:true})).toBeVisible();
+  await expect(element.getByText('VARCHAR',{exact:true})).toBeVisible();
+  await expect(element.locator('[data-treatment-label]')).toBeHidden();
+  const bounds=await element.evaluate(row=>{
+   const name=row.querySelector('.nm')!,type=row.querySelector('[data-column-type]')!,button=row.querySelector('[data-column-declarations]')!;
+   return {height:row.getBoundingClientRect().height,nameWidth:name.getBoundingClientRect().width,nameTextWidth:name.scrollWidth,nameBottom:name.getBoundingClientRect().bottom,typeTop:type.getBoundingClientRect().top,buttonTop:button.getBoundingClientRect().top};
+  });
+  expect(bounds.height).toBe(76);expect(bounds.nameWidth).toBeGreaterThanOrEqual(bounds.nameTextWidth);
+  expect(bounds.typeTop).toBeGreaterThan(bounds.nameBottom);expect(bounds.buttonTop).toBeGreaterThan(bounds.nameBottom);
+  const offsets=await page.getByRole('treeitem').evaluateAll(rows=>rows.map(row=>({top:row.getBoundingClientRect().top,bottom:row.getBoundingClientRect().bottom})));
+  for(let i=1;i<offsets.length;i++)expect(offsets[i]!.top).toBe(offsets[i-1]!.bottom);
+ }
  await expect(page).toHaveScreenshot(`catalog-${width}.png`,{fullPage:true});await accessible(page);
  await page.getByLabel('Search within').selectOption(object);await page.getByLabel('Name prefix').fill('record_n');await expect(page.getByText('record_id',{exact:true})).toHaveCount(0);await expect(page.getByText('record_name',{exact:true})).toBeVisible();expect(state.requests.at(-1)).toMatchObject({parent:object,prefix:'record_n'});
  await page.getByRole('button',{name:'Collapse records',exact:true}).click();await expect(page.getByText('record_name',{exact:true})).toHaveCount(0);

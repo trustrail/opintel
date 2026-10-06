@@ -67,8 +67,14 @@ test('VIS-003/VIS-005: placement counts rows and knows uniform scope beyond a re
  expect(reasons).toContain('Uniform list carries a kind mark.');
  expect(reasons).toContain('Row carries more than one identity mark.');
  expect(reasons.filter(r=>r==='Kind mark repeats a heading or empty state identity.')).toHaveLength(2);
- await page.setContent(`<div id="opintel-app"><ul data-mark-list="mixed"><li data-mark-row>${mark('source','kind')}</li></ul></div>`);
+ await page.setContent(`<div id="opintel-app"><ul data-mark-list="mixed"><li role="listitem">${mark('source','kind')}</li></ul></div>`);
  expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toEqual(['Row kind is missing; scope cannot be checked independently of marks.']);
  await page.setContent('<div id="opintel-app"><nav data-mark-navigation><button class="btn">Sources</button></nav></div>');
  expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toEqual(['Navigation destination must carry exactly one identity mark.']);
+ await page.setContent('<div id="opintel-app"><svg data-mark="treatment-undecided" data-mark-category="treatment" role="img" aria-label="Undecided" focusable="false"></svg></div>');
+ expect(await page.evaluate(inspectMarkPlacement)).toEqual([]);
+ await page.locator('svg').evaluate(mark=>mark.removeAttribute('aria-label'));
+ expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toContain('Identity marks must be passive SVGs, decorative or accessibly named treatments.');
+ await page.setContent('<div id="opintel-app"><span class="tr clear"><i></i>Clear</span></div>');
+ expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toEqual(['Legacy badge dot is not a specified identity mark.']);
 });

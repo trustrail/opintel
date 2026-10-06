@@ -847,6 +847,20 @@ reports that the explorer feels slow. G-019 stays failing honestly in the
 performance project; its assertion and threshold are not accommodated.
 Containment and the diagnostic markup change remain reverted.
 
+**Catalog column names at 390px: pre-existing defect exposed by 5.27
+(2026-10-06).** The baseline before visual identity already truncated a
+column name to one character. That was wrong before this item. Adding the
+treatment mark consumed the remaining space and made the name disappear;
+the defect is the row's width allocation, not the mark's geometry. Do not
+attribute the layout correction to 5.27 or accept the hidden name in a
+regenerated baseline. The approved narrow layout gives the name its own
+full-width first line, then shows exposed type, an accessibly named treatment
+mark and the Declarations button without extra tree indentation. The visible
+treatment label gives way at narrow widths; the type and mark remain.
+The responsive master rule was shown and approved before addition: 820px
+breakpoint, 76px element rows, 46px structural rows, with matching virtualiser
+offsets. This is a readability correction, not a scroll-performance claim.
+
 **Audit log drawer placeholder (2026-10-06).** The drawer's Audit log item led
 to `/projects/<projectId>/audit-log`, which renders only a heading. Item 5.10
 and migration 046 built append-only `audit_entry` storage; later settings
