@@ -1,11 +1,19 @@
 import {randomUUID} from 'node:crypto';
 import {Client} from 'pg';
+import { mkdtemp, rm, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { loadDevEnvironment } from '../scripts/dev-environment.js';
 import { testPreflight } from '../scripts/service-readiness.js';
 
 export default async function globalSetup(): Promise<()=>Promise<void>> {
   const environment = loadDevEnvironment();
   await testPreflight(environment);
+  const deadlineDirectory = await mkdtemp(join(tmpdir(), 'opintel-database-deadline-'));
+  process.env.OPINTEL_TEST_DATABASE_STOP = join(deadlineDirectory, 'stop');
+  const diagnostics = join(process.cwd(), 'test-results', 'database-deadline', randomUUID());
+  await mkdir(diagnostics, { recursive: true, mode: 0o700 });
+  process.env.OPINTEL_TEST_DATABASE_DIAGNOSTICS = diagnostics;
   // Workers receive these variables before setup.ts binds the test database.
   process.env.REQUIRE_DB_TESTS = '1';
   const prefix='migration_'+randomUUID().replaceAll('-','').slice(0,16)+'_';
@@ -20,6 +28,6 @@ export default async function globalSetup(): Promise<()=>Promise<void>> {
         if(!new RegExp('^'+prefix+'[a-f0-9]{32}$','u').test(datname))throw new Error('Unexpected migration fixture database name');
         await owner.query(`DROP DATABASE "${datname}"`);
       }
-    }finally{await owner.end();}
+    }finally{await owner.end();await rm(deadlineDirectory,{recursive:true,force:true});}
   };
 }

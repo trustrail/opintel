@@ -117,6 +117,8 @@ Most rules below exist to protect that sentence.
 
 **Validation scheduling**
 - Run typecheck, lint, builds, browser setup and test suites sequentially on one machine. Never overlap separate validation commands. `npm run check` supplies the full ordered path; focused checks follow the same rule.
+- Iterate with affected tests; run typecheck and lint after a coherent batch. Run every full gate once on the completed candidate before its commit, subject to the screen-review workflow below. Never run a full gate with a known defect outstanding: fix it and verify locally first. Quiet output during a long suite is expected, not evidence of a stall. See the plan's §6.6 for the focused path.
+- **Screen work the user reviews:** during redesign iteration, do not run the visual project or regenerate baselines. Implement, run affected functional, conformance/placement and accessibility checks, then report the screen ready for review. Iterate on the user's judgement. Only when the user explicitly says a screen is right may its baselines be regenerated, in one baseline-only commit naming the approved change. Before the item commit, run snapshots for screens the item did not touch to catch unintended changes. This overrides snapshot iteration in the plan's §6.6: snapshots record the approved design; they do not decide whether a redesign is right.
 
 ## Definition of done
 
@@ -128,7 +130,7 @@ An item is finished when all of these hold. This is the pull request template.
 - [ ] Migrations run up and down
 - [ ] New routes declare a permission
 - [ ] New external calls sit behind a port
-- [ ] New screens have all four states, pass axe, and have snapshots at 390 / 900 / 1440
+- [ ] New screens have all four states, pass axe, and have snapshots at 390 / 900 / 1440; user-reviewed screens receive baselines only after explicit design approval
 - [ ] No new CSS class
 - [ ] Where the build diverged from the spec, the spec is updated in the same change
 

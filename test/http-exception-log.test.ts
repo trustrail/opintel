@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { cliExceptionLine, sanitiseException } from '../src/platform/telemetry/exception-log.js';
+import { apiStartupExceptionLine, cliExceptionLine, sanitiseException } from '../src/platform/telemetry/exception-log.js';
 
 describe('S4a exception allowlist', () => {
+  it('withholds startup messages, stack headers and causes containing credentials', () => {
+    const message = 'postgres://user:CUSTOMER_VALUE@host/database';
+    const line = apiStartupExceptionLine(new Error(message, { cause: new Error(message) }));
+    expect(line).not.toContain('CUSTOMER_VALUE');
+    expect(line).not.toContain(message);
+    expect(JSON.parse(line)).toMatchObject({ event: 'api.startup_failed', type: 'Error', message: '[exception message withheld]' });
+  });
+
+  it('reports address conflicts by structured code without native contents', () => {
+    const error = Object.assign(new Error('CUSTOMER_VALUE'), { code: 'EADDRINUSE' });
+    const line = apiStartupExceptionLine(error);
+    expect(line).not.toContain('CUSTOMER_VALUE');
+    expect(JSON.parse(line).message).toBe('A configured listener address is already in use. Check for another running application instance.');
+  });
   it.each(['migration', 'schema_load'] as const)('withholds native diagnostics from the %s CLI line', operation => {
     const error = new Error('invalid input syntax for type integer: "CUSTOMER_VALUE"', { cause: new Error('CUSTOMER_VALUE') });
     const line = cliExceptionLine(operation, error);

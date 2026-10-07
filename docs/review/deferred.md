@@ -737,7 +737,7 @@ not a common root cause or a passing original run.
 | ING-17 large CSV | 60s | Repeated full-run timeouts and isolated passes; browser setup overlapped an earlier ING-17 failure. Now isolated in the performance project. Roughly 200 MB of generation, hashing, inspection and row streaming; no database. |
 | tokenization-source afterAll | 30s | Failed during 5.20 validation, passed on rerun; connection close and temporary Postgres database teardown. No recorded wait diagnosis. |
 | Activity: 5.12 filters, cursor loading, empty, error, loading and incomplete states | 30s | Combined Linux declarations/activity run: 13 passes, this test timed out during the error-state reload. Unchanged Activity-only rerun passed in 12.7s. All three-width snapshots passed. |
-| DOMAIN-001/003: domain migrations append immutable versions, no-op stays put and revert restores tokens | 5s | Timed out in focused RLS/history/grants verification while typecheck/lint overlapped; unchanged history-only rerun passed after those finished. Two complete MCP fixtures, declaration transactions and three staged queries. RLS-10 and grants passed unchanged. |
+| DOMAIN-001/003: domain migrations append immutable versions, no-op stays put and revert restores tokens | 5s | Earlier focused RLS/history/grants failure coincided with typecheck/lint overlap. On 2026-10-06 it also timed out in a sequential full run and a three-file rerun with no validation overlap; history-only passed unchanged (body 3.853s, project 10.40s). Two complete MCP fixtures, declaration transactions and three staged queries. Overlap is therefore not necessary for this case to fail; its mechanism remains unmeasured. RLS-10 and grants remain unchanged. |
 | Dashboard: O-004 findings and quiet states at 1440px | 30s | Relative-age baseline update timed out at the clean-state screenshot; the closed-page overlay error followed the timeout. Unchanged automatic retry passed in 15.7s. Validation commands were sequential; no concurrent validation command was running. Cause not measured; this is a retry-only pass, not a clean original run. |
 
 These are now five distinct locations; the earlier inventory had four,
@@ -787,6 +787,20 @@ aggregate Layout 450.73 → 624.68 ms. It supplied no measured benefit;
 do not reintroduce it on the assumption that document-root layout scope
 explains the cost. Activity formatter caching remains. No test or threshold
 changed, and no further rendering change was made.
+
+**Scroll-performance investigation stopped (2026-10-06).** The investigations
+covered Activity formatter caching, which measurably helped; Catalog layout
+containment and markup simplification, both null; and an Activity list-level
+clock subscription, null. Identical Activity code measured 23 and 40 long
+intervals in consecutive captures. The shared-clock diagnostic measured 46
+against a fresh baseline of 23, with no demonstrated benefit. The harness
+cannot resolve changes of this magnitude against its run-to-run variance.
+Relative age remains: it solved a real readability problem.
+
+M-015 and G-019 remain failing honestly in the performance project. Revisit
+only with a measurement method whose variance is smaller than the effect,
+or if a person reports the console feeling slow. No threshold changes and
+no further scroll-performance experiments are authorised by this finding.
 
 A pinned Chromium DOMSnapshot of the uncontained, loaded Catalog window
 reports 36 element rows, each contributing 12 DOM-backed layout-tree nodes
@@ -874,3 +888,95 @@ The route label and direct placeholder remain for existing route coverage;
 they do not constitute an audit reader. Restore the drawer item when Slice 3
 provides the permission-gated reader and screen, with loading, empty, error
 and ready states.
+
+
+### Treatment-history reader (separate from the coordinated redesign)
+
+The five-screen structural redesign deliberately excludes treatment-change History and its Dashboard event. Current entitlement rows are overwritten, and bulk_decision records count/treatment but not complete membership and prior treatments. A faithful before/after reader needs its own capture and historical contract. Do not invent past events from current values. Recent request links go to immutable evidence records; domain-assignment and suggestion review histories already exist and remain available.
+
+
+### Validation invocation correction (2026-10-06)
+
+The npm test wrapper appended the broad `test` filter even when files were supplied. Vitest combines positional filters with OR, so supposed focused wrapper calls selected the normal suite. Repository scripts/docs contain no stored `npm test -- <file>` commands. Recorded ad-hoc calls affected: Engine registry; HTTP server/exception logging; Engine registration help; query pre-filter/SQL treatments/evidence writer; declarations/canonicalisers/evidence/bulk entitlements; and UI/visual identity. Direct `npx vitest run <file>` calls were unaffected. The performance npm script also used the wrapper: its project include prevented ordinary tests from entering, but a file selection could not narrow that performance project.
+
+The wrapper now passes arguments unchanged; the normal Vitest configuration owns the `test/` include. Full browser validation shares conformance observation across functional and screenshot scenarios rather than replaying both. Diagnostic selections record partial route coverage explicitly; they cannot establish the full route gate. The approved iteration schedule is in implementation-plan §6.6 and AGENTS.md. No test assertion, timeout or performance threshold changes.
+
+**Validation of the invocation correction.** Strict and conformance typechecks, lint and build pass. `npm test -- test/conformance-reporting.test.ts` ran exactly one file/four tests (1.92s). Focused conformance ran nine scenarios (44.7s), reported partial 1/53 route coverage and zero findings, and passed without claiming full coverage. The combined unrestricted browser gate ran 226 scenarios once each in 15.4 minutes: 139 functional plus 87 visual, full 53/53 route coverage, zero findings, no retries and unchanged screenshots. Previously the three invocations executed 452 scenarios in total.
+
+The normal full Vitest run preserved selection: 164 files/1,583 tests, the prior 1,579 plus four reporter tests. It failed 18 tests in 937.12s (1,565 passed): R-002's 50,000-element body hit 30s; two subsequent catalog cases and 14 tenancy-list cases hit the shared database-reset hook's 10s budget; DOMAIN-001/003 hit its 5s test budget. The token-query refusal observed during the latter is not evidence of an independently established resource-classification defect: the reported failure is the test timeout. Commands were sequential. A post-failure scoped PostgreSQL wait-state read returned no rows; its timing and visibility do not establish what blocked the reset hooks at failure.
+
+The three-file rerun ran exactly 24 tests in 45.49s: all catalog and tenancy cases passed; token history still failed. History alone then passed all three tests in 10.40s, with the affected body at 3.853s. These passes do not repair the failed full gate or identify its cause; order, accumulated state and timing remain possible mechanisms. No further full gate was run, no timeout/assertion was changed, and no completed-item commit was made. Measuring the bulk insert and reset separately, with lock/wait and resource observations at failure, is needed before attributing the hook failures.
+
+### Database reset cost — measured, deferred separately (2026-10-07)
+
+The instrumented full run measured **422 TRUNCATE statements taking
+289.078 seconds in aggregate**, with a **657.919 ms median**, 1,150.442 ms
+p95 and 4,397.505 ms maximum. This is the largest single measured cost in
+the suite: about **35% of its 827.02-second wall time**, roughly a third.
+The company CASCADE graph reaches 74 table relations including partitioned
+parents; TRUNCATE recreates **354 physical relations**: 70 tables, 217
+indexes including TOAST indexes, and 67 TOAST relations. Sampled waits
+were principally filesystem synchronization, not sampled lock blockers in
+that run. Faster reset is a separate item; no reset implementation or test
+budget is changed here.
+
+This passing diagnostic run (164 files / 1,583 tests) does not clear the
+failed full gate: instrumentation, cache and ordering differ. The separate
+controlled reproduction proves that a Vitest timeout can leave a transaction
+running while subsequent resets queue behind it. The original run's logs
+also show database work surviving callers' deadlines, but do not identify
+the original blocking statement or lock graph. **R-002's initiating
+30-second overrun remains unexplained.** Its 50,000-element INSERT took
+16.500 seconds in the passing instrumented run; that is not a measurement
+of where the original failed body spent its time. The cascade and the
+initial slow test are distinct findings. Private measurements and the
+controlled reproduction are retained in
+`test-results/reset-diagnostics/report.md`.
+
+**Approved controls implemented.** A test-only runner cancels owned SQL
+on abort, waits for verified backend removal before allowing another test,
+sets server statement timeouts from the remaining phase budget, and stops
+the whole run after unconfirmed cleanup or a reset blocked for one second.
+Cleanup has a separate five-second overall bound and private diagnostic
+capture; production scopes and existing test budgets are unchanged. Six
+positive-control tests pass, including intentional child-run failures that
+prove the next test cannot run when cleanup is unconfirmed. R-002's
+50,000-element case remains in the performance project (14.095s measured,
+30s unchanged); its functional companion uses 1,001 elements and retains
+all pagination, limit and scope assertions.
+
+An initial full run stopped at an Explain case whose cleanup was
+unconfirmed, after an unexplained 1,013-second body. The subsequently added
+overall cleanup bound and private phase/cause capture address the unbounded
+barrier; they do not establish the original stall's cause. Explain then
+passed all 13 cases, including in the next full run. That full run completed
+in 740.83s: 1,590 passed, one failed, and no reset cascade. The failure was
+the unchanged grants check detecting a leftover diagnostic fixture table.
+The fixture had recorded its ownership only in afterAll, so an aborted
+child could omit that record. Ownership is now recorded before creation;
+the confirmed leftover was removed without CASCADE. The controls and grants
+check then passed together (seven tests). None of these isolated passes
+substitutes for a clean full gate.
+
+The final isolated normal run is clean: **166 files / 1,591 tests passed in
+768.33s**, including the unchanged grants check and all cancellation
+controls. No reset cascade occurred. The functional paging body took 863ms
+in this run. This establishes the current gate; it does not retrospectively
+identify the original R-002 overrun or the initial Explain stall.
+Bypass also passes: 97 checks, no open checks or regressions. Strict
+typecheck and lint pass. Validation commands did not overlap either full
+test run. No existing timeout, assertion or performance threshold changed.
+
+
+### 5.31 — quarantine history erased by the latest-notice feed (closed)
+
+The filing feed kept only the latest arrival notice. A successful retry erased
+the quarantine from view, so nobody could see that a filing had ever been set
+aside. Item 5.31 retains safe quarantine revision metadata and derives resolution
+from recorded landings, not an acknowledge action. Open and Resolved are separate
+read views; history is never erased to clear the screen.
+
+The migration cannot recover quarantine revisions or custody outcomes already
+overwritten before it lands. It baselines current failures and durable type-run
+findings and records future lifecycle facts. Earlier missing facts remain a
+known history-coverage limit, rather than being fabricated.

@@ -1,3 +1,4 @@
+import {observationKeys} from '../src/app/observations/keys.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -95,5 +96,16 @@ it('refreshes unsupported counts and type observations on completion, archive an
   {type:'source.changed',sequence:2,sourceId},
   {type:'snapshot',sequence:3,at:new Date().toISOString(),invalidate:['dataSource']},
  ]){reset();consumer.receive(event);await vi.advanceTimersByTimeAsync(50);expect(cache.getQueryState(key)?.isInvalidated).toBe(true);expect(cache.getQueryState(counts)?.isInvalidated).toBe(true);expect(cache.getQueryState(other)?.isInvalidated).toBe(false);}
+ consumer.dispose();cache.clear();
+});
+
+
+it('RED-013: finding lifecycle streams and reconnect invalidate both views and member history only in their project',async()=>{
+ vi.useFakeTimers();const cache=new QueryClient(),consumer=projectStreamCache(cache,project);
+ const keys=[observationKeys.groups(project,'open',false),observationKeys.groups(project,'resolved',false),observationKeys.members(project,'filing:no_rule_matched:','open',false)],other=observationKeys.groups(randomUUID(),'open',false);
+ for(const key of [...keys,other])cache.setQueryData(key,{items:[]});
+ consumer.receive({type:'filing.arrived',sequence:1,sourceId,filingId:randomUUID()});await vi.advanceTimersByTimeAsync(50);
+ for(const key of keys)expect(cache.getQueryState(key)?.isInvalidated).toBe(true);expect(cache.getQueryState(other)?.isInvalidated).toBe(false);
+ for(const key of keys)cache.setQueryData(key,{items:[]});consumer.receive({type:'snapshot',sequence:0,at:new Date().toISOString(),invalidate:['introspection']});await vi.advanceTimersByTimeAsync(50);for(const key of keys)expect(cache.getQueryState(key)?.isInvalidated).toBe(true);
  consumer.dispose();cache.clear();
 });

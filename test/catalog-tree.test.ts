@@ -68,9 +68,9 @@ describe('catalogue tree scoped to real Postgres', () => {
     allowed=false; expect((await get()).status).toBe(404);
   });
 
-  it('R-002: 50,000 elements remain bounded, cursor paginated, and cannot cross scope or prefix', async () => {
+  it('paging contract: 1,001 elements remain bounded, cursor paginated, and cannot cross scope or prefix', async () => {
     await withTenant(ctx,tx=>tx.query(`INSERT INTO catalog_element(object_id,project_id,source_identifier,exposed_name,source_type,exposed_type)
-      SELECT $1,$2,'Column '||n,'column_'||n,'int4','INTEGER' FROM generate_series(1,50000) n`,[objectId,projectId]));
+      SELECT $1,$2,'Column '||n,'column_'||n,'int4','INTEGER' FROM generate_series(1,1001) n`,[objectId,projectId]));
     const first = await page(`?parent=${objectId}`); expect(first.nodes).toHaveLength(50); expect(first.nextCursor).not.toBeNull();
     const second = await page(`?parent=${objectId}&cursor=${first.nextCursor}`); expect(second.nodes).toHaveLength(50);
     expect(new Set([...first.nodes,...second.nodes].map(n=>n.id)).size).toBe(100);

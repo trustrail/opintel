@@ -73,11 +73,20 @@ export function sanitiseException(error: unknown): LoggedException {
         stack.push(`at ${location}:${frame[2]}:${frame[3]}`);
       }
     } else if (raw !== undefined) stack.push(stackWithheld);
-    return { type: safeType(error), message: safeMessages.has(error.message) ? error.message : messageWithheld, stack };
+    // Structured native codes permit an authored diagnostic, never interpolation
+    // of native messages, addresses, credentials or other exception properties.
+    const message = 'code' in error && error.code === 'EADDRINUSE'
+      ? 'A configured listener address is already in use. Check for another running application instance.'
+      : safeMessages.has(error.message) ? error.message : messageWithheld;
+    return { type: safeType(error), message, stack };
   } catch {
     // Custom accessors/prepareStackTrace must not make the logger fail or leak.
     return fallback;
   }
+}
+
+export function apiStartupExceptionLine(error: unknown): string {
+  return JSON.stringify({ event: 'api.startup_failed', ...sanitiseException(error) });
 }
 
 export function cliExceptionLine(operation: 'migration' | 'schema_load', error: unknown): string {

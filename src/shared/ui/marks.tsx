@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import type {ReactNode,CSSProperties} from 'react';
 
 /** Geometry transcribed from docs/visual-language.html; no controls or CSS classes. */
 const marks = {
@@ -101,10 +101,13 @@ const marks = {
   'nav-settings': {category: 'kind', viewBox: '0 0 24 24', props: {fill: 'none',stroke: 'currentColor',strokeWidth: '1.7',strokeLinecap: 'round',strokeLinejoin: 'round'}, geometry: <><circle cx="12" cy="12" r="3.1"/><path d="M12 2.9v2.6M12 18.5v2.6M21.1 12h-2.6M5.5 12H2.9M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4 5.6 5.6"/></>},
 } as const;
 export type MarkName = keyof typeof marks;
-export type MarkSize = 12 | 16 | 18 | 19 | 22 | 24 | 26 | 30 | 34 | 48;
-const treatmentStrokeWeights:Partial<Record<MarkSize,number>>={12:2.6,16:2.4,18:2.3,22:2.2,34:2,48:1.8};
+export type MarkSize = 12 | 16 | 17 | 18 | 19 | 22 | 24 | 26 | 30 | 34 | 48;
+const treatmentStrokeWeights:Partial<Record<MarkSize,number>>={12:2.6,16:2.4,17:2.35,18:2.3,22:2.2,34:2,48:1.8};
 export const markNames = Object.keys(marks) as MarkName[];
-export function Mark({name,size=16,navigation=false,label}:{name:MarkName;size?:MarkSize;navigation?:boolean;label?:string}):ReactNode {
+const treatmentColours:Partial<Record<MarkName,`var(--${string})`>>={'treatment-clear':'var(--green-dk)','treatment-masked':'var(--mask-dk)','treatment-aggregate':'var(--agg-dk)','treatment-tokenized':'var(--token-dk)','treatment-withheld':'var(--held-dk)','treatment-undecided':'var(--ink-2)'};
+export function Mark({name,size=16,navigation=false,label,treatmentColour}:{name:MarkName;size?:MarkSize;navigation?:boolean;label?:string;treatmentColour?:`var(--${string})`}):ReactNode {
  const mark=marks[name];
- return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={{verticalAlign:'middle',flexShrink:0}} aria-hidden={label?undefined:true} role={label?'img':undefined} aria-label={label} focusable="false" data-mark={name} data-mark-category={mark.category}>{typeof mark.geometry==='function'?mark.geometry(treatmentStrokeWeights[size]??2):mark.geometry}</svg>;
+ const colour=treatmentColour??treatmentColours[name];
+ const style:CSSProperties & {'--plum'?:string;'--ink-3'?:string}={verticalAlign:'middle',flexShrink:0,...(mark.category==='treatment'&&colour?{'--plum':colour,'--ink-3':colour}:{})};
+ return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={style} aria-hidden={label?undefined:true} role={label?'img':undefined} aria-label={label} focusable="false" data-mark={name} data-mark-category={mark.category}>{typeof mark.geometry==='function'?mark.geometry(treatmentStrokeWeights[size]??2):mark.geometry}</svg>;
 }

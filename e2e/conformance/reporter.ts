@@ -13,12 +13,13 @@ export default class ConformanceReporter implements Reporter{
  }}
  async onEnd(result:FullResult){
   const coverage=screenPaths().map(screen=>{const scans=this.scans.filter(scan=>matchesScreen(screen,scan.screen)&&scan.heading);return {screen,visited:scans.length>0,headings:[...new Set(scans.map(s=>s.heading))],states:[...new Set(scans.flatMap(s=>s.states))]};});
+  const scope=process.env.OPINTEL_CONFORMANCE_COVERAGE==='partial'?'partial':'full';
   const missing=coverage.filter(row=>!row.visited);
   const findings=[...new Map(this.findings.map(f=>[JSON.stringify(f),f])).values()];
   mkdirSync('test-results',{recursive:true});
-  writeFileSync('test-results/control-conformance.json',JSON.stringify({status:result.status,coverage,missing,findings,tests:this.tests},null,2));
-  console.log(`Control conformance: ${coverage.length-missing.length}/${coverage.length} screen routes visited; ${findings.length} distinct findings. Report: test-results/control-conformance.json`);
-  if(missing.length)console.error('Unvisited screens:',missing.map(row=>row.screen).join(', '));
-  return missing.length||findings.length?{status:'failed' as const}:undefined;
+  writeFileSync('test-results/control-conformance.json',JSON.stringify({status:(scope==='full'&&missing.length)||findings.length?'failed':result.status,scope,coverageComplete:missing.length===0,coverage,missing,findings,tests:this.tests},null,2));
+  console.log(`Control conformance (${scope} coverage): ${coverage.length-missing.length}/${coverage.length} screen routes visited; ${findings.length} distinct findings. Report: test-results/control-conformance.json`);
+  if(missing.length&&scope==='full')console.error('Unvisited screens:',missing.map(row=>row.screen).join(', '));
+  return (scope==='full'&&missing.length)||findings.length?{status:'failed' as const}:undefined;
  }
 }

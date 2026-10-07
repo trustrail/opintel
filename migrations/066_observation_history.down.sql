@@ -1,0 +1,12 @@
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM observation_event) THEN RAISE EXCEPTION 'Cannot downgrade while observation history exists'; END IF; END $$;
+DROP TRIGGER archive_type_observations ON data_source;
+DROP TRIGGER custody_observation ON token_key_version;
+DROP TRIGGER type_observations ON introspection_run;
+DROP TRIGGER filing_observation ON arrival_notice;
+DROP TRIGGER landed_observations ON landing_receipt;
+DROP FUNCTION public.archive_type_observations();
+DROP FUNCTION public.record_custody_observation();
+DROP FUNCTION public.record_type_observations();
+DROP FUNCTION public.record_filing_observation();
+DROP FUNCTION public.resolve_landed_observations();
+DROP TABLE observation_event;

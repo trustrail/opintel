@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Entitlements · design</title>
+<style>
+:root{
+  --plum:#1B0232; --plum-2:#3A1456; --plum-soft:#F3EEF8;
+  --green:#0CC655; --green-dk:#07803A; --green-bg:#E9FAF0;
+  --yellow:#FFF730; --yellow-dp:#8A7C00; --yellow-bg:#FDFBE3;
+  --bg:#F7F6F9; --surface:#FFFFFF; --surface-2:#F2F0F5; --surface-3:#E9E6EF;
+  --ink:#140A1C; --ink-2:#4B4256; --ink-3:#7A7187;
+  --rule:#E6E2EC; --rule-2:#D3CDDC;
+  --shadow:0 1px 2px rgba(20,10,28,.05), 0 8px 24px -12px rgba(20,10,28,.12);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+
+/* ---------- drawer ---------- */
+.drawer{background:var(--plum);color:#D9CFE4;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;align-items:center;gap:9px;padding:17px 18px 15px;color:#fff;font-weight:650;letter-spacing:-.01em;font-size:15.5px}
+.brand svg{width:19px;height:19px}
+.proj{margin:0 12px 14px;padding:9px 11px;background:rgba(255,255,255,.07);border-radius:9px;display:flex;align-items:center;gap:9px}
+.proj .av{width:27px;height:27px;border-radius:7px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.proj .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.25}
+.proj .sb{font-size:11px;color:#9C8FAC}
+.sec{padding:13px 18px 5px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#7D6F8D}
+.nav a{display:flex;align-items:center;gap:10px;padding:6.5px 18px;color:#CBBFD8;text-decoration:none;font-size:13.5px}
+.nav a svg{width:16px;height:16px;flex:none;opacity:.78}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 2.5px 0 0 var(--green)}
+.nav a.on svg{opacity:1}
+.nav a .ct{margin-left:auto;background:var(--yellow);color:#4a4300;border-radius:999px;
+  font-size:10.5px;font-weight:700;padding:1px 6px;letter-spacing:.01em}
+
+/* ---------- main ---------- */
+.main{overflow:auto;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:14px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--surface)}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3)}
+.crumb a{color:var(--ink-3);text-decoration:none}.crumb a:hover{color:var(--ink)}
+.crumb b{color:var(--ink);font-weight:600}
+.top .sp{flex:1}
+.search{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:8px;padding:5px 9px;color:var(--ink-3);font-size:12.5px;width:230px}
+.av-u{width:27px;height:27px;border-radius:999px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11.5px}
+
+.pad{padding:20px 26px 40px;max-width:1500px;width:100%}
+
+/* ---------- header band ---------- */
+.band{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start;margin-bottom:18px}
+h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+.lede{color:var(--ink-2);margin:0;font-size:13.5px;max-width:60ch}
+
+/* exposure bar */
+.expo{background:var(--surface);border:1px solid var(--rule);border-radius:11px;padding:13px 15px;box-shadow:var(--shadow)}
+.expo .hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px}
+.expo .hd .t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.expo .hd .n{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.bar{display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--surface-3)}
+.bar i{display:block}
+.keys{display:flex;flex-wrap:wrap;gap:3px 13px;margin-top:10px}
+.keys b{display:flex;align-items:center;gap:5px;font-weight:500;font-size:12px;color:var(--ink-2)}
+.keys b u{width:8px;height:8px;border-radius:2px;text-decoration:none}
+.keys b s{text-decoration:none;color:var(--ink);font-variant-numeric:tabular-nums;font-weight:650}
+
+/* ---------- work callout ---------- */
+.todo{display:flex;align-items:center;gap:13px;background:var(--yellow-bg);border:1px solid #EDE28A;
+  border-left:3px solid var(--yellow-dp);border-radius:10px;padding:12px 15px;margin-bottom:16px}
+.todo .ic{width:30px;height:30px;flex:none;display:grid;place-items:center}
+.todo .tx{flex:1}
+.todo .tx b{display:block;font-size:14px;letter-spacing:-.01em}
+.todo .tx span{color:var(--ink-2);font-size:12.5px}
+.btn{border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:6.5px 13px;font-size:13px;font-weight:550;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.dark{background:var(--plum);border-color:var(--plum);color:#fff}
+.btn.dark:hover{background:var(--plum-2)}
+.btn.sm{padding:4px 9px;font-size:12px}
+
+/* ---------- toolbar ---------- */
+.tools{display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--ink-2);border-radius:6px;padding:4.5px 11px;font-size:12.5px;font-weight:500}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,10,28,.08);font-weight:600}
+.pick{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);
+  border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--ink-2)}
+.pick b{color:var(--ink);font-weight:600}
+.tools .sp{flex:1}
+.find{border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:5.5px 10px;font-size:12.5px;width:190px;color:var(--ink-3)}
+
+/* ---------- table ---------- */
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.thead{display:grid;grid-template-columns:34px 1fr 150px 110px 190px 118px;gap:12px;align-items:center;
+  padding:8px 15px;border-bottom:1px solid var(--rule);background:var(--surface-2);
+  font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.gh{display:flex;align-items:center;gap:9px;padding:9px 15px;background:var(--plum-soft);
+  border-bottom:1px solid var(--rule);font-size:12px;color:var(--ink-2)}
+.gh b{color:var(--ink);font-weight:650;font-size:13px;letter-spacing:-.01em}
+.gh .ct{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink-3);font-size:12px}
+.r{display:grid;grid-template-columns:34px 1fr 150px 110px 190px 118px;gap:12px;align-items:center;
+  padding:9px 15px;border-bottom:1px solid var(--rule);transition:background .08s}
+.r:last-child{border-bottom:0}
+.r:hover{background:var(--surface-2)}
+.r.sel{background:#F6F2FB}
+.r input{width:15px;height:15px;accent-color:var(--plum);cursor:pointer}
+.nmcell{display:flex;align-items:center;gap:9px;min-width:0}
+.nmcell svg{flex:none}
+.nmcell .n{font-weight:560;font-size:13.5px;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nmcell .w{color:var(--ink-3);font-size:11.5px;white-space:nowrap}
+.ty{color:var(--ink-3);font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dec{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:550}
+.dec.und{color:var(--yellow-dp)}
+.sig{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);min-width:0}
+.sig.hot{color:var(--plum-2);font-weight:550}
+.sig svg{flex:none}
+.acts{display:flex;justify-content:flex-end;gap:5px;opacity:0;transition:opacity .1s}
+.r:hover .acts,.r.sel .acts{opacity:1}
+
+/* ---------- action bar ---------- */
+.actionbar{position:sticky;bottom:0;margin-top:14px;display:flex;align-items:center;gap:16px;
+  background:var(--plum);color:#EDE6F3;border-radius:12px;padding:13px 17px;box-shadow:0 10px 30px -10px rgba(20,10,28,.5)}
+.actionbar .cnt{display:flex;align-items:center;gap:10px;padding-right:16px;border-right:1px solid rgba(255,255,255,.17)}
+.actionbar .cnt b{font-size:21px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;line-height:1}
+.actionbar .cnt span{font-size:12px;color:#B6A8C4;line-height:1.3}
+.actionbar .cons{flex:1;font-size:13px;line-height:1.5}
+.actionbar .cons b{color:#fff;font-weight:650}
+.actionbar .cons .warn{display:inline-flex;align-items:center;gap:5px;color:var(--yellow);font-weight:600}
+.pickdark{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;padding:6px 11px;font-size:13px;color:#fff;font-weight:550}
+.btn.go{background:var(--yellow);border-color:var(--yellow);color:#3A3400;font-weight:650}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.25);color:#EDE6F3}
+.btn.ghost:hover{background:rgba(255,255,255,.08)}
+
+.note{margin:22px 0 0;color:var(--ink-3);font-size:12.5px;max-width:92ch;line-height:1.6}
+.note b{color:var(--ink-2)}
+@media (max-width:1180px){.band{grid-template-columns:1fr}.thead,.r{grid-template-columns:34px 1fr 110px 190px}
+ .thead span:nth-child(3),.r .ty{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ========== drawer ========== -->
+<nav class="drawer">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3.5 0 3.5-10 7-10s3.5 10 7 10 4-4 4-4"/></svg>
+    Opintel
+  </div>
+  <div class="proj"><div class="av">RE</div><div><div class="nm">Reinsurance Demo</div><div class="sb">Development Demo</div></div></div>
+
+  <div class="sec">Watch</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4.6-4.6"/></svg>Dashboard</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.2H3Z"/><path d="M12 10.3v4"/></svg>Observations<span class="ct">4</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2.5-6 4 12 2.5-6H21"/></svg>Activity</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="12" rx="2.3"/><path d="M6.5 5.5h11"/></svg>Releases</a>
+  </div>
+
+  <div class="sec">Understand</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/><path d="M3.8 12c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2"/></svg>Data sources</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M9 11.5h7M9 15h4.5"/></svg>Vocabulary</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.6 2.6 4.9-5.2"/></svg>Source of truth</a>
+  </div>
+
+  <div class="sec">Govern</div>
+  <div class="nav">
+    <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg>Entitlements<span class="ct">23</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><path d="M6.9 8.6V6.8"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/><path d="M17.1 11.4V9.6"/></svg>Pools</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="4"/><path d="M12 12h8.5M17.2 12v3.2"/></svg>Access</a>
+  </div>
+</nav>
+
+<!-- ========== main ========== -->
+<main class="main">
+  <div class="top">
+    <div class="crumb"><a href="#">Development Demo</a>/<a href="#">Reinsurance Demo</a>/<b>Entitlements</b></div>
+    <div class="sp"></div>
+    <div class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>Search this project</div>
+    <div class="av-u">U</div>
+  </div>
+
+  <div class="pad">
+
+    <div class="band">
+      <div>
+        <h1>Entitlements</h1>
+        <p class="lede">What the <b>Development Demo</b> pool may see. An element with no decision is absent from the agent entirely &mdash; not hidden, never read.</p>
+      </div>
+
+      <div class="expo">
+        <div class="hd"><span class="t">Exposure</span><span class="n">99 elements</span></div>
+        <div class="bar">
+          <i style="width:50.5%;background:var(--plum)"></i>
+          <i style="width:6.1%;background:#6E4C8A"></i>
+          <i style="width:10.1%;background:#9A82AE"></i>
+          <i style="width:14.1%;background:#C4B6D1"></i>
+          <i style="width:19.2%;background:var(--yellow)"></i>
+        </div>
+        <div class="keys">
+          <b><u style="background:var(--plum)"></u>Clear <s>50</s></b>
+          <b><u style="background:#6E4C8A"></u>Masked <s>6</s></b>
+          <b><u style="background:#9A82AE"></u>Aggregate <s>10</s></b>
+          <b><u style="background:#C4B6D1"></u>Tokenized <s>14</s></b>
+          <b><u style="background:var(--yellow)"></u>Undecided <s>19</s></b>
+        </div>
+      </div>
+    </div>
+
+    <div class="todo">
+      <span class="ic">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 19.5H3Z"/><path d="M12 10v4"/><circle cx="12" cy="16.9" r=".95" fill="var(--ink)" stroke="none"/></svg>
+      </span>
+      <div class="tx">
+        <b>19 elements are waiting on a decision</b>
+        <span>Agents cannot see them, and four have been asked for. Grouped below by name, so one decision covers every table it appears in.</span>
+      </div>
+      <button class="btn">Review all 19</button>
+    </div>
+
+    <div class="tools">
+      <div class="seg">
+        <button class="on">Needs a decision</button>
+        <button>Decided</button>
+        <button>Everything</button>
+      </div>
+      <div class="pick">Pool <b>Development Demo</b>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="pick">Source <b>All bound</b>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="seg"><button class="on">By name</button><button>By table</button></div>
+      <div class="sp"></div>
+      <div class="find">Filter by name&hellip;</div>
+    </div>
+
+    <div class="panel">
+      <div class="thead">
+        <span><input type="checkbox" style="width:15px;height:15px;accent-color:var(--plum)"></span>
+        <span>Element</span><span>Type</span><span>Decision</span><span>Signal</span><span></span>
+      </div>
+
+      <div class="gh">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 19.5H3Z"/><path d="M12 10v4"/></svg>
+        <b>Waiting on you</b><span>19 elements across 11 tables</span><span class="ct">4 requested by an agent</span>
+      </div>
+
+      <div class="r sel">
+        <input type="checkbox" checked>
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.4" stroke-dasharray="3.6 3.6"/></svg>
+          <span class="n">treaty_ref</span><span class="w">· 11 tables</span>
+        </div>
+        <span class="ty">VARCHAR</span>
+        <span class="dec und">Undecided</span>
+        <span class="sig hot">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V5.2"/><circle cx="9" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.1" fill="currentColor" stroke="none"/></svg>
+          asked for 3&times;
+        </span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.4" stroke-dasharray="3.6 3.6"/></svg>
+          <span class="n">written_premium</span><span class="w">· 4 tables</span>
+        </div>
+        <span class="ty">DECIMAL(38,9)</span>
+        <span class="dec und">Undecided</span>
+        <span class="sig hot">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V5.2"/><circle cx="9" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.1" fill="currentColor" stroke="none"/></svg>
+          asked for 1&times;
+        </span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.4" stroke-dasharray="3.6 3.6"/></svg>
+          <span class="n">opintel_as_at</span><span class="w">· 9 tables</span>
+        </div>
+        <span class="ty">DATE</span>
+        <span class="dec und">Undecided</span>
+        <span class="sig">Provenance column</span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.4" stroke-dasharray="3.6 3.6"/></svg>
+          <span class="n">gross_premium</span><span class="w">· 3 tables</span>
+        </div>
+        <span class="ty">DECIMAL(38,9)</span>
+        <span class="dec und">Undecided</span>
+        <span class="sig">Looks like a money column</span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="gh" style="background:var(--surface-2)">
+        <svg width="15" height="15" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg>
+        <b>Decided</b><span>80 elements</span><span class="ct">last changed 2 days ago</span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg>
+          <span class="n">inception_date</span><span class="w">· 11 tables</span>
+        </div>
+        <span class="ty">DATE</span>
+        <span class="dec">Clear</span>
+        <span class="sig">Approved for reporting</span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.4"/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></svg>
+          <span class="n">currency</span><span class="w">· 6 tables</span>
+        </div>
+        <span class="ty">VARCHAR</span>
+        <span class="dec">Tokenized</span>
+        <span class="sig">Domain <b style="font-weight:600">treaty</b> · 11 members</span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.4"/><circle cx="11" cy="20" r="3" fill="var(--plum)"/><circle cx="17" cy="12" r="3" fill="var(--plum)"/><circle cx="23" cy="20" r="3" fill="var(--plum)"/></svg>
+          <span class="n">premium_amount</span><span class="w">· 3 tables</span>
+        </div>
+        <span class="ty">DECIMAL(38,9)</span>
+        <span class="dec">Aggregate only</span>
+        <span class="sig">Minimum group 5</span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+
+      <div class="r">
+        <input type="checkbox">
+        <div class="nmcell">
+          <svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" stroke-width="2.4"/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" stroke-width="2.4"/></svg>
+          <span class="n">broker_contact</span><span class="w">· 2 tables</span>
+        </div>
+        <span class="ty">VARCHAR</span>
+        <span class="dec" style="color:var(--ink-3)">Withheld</span>
+        <span class="sig">Named to agents, never returned</span>
+        <span class="acts"><button class="btn sm">Declarations</button></span>
+      </div>
+    </div>
+
+    <!-- weighted action bar -->
+    <div class="actionbar">
+      <div class="cnt"><b>1</b><span>element<br>11 tables</span></div>
+      <div class="cons">
+        Setting <b>treaty_ref</b> to <b>Clear</b> makes its values readable by every agent in <b>Development Demo</b>, in 11 tables.
+        <br><span class="warn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16V11m0-3.4v.1"/></svg>
+          Answers already given are unaffected. Future answers will include these values.
+        </span>
+      </div>
+      <div class="pickdark">Set to <b>Clear</b>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <button class="btn ghost">Cancel</button>
+      <button class="btn go">Apply</button>
+    </div>
+
+    <p class="note">
+      <b>What changed.</b> Elements are grouped by name rather than walked as a tree, so <code>treaty_ref</code> is one decision instead of eleven.
+      The screen opens on what is waiting rather than on everything. The exposure bar is the shape of the project at a glance.
+      The signal column says which elements an agent has actually asked for &mdash; the strongest reason to decide about one.
+      And the action bar states the consequence in the same view as the control, with exposing and restricting reading differently.
+    </p>
+
+  </div>
+</main>
+</div>
+</body>
+</html>

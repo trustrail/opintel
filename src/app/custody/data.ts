@@ -1,3 +1,4 @@
+import {observationKeys} from '../observations/keys.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createApiClient, type AppError } from '../../shared/api/index.js';
 import { TokenKeyView } from '../../shared/custody-contract.js';
@@ -24,5 +25,5 @@ export function useCustodyAction(projectId: string) {
     return result.value;
   }, onSuccess: value => {cache.setQueryData(custodyKeys.status(projectId),value);},
   // A refused restore/rehearsal can still record a failed verification.
-  onSettled: () => cache.invalidateQueries({queryKey:custodyKeys.status(projectId)})});
+  onSettled: async () => {await cache.invalidateQueries({queryKey:custodyKeys.status(projectId)});await cache.invalidateQueries({queryKey:observationKeys.all(projectId)});}});
 }

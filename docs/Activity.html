@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Activity · design</title>
+<style>
+:root{
+  --plum:#1B0232; --plum-2:#3A1456; --plum-soft:#F3EEF8;
+  --green:#0CC655; --green-dk:#07803A; --green-bg:#E9FAF0;
+  --yellow:#FFF730; --yellow-dp:#8A7C00; --yellow-bg:#FDFBE3;
+  --bg:#F7F6F9; --surface:#FFFFFF; --surface-2:#F2F0F5; --surface-3:#E9E6EF;
+  --ink:#140A1C; --ink-2:#4B4256; --ink-3:#7A7187;
+  --rule:#E6E2EC; --rule-2:#D3CDDC;
+  --shadow:0 1px 2px rgba(20,10,28,.05), 0 8px 24px -12px rgba(20,10,28,.12);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--ink-2)}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+
+/* drawer */
+.drawer{background:var(--plum);color:#D9CFE4;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;align-items:center;gap:9px;padding:17px 18px 15px;color:#fff;font-weight:650;letter-spacing:-.01em;font-size:15.5px}
+.brand svg{width:19px;height:19px}
+.proj{margin:0 12px 14px;padding:9px 11px;background:rgba(255,255,255,.07);border-radius:9px;display:flex;align-items:center;gap:9px}
+.proj .av{width:27px;height:27px;border-radius:7px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.proj .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.25}
+.proj .sb{font-size:11px;color:#9C8FAC}
+.sec{padding:13px 18px 5px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#7D6F8D}
+.nav a{display:flex;align-items:center;gap:10px;padding:6.5px 18px;color:#CBBFD8;text-decoration:none;font-size:13.5px}
+.nav a svg{width:16px;height:16px;flex:none;opacity:.78}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 2.5px 0 0 var(--green)}
+.nav a .ct{margin-left:auto;background:var(--yellow);color:#4a4300;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 6px}
+
+/* main */
+.main{overflow:auto}
+.top{display:flex;align-items:center;gap:14px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--surface)}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3)}
+.crumb a{color:var(--ink-3);text-decoration:none}
+.crumb b{color:var(--ink);font-weight:600}
+.top .sp{flex:1}
+.search{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:8px;padding:5px 9px;color:var(--ink-3);font-size:12.5px;width:230px}
+.av-u{width:27px;height:27px;border-radius:999px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11.5px}
+.pad{padding:20px 26px 44px;max-width:1540px}
+
+h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+.lede{color:var(--ink-2);margin:0 0 16px;font-size:13.5px;max-width:70ch}
+
+/* toolbar */
+.tools{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--ink-2);border-radius:6px;padding:4.5px 11px;font-size:12.5px;font-weight:500;
+  display:flex;align-items:center;gap:6px}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,10,28,.08);font-weight:600}
+.seg button s{text-decoration:none;color:var(--ink-3);font-variant-numeric:tabular-nums;font-size:11.5px}
+.seg button.on s{color:var(--ink-2)}
+.pick{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);
+  border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--ink-2)}
+.pick b{color:var(--ink);font-weight:600}
+.tools .sp{flex:1}
+.find{border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:5.5px 10px;font-size:12.5px;width:200px;color:var(--ink-3)}
+
+/* ---- timeline list ---- */
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.day{display:flex;align-items:center;gap:10px;padding:7px 16px;background:var(--surface-2);border-bottom:1px solid var(--rule);
+  font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.day b{color:var(--ink-2);font-weight:650;letter-spacing:.02em}
+.day .sp{flex:1}
+.day .mix{display:flex;gap:3px;align-items:center}
+.day .mix i{width:6px;height:6px;border-radius:999px;display:block}
+
+.row{border-bottom:1px solid var(--rule)}
+.row:last-child{border-bottom:0}
+.rh{display:grid;grid-template-columns:28px 86px 1fr 150px 140px 112px 26px;gap:12px;align-items:center;
+  padding:9px 16px;cursor:pointer;transition:background .08s}
+.rh:hover{background:var(--surface-2)}
+.row.open .rh{background:var(--plum-soft)}
+.kind{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:var(--surface-2)}
+.row.prompt .kind{background:var(--plum-soft)}
+.out{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2.5px 8px;border-radius:999px;
+  border:1px solid transparent;white-space:nowrap}
+.out.ok{color:var(--green-dk);background:var(--green-bg);border-color:#BFE9CF}
+.out.no{color:var(--ink-2);background:var(--surface-2);border-color:var(--rule-2)}
+.out.inc{color:var(--yellow-dp);background:var(--yellow-bg);border-color:#EDE28A}
+.what{min-width:0;font-size:13.5px;letter-spacing:-.005em}
+.what .o{font-weight:570}
+.what .sub{color:var(--ink-3);font-size:12px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.treats{display:flex;gap:4px;align-items:center}
+.treats .t{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--ink-2);
+  background:var(--surface-2);border-radius:999px;padding:2px 7px 2px 4px}
+.who{font-size:12px;color:var(--ink-2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who b{font-weight:600;color:var(--ink)}
+.when{font-size:12px;color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chev{display:grid;place-items:center;color:var(--ink-3);transition:transform .15s}
+.row.open .chev{transform:rotate(90deg)}
+
+/* ---- expanded detail ---- */
+.det{display:none;padding:2px 16px 18px 58px;background:var(--plum-soft);border-top:1px solid #E3D9EE}
+.row.open .det{display:block}
+.dgrid{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-top:12px}
+.dbox{background:var(--surface);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.dbox .h{display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--rule);
+  font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2)}
+.dbox .h .sp{flex:1}
+.dbox .b{padding:10px 12px}
+.sql{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.65;color:var(--ink-2);
+  white-space:pre-wrap;word-break:break-word}
+.sql em{font-style:normal;color:var(--ink-3)}
+.el{display:grid;grid-template-columns:18px 1fr auto;gap:9px;align-items:center;padding:4.5px 0;font-size:12.5px}
+.el + .el{border-top:1px solid var(--rule)}
+.el .n{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.el .v{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.stamp{display:flex;flex-wrap:wrap;gap:4px 18px;padding:9px 12px;border-top:1px solid var(--rule);background:var(--surface-2);
+  font-size:11.5px;color:var(--ink-3)}
+.stamp b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.refuse{display:flex;gap:10px;padding:11px 12px;background:var(--surface);border:1px solid var(--rule-2);
+  border-left:3px solid var(--ink-3);border-radius:10px;margin-top:12px}
+.refuse .tx{font-size:12.5px;line-height:1.55;color:var(--ink-2)}
+.refuse .tx b{color:var(--ink)}
+.dact{display:flex;gap:7px;margin-top:12px;align-items:center}
+.dact .sp{flex:1}
+.btn{border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:5.5px 12px;font-size:12.5px;font-weight:550}
+.btn:hover{background:var(--surface-2)}
+.btn.dark{background:var(--plum);border-color:var(--plum);color:#fff}
+.btn.lite{background:transparent;border-color:transparent;color:var(--ink-3)}
+.btn.lite:hover{color:var(--ink);background:var(--surface-3)}
+
+.note{margin:24px 0 0;color:var(--ink-3);font-size:12.5px;max-width:94ch;line-height:1.6}
+.note b{color:var(--ink-2)}
+@media (max-width:1240px){.rh{grid-template-columns:28px 86px 1fr 140px 112px 26px}.treats{display:none}
+ .dgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<nav class="drawer">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3.5 0 3.5-10 7-10s3.5 10 7 10 4-4 4-4"/></svg>
+    Opintel
+  </div>
+  <div class="proj"><div class="av">RE</div><div><div class="nm">Reinsurance Demo</div><div class="sb">Development Demo</div></div></div>
+  <div class="sec">Watch</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4.6-4.6"/></svg>Dashboard</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.2H3Z"/><path d="M12 10.3v4"/></svg>Observations<span class="ct">4</span></a>
+    <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2.5-6 4 12 2.5-6H21"/></svg>Activity</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="12" rx="2.3"/><path d="M6.5 5.5h11"/></svg>Releases</a>
+  </div>
+  <div class="sec">Understand</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/></svg>Data sources</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M9 11.5h7"/></svg>Vocabulary</a>
+  </div>
+  <div class="sec">Govern</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg>Entitlements<span class="ct">19</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/></svg>Pools</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="top">
+    <div class="crumb"><a href="#">Development Demo</a>/<a href="#">Reinsurance Demo</a>/<b>Activity</b></div>
+    <div class="sp"></div>
+    <div class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>Search this project</div>
+    <div class="av-u">U</div>
+  </div>
+
+  <div class="pad">
+    <h1>Activity</h1>
+    <p class="lede">Every request, what it read, and what the agent received. Each record keeps the decisions in force at the time.</p>
+
+    <div class="tools">
+      <div class="seg">
+        <button class="on">All <s>47</s></button>
+        <button>Refused <s>6</s></button>
+        <button>Incomplete <s>1</s></button>
+        <button>Touched sensitive <s>12</s></button>
+      </div>
+      <div class="pick">Agent <b>Any</b><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="pick">Pool <b>Any</b><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="pick">Last <b>7 days</b><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="sp"></div>
+      <div class="find">Filter by object or element&hellip;</div>
+    </div>
+
+    <div class="panel">
+
+      <div class="day">
+        <b>Today</b> · 6 October
+        <span class="sp"></span>
+        <span class="mix">
+          <i style="background:var(--ink-3)"></i><i style="background:var(--green)"></i><i style="background:var(--green)"></i>
+        </span>
+        3 requests · 1 refused
+      </div>
+
+      <!-- refused, open -->
+      <div class="row open">
+        <div class="rh">
+          <span class="kind"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg></span>
+          <span class="out no"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/></svg>Refused</span>
+          <div class="what">
+            <div class="o">A join across two tables</div>
+            <div class="sub">cedant_01_premium · cedant_02_premium</div>
+          </div>
+          <div class="treats">
+            <span class="t"><svg width="12" height="12" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="3"/><circle cx="17" cy="17" r="4.5" fill="var(--plum)"/></svg>2</span>
+          </div>
+          <div class="who"><b>harness</b> · Development Demo</div>
+          <div class="when">13:43 · 6h ago</div>
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+
+        <div class="det">
+          <div class="refuse">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/></svg>
+            <div class="tx"><b>Stopped before any source was read.</b> The two columns are tokenized under different domains, so the equality could never match. The agent was told what a shared domain would require.</div>
+          </div>
+
+          <div class="dgrid">
+            <div class="dbox">
+              <div class="h">Statement<span class="sp"></span><span style="text-transform:none;letter-spacing:0">literals removed</span></div>
+              <div class="b"><div class="sql">SELECT COUNT(*) AS matched
+  FROM cedant_01_premium a
+  JOIN cedant_02_premium b
+    ON a.written_premium = b.treaty_ref</div></div>
+              <div class="stamp">
+                <span>Policy <b>14</b></span><span>Catalogue <b>7</b></span><span>Key version <b>1</b></span><span>Record <b>01a11174</b></span>
+              </div>
+            </div>
+
+            <div class="dbox">
+              <div class="h">What it would have read<span class="sp"></span>2 objects</div>
+              <div class="b">
+                <div class="el">
+                  <svg width="15" height="15" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="3"/><circle cx="17" cy="17" r="4.5" fill="var(--plum)"/></svg>
+                  <span class="n">cedant_01_premium.written_premium</span><span class="v">isolated</span>
+                </div>
+                <div class="el">
+                  <svg width="15" height="15" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="3"/><circle cx="17" cy="17" r="4.5" fill="var(--plum)"/></svg>
+                  <span class="n">cedant_02_premium.treaty_ref</span><span class="v">domain treaty</span>
+                </div>
+                <div class="el">
+                  <svg width="15" height="15" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" stroke-width="3"/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" stroke-width="3"/></svg>
+                  <span class="n">cedant_02_premium.gross_premium</span><span class="v">withheld</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dact">
+            <button class="btn dark">Review as a suggestion</button>
+            <button class="btn">Open evidence record</button>
+            <span class="sp"></span>
+            <button class="btn lite">Copy record id</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- answered -->
+      <div class="row">
+        <div class="rh">
+          <span class="kind"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg></span>
+          <span class="out ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>5 rows</span>
+          <div class="what">
+            <div class="o">Read one table</div>
+            <div class="sub">cedant_01_premium · 1 element returned</div>
+          </div>
+          <div class="treats">
+            <span class="t"><svg width="12" height="12" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg>1</span>
+            <span class="t"><svg width="12" height="12" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" stroke-width="3"/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" stroke-width="3"/></svg>4</span>
+          </div>
+          <div class="who"><b>engine-test-harness</b> · Development Demo</div>
+          <div class="when">12:56 · 7h ago</div>
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="det"></div>
+      </div>
+
+      <!-- aggregate -->
+      <div class="row">
+        <div class="rh">
+          <span class="kind"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg></span>
+          <span class="out ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>1 row</span>
+          <div class="what">
+            <div class="o">Counted an aggregate-only column</div>
+            <div class="sub">cedant_02_premium · groups checked at execution</div>
+          </div>
+          <div class="treats">
+            <span class="t"><svg width="12" height="12" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="3"/><circle cx="11" cy="20" r="3.4" fill="var(--plum)"/><circle cx="17" cy="12" r="3.4" fill="var(--plum)"/><circle cx="23" cy="20" r="3.4" fill="var(--plum)"/></svg>1</span>
+          </div>
+          <div class="who"><b>engine-test-harness</b> · Development Demo</div>
+          <div class="when">12:56 · 7h ago</div>
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="det"></div>
+      </div>
+
+      <div class="day">
+        <b>Yesterday</b> · 5 October
+        <span class="sp"></span>
+        <span class="mix"><i style="background:var(--green)"></i><i style="background:var(--yellow-dp)"></i></span>
+        2 requests · 1 incomplete
+      </div>
+
+      <div class="row">
+        <div class="rh">
+          <span class="kind"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg></span>
+          <span class="out inc"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a8.5 8.5 0 1 1-8.2 6.3"/><path d="M3.4 5.2v4.8h4.8"/></svg>Incomplete</span>
+          <div class="what">
+            <div class="o">Started and did not finish</div>
+            <div class="sub">No completion recorded · nothing was returned</div>
+          </div>
+          <div class="treats"></div>
+          <div class="who"><b>engine-test-harness</b> · Development Demo</div>
+          <div class="when">21:01 · 22h ago</div>
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="det"></div>
+      </div>
+
+      <div class="row">
+        <div class="rh">
+          <span class="kind"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg></span>
+          <span class="out ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>1 row</span>
+          <div class="what">
+            <div class="o">Read one table</div>
+            <div class="sub">cedant_01_premium · 1 element returned</div>
+          </div>
+          <div class="treats">
+            <span class="t"><svg width="12" height="12" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg>1</span>
+          </div>
+          <div class="who"><b>engine-test-harness</b> · Development Demo</div>
+          <div class="when">20:14 · 23h ago</div>
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="det"></div>
+      </div>
+
+    </div>
+
+    <p class="note">
+      <b>What changed.</b> A row is 42 pixels and says what the request did, not that it was a request: a join, a read, a count.
+      Rows expand in place, because reading a record is a check rather than a destination.
+      The outcome is the second thing on the row and the only coloured one, so refused and incomplete are findable without reading.
+      The treatment marks say what the answer contained &mdash; one clear element and four withheld &mdash; which is the fact an auditor is looking for.
+      And the filters are the questions people actually ask: what was refused, what did not finish, what touched something sensitive.
+    </p>
+  </div>
+</main>
+</div>
+<script>
+  document.querySelectorAll('.rh').forEach(function(h){
+    h.addEventListener('click', function(){ h.parentElement.classList.toggle('open'); });
+  });
+</script>
+</body>
+</html>

@@ -21,6 +21,7 @@ import { SourcesScreen } from './sources/screen.js';
 import { AccessScreen } from './access/screen.js';
 import { AuthGuard } from './guard.js';
 import { KitchenSinkScreen } from './kitchen-sink.js';
+import { SharedPatternsScreen } from './shared-patterns.js';
 import { CreateCompanyScreen, CreateProjectScreen, ProjectChooser, ProjectDashboard } from './tenancy/screens.js';
 
 function RouteScreen({ title }: { title: string }): ReactNode {
@@ -31,7 +32,7 @@ function RootLayout(): ReactNode {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const search = useRouterState({ select: (state) => state.location.searchStr });
   const hash = useRouterState({ select: (state) => state.location.hash });
-  return isAuthPath(pathname) || (import.meta.env.DEV && pathname === '/dev/kitchen-sink') ? <Outlet /> : <AuthGuard intendedPath={`${pathname}${search}${hash}`}><AppShell /></AuthGuard>;
+  return isAuthPath(pathname) || (import.meta.env.DEV && ['/dev/kitchen-sink','/dev/shared-patterns'].includes(pathname)) ? <Outlet /> : <AuthGuard intendedPath={`${pathname}${search}${hash}`}><AppShell /></AuthGuard>;
 }
 
 function AuthRoute({ children }: { readonly children: ReactNode }): ReactNode {
@@ -44,10 +45,10 @@ const chooserRoute = createRoute({ getParentRoute: () => rootRoute, path: '/proj
 const createProjectRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/new', component: CreateProjectScreen });
 const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: '/companies/new', component: CreateCompanyScreen });
 const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });
-const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined),elementId:z.uuid().optional().catch(undefined),declarationSchema:z.string().max(512).optional().catch(undefined)}).parse(search), component: () => {
+const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined),decision:z.enum(['undecided','decided','all']).optional().catch(undefined),layout:z.enum(['name','table']).optional().catch(undefined),elementId:z.uuid().optional().catch(undefined),declarationSchema:z.string().max(512).optional().catch(undefined)}).parse(search), component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
   const search=projectScreenRoute.useSearch(),navigate=projectScreenRoute.useNavigate();
-  if(screen==='relationship-suggestions')return <RouteErrorBoundary><SuggestionsScreen key={projectId} projectId={projectId}/></RouteErrorBoundary>;
+  if(screen==='relationship-suggestions')return <RouteErrorBoundary><SuggestionsScreen key={projectId} projectId={projectId} filter={{elementId:search.elementId,poolId:search.poolId}}/></RouteErrorBoundary>;
   if(screen==='settings-engines')return <EnginesScreen key={projectId} projectId={projectId}/>;
   if(screen==='settings'||screen.startsWith('settings-'))return <ProjectSettingsScreen key={projectId+screen} projectId={projectId} section={screen}/>;
   if(screen==='pools')return <RouteErrorBoundary><PoolsScreen key={projectId} projectId={projectId}/></RouteErrorBoundary>;
@@ -72,7 +73,7 @@ const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/c
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
 const confirmDeviceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/confirm-device', component: () => <AuthRoute><ConfirmDeviceScreen /></AuthRoute> });
 const kitchenSinkRoutes = import.meta.env.DEV
-  ? [createRoute({ getParentRoute: () => rootRoute, path: '/dev/kitchen-sink', component: KitchenSinkScreen })]
+  ? [createRoute({ getParentRoute: () => rootRoute, path: '/dev/kitchen-sink', component: KitchenSinkScreen }),createRoute({getParentRoute:()=>rootRoute,path:'/dev/shared-patterns',component:SharedPatternsScreen})]
   : [];
 
 function routeFor(item: NavItem) {

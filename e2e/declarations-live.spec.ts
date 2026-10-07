@@ -32,14 +32,14 @@ test('DECL-001/006: console declarations and tokenized entitlement through real 
    const url=new URL(route.request().url());
    if(url.pathname==='/api/v1/projects')return route.fulfill({json:{items:[{id:f.ctx.projectId,name:'Bulk project',company:{id:owner!.company_id,name:'Bulk tests'},industry:{id:f.source,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
    if(url.pathname.endsWith('/sources'))return route.fulfill({json:{items:[{id:f.source,name:'Warehouse',exposedAlias:'warehouse',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:null,filingCount:null,elementCount:1,unsupportedCount:0,undecidedCount:1,latestIntrospectionId:null,lastIntrospectedAt:null}],nextCursor:null}});
-   if(url.pathname.includes('/catalog')||url.pathname.endsWith('/pools')||url.pathname.includes('/entitlements')){const response=await route.fetch({url:origin+url.pathname+url.search});return route.fulfill({response});}
+   if(url.pathname.includes('/catalog')||url.pathname.endsWith('/pools')||url.pathname.includes('/entitlement')){const response=await route.fetch({url:origin+url.pathname+url.search});return route.fulfill({response});}
    return route.fallback();
   });
   await page.goto(`/projects/${f.ctx.projectId}/data-sources`);await page.getByRole('link',{name:'Explore schema',exact:true}).click();await expand(page);
   await page.getByRole('button',{name:'Declarations for field_1',exact:true}).click();await expect(page.getByLabel('Canonicaliser',{exact:true})).toBeEnabled();
   await page.getByLabel('Token domain',{exact:true}).fill('customer');await page.getByRole('button',{name:'Declare token domain',exact:true}).click();await expect(page.getByText('Declarations saved.',{exact:true})).toBeVisible();
   expect(unwrap(await declarations.read(f.ctx,f.ids[0]!))).toMatchObject({stored:{tokenDomain:'customer'},discoveryError:null});
-  await page.getByRole('button',{name:'Entitlements',exact:true}).click();await expand(page);await page.getByLabel('Select field_1',{exact:true}).check();await page.getByLabel('Treatment',{exact:true}).selectOption('tokenized');await page.getByRole('button',{name:'Apply to selection',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'entitlement decisions saved.'})).toContainText('1 entitlement decisions saved.');
+  await page.getByRole('button',{name:'Entitlements',exact:true}).click();await page.getByRole('button',{name:'By table',exact:true}).click();await page.getByRole('button',{name:'Everything',exact:true}).click();await expand(page);await page.getByLabel('Select field_1',{exact:true}).check();await page.getByLabel('Treatment',{exact:true}).selectOption('tokenized');await page.getByRole('button',{name:'Apply to selection',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'entitlement decisions saved.'})).toContainText('1 entitlement decisions saved.');
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT treatment FROM entitlement WHERE element_id=$1',[f.ids[0]]))).toEqual([{treatment:'tokenized'}]);
  }finally{
   if(server)await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));await engine?.close();await rm(directory,{recursive:true,force:true});

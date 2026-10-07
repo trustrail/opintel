@@ -1,3 +1,4 @@
+import {GroupFilter,MemberFilter,GroupPage,MemberPage} from '../../../shared/api/entitlement-groups.js';
 import {PoolPage} from '../../../shared/api/pools.js';
 import { z } from 'zod';
 import { defineRoute,cursorPagination,errorEnvelopeSchema } from '../../../platform/http/index.js';
@@ -9,11 +10,21 @@ const paging=PoolChoicesQuery;
 function decode(cursor:string|undefined,scope:string){if(!cursor)return null;try{const value=z.object({scope:z.string(),after:z.string()}).parse(JSON.parse(Buffer.from(cursor,'base64url').toString('utf8')));if(value.scope!==scope)throw new Error();return value.after;}catch{throw new DomainError('validation_failed','This cursor belongs to another selection or is invalid.');}}
 const encode=(scope:string,after:string)=>Buffer.from(JSON.stringify({scope,after})).toString('base64url');
 export function entitlementReadRoutes(reader:EntitlementReader){return [
+ defineRoute({method:'GET',path:'/api/v1/pools/:id/entitlement-groups',params,request:z.undefined(),query:GroupFilter,response:z.union([GroupPage,errorEnvelopeSchema]),permission:{resource:'project',id:r=>r.query.projectId,permission:'view'},handle:async r=>{
+  const page=cursorPagination(undefined,r.query.limit),scope=JSON.stringify([r.params.id,'groups',r.query.projectId,r.query.sourceId??null,r.query.prefix,r.query.decision,r.query.mode,r.query.elementId??null]);
+  const result=await reader.groups({projectId:ProjectId(r.query.projectId),userId:r.actor.id},PoolId(r.params.id),r.query,decode(r.query.cursor,scope),page.limit);if(!result.ok)throw result.error;
+  return {body:{...result.value,nextCursor:result.value.nextCursor?encode(scope,result.value.nextCursor):null},headers:page.warning?{Warning:page.warning}:undefined};}}),
+ defineRoute({method:'GET',path:'/api/v1/pools/:id/entitlement-members',params,request:z.undefined(),query:MemberFilter,response:z.union([MemberPage,errorEnvelopeSchema]),permission:{resource:'project',id:r=>r.query.projectId,permission:'view'},handle:async r=>{
+  const page=cursorPagination(undefined,r.query.limit),scope=JSON.stringify([r.params.id,'members',r.query.projectId,r.query.sourceId??null,r.query.prefix,r.query.decision,r.query.mode,r.query.elementId??null,r.query.group??null]),after=decode(r.query.cursor,scope);
+  if(after&&!z.uuid().safeParse(after).success)throw new DomainError('validation_failed','Invalid entitlement member cursor.');
+  const result=await reader.members({projectId:ProjectId(r.query.projectId),userId:r.actor.id},PoolId(r.params.id),r.query,after,page.limit);if(!result.ok)throw result.error;
+  return {body:{...result.value,nextCursor:result.value.nextCursor?encode(scope,result.value.nextCursor):null},headers:page.warning?{Warning:page.warning}:undefined};}}),
+
  defineRoute({method:'GET',path:'/api/v1/projects/:id/pools',params,request:z.undefined(),query:paging,response:z.union([PoolPage,errorEnvelopeSchema]),permission:{resource:'project',id:r=>r.params.id,permission:'view'},handle:async r=>{
  const page=cursorPagination(undefined,r.query.limit),scope=JSON.stringify([r.params.id,'pools']),after=decode(r.query.cursor,scope);if(after&&!z.uuid().safeParse(after).success)throw new DomainError('validation_failed','Invalid pool cursor.');
  const result=await reader.pools({projectId:ProjectId(r.params.id),userId:r.actor.id},after,page.limit+1);if(!result.ok)throw result.error;const items=result.value.slice(0,page.limit);return {body:{items,nextCursor:result.value.length>page.limit?encode(scope,items.at(-1)!.id):null},headers:page.warning?{Warning:page.warning}:undefined};}}),
  defineRoute({method:'GET',path:'/api/v1/pools/:id/entitlements',params,request:z.undefined(),query:EntitlementQuery,response:z.union([EntitlementPage,errorEnvelopeSchema]),permission:{resource:'project',id:r=>r.query.projectId,permission:'view'},handle:async r=>{
- const {projectId,parent,prefix,sourceId,undecided}=r.query,page=cursorPagination(undefined,r.query.limit),scope=JSON.stringify([projectId,r.params.id,parent,prefix,sourceId??null,undecided]);
- const result=await reader.tree({projectId:ProjectId(projectId),userId:r.actor.id},PoolId(r.params.id),{parent,prefix,sourceId,undecided:undecided==='true',after:decode(r.query.cursor,scope),limit:page.limit+1});if(!result.ok)throw result.error;const items=result.value.slice(0,page.limit);return {body:{nodes:items.map(i=>i.node),nextCursor:result.value.length>page.limit?encode(scope,items.at(-1)!.position):null},headers:page.warning?{Warning:page.warning}:undefined};}}),
+ const {projectId,parent,prefix,sourceId,undecided,decided,elementPrefix}=r.query,page=cursorPagination(undefined,r.query.limit),scope=JSON.stringify([projectId,r.params.id,parent,prefix,sourceId??null,undecided,decided,elementPrefix]);
+ const result=await reader.tree({projectId:ProjectId(projectId),userId:r.actor.id},PoolId(r.params.id),{parent,prefix,sourceId,elementPrefix,undecided:undecided==='true',decided:decided==='true',after:decode(r.query.cursor,scope),limit:page.limit+1});if(!result.ok)throw result.error;const items=result.value.slice(0,page.limit);return {body:{nodes:items.map(i=>i.node),nextCursor:result.value.length>page.limit?encode(scope,items.at(-1)!.position):null},headers:page.warning?{Warning:page.warning}:undefined};}}),
  defineRoute({method:'GET',path:'/api/v1/pools/:id/view-definition',params,request:z.undefined(),query:ViewDefinitionQuery,response:z.union([ViewDefinitionResponse,errorEnvelopeSchema]),permission:{resource:'project',id:r=>r.query.projectId,permission:'administer'},handle:async r=>{const result=await reader.definition({projectId:ProjectId(r.query.projectId),userId:r.actor.id},PoolId(r.params.id));if(!result.ok)throw result.error;return {body:result.value};}}),
 ];}

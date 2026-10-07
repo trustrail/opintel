@@ -545,6 +545,13 @@ Entities whose behaviour is not covered by the flows above.
 | R-023 | F | `introspectionRun` state machine | Every legal transition succeeds; every illegal one is rejected |
 | R-024 | F | `synonymCandidate` rejected | Does not reappear on the next identical expression |
 
+R-002's unchanged 50,000-element case runs in the performance project
+(`test/performance/catalog-tree.test.ts`). The functional catalogue suite
+uses 1,001 elements for the same paging, 500-row clamp and cursor-scope
+assertions: more than two maximum-size pages. Large-volume setup is not
+needed to prove those contracts; it remains part of R-002's performance
+coverage. Neither case's existing 30-second budget is raised.
+
 ## S1-S · Client data layer
 
 | ID | Type | Case | Expected |
@@ -1336,3 +1343,23 @@ Application browser fixtures check final placement; the conformance project also
 observes committed DOM changes and retains findings from transient states. At
 390 / 900 / 1440, visual review checks mark legibility, navigation contrast,
 existing row bounds and labels. No new colour or stylesheet container is added.
+
+
+## Coordinated console redesign · 5.28–5.33
+
+The five HTML screen specifications use shared master patterns. These tests preserve the existing control and mark gates.
+
+| ID | Type | Case | Expected |
+|---|---|---|---|
+| RED-001 | F/X | Shared inline expansion | Keyboard-operable toolchip, linked visible/hidden body, no native disclosure or nested row control |
+| RED-002 | F/X | Controlled segmented filters | Exactly one pressed option, click/keyboard selects a choice, disabled options cannot select |
+| RED-003 | C/X | Shared-pattern preview | Existing master controls, uniform-list mark placement, axe; no gate exemption |
+| RED-004 | F/M | 390 / 900 / 1440 shared preview | Names/types/actions remain visible and reachable; wrapping preserves content; deterministic screenshots |
+| RED-005 | F/A/D | Group summaries and refused-join signal | Exact name grouping within active bound sources of the selected pool; filters precede grouping; collapsed rows say Mixed with distinct type/decision counts; query and explain counts distinct, one attempt per group, no SQL or broader demand claim |
+| RED-006 | F/A/D | Explicit filtered member selection | Review all traverses every cursor before review/application; 19 undecided members in a 24-member group selects and states 19; cursors cannot cross pool/project/source/filter/group; scope changes clear selection |
+| RED-007 | F/A/D | Existing atomic bulk command | No writes during collection; unsupported/invalid member refuses the whole command; selection and idempotency key survive errors; clear justification and explicit mask kind retained |
+| RED-008 | F/A/X | Per-member declarations and responsive groups | Mixed summaries visible before expansion, disclosure accessible, each Declarations link names one element; viewer has no mutation controls; four states, axe, placement, snapshots at 390/900/1440 |
+| RED-009–RED-011 | F/A/D | Suggestion enrichment | Separate explain/query counts and trends, contextual lookup, targeted decision link, unchanged domain and SQL safeguards |
+| RED-012–RED-014 | F/A/D | Observation groups and packet | Cause-specific consequences, durable resolution history, complete ids/ownership, safe copy/download packet without delivery or file contents |
+| RED-015–RED-018 | F/A/C | Activity summary and detail | Historical metadata, sensitive-filter contract, sampled-detail honesty, no unrelated withheld named-column detail, bounded expansion and valid marks |
+| RED-019–RED-020 | F/C | Dashboard integration | Counts agree with scoped destination read models, evidence links resolve, clean state disappears and unique-element/decision units remain distinct |

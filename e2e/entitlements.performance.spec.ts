@@ -10,7 +10,7 @@ test('H-016: 5,000 elements with 200 selected stay responsive', async ({page},te
   const tree=page.getByRole('tree',{name:'Entitlements'});
   for(let n=0;n<24;n++){
     await tree.evaluate(el=>{el.scrollTop=el.scrollHeight;});await page.getByRole('button',{name:'Load more',exact:true}).click();
-    await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(((n+2)*200+3+(n===23?0:1))*46);
+    await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe((n+2)*200*38+3*42+(n===23?0:42));
   }
   await expect(page.locator('.bulkbar .n')).toHaveText('200 selected');
   const result=await tree.evaluate(async el=>{

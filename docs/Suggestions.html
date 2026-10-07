@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Suggested relationships · design</title>
+<style>
+:root{
+  --plum:#1B0232; --plum-2:#3A1456; --plum-soft:#F3EEF8;
+  --green:#0CC655; --green-dk:#07803A; --green-bg:#E9FAF0;
+  --yellow:#FFF730; --yellow-dp:#8A7C00; --yellow-bg:#FDFBE3;
+  --bg:#F7F6F9; --surface:#FFFFFF; --surface-2:#F2F0F5; --surface-3:#E9E6EF;
+  --ink:#140A1C; --ink-2:#4B4256; --ink-3:#7A7187;
+  --rule:#E6E2EC; --rule-2:#D3CDDC;
+  --shadow:0 1px 2px rgba(20,10,28,.05), 0 8px 24px -12px rgba(20,10,28,.12);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--ink)}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+.drawer{background:var(--plum);color:#D9CFE4;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;align-items:center;gap:9px;padding:17px 18px 15px;color:#fff;font-weight:650;font-size:15.5px}
+.brand svg{width:19px;height:19px}
+.proj{margin:0 12px 14px;padding:9px 11px;background:rgba(255,255,255,.07);border-radius:9px;display:flex;align-items:center;gap:9px}
+.proj .av{width:27px;height:27px;border-radius:7px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.proj .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.25}
+.proj .sb{font-size:11px;color:#9C8FAC}
+.sec{padding:13px 18px 5px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#7D6F8D}
+.nav a{display:flex;align-items:center;gap:10px;padding:6.5px 18px;color:#CBBFD8;text-decoration:none;font-size:13.5px}
+.nav a svg{width:16px;height:16px;flex:none;opacity:.78}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 2.5px 0 0 var(--green)}
+.nav a.sub{padding-left:40px;font-size:13px}
+.nav a .ct{margin-left:auto;background:var(--yellow);color:#4a4300;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 6px}
+
+.main{overflow:auto}
+.top{display:flex;align-items:center;gap:14px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--surface)}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3)}
+.crumb a{color:var(--ink-3);text-decoration:none}.crumb b{color:var(--ink);font-weight:600}
+.top .sp{flex:1}
+.search{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:8px;padding:5px 9px;color:var(--ink-3);font-size:12.5px;width:230px}
+.av-u{width:27px;height:27px;border-radius:999px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11.5px}
+.pad{padding:20px 26px 44px;max-width:1180px}
+
+h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+.lede{color:var(--ink-2);margin:0 0 18px;font-size:13.5px;max-width:74ch}
+
+.btn{border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:7px 14px;font-size:13px;font-weight:560;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.dark{background:var(--plum);border-color:var(--plum);color:#fff}
+.btn.dark:hover{background:var(--plum-2)}
+.btn.dark[disabled]{opacity:.42;cursor:not-allowed}
+.btn.lite{background:transparent;border-color:transparent;color:var(--ink-3)}
+.btn.lite:hover{color:var(--ink);background:var(--surface-3)}
+.btn.sm{padding:4.5px 10px;font-size:12px}
+
+/* ---- the pair ---- */
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:13px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.pairband{display:grid;grid-template-columns:1fr 54px 1fr;align-items:stretch;border-bottom:1px solid var(--rule)}
+.side{padding:15px 18px}
+.side .lbl{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+.side .el{display:flex;align-items:center;gap:9px}
+.side .el .nm{font-size:16px;font-weight:650;letter-spacing:-.018em}
+.side .tbl{color:var(--ink-3);font-size:12px;margin-top:3px}
+.side .dom{display:inline-flex;align-items:center;gap:6px;margin-top:9px;background:var(--surface-2);
+  border:1px solid var(--rule);border-radius:999px;padding:3px 10px 3px 7px;font-size:11.5px;color:var(--ink-2)}
+.side .dom b{color:var(--ink);font-weight:600}
+.link{display:grid;place-items:center;background:var(--surface-2);border-left:1px solid var(--rule);border-right:1px solid var(--rule);color:var(--ink-3)}
+
+/* demand */
+.demand{display:flex;align-items:center;gap:16px;padding:11px 18px;background:var(--plum-soft);border-bottom:1px solid var(--rule)}
+.demand .n{font-size:22px;font-weight:720;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.demand .tx{font-size:12.5px;color:var(--ink-2);line-height:1.45}
+.demand .tx b{color:var(--ink);font-weight:600}
+.demand .sp{flex:1}
+.bars{display:flex;gap:4px;align-items:flex-end;height:26px}
+.bars i{width:7px;background:var(--surface-3);border-radius:2px}
+.bars i.on{background:var(--plum-2)}
+
+/* body */
+.bd{padding:16px 18px}
+.q{font-size:14.5px;font-weight:620;letter-spacing:-.012em;margin:0 0 4px}
+.qs{color:var(--ink-2);font-size:12.5px;margin:0 0 14px;max-width:76ch;line-height:1.55}
+
+.choose{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.opt{border:1px solid var(--rule-2);border-radius:11px;padding:12px 14px;cursor:pointer;background:var(--surface)}
+.opt:hover{border-color:var(--ink-3)}
+.opt.on{border-color:var(--plum);box-shadow:0 0 0 2px rgba(27,2,50,.1)}
+.opt .t{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.opt .t .rd{width:15px;height:15px;border-radius:999px;border:1.8px solid var(--rule-2);flex:none;display:grid;place-items:center}
+.opt.on .t .rd{border-color:var(--plum)}
+.opt.on .t .rd::after{content:"";width:7px;height:7px;border-radius:999px;background:var(--plum)}
+.opt .d{color:var(--ink-2);font-size:12px;margin-top:5px;line-height:1.5}
+.opt .mem{margin-top:9px;display:flex;flex-wrap:wrap;gap:4px}
+.mt{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:999px;padding:2px 8px;font-size:11px;color:var(--ink-2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.mt.more{font-family:inherit;color:var(--ink-3)}
+
+/* consequence */
+.cons{display:flex;gap:11px;background:var(--yellow-bg);border:1px solid #EDE28A;border-left:3px solid var(--yellow-dp);
+  border-radius:11px;padding:12px 14px;margin-bottom:14px}
+.cons .tx{font-size:12.5px;line-height:1.6;color:var(--ink-2)}
+.cons .tx b{color:var(--ink);font-weight:620}
+.cons ul{margin:6px 0 0;padding-left:17px}
+.cons li{margin-bottom:2px}
+
+.confirm{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.confirm .lb{font-size:12.5px;color:var(--ink-2)}
+.confirm .lb b{color:var(--ink);font-weight:600}
+.confirm input{border:1px solid var(--rule-2);border-radius:8px;padding:7px 11px;font:inherit;font-size:13px;width:210px;background:var(--surface)}
+.confirm .sp{flex:1}
+
+.foot{display:flex;align-items:center;gap:8px;padding:11px 18px;border-top:1px solid var(--rule);background:var(--surface-2)}
+.foot .sp{flex:1}
+.foot .m{font-size:11.5px;color:var(--ink-3)}
+
+/* blocked variant */
+.blocked{display:flex;gap:11px;background:var(--surface-2);border:1px solid var(--rule-2);border-left:3px solid var(--ink-3);
+  border-radius:11px;padding:12px 14px}
+.blocked .tx{font-size:12.5px;line-height:1.6;color:var(--ink-2)}
+.blocked .tx b{color:var(--ink);font-weight:620}
+
+.note{margin:24px 0 0;color:var(--ink-3);font-size:12.5px;max-width:94ch;line-height:1.6}
+.note b{color:var(--ink-2)}
+@media (max-width:900px){.pairband{grid-template-columns:1fr}.link{display:none}.choose{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<nav class="drawer">
+  <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3.5 0 3.5-10 7-10s3.5 10 7 10 4-4 4-4"/></svg>Opintel</div>
+  <div class="proj"><div class="av">RE</div><div><div class="nm">Reinsurance Demo</div><div class="sb">Development Demo</div></div></div>
+  <div class="sec">Watch</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4.6-4.6"/></svg>Dashboard</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.2H3Z"/><path d="M12 10.3v4"/></svg>Observations<span class="ct">4</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2.5-6 4 12 2.5-6H21"/></svg>Activity</a>
+  </div>
+  <div class="sec">Understand</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/></svg>Data sources</a>
+    <a href="#" class="sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17"/></svg>Explore schema</a>
+    <a href="#" class="sub on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="7" r="2.6"/><circle cx="17.5" cy="7" r="2.6"/><circle cx="12" cy="17.5" r="2.6"/><path d="M8.6 8.8 10.9 15M15.4 8.8 13.1 15M9.1 7h5.8"/></svg>Suggestions<span class="ct">1</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M9 11.5h7"/></svg>Vocabulary</a>
+  </div>
+  <div class="sec">Govern</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg>Entitlements<span class="ct">19</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/></svg>Pools</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="top">
+    <div class="crumb"><a href="#">Development Demo</a>/<a href="#">Reinsurance Demo</a>/<a href="#">Data sources</a>/<b>Suggestions</b></div>
+    <div class="sp"></div>
+    <div class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>Search this project</div>
+    <div class="av-u">U</div>
+  </div>
+
+  <div class="pad">
+    <h1>Suggested relationships</h1>
+    <p class="lede">An agent tried to join these columns and could not. Whether they identify the same thing is a judgement about your business, so it stays with you. No source values are read to produce a suggestion.</p>
+
+    <!-- ===== suggestion 1 ===== -->
+    <div class="card">
+
+      <div class="pairband">
+        <div class="side">
+          <div class="lbl">This column</div>
+          <div class="el">
+            <svg width="20" height="20" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.6"/><circle cx="17" cy="17" r="4.3" fill="var(--plum)"/></svg>
+            <span class="nm">written_premium</span>
+          </div>
+          <div class="tbl">cedant_01_premium · DECIMAL(38,9)</div>
+          <span class="dom">Isolated &mdash; joins only itself</span>
+        </div>
+
+        <div class="link">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.8 7.2 14.5 5.5a3.6 3.6 0 0 1 5 5l-1.7 1.7"/><path d="M11.2 16.8 9.5 18.5a3.6 3.6 0 0 1-5-5l1.7-1.7"/></svg>
+        </div>
+
+        <div class="side">
+          <div class="lbl">Against this one</div>
+          <div class="el">
+            <svg width="20" height="20" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.6"/><circle cx="17" cy="17" r="4.3" fill="var(--plum)"/></svg>
+            <span class="nm">treaty_ref</span>
+          </div>
+          <div class="tbl">cedant_02_premium · VARCHAR</div>
+          <span class="dom">Domain <b>treaty</b> · 11 members</span>
+        </div>
+      </div>
+
+      <div class="demand">
+        <span class="n">2</span>
+        <div class="tx">attempts by <b>harness</b><br>1 checked first, 1 run · most recent <b>6 hours ago</b></div>
+        <span class="sp"></span>
+        <div class="bars">
+          <i style="height:30%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:55%"></i><i style="height:0%"></i><i style="height:0%"></i><i class="on" style="height:85%"></i>
+        </div>
+        <button class="btn sm">Attempts and SQL</button>
+      </div>
+
+      <div class="bd">
+        <p class="q">Do these two columns identify the same thing?</p>
+        <p class="qs">Confirming puts both in one token domain, so their tokens match and an agent can join them. It does not reveal either value.</p>
+
+        <div class="choose">
+          <div class="opt on">
+            <div class="t"><span class="rd"></span>Join the <code>treaty</code> domain</div>
+            <div class="d">Both columns become members of a domain that already has 11.</div>
+            <div class="mem">
+              <span class="mt">cedant_01.treaty_ref</span><span class="mt">cedant_02.treaty_ref</span>
+              <span class="mt">cedant_03.treaty_ref</span><span class="mt more">+8 more</span>
+            </div>
+          </div>
+          <div class="opt">
+            <div class="t"><span class="rd"></span>Start a new domain</div>
+            <div class="d">Only these two columns join each other. Nothing else is affected.</div>
+          </div>
+        </div>
+
+        <div class="cons">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 16V11m0-3.4v.1"/></svg>
+          <div class="tx">
+            <b>What this changes.</b>
+            <ul>
+              <li>Tokens from future queries will differ from tokens already given out.</li>
+              <li>Both columns become joinable with the 11 existing members, in every pool.</li>
+              <li>No stored data is rewritten. Past evidence keeps its key and domain versions.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="confirm">
+          <span class="lb">Type <b>Reinsurance Demo</b> to confirm</span>
+          <input placeholder="Project name">
+          <span class="sp"></span>
+          <button class="btn lite">Not sure yet</button>
+          <button class="btn">Reject</button>
+          <button class="btn dark" disabled>Confirm</button>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span class="m">Awaiting review · raised by an attempt, not by a guess about your data</span>
+        <span class="sp"></span>
+        <button class="btn sm">Decision history</button>
+      </div>
+    </div>
+
+    <!-- ===== suggestion 2 : blocked ===== -->
+    <div class="card">
+      <div class="pairband">
+        <div class="side">
+          <div class="lbl">This column</div>
+          <div class="el">
+            <svg width="20" height="20" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--plum)"/></svg>
+            <span class="nm">opintel_filing_id</span>
+          </div>
+          <div class="tbl">cedant_02_premium · UUID</div>
+          <span class="dom">Clear &mdash; not tokenized</span>
+        </div>
+        <div class="link">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.8 7.2 14.5 5.5a3.6 3.6 0 0 1 5 5l-1.7 1.7"/><path d="M11.2 16.8 9.5 18.5a3.6 3.6 0 0 1-5-5l1.7-1.7"/></svg>
+        </div>
+        <div class="side">
+          <div class="lbl">Against this one</div>
+          <div class="el">
+            <svg width="20" height="20" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2.6"/><circle cx="17" cy="17" r="4.3" fill="var(--plum)"/></svg>
+            <span class="nm">opintel_filing_id</span>
+          </div>
+          <div class="tbl">cedant_01_premium · VARCHAR</div>
+          <span class="dom">Domain <b>demo1</b> · 1 member</span>
+        </div>
+      </div>
+
+      <div class="demand">
+        <span class="n">1</span>
+        <div class="tx">attempt by <b>engine-test-harness</b><br>most recent <b>yesterday</b></div>
+        <span class="sp"></span>
+        <div class="bars"><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i class="on" style="height:45%"></i><i style="height:0%"></i></div>
+        <button class="btn sm">Attempts and SQL</button>
+      </div>
+
+      <div class="bd">
+        <div class="blocked">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.9" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/></svg>
+          <div class="tx">
+            <b>A domain cannot help here.</b> One of these columns is readable as it stands, so it produces values rather than tokens and nothing will match.
+            To make this join possible, decide <code>cedant_02_premium.opintel_filing_id</code> as tokenized first.
+          </div>
+        </div>
+        <div class="confirm" style="margin-top:13px">
+          <span class="sp"></span>
+          <button class="btn lite">Not sure yet</button>
+          <button class="btn">Reject</button>
+          <button class="btn dark">Open its decision</button>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span class="m">Confirmation unavailable until both columns are tokenized</span>
+        <span class="sp"></span>
+        <button class="btn sm">Decision history</button>
+      </div>
+    </div>
+
+    <p class="note">
+      <b>What changed.</b> The two columns are the subject of the screen, shown side by side with the domain each is in, rather than one 180-character identifier wrapped across two lines.
+      The demand is a number and a small history, because how often an agent has asked is the reason to look at this at all.
+      The choice is two cards naming what each would do, not a dropdown whose options read identically.
+      The consequence is three short statements instead of a paragraph, and the confirmation sits beside them.
+      And a pair that cannot be joined says so and offers the decision that would make it possible, rather than a disabled button with no explanation.
+    </p>
+  </div>
+</main>
+</div>
+<script>
+  document.querySelectorAll('.opt').forEach(function(o){
+    o.addEventListener('click', function(){
+      o.parentElement.querySelectorAll('.opt').forEach(function(x){x.classList.remove('on')});
+      o.classList.add('on');
+    });
+  });
+  var inp=document.querySelector('.confirm input'), go=document.querySelector('.btn.dark[disabled]');
+  if(inp&&go) inp.addEventListener('input', function(){ go.disabled = inp.value.trim()!=='Reinsurance Demo'; });
+</script>
+</body>
+</html>

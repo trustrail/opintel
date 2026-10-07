@@ -8,7 +8,7 @@ async function main(): Promise<void> {
   process.env.REQUIRE_DB_TESTS = '1';
   const child = spawn(process.execPath, [
     fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)),
-    'run', 'test', ...process.argv.slice(2),
+    'run', ...process.argv.slice(2),
   ], { cwd: repositoryRoot, stdio: 'inherit' });
   child.on('error', () => { console.error('Could not start Vitest. Run npm ci and retry.'); process.exitCode = 1; });
   child.on('exit', (code) => { process.exitCode = code ?? 1; });

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Observations · design</title>
+<style>
+:root{
+  --plum:#1B0232; --plum-2:#3A1456; --plum-soft:#F3EEF8;
+  --green:#0CC655; --green-dk:#07803A; --green-bg:#E9FAF0;
+  --yellow:#FFF730; --yellow-dp:#8A7C00; --yellow-bg:#FDFBE3;
+  --bg:#F7F6F9; --surface:#FFFFFF; --surface-2:#F2F0F5; --surface-3:#E9E6EF;
+  --ink:#140A1C; --ink-2:#4B4256; --ink-3:#7A7187;
+  --rule:#E6E2EC; --rule-2:#D3CDDC;
+  --shadow:0 1px 2px rgba(20,10,28,.05), 0 8px 24px -12px rgba(20,10,28,.12);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--ink-2)}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+.drawer{background:var(--plum);color:#D9CFE4;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;align-items:center;gap:9px;padding:17px 18px 15px;color:#fff;font-weight:650;font-size:15.5px}
+.brand svg{width:19px;height:19px}
+.proj{margin:0 12px 14px;padding:9px 11px;background:rgba(255,255,255,.07);border-radius:9px;display:flex;align-items:center;gap:9px}
+.proj .av{width:27px;height:27px;border-radius:7px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.proj .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.25}
+.proj .sb{font-size:11px;color:#9C8FAC}
+.sec{padding:13px 18px 5px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#7D6F8D}
+.nav a{display:flex;align-items:center;gap:10px;padding:6.5px 18px;color:#CBBFD8;text-decoration:none;font-size:13.5px}
+.nav a svg{width:16px;height:16px;flex:none;opacity:.78}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 2.5px 0 0 var(--green)}
+.nav a .ct{margin-left:auto;background:var(--yellow);color:#4a4300;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 6px}
+
+.main{overflow:auto}
+.top{display:flex;align-items:center;gap:14px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--surface)}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3)}
+.crumb a{color:var(--ink-3);text-decoration:none}.crumb b{color:var(--ink);font-weight:600}
+.top .sp{flex:1}
+.search{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:8px;padding:5px 9px;color:var(--ink-3);font-size:12.5px;width:230px}
+.av-u{width:27px;height:27px;border-radius:999px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11.5px}
+.pad{padding:20px 26px 44px;max-width:1540px}
+
+h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+.lede{color:var(--ink-2);margin:0 0 16px;font-size:13.5px;max-width:72ch}
+
+.tools{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--ink-2);border-radius:6px;padding:4.5px 11px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,10,28,.08);font-weight:600}
+.seg button s{text-decoration:none;color:var(--ink-3);font-variant-numeric:tabular-nums;font-size:11.5px}
+.tools .sp{flex:1}
+.btn{border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);border-radius:8px;
+  padding:5.5px 12px;font-size:12.5px;font-weight:550;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.dark{background:var(--plum);border-color:var(--plum);color:#fff}
+.btn.dark:hover{background:var(--plum-2)}
+.btn.lite{background:transparent;border-color:transparent;color:var(--ink-3)}
+.btn.lite:hover{color:var(--ink);background:var(--surface-3)}
+.btn.sm{padding:4px 9px;font-size:12px}
+
+/* ---- grouped finding ---- */
+.grp{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);
+  overflow:hidden;margin-bottom:12px}
+.grp.act{border-color:#EDE28A;border-left:3px solid var(--yellow-dp)}
+.gh{display:grid;grid-template-columns:34px 1fr auto auto;gap:13px;align-items:center;padding:13px 16px;cursor:pointer}
+.gh:hover{background:var(--surface-2)}
+.grp.open .gh{border-bottom:1px solid var(--rule)}
+.gh .ic{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:var(--yellow-bg)}
+.gh .tx .n{display:flex;align-items:baseline;gap:9px}
+.gh .tx .n b{font-size:15px;font-weight:650;letter-spacing:-.015em}
+.gh .tx .n span{font-size:12px;color:var(--ink-3)}
+.gh .tx .d{color:var(--ink-2);font-size:12.5px;margin-top:2px}
+.gh .cnt{font-size:27px;font-weight:720;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.gh .chev{display:grid;place-items:center;color:var(--ink-3);transition:transform .15s}
+.grp.open .gh .chev{transform:rotate(90deg)}
+
+.gbody{display:none}
+.grp.open .gbody{display:block}
+
+/* remediation strip */
+.fix{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--plum-soft);border-bottom:1px solid var(--rule)}
+.fix .tx{flex:1;font-size:12.5px;color:var(--ink-2);line-height:1.5}
+.fix .tx b{color:var(--ink);font-weight:600}
+.fix .who{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--rule-2);
+  border-radius:999px;padding:2px 9px 2px 5px;font-size:11.5px;color:var(--ink-2);font-weight:550}
+
+/* items */
+.it{display:grid;grid-template-columns:1fr 210px 150px 120px;gap:12px;align-items:center;padding:9px 16px;
+  border-bottom:1px solid var(--rule);font-size:13px}
+.it:last-child{border-bottom:0}
+.it:hover{background:var(--surface-2)}
+.it .f{display:flex;align-items:center;gap:9px;min-width:0}
+.it .f .nm{font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .ids{font-size:11.5px;color:var(--ink-3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .wh{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.it .ac{display:flex;justify-content:flex-end;gap:5px;opacity:0;transition:opacity .1s}
+.it:hover .ac{opacity:1}
+
+.quiet{background:var(--surface);border:1px dashed var(--rule-2);border-radius:12px;padding:44px 20px;text-align:center}
+.quiet .ic{width:38px;height:38px;margin:0 auto 11px;display:grid;place-items:center;border-radius:11px;background:var(--green-bg)}
+.quiet b{display:block;font-size:14.5px;margin-bottom:3px}
+.quiet span{color:var(--ink-3);font-size:13px}
+
+.note{margin:24px 0 0;color:var(--ink-3);font-size:12.5px;max-width:94ch;line-height:1.6}
+.note b{color:var(--ink-2)}
+@media (max-width:1150px){.it{grid-template-columns:1fr 120px}.it .ids,.it .ac{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<nav class="drawer">
+  <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3.5 0 3.5-10 7-10s3.5 10 7 10 4-4 4-4"/></svg>Opintel</div>
+  <div class="proj"><div class="av">RE</div><div><div class="nm">Reinsurance Demo</div><div class="sb">Development Demo</div></div></div>
+  <div class="sec">Watch</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4.6-4.6"/></svg>Dashboard</a>
+    <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.2H3Z"/><path d="M12 10.3v4"/></svg>Observations<span class="ct">4</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2.5-6 4 12 2.5-6H21"/></svg>Activity</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="12" rx="2.3"/><path d="M6.5 5.5h11"/></svg>Releases</a>
+  </div>
+  <div class="sec">Understand</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/></svg>Data sources</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M9 11.5h7"/></svg>Vocabulary</a>
+  </div>
+  <div class="sec">Govern</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg>Entitlements<span class="ct">19</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/></svg>Pools</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="top">
+    <div class="crumb"><a href="#">Development Demo</a>/<a href="#">Reinsurance Demo</a>/<b>Observations</b></div>
+    <div class="sp"></div>
+    <div class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>Search this project</div>
+    <div class="av-u">U</div>
+  </div>
+
+  <div class="pad">
+    <h1>Observations</h1>
+    <p class="lede">Things the system noticed and set aside rather than guessing about. Grouped by what happened, because the same cause usually affects several things at once.</p>
+
+    <div class="tools">
+      <div class="seg">
+        <button class="on">Open <s>4</s></button>
+        <button>Resolved <s>12</s></button>
+      </div>
+      <div class="sp"></div>
+      <button class="btn">Export for the operator</button>
+    </div>
+
+    <!-- group 1 : no rule matched -->
+    <div class="grp act open">
+      <div class="gh">
+        <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 10.5h17M9 14.5h6"/></svg></span>
+        <div class="tx">
+          <div class="n"><b>No filing party matched</b><span>3 filings · oldest 5 days ago</span></div>
+          <div class="d">Nothing landed, so this data is not in the catalogue. A filing attributed to the wrong party is worse than one that did not land.</div>
+        </div>
+        <div class="cnt">3</div>
+        <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+
+      <div class="gbody">
+        <div class="fix">
+          <div class="tx">
+            <b>Resolved by whoever operates the Opintel Engine.</b>
+            They inspect the file in the local register, correct its rule or the file, and retry it. The full reason stays in your environment because it may contain file contents.
+          </div>
+          <span class="who">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2.5"/><circle cx="17.5" cy="12.5" r="1.4" fill="var(--green)" stroke="none"/></svg>
+            Engine operator
+          </span>
+          <button class="btn dark">Send all 3</button>
+        </div>
+
+        <div class="it">
+          <div class="f">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9.5z"/><path d="M13.5 3v6.5H20"/></svg>
+            <span class="nm">A filing arrived in the landing zone</span>
+          </div>
+          <span class="ids">9e599fb8 · zone f41a3901</span>
+          <span class="wh">30 Sep 23:37 UTC · 5 days ago</span>
+          <span class="ac"><button class="btn sm">Copy ids</button><button class="btn sm">Send</button></span>
+        </div>
+        <div class="it">
+          <div class="f">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9.5z"/><path d="M13.5 3v6.5H20"/></svg>
+            <span class="nm">A filing arrived in the landing zone</span>
+          </div>
+          <span class="ids">8d2d21f5 · zone f41a3901</span>
+          <span class="wh">30 Sep 23:37 UTC · 5 days ago</span>
+          <span class="ac"><button class="btn sm">Copy ids</button><button class="btn sm">Send</button></span>
+        </div>
+        <div class="it">
+          <div class="f">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9.5z"/><path d="M13.5 3v6.5H20"/></svg>
+            <span class="nm">A filing arrived in the landing zone</span>
+          </div>
+          <span class="ids">6562f8f3 · zone f41a3901</span>
+          <span class="wh">30 Sep 23:36 UTC · 5 days ago</span>
+          <span class="ac"><button class="btn sm">Copy ids</button><button class="btn sm">Send</button></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- group 2 : merged header -->
+    <div class="grp act">
+      <div class="gh">
+        <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 10.5h17M12 10.5V19"/></svg></span>
+        <div class="tx">
+          <div class="n"><b>The header contains merged cells</b><span>1 filing · 7 days ago</span></div>
+          <div class="d">Column names could not be read with confidence, so nothing was extracted.</div>
+        </div>
+        <div class="cnt">1</div>
+        <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="gbody"></div>
+    </div>
+
+    <!-- group 3 : unmapped type, resolved by you -->
+    <div class="grp">
+      <div class="gh">
+        <span class="ic" style="background:var(--surface-2)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg></span>
+        <div class="tx">
+          <div class="n"><b>A source type has no mapping</b><span>resolved · 3 days ago</span></div>
+          <div class="d">Columns of this type were catalogued and could not be exposed. Repaired by re-introspection; 11 elements kept their decisions.</div>
+        </div>
+        <div class="cnt" style="color:var(--ink-3)">0</div>
+        <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="gbody"></div>
+    </div>
+
+    <p class="note">
+      <b>What changed.</b> Observations are grouped by what happened, so one cause is one card rather than the same five lines repeated per filing.
+      Each group names who resolves it and carries the action &mdash; the console reader cannot run commands on the Engine host, so the useful thing is sending the operator what they need, not printing commands nobody here can run.
+      The identifiers are present and copyable, but they no longer lead the row.
+      And when nothing is open, this screen shows one quiet line rather than an empty card.
+    </p>
+  </div>
+</main>
+</div>
+<script>
+  document.querySelectorAll('.gh').forEach(function(h){
+    h.addEventListener('click', function(){ h.parentElement.classList.toggle('open'); });
+  });
+</script>
+</body>
+</html>

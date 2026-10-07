@@ -21,6 +21,13 @@ async function mock(page:Page){
   if(path.endsWith('/dashboard/pools'))return route.fulfill({json:{items:[],nextCursor:null}});
   if(path.endsWith('/dashboard/feed'))return route.fulfill({json:{items:state.empty?[]:[{id:'quarantine:'+held,kind:'quarantine',filingId:held,zoneId:sourceId,category:'verification_mismatch',receivedAt:'2026-04-01T12:00:00Z'}],nextCursor:null}});
   if(path.endsWith('/type-observations'))return route.fulfill({json:{items:[],nextCursor:null}});
+  if(path.endsWith('/custody-observations'))return route.fulfill({json:{items:[],counts:{open:0,resolved:0},nextCursor:null}});
+  if(path.endsWith('/observations')){
+   if(state.loading)await new Promise(resolve=>setTimeout(resolve,1500));
+   if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'The filing register is temporarily unavailable.',requestId:'filings-test',retryable:true}}});
+   return route.fulfill({json:{items:state.empty?[]:[{id:'filing:'+state.category+':',kind:'filing',cause:state.category,causeDetail:'',state:'open',count:1,oldestAt:filing.receivedAt,latestAt:filing.receivedAt}],counts:{open:state.empty?0:1,resolved:0},nextCursor:null}});
+  }
+  if(path.endsWith('/observations/members'))return route.fulfill({json:{items:[{id:held,kind:'filing',state:'open',observedAt:filing.receivedAt,resolvedAt:null,resolution:null,metadata:{filingId:held,zoneId:sourceId,sourceName:source.name,engineId:null,engineName:null},history:[{at:filing.receivedAt,state:'open',cause:state.category,resolution:null}]}],nextCursor:null}});
   if(path.endsWith('/token-key'))return route.fulfill({json:{currentVersion:null,versions:[]}});
   if(path.endsWith('/demo-sources'))return route.fulfill({json:[]});
   if(path.endsWith('/sources'))return route.fulfill({json:{items:[{...source,landingStrategy:state.strategy},{...source,id:otherId,name:'Live database',exposedAlias:'live_database',landingStrategy:null,filingCount:null}],nextCursor:null}});
@@ -54,14 +61,14 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  await page.goto(`/projects/${projectId}/dashboard`);await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText(current,{exact:true})).toHaveCount(0);
  await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText("Nothing landed, so this filing's data is not in the catalogue.",{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(held,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(/npm run sidecar:register --/)).toHaveCount(0);
  await expect(page).toHaveScreenshot(`filings-dashboard-${width}.png`,{fullPage:true});await accessible(page);
- await page.goto(`/projects/${projectId}/observations`);await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText('The full reason stays in the customer environment because it may contain file contents.',{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');
+ await page.goto(`/projects/${projectId}/observations`);await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'History',exact:true}).click();await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText('The full reason stays in the customer environment because it may contain file contents.',{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');
  await expect(page).toHaveScreenshot(`filings-observations-${width}.png`,{fullPage:true});
  await accessible(page);
 });
 test('ING-29: loading, empty and error states recover without exposing local details',async({page})=>{
  test.setTimeout(60_000); // Multiple reloads and error recovery on two screens.
- const state=await mock(page);state.loading=true;await page.goto(`/projects/${projectId}/observations`);await expect(page.getByRole('region',{name:'Needs a decision',exact:true}).getByText('Preparing this view',{exact:true})).toBeVisible();await expect(page.getByText(held,{exact:true})).toBeVisible();state.loading=false;
- state.error=true;await page.reload();await expect(page.getByText('The filing register is temporarily unavailable.',{exact:true})).toBeVisible();state.error=false;state.empty=true;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('No quarantined filings',{exact:true})).toBeVisible();
+ const state=await mock(page);state.loading=true;await page.goto(`/projects/${projectId}/observations`);await expect(page.getByText('Preparing this view',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'History',exact:true}).click();await expect(page.getByText(held,{exact:true})).toBeVisible();state.loading=false;
+ state.error=true;await page.reload();await expect(page.getByText('The filing register is temporarily unavailable.',{exact:true})).toBeVisible();state.error=false;state.empty=true;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('Nothing needs attention.',{exact:true})).toBeVisible();
  await page.goto(`/projects/${projectId}/data-sources`);await page.getByRole('button',{name:'2 filings'}).click();await expect(page.getByText('No landed filings yet',{exact:true})).toBeVisible();
  state.error=true;await page.reload();await page.getByRole('button',{name:'2 filings'}).click();await expect(page.getByText('The filing register is temporarily unavailable.',{exact:true})).toBeVisible();state.error=false;state.empty=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('Restatement',{exact:true})).toBeVisible();
 });
@@ -70,28 +77,28 @@ test('ING-27: table-per-filing strategy and reader-facing quarantine resolution'
  test.setTimeout(60_000); // Source detail, observations and two category changes.
  const state=await mock(page);state.strategy='table_per_filing';await page.goto(`/projects/${projectId}/data-sources`);await page.getByRole('button',{name:'2 filings'}).click();
  await expect(page.getByText('Under table per filing, each filing lands in its own table.',{exact:false})).toBeVisible();await expect(page.getByText('Restatement',{exact:true})).toBeVisible();
- await page.goto(`/projects/${projectId}/observations`);
+ await page.goto(`/projects/${projectId}/observations`);await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'History',exact:true}).click();
  await expect(page.getByText('No filing-party rule matched.',{exact:true})).toHaveCount(0);
  await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();
- await expect(page.getByText("Nothing landed, so this filing's data is not in the catalogue.",{exact:true})).toBeVisible();
+ await expect(page.getByText("Nothing landed, so this data is not in the catalogue.",{exact:true})).toBeVisible();
  await expect(page.getByText('The full reason stays in the customer environment because it may contain file contents.',{exact:true})).toBeVisible();
  await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(held,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(/npm run sidecar:register --/)).toHaveCount(0);await accessible(page);
- await expect(page.getByText('Ask whoever operates the Opintel Engine to resolve it. Give them these IDs:',{exact:true})).toBeVisible();
+ await expect(page.getByText('Resolved by whoever operates the Opintel Engine.',{exact:true})).toBeVisible();
  for(const [category,sentence] of [['no_rule_matched','No filing-party rule matched.'],['merged_header','The header contains merged cells.']] as const){
-  state.category=category;await page.reload();await expect(page.getByText(sentence,{exact:true})).toBeVisible();
-  await expect(page.getByText("Nothing landed, so this filing's data is not in the catalogue.",{exact:true})).toBeVisible();
+  state.category=category;await page.reload();await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByText(sentence,{exact:true})).toBeVisible();
+  await expect(page.getByText(/Nothing landed,.*data is not in the catalogue\./)).toBeVisible();
  }
 });
 
 for(const width of [390,900,1440])test(`TOK-28: custody observations at ${width}`, { tag: '@visual' },async({page})=>{
  const state=await mock(page);state.empty=true;
- await page.route('**/api/v1/projects/*/token-key',route=>route.fulfill({json:{currentVersion:2,versions:[
-  {version:2,state:'current',createdAt:'2026-09-21T12:00:00Z',createdBy:null,reason:'Rotation',backupVerifiedAt:null,lastRehearsedAt:'2026-09-22T12:00:00Z',lastRehearsal:'failed'},
-  {version:1,state:'retired',createdAt:'2026-09-20T12:00:00Z',createdBy:null,reason:null,backupVerifiedAt:null,lastRehearsedAt:'2026-09-22T12:00:00Z',lastRehearsal:'mismatch'},
- ]}}));
+ const causes=['custody_failed','custody_mismatch'] as const;
+ await page.route('**/api/v1/projects/*/custody-observations',route=>route.fulfill({json:{items:causes.map(cause=>({id:'custody:'+cause+':',kind:'custody',cause,causeDetail:'',state:'open',count:1,oldestAt:'2026-09-22T12:00:00Z',latestAt:'2026-09-22T12:00:00Z'})),counts:{open:2,resolved:0},nextCursor:null}}));
+ await page.route('**/api/v1/projects/*/custody-observations/members*',route=>{const mismatch=new URL(route.request().url()).searchParams.get('group')?.includes('mismatch');return route.fulfill({json:{items:[{id:mismatch?'1':'2',kind:'custody',state:'open',observedAt:'2026-09-22T12:00:00Z',resolvedAt:null,resolution:null,metadata:{keyVersion:mismatch?1:2,keyState:mismatch?'retired':'current'},history:[{at:'2026-09-22T12:00:00Z',state:'open',cause:mismatch?'custody_mismatch':'custody_failed',resolution:null}]}],nextCursor:null}});});
  await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/observations`);
- await expect(page.getByText('Key version 2: escrow could not be verified')).toBeVisible();
- await expect(page.getByText('Key version 1: escrow does not match the recorded key')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Escrow could not be verified',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Escrow does not match the recorded key',exact:true})).toBeVisible();
+ for(const button of await page.getByRole('button',{name:'Details',exact:true}).all())await button.click();
+ await expect(page.getByText('Key version 2',{exact:true})).toBeVisible();await expect(page.getByText('Key version 1',{exact:true})).toBeVisible();
  await expect(page.getByText('This retained key is needed to verify earlier evidence.',{exact:false})).toBeVisible();
  await expect(page).toHaveScreenshot(`custody-observations-${width}.png`,{fullPage:true});await accessible(page);
 });

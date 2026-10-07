@@ -26,13 +26,8 @@ jobs:
       # The full test suite runs below after service bootstrap.
       - run: npm run build
       - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
-      - name: Functional browser tests in pinned Playwright image
-        run: npm run test:visual:docker -- --project=functional
-      - name: Every-screen control conformance and coverage
-        if: ${{ !cancelled() }}
-        run: npm run test:conformance
-      - name: Visual snapshots in pinned Playwright image
-        run: npm run test:visual:docker
+      - name: Functional, visual and every-screen conformance in one browser pass
+        run: npm run test:browser
       - name: Isolated G-019 scroll frames
         run: npm run test:visual:docker -- --config=playwright.performance.config.ts
 

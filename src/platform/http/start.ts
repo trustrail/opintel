@@ -1,3 +1,4 @@
+import {observationRoutes,PostgresObservationReader} from '../../modules/observations/index.js';
 import {PostgresSuggestions,suggestionRoutes} from '../../modules/relationships/index.js';
 import {PostgresExplainJoinCandidates} from '../../modules/evidence/index.js';
 import { declarationRoutes } from '../../modules/catalog/api/declaration-routes.js';
@@ -43,6 +44,7 @@ import { PostgresIntrospectionStore } from '../../modules/sources/infrastructure
 import { catalogRoutes } from '../../modules/catalog/api/tree-routes.js';
 import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/tree.js';
 import dotenv from 'dotenv';
+import { apiStartupExceptionLine } from '../telemetry/exception-log.js';
 
 function loadDevelopmentEnvironment(): void {
   if (process.env.NODE_ENV !== 'production') dotenv.config();
@@ -237,6 +239,7 @@ async function start(): Promise<void> {
     ...typeObservationRoutes(new PostgresTypeObservations()),
     ...introspectionRoutes(new PostgresIntrospectionQuery(new PostgresIntrospectionStore(new UuidV7IdFactory(),hub))),
     ...registerRoutes(register),
+    ...observationRoutes(new PostgresObservationReader()),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
     ...magicLinkRoutes(magicLinks),
     ...oidcRoutes(oidc,process.env.APP_BASE_URL ?? 'http://localhost:5173'),
@@ -304,7 +307,7 @@ async function start(): Promise<void> {
   process.once('SIGTERM', close);
 }
 
-void start().catch(() => {
-  console.error('API server failed to start.');
+void start().catch((error: unknown) => {
+  console.error(apiStartupExceptionLine(error));
   process.exitCode = 1;
 });

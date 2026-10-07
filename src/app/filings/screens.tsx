@@ -1,20 +1,11 @@
-import {Mark} from '../../shared/ui/index.js';
 import {Timestamp} from '../settings/preferences.js';
-import { TypeObservations } from '../sources/type-observations.js';
-import { CustodyObservations } from '../custody/observations.js';
 import type { ReactNode } from 'react';
 import { ErrorState, EmptyState, LoadingState } from '../../shared/ui/index.js';
 import { useFilings } from './data.js';
 
 export const landingLabels = { append_as_at: 'append as at', table_per_filing: 'table per filing' };
-export const quarantineLabels: Record<string, string> = {
-  no_rule_matched: 'No filing-party rule matched.', multiple_rules_matched: 'More than one filing-party rule matched.',
-  unreadable_format: 'The file format could not be read.', sheet_absent: 'The declared sheet is missing.',
-  merged_header: 'The header contains merged cells.', formula_uncached: 'A formula has no cached value.',
-  locale_undeclared: 'The filing party has no declared locale.', period_unparseable: 'The period does not match the declared format.',
-  verification_mismatch: 'The content does not match the attributed filing party.', column_type_changed: 'A column type differs from earlier filings.',
-  rule_invalid: 'The filing rule is invalid.', attribution_missing: 'The filing could not be attributed to a party.', header_invalid: 'The declared header is invalid.',
-};
+export {quarantineLabels} from '../../shared/observation-copy.js';
+export {ObservationsScreen} from '../observations/screen.js';
 export function QuarantineResolutionSummary({ zoneId, filingId }: { zoneId: string; filingId: string }): ReactNode {
   const copyStyle = { userSelect: 'all' as const, overflowWrap: 'anywhere' as const };
   return <>
@@ -39,21 +30,4 @@ export function SourceFilings({ projectId, sourceId, strategy }: { projectId: st
     <p className="note">{strategy === 'append_as_at' ? 'Under append as at, a restatement does not replace what came before: both versions stay queryable, and every row carries its filing ID and as-at date.' : strategy === 'table_per_filing' ? 'Under table per filing, each filing lands in its own table. Earlier tables remain untouched; a comparison across filings uses a union.' : 'No landing strategy has been recorded yet.'}</p>
     <p className="note">Files and filenames stay in your environment. Use the filing ID to inspect the local register.</p>
   </section>;
-}
-
-export function QuarantineFeed({ projectId }: { projectId: string }): ReactNode {
-  const query = useFilings(projectId);
-  const filings = query.data?.filter(filing => filing.outcome === 'quarantined') ?? [];
-  return <section className="card" aria-labelledby="quarantine-heading"><div className="card-h"><h2 id="quarantine-heading">Needs a decision</h2><span className="meta">Quarantined filings</span></div>
-    {query.isPending ? <LoadingState /> : query.isError ? <ErrorState title="Quarantines could not be loaded" description={query.error.message} retry={()=>query.refetch()} /> : filings.length === 0 ? <EmptyState title="No quarantined filings" description="Files needing attention will appear here." /> : <ul data-mark-list="uniform" className="feed">{filings.map(filing => <li data-mark-row="true" data-row-kind="finding" key={filing.filingId}><span className="sev hi" aria-hidden="true"><Mark name="quarantined" size={18}/></span><div className="fb">
-      <p className="t">{quarantineLabels[filing.quarantineCategory ?? ''] ?? 'The filing needs local review before it can land.'}</p>
-      <p className="d"><Received value={filing.receivedAt} /></p>
-      <QuarantineResolutionSummary zoneId={filing.sourceId} filingId={filing.filingId}/>
-    </div></li>)}</ul>}
-    <div className="sheetb"><p className="note">A filing landed against the wrong party is worse than one that did not land. Opintel quarantines uncertainty rather than guessing who it belongs to.</p></div>
-  </section>;
-}
-
-export function ObservationsScreen({ projectId }: { projectId: string }): ReactNode {
-  return <section className="screen on"><h1>Observations</h1><p className="sub">Filings, key custody and source type observations in your environment.</p><QuarantineFeed projectId={projectId} /><CustodyObservations projectId={projectId}/><TypeObservations projectId={projectId}/></section>;
 }

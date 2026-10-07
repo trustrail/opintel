@@ -61,7 +61,7 @@ const treatmentLabel: Readonly<Record<TreatmentKind, string>> = {
 };
 
 export function Treatment({ kind, label }: { kind: TreatmentKind; label?: string }): ReactNode {
-  return <span className={classNames('tr', treatmentClass[kind])}>{kind==='reference'?null:<Mark name={`treatment-${kind}`} size={16}/ >}{label ?? treatmentLabel[kind]}</span>;
+  return <span className={classNames('tr', treatmentClass[kind])}>{kind==='reference'?null:<Mark name={`treatment-${kind}`} size={16} label={label ?? treatmentLabel[kind]}/ >}{label ?? treatmentLabel[kind]}</span>;
 }
 
 export type EmptyStateProps = PropsWithChildren<{
@@ -124,3 +124,7 @@ export function AsyncButton({run,pendingLabel,children,disabled,refusal,...props
   const message=refusal===undefined?state.error:refusal;
   return <span><Button {...props} disabled={disabled||state.pending} aria-busy={state.pending} onClick={()=>{void start();}}>{state.pending?pendingLabel:children}</Button>{message?<span className="note" role="alert" style={{display:'block'}}>{message}</span>:null}</span>;
 }
+
+export {FindingGrid,FindingCard,SegmentedFilters,DenseList,DenseRow,GroupedRow,InlineExpansion,WeightedActionBar,RelationshipBand,type FilterOption,type DenseRowProps} from './patterns.js';
+
+export function PickerChevron():ReactNode{return <svg aria-hidden="true" focusable="false" data-part="picker-chevron" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;}

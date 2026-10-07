@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard · design</title>
+<style>
+:root{
+  --plum:#1B0232; --plum-2:#3A1456; --plum-soft:#F3EEF8;
+  --green:#0CC655; --green-dk:#07803A; --green-bg:#E9FAF0;
+  --yellow:#FFF730; --yellow-dp:#8A7C00; --yellow-bg:#FDFBE3;
+  --bg:#F7F6F9; --surface:#FFFFFF; --surface-2:#F2F0F5; --surface-3:#E9E6EF;
+  --ink:#140A1C; --ink-2:#4B4256; --ink-3:#7A7187;
+  --rule:#E6E2EC; --rule-2:#D3CDDC;
+  --shadow:0 1px 2px rgba(20,10,28,.05), 0 8px 24px -12px rgba(20,10,28,.12);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+  background:var(--surface-2);padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+
+/* drawer */
+.drawer{background:var(--plum);color:#D9CFE4;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;align-items:center;gap:9px;padding:17px 18px 15px;color:#fff;font-weight:650;letter-spacing:-.01em;font-size:15.5px}
+.brand svg{width:19px;height:19px}
+.proj{margin:0 12px 14px;padding:9px 11px;background:rgba(255,255,255,.07);border-radius:9px;display:flex;align-items:center;gap:9px}
+.proj .av{width:27px;height:27px;border-radius:7px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.proj .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.25}
+.proj .sb{font-size:11px;color:#9C8FAC}
+.sec{padding:13px 18px 5px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#7D6F8D}
+.nav a{display:flex;align-items:center;gap:10px;padding:6.5px 18px;color:#CBBFD8;text-decoration:none;font-size:13.5px}
+.nav a svg{width:16px;height:16px;flex:none;opacity:.78}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 2.5px 0 0 var(--green)}
+.nav a .ct{margin-left:auto;background:var(--yellow);color:#4a4300;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 6px}
+
+/* main */
+.main{overflow:auto}
+.top{display:flex;align-items:center;gap:14px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--surface)}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3)}
+.crumb a{color:var(--ink-3);text-decoration:none}
+.crumb b{color:var(--ink);font-weight:600}
+.top .sp{flex:1}
+.search{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:8px;padding:5px 9px;color:var(--ink-3);font-size:12.5px;width:230px}
+.av-u{width:27px;height:27px;border-radius:999px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11.5px}
+.pad{padding:20px 26px 44px;max-width:1540px}
+
+h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+.lede{color:var(--ink-2);margin:0 0 18px;font-size:13.5px}
+.lede .when{color:var(--ink-3)}
+
+/* ---------- the needs-you band ---------- */
+.h2{display:flex;align-items:center;gap:9px;margin:0 0 10px;font-size:12px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3)}
+.h2 .ln{flex:1;height:1px;background:var(--rule)}
+.h2 a{color:var(--ink-3);text-decoration:none;font-size:11.5px;letter-spacing:0;text-transform:none}
+.h2 a:hover{color:var(--ink)}
+
+.work{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:26px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;min-height:186px}
+.card.act{border-color:#EDE28A;border-left:3px solid var(--yellow-dp)}
+.card .bd{padding:15px 17px 13px;flex:1;display:flex;flex-direction:column}
+.card .hd{display:flex;align-items:flex-start;gap:11px;margin-bottom:11px}
+.card .ic{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:8px;background:var(--yellow-bg)}
+.card .big{font-size:38px;font-weight:720;letter-spacing:-.035em;line-height:.92;font-variant-numeric:tabular-nums}
+.card .big em{font-style:normal;font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2);margin-left:3px}
+.card .tt{font-size:13.5px;color:var(--ink-2);line-height:1.4;margin-top:5px}
+.card .viz{margin-top:auto;padding-top:12px}
+.card .ft{display:flex;align-items:center;gap:8px;padding:9px 17px;border-top:1px solid var(--rule);background:var(--surface-2);
+  border-radius:0 0 11px 11px}
+.card .ft .meta{flex:1;font-size:11.5px;color:var(--ink-3)}
+
+/* mini visuals inside cards */
+.mini{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--surface-3)}
+.mini i{display:block}
+.minilab{display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+.minilab b{color:var(--ink-2);font-weight:600}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule-2);border-radius:999px;
+  padding:2.5px 9px;font-size:11.5px;color:var(--ink-2);background:var(--surface)}
+.chip s{text-decoration:none;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
+.pair{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2)}
+.pair code{font-size:11px}
+.pair .lk{color:var(--ink-3)}
+
+/* ---------- state row ---------- */
+.state{display:grid;grid-template-columns:270px 1fr;gap:12px;margin-bottom:24px}
+.expo{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow)}
+.expo .hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px}
+.expo .hd .t{font-size:14px;font-weight:620;letter-spacing:-.01em}
+.expo .hd .n{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.bar{display:flex;height:11px;border-radius:999px;overflow:hidden;background:var(--surface-3)}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:12px}
+.keys b{display:flex;align-items:center;gap:6px;font-weight:500;font-size:12px;color:var(--ink-2)}
+.keys b u{width:8px;height:8px;border-radius:2px;text-decoration:none;flex:none}
+.keys b s{text-decoration:none;margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;font-weight:650}
+.expo .ft{margin-top:12px;padding-top:11px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-2)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column}
+.kpi .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px;
+  display:flex;align-items:center;gap:6px}
+.kpi .v{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .s{margin-top:auto;padding-top:9px;font-size:12px;color:var(--ink-2)}
+.kpi .s .up{color:var(--green-dk);font-weight:600}
+.spark{display:flex;align-items:flex-end;gap:2px;height:22px;margin-top:9px}
+.spark i{flex:1;background:var(--surface-3);border-radius:1.5px}
+.spark i.on{background:var(--plum)}
+
+/* ---------- feed ---------- */
+.feed{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.fr{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--rule)}
+.fr:last-child{border-bottom:0}
+.fr:hover{background:var(--surface-2)}
+.fr .ic{width:26px;height:26px;display:grid;place-items:center;border-radius:7px;background:var(--surface-2)}
+.fr .t{font-size:13.5px;font-weight:560;letter-spacing:-.005em}
+.fr .m{font-size:12px;color:var(--ink-3);margin-top:1px}
+.fr .m b{color:var(--ink-2);font-weight:500}
+.fr .go{display:flex;gap:6px;align-items:center}
+.quiet{padding:38px 20px;text-align:center;color:var(--ink-3);font-size:13px}
+
+.note{margin:24px 0 0;color:var(--ink-3);font-size:12.5px;max-width:94ch;line-height:1.6}
+.note b{color:var(--ink-2)}
+@media (max-width:1150px){.state{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<nav class="drawer">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3.5 0 3.5-10 7-10s3.5 10 7 10 4-4 4-4"/></svg>
+    Opintel
+  </div>
+  <div class="proj"><div class="av">RE</div><div><div class="nm">Reinsurance Demo</div><div class="sb">Development Demo</div></div></div>
+  <div class="sec">Watch</div>
+  <div class="nav">
+    <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4.6-4.6"/></svg>Dashboard</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.2H3Z"/><path d="M12 10.3v4"/></svg>Observations<span class="ct">4</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2.5-6 4 12 2.5-6H21"/></svg>Activity</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="12" rx="2.3"/><path d="M6.5 5.5h11"/></svg>Releases</a>
+  </div>
+  <div class="sec">Understand</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/></svg>Data sources</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M9 11.5h7"/></svg>Vocabulary</a>
+  </div>
+  <div class="sec">Govern</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg>Entitlements<span class="ct">19</span></a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/></svg>Pools</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="4"/><path d="M12 12h8.5M17.2 12v3.2"/></svg>Access</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="top">
+    <div class="crumb"><a href="#">Development Demo</a>/<a href="#">Reinsurance Demo</a>/<b>Dashboard</b></div>
+    <div class="sp"></div>
+    <div class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>Search this project</div>
+    <div class="av-u">U</div>
+  </div>
+
+  <div class="pad">
+    <h1>Reinsurance Demo</h1>
+    <p class="lede">What this project's agents can see, and what is waiting on you. <span class="when">As of 2026-10-06 19:57 UTC · just now</span></p>
+
+    <!-- ============ 1. WHAT NEEDS YOU ============ -->
+    <div class="h2">Needs you <span class="ln"></span><a href="#">5 items</a></div>
+
+    <div class="work">
+
+      <div class="card act">
+        <div class="bd">
+          <div class="hd">
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 19.5H3Z"/><path d="M12 10v4"/><circle cx="12" cy="16.9" r=".95" fill="var(--ink)" stroke="none"/></svg></span>
+            <div>
+              <div class="big">19<em>of 99</em></div>
+              <div class="tt">elements have no decision, so no agent can see them</div>
+            </div>
+          </div>
+          <div class="viz">
+            <div class="mini">
+              <i style="width:80.8%;background:var(--surface-3)"></i>
+              <i style="width:19.2%;background:var(--yellow)"></i>
+            </div>
+            <div class="minilab"><span>Decided <b>80</b></span><span><b>4</b> asked for by an agent</span></div>
+          </div>
+        </div>
+        <div class="ft"><span class="meta">About 6 decisions, grouped by name</span><button class="btn dark">Decide</button></div>
+      </div>
+
+      <div class="card act">
+        <div class="bd">
+          <div class="hd">
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 10.5h17M9 14.5h6"/></svg></span>
+            <div>
+              <div class="big">4</div>
+              <div class="tt">filings were set aside, so their data never reached the catalogue</div>
+            </div>
+          </div>
+          <div class="viz">
+            <div class="chips">
+              <span class="chip"><s>3</s> no matching party</span>
+              <span class="chip"><s>1</s> merged header</span>
+            </div>
+          </div>
+        </div>
+        <div class="ft"><span class="meta">Oldest 7 days ago</span><button class="btn dark">Review</button></div>
+      </div>
+
+      <div class="card act">
+        <div class="bd">
+          <div class="hd">
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><circle cx="16" cy="9" r="3.2"/><path d="M5 19c0-2.4 1.8-4.2 4-4.2s4 1.8 4 4.2"/></svg></span>
+            <div>
+              <div class="big">1</div>
+              <div class="tt">join an agent needs, which only you can approve</div>
+            </div>
+          </div>
+          <div class="viz">
+            <div class="pair">
+              <code>written_premium</code>
+              <span class="lk">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.8 7.2 14.5 5.5a3.6 3.6 0 0 1 5 5l-1.7 1.7"/><path d="M11.2 16.8 9.5 18.5a3.6 3.6 0 0 1-5-5l1.7-1.7"/></svg>
+              </span>
+              <code>treaty_ref</code>
+            </div>
+            <div class="minilab"><span>Tried <b>2&times;</b> by <b>harness</b></span><span>6 hours ago</span></div>
+          </div>
+        </div>
+        <div class="ft"><span class="meta">Different token domains</span><button class="btn dark">Review</button></div>
+      </div>
+
+    </div>
+
+    <!-- ============ 2. STATE ============ -->
+    <div class="h2">Where the project stands <span class="ln"></span></div>
+
+    <div class="state">
+      <div class="expo">
+        <div class="hd"><span class="t">Exposure</span><span class="n">99 elements · 2 pools</span></div>
+        <div class="bar">
+          <i style="width:50.5%;background:var(--plum)"></i>
+          <i style="width:6.1%;background:#6E4C8A"></i>
+          <i style="width:10.1%;background:#9A82AE"></i>
+          <i style="width:14.1%;background:#C4B6D1"></i>
+          <i style="width:19.2%;background:var(--yellow)"></i>
+        </div>
+        <div class="keys">
+          <b><u style="background:var(--plum)"></u>Clear<s>50</s></b>
+          <b><u style="background:#6E4C8A"></u>Masked<s>6</s></b>
+          <b><u style="background:#9A82AE"></u>Aggregate<s>10</s></b>
+          <b><u style="background:#C4B6D1"></u>Tokenized<s>14</s></b>
+          <b><u style="background:var(--yellow)"></u>Undecided<s>19</s></b>
+          <b><u style="background:var(--surface-3)"></u>Withheld<s>0</s></b>
+        </div>
+        <div class="ft">Half of this project is readable as it stands. The same field can hold a different decision in each pool.</div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg>Requests today</div>
+          <div class="v">3</div>
+          <div class="spark"><i style="height:30%"></i><i style="height:55%"></i><i style="height:20%"></i><i style="height:70%"></i><i style="height:45%"></i><i style="height:85%"></i><i class="on" style="height:38%"></i></div>
+          <div class="s">3 queries · 0 prompts</div>
+        </div>
+        <div class="kpi">
+          <div class="k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/></svg>Refused today</div>
+          <div class="v">1</div>
+          <div class="spark"><i style="height:0%"></i><i style="height:25%"></i><i style="height:0%"></i><i style="height:15%"></i><i style="height:0%"></i><i style="height:0%"></i><i class="on" style="height:30%"></i></div>
+          <div class="s">An unsatisfiable join</div>
+        </div>
+        <div class="kpi">
+          <div class="k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a8.5 8.5 0 1 1-8.2 6.3"/><path d="M3.4 5.2v4.8h4.8"/></svg>Incomplete</div>
+          <div class="v">0</div>
+          <div class="spark"><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i><i style="height:0%"></i></div>
+          <div class="s">Every run finished</div>
+        </div>
+        <div class="kpi">
+          <div class="k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V5.2"/></svg>Agents</div>
+          <div class="v">0</div>
+          <div class="spark"><i style="height:40%"></i><i style="height:40%"></i><i style="height:20%"></i><i style="height:60%"></i><i style="height:20%"></i><i style="height:20%"></i><i class="on" style="height:0%"></i></div>
+          <div class="s">3 seen · 3 disconnected, still listed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 3. RECENT ============ -->
+    <div class="h2">Recently <span class="ln"></span><a href="#">Open Activity</a></div>
+
+    <div class="feed">
+      <div class="fr">
+        <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/></svg></span>
+        <div><div class="t">A join was refused</div>
+          <div class="m"><b>harness</b> · <code>written_premium</code> ↔ <code>treaty_ref</code> · different token domains · 6 hours ago</div></div>
+        <div class="go"><button class="btn lite">Record</button><button class="btn">Review</button></div>
+      </div>
+      <div class="fr">
+        <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h16M4 12h11M4 17.5h14"/></svg></span>
+        <div><div class="t">A query returned 5 rows</div>
+          <div class="m"><b>engine-test-harness</b> · 1 object · 1 element tokenized · 7 hours ago</div></div>
+        <div class="go"><button class="btn lite">Record</button></div>
+      </div>
+      <div class="fr">
+        <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg></span>
+        <div><div class="t">written_premium became tokenized</div>
+          <div class="m">by <b>demo@opintel.local</b> · was withheld · 1 pool affected · yesterday</div></div>
+        <div class="go"><button class="btn lite">History</button></div>
+      </div>
+    </div>
+
+    <p class="note">
+      <b>What changed.</b> The screen answers &ldquo;what needs me&rdquo; before it reports state, and every item that needs someone carries the action that resolves it &mdash; no knowledge of where to go required.
+      Each card leads with the number you react to and shows a small picture of what it refers to, rather than describing it in a sentence. Metrics moved below the work and carry seven days of context.
+      The feed shows what happened rather than repeating what is waiting, and a clean project shows a quiet screen: the first band disappears entirely rather than saying there is nothing in it.
+    </p>
+  </div>
+</main>
+</div>
+</body>
+</html>

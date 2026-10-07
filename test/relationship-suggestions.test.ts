@@ -17,7 +17,7 @@ async function attempt(operation:'query'|'explain'='explain',reverse=false,atOve
  const at=operation==='query'?(await tx.query<{at:string}>(`INSERT INTO query_run(id,project_id,pool_id,key_prefix,mode,versions,started_at) VALUES($1,$2,$3,'test','query','{"policy":1,"catalog":1,"vocabulary":1,"tokenKeyVersionSelected":null}',clock_timestamp()) RETURNING started_at::text AS at`,[id,f.ctx.projectId,f.pool]))[0]!.at:atOverride??(await tx.query<{at:string}>('SELECT clock_timestamp()::text AS at'))[0]!.at;
  await tx.query(`INSERT INTO token_join_candidate(id,run_id,operation,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'claimed-agent',$10,$11)`,[id,operation==='query'?id:null,operation,f.ctx.projectId,f.pool,f.ids[reverse?1:0],f.ids[reverse?0:1],reverse?'warehouse.public.records.field_2':'warehouse.public.records.field_1',reverse?'warehouse.public.records.field_1':'warehouse.public.records.field_2',"SELECT field_1 FROM warehouse.public.records WHERE field_1='SUG_PRIVATE_SENTINEL'",at]);
  });return id;}
-const list=async()=>unwrap(await repo.list(f.ctx,undefined,25));
+const list=async()=>unwrap(await repo.list(f.ctx,undefined,25,{view:'all'}));
 beforeEach(async()=>{
  f=await policyFixture(3);await f.set('tokenized',randomUUID(),f.ids.slice(0,2));admin=true;unredacted=false;failStrip=false;await withPlatform(tx=>tx.query("INSERT INTO user_account(id,email,full_name) VALUES($1,$2,'Reviewer')",[f.ctx.userId,`${f.ctx.userId}@example.com`]));
  const verdict=(allowed:boolean)=>({allowed,token:'test' as AuthorizationRevision,checkedAt:Timestamp(new Date()),snapshotAgeMs:0});const unexpected=async():Promise<never>=>{throw new Error('Unexpected auth mutation');};
@@ -39,7 +39,7 @@ it('SUG-001/004: unordered pair groups attempt facts; not sure persists and late
 it('SUG-002/003: explicit shared-domain confirmation records assignment versions atomically; stale membership and unauthorized writes refuse',async()=>{
  const latest=await attempt(),pair=(await list()).items[0]!;
  await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET token_domain='shared' WHERE id=$1",[f.ids[2]]));
- const domain=unwrap(await repo.domains(f.ctx,undefined,25)).items.find(d=>d.domain==='shared')!;expect(domain.members[0]).toMatchObject({elementId:f.ids[2],name:'warehouse.public.records.field_3'});
+ const domain=unwrap(await repo.domains(f.ctx,undefined,25)).items.find(d=>d.domain==='shared')!;expect(domain.members[0]).toMatchObject({elementId:f.ids[2],name:'warehouse.public.records.field_3',objectLabel:'records',columnName:'field_3'});
  const body={action:'confirm' as const,domain:'shared',confirmation:'Bulk project',latestAttemptId:latest,members:domain.members.map(m=>({elementId:m.elementId,version:m.version}))};
  expect(await repo.decide(f.ctx,pair.id,{...body,members:[]})).toMatchObject({ok:false,error:{code:'conflict'}});
  expect(await repo.decide(f.ctx,pair.id,{...body,confirmation:'wrong'})).toMatchObject({ok:false,error:{code:'conflict'}});
@@ -48,6 +48,7 @@ it('SUG-002/003: explicit shared-domain confirmation records assignment versions
  const response=await fetch(`${base}/${pair.id}/decisions`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});expect(response.status).toBe(200);
  const confirmed=(await list()).items[0]!;expect(confirmed.history[0]).toMatchObject({action:'confirm',actorId:f.ctx.userId,domain:'shared',assignments:expect.arrayContaining(f.ids.slice(0,2).map(elementId=>({elementId,version:2})))});
  expect(unwrap(await repo.domains(f.ctx,undefined,25)).items.find(d=>d.domain==='shared')!.members).toHaveLength(3);
+ expect((await (await fetch(base)).json()).items).toEqual([]);const reviewed=await (await fetch(base+'?view=reviewed')).json();expect(reviewed.items).toHaveLength(1);expect(reviewed.items[0]).toMatchObject({status:'confirm',history:[{action:'confirm',domain:'shared'}]});
  unwrap(await repo.decide(f.ctx,pair.id,{action:'reject',latestAttemptId:latest}));expect((await list()).items[0]!.history.map(h=>h.action)).toEqual(['confirm','reject']);
  for(const sql of ['UPDATE token_join_review SET action=action','DELETE FROM token_join_review'])await expect(withTenant(f.ctx,tx=>tx.query(sql))).rejects.toMatchObject({code:'42501'});
 });
@@ -85,3 +86,37 @@ it('SUG-002: review migration round-trips and retains forced RLS; destructive do
 });
 
 it('SUG-001/004: a late-recorded earlier attempt does not invalidate an existing review reference',async()=>{const latest=await attempt(),original=(await list()).items[0]!;await attempt('explain',false,'2000-01-01T00:00:00Z');expect(unwrap(await repo.attempts(f.ctx,original.id,undefined,25)).items).toHaveLength(2);unwrap(await repo.decide(f.ctx,original.id,{action:'not_sure',latestAttemptId:latest}));expect((await list()).items[0]).toMatchObject({status:'not_sure',explains:2,history:[{actorId:f.ctx.userId,action:'not_sure'}]});});
+
+
+it('RED-009/010: current structured columns, all pool treatments, provenance and UTC trend facts; contextual lookup stays tenant-scoped',async()=>{
+ await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL WHERE id=$1',[f.ids[0]]));
+ const [today]=await withTenant(f.ctx,tx=>tx.query<{day:string}>("SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date::text AS day"));
+ const start=new Date(today!.day+'T00:00:00Z'),day=(offset:number)=>new Date(start.getTime()+offset*86400000).toISOString();
+ await attempt('query');await attempt('explain',false,day(-6));await attempt('explain',true,new Date(start.getTime()-1).toISOString());await attempt('explain',false,day(-7));
+ const page=await list(),pair=page.items[0]!,isolated=[pair.left,pair.right].find(c=>c.id===f.ids[0])!,declared=[pair.left,pair.right].find(c=>c.id===f.ids[1])!;
+ expect(isolated).toMatchObject({address:{sourceId:f.source,sourceName:'Warehouse',alias:'warehouse',schema:'public',object:'records',column:'field_1'},exposedType:'VARCHAR',treatments:[{poolId:f.pool,poolName:'Bulk pool',treatment:'tokenized'}],domain:{declared:null,provenance:'element_identity',memberCount:1}});
+ expect(isolated.domain.effective).toContain('opintelisolated');expect(declared.domain).toMatchObject({declared:'customer',effective:'customer',provenance:'declared',memberCount:2});
+ expect(pair.trend.map(d=>d.day)).toEqual(Array.from({length:7},(_,i)=>day(i-6).slice(0,10)));
+ expect(pair.trend[0]).toMatchObject({queries:0,explains:1});expect(pair.trend[5]).toMatchObject({queries:0,explains:1});expect(pair.trend[6]).toMatchObject({queries:1,explains:0});expect(pair.trend.reduce((n,d)=>n+d.queries+d.explains,0)).toBe(3);expect(pair.explains).toBe(3);
+ const selected=await fetch(base+'?elementId='+f.ids[0]+'&poolId='+f.pool);expect(selected.status).toBe(200);expect((await selected.json()).items).toHaveLength(1);
+ expect(unwrap(await repo.list(f.ctx,undefined,25,{elementId:f.ids[2]})).items).toEqual([]);
+ const other=await policyFixture(2);expect(unwrap(await repo.list(other.ctx,undefined,25,{elementId:f.ids[0],poolId:f.pool})).items).toEqual([]);
+});
+
+it('RED-010/011: every attempted pool contributes its current treatment and precise blocked target',async()=>{
+ const first=await attempt(),otherPool=randomUUID();await withTenant(f.ctx,async tx=>{
+ await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Other pool')",[otherPool,f.ctx.projectId]);
+ await tx.query('INSERT INTO pool_source_binding(pool_id,source_id,project_id) VALUES($1,$2,$3)',[otherPool,f.source,f.ctx.projectId]);
+ await tx.query(`INSERT INTO token_join_candidate(id,operation,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at) SELECT $1,'explain',project_id,$2,left_element_id,right_element_id,left_name,right_name,agent_id,statement,clock_timestamp() FROM token_join_candidate WHERE id=$3`,[randomUUID(),otherPool,first]);
+ });
+ const pair=(await list()).items[0]!;expect(pair.confirmationBlocked).toContain('tokenized first');
+ for(const c of [pair.left,pair.right])expect(c.treatments).toEqual(expect.arrayContaining([{poolId:f.pool,poolName:'Bulk pool',treatment:'tokenized'},{poolId:otherPool,poolName:'Other pool',treatment:null}]));
+});
+
+
+it('SUG-004/RED-011: open excludes confirmed/rejected pairs before paging; Not sure stays open and every decision remains in reviewed history',async()=>{
+ const latest=await attempt(),pair=(await list()).items[0]!;unwrap(await repo.decide(f.ctx,pair.id,{action:'not_sure',latestAttemptId:latest}));
+ expect(unwrap(await repo.list(f.ctx,undefined,1,{view:'open'})).items).toHaveLength(1);expect(unwrap(await repo.list(f.ctx,undefined,1,{view:'reviewed'})).items).toEqual([]);
+ unwrap(await repo.decide(f.ctx,pair.id,{action:'reject',latestAttemptId:latest}));expect(unwrap(await repo.list(f.ctx,undefined,1,{view:'open'})).items).toEqual([]);
+ expect(unwrap(await repo.list(f.ctx,undefined,1,{view:'reviewed'})).items[0]).toMatchObject({status:'reject',history:[{action:'not_sure'},{action:'reject'}]});
+});

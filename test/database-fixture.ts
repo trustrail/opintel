@@ -6,8 +6,10 @@ type FixtureTable = 'industry' | 'company' | 'user_account' | 'mail_outbox' | 'r
 
 // Register before a suite's fixture-building hooks. CASCADE clears dependent
 // rows (tokens, invitations, memberships, vocabulary, etc.) as well as roots.
-// Vitest serializes files/tests sharing this database; application transactions
-// and concurrent requests within a test remain real and independent.
+// The database runner also awaits cancellation/cleanup after a deadline;
+// Vitest serialisation alone does not stop abandoned database work.
+// TRUNCATE's test-only 1s lock_timeout fails with a run stop rather than
+// queuing subsequent resets. Application transactions remain independent.
 export function resetDatabaseBeforeEach(...tables: [FixtureTable, ...FixtureTable[]]): void {
   // Reseeding executes real migration SQL; give that work headroom without
   // changing the timeout of test bodies or unrelated reset hooks.

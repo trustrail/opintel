@@ -1,0 +1,41 @@
+/* Approved 5.30 additions, applied to the master. Existing tokens/classes.
+ * Measurements corrected the page host to .body, as in Entitlements, so the
+ * approved padding replaces the shell padding instead of being added to it. */
+#opintel-app .body:has(> .screen[data-layout="suggestions"]){max-width:1180px;width:100%;padding:20px 26px 44px}
+#opintel-app .screen[data-layout="suggestions"] h1{font-size:23px;margin-bottom:3px}
+#opintel-app .screen[data-layout="suggestions"] > .sub{font-size:13.5px;max-width:74ch;margin-bottom:18px}
+#opintel-app .screen[data-layout="suggestions"] .card[data-layout="suggestion"]{overflow:hidden;margin-bottom:14px}
+#opintel-app .screen[data-layout="suggestions"] .joinbox[data-layout="pair"]{grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);align-items:stretch;gap:0;padding:0;border:0;border-bottom:1px solid var(--rule);border-radius:0}
+#opintel-app .screen[data-layout="suggestions"] .joinbox[data-layout="pair"] > [data-part="identity"]{padding:15px 18px}
+#opintel-app .screen[data-layout="suggestions"] [data-part="column-label"]{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+#opintel-app .screen[data-layout="suggestions"] [data-part="column-name"]{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:650;line-height:1.5}
+#opintel-app .screen[data-layout="suggestions"] [data-part="column-address"]{font-size:12px;color:var(--ink-3);margin-top:3px;overflow-wrap:anywhere}
+#opintel-app .screen[data-layout="suggestions"] [data-part="domain"]{margin-top:9px;font-size:11.5px}
+#opintel-app .screen[data-layout="suggestions"] .joinbox[data-layout="pair"] > span{display:grid;place-items:center;background:var(--surface-2);border-inline:1px solid var(--rule);color:var(--ink-3)}
+#opintel-app .screen[data-layout="suggestions"] [data-part="demand"]{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:11px 18px;background:var(--surface-2);border-bottom:1px solid var(--rule);font-size:12.5px;line-height:1.45}
+#opintel-app .screen[data-layout="suggestions"] [data-part="attempt-count"]{font-size:22px;font-weight:720;line-height:1}
+#opintel-app .screen[data-layout="suggestions"] [data-part="attempt-trend"]{display:flex;align-items:flex-end;gap:4px;height:26px}
+#opintel-app .screen[data-layout="suggestions"] [data-part="attempt-trend"] > span{width:7px;display:flex;flex-direction:column-reverse}
+#opintel-app .screen[data-layout="suggestions"] [data-part="attempt-trend"] i{display:block;background:var(--plum-2)}
+#opintel-app .screen[data-layout="suggestions"] [data-part="attempt-trend"] i[data-operation="explain"]{background:var(--ink-3)}
+#opintel-app .screen[data-layout="suggestions"] .sheetb{padding:16px 18px}
+#opintel-app .screen[data-layout="suggestions"] [data-part="question"]{font-size:14.5px;font-weight:620;margin:0 0 4px}
+#opintel-app .screen[data-layout="suggestions"] [data-part="question-detail"]{font-size:12.5px;line-height:1.55;margin:0 0 14px;max-width:76ch;color:var(--ink-2)}
+#opintel-app .screen[data-layout="suggestions"] .scopepick[data-layout="paired"]{gap:10px;margin-bottom:14px}
+#opintel-app .screen[data-layout="suggestions"] .opt{align-items:flex-start;padding:12px 14px;border-radius:11px;margin:0}
+#opintel-app .screen[data-layout="suggestions"] .opt[data-selected="true"]{border-color:var(--plum);background:var(--surface-2)}
+#opintel-app .screen[data-layout="suggestions"] .opt b{font-size:13.5px;font-weight:600}
+#opintel-app .screen[data-layout="suggestions"] .opt p{font-size:12px;line-height:1.5;color:var(--ink-2);margin:5px 0 0}
+#opintel-app .screen[data-layout="suggestions"] .effect{padding:12px 14px;margin:0 0 14px;line-height:1.6;font-size:12.5px}
+#opintel-app .screen[data-layout="suggestions"] .effect[data-state="consequence"]{background:var(--yellow-bg);border-color:var(--yellow-br);border-left:3px solid var(--ink-2)}
+#opintel-app .screen[data-layout="suggestions"] .effect[data-state="blocked"]{background:var(--surface-2);border-left:3px solid var(--ink-3)}
+#opintel-app .screen[data-layout="suggestions"] [data-part="confirmation"]{display:flex;align-items:center;flex-wrap:wrap;gap:11px;font-size:12.5px}
+#opintel-app .screen[data-layout="suggestions"] [data-part="confirmation"] .inp{width:210px;max-width:100%}
+#opintel-app .screen[data-layout="suggestions"] .sheetf{justify-content:space-between;align-items:center;flex-wrap:wrap;padding:11px 18px;font-size:11.5px}
+#opintel-app .screen[data-layout="suggestions"] .pick{position:relative;max-width:100%}
+#opintel-app .screen[data-layout="suggestions"] .pick select{appearance:none;padding:7px 32px 7px 10px;min-width:0;max-width:100%}
+#opintel-app .screen[data-layout="suggestions"] [data-part="picker-chevron"]{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:10px;height:6px;pointer-events:none;color:var(--ink)}
+@media(max-width:900px){
+#opintel-app .screen[data-layout="suggestions"] .joinbox[data-layout="pair"],#opintel-app .screen[data-layout="suggestions"] .scopepick[data-layout="paired"]{grid-template-columns:minmax(0,1fr)}
+#opintel-app .screen[data-layout="suggestions"] .joinbox[data-layout="pair"] > span{display:none}
+}

@@ -1441,6 +1441,8 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 | Method | Path |
 |---|---|
 | GET | `/pools/:id/entitlements` |
+| GET | `/pools/:id/entitlement-groups` (filtered group summaries and scoped counts) |
+| GET | `/pools/:id/entitlement-members` (explicit cursor-paged members) |
 | PUT | `/pools/:id/entitlements/:elementId` |
 | POST | `/pools/:id/entitlements/bulk` (requires `justification` when treatment is `clear`) |
 | GET | `/pools/:id/view-definition` (the compiled DDL, admin only) |
@@ -1459,14 +1461,23 @@ returns `{ views, omitted }` from the existing pure compiler over a single
 catalogue/decision snapshot. It neither executes a source query nor constructs
 a session or compilation cache.
 
-The screen keeps pool, source and undecided filters in the URL. Expansion,
-selection and the bulk form use local Zustand state. Only loaded, expanded
+The screen keeps pool, source, decision and By name/By table filters in the URL; legacy undecided links remain accepted. By name opens on Needs a decision. By table retains bounded branch inspection. The grouped endpoints require project view and bind cursors to project, pool, source, name prefix, decision, grouping mode and (for members) group. Group/member totals follow member filters. The distribution includes all decisions in the source/name scope, before the decision tab. The pending count belongs to the Needs a decision tab, and its empty state appears only when that tab is selected. Visible group counts say tables in By table mode. Expanded name-group members show their short exposed object label, supplied separately by the API; the complete column path remains in the title, accessible names and Declarations. Shared table-row identity labels use the master’s 13.5px/560 row typography; Review all is offered only in Needs a decision or Everything, replaces the selection with the explicit pending set, and never selects hidden pending members from Decided.
+
+The distribution is a compact panel beside the screen title, containing only
+the bar, treatment counts and the member total represented by those counts.
+Review all is outside that panel. Repeated per-member justification prose is
+not displayed; the recorded justification and the required clear-decision
+input remain unchanged. By table uses the same identity-label markup and
+13.5px/560 rule as By name. The global column-name prefix applies across
+tables; Browse branch chooses a hierarchy scope and its child-name prefix
+filters only immediate children, with both scopes named in the labels.
+Expansion, selection and the bulk form use local Zustand state. Only loaded, expanded
 fields are included by “Select loaded elements”; scrolling preserves selections.
 Pool/source/undecided filter changes clear selection, as does changing a name
 prefix. Clear cannot be applied without a non-whitespace justification. A
 failed command retains its selection and idempotency key until its payload
-changes. Success invalidates exactly the entitlement, pool-list,
-catalogue-element-list and project-stat families. View DDL is an inline,
+changes. Success invalidates exactly the entitlement (including group/member reads), pool-list,
+catalogue-element-list/declarations and project-stat families. View DDL is an inline,
 pool-context inspection, not a separate project destination. The bulk bar stays
 in normal flow at phone widths so the wrapped form does not obscure the tree.
 
@@ -2290,7 +2301,7 @@ type ReconciliationReport = {
 
 **Item 3.13 presentation.** The filings pill expands the source row in place and counts only `landed` arrivals. Non-landing sources have no pill or expansion. The client follows register cursors, orders by receipt time (newest first), and shows landed filings for that source, including filing ID, party code, kind, period, receipt time, superseded filing ID and row count. The source's immutable landing strategy explains how versions remain queryable. A missing receipt shows “Awaiting receipt”, never an invented row count. Filenames are not in the application payload.
 
-Quarantines appear in the Dashboard needs-a-decision feed and in Observations, never inside a source. `sourceId` on their notice is the configured zone's transport binding, not evidence that they landed into that source. The feed shows the category-specific explanation, that nothing landed and the filing's data is not in the catalogue, plus the landing-zone ID and filing ID as selectable text for the reader to give whoever operates Opintel Engine. The full reason stays in the customer environment because it may contain file contents. The console does not show operator commands; `npm run sidecar:register -- --help` prints them, and they are documented in `sidecar/README.md`. This adds no acknowledge/resolve workflow or attribution override; the observations workflow remains Slice 3. These read-only views refresh the shared filing query every 30 seconds; source expansion state is local to project and source.
+Quarantines appear in the Dashboard needs-a-decision feed and in Observations, never inside a source. `sourceId` on their notice is the configured zone's transport binding, not evidence that they landed into that source. The feed shows the category-specific explanation, that nothing landed and the filing's data is not in the catalogue, plus the landing-zone ID and filing ID as selectable text for the reader to give whoever operates Opintel Engine. The full reason stays in the customer environment because it may contain file contents. The console does not show operator commands; `npm run sidecar:register -- --help` prints them, and they are documented in `sidecar/README.md`. Item 5.31 retains safe finding history and groups Observations by cause. This remains read-only: it adds no acknowledge/manual-resolve workflow or attribution override; that workflow remains Slice 3. These read-only views refresh the shared filing query every 30 seconds; source expansion state is local to project and source.
 
 The console's source expansion selectors are absent from the master stylesheet. Item 3.13 uses existing `toolchip`, `sheetb`, table and `feed` classes; it adds no CSS class or stylesheet changes.
 
@@ -3582,8 +3593,9 @@ the undecided count. The existing read-only Observations screen groups unmapped
 findings by source and source type, gives their active element count and links to
 the most recent supporting run. Explicit exclusions are not mapping-gap observations.
 Findings are stored in the run, not inferred later from a changed mapping table.
-Current observations disappear on repair/removal or source archive; historical
-run findings remain. A failed or partial-schema run does not erase an outstanding
+Current mapping findings leave the Open view on repair/removal or source archive;
+5.31 keeps their safe recorded lifecycle behind Resolved, and historical run
+findings remain. A failed or partial-schema run does not erase an outstanding
 finding. Earlier runs without type findings are not rewritten; re-introspection
 records the new categories. `GET /api/v1/projects/:id/type-observations` requires
 `project#view`, uses a project-bound source-id/type cursor, and returns metadata
@@ -4409,13 +4421,15 @@ Immutable entities caching forever is the largest single cache win in the applic
 | Save element or schema declarations | `catalogElement.lists`, `catalogElement.declarations`, `entitlement.all`, `project.stats`; past evidence is immutable |
 | Connect source | `dataSource.lists`, `project.stats` |
 | Re-introspect / retry source / resume demo | `dataSource.lists`, `project.stats` |
-| Introspection completes | `catalogElement.all`, `dataSource.detail`, `dataSource.lists`, `dataSource.typeObservations`, `entitlement.all` |
-| Source changes / stream dataSource snapshot | `dataSource.lists`, `dataSource.detail`, `dataSource.typeObservations` |
+| Introspection completes | `catalogElement.all`, `dataSource.detail`, `dataSource.lists`, `dataSource.typeObservations`, `entitlement.all`, `observation.all(projectId)` |
+| Source changes / stream dataSource snapshot | `dataSource.lists`, `dataSource.detail`, `dataSource.typeObservations`, `observation.all(projectId)` |
 | Delete source | `dataSource.lists`, `catalogElement.all`, `entitlement.all`, `pool.lists` |
 | Create pool | `pool.lists`, `project.stats` |
 | Rotate pool key | `pool.detail` only |
 | Revoke pool key | `pool.detail`, `pool.lists`, `agent.presence` |
-| Rotate or restore token key; rehearse now | `custody.status(projectId)` after success or refusal; shared by the key screen and custody observations |
+| Rotate or restore token key; rehearse now | `custody.status(projectId)`, `observation.all(projectId)` after success or refusal |
+| Filing arrival/receipt stream event or filing reconnect snapshot | `filing.list`, `dataSource.lists`, `observation.all(projectId)` |
+| Introspection reconnect snapshot | `introspection.all`, `observation.all(projectId)` |
 | Bind source | `pool.detail`, `entitlement.all` for that pool |
 | Accept invite | `member.lists`, `project.lists`, `auth.me` |
 | Change role | `member.lists`, `auth.me` if self |
@@ -4508,6 +4522,16 @@ The underlying `<time datetime>` retains the original timestamp. Explicitly
 UTC daily totals remain UTC; their separate "as of" timestamp follows the
 person's display preferences.
 
+**Count buckets and display zones.** Calendar-day counts use UTC, independently
+of the reader's display preferences. The Suggestions demand band labels its
+trend once as **Last 7 days (UTC)**: the current UTC calendar day and the six
+preceding UTC days, including zero-count days, with query and explain attempts
+counted separately. A local-day bucket would give two administrators different
+counts for the same suggestion. A count that depends on who is looking is not a
+fact about the data. Absolute timestamps continue to use the reader's preferred
+zone, correctly named; relative age continues to use elapsed duration. This
+separation applies wherever calendar-day counts and timestamps appear together.
+
 Relative age uses elapsed duration, not local calendar boundaries. Under one
 minute reads "just now"; one through 59 minutes reads "N minute(s) ago";
 one through 23 hours reads "N hour(s) ago"; 24 hours onward reads
@@ -4527,6 +4551,12 @@ Activity and `.audw` timestamp styles; no new stylesheet class is required.
 Feed timestamps keep the absolute value and relative age in separate,
 unbreakable `.audw` spans. The `.when` wrapper permits wrapping at their
 separator, rather than splitting either value or clipping a long combined line.
+
+**5.29 grouped entitlements.** Within a selected pool, exact exposed names group active elements in active objects of non-archived bound sources. Source, name and decision filters select individual members before grouping. Collapsed rows disclose mixed types and decisions (different mask kinds count as different decision variants); a bulk action applies only to the explicit filtered member set and states its count. Review all reads every currently undecided member through cursor pages, then presents that selection before the existing atomic bulk command. It never includes future discoveries. Declarations selects an individual member, not a group-wide declaration. The decisions screen uses the approved named inline-size container: the existing 820px responsive grouped-row and weighted-bar rules apply to content width as well as viewport width, preserving names and consequences when the drawer leaves only about 600px at a 900px viewport.
+
+**Join attempted** counts recorded refused equality joins involving those members in this pool, with query and explain counts distinct. Successful reads leave no demand record. This signal is not “asked for”: zero does not establish lack of use or demand. No SQL or values are needed for this count.
+
+**5.28 shared structural patterns.** The coordinated redesign reuses master classes through scoped `data-layout`, `data-density` and `data-part` variants. Shared React finding cards, dense/grouped rows, controlled segmented filters, weighted action bars, relationship bands and inline expansion live in `shared/ui`. Screen-local state owns selection and expansion; components do not fetch data or perform commands. Inline expansion uses a toolchip button with an explicit controlled body id, unmounts closed detail, and leaves the row non-interactive so nested actions are not inside another control. Existing domain-choice and consequence controls remain authoritative. No new colours, classes or conformance exceptions. At the existing 820px breakpoint, rows/cards wrap rather than hiding names, exposed types or actions. Weighted bars become static and stack their count and consequence at full width, matching the existing narrow Entitlements precedent, so they do not obscure content or squeeze consequences into a word-wide column. `/dev/shared-patterns` is a development-only review fixture, not production navigation or a backend route. RED-001–RED-004 verify interactions, conformance, placement, accessibility and 390/900/1440 snapshots before production consumers are ported.
 
 **In-screen disclosures use the master’s button pattern**: `.toolchip` with
 `aria-expanded` and `aria-controls`, including local resolution instructions in
@@ -5441,3 +5471,180 @@ Typed project-name confirmation uses 5.24's exact wording. The domain updates an
 Mutation invalidation: every decision outcome refreshes suggestion lists, domain choices, attempts, element lists/declarations, entitlements and project statistics. A stale refusal therefore refreshes the membership the administrator must review before reconfirming. The drawer mounts Suggestions under Data sources. The screen covers loading, empty, error and ready states; viewers can read but cannot act.
 
 Evidence-settings changes invalidate suggestion attempt queries alongside Activity. Attempt SQL uses Activity’s zero-retention browser cache policy (`staleTime: 0`, `gcTime: 0`) and is fetched only while its disclosure is open.
+
+**Entitlements layout contract (5.29 rebuild, 2026-10-07).** The structural reference is `docs/Entitlements.html`, with the reader's measured targets in the implementation plan. The single name filter always selects column-name prefixes across the current pool/source scope; By table has no separate branch-name filters. Desktop group/member rows are 42px/38px and their primary labels are 13.5px at weights 650/560 respectively. Narrow member geometry remains 76px, showing the exposed type rather than a repeated treatment label; the 17px treatment mark has an accessible name. Toolbar controls wrap below 820px available content width (including when the drawer leaves less than 820px at a wider viewport); at 390px tabs have their own line. All field labels are inline or supplied as accessible names. View DDL is absent from this administrator screen; this does not remove or change the view compiler or its API.
+
+**Entitlements toolbar refinement.** Pool and Source use `field-sizing: content` where supported, capped at 200px, with a 170px fixed-width fallback. A decorative, pointer-transparent SVG replaces the browser-controlled arrow; native select interaction remains. Its right edge is 10px inside the picker border, matching the select's 10px left padding. Inline Pool/Source label padding is reduced to 5px. At 1440px, “Development Demo” measures 161.563px with 120px available for its 119.562px text; “All bound sources” measures 151.625px with 110px available for its 109.621px text. Both fit completely. DOM measurements verify equal 10px insets; diagnostic pixels independently show approximately 10px clearance at the right. The earlier 34px measurement described the text-to-arrow gap and did not establish symmetry. At 1280px, retaining all segments and the 190px filter on one line compresses the Pool select to 121.188px, leaving only 79px for its 119.562px text. The newly added full-label assertion fails honestly there; the 390px and 1440px focused checks pass, including axe and partial conformance. Resolving this requires a reviewed intermediate-width sacrifice (filter width or earlier wrapping); it is not fixed by raising the select cap. No visual project or baseline regeneration.
+
+**Treatment legend (5.29 reader review).** The existing Decision distribution legend replaces its swatches with the six shared treatment marks at 17px, matching Entitlements rows. Counts and labels remain, with no additional legend section. Marks use the existing darker treatment colour tokens; the distribution bar retains its original colours. Undecided retains the yellow background and ink dashed outline. Group/member/tree marks have accessible names independently of the legend; shared treatment badges and the catalogue’s Undecided mark also expose their names at every width. Dashboard already has all six labelled marks. Activity evidence and introspection pair every treatment mark with explanatory text. The schema explorer has no separate legend and currently shows only the Undecided mark (text at wide widths; an accessible name when the narrow label is hidden). The current Suggestions implementation has no treatment marks; its structural design specifies them, but that consumer has not landed. Two focused browser checks pass at 390/1440, including all six legend names and sizes, the 150px panel ceiling, member accessibility, axe and partial control/placement conformance. No visual project or baseline regeneration.
+
+**Treatment matching and focus correction.** Row and legend treatment marks now share one default colour mapping in the shared Mark component: green-dk, mask-dk, agg-dk, token-dk, held-dk; Undecided retains its yellow fill and ink-2 outline. Contrast against surface / surface-2 is respectively 8.62/8.03, 7.18/6.69, 12.45/11.60, 10.64/9.91, 10.72/9.99 and 8.00/7.45 to one. Every meaning-bearing stroke/fill exceeds 3:1; the yellow fill is not the distinguishing boundary. Entitlements legend entry gaps are 7px and internal gaps 4px; focused rendered checks measure two lines at 1440px and three at 390px. Segmented buttons use the existing 2px green focus language, inset by 2px to remain visible inside the clipped segment container. Colour matching, focus, accessible names, axe and partial placement/control conformance pass in the two focused checks. Touch-name disclosure is not implemented: the existing account popover is fixed to the drawer and the project menu is sized for project switching, not a small anchored name popup. Reusing their surface styling requires a reviewed anchored variant and an appropriately sized trigger; next-tap dismissal itself is ordinary UI state/event handling. No new class, visual project or baseline regeneration.
+
+**Treatment names on touch (5.29 reader decision).** Entitlements group and member indicators, including By table, show the treatment name beside the 17px mark at viewport widths of 600px and above. Below 600px, the existing toolchip is a 44px-square trigger and opens the approved `pop[data-purpose="treatment-name"]` variant beside the mark, bounded to an 8px viewport inset. Any following outside tap, a repeated tap on the trigger, or Escape dismisses it; Escape returns focus. Scrolling/resizing also closes it, avoiding a stale anchor. UI state is in a local Zustand store. Only one mark is rendered per indicator at either width, retaining the placement contract. Narrow member rows remain 76px: vertical padding is 4px rather than 8px to accommodate the 44px target without overlapping the name or Declarations. Browser measurements verify 44x44 targets at 390px and 599px in grouped and tree layouts, visible Aggregate only text at 600px, bounds and dismissal. All 25 affected non-picker functional checks pass, including axe and partial control/placement conformance (2/53 routes, zero findings). The three picker checks are outside this change; the previously recorded 1280px full-label failure remains unresolved pending its separate layout decision. No full gate, visual project, baseline regeneration or completed-item commit is claimed.
+
+**Dark action-bar controls (5.29 reader decision).** The approved weighted-bar variant gives Treatment, Mask kind and Justification a plum-2 background, rule-2 border and surface text; inline picker labels use surface-3 on transparent backgrounds. Closed selects retain native interaction but use the same shared decorative PickerChevron as the toolbar, with a measured 10px inset from the inner right border and 10px left text padding. Both selectors measure this inset at 390/1440; diagnostic raster captures independently corroborate the approximately 10px clearance, with pixel rounding/antialiasing at glyph edges. Native options retain surface/ink colours. Justification placeholder styling explicitly uses surface-3 at opacity 1, yielding 13.55:1 against plum-2; typed surface text yields 16.31:1. The previous ink-3 would be 2.52:1. The production field has no placeholder copy; tests insert temporary text to exercise the pseudo-element, without inventing production copy. Four focused checks pass, covering both viewport widths, clear justification enforcement, mask selection, atomic bulk behaviour, axe and partial conformance (1/53 routes, zero findings). No visual project or baseline regeneration.
+
+### 5.30 Suggestions read model and design
+
+The Suggestions screen is rebuilt against `docs/Suggestions.html`: a two-column
+relationship band, demand band, explicit existing/new domain choice cards,
+consequence panel, typed confirmation and retained review-history footer. The
+pair and choices stack at 900px and below. Approved geometry uses existing
+master classes and tokens. Page padding belongs to the `.body` host, following
+Entitlements, so the shell's existing padding is replaced rather than doubled.
+
+Each side returns its current structured source/catalog/schema/object/column
+address, exposed type, active state and **all attempted pools' current
+entitlements**. There is no single global treatment for an element. Mixed
+pool decisions are stated rather than silently choosing one pool's treatment.
+Domain facts contain the stored declaration, effective namespace, declared or
+identity-derived provenance, and catalogue membership count. The interface
+shows identity-derived isolation in words, not a generated domain inline;
+treatment marks use the shared colours, pointer tooltips and accessible names.
+The treatment name is also visible, so touch does not require disclosure.
+Current catalogue names are shown; original attempt statements retain their
+historical text under the existing Activity redaction policy.
+
+Frequency remains all-time recorded attempts, with query and explain counts
+separate. The demand band's **Last 7 days (UTC)** trend contains the current UTC
+calendar day and previous six days, including zeroes. These are attempt facts,
+not successful reads, independent needs, overlap statistics or format evidence.
+The UTC counting/display-time distinction and its reason are specified in §5.5.
+
+A clear or otherwise non-tokenized current entitlement blocks confirmation:
+changing a domain cannot change that decision. The reader gets an exact
+pool/element link for every non-tokenized decision in the attempted pools,
+rather than a generic Entitlements destination. The destination constrains the
+existing grouped read model by element id, opens the linked member and selects
+nothing. Grouping by table retains that scope; a visible **Show all elements**
+action removes it. Inactive sources or elements retain the separate inactive
+refusal. No domain controls appear in the blocked card.
+
+Contextual suggestion lookup accepts optional element and pool ids on the
+existing project-view route and screen. The list remains tenant-scoped and
+cursor-paged; filtered lists have distinct query keys and a visible return to
+all suggestions. Entitlement cursors bind the exact element scope as well as
+the other filters. No new permission or source-reading capability is added.
+
+The existing mutation remains authoritative: explicit domain choice, complete
+membership and assignment-version review, latest-attempt recheck, typed project
+name, source/element locking and atomic review/assignment history. The 5.24 confirmation promises are presented as three short bullets, including
+**No stored data is rewritten**.
+SQL is fetched only while expanded, through Activity's shared permission and
+parsed redaction implementation with zero browser-cache retention. The redesign
+adds no second SQL visibility path and no source-value or overlap analysis.
+
+This is a user-reviewed screen. Functional, placement/conformance and axe checks
+run during iteration; visual snapshots and baseline regeneration wait for
+explicit design approval.
+
+
+**5.30 review corrections.** The default suggestion list is **Open**, containing
+pending and Not sure pairs. The **Reviewed** list contains pairs whose latest
+decision is confirmation or rejection; its cards expose retained attempts and
+decision/assignment history, with no review-action form. Resolution is derived
+from the immutable review records, not deletion of an attempt or history row.
+A decision refreshes both lists and keeps its completion notice at screen scope,
+so it remains visible when the resolved card leaves Open. Not sure remains open
+and a later attempt can raise it again. An explicit `view=all` read remains
+available for historical read-model consumers; omitted view means Open.
+
+Each available declared domain is its own choice card; choosing that card
+chooses that namespace directly. Members show the short exposed object and column
+names, with the full qualified path in title. The API supplies those fields from
+the same catalogue names used by Entitlements, rather than parsing a path in the
+view. Four members are initially visible; a +N more toolchip reveals the rest.
+Disclosure affects presentation only: confirmation checks the entire membership.
+Side-by-side cards share their grid row height, independently of selection.
+There is one additional new-domain card, which exposes the new name input when
+chosen. Nothing is preselected. There is no separate domain dropdown, and no
+zero-member consequence pretending a domain was chosen. The consequence appears
+only after a choice and consists of three bullets: changing domains changes the
+compatibility of past and future tokens; the chosen membership defines the join
+scope; no stored data is rewritten and old evidence retains its key and domain
+assignment versions. Review state and attempted-join provenance are separate
+footer fields. A persisted Not sure decision is stated as such, rather than
+used as an initial/default state.
+
+
+### 5.31 — cause-grouped Observations and retained lifecycle
+
+**The lost-history finding.** Before 5.31, the filing feed kept only the latest
+arrival notice. A successful retry replaced that projection, erased the
+quarantine from view, and left nobody able to see that the filing had ever been
+set aside. The customer-local register retained the authority, but the console
+had no retained fact to show. A read-only history projection closes this gap.
+
+`observation_event` stores database-owned append-only safe metadata. Tenant
+read policy is forced; an explicit `tenant_write FOR INSERT WITH CHECK(false)`
+and SELECT-only application grant state that tenants cannot forge, change or
+remove a lifecycle fact. Forward migration 066 captures future quarantine
+revisions, successful landing receipts, completed introspection findings,
+source archive facts and key-rehearsal outcomes. Triggers construct allowlisted
+identifiers/labels only, never copy an arrival payload, filename, file hash,
+local reason, SQL, sentinel or key material. A downgrade refuses to destroy
+retained finding history. This is not the Slice 3 acknowledge workflow.
+
+**Resolution is a fact.** A filing resolves when the application records its
+landing notice or accepts its landing receipt. Pending retries, duplicate
+notices and a different quarantine cause are not evidence of landing. The
+current open cause replaces the earlier open cause in presentation; the earlier
+cause stays in that filing's history, and landing closes the recorded causes.
+A late delivered quarantine notice cannot reopen a filing with an accepted
+landing receipt. Receipt times are the recorded landing times; a notice without
+a landing timestamp records when resolution was received, not an invented
+execution timestamp. A mapping gap closes on a completed introspection recording
+repair, removal, changed type or explicit exclusion, or on source archive.
+Failed/in-progress introspections do not erase findings. Custody failures close
+on a successful rehearsal; a changed failure category is recorded as a changed
+cause, not successful verification. Retiring a key is not verification. Custody rows show the current/retired role
+from the current key-version record, separately from the recorded failure
+history, so a retained-key failure is not presented as a current connection refusal.
+
+Existing current quarantines and custody failures are baselined. Durable prior
+unmapped-type run findings can also be baselined against the current catalogue;
+labels on these baseline facts are the labels available at migration time.
+Overwritten quarantine revisions, old key-rehearsal outcomes and earlier labels
+cannot be reconstructed and are not invented. Pre-existing history completeness
+therefore differs from history captured after this migration.
+
+**Read API and visibility.** Production constructs `PostgresObservationReader`
+and mounts cursor-paged groups/members at
+`/api/v1/projects/:id/observations` and `/observations/members` with project view.
+Custody groups/members have separate `/custody-observations` endpoints with
+project administer; the project-view path cannot expose key versions, even with
+a forged group or cursor. Schemas generate the observation OpenAPI document and
+validate typed client responses. Cursors bind project, Open/Resolved state,
+permission scope and group. Counts are affected records within a cause, not
+cause-card counts. One filing can appear in multiple resolved cause histories;
+counts are not a unique-filing total across those histories.
+
+The screen has **Open** and **Resolved**, default Open. It renders one explanation
+and resolver per cause, controlled toolchip expansion, affected-record rows,
+and retained per-record history. Mapping gaps group by their recorded source
+type; custody failure categories remain distinct. Uniform member lists carry
+no kind marks. A group carries one actionable state mark with a tooltip and
+accessible wrapper, never a combined kind/state mark. Resolved cards use the
+existing muted surface; their text and history remain readable. Empty Open is
+one quiet line. Shared timestamps retain absolute preferred-zone formatting and
+relative age. Structured exposed object/column fields supply short type-member
+labels rather than parsing qualified paths in React. Refresh is every 30 seconds;
+filing, source and introspection events/reconnect invalidate the observation
+key family, and custody commands invalidate it after success or refusal.
+
+**Prepare for the operator** builds a copyable/downloadable plain-text packet
+for one filing, one cause or the current filing groups. It fetches every member
+page and refuses to produce a partial packet if fetching fails or membership
+no longer agrees with the displayed count. It includes the category-specific
+cause/consequence, resolver, operator-local next steps, full filing and landing
+zone IDs, Engine ID/name recorded at arrival, and lifecycle timestamps/history.
+The full reason remains in the customer environment because it may contain file
+contents. There is no delivery, recipient directory or second export action.
+The reader chooses how to carry it. Resolved packets describe history and do
+not instruct a retry of a landed filing. No customer-source reading is added.
+
+Reviewed scoped master rules reuse `.card`, `.card-h`, `.rec`, `.rhead`,
+`.sheetb`, `.filters`, `.segbtns` and `.toolchip`. The readonly packet uses the
+existing `.pgbox textarea` control pattern. No new classes/colours or gate
+exemptions. The screen remains a review candidate: visual baselines wait for
+explicit reader approval.
