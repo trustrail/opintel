@@ -93,11 +93,11 @@ test('ING-27: table-per-filing strategy and reader-facing quarantine resolution'
 for(const width of [390,900,1440])test(`TOK-28: custody observations at ${width}`, { tag: '@visual' },async({page})=>{
  const state=await mock(page);state.empty=true;
  const causes=['custody_failed','custody_mismatch'] as const;
- await page.route('**/api/v1/projects/*/custody-observations',route=>route.fulfill({json:{items:causes.map(cause=>({id:'custody:'+cause+':',kind:'custody',cause,causeDetail:'',state:'open',count:1,oldestAt:'2026-09-22T12:00:00Z',latestAt:'2026-09-22T12:00:00Z'})),counts:{open:2,resolved:0},nextCursor:null}}));
+ await page.route('**/api/v1/projects/*/custody-observations?*',route=>route.fulfill({json:{items:causes.map(cause=>({id:'custody:'+cause+':',kind:'custody',cause,causeDetail:'',state:'open',count:1,oldestAt:'2026-09-22T12:00:00Z',latestAt:'2026-09-22T12:00:00Z'})),counts:{open:2,resolved:0},nextCursor:null}}));
  await page.route('**/api/v1/projects/*/custody-observations/members*',route=>{const mismatch=new URL(route.request().url()).searchParams.get('group')?.includes('mismatch');return route.fulfill({json:{items:[{id:mismatch?'1':'2',kind:'custody',state:'open',observedAt:'2026-09-22T12:00:00Z',resolvedAt:null,resolution:null,metadata:{keyVersion:mismatch?1:2,keyState:mismatch?'retired':'current'},history:[{at:'2026-09-22T12:00:00Z',state:'open',cause:mismatch?'custody_mismatch':'custody_failed',resolution:null}]}],nextCursor:null}});});
  await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/observations`);
  await expect(page.getByRole('heading',{name:'Escrow could not be verified',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Escrow does not match the recorded key',exact:true})).toBeVisible();
- for(const button of await page.getByRole('button',{name:'Details',exact:true}).all())await button.click();
+ for(const title of ['Escrow could not be verified','Escrow does not match the recorded key'])await page.getByRole('article',{name:title,exact:true}).getByRole('button',{name:'Details',exact:true}).click();
  await expect(page.getByText('Key version 2',{exact:true})).toBeVisible();await expect(page.getByText('Key version 1',{exact:true})).toBeVisible();
  await expect(page.getByText('This retained key is needed to verify earlier evidence.',{exact:false})).toBeVisible();
  await expect(page).toHaveScreenshot(`custody-observations-${width}.png`,{fullPage:true});await accessible(page);

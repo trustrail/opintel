@@ -24,7 +24,7 @@ for(const width of [390,900,1440])test(`unmapped source observation at ${width}`
  await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/observations`);
  await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByText('Warehouse',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'A source type has no mapping: inet',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:'View introspection'})).toHaveAttribute('href',`/projects/${project}/introspections/${run}`);
- await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`type-observation-${width}.png`,{fullPage:true});
+ await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await expect(page).toHaveScreenshot(`type-observation-${width}.png`,{fullPage:true});
  await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

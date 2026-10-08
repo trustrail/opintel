@@ -24,6 +24,8 @@ const platformManaged: GrantContract = {
 // Explicit contracts, not an exclusion list: discovery below fails on every new
 // public table until its owning scope and privileges have been reviewed.
 const contracts: Record<string, GrantContract> = {
+  // Trigger-owned history: tenant reads only, matching evidence_rollup.
+  observation_event:{opintel_app:['SELECT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
  token_join_review:{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
  token_domain_assignment:{opintel_app:['SELECT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
   token_join_candidate:{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:[...manage,'REFERENCES','TRIGGER']},
