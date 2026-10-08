@@ -104,6 +104,7 @@ test('RED-011: domain cards abbreviate members, disclose beyond four and stay eq
  const members=Array.from({length:10},(_,i)=>({elementId:`00000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`,name:`generated.generated.premium_${i}.treaty`,objectLabel:`premium_${i}`,columnName:'treaty',version:1}));
  await page.route('**/api/v1/projects/*/suggestions/domains',r=>r.fulfill({json:{items:[{domain:'treaty',members}],nextCursor:null}}));
  await page.goto(path);const cards=page.locator('.scopepick .opt');await expect(page.getByText('premium_0.treaty',{exact:true})).toHaveAttribute('title','generated.generated.premium_0.treaty');await expect(page.getByText('premium_4.treaty',{exact:true})).toBeHidden();
+ await page.locator('.screen.on').evaluate(async el=>{await document.fonts.ready;await Promise.all(el.getAnimations().map(animation=>animation.finished));});
  const heights=()=>cards.evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().height));const initial=await heights();expect(initial[0]).toBe(initial[1]);
  await page.getByRole('radio',{name:/Join the treaty domain/}).check();expect(await heights()).toEqual(initial);
  await page.getByRole('radio',{name:'Start a new domain'}).check();expect(await heights()).toEqual(initial);

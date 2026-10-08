@@ -2,7 +2,7 @@ import {test} from './fixtures.js';
 import {expect} from '@playwright/test';
 import axe from 'axe-core';
 import {mockActivity,activityPath} from './activity-fixture.js';
-import {mockDashboard,dashboardPath,quarantine} from './dashboard-fixture.js';
+import {mockDashboard,dashboardPath} from './dashboard-fixture.js';
 
 test.use({reducedMotion:'reduce'});
 for(const width of [390,900,1440])test(`A: absolute and relative timestamp at ${width}`,async({page},info)=>{
@@ -22,7 +22,7 @@ for(const width of [390,900,1440])test(`A: absolute and relative timestamp at ${
 
 for(const timezone of ['UTC','America/Toronto'])test(`A: feed timestamp parts stay intact and visible at 390 (${timezone})`,async({page})=>{
  await page.clock.setFixedTime(new Date('2026-10-06T15:43:00Z'));
- const state=await mockDashboard(page);state.findings=[{...quarantine,receivedAt:'2026-04-01T12:00:00Z'}];
+ const state=await mockDashboard(page);state.recent=[{...state.recent[0]!,startedAt:'2026-04-01T12:00:00Z'}];
  await page.route('**/api/v1/me/settings',route=>route.fulfill({json:{email:'admin@example.com',fullName:'Admin',timezone,dateFormat:'YYYY-MM-DD',reducedMotion:true}}));
  await page.setViewportSize({width:390,height:1000});await page.goto(dashboardPath);
  const timestamp=page.locator('.feed time');await expect(timestamp).toContainText('188 days ago');

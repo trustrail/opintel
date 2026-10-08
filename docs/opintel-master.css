@@ -838,8 +838,11 @@
 #opintel-app .screen[data-layout="decisions"] [data-part="decision-toolbar"] .pick label{padding:0 5px;letter-spacing:0}
 #opintel-app .screen[data-layout="decisions"] [data-part="decision-toolbar"] .pick select{padding:0 32px 0 10px;font-size:12.5px;height:34px;appearance:none;width:170px;max-width:200px;min-width:0;flex:0 1 auto}
 #opintel-app .screen[data-layout="decisions"] [data-part="picker-chevron"]{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:10px;height:6px;pointer-events:none;color:var(--ink)}
-@supports(field-sizing:content){#opintel-app .screen[data-layout="decisions"] [data-part="decision-toolbar"] .pick select{field-sizing:content;width:auto}}
-#opintel-app .screen[data-layout="decisions"] [data-part="name-filter"]{width:190px;min-width:0;margin-left:auto;border:1px solid var(--rule-2);border-radius:8px;background:var(--surface);color:var(--ink);padding:5px 10px;font:inherit;font-size:12.5px}
+@supports(field-sizing:content){
+#opintel-app .screen[data-layout="decisions"] [data-part="decision-toolbar"] .pick{min-width:min-content}
+#opintel-app .screen[data-layout="decisions"] [data-part="decision-toolbar"] .pick select{field-sizing:content;width:auto}
+}
+#opintel-app .screen[data-layout="decisions"] [data-part="name-filter"]{width:190px;min-width:0;flex-shrink:1;margin-left:auto;border:1px solid var(--rule-2);border-radius:8px;background:var(--surface);color:var(--ink);padding:5px 10px;font:inherit;font-size:12.5px}
 #opintel-app .screen[data-layout="decisions"] [data-part="scope-summary"]{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 #opintel-app .screen[data-layout="decisions"] [data-part="scope-summary"] + .note{margin:0 0 10px}
 #opintel-app .screen[data-layout="decisions"] [data-mark-list="uniform"]{background:var(--surface)}
@@ -1145,6 +1148,7 @@
   }
 }
 @container dashboard (max-width:600px) {
+  #opintel-app .screen[data-layout="dashboard"] .feed .fb { flex-basis:min-content; }
   #opintel-app .screen[data-layout="dashboard"] .tiles[data-layout="metrics"] {
     grid-template-columns:minmax(0,1fr);
   }

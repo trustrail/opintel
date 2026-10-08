@@ -36,6 +36,10 @@ async function api(page: Page, options: { empty?: boolean; noAdmin?: boolean; fa
     }
     if(path.endsWith('/stats')) { await route.fulfill({json:{asOf:'2026-09-29T00:00:00.000Z',utcDay:'2026-09-29',pools:0,sources:0,spectrum:{clear:0,tokenized:0,masked:0,aggregate_only:0,withheld:0,undecided:0},requests:0,queries:0,prompts:0,refused:0,incomplete:0,connectedAgents:0,staleAgents:0}}); return; }
     if(path.includes('/dashboard/')) { await route.fulfill({json:{items:[],nextCursor:null}}); return; }
+    if(path.endsWith('/pools')||path.endsWith('/runs')) { await route.fulfill({json:{items:[],nextCursor:null}}); return; }
+    if(path.endsWith('/observations')||path.endsWith('/custody-observations')) { await route.fulfill({json:{items:[],nextCursor:null,counts:{open:0,resolved:0}}}); return; }
+    if(path.endsWith('/suggestions')) { const id=path.split('/')[4];await route.fulfill({json:{items:[],nextCursor:null,projectName:projects.find(p=>p.id===id)?.name??'Treaty Book'}}); return; }
+    if(path.endsWith('/runs/summary')) { await route.fulfill({json:{counts:{all:0,refused:0,incomplete:0,answerTreated:0},days:[]}}); return; }
     if(path.endsWith('/token-key')) { await route.fulfill({json:{currentVersion:null,versions:[]}}); return; }
     if (path.endsWith('/projects')) await route.fulfill({ json: { items: projects, nextCursor: null } });
     else if (path.endsWith('/companies')) await route.fulfill({ json: { items: companies, nextCursor: null } });
