@@ -36,7 +36,7 @@ for(const width of [390,900,1440])test(`K7: token key and confirmation at ${widt
  await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/token-key`);
  await expect(page.getByRole('heading',{name:'Current version · 2'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Access',exact:true})).toHaveAttribute('data-active','true');
- await expect(page.getByText('Opintel cannot recover a lost key.',{exact:true})).toBeVisible();
+ await expect(page.getByText('Opintel cannot recover a lost key.',{exact:false})).toBeVisible();
  const failure=page.getByRole('alert',{name:'Rehearsal failure'});await expect(failure).toContainText('Version 1: escrow does not match');await expect(failure).toContainText('Version 2: escrow could not be verified');
  await accessible(page);await expect(page).toHaveScreenshot(`token-key-${width}.png`,{fullPage:true});
  await page.getByRole('button',{name:'Rotate key',exact:true}).click();
@@ -77,4 +77,14 @@ test('a completed rehearsal with failures stays prominent; failed company checks
  const state=await mock(page);state.companyError=true;state.rehearsalFails=true;await page.goto(`/projects/${projectId}/token-key`);
  await expect(page.getByText('Company membership could not be checked.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/Restore version/})).toHaveCount(0);
  await page.getByRole('button',{name:'Rehearse now'}).click();await expect(page.getByRole('status',{name:'Token key operation'})).toHaveText('Rehearsal finished with failures. Review the affected versions above.');await expect(page.getByRole('alert',{name:'Rehearsal failure'})).toBeVisible();
+});
+
+for(const width of [390,900,1440])test(`K7: verification finding leads with its action at ${width}`,async({page},info)=>{
+ const state=await mock(page);state.view={currentVersion:1,versions:[version(1,'current','failed')]};await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/token-key`);
+ const screen=page.locator('.screen.on'),failure=page.getByRole('alert',{name:'Rehearsal failure'}),finding=failure.getByRole('article');
+ await expect(finding.locator('[data-part=finding-count]')).toHaveText('1');await expect(finding).toContainText('Version 1: escrow could not be verified; new source connections are refused until verification succeeds.');
+ await expect(finding.getByRole('button',{name:'Rehearse now',exact:true})).toBeVisible();await expect(screen.getByRole('button',{name:'Rehearse now',exact:true})).toHaveCount(1);await expect(screen.locator('.dangerzone')).toHaveCount(0);
+ const caution=screen.locator('[aria-label="Key custody responsibility"]');await expect(caution).toHaveCount(1);await expect(caution).toContainText('Opintel cannot recover a lost key.');
+ const boxes=await screen.evaluate(el=>{const finding=el.querySelector('[data-layout=finding]')!.getBoundingClientRect(),caution=el.querySelector('[aria-label="Key custody responsibility"]')!.getBoundingClientRect();return {findingHeight:finding.height,cautionHeight:caution.height,findingBottom:finding.bottom,cautionTop:caution.top,paragraphs:el.querySelectorAll('[data-layout=finding] [data-part=body] > p').length};});expect(boxes.cautionTop).toBeGreaterThanOrEqual(boxes.findingBottom);expect(boxes.paragraphs).toBe(1);await info.attach('verification-finding',{body:JSON.stringify({width,...boxes}),contentType:'application/json'});await accessible(page);
+ await finding.getByRole('button',{name:'Rehearse now',exact:true}).click();await expect(failure).toHaveCount(0);await expect(page.getByRole('status',{name:'Token key operation'})).toHaveText('All retained key versions passed the rehearsal.');expect(state.requests.at(-1)?.action).toBe('rehearse');
 });

@@ -33,7 +33,22 @@ test('I-019/020: retained twin, SSE reconnect refresh and screen states',async({
 
 test('I-016: expired key impact, n/a denominator and absent-agent states',async({page})=>{
  const state=await mockPools(page);state.detail.keys[0]={...state.detail.keys[0]!,state:'expired',graceUntil:'2026-09-02T12:00:00.000Z'};state.detail.workingKeys=0;state.detail.activeElements=0;state.detail.clearElements=0;
- await page.goto(poolsPath);await expect(page.getByText('n/a',{exact:true})).toBeVisible();await page.getByRole('link',{name:'Reporting pool',exact:true}).click();await expect(page.getByRole('heading',{name:'Agents still on expired key'})).toBeVisible();await expect(page.getByRole('heading',{name:'1 affected agents'})).toBeVisible();
+ await page.goto(poolsPath);await expect(page.getByText('n/a',{exact:true})).toBeVisible();await page.getByRole('link',{name:'Reporting pool',exact:true}).click();await expect(page.locator('[data-part=expired-key-impact]')).toContainText('1 connected agent last authenticated with this key.');await expect(page.locator('[data-part=expired-key-impact]')).toContainText('reporter');
  state.empty=true;await page.reload();await expect(page.getByText('No agents seen yet',{exact:true})).toBeVisible();
  state.missing=true;await page.goto(twinPath);await expect(page.getByText('Agent not seen',{exact:true})).toBeVisible();await accessible(page);await page.goto(poolPath);await expect(page.getByText('Pool not found',{exact:true})).toBeVisible();await accessible(page);
+});
+
+for(const width of [390,900,1440])test(`Pool detail: expired-key facts stay inside keys card at ${width}`,async({page},info)=>{
+ const state=await mockPools(page);state.detail.keys[0]={...state.detail.keys[0]!,state:'expired'};state.detail.workingKeys=0;
+ await page.setViewportSize({width,height:1000});await page.goto(poolPath);
+ const screen=page.locator('.screen.on'),card=screen.locator('.card').filter({has:page.getByRole('heading',{name:'Pool keys',exact:true})});
+ await expect(card.locator('[data-part=expired-key-impact]')).toContainText('1 connected agent last authenticated with this key.');
+ await expect(card.locator('[data-part=expired-key-impact]')).toContainText('1 previously seen · disconnected');
+ await expect(screen.getByRole('heading')).toHaveText(['Reporting pool','Pool keys','Agents']);await expect(screen.getByText(version,{exact:true})).toHaveCount(0);
+ const facts=await card.locator('[data-part=expired-key-impact]').evaluate(el=>{const r=el.getBoundingClientRect(),card=el.closest('.card')!.getBoundingClientRect();return {height:r.height,inside:r.top>=card.top&&r.bottom<=card.bottom};});expect(facts.inside).toBe(true);await info.attach('key-facts',{body:JSON.stringify({width,...facts}),contentType:'application/json'});await accessible(page);
+});
+test('Pool detail: zero key impact is one inline fact',async({page})=>{
+ const state=await mockPools(page);const key={...state.detail.keys[0]!,state:'expired' as const};state.detail.keys=[key];state.detail.workingKeys=0;
+ await page.route('**/affected-agents*',route=>route.fulfill({json:{...key,affectedAgentCount:0,affectedAgents:[],previouslySeenAgents:[]}}));await page.goto(poolPath);
+ const impact=page.locator('[data-part=expired-key-impact]');await expect(impact.getByText('No connected agents last authenticated with this key.',{exact:true})).toBeVisible();await expect(impact.locator('h1,h2,h3')).toHaveCount(0);await expect(impact.locator('p')).toHaveCount(1);await accessible(page);
 });

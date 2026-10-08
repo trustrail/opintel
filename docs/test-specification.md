@@ -1361,5 +1361,28 @@ The five HTML screen specifications use shared master patterns. These tests pres
 | RED-008 | F/A/X | Per-member declarations and responsive groups | Mixed summaries visible before expansion, disclosure accessible, each Declarations link names one element; viewer has no mutation controls; four states, axe, placement, snapshots at 390/900/1440 |
 | RED-009–RED-011 | F/A/D | Suggestion enrichment | Separate explain/query counts and trends, contextual lookup, targeted decision link, unchanged domain and SQL safeguards |
 | RED-012–RED-014 | F/A/D | Observation groups and packet | Cause-specific consequences, durable resolution history, complete ids/ownership, safe copy/download packet without delivery or file contents |
-| RED-015–RED-018 | F/A/C | Activity summary and detail | Historical metadata, sensitive-filter contract, sampled-detail honesty, no unrelated withheld named-column detail, bounded expansion and valid marks |
+| RED-015–RED-018 | F/A/C | Activity summary and detail | Historical metadata, Answer treated delivery-only filter contract (excluding plans, omissions, refusals and incomplete), sampled-detail honesty, no unrelated withheld named-column detail, bounded expansion and valid marks |
 | RED-019–RED-020 | F/C | Dashboard integration | Counts agree with scoped destination read models, evidence links resolve, clean state disappears and unique-element/decision units remain distinct |
+
+
+**RED-019/020 Dashboard checks.** Compose real destination readers with more than one pool and enough undecided groups to cross cursor boundaries; compare complete member/group/spectrum counts, open suggestions and observations, and UTC Activity totals. A rejected suggestion or successful filing retry leaves the open count; Not sure remains. Browser checks follow the scoped Decide, filing-only Open, suggestion Open and presence links, and resolve recent evidence permalinks. Measure finding/count/metric/spark/feed geometry at 390/900/1440 with the approved content-width stacking rules. Clean attention is absent, loading/error/setup remain explicit, no SQL appears in recent rows, and custody is not fetched by a viewer. Apply axe and the unchanged control/mark-placement checks. These focused redesign checks do not regenerate snapshots before reader approval.
+
+RED-019 additionally follows Dashboard's request/refusal links into Activity with a fixture whose current UTC day is empty and whose unfiltered history contains 16 requests/4 refusals. It reads each Dashboard count, follows its link and compares it directly to the destination's displayed total, for an empty UTC day (0/0) and a nonempty day (3/1), then clears the range and asserts 16/4; seven-day chart history remains 11/1. RED-020 checks actual metric child boxes for overlap and bounds compact treatment chips at 390/900/1440. Metric links must render inline, and the chart follows supporting text and links. Each labelled seven-day chart has a visible baseline and seven day positions; all bars share its bottom alignment and zero-height days remain empty. Recently has no overlapping redundant Activity button; measure the heading-to-card gap. These assertions catch inline padded-link collisions which typography and page-width checks did not.
+
+**Treatment spectrum correspondence (RED-008/RED-020).** At 390/900/1440,
+Dashboard Exposure and Entitlements Decision distribution legends follow the
+bar's treatment order in left-to-right wrapping flow. Each segment's tooltip
+and accessible name contain its treatment and the legend's count; group
+semantics preserve the individual segment names. Check zero counts as well as
+nonzero segments, axe and unchanged control/placement conformance.
+
+**Pool detail/Token key reader pass (I-016, K7).** Check Pool detail at
+390/900/1440: expired-key impact stays inside Pool keys, version IDs are not
+standalone paragraphs, and Agents is the only section below the card. Preserve
+connected/disconnected impact counts; zero impact is one inline fact. Token key
+leads with one shared finding card whose count and concise reason name the
+affected versions and the current-key source-connection refusal. Its rehearsal
+action remains operative and occurs once; recovery caution is a line rather
+than a warning card. Preserve all rotate/restore confirmation and permission
+checks. Run axe and unchanged control/placement checks without snapshots during
+reader review.

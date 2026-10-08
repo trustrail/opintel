@@ -2,12 +2,13 @@ import {projectSettingSchema} from '../../../shared/project-settings.js';
 import {z} from 'zod';
 import {ok,type ProjectId,type UserId,type RunId,type Result} from '../../../shared/kernel/index.js';
 import type {AuthorizationPort} from '../../authz/index.js';
-import {ActivityEntry,EvidenceDetail,type ActivityFilters} from '../../../shared/api/activity.js';
+import {ActivityEntry,EvidenceDetail,type ActivityFilters,type ActivitySummary} from '../../../shared/api/activity.js';
 export type EvidenceContext={projectId:ProjectId;userId:UserId};
 export type EvidencePosition={id:RunId;at:string};
 export interface EvidenceReader {
  settings(ctx:EvidenceContext):Promise<unknown>;
  list(ctx:EvidenceContext,filters:ActivityFilters,after:EvidencePosition|null,limit:number):Promise<Result<ActivityEntry[]>>;
+ summary(ctx:EvidenceContext,filters:ActivityFilters):Promise<Result<ActivitySummary>>;
  detail(ctx:EvidenceContext,id:RunId,at:string):Promise<Result<EvidenceDetail>>;
 }
 export interface EvidenceTextPort {stripSql(sql:string):Promise<string|null>}
@@ -33,6 +34,7 @@ export class EvidenceQuery {
   const settings=await this.visibility(ctx),rows=await this.reader.list(ctx,filters,after,limit);if(!rows.ok)return rows;
   const items:ActivityEntry[]=[];for(const row of rows.value)items.push(await this.redact(row,settings));return ok(items);
  }
+ async summary(ctx:EvidenceContext,filters:ActivityFilters){return this.reader.summary(ctx,filters);}
  async redactRecords(ctx:EvidenceContext,rows:EvidenceDetail[]):Promise<Result<EvidenceDetail[]>>{
   const settings=await this.visibility(ctx),result:EvidenceDetail[]=[];
   for(const row of rows){const redacted=await this.redact(row,settings);result.push({...redacted,generatedSql:settings.redaction==='none'?row.generatedSql:settings.redaction==='allowlist'&&settings.allowlistedFields.includes('sql')&&row.generatedSql?await this.text.stripSql(row.generatedSql):null});}

@@ -21,10 +21,10 @@ export function DenseRow({kind,identity,metadata,actions}:DenseRowProps){
 export function GroupedRow({kind='element',selection,identity,type,signal,actions,expansion}:Omit<DenseRowProps,'metadata'> & {selection:ReactNode;type:ReactNode;signal?:ReactNode;expansion?:ReactNode}){
  return <div className="trow" data-layout="grouped" role="listitem" data-mark-row="true" data-row-kind={kind}>{selection}<div data-part="identity">{identity}</div><div data-part="secondary" className="type">{type}</div><div data-part="secondary" className="meta">{signal}</div><div data-part="secondary">{actions}</div>{expansion}</div>;
 }
-export function InlineExpansion({kind,identity,metadata,id,label,open,onToggle,children}:PropsWithChildren<Omit<DenseRowProps,'actions'> & {id:string;label:string;open:boolean;onToggle:()=>void}>){
+export function InlineExpansion({kind,identity,metadata,leading,secondary,timestamp,id,label,open,onToggle,children}:PropsWithChildren<Omit<DenseRowProps,'actions'> & {leading?:ReactNode;secondary?:ReactNode;timestamp?:ReactNode;id:string;label:string;open:boolean;onToggle:()=>void}>){
  // Do not mount sensitive detail while closed: consumers fetch arguments only
  // while open and retain Activity's existing zero-retention cache policy.
- return <div className={open?'rec open':'rec'} data-density="dense" role="listitem" data-mark-row="true" data-row-kind={kind}><div className="rhead"><div data-part="identity">{identity}</div><div className="rmeta">{metadata}</div><button className="toolchip" type="button" aria-expanded={open} aria-controls={id} onClick={onToggle}>{label}</button></div><div className="rdetail" id={id} hidden={!open}>{open?children:null}</div></div>;
+ return <div className={open?'rec open':'rec'} data-density="dense" role="listitem" data-mark-row="true" data-row-kind={kind}><div className="rhead">{leading}<div data-part="identity">{identity}</div>{secondary}<div className="rmeta" data-part="actor">{metadata}</div>{timestamp}<button className="toolchip" type="button" aria-expanded={open} aria-controls={id} onClick={onToggle}>{label}</button></div><div className="rdetail" id={id} hidden={!open}>{open?children:null}</div></div>;
 }
 export function WeightedActionBar({count,consequence,children}:PropsWithChildren<{count:ReactNode;consequence:ReactNode}>){
  return <div className="bulkbar on" data-layout="weighted" role="group" aria-label="Selected decisions"><div className="n">{count}</div><div data-part="consequence">{consequence}</div>{children}</div>;

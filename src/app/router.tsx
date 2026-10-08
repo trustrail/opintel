@@ -45,7 +45,7 @@ const chooserRoute = createRoute({ getParentRoute: () => rootRoute, path: '/proj
 const createProjectRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/new', component: CreateProjectScreen });
 const createCompanyRoute = createRoute({ getParentRoute: () => rootRoute, path: '/companies/new', component: CreateCompanyScreen });
 const projectDashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/dashboard', component: ProjectDashboard });
-const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined),decision:z.enum(['undecided','decided','all']).optional().catch(undefined),layout:z.enum(['name','table']).optional().catch(undefined),elementId:z.uuid().optional().catch(undefined),declarationSchema:z.string().max(512).optional().catch(undefined)}).parse(search), component: () => {
+const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects/$projectId/$screen', validateSearch:search=>z.object({poolId:z.uuid().optional().catch(undefined),sourceId:z.uuid().optional().catch(undefined),undecided:z.boolean().optional().catch(undefined),decision:z.enum(['undecided','decided','all']).optional().catch(undefined),layout:z.enum(['name','table']).optional().catch(undefined),elementId:z.uuid().optional().catch(undefined),declarationSchema:z.string().max(512).optional().catch(undefined),observationKind:z.enum(['filing','type','custody']).optional().catch(undefined),observationGroup:z.string().max(2048).optional().catch(undefined),observationView:z.enum(['open','resolved']).optional().catch(undefined)}).parse(search), component: () => {
   const { screen, projectId } = projectScreenRoute.useParams();
   const search=projectScreenRoute.useSearch(),navigate=projectScreenRoute.useNavigate();
   if(screen==='relationship-suggestions')return <RouteErrorBoundary><SuggestionsScreen key={projectId} projectId={projectId} filter={{elementId:search.elementId,poolId:search.poolId}}/></RouteErrorBoundary>;
@@ -56,7 +56,7 @@ const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: 
   if (screen === 'token-key') return <RouteErrorBoundary><TokenKeyScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'catalog') return <RouteErrorBoundary><CatalogScreen key={projectId} projectId={projectId} search={search} onSearch={next=>{void navigate({search:next});}} /></RouteErrorBoundary>;
   if (screen === 'data-sources') return <RouteErrorBoundary><SourcesScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
-  if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
+  if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId+JSON.stringify([search.observationKind,search.observationGroup,search.observationView])} projectId={projectId} filter={{kind:search.observationKind,group:search.observationGroup,view:search.observationView}} /></RouteErrorBoundary>;
   if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   return <RouteScreen title={navGroups.flatMap((group) => group.items).find((item) => item.path === `/${screen}`)?.label ?? 'Not found'} />;
 } });

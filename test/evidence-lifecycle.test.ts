@@ -65,3 +65,16 @@ it('forward provisioning creates month +3 with app grants and forced RLS',async(
  await new EvidenceMaintenance().provision();
  const rows=await withPlatformAdmin({actor:{kind:'system',name:'test'}},tx=>tx.query<{relforcerowsecurity:boolean;can_update:boolean}>("SELECT c.relforcerowsecurity,has_table_privilege('opintel_app',c.oid,'UPDATE') AS can_update FROM pg_class c WHERE c.relname='query_run_'||to_char(date_trunc('month',now() AT TIME ZONE 'UTC')+interval '3 months','YYYYMM')"));expect(rows).toEqual([{relforcerowsecurity:true,can_update:false}]);
 });
+
+it('RED-015/016: retained delivery counts keep Answer treated searchable without reconstructing element or plan detail',async()=>{
+ const f=await fixture({fullRetentionDays:1,rollupRetentionDays:1});
+ const [run]=await withTenant(f.ctx,async tx=>{
+  const rows=await tx.query<{id:string;at:string}>("INSERT INTO query_run(project_id,pool_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,'test','query','SELECT 1',$3,clock_timestamp()-interval '2 days') RETURNING id,started_at::text AS at",[f.ctx.projectId,f.pool,f.plan.versions]);const r=rows[0]!;
+  await tx.query("INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment) VALUES($1,$2,$3,'old_mask','released','masked')",[r.id,r.at,f.ids[0]]);
+  await tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at) VALUES($1,$2,$3,$2)",[r.id,r.at,{kind:'answered',rowCount:1,truncated:false}]);return rows;
+ });unwrap(await f.maintenance.project(f.ctx.projectId));
+ const reader=new PostgresEvidenceReader(),items=unwrap(await reader.list(f.ctx,{answerTreated:'true'},null,50));expect(items).toHaveLength(1);expect(items[0]).toMatchObject({id:run!.id,recordKind:'rollup',metadata:{objects:null,delivered:{masked:1}}});
+ expect(unwrap(await reader.summary(f.ctx,{})).counts.answerTreated).toBe(1);
+ expect(unwrap(await reader.list(f.ctx,{search:'old_mask'},null,50))).toHaveLength(0);
+ expect(unwrap(await reader.detail(f.ctx,RunId(run!.id),run!.at))).toMatchObject({objects:[],elements:[],recordKind:'rollup'});
+});

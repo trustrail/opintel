@@ -1861,7 +1861,7 @@ const TokenKeyView = z.object({
 **Browser screen (4.3d):** `/projects/:id/token-key`, a drawer sub-item under Access for
 project administrators. It shows the current and retained versions, backup and
 rehearsal outcomes, and the K7 loss warning. Failed or mismatched rehearsals have
-a prominent explanation above the version table. Rotate and restore explain
+one shared finding card before the key content: the number of affected versions, a concise reason and consequence for each, current-key failures first, and Rehearse now. The current-key consequence names the refusal of new source connections; retained-key failures explain the historical-token consequence. The general custody caution is one line, not another warning card. Rotate and restore explain
 their effects before requesting the project name; rotation also requires a
 reason. Restore controls require company administration as well as project
 administration; the server remains authoritative. An uninitialized project
@@ -3788,7 +3788,7 @@ publication does not undo a committed observation. Item 5.14 supplies the agent 
 
 **Item 5.14 console reads.** The existing cursor-paged pool list includes query/prompt modes, bound source IDs, total observed agents (including disconnected), active agents, working key count, clear element count and active element count. `GET /pools/:id?projectId=…` returns those fields plus key metadata and the configured grace duration. `GET /pools/:id/agents/:agentId?projectId=…` returns the observed presence and `keyMetadata` for its last-authenticated version. All reads require project `view`; key actions and impact reporting retain `administer`. No read returns a credential or hash. Grace expiry is calculated at read time, even before the expiry worker runs.
 
-The pool detail and agent twin are contextual destinations under Pools, reached from their respective rows. Breadcrumbs link to Pools and the specific pool. Neither is a separate project-wide drawer destination. All three screens provide loading, empty/not-found, error and ready states using existing console classes.
+The pool detail and agent twin are contextual destinations under Pools, reached from their respective rows. Breadcrumbs link to Pools and the specific pool. Neither is a separate project-wide drawer destination. Pool detail keeps expired-key impact facts inside the Pool keys card, labelled by prefix, with the full version ID available in the prefix tooltip. Connected and previously seen disconnected agents remain distinct; a zero connected count is one inline fact rather than a heading plus a repeated explanation. Agents is the sole section below the keys card. All three screens provide loading, empty/not-found, error and ready states using existing console classes.
 
 An issuing response is held only in transient screen-local state, never returned into the query/mutation cache or persisted. The key dialog cannot close through Escape or its backdrop. Successful clipboard copy (or copying the entire selected key) enables explicit dismissal, which clears the credential. Internal navigation is blocked while the dialog is open; unloading warns that the response cannot be recovered. A replay explains that the key was already shown and offers no recovery path. Rotation shows grace and key-specific impact; revocation requires the pool name and separates disconnected, previously seen identities.
 
@@ -4009,6 +4009,31 @@ this slice, so allowlisting `prompt` cannot expose prose without a structured
 literal-stripping path. Only `none`, with `view_unredacted`, exposes raw prompts.
 Stage details and source plans are projected to declared metadata, rather than
 returning arbitrary JSON that could contain arguments.
+
+**5.32 Activity filters.** **Answer treated** selects completed answered or
+reduced records with recorded tokenized, masked or aggregate-only deliveries.
+It excludes planned reads, omissions, refusals and incomplete requests. It is
+not a sensitivity classification. Full records use immutable delivery rows;
+retained rollups use their recorded delivery treatment counts and identify the
+loss of element detail. Object/element search matches historical object
+addresses and recorded element deliveries/omissions, never hidden arguments
+or every column of the object's staged shape. Tab counts share the other
+filters, and UTC day counts cover the complete matching scope, not a loaded
+page. The summary route requires project#view and returns no arguments.
+The day strip paints one mark per matching request, grouped by recorded outcome,
+using exact counts rather than a proportional or fixed-size sample. Grouping
+by outcome does not assert chronological request order. Repeated SVG patterns
+keep the rendered node count bounded; long strips scroll within their available
+width. Agent identity remains distinct from the pool name: authentication key
+prefixes and synthetic-source annotations are not pool labels. The pool name
+is omitted only when its recorded id matches the project's sole known pool.
+
+Rows use recorded object-count facts rather than inferring operations. Two
+objects do not prove a join. Missing plan detail is labelled as missing.
+Structured inspection metadata for operation labels is deferred to 5.32a.
+The record permalink remains for evidence links and shares the same detail
+reader as in-place expansion. Closed or virtualized-away detail is unmounted;
+argument queries retain the existing zero inactive retention policy.
 
 Activity uses cursor pagination ordered by `(started_at, id)` descending,
 with mode, pool, outcome, agent and UTC time-range filters. The detail endpoint
@@ -4639,13 +4664,17 @@ Rendering an empty table with no explanation is a defect. Every screen has a pur
 **A drawer item with sub-items carries a separate disclosure button**, a sibling of its navigation control. The label navigates; the disclosure only toggles, with manual overrides in the drawer store rather than the URL. Its accessible name is Show/Hide sub-items of X and aria-expanded reports the state. Enter and Space toggle. One decorative right-chevron icon rotates 90 degrees when expanded, using the same colour token and weight in both states. Hover, focus-within and active backgrounds belong to the shared row; both controls stay transparent. Focus rings belong only to the focused control. + is not used, because in this console it means create.
 
 
-**Dashboard (item 5.15).** Project-wide ratios and the treatment spectrum count active bound pool–element pairs, including undecided pairs. The label is **“decisions across N pools”**, never “elements”: one field can have different treatments in different pools. Removed objects/elements and archived sources are excluded. The ring shows decided coverage; the spectrum states the clear ratio. Pool shields use the same active denominator within their pool and show n/a when it is zero.
+**Dashboard (items 5.15 and 5.33).** Three bands: Needs you, Where the project stands, and Recently. Needs you is absent when clean: no heading, placeholder or “no issues” card. Each finding has a count, a short explanation, a factual small visual and the resolving action. Undecided cards are per pool and link to the same undecided member scope, grouped by exposed name; their group count is exact, not an estimate of how many decisions a person will make. Join attempted means recorded query/explain join attempts only, never general demand for a field.
 
-The tiles are Requests today, Refused today, Incomplete today and Agents connected. **Today is UTC and is labelled UTC on screen**, including the UTC date. Requests count headers, including incomplete runs; refusals count recorded refused completions; incomplete means no completion row. These counts include demo runs and expose no request arguments. Connected counts live connecting/active/idle observations; stale is stated separately, using the configured presence deadlines. No historical trend or fully-decided streak is inferred from current state.
+The exposure spectrum counts active bound pool–element decisions, including undecided pairs, not unique elements. The label is **“decisions across N pools”**. The same element can have different treatments in different pools. Removed objects/elements and archived sources are excluded by the Entitlements reader. The clear ratio is factual, without editorial judgement. Each pool's decision link selects its complete scope in Entitlements. Exposure and Decision distribution legends follow their bars left to right, wrapping in reading order: clear, tokenized, masked, aggregate-only, withheld, undecided. Each segment has a tooltip and an accessible name containing its treatment and count; the bar is a group so it does not hide those names. Zero counts remain in the legend.
 
-**When there are no findings, the feed is absent rather than empty.** No heading, placeholder, “no issues” card or filler appears in its place. A clean project remains a quiet screen with factual metrics and pool shields; a placeholder would manufacture something to attend to. **The dashboard states the clear ratio without judging it.** Whether 80% clear is correct depends on the data. Editorial warnings based on that number train people to dismiss the dashboard.
+The tiles are Requests today, Refused today, Incomplete today and Agent connections. Request/refusal/incomplete trends cover seven UTC calendar days, including today, with absent days shown as zero. **Last 7 days (UTC)** labels each chart once. A baseline track with seven day positions makes zero days visible as empty; all value bars rise from that baseline at the bottom of the chart. Today uses the UTC date at the recorded as-of instant; Activity links carry that day's start and the same cutoff, plus the displayed mode/outcome. Requests include incomplete headers; incomplete means **no answer was recorded**, not that nothing reached the agent. Absolute timestamps respect the reader's display preferences. Current presence counts connecting/active/idle observations across pools; pool links expose the same presence records, including stale/disconnected observations in their seen counts. No historical presence trend is invented.
 
-The feed contains current undecided pairs grouped by pool/source, current source failures, quarantined filings with category-specific explanation, outcome, selectable landing-zone and filing IDs, and existing permission-gated custody failures. Quarantine filenames and detailed local reasons are never fetched. A quarantine states that nothing landed and its data is not in the catalogue, names whoever operates Opintel Engine as the resolver, and says the full reason stays in the customer environment because it may contain file contents. Operator commands live in the Engine documentation and register CLI help, not in each observation. There is no acknowledge/resolve workflow. Setup guidance disappears once a project has a source and a pool. Stats and the cursor-paged feed/shields require project view, refresh on entry and every 30 seconds, and invalidate together under project.stats on project SSE changes/reconnect. Existing mutation invalidations of project.stats cover the new reads. Custody remains under its existing administrator-only endpoint and cache policy.
+Open filing counts come from retained Observations groups, not the latest arrival notice. The cause chips distinguish the problems; Prepare for the operator opens the same filing-only Open scope in Observations, where the reader can prepare the copyable/downloadable packet. Linked kind/group scopes apply to both Open and Resolved tab counts. Filenames and local reasons are never fetched. Type and administrator-only custody findings link to their specific observation groups. Existing source failures link to the failed introspection record when recorded. Pending and Not sure suggestions count as open; confirmed/rejected history does not. The suggestion count links to that Open list.
+
+Recently uses authorised historical Activity metadata and the shared detail permalink. It has no additional Open Activity button; the scoped metric links already provide that destination. Row labels retain the honest object-count fallback when operation metadata is unavailable; they do not parse hidden SQL. Only request rows are shown; entitlement-change history is not reconstructed. No request arguments are retained in the Dashboard's client read model.
+
+**Read-model ownership.** Dashboard composes the existing, Zod-validated destination APIs: complete pool pages, Entitlements group totals and undecided pages, complete open observation/suggestion pages, Activity summaries and recent records, and complete per-pool presence pages. Existing Dashboard stats supply the as-of date and source setup count; existing feed supplies current source failures only. There is no competing SQL for the destination counts. Every cursor needed for a total is traversed; a failed read or inconsistent entitlement page scope produces an error rather than a partial total or false clean state. This is a refresh-time composition, not an atomic snapshot across all readers. It refreshes on entry and every 30 seconds under the project.stats query family; existing mutation and SSE invalidations cover it. Custody remains permission-gated. Setup guidance appears until a source and a pool exist.
 
 ## 5.6 Slice 1 screens
 
@@ -4655,7 +4684,7 @@ Deferred to Slice 3: releases, source of truth, the full relationships model (ex
 The Audit log drawer item is hidden until that screen exists; append-only
 audit storage alone is not a destination an administrator can use.
 
-**The Dashboard is in Slice 1a**, as item 5.15. It shows the decided ratio, the treatment spectrum, counts, the needs-a-decision feed and the pool shields. Findings surface inline in that feed rather than in a register with acknowledge and resolve states, which is what Slice 3 adds.
+**The Dashboard is in Slice 1a**, as item 5.15. Item 5.33 presents the exposure spectrum and counts in three bands, with scoped attention cards and recent evidence permalinks. Findings surface inline in that feed rather than in a register with acknowledge and resolve states, which is what Slice 3 adds.
 
 Quarantined filings appear in the dashboard feed for the same reason: they need a decision and they belong to no source.
 

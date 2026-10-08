@@ -9,11 +9,14 @@ import {Timestamp} from '../settings/preferences.js';
 import {useProjects} from '../tenancy/data.js';
 import {useObservationGroups,useObservationMembers,readObservationMembers} from './data.js';
 import {observationScreenState,observationExpansion} from './state.js';
-export function ObservationsScreen({projectId}:{projectId:string}){
- const [store]=useState(observationScreenState),state=useStore(store),projects=useProjects(),admin=projects.data?.find(p=>p.id===projectId)?.role==='admin';
+export function ObservationsScreen({projectId,filter={}}:{projectId:string;filter?:{kind?:'filing'|'type'|'custody';group?:string;view?:'open'|'resolved'}}){
+ const [store]=useState(()=>observationScreenState(filter.view)),state=useStore(store),projects=useProjects(),admin=projects.data?.find(p=>p.id===projectId)?.role==='admin';
  const query=useObservationGroups(projectId,state.view),custody=useObservationGroups(projectId,state.view,true,admin);
- const groups=[...(query.data?.items??[]),...(admin?custody.data?.items??[]:[])],filings=groups.filter(g=>g.kind==='filing');
- const counts={open:(query.data?.counts.open??0)+(admin?custody.data?.counts.open??0:0),resolved:(query.data?.counts.resolved??0)+(admin?custody.data?.counts.resolved??0:0)};
+ const linked=Boolean(filter.kind||filter.group),opposite=state.view==='open'?'resolved':'open',other=useObservationGroups(projectId,opposite,false,linked),otherCustody=useObservationGroups(projectId,opposite,true,linked&&admin);
+ const matches=(g:ObservationGroup)=>(!filter.kind||filter.kind===g.kind)&&(!filter.group||filter.group===g.id);
+ const groups=[...(query.data?.items??[]),...(admin?custody.data?.items??[]:[])].filter(matches),filings=groups.filter(g=>g.kind==='filing');
+ const countReady=!query.isPending&&!query.isError&&(!admin||!custody.isPending&&!custody.isError)&&(!linked||!other.isPending&&!other.isError&&(!admin||!otherCustody.isPending&&!otherCustody.isError));
+ const counts=!countReady?{open:undefined,resolved:undefined}:linked?{[state.view]:groups.reduce((n,g)=>n+g.count,0),[opposite]:[...(other.data?.items??[]),...(admin?otherCustody.data?.items??[]:[])].filter(matches).reduce((n,g)=>n+g.count,0)}:{open:(query.data?.counts.open??0)+(admin?custody.data?.counts.open??0:0),resolved:(query.data?.counts.resolved??0)+(admin?custody.data?.counts.resolved??0:0)};
  const prepare=async(selected:readonly ObservationGroup[],one?:ObservationMember)=>{store.getState().begin();try{
   const entries=[];for(const group of selected){const members=one?[one]:await readObservationMembers(projectId,group.id,group.state,false);if(!members.length||(!one&&members.length!==group.count))throw new Error('Observation membership changed.');entries.push({group,members});}
   store.getState().prepared(prepareOperatorPacket(entries,new Date().toISOString()));
@@ -21,12 +24,15 @@ export function ObservationsScreen({projectId}:{projectId:string}){
  const copy=async(text:string)=>{try{await navigator.clipboard.writeText(text);store.getState().notify('Copied.');}catch{store.getState().notify('Clipboard access is unavailable. Select and copy the packet or download it.');}};
  const download=()=>{if(!state.packet)return;const url=URL.createObjectURL(new Blob([state.packet],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='opintel-operator-packet.txt';a.click();URL.revokeObjectURL(url);};
  return <section className="screen on" data-layout="observations"><h1>Observations</h1><p className="sub">Things the system noticed and set aside rather than guessing about. Grouped by what happened, because the same cause can affect several things at once.</p>
+ {linked?<p className="note">Showing the linked observation scope. <Link className="btn ghost" to="/projects/$projectId/$screen" params={{projectId,screen:'observations'}} search={{}}>Show all observations</Link></p>:null}
  <div className="filters"><SegmentedFilters label="Observation state" value={state.view} options={[{value:'open',label:'Open',count:counts.open},{value:'resolved',label:'Resolved',count:counts.resolved}]} onChange={state.show}/><Button variant="ghost" disabled={!filings.length||state.preparing||query.isPending||query.isError} onClick={()=>{void prepare(filings);}}>{state.preparing?'Preparing…':'Prepare for the operator'}</Button></div>
  {state.notice?<p className="note" role="status">{state.notice}</p>:null}
  {state.packet?<section className="card" data-purpose="operator-packet" aria-labelledby="operator-packet-heading"><header className="card-h"><h2 id="operator-packet-heading">Prepared for the operator</h2><Button variant="ghost" onClick={state.close}>Close packet</Button></header><div className="sheetb"><p>This is a packet for you to carry. Nothing has been sent.</p><div className="pgbox"><label htmlFor="operator-packet">Copyable summary</label><textarea id="operator-packet" readOnly rows={14} value={state.packet}/></div></div><footer className="sheetf"><Button variant="ghost" onClick={()=>{void copy(state.packet!);}}>Copy packet</Button><Button onClick={download}>Download packet</Button></footer></section>:null}
  {query.isPending?<LoadingState/>:query.isError?<ErrorState title="Observations could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>:null}
  {admin&&custody.isError?<ErrorState title="Key custody observations could not be loaded" description={custody.error.message} retry={()=>custody.refetch()}/>:null}
- {!query.isPending&&!query.isError&&!groups.length&&(!admin||!custody.isPending)&&!custody.isError?<p className="note">{state.view==='open'?'Nothing needs attention.':'No resolved observations recorded yet.'}</p>:null}
+ {linked&&other.isError?<ErrorState title="Linked observation counts could not be loaded" description={other.error.message} retry={()=>other.refetch()}/>:null}
+ {linked&&admin&&otherCustody.isError?<ErrorState title="Linked custody counts could not be loaded" description={otherCustody.error.message} retry={()=>otherCustody.refetch()}/>:null}
+ {countReady&&!groups.length&&(!admin||!custody.isPending)&&!custody.isError?<p className="note">{state.view==='open'?'Nothing needs attention.':'No resolved observations recorded yet.'}</p>:null}
  <div data-mark-list="mixed">{groups.map(group=><Group key={group.id+group.state} projectId={projectId} group={group} preparing={state.preparing} prepare={(one)=>{void prepare([group],one);}} copyIds={member=>{void copy(`Landing zone ID: ${member.metadata.zoneId}\nFiling ID: ${member.metadata.filingId}\nEngine ID: ${member.metadata.engineId??'Not recorded'}`);}}/>)}</div>
  </section>;
 }

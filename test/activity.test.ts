@@ -63,3 +63,42 @@ it('M-014: parsed literal stripping covers nesting, comments, escaped strings, n
  expect(await strip.stripSql("SELECT 'unterminated-sensitive")).toBeNull();expect(await strip.stripSql("COPY t TO 'sensitive-file'")).toBeNull();
  expect(await strip.stripSql("SELECT * FROM 'sensitive-file.parquet'")).toBeNull();
 });
+
+it('RED-015: summaries use recorded deliveries and object references, never current decisions or hidden SQL',async()=>{
+ const h=await header("SELECT field_1 FROM old_catalog.old_schema.old_object WHERE field_1='hidden-value'");
+ await withTenant(f.ctx,async tx=>{
+  await tx.query("INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment) VALUES($1,$2,$3,'old_column','released','tokenized')",[h.id,h.startedAt,f.ids[0]]);
+  await tx.query("INSERT INTO run_element(run_id,started_at,exposed_name,state,treatment) VALUES($1,$2,'star_omission','withheld',NULL)",[h.id,h.startedAt]);
+  await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,source_plan,completed_at) VALUES($1,$2,$3,$4,$2)',[h.id,h.startedAt,{kind:'reduced',rowCount:1,truncated:false,withheld:1},{objects:[{catalog:'old_catalog',schema:'old_schema',name:'old_object',columns:[{elementId:f.ids[0],exposedName:'old_column'},{elementId:null,exposedName:'unrelated_private_column'}]}],sql:'plan-secret'}]);
+ });await f.set('clear');authorized=false;
+ const path=`${base}/api/v1/projects/${f.ctx.projectId}/runs?search=old_column`;
+ const raw=await (await fetch(path)).text();expect(raw).not.toContain('hidden-value');expect(raw).not.toContain('plan-secret');expect(raw).not.toContain('unrelated_private_column');
+ expect(ActivityPage.parse(JSON.parse(raw)).items[0]?.metadata).toMatchObject({objects:[{catalog:'old_catalog',schema:'old_schema',name:'old_object'}],delivered:{tokenized:1},omissions:{withheld:1}});
+ const absent=ActivityPage.parse(await (await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs?search=unrelated_private_column`)).json());expect(absent.items).toHaveLength(0);
+ expect(ActivityPage.parse(await (await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs?search=old_object`)).json()).items).toHaveLength(1);
+});
+it('RED-016: Answer treated excludes plans, omissions, refusals and incomplete; UTC totals cover every cursor page',async()=>{
+ const stamps=['2026-10-05T23:59:59Z','2026-10-06T00:00:00Z','2026-10-06T01:00:00Z','2026-10-06T02:00:00Z','2026-10-06T03:00:00Z'];
+ for(let i=0;i<stamps.length;i++){
+  const h=await header('SELECT 1',stamps[i]);await withTenant(f.ctx,async tx=>{
+   if(i===4)return;
+   if(i===0||i===1)await tx.query("INSERT INTO run_element(run_id,started_at,exposed_name,state,treatment) VALUES($1,$2,'recorded','released',$3)",[h.id,h.startedAt,i===0?'tokenized':'clear']);
+   if(i===2)await tx.query("INSERT INTO run_element(run_id,started_at,exposed_name,state,treatment) VALUES($1,$2,'omission','withheld',NULL)",[h.id,h.startedAt]);
+   await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,source_plan,completed_at) VALUES($1,$2,$3,$4,$2)',[h.id,h.startedAt,i===3?{kind:'refused',code:'sql_not_permitted',element:null,stage:'validate'}:{kind:i===2?'reduced':'answered',rowCount:1,truncated:false,...(i===2?{withheld:1}:{})},{objects:[{catalog:'c',schema:'s',name:'planned',columns:[{elementId:null,exposedName:'planned_token',treatment:'tokenized'}]}]}]);
+  });
+ }
+ const url=`${base}/api/v1/projects/${f.ctx.projectId}/runs`;
+ const page=ActivityPage.parse(await (await fetch(url+'?answerTreated=true&limit=1')).json());expect(page.items).toHaveLength(1);expect(page.items[0]?.startedAt).toContain('2026-10-05T23:59:59');expect(page.nextCursor).toBeNull();
+ const totals=await (await fetch(url+'/summary')).json();expect(totals).toMatchObject({counts:{all:5,refused:1,incomplete:1,answerTreated:1},days:[{day:'2026-10-06',counts:{all:4}},{day:'2026-10-05',counts:{all:1,answerTreated:1}}]});
+ const filtered=await (await fetch(url+'/summary?answerTreated=true')).json();expect(filtered).toMatchObject({counts:{all:5},days:[{day:'2026-10-05',counts:{all:1}}]});
+ const cursorPage=ActivityPage.parse(await (await fetch(url+'?limit=1')).json());expect(cursorPage.nextCursor).not.toBeNull();expect((await fetch(url+'?limit=1&answerTreated=true&cursor='+cursorPage.nextCursor)).status).toBe(400);
+ view=false;expect((await fetch(url+'/summary')).status).toBe(404);
+});
+it('RED-017: refusal projection withholds arbitrary native messages and preserves the contextual candidate',async()=>{
+ const h=await header(),left=f.ids[0]!,right=f.ids[1]!;await withTenant(f.ctx,async tx=>{
+  await tx.query("INSERT INTO run_stage(run_id,started_at,stage,result,detail,ms) VALUES($1,$2,'validate','refuse',$3,1)",[h.id,h.startedAt,{cause:'unsatisfiable_token_join',message:'native-sentinel-value',stack:'native-sentinel-value'}]);
+  await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,completed_at) VALUES($1,$2,$3,$2)',[h.id,h.startedAt,{kind:'refused',code:'sql_not_permitted',element:null,stage:'validate'}]);
+  await tx.query("INSERT INTO token_join_candidate(id,run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at) VALUES($1,$1,$2,$3,$4,$5,'warehouse.public.left.id','warehouse.public.right.id','agent','literal-sentinel-value',$6)",[h.id,f.ctx.projectId,f.pool,left,right,h.startedAt]);
+ });authorized=false;
+ const raw=await (await fetch(detailUrl(h))).text();expect(raw).not.toContain('sentinel-value');const detail=EvidenceDetail.parse(JSON.parse(raw));expect(detail.metadata.refusal).toMatchObject({stage:'validate',candidate:{id:h.id,columns:[{elementId:left},{elementId:right}]}});expect(detail.metadata.refusal?.message).toContain('administrator');
+});

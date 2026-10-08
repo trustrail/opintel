@@ -4,7 +4,7 @@ import {DomainError,err,ok} from '../../../shared/kernel/index.js';
 import {EvidenceExportDescriptor,type ExportCommand} from '../../../shared/api/evidence-export.js';
 import type {EvidenceContext,EvidencePosition} from '../application/read.js';
 import type {ExportId,ExportRepository} from '../application/export.js';
-import {columns,childColumns,time,detailRecord} from './read.js';
+import {columns,childColumns,time,detailRecord,activityScope} from './read.js';
 const descriptorColumns=`id,project_id AS "projectId",format,filters,${time('created_at')} AS "createdAt"`;
 const missing=()=>err(new DomainError('not_found','This export was not found in this project.'));
 export class PostgresEvidenceExports implements ExportRepository {
@@ -32,11 +32,8 @@ export class PostgresEvidenceExports implements ExportRepository {
   const a=Buffer.from(expected.value,'hex'),b=Buffer.from(signature,'hex');return a.length===b.length&&timingSafeEqual(a,b)?ok(undefined):err(new DomainError('forbidden','This export download signature is invalid.'));
  }
  async page(ctx:EvidenceContext,descriptor:EvidenceExportDescriptor,after:EvidencePosition|null,limit:number){
-  const params:unknown[]=[ctx.projectId,descriptor.createdAt];const where=['r.project_id=$1','r.started_at<=$2::timestamptz','c.synthetic IS DISTINCT FROM TRUE'];
+  const {params,where}=activityScope(ctx.projectId,descriptor.filters);params.push(descriptor.createdAt);where.push(`r.started_at<=$${params.length}::timestamptz`,'c.synthetic IS DISTINCT FROM TRUE');
   const add=(sql:string,value:unknown)=>{params.push(value);where.push(sql.replace('?',`$${params.length}`));};const f=descriptor.filters;
-  if(f.poolId)add('r.pool_id=?',f.poolId);if(f.agentId)add('r.agent_id=?',f.agentId);if(f.mode)add('r.mode=?',f.mode);
-  if(f.from)add('r.started_at>=?::timestamptz',f.from);if(f.to)add('r.started_at<?::timestamptz',f.to);
-  if(f.outcome)add("COALESCE(c.outcome->>'kind','incomplete')=?",f.outcome);
   if(f.elementId)add('EXISTS(SELECT 1 FROM run_element e WHERE e.run_id=r.id AND e.started_at=r.started_at AND e.element_id=?)',f.elementId);
   if(after){params.push(after.at,after.id);where.push(`(r.started_at,r.id)<($${params.length-1}::timestamptz,$${params.length}::uuid)`);}params.push(limit);
   const rows=await withTenant(ctx,tx=>tx.query<Record<string,unknown>>(`SELECT ${columns},${time('c.completed_at')} AS "completedAt",c.token_key_version_used AS "tokenKeyVersionUsed",(c.outcome->>'truncated')::boolean AS truncated,c.outcome->>'code' AS "refusalCode",c.generated_sql AS "generatedSql",c.freshness,c.source_plan AS "sourcePlan",

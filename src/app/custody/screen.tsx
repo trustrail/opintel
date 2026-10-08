@@ -1,6 +1,6 @@
 import {Timestamp as DisplayTimestamp} from '../settings/preferences.js';
 import { useEffect, useRef, type FormEvent } from 'react';
-import { Button, Card, CardHeader, EmptyState, ErrorState, LoadingState } from '../../shared/ui/index.js';
+import { Button, Card, CardHeader, EmptyState, ErrorState, FindingCard, FindingGrid, LoadingState } from '../../shared/ui/index.js';
 import { useCompanies, useProjects } from '../tenancy/data.js';
 import { useCustodyAction, useTokenKey } from './data.js';
 import { useCustodyUi } from './state.js';
@@ -23,20 +23,22 @@ export function TokenKeyScreen({projectId}:{projectId:string}) {
     if(!request)return;
     try{await mutation.mutateAsync(request);ui.close();}catch{/* The API's safe message is rendered unchanged below. */}
   }
-  const failures=query.data?.versions.filter(v=>v.lastRehearsal==='failed'||v.lastRehearsal==='mismatch')??[];
+  const failures=query.data?.versions.filter(v=>v.lastRehearsal==='failed'||v.lastRehearsal==='mismatch').sort((a,b)=>Number(b.state==='current')-Number(a.state==='current')||b.version-a.version)??[];
+  const rehearse=<Button disabled={mutation.isPending||action!==null} onClick={()=>{mutation.reset();mutation.mutate({action:'rehearse'});}}>{mutation.isPending&&mutation.variables?.action==='rehearse'?'Rehearsing…':'Rehearse now'}</Button>;
   return <section className="screen on">
     <h1>Token key</h1><p className="sub">The key that makes tokens reproducible across sources and over time. {project?.name}</p>
-    <section className="dangerzone" aria-label="Key custody responsibility"><div><b>Opintel cannot recover a lost key.</b><span>You hold the key and its escrow copy in your environment. If both are lost, earlier tokens cannot be reproduced and historical evidence cannot be verified. Keep every retained version and verify its backup.</span></div></section>
     {query.isPending||projects.isPending?<LoadingState/>:query.isError?<ErrorState title="Token key could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>
     :projects.isError?<ErrorState title="Project could not be loaded" description={projects.error.message} retry={()=>projects.refetch()}/>
     :!project?<EmptyState icon="!" title="Project unavailable" description="Return to All projects to choose a project you can administer."/>
     :query.data.currentVersion===null?<EmptyState title="No token key yet" description="The key is created and its escrow backup verified when the first source connects. Nothing needs to be rotated or restored yet."/>
     :<>
-      {failures.length?<section className="seg" role="alert" aria-label="Rehearsal failure"><Card><CardHeader title="Key backup verification needs attention"/><div className="sheetb">
-        <p><b>Do not rely on an unverified backup.</b> Check the escrow copy and run a rehearsal again. Rotation cannot recover a missing key.</p>
-        {failures.map(v=><p key={v.version}><b>Version {v.version}: {v.lastRehearsal==='mismatch'?'escrow does not match the recorded key':'escrow could not be verified'}.</b> {v.state==='current'?'New source connections are refused until verification succeeds.':'This retained key is needed to reproduce earlier tokens.'} Last checked: {time(v.lastRehearsedAt)}.</p>)}
-      </div></Card></section>:null}
-      <section className="seg"><Card><CardHeader title={`Current version · ${query.data.currentVersion}`}/><div className="frow"><div className="fl"><b>Restore rehearsals</b><span>A rehearsal reads each retained escrow copy in isolation and checks that it reproduces the expected verification token. It does not replace the stored key.</span></div><Button disabled={mutation.isPending||action!==null} onClick={()=>{mutation.reset();mutation.mutate({action:'rehearse'});}}>{mutation.isPending&&mutation.variables?.action==='rehearse'?'Rehearsing…':'Rehearse now'}</Button>{mutation.isError&&mutation.variables?.action==='rehearse'?<p role="alert">{mutation.error.message}</p>:null}</div>
+      {failures.length?<section className="seg" role="alert" aria-label="Rehearsal failure"><FindingGrid><FindingCard title="Key backup verification" needsDecision footer={rehearse}>
+        <div className="vstats"><div><span className="n mono" data-part="finding-count" aria-label={`${failures.length} key ${failures.length===1?'version needs':'versions need'} verification`}>{failures.length}</span></div></div>
+        {failures.map(v=><p key={v.version}>Version {v.version}: {v.lastRehearsal==='mismatch'?'escrow does not match the recorded key':'escrow could not be verified'}; {v.state==='current'?'new source connections are refused until verification succeeds.':'this retained key is needed to reproduce earlier tokens.'}</p>)}
+      </FindingCard></FindingGrid></section>:null}
+      <p className="note" aria-label="Key custody responsibility">Opintel cannot recover a lost key. Keep the key, its escrow copy and every retained version in your environment.</p>
+      {mutation.isError&&mutation.variables?.action==='rehearse'?<p role="alert">{mutation.error.message}</p>:null}
+      <section className="seg"><Card><CardHeader title={`Current version · ${query.data.currentVersion}`}/><div className="frow"><div className="fl"><b>Restore rehearsals</b><span>A rehearsal reads each retained escrow copy in isolation and checks that it reproduces the expected verification token. It does not replace the stored key.</span></div>{!failures.length?rehearse:null}</div>
       <div className="frow"><div className="fl"><b>Rotate deliberately</b><span>Rotation changes every future token and breaks joins against earlier results. Old keys are retained, but old tokens cannot be translated into new ones. This is not routine maintenance.</span></div><Button variant="ghost" disabled={mutation.isPending||action!==null} onClick={()=>begin('rotate')}>Rotate key</Button></div></Card></section>
       {companies.isError?<ErrorState title="Company administration could not be checked" description={companies.error.message} retry={()=>companies.refetch()}/>:null}
       {!canRestore?<p className="note">{companies.isPending?'Checking company administration…':'Restoring a key requires both project and company administration.'}</p>:null}
