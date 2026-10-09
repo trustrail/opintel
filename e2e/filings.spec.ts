@@ -18,6 +18,9 @@ async function mock(page:Page){
   if(path.endsWith('/auth/me'))return route.fulfill({json:{id:otherId,email:'admin@example.com',fullName:'Admin',timezone:'UTC',method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00.000Z',deviceConfirmed:true}});
   if(path.endsWith('/projects'))return route.fulfill({json:{items:[{id:projectId,name:'Reporting',company:{id:otherId,name:'Example Company'},industry:{id:otherId,name:'General'},region:'eu-west-1',role:'admin'}],nextCursor:null}});
   if(path.endsWith('/stats'))return route.fulfill({json:{...dashboardFixture,pools:0,sources:0}});
+  if(path.endsWith('/pools')||path.endsWith('/runs'))return route.fulfill({json:{items:[],nextCursor:null}});
+  if(path.endsWith('/suggestions'))return route.fulfill({json:{items:[],nextCursor:null,projectName:'Reporting'}});
+  if(path.endsWith('/runs/summary'))return route.fulfill({json:{counts:{all:0,refused:0,incomplete:0,answerTreated:0},days:[]}});
   if(path.endsWith('/dashboard/pools'))return route.fulfill({json:{items:[],nextCursor:null}});
   if(path.endsWith('/dashboard/feed'))return route.fulfill({json:{items:state.empty?[]:[{id:'quarantine:'+held,kind:'quarantine',filingId:held,zoneId:sourceId,category:'verification_mismatch',receivedAt:'2026-04-01T12:00:00Z'}],nextCursor:null}});
   if(path.endsWith('/type-observations'))return route.fulfill({json:{items:[],nextCursor:null}});
@@ -58,10 +61,10 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  await pill.focus();await page.keyboard.press('Enter');await expect(detail).toBeVisible();await pill.focus();await page.keyboard.press('Space');await expect(detail).toHaveCount(0);
  // Start feed snapshots in a fresh page after the keyboard interaction above.
  await page.close();page=await initialPage.context().newPage();await mock(page);await page.setViewportSize({width,height:1000});
- await page.goto(`/projects/${projectId}/dashboard`);await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText(current,{exact:true})).toHaveCount(0);
- await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText("Nothing landed, so this filing's data is not in the catalogue.",{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(held,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(/npm run sidecar:register --/)).toHaveCount(0);
+ await page.goto(`/projects/${projectId}/dashboard`);await expect(page.getByText('filings did not land',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Prepare for the operator',exact:true})).toBeVisible();await expect(page.getByText(current,{exact:true})).toHaveCount(0);
  await expect(page).toHaveScreenshot(`filings-dashboard-${width}.png`,{fullPage:true});await accessible(page);
  await page.goto(`/projects/${projectId}/observations`);await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'History',exact:true}).click();await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText('The full reason stays in the customer environment because it may contain file contents.',{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');
+ await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText("Nothing landed, so this data is not in the catalogue.",{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(held,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(/npm run sidecar:register --/)).toHaveCount(0);
  await expect(page).toHaveScreenshot(`filings-observations-${width}.png`,{fullPage:true});
  await accessible(page);
 });
