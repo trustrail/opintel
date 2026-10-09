@@ -68,3 +68,10 @@ it('refreshes immediately when a hidden tab becomes visible',()=>{
  visibility.mockReturnValue('visible');act(()=>document.dispatchEvent(new Event('visibilitychange')));
  expect(screen.getByText(/^2 hours ago$/)).not.toBeNull();
 });
+
+it.each(['audw','rwhen','when'] as const)('shares intact timestamp parts in %s presentation',appearance=>{
+ const view=render(<Timestamp value={past(7_200_000)} appearance={appearance}/>);
+ const timestamp=view.container.querySelector('time');expect(timestamp?.getAttribute('data-part')).toBe('timestamp');
+ expect(timestamp?.children.length).toBe(2);expect(timestamp?.querySelector('[data-part="absolute"]')?.textContent).toBe('2026-10-06 11:43:00 UTC');
+ expect(timestamp?.querySelector('[data-part="relative"]')?.textContent).toBe('2 hours ago');
+});

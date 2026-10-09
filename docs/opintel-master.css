@@ -555,6 +555,9 @@
 #opintel-app .audb .am{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 #opintel-app .audb .am .dot{color:var(--rule-2)}
 #opintel-app .audw{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);white-space:nowrap;padding-top:3px}
+/* Shared Timestamp contract: wrap between its two intact values, never inside one. */
+#opintel-app time[data-part="timestamp"]{white-space:normal}
+#opintel-app time[data-part="timestamp"] > span{white-space:nowrap}
 #opintel-app .audd{display:none;padding:0 16px 16px 52px;background:var(--surface-2);border-top:1px solid var(--rule)}
 #opintel-app .aud.open .audd{display:block}
 #opintel-app .aud.open .audh{background:var(--surface-2)}
@@ -972,8 +975,6 @@
 #opintel-app .screen[data-layout="observations"] .card-h .sev{width:32px;height:32px;background:var(--yellow-bg)}
 #opintel-app .screen[data-layout="observations"] .card-h h2{display:inline;font-size:15px;font-weight:650;letter-spacing:-.015em;margin-right:9px}
 #opintel-app .screen[data-layout="observations"] .card-h .meta{font-family:inherit;font-size:12px;line-height:1.5}
-/* Keep timestamp parts intact; permit the separator to wrap in a narrow identity cell. */
-#opintel-app .screen[data-layout="observations"] .card-h time.audw{white-space:normal}
 #opintel-app .screen[data-layout="observations"] .card-h p{font-size:12.5px;line-height:1.5;color:var(--ink-2);margin:2px 0 0}
 #opintel-app .screen[data-layout="observations"] [data-part="count"]{font-size:27px;font-weight:720;line-height:1}
 #opintel-app .screen[data-layout="observations"] [data-part="remediation"]{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--plum-soft);border-bottom:1px solid var(--rule);font-size:12.5px;line-height:1.5}
@@ -1072,9 +1073,6 @@
 #opintel-app .screen[data-layout="activity"] [data-part="activity-toolbar"] > .segbtns:first-child{flex-basis:100%;height:auto;flex-wrap:wrap}
 #opintel-app .screen[data-layout="activity"] [data-part="activity-toolbar"] > .segbtns:first-child button{flex:1;font-size:11.5px;padding:4px}
 }
-
-/* Keep absolute and relative timestamp parts unbroken; wrap at their separator. */
-#opintel-app .screen[data-layout="activity"] [data-part="timestamp"] .rwhen{white-space:normal}
 
 #opintel-app .screen[data-layout="activity"] [data-part="activity-toolbar"] .pick .inp{width:112px;min-width:0;padding:0 10px;border:0;border-radius:0;font-size:12.5px}
 

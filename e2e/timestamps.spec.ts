@@ -12,6 +12,8 @@ for(const width of [390,900,1440])test(`A: absolute and relative timestamp at ${
  await page.setViewportSize({width,height:900});await page.goto(activityPath);
  const timestamp=page.locator('time').filter({hasText:'2026-10-06 09:43:00 EDT · 2 hours ago'}).first();
  await expect(timestamp).toBeVisible();await expect(timestamp).toHaveAttribute('datetime','2026-10-06T13:43:00Z');
+ await expect(timestamp).toHaveAttribute('data-part','timestamp');expect(await timestamp.evaluate(el=>getComputedStyle(el).whiteSpace)).toBe('normal');
+ await expect(timestamp.locator('[data-part=absolute]')).toHaveText('2026-10-06 09:43:00 EDT');await expect(timestamp.locator('[data-part=relative]')).toHaveText('2 hours ago');
  await page.addScriptTag({content:axe.source});
  expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -26,6 +28,7 @@ for(const timezone of ['UTC','America/Toronto'])test(`A: feed timestamp parts st
  await page.route('**/api/v1/me/settings',route=>route.fulfill({json:{email:'admin@example.com',fullName:'Admin',timezone,dateFormat:'YYYY-MM-DD',reducedMotion:true}}));
  await page.setViewportSize({width:390,height:1000});await page.goto(dashboardPath);
  const timestamp=page.locator('.feed time');await expect(timestamp).toContainText('188 days ago');
+ await expect(timestamp).toHaveAttribute('data-part','timestamp');expect(await timestamp.evaluate(el=>getComputedStyle(el).whiteSpace)).toBe('normal');
  await timestamp.evaluate(async el=>{
   await Promise.all([...el.querySelectorAll('span')].map(span=>document.fonts.load(getComputedStyle(span).font,span.textContent??'')));
   await document.fonts.ready;

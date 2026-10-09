@@ -4573,9 +4573,13 @@ Only timestamp components subscribe; the clock must not rerender screen/query
 parents or reconstruct formatters during scroll. Absolute formatters are
 cached by locale and timezone. Use the existing `.when` feed, `.rwhen`
 Activity and `.audw` timestamp styles; no new stylesheet class is required.
-Feed timestamps keep the absolute value and relative age in separate,
-unbreakable `.audw` spans. The `.when` wrapper permits wrapping at their
-separator, rather than splitting either value or clipping a long combined line.
+Every on-screen event timestamp uses the shared `Timestamp` component. Its
+outer time can wrap in every appearance (`when`, `rwhen`, `audw`);
+screen-specific wrapping overrides are not needed. Absolute time and relative
+age are separate, unbreakable `.audw` spans; a line break is allowed only at
+the separator between them, never inside either value. This prevents a long
+combined line from clipping. Calendar-day count labels and plain-text exports
+are dates or machine-readable text, not event-timestamp components.
 
 **5.29 grouped entitlements.** Within a selected pool, exact exposed names group active elements in active objects of non-archived bound sources. Source, name and decision filters select individual members before grouping. Collapsed rows disclose mixed types and decisions (different mask kinds count as different decision variants); a bulk action applies only to the explicit filtered member set and states its count. Review all reads every currently undecided member through cursor pages, then presents that selection before the existing atomic bulk command. It never includes future discoveries. Declarations selects an individual member, not a group-wide declaration. The decisions screen uses the approved named inline-size container: the existing 820px responsive grouped-row and weighted-bar rules apply to content width as well as viewport width, preserving names and consequences when the drawer leaves only about 600px at a 900px viewport.
 
