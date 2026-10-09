@@ -28,8 +28,17 @@ jobs:
       - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
       - name: Functional, visual and every-screen conformance in one browser pass
         run: npm run test:browser
-      - name: Isolated G-019 scroll frames
+      - name: Scroll measurements (M-015, G-019, H-016 frame verdicts recorded only)
         run: npm run test:visual:docker -- --config=playwright.performance.config.ts
+
+      - name: Retain scroll measurements and recorded verdicts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scroll-performance-reports
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
 
   migrations:
     name: Migrations

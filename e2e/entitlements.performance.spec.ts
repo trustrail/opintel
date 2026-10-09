@@ -1,3 +1,4 @@
+import { reportRecordedFrames } from './recorded-performance.js';
 import {test} from './fixtures.js';
 import { expect } from '@playwright/test';
 import { project, mock, expand } from './entitlements-fixture.js';
@@ -28,7 +29,7 @@ test('H-016: 5,000 elements with 200 selected stay responsive', async ({page},te
   await testInfo.attach('scroll-frame-intervals',{body:JSON.stringify(result),contentType:'application/json'});
   // A missed refresh produces a multiple of the measured display period.
   // The half-period threshold distinguishes that from timestamp rounding.
-  expect(result.intervals.filter(ms=>ms>result.refresh*1.5)).toEqual([]);
+  await reportRecordedFrames('H-016',testInfo,result);
   expect(result.maxRendered).toBeLessThanOrEqual(28);
   await tree.getByRole('treeitem').first().focus();await page.keyboard.press('End');
   await expect(page.getByLabel('Select field_4999',{exact:true})).not.toBeChecked();

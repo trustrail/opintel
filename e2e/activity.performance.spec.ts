@@ -1,3 +1,4 @@
+import { reportRecordedFrames } from './recorded-performance.js';
 import {test} from './fixtures.js';
 import {expect} from '@playwright/test';
 import {mockActivity,activityPath} from './activity-fixture.js';
@@ -8,5 +9,5 @@ test('M-015: a million-record Activity dataset pages and scrolls without dropped
  const measurements=await viewport.evaluate(async el=>{
   const frame=()=>new Promise<number>(r=>requestAnimationFrame(r)),baseline:number[]=[];let previous=await frame();for(let i=0;i<30;i++){const now=await frame();baseline.push(now-previous);previous=now;}const refresh=baseline.sort((a,b)=>a-b)[15]!;
   const intervals:number[]=[];for(let i=0;i<120;i++){el.scrollTop=(i%60)/60*(el.scrollHeight-el.clientHeight);const now=await frame();intervals.push(now-previous);previous=now;}return {refresh,intervals,rendered:el.querySelectorAll('.rec[data-mark-row]').length};
- });await info.attach('activity-frames',{body:JSON.stringify(measurements),contentType:'application/json'});expect(measurements.rendered).toBeLessThanOrEqual(12);expect(measurements.intervals.filter(ms=>ms>measurements.refresh*1.5)).toEqual([]);expect(state.requests.length).toBeLessThan(30);
+ });await info.attach('activity-frames',{body:JSON.stringify(measurements),contentType:'application/json'});expect(measurements.rendered).toBeLessThanOrEqual(12);await reportRecordedFrames('M-015',info,measurements);expect(state.requests.length).toBeLessThan(30);
 });

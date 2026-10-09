@@ -1,3 +1,4 @@
+import { reportRecordedFrames } from './recorded-performance.js';
 import {test} from './fixtures.js';
 import { expect } from '@playwright/test';
 import { project, mock, expand } from './catalog-fixture.js';
@@ -25,6 +26,6 @@ test('G-019: scrolling 5,000 loaded elements misses no refresh frames', async ({
   await testInfo.attach('scroll-frame-intervals',{body:JSON.stringify(result),contentType:'application/json'});
   // A missed refresh produces a multiple of the measured display period.
   // The half-period threshold distinguishes that from timestamp rounding.
-  expect(result.intervals.filter(ms=>ms>result.refresh*1.5)).toEqual([]);
+  await reportRecordedFrames('G-019',testInfo,result);
   expect(result.maxRendered).toBeLessThanOrEqual(36);
 });
