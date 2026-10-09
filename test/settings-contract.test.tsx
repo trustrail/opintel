@@ -44,3 +44,8 @@ it('invalid stored values are named instead of silently presented as defaults',(
  render(<QueryClientProvider client={new QueryClient()}><SettingForm projectId="p" settings={{query:{aggregateMinGroupSize:1001}}} disabled={false} section="settings-query"/></QueryClientProvider>);
  expect(screen.getByRole('alert').textContent).toContain('Invalid stored value for Minimum aggregate group size');cleanup();
 });
+
+it('SET-002: an explicitly stored empty allowlist is Set rather than a default',()=>{
+ const {container}=render(<QueryClientProvider client={new QueryClient()}><SettingForm projectId="p" settings={{evidence:{allowlistedFields:[]}}} disabled={false} section="settings-evidence"/></QueryClientProvider>);
+ const row=container.querySelector('[data-setting="evidence.allowlistedFields"]')!;expect(row.querySelector('[data-part="setting-state"]')?.textContent).toBe('Set');expect(row.querySelector('[data-part="setting-value"]')?.textContent).toBe('None');cleanup();
+});

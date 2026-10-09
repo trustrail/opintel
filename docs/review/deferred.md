@@ -1026,3 +1026,22 @@ The existing failing capture recorded M-015 at 117/120 long intervals (16.7ms ba
 Reinstate frame gating only with a measurement method whose variance is smaller than the effect, or if a person reports the console feeling slow. No threshold or timeout changes.
 
 Reporting verification, one run after this decision: M-015 103/120, G-019 67/120 and H-016 80/120 long intervals, each explicitly reported as a failed non-gating frame verdict. All remaining functional assertions completed and the command exited 0 (three cases, 1.3 minutes). Typecheck and lint passed. These are verification results, not a resumed performance investigation.
+
+### Personal settings 1440: unresolved capture paint, 2026-10-09
+
+Five captures of the same page with Chrome paint tracing were complete,
+incomplete, incomplete, complete, incomplete. Incomplete captures omit
+foreground in the drawer and top header (navigation text/marks, project
+switcher and header controls), while backgrounds and the Settings form remain.
+Geometry is unchanged; sampled document animations are empty, fonts loaded,
+and the logo complete. The 15 drawer SVGs are inline DOM geometry, not pending
+icon downloads. Subsequent paints include #document, ASIDE#application-drawer
+and HEADER.top with differing clips. This establishes neither the compositor
+cause nor a correct wait. No tolerance, retry or speculative wait was added.
+Under the reader's explicit one-round exception, the old Personal 1440 image
+is retained; 56 explained images were regenerated in five cause-specific
+baseline-only commits. Diagnostic artifacts are outside the repository at
+/private/tmp/opintel-5.34-5.35-review/paint-diagnostic. See the full diagnostic
+in 5.34-settings-design.md.
+
+**Deadline reporting correction (2026-10-09).** The original recorded-failing helper covered only the frame assertion. G-019's separate functional pagination/virtualisation case exhausted its 60-second deadline during its final scrolling capture; it never produced a frame verdict. By reviewed decision, deadlines for M-015, G-019 and H-016 are also non-gating, in both browser projects. The reporter preserves the timeout and error details and explicitly reports incomplete coverage: unfinished functional assertions are not proved, and no frame verdict is invented. Assertion failures, infrastructure failures, interruption and conformance failures remain gating. Deadlines and frame thresholds are unchanged. The same reinstatement condition applies.

@@ -1,6 +1,6 @@
-import {Mark} from '../../shared/ui/index.js';
+import {ConsoleSelect,DecisionMarks,TreatmentIndicator} from '../../shared/ui/index.js';
 import { DeclarationPanel, SchemaDeclarationPanel } from './declaration-panel.js';
-import { useMemo, useRef, useSyncExternalStore, type KeyboardEvent, type RefObject } from 'react';
+import { useMemo, useRef, useSyncExternalStore, useLayoutEffect, type KeyboardEvent, type RefObject,type ReactNode } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
@@ -11,7 +11,8 @@ import { useSources } from '../sources/data.js';
 import { catalogOptions } from './data.js';
 import { createExplorerState } from './state.js';
 
-type Row = { key: string; depth: number; node: CatalogNode; position: number; size: number } |
+type Row = { key: string; depth: number; node: CatalogNode; showSchema?:boolean; position: number; size: number } |
+  { key:string;depth:number;panel:ReactNode } |
   { key: string; depth: number; parent: string; message: string; action?: () => void; disabled?: boolean; actionLabel?: string };
 // The reference's .trow is 46px high. Window geometry is independent of catalogue size.
 const rowHeight = 46; const narrowElementHeight = 76; const windowRows = 24; const overscan = 6;
@@ -21,66 +22,53 @@ function subscribeNarrow(listener: () => void) {
   media.addEventListener('change', listener);
   return () => media.removeEventListener('change', listener);
 }
-export function CatalogScreen({ projectId,search={},onSearch=()=>undefined }: { projectId: string;search?:{elementId?:string;declarationSchema?:string};onSearch?:(search:{elementId?:string;declarationSchema?:string})=>void }) {
-  const store = useMemo(createExplorerState, [projectId]); const state = useStore(store, useShallow(s => ({ branches: s.branches, expanded: s.expanded, searchParent: s.searchParent,
-    toggle: s.toggle, search: s.search, select: s.select, more: s.more })));
-  const viewport = useRef<HTMLDivElement>(null);
-  const sources = useSources(projectId);
-  const branches = Object.values(state.branches).filter(branch => !branch.parent || state.expanded[branch.parent]);
-  const requests = branches.flatMap(branch => branch.cursors.map(cursor => ({ parent: branch.parent, prefix: branch.prefix, cursor })));
-  const queries = useQueries({ queries: requests.map(page => catalogOptions(projectId, page)) });
-  const root = queries[0];
-  const labels = new Map<string, string>([['', 'All sources']]);
-  for (const query of queries) for (const node of query.data?.nodes ?? []) if (node.label) labels.set(node.id, node.label);
-  const rows: Row[] = [];
-  function level(parent: string, depth: number) {
-    const indices = requests.flatMap((request, index) => request.parent === parent ? [index] : []);
-    const entries = indices.flatMap(index => queries[index]?.data?.nodes ?? []);
-    const last = queries[indices.at(-1) ?? -1];
-    entries.forEach((node, index) => {
-      rows.push({ key: node.id, depth, node, position: index + 1, size: last?.data?.nextCursor ? -1 : entries.length });
-      if (state.expanded[node.id] && node.kind !== 'element') level(node.id, depth + 1);
-    });
-    if (last?.isFetching) rows.push({ key: parent + ':loading', parent, depth, message: 'Loading this branch…', action:()=>undefined, actionLabel:'Loading…', disabled:true });
-    else if (last?.isError) rows.push({ key: parent + ':error', parent, depth, message: (last.error as unknown as AppError).message, action: () => { void last.refetch(); }, actionLabel: 'Try again' });
-    else if (last?.data?.nextCursor) { const cursor = last.data.nextCursor; rows.push({ key: parent + ':more', parent, depth, message: 'More in this branch', action: () => state.more(parent, cursor), actionLabel: 'Load more' }); }
-    else if (!entries.length) rows.push({ key: parent + ':empty', parent, depth, message: state.branches[parent]?.prefix ? 'No names match this prefix. Try a shorter prefix.' : 'No catalogue entries here. Introspect the source to discover its structure.' });
-  }
-  level('', 1);
-  const prefix = state.branches[state.searchParent]?.prefix ?? '';
-  return <section className="screen on"><h1>Schema explorer</h1><p className="sub">The exposed names and types agents address, with each element's decision state. Undecided elements are visible here and omitted from the agent's describe response.</p>
-    {search.elementId?<DeclarationPanel projectId={projectId} elementId={search.elementId} onSchema={id=>onSearch({...search,declarationSchema:id})}/>:<p className="note">Select an element's Declarations button to inspect or edit its token domain, canonicaliser and temporal declarations.</p>}
-    {search.declarationSchema?<SchemaDeclarationPanel projectId={projectId} schemaId={search.declarationSchema}/>:null}
-    {sources.isError ? <ErrorState title="Source display names could not be loaded" description={sources.error.message} retry={()=>sources.refetch()} /> : null}
-    <div className="filters" style={{alignItems:'end'}}>
-      <span className="pick"><label htmlFor="catalog-level">Search within</label><select id="catalog-level" value={state.searchParent} onChange={event => state.select(event.target.value)}>{branches.map(branch => <option key={branch.parent} value={branch.parent}>{labels.get(branch.parent) ?? branch.parent}</option>)}</select></span>
-      <div className="fld" style={{marginBottom:0,maxWidth:'100%'}}><label htmlFor="catalog-prefix">Name prefix</label><input id="catalog-prefix" value={prefix} maxLength={63} onChange={event => { state.search(state.searchParent, event.target.value); if (viewport.current) viewport.current.scrollTop = 0; }} /></div>
-    </div>
-    {root?.isPending ? <LoadingState /> : root?.isError ? <ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={()=>root.refetch()} /> : root?.data?.nodes.length === 0 ? <EmptyState title={prefix ? 'No matching sources' : 'No catalogue yet'} description={prefix ? 'Try a shorter source-name prefix.' : 'Connect a source and introspect it. Its schema will appear here, with every supported element undecided.'} /> : <div className="card">
-      <div className="card-h"><h2>Exposed namespace</h2><span className="meta">Expand one level at a time</span></div>
-      <TreeWindow store={store} rows={rows} viewport={viewport} onElement={elementId=>onSearch({elementId})} sourceNames={new Map(sources.data?.map(source => [source.id, source.name]))} />
-    </div>}
-    <p className="note">Source aliases are assigned once. Renaming the display name does not change the namespace. Unsupported types cannot be exposed; unnameable elements need a source-column rename or an explicit alias.</p>
-  </section>;
+function subscribeWide(listener:()=>void){const media=window.matchMedia('(min-width:1100px)');media.addEventListener('change',listener);return ()=>media.removeEventListener('change',listener);}
+const isWide=()=>window.matchMedia('(min-width:1100px)').matches;
+export function CatalogScreen({projectId,search={},onSearch=()=>undefined}:{projectId:string;search?:{sourceId?:string;elementId?:string;declarationSchema?:string};onSearch?:(search:{sourceId?:string;elementId?:string;declarationSchema?:string})=>void}){
+ const store=useMemo(createExplorerState,[projectId]);
+ const state=useStore(store,useShallow(s=>({branches:s.branches,expanded:s.expanded,searchParent:s.searchParent,sourceId:s.sourceId,filter:s.filter,toggle:s.toggle,search:s.search,select:s.select,more:s.more,chooseSource:s.chooseSource,setFilter:s.setFilter})));
+ const viewport=useRef<HTMLDivElement>(null),sources=useSources(projectId),wide=useSyncExternalStore(subscribeWide,isWide,()=>true);
+ const selected=state.sourceId||search.sourceId||sources.data?.[0]?.id||'',rootId='objects:'+selected;
+ const rootBranch={parent:rootId,prefix:state.branches[rootId]?.prefix??'',cursors:state.branches[rootId]?.cursors??[undefined]};
+ const branches=[rootBranch,...Object.values(state.branches).filter(branch=>branch.parent!==rootId&&state.expanded[branch.parent])];
+ const requests=selected?branches.flatMap(branch=>branch.cursors.map(cursor=>({parent:branch.parent,prefix:branch.prefix,cursor,filter:state.filter}))):[];
+ const queries=useQueries({queries:requests.map(page=>catalogOptions(projectId,page))}),root=queries[0];
+ const labels=new Map<string,string>([[rootId,'Objects']]);for(const q of queries)for(const node of q.data?.nodes??[])if(node.label)labels.set(node.id,node.label);
+ const panel=search.elementId?<div data-part="declaration-panel"><button className="toolchip" type="button" onClick={()=>onSearch({sourceId:selected})}>Close declarations</button><DeclarationPanel key={search.elementId} projectId={projectId} elementId={search.elementId} onSchema={id=>onSearch({...search,declarationSchema:id})}/>{search.declarationSchema?<SchemaDeclarationPanel projectId={projectId} schemaId={search.declarationSchema}/>:null}</div>:null;
+ const rows:Row[]=[];let panelPlaced=false;
+ function level(parent:string,depth:number){const indices=requests.flatMap((r,i)=>r.parent===parent?[i]:[]),entries=indices.flatMap(i=>queries[i]?.data?.nodes??[]),last=queries[indices.at(-1)??-1];
+  entries.forEach((node,index)=>{rows.push({key:node.id,depth,node,position:index+1,size:last?.data?.nextCursor?-1:entries.length,showSchema:entries.filter(n=>n.kind==='object'&&n.label===node.label).length>1});if(!wide&&node.id===search.elementId&&panel){rows.push({key:'declaration-panel',depth:depth+1,panel});panelPlaced=true;}if(state.expanded[node.id]&&node.kind!=='element')level(node.id,depth+1);});
+  if(last?.isFetching&&!last.data)rows.push({key:parent+':loading',parent,depth,message:'Loading this branch…',action:()=>undefined,actionLabel:'Loading…',disabled:true});
+  else if(last?.isError)rows.push({key:parent+':error',parent,depth,message:(last.error as unknown as AppError).message,action:()=>{void last.refetch();},actionLabel:'Try again'});
+  else if(last?.data?.nextCursor){const cursor=last.data.nextCursor;rows.push({key:parent+':more',parent,depth,message:'More in this branch',action:()=>state.more(parent,cursor),actionLabel:'Load more'});}
+  else if(!entries.length)rows.push({key:parent+':empty',parent,depth,message:'No catalogue entries here. Introspect the source to discover its structure.'});
+ }
+ level(rootId,1);const searchParent=state.searchParent||rootId,prefix=state.branches[searchParent]?.prefix??'';
+ return <section className="screen on" data-layout="explorer"><h1>Schema explorer</h1><p className="sub">Every object and element agents can address, with its type and decisions. Select an element to see or change its declarations.</p>
+ <div className="filters" data-part="explorer-toolbar"><span className="pick"><label htmlFor="catalog-source">Source</label><ConsoleSelect id="catalog-source" value={selected} onChange={e=>{state.chooseSource(e.target.value);onSearch({sourceId:e.target.value});if(viewport.current)viewport.current.scrollTop=0;}}>{sources.data?.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</ConsoleSelect></span><div className="segbtns" aria-label="Element filter">{(['all','undecided','declared'] as const).map(filter=><button key={filter} type="button" aria-pressed={state.filter===filter} onClick={()=>{state.setFilter(filter);if(viewport.current)viewport.current.scrollTop=0;}}>{filter==='all'?'All':filter==='undecided'?'Undecided':'Declared'}</button>)}</div><span className="pick"><label htmlFor="catalog-level">Search within</label><ConsoleSelect id="catalog-level" value={searchParent} onChange={e=>state.select(e.target.value)}>{branches.map(b=><option key={b.parent} value={b.parent}>{labels.get(b.parent)??'Objects'}</option>)}</ConsoleSelect></span><input className="inp" aria-label="Name prefix" placeholder="Filter by name…" value={prefix} maxLength={63} onChange={e=>{state.search(searchParent,e.target.value);if(viewport.current)viewport.current.scrollTop=0;}}/></div>
+ {sources.isError?<ErrorState title="Source display names could not be loaded" description={sources.error.message} retry={()=>sources.refetch()}/>:sources.isPending||root?.isPending?<LoadingState/>:root?.isError?<ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={()=>root.refetch()}/>:!selected||root?.data?.nodes.length===0?<><EmptyState title="No catalogue yet" description="Connect a source and introspect it. Its objects will appear here."/>{panel}</>:<div data-part="explorer-split" data-panel={wide&&!!panel?'open':'closed'}><div className="card"><div className="card-h"><h2>Exposed namespace</h2><span className="meta">Decisions across all pools</span></div><TreeWindow store={store} rows={rows} viewport={viewport} onElement={elementId=>onSearch({sourceId:selected,elementId})}/>{!wide&&!panelPlaced?panel:null}</div>{wide?panel:null}</div>}
+ <p className="note">Source aliases are assigned once. Unsupported types cannot be exposed; unnameable elements need a source-column rename or an explicit alias.</p></section>;
 }
 
 // Only this window subscribes to scrolling. The query observers and flattened
 // tree above update on structural changes, never on each animation frame.
-function TreeWindow({store, rows, viewport, sourceNames,onElement}: {
+function TreeWindow({store, rows, viewport,onElement}: {
   onElement:(elementId:string)=>void; store: ReturnType<typeof createExplorerState>; rows: Row[];
-  viewport: RefObject<HTMLDivElement | null>; sourceNames: ReadonlyMap<string, string>;
+  viewport: RefObject<HTMLDivElement | null>;
 }) {
   const state = useStore(store);
-  const narrow = useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
+  const narrowScreen = useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
+  const narrow=narrowScreen||(state.width>0&&state.width<600);
+  useLayoutEffect(()=>{const node=viewport.current;if(!node)return;const measure=()=>store.getState().setWidth(node.clientWidth);const observer=new ResizeObserver(measure);observer.observe(node);measure();return ()=>observer.disconnect();},[store,viewport]);
   const geometry = useMemo(() => {
     let total = 0;
     const positions = rows.map(row => {
-      const height = narrow && 'node' in row && row.node.kind === 'element' ? narrowElementHeight : rowHeight;
+      const height = 'panel' in row?state.panelHeight:'node' in row&&row.node.kind==='object'?(narrow?58:42):narrow && 'node' in row && row.node.kind === 'element' ? narrowElementHeight : rowHeight;
       const top = total; total += height;
       return {top, height};
     });
     return {positions, total};
-  }, [rows, narrow]);
+  }, [rows, narrow,state.panelHeight]);
   let low = 0; let high = rows.length;
   while (low < high) {
     const middle = Math.floor((low + high) / 2);
@@ -110,20 +98,20 @@ function TreeWindow({store, rows, viewport, sourceNames,onElement}: {
     }
   }
   return (
-      <div ref={viewport} data-catalog-tree role="tree" data-mark-list="uniform" aria-label="Catalogue" tabIndex={0} style={{ height: `min(60vh, ${geometry.total}px)`, maxHeight: rowHeight * windowRows, overflow: 'auto' }} onScroll={event => state.scroll(event.currentTarget.scrollTop)}>
+      <div ref={viewport} data-catalog-tree role="tree" data-mark-list="uniform" aria-label="Catalogue" tabIndex={0} style={{ height: `min(60vh, ${geometry.total}px)`, maxHeight: rowHeight * windowRows, overflow: 'auto',containerType:'inline-size',containerName:'catalogue' }} onScroll={event => state.scroll(event.currentTarget.scrollTop)}>
         <div role="none" style={{ height: geometry.total, position: 'relative', minWidth: 0 }}>
           {visible.map((row, offset) => { const index = start + offset; const node = 'node' in row ? row.node : null;
-            const sourceName = node?.kind === 'source' ? sourceNames.get(node.id) : undefined;
+            if('panel' in row)return <div key={row.key} role="treeitem" data-row-kind="declaration" data-mark-row="true" aria-label="Element declarations" aria-level={row.depth} style={{position:'absolute',top:geometry.positions[index]!.top,width:'100%'}}><MeasuredPanel onHeight={state.setPanelHeight}>{row.panel}</MeasuredPanel></div>;
             return <div key={row.key} id={`catalog-row-${index}`} role="treeitem" data-mark-row="true" data-row-kind={node?.kind??'message'} tabIndex={0} aria-level={row.depth} aria-expanded={node && node.kind !== 'element' ? !!state.expanded[node.id] : undefined} aria-posinset={'position' in row ? row.position : undefined} aria-setsize={'size' in row ? row.size : undefined}
-              className={row.depth <= 2 ? 'trow lvl0' : row.depth === 3 ? 'trow lvl1' : 'trow lvl2'} onKeyDown={event => keyboard(event, row, index)}
-              style={{ position: 'absolute', top: geometry.positions[index]!.top, height: geometry.positions[index]!.height, boxSizing: 'border-box', width: '100%', gridTemplateColumns: narrow && node?.kind === 'element' ? undefined : 'minmax(0, 1fr) auto' }}>
-              {node ? <><div className="tname">
-                {node.kind !== 'element' ? <button type="button" className="toolchip" aria-label={`${state.expanded[node.id] ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id] ? '▾' : '▸'}</span></button> : null}
-                <span data-column-name={node.kind==='element'?true:undefined} style={{display:'flex',flexDirection:'column',minWidth:0}}><span className="nm" title={node.label ?? 'Unnameable element'}>{node.label ?? 'Unnameable element'}</span>{sourceName && sourceName !== node.label ? <span className="type" title={sourceName} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sourceName}</span> : null}</span>
-              {node.kind==='element'?<button data-column-declarations type="button" className="toolchip" aria-label={`Declarations for ${node.label??'unnameable element'}`} onClick={()=>onElement(node.id)}>Declarations</button>:null}</div><span className="tname" style={{flexDirection:'column',alignItems:'end',gap:0,paddingLeft:0}}>{node.exposedType ? <span data-column-type className="type">{node.exposedType}</span> : null}<span data-column-treatment={node.kind==='element'?true:undefined} className={node.state === 'undecided' ? 'tr wait' : node.state ? 'tr held' : 'type'}>{node.state==='undecided'?<Mark name="treatment-undecided" size={16} label="Undecided"/>:null}<span data-treatment-label={node.state==='undecided'?true:undefined}>{node.state === 'unsupported' ? 'Unsupported type' : node.state === 'unnameable' ? 'Unnameable' : node.state === 'undecided' ? 'Undecided' : node.state ?? `${node.kind} · ${node.childCount}`}</span></span></span></> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
+              className={node?.kind==='element'?'trow lvl1':'trow lvl0'} onKeyDown={event => keyboard(event, row, index)}
+              style={{ position: 'absolute', top: geometry.positions[index]!.top, height: geometry.positions[index]!.height, boxSizing: 'border-box', width: '100%',  }}>
+              {node ? <><div className="tname">{node.kind!=='element'?<button className="toolchip" type="button" aria-label={`${state.expanded[node.id]?'Collapse':'Expand'} ${node.label}`} onClick={()=>state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id]?'▾':'▸'}</span></button>:null}<span data-column-name><span className="nm" title={node.qualifiedName??node.label??'Unnameable element'}>{node.label??'Unnameable element'}</span>{node.kind==='object'&&'showSchema' in row&&row.showSchema&&node.schemaName?<span className="meta">{node.schemaName}</span>:null}{node.kind==='element'?<span data-part="declaration-chips">{node.declarations?.tokenDomain?<span className="tr" title="Declared token domain">domain {node.declarations.tokenDomain}</span>:node.declarations?.isolated?<span className="tr" title="Derived from element identity">isolated</span>:null}{node.declarations?.sourceTimezone?<span className="tr" title={node.declarations.timezoneProvenance}>tz {node.declarations.sourceTimezone}</span>:null}</span>:null}</span></div>
+              {node.kind==='element'?<><span data-column-type className="type">{node.exposedType??(node.state==='unsupported'?'Unsupported type':'Unnameable')}</span><span data-column-treatment>{node.decisions?.length===1?<TreatmentIndicator value={node.decisions[0]!.value}/>:node.state==='undecided'?<TreatmentIndicator value="undecided"/>:node.state==='mixed'?<><DecisionMarks decisions={node.decisions??[]}/><span>Mixed</span></>:<span>{node.state==='unsupported'?'Unsupported type':node.state==='unnameable'?'Unnameable':node.state}</span>}</span><button data-column-declarations className="toolchip" type="button" aria-label={`Declarations for ${node.label??'unnameable element'}`} onClick={()=>onElement(node.id)}>Declarations</button></>:<><DecisionMarks decisions={node.decisions??[]}/><span className="meta">{node.childCount} elements · {node.undecidedCount??0} undecided</span></>}</> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
             </div>;
           })}
         </div>
       </div>
   );
 }
+
+function MeasuredPanel({children,onHeight}:{children:ReactNode;onHeight:(height:number)=>void}){const ref=useRef<HTMLDivElement>(null);useLayoutEffect(()=>{const node=ref.current;if(!node)return;const measure=()=>onHeight(Math.ceil(node.getBoundingClientRect().height));const observer=new ResizeObserver(measure);observer.observe(node);measure();return ()=>observer.disconnect();},[onHeight]);return <div ref={ref}>{children}</div>;}

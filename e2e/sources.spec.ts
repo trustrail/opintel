@@ -8,8 +8,8 @@ const industryId='018f8f9d-7f83-7abc-8def-000000000002';
 const sourceId='018f8f9d-7f83-7abc-8def-000000000003';
 const demoId='018f8f9d-7f83-7abc-8def-000000000004';
 const project={id:projectId,name:'Reporting',company:{id:industryId,name:'Example Company'},industry:{id:industryId,name:'General'},region:'eu-west-1',role:'admin'};
-const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,elementCount:7,unsupportedCount:2,undecidedCount:5,latestIntrospectionId:null,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
-async function mock(page:Page){
+const source={id:sourceId,name:'Monthly returns',exposedAlias:'monthly_returns',kind:'postgres',origin:'customer',status:'connected',error:null,landingStrategy:'append_as_at',filingCount:2,engineId:demoId,objectCount:1,lastLandedAt:'2026-09-19T11:00:00.000Z',quarantinedCount:0,decisionPools:[{id:industryId,name:'Development Demo',undecidedCount:0,decisions:[{value:'clear',count:2},{value:'tokenized',count:3}]},{id:demoId,name:'toto',undecidedCount:5,decisions:[{value:'undecided',count:5}]}],elementCount:7,unsupportedCount:2,undecidedCount:5,latestIntrospectionId:null,lastIntrospectedAt:'2026-09-19T12:00:00.000Z'};
+export async function mock(page:Page){
  const state={status:'connected',conflictRun:null as string|null,empty:false,error:false,loading:false,prepared:false,canConnect:true,retries:[] as unknown[],failure:null as string|null,creates:[] as Record<string,unknown>[],tests:[] as unknown[]};
  await page.route('**/api/v1/**',async route=>{
   const url=new URL(route.request().url());const path=url.pathname;
@@ -35,7 +35,7 @@ for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at 
  await expect(page).toHaveScreenshot(`sources-ready-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
  await expect(page.getByRole('button',{name:'2 filings'})).toHaveAttribute('aria-expanded','false');await expect(page.locator(`#filings-${sourceId}`)).toHaveCount(1);await expect(page.locator(`#filings-${sourceId}`)).toBeHidden();
  // Give the empty/wizard fixture its own rendering surface after the ready-state axe scan.
- const context=page.context();await page.close();page=await context.newPage();await page.setViewportSize({width,height:1000});state=await mock(page);state.empty=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await expect(page.getByText('Not provisioned for this project.',{exact:false})).toBeVisible();expect(state.creates).toEqual([]);
+ const context=page.context();await page.close();page=await context.newPage();await page.setViewportSize({width,height:1000});state=await mock(page);state.empty=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Connect a source',exact:true}).click();await expect(page.getByText('Not provisioned for this project.',{exact:false})).toBeVisible();await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(state.creates).toEqual([]);
  await page.getByRole('button',{name:'Connect a source',exact:true}).focus();
  await expect(page.getByRole('button',{name:'Connect a source',exact:true})).toBeFocused();
  await expect(page).toHaveScreenshot(`sources-empty-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
@@ -51,7 +51,7 @@ test('O-002: loading and error can recover, viewers cannot connect, and demos re
  const state=await mock(page);state.loading=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('Preparing this view',{exact:true}).first()).toBeVisible();state.loading=false;await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();
  state.error=true;await page.reload();await expect(page.getByText('Sources are temporarily unavailable.')).toBeVisible();state.error=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();
  state.canConnect=false;await page.reload();await expect(page.getByRole('button',{name:'Connect a source',exact:true})).toHaveCount(0);expect(state.creates).toHaveLength(0);
- state.canConnect=true;state.prepared=true;state.empty=true;await page.reload();await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();expect(state.creates).toHaveLength(0);
+ state.canConnect=true;state.prepared=true;state.empty=true;await page.reload();await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Connect a source',exact:true}).click();expect(state.creates).toHaveLength(0);
  await page.getByRole('button',{name:'Connect',exact:true}).click();await expect(page.getByText('Already connected to this project')).toBeVisible();expect(state.creates).toEqual([{demoTemplateId:demoId}]);
 });
 
@@ -62,7 +62,7 @@ for(const width of [390,900,1440])test(`renders the persisted safe provisioning 
  await expect(page.getByRole('alert')).toHaveText(sourceMessages.templateConflict);
  await expect(page).toHaveScreenshot(`sources-failed-${width}.png`,{fullPage:true,animations:'disabled'});
  await accessible(page);
- await page.getByRole('button',{name:'Retry',exact:true}).click();
+ await page.getByRole('region',{name:'Monthly returns',exact:true}).getByRole('button',{name:'Re-introspect',exact:true}).click();
  await expect(page.getByRole('alert')).toHaveCount(0);expect(state.retries).toEqual([{projectId}]);
 });
 
@@ -85,7 +85,7 @@ test('source timestamps open history and failed status opens the exact failing r
 
 for(const status of ['connected','pending','testing','unreachable','introspection_failed','archived'])test(`Re-introspect maintenance action for ${status}`,async({page})=>{
  const state=await mock(page);state.status=status;await page.goto(`/projects/${projectId}/data-sources`);
- const row=page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})});
+ const row=page.getByRole('region',{name:'Monthly returns',exact:true});
  const action=row.getByRole('button',{name:'Re-introspect',exact:true});
  if(status==='archived'){await expect(row).toBeVisible();await expect(action).toHaveCount(0);return;}
  await expect(action).toBeEnabled();await action.click();expect(state.retries).toEqual([{projectId}]);
@@ -94,17 +94,17 @@ for(const width of [390,900,1440])test(`active-run refusal names and links the r
  const state=await mock(page);state.status='pending';state.conflictRun=industryId;
  await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await page.evaluate(()=>document.fonts.ready);
- await page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})}).getByRole('button',{name:'Re-introspect',exact:true}).click();
+ await page.getByRole('region',{name:'Monthly returns',exact:true}).getByRole('button',{name:'Re-introspect',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText(industryId);
  await expect(page.getByRole('link',{name:'View active run'})).toHaveAttribute('href',`/projects/${projectId}/introspections/${industryId}`);
- await expect(page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})}).getByRole('alert')).toContainText(industryId);
+ await expect(page.getByRole('region',{name:'Monthly returns',exact:true}).getByRole('alert')).toContainText(industryId);
  await expect(page.getByRole('link',{name:'View active run'})).toBeInViewport();
  await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`sources-active-conflict-${width}.png`,{fullPage:true});await accessible(page);
 });
 
 test('Re-introspect acknowledges before a delayed response, blocks repeat clicks, and retains a fast run receipt',async({page})=>{
  await mock(page);await page.goto(`/projects/${projectId}/data-sources`);
- const row=page.getByRole('row').filter({has:page.getByRole('link',{name:'Monthly returns',exact:true})});
+ const row=page.getByRole('region',{name:'Monthly returns',exact:true});
  await expect(row).toBeVisible();
  let releasePost!:()=>void,releaseRefresh!:()=>void,calls=0;
  const postGate=new Promise<void>(resolve=>{releasePost=resolve;}),refreshGate=new Promise<void>(resolve=>{releaseRefresh=resolve;});

@@ -4790,6 +4790,12 @@ Item **5.16 exposes, validates, persists and audits** the evidence settings. Ite
 
 The approved table must drive one shared setting definition used by screen descriptions and write validation. Existing readers must use the same approved defaults and bounds; they must not retain divergent private validators. Writes record actor/before/after under Q-036. Query execution captures effective settings at start under Q-037; changing settings does not change an in-flight run. Missing required values remain representable so a project can be created and configured incrementally.
 
+### Item 5.34 Settings presentation
+
+Project Settings has five tabs: Query, Discovery, Evidence, Agents and keys, Engines. The drawer has one Settings destination. Existing settings-area links select the appropriate tab. A closed setting row shows its name, effective value with unit, and stored/default/unset provenance. Description, bounds, default and consequences are disclosed by a keyboard-operable secondary control. Sampling size while sampling is off is not incomplete. Warnings are conditional on the dangerous value or change, not repeated on every row.
+
+Configuration edits accumulate across tabs into one save bar naming before/after values. Save uses one existing project-settings PATCH with complete active values only for changed sections; missing required limits stay absent and the repository preserves deferred fields. Failed saves retain the draft; Discard restores the baseline. Project identity and industry migration remain separate scoped commands behind Project details. Personal/company settings retain their own scope. Engine registration and editing are disclosed, verified health and source assignments are listed, and the leading finding carries the action. All selects in these Settings scopes share content sizing and symmetrical chevron clearance. Live retention remains in days; prototype values do not change §5.8's contract.
+
 ### Item 5.16 implementation
 
 `src/shared/project-settings.ts` is the executable definition of this table. Screen labels, defaults, bounds and write validation use those same descriptors. The contract test enumerates every field, compares the rendered description and input bounds, and checks boundary acceptance/rejection. The runtime query, heartbeat, key-grace and sampling readers reuse the definitions too.
@@ -5685,3 +5691,18 @@ Reviewed scoped master rules reuse `.card`, `.card-h`, `.rec`, `.rhead`,
 existing `.pgbox textarea` control pattern. No new classes/colours or gate
 exemptions. The screen remains a review candidate: visual baselines wait for
 explicit reader approval.
+
+
+### 5.35 Data sources and explorer presentation
+
+The source list uses readable display names and immutable aliases. Source metadata includes active object count, last-landed time from immutable landing receipts, current quarantined arrivals and separate treatment counts for each project pool. The source card selects one pool: its Awaiting decision tile counts missing entitlements on active supported/nameable elements in that pool, and its exposure bar and compact legend use the same scope. Review decisions carries both source and pool. No pools means no decision total or spectrum; it does not invent a pool. Demo explanations and provisioning/connection states live in the connect flow; connected sources carry a demo tag.
+
+The explorer selects a source in its toolbar and requests its objects through the existing scoped catalogue route with `parent=objects:<source UUID>`. Schema names remain metadata for disambiguation, not redundant hierarchy levels. Cursors bind project, parent, prefix and All/Undecided/Declared filter. Objects carry treatment summaries and unique undecided counts. Elements carry actual cross-pool treatments (Mixed when they disagree), stored declaration flags and applicable effective timezone provenance; the former hard-coded Undecided state is removed. These reads contain catalogue metadata, never source values.
+
+At viewport widths of at least 1100px declarations dock beside the tree; below that they open immediately after the selected element, with measured height included in virtual-window geometry. Deep links remain usable before the element's branch is loaded. Each declaration discloses its editor, description and stored/effective provenance; inapplicable properties have no input and are not silently cleared. All disclosures share one atomic draft, Discard and save footer, retaining effective-tokenization confirmation and immutable evidence semantics. Every select uses the shared content-sized control with a single custom chevron and symmetric clearance.
+
+Cache invalidation: bulk decisions refresh `dataSource.lists` as well as existing entitlement/catalogue/stat families; pool creation refreshes source lists and catalogue lists because a new pool introduces missing decisions. Catalogue events/snapshots refresh source summaries too. Filings continue to invalidate source lists. Declaration saves do not invalidate historical evidence.
+
+Source-card review correction: Awaiting decision previously counted unique supported/nameable elements missing a decision in any project pool, while the exposure legend summed pool–element pairs. The card now has an explicit Pool picker: its tile, spectrum, legend and Review decisions destination use that pool only. Fully decided and empty pools are never summed. The existing aggregate API metadata remains for other contracts, but the card does not display it. No pools means no invented decisions. Equal display name/alias renders once. The compact legend lists treatments present beside the bar on desktop; below 820px it wraps beneath the bar to preserve readable names and avoid horizontal scrolling. No combined-decision total is shown.
+
+Exposure spectra on Dashboard, Entitlements and Data sources use one shared component, palette and left-to-right order. Segment fills use `--green`, `--token`, `--mask`, `--agg`, `--held`, `--yellow`; legend marks use those exact segment fills with a uniform 1px ink outline. The outline is identical for all six treatments and carries no additional state. Row and list marks retain their dark treatment variants. Order and treatment/count labels connect legend marks to segments. Units, scope and compact legend presentation do not change the palette.

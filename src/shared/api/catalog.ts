@@ -4,18 +4,22 @@ import { createApiClient } from './client.js';
 export const CatalogNode = z.object({
   kind: z.enum(['source', 'schema', 'object', 'element']),
   id: z.string(), label: z.string().nullable(), childCount: z.number().int().nullable(),
+  schemaName: z.string().optional(), qualifiedName:z.string().optional(),
+  decisions:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided']),count:z.number().int().nonnegative()})).optional(),
+  undecidedCount:z.number().int().nonnegative().optional(),
+  declarations:z.object({tokenDomain:z.string().nullable(),sourceTimezone:z.string().nullable(),timezoneProvenance:z.enum(['declared','inherited','missing']),isolated:z.boolean(),declared:z.boolean()}).optional(),
   sourceType: z.string().nullable().optional(),
   exposedType: z.string().nullable(),
   unsupportedReason: z.enum(['explicitly_excluded','unmapped']).nullable().optional(),
-  state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable']).nullable(),
+  state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable', 'clear', 'masked', 'tokenized', 'aggregate_only', 'mixed']).nullable(),
 });
 export type CatalogNode = z.infer<typeof CatalogNode>;
 export const CatalogTreeResponse = z.object({ nodes: z.array(CatalogNode), nextCursor: z.string().nullable() });
 export const CatalogTreeQuery = z.object({
-  parent: z.string().max(512).optional(), prefix: z.string().max(63).default(''),
+  filter:z.enum(['all','undecided','declared']).default('all'), parent: z.string().max(512).optional(), prefix: z.string().max(63).default(''),
   cursor: z.string().max(2048).optional(), limit: z.coerce.number().int().positive().optional(),
 });
-export type CatalogPage = { parent?: string; prefix?: string; cursor?: string; limit?: number };
+export type CatalogPage = { filter?:'all'|'undecided'|'declared'; parent?: string; prefix?: string; cursor?: string; limit?: number };
 export function catalogPage(projectId: string, page: CatalogPage, client = createApiClient()) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(page)) if (value !== undefined) query.set(key, String(value));

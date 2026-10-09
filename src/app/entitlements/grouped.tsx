@@ -2,7 +2,7 @@ import {useMemo,useEffect,type ReactNode} from 'react';
 import {useStore} from 'zustand';
 import {Link} from '@tanstack/react-router';
 import {useMutation} from '@tanstack/react-query';
-import {Button,AsyncButton,LoadingState,ErrorState,EmptyState,DenseList,Mark} from '../../shared/ui/index.js';
+import {Button,AsyncButton,LoadingState,ErrorState,EmptyState,DenseList,ExposureSpectrum} from '../../shared/ui/index.js';
 import {readMembers,type GroupFilter,type EntitlementGroup,type EntitlementMember} from '../../shared/api/entitlement-groups.js';
 import {useGroups,useMembers,useBulk} from './data.js';
 import {createEntitlementsState} from './state.js';
@@ -15,7 +15,7 @@ export function GroupedDecisions({projectId,poolId,poolName,sourceId,elementId,d
  const collect=useMutation({mutationFn:async({group,undecided}:{group?:string;undecided?:boolean})=>{const members:EntitlementMember[]=[];let cursor:string|undefined;do{const result=await readMembers(poolId,{...filter,group,decision:undecided?'undecided':filter.decision,cursor,limit:500});if(!result.ok)throw result.error;members.push(...result.value.items);cursor=result.value.nextCursor??undefined;}while(cursor);return members;},onSuccess:(members,input)=>{if(input.undecided)store.getState().clearSelection();store.getState().rememberMembers(members);store.getState().check(members.map(m=>m.id),true);},onSettled:()=>store.getState().queueGroup(null)});
  const busy=bulk.isPending||collect.isPending,treeMode=mode==='table'&&!elementId;
  return <>
- {renderHeader(totals?<section className="spec" aria-label="Decision distribution"><span className="meta">{totals.decisions.reduce((n,d)=>n+d.count,0)} members</span><DecisionSpectrum decisions={totals.decisions}/></section>:undefined)}
+ {renderHeader(totals?<section className="spec" aria-label="Decision distribution"><span className="meta">{totals.decisions.reduce((n,d)=>n+d.count,0)} members</span><ExposureSpectrum decisions={totals.decisions} unit="members" density="compact"/></section>:undefined)}
  {renderFilters(totals?.undecided,<input className="inp" id="entitlement-name" data-part="name-filter" aria-label="Column name starts with (all tables)" placeholder="Filter by name" value={filter.prefix} maxLength={63} disabled={busy} onChange={e=>state.filterName(e.target.value)}/>)}
  <div data-part="scope-summary">{editable&&totals&&totals.undecided>0&&decision!=='decided'?<Button disabled={busy} onClick={()=>collect.mutate({undecided:true})}>{collect.isPending?'Collecting members…':('Review all '+totals.undecided)}</Button>:null}</div>
  {totals?<p className="note">{totals.members} {totals.members===1?'member':'members'} in {totals.groups} visible {mode==='table'?(totals.groups===1?'table':'tables'):(totals.groups===1?'group':'groups')}.</p>:null}
@@ -44,7 +44,6 @@ function Group({group,poolId,filter,editable,busy,store,select}:{group:Entitleme
  <div id={id} hidden={!open}>{open?<Members poolId={poolId} filter={filter} group={group.groupKey} editable={editable} busy={busy} store={store}/>:null}</div>
  </div>;
 }
-function DecisionMark({value}:{value:EntitlementGroup['decisions'][number]['value']}){return <Mark name={`treatment-${value==='aggregate_only'?'aggregate':value}`} size={17} label={value==='clear'?'In the clear':value==='undecided'?'Undecided':value.replaceAll('_',' ').replace(/^./u,c=>c.toUpperCase())}/>;}
 function Members({poolId,filter,group,editable,busy,store}:{poolId:string;filter:GroupFilter;group:string;editable:boolean;busy:boolean;store:ReturnType<typeof createEntitlementsState>}){
  const query=useMembers(poolId,{...filter,group}),state=useStore(store);
  useEffect(()=>{if(query.data)store.getState().rememberMembers(query.data.pages.flatMap(p=>p.items));},[query.data,store]);
@@ -56,6 +55,3 @@ function Members({poolId,filter,group,editable,busy,store}:{poolId:string;filter
  <Link data-part="declarations" aria-label={`Declarations for ${m.qualifiedName}`} className="btn ghost" to="/projects/$projectId/$screen" params={{projectId:filter.projectId,screen:'catalog'}} search={{elementId:m.id}}>Declarations</Link>
  </div>)}</DenseList>}{query.hasNextPage?<AsyncButton variant="ghost" disabled={busy||query.isFetchingNextPage} pendingLabel="Loading…" refusal={query.isError?query.error.message:null} run={()=>query.fetchNextPage()}>Load more members</AsyncButton>:null}</>;
 }
-
-const spectrum=[{value:'clear',label:'Clear',colour:'var(--green)'},{value:'tokenized',label:'Tokenized',colour:'var(--token)'},{value:'masked',label:'Masked',colour:'var(--mask)'},{value:'aggregate_only',label:'Aggregate only',colour:'var(--agg)'},{value:'withheld',label:'Withheld',colour:'var(--held)'},{value:'undecided',label:'Undecided',colour:'var(--yellow)'}] as const;
-function DecisionSpectrum({decisions}:{decisions:readonly {value:string;count:number}[]}){const counts=new Map(decisions.map(d=>[d.value,d.count]));return <><div className="bar" data-density="compact" role="group" aria-label="Treatment distribution">{spectrum.map(d=><div key={d.value} data-treatment={d.value} role="img" title={`${d.label}: ${counts.get(d.value)??0} members`} aria-label={`${d.label}: ${counts.get(d.value)??0} members`} style={{flex:counts.get(d.value)??0,background:d.colour}}/>)}</div><div className="speclegend">{spectrum.map(d=><div key={d.value} data-treatment={d.value}><DecisionMark value={d.value}/>{d.label} {counts.get(d.value)??0}</div>)}</div></>;}

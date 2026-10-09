@@ -19,7 +19,7 @@ export async function mock(page:Page){
    if(state.empty)nodes=[];
    else if(!parent)nodes=prefix&&!('warehouse'.startsWith(prefix))?[]:[{...base,id:source,kind:'source',label:'warehouse'}];
    else if(parent===source)nodes=[{...base,id:schema,kind:'schema',label:'public'}];
-   else if(parent===schema)nodes=[{...base,id:object,kind:'object',label:'records',childCount:state.large?5000:4}];
+   else if(parent===schema||parent==='objects:'+source)nodes=[{...base,id:object,kind:'object',label:'records',childCount:state.large?5000:4}];
    else if(state.large){
     // Each request is still one bounded page. The test drives every page explicitly.
     const start=Number(cursor??0);const count=50;
@@ -31,4 +31,5 @@ export async function mock(page:Page){
   return route.fulfill({status:404,json:{}});
  });return state;
 }
-export async function expand(page:Page){for(const name of ['warehouse','public','records'])await page.getByRole('button',{name:`Expand ${name}`,exact:true}).click();}
+export async function expand(page:Page){for(let level=0;level<3;level++){const button=page.getByRole('button',{name:/^Expand (warehouse|public|records)$/}).first();await button.waitFor();const object=await button.getAttribute('aria-label')==='Expand records'||await button.innerText()==='Expand records';const name=await button.getAttribute('aria-label');await button.click();if(object||name==='Expand records')return;}}
+export async function openDeclarations(page:Page){for(const name of ['Token domain','Case folding','Source timezone','Epoch unit','Canonicaliser']){const button=page.getByRole('button',{name:`Edit ${name}`,exact:true});if(await button.getAttribute('aria-expanded')==='false')await button.click();}}

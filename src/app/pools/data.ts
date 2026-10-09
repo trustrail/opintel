@@ -1,3 +1,5 @@
+import {sourceKeys} from '../sources/data.js';
+import {elementKeys} from '../catalog/data.js';
 import {useInfiniteQuery,useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 import {createApiClient,type AppError} from '../../shared/api/index.js';
 import {PoolPage,readPool,readTwin} from '../../shared/api/pools.js';
@@ -17,4 +19,4 @@ export function usePoolCommand(p:string,id:string,onIssued:(r:PoolKeyCreationRes
  if(!r.ok)throw r.error;
  // Never return the credential into TanStack's mutation cache.
  if(c.kind!=='revoke')onIssued(r.value);
- },onSuccess:async(_data,c)=>{const keys=c.kind==='create'?[poolKeys.lists(p),projectKeys.stats(p)]:c.kind==='rotate'?[poolKeys.detail(p,id)]:[poolKeys.detail(p,id),poolKeys.lists(p),agentKeys.presence(p)];await Promise.all(keys.map(queryKey=>cache.invalidateQueries({queryKey})));}});}
+ },onSuccess:async(_data,c)=>{const keys=c.kind==='create'?[poolKeys.lists(p),projectKeys.stats(p),sourceKeys.lists(p),elementKeys.lists(p)]:c.kind==='rotate'?[poolKeys.detail(p,id)]:[poolKeys.detail(p,id),poolKeys.lists(p),agentKeys.presence(p)];await Promise.all(keys.map(queryKey=>cache.invalidateQueries({queryKey})));}});}

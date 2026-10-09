@@ -313,6 +313,15 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
 <h2>States worth marking</h2>
 <p class="note">The normal outcome gets no mark. A list where only the actionable rows are marked can be scanned; a list where every row has a status icon is wallpaper.</p>
 <div class="card objs">
+  <!-- Engine health is actionable: registration must verify before assignment. -->
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="var(--green-dk)"/></svg>
+    <div class="nm">Healthy</div><div class="ds">Engine verified and reachable</div>
+  </div>
+  <div class="ob">
+    <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="var(--ink-3)"/></svg>
+    <div class="nm">Unreachable</div><div class="ds">Engine cannot currently be reached</div>
+  </div>
   <div class="ob">
     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/>

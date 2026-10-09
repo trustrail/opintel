@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   // The list summary names tests that passed only on retry as flaky.
-  reporter: 'list',
+  reporter: [['list'], ['./e2e/recorded-performance-reporter.ts']],
   globalSetup: './scripts/playwright-setup.ts',
   retries: 0,
   projects: [

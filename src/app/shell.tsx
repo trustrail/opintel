@@ -81,7 +81,6 @@ function TopBar(): ReactNode {
     {label:project.name,to:`/projects/${project.id}/dashboard`},
   ] : pathname === '/projects' ? [] : [{label:'All projects',to:'/projects'}];
   if(project && ['catalog','relationship-suggestions','sources','introspections'].includes(section ?? '')) crumbs.push({label:'Data sources',to:`/projects/${project.id}/data-sources`});
-  if(project&&section?.startsWith('settings-'))crumbs.push({label:'Settings',to:`/projects/${project.id}/settings`});
   if(project && section === 'runs') crumbs.push({label:'Activity',to:`/projects/${project.id}/activity`});
   if(project && section === 'token-key') crumbs.push({label:'Access',to:`/projects/${project.id}/access`});
   if(project && runId && run.data) crumbs.push({label:'Introspection runs',to:`/projects/${project.id}/sources/${run.data.sourceId}/introspections`});

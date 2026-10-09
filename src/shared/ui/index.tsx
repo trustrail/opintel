@@ -1,3 +1,6 @@
+export {TreatmentIndicator,treatmentLabel,type TreatmentValue} from './treatment.js';
+export {ConsoleSelect} from './select.js';
+export {ExposureSpectrum,DecisionMarks,decisionKinds} from './spectrum.js';
 import {Mark} from './marks.js';
 export {Mark,markNames,type MarkName,type MarkSize} from './marks.js';
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';

@@ -9,8 +9,8 @@ const geometry=(svg:string)=>[...svg.matchAll(/<(circle|path|rect|line)\b([^>]*)
  tag:shape[1],attributes:[...shape[2]!.matchAll(/([\w-]+)="([^"]*)"/gu)].map(attribute=>[attribute[1],attribute[2]]).sort((a,b)=>a[0]!.localeCompare(b[0]!)),
 }));
 describe('5.27 visual identity',()=>{
- it('VIS-001: all 38 specified marks are identifiable, passive geometry using existing tokens',()=>{
-  expect(markNames).toHaveLength(38);
+ it('VIS-001: all 40 specified marks are identifiable, passive geometry using existing tokens',()=>{
+  expect(markNames).toHaveLength(40);
   const master=readFileSync(new URL('../docs/opintel-master.css',import.meta.url),'utf8');
   const spec=readFileSync(new URL('../docs/visual-language.html',import.meta.url),'utf8');
   const expected=new Map<string,string>();
@@ -19,7 +19,7 @@ describe('5.27 visual identity',()=>{
   const kinds=spec.slice(spec.indexOf('<h2>The things themselves'),spec.indexOf('<h2>Navigation'));
   for(const match of kinds.matchAll(/(<svg[^>]*>.*?<\/svg>)\s*<div class="nm">([^<]+)<\/div>/gsu))expected.set(match[2]!.toLowerCase().replaceAll(' ','-'),match[1]!);
   for(const match of spec.matchAll(/<div class="ni">(<svg.*?<\/svg>)<span>([^<]+)<\/span>/gsu))expected.set('nav-'+match[2]!.toLowerCase().replaceAll(' ','-'),match[1]!);
-  expect(expected.size).toBe(38);
+  expect(expected.size).toBe(40);
   for(const name of markNames){
    const markup=renderToStaticMarkup(<Mark name={name} size={34}/>);
    expect(markup).toContain(`data-mark="${name}"`);

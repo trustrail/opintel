@@ -7,5 +7,5 @@ export default defineConfig({
  ...base,
  projects:base.projects?.map(project=>({...project,metadata:{...project.metadata,controlConformance:true}})),
  workers:1,
- reporter:[['list'],['./e2e/conformance/reporter.ts']],
+ reporter:[['list'],['./e2e/recorded-performance-reporter.ts'],['./e2e/conformance/reporter.ts']],
 });

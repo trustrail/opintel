@@ -4,3 +4,5 @@ const empty:NewSource={name:'',kind:'postgres',credentialRef:'',includeSchemas:[
 export const useSourceUi=create<{projectId:string;open:boolean;step:1|2;form:NewSource;show(id:string):void;close():void;next():void;edit(value:Partial<NewSource>):void;}>(set=>({projectId:'',open:false,step:1,form:empty,show:projectId=>set({projectId,open:true,step:1,form:{...empty}}),close:()=>set({open:false}),next:()=>set({step:2}),edit:value=>set(state=>({form:{...state.form,...value}}))}));
 
 export const useFilingExpansion=create<{expanded:Record<string,boolean>;toggle(projectId:string,sourceId:string):void}>(set=>({expanded:{},toggle:(projectId,sourceId)=>set(state=>{const key=projectId+':'+sourceId;return {expanded:{...state.expanded,[key]:!state.expanded[key]}};})}));
+
+export const useSourceListUi=create<{poolByProject:Record<string,string>;choosePool:(projectId:string,poolId:string)=>void;attention:boolean;filter:(attention:boolean)=>void}>(set=>({poolByProject:{},choosePool:(projectId,poolId)=>set(s=>({poolByProject:{...s.poolByProject,[projectId]:poolId}})),attention:false,filter:attention=>set({attention})}));

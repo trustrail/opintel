@@ -27,7 +27,7 @@ export function projectStreamCache(cache: QueryClient, project: string) {
  };
  const families: Record<string, () => void> = {
   introspection: () => { invalidate(introspectionKeys.all(project)); invalidate(observationKeys.all(project)); },
-  catalogElement: () => invalidate(elementKeys.all(project)),
+  catalogElement: () => {invalidate(elementKeys.all(project));invalidate(sourceKeys.lists(project));},
   dataSource: () => { invalidate(observationKeys.all(project)); invalidate(sourceKeys.typeObservations(project)); invalidate(sourceKeys.lists(project)); invalidate(sourceKeys.details(project)); },
   filing: () => { invalidate(observationKeys.all(project)); invalidate(filingKeys.list(project)); },
   agentPresence: () => { invalidate(agentKeys.presence(project)); invalidate(poolKeys.lists(project)); invalidate(poolKeys.details(project)); },
@@ -49,7 +49,7 @@ export function projectStreamCache(cache: QueryClient, project: string) {
    } else if (event.type === 'introspection.finished') {
     invalidate(observationKeys.all(project)); invalidate(sourceKeys.typeObservations(project)); invalidate(sourceKeys.lists(project));
     invalidate(introspectionKeys.detail(project, event.runId)); invalidate(introspectionKeys.lists(project));
-   } else if (event.type === 'catalog.changed') invalidate(elementKeys.all(project));
+   } else if (event.type === 'catalog.changed') {invalidate(elementKeys.all(project));invalidate(sourceKeys.lists(project));}
    else if (event.type === 'source.changed') { invalidate(observationKeys.all(project)); invalidate(sourceKeys.typeObservations(project)); invalidate(introspectionKeys.lists(project)); invalidate(sourceKeys.lists(project)); invalidate(sourceKeys.detail(project, event.sourceId)); }
    else if (event.type === 'agent.presence') { invalidate(agentKeys.pool(project,event.poolId)); invalidate(poolKeys.lists(project)); invalidate(poolKeys.detail(project,event.poolId)); }
    else if (event.type === 'filing.arrived') { invalidate(observationKeys.all(project)); invalidate(filingKeys.list(project)); invalidate(sourceKeys.lists(project)); }

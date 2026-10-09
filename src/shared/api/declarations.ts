@@ -23,7 +23,7 @@ export const ElementDeclarations = z.object({
 export type ElementDeclarations = z.infer<typeof ElementDeclarations>;
 export const SchemaDeclarations = z.object({ sourceId: z.uuid(), schemaName: z.string(), qualifiedName: z.string(), sourceTimezone: z.string().nullable(), projectName: z.string(), tokenizedInheritors: z.number().int().nonnegative() });
 export const SchemaDeclarationCommand = z.strictObject({ sourceTimezone: IanaTimezone.nullable(), confirmation: z.string().optional() });
-export const DeclarationSearch = z.object({elementId:z.uuid().optional().catch(undefined),declarationSchema:z.string().max(512).optional().catch(undefined)});
+export const DeclarationSearch = z.object({sourceId:z.uuid().optional().catch(undefined),elementId:z.uuid().optional().catch(undefined),declarationSchema:z.string().max(512).optional().catch(undefined)});
 export function declarationsPath(project: string, element: string) { return `/api/v1/projects/${project}/catalog/elements/${element}/declarations`; }
 export function schemaDeclarationsPath(project: string, source: string, schema: string) { return `/api/v1/projects/${project}/catalog/sources/${source}/schemas/${encodeURIComponent(schema)}/declarations`; }
 export function readDeclarations(project: string, element: string, client = createApiClient()) { return client.request({path: declarationsPath(project,element), response:ElementDeclarations}); }

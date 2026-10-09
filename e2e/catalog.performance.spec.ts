@@ -9,7 +9,7 @@ test('G-019: scrolling 5,000 loaded elements misses no refresh frames', async ({
   const tree=page.getByRole('tree',{name:'Catalogue'});
   for(let n=0;n<99;n++){
     await tree.evaluate(el=>{el.scrollTop=el.scrollHeight;});await page.getByRole('button',{name:'Load more',exact:true}).click();
-    await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(((n+2)*50+3+(n===98?0:1))*46);
+    await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(((n+2)*50+(n===98?0:1))*46+42);
   }
   const result=await tree.evaluate(async el=>{
     const frame=()=>new Promise<number>(resolve=>requestAnimationFrame(resolve));

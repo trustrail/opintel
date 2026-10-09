@@ -1156,3 +1156,263 @@
     grid-template-columns:minmax(0,1fr);
   }
 }
+
+/* 5.34 — reviewed Settings row/disclosure and content-sized select variants. */
+#opintel-app .screen[data-layout="settings"]{max-width:1100px;padding:20px 26px 44px;min-width:0}
+#opintel-app .screen[data-layout="settings"] > .segbtns{width:max-content;max-width:100%;gap:2px;padding:3px;margin-bottom:18px;border-color:var(--rule);background:var(--surface-2)}
+#opintel-app .screen[data-layout="settings"] > .segbtns [role="tab"]{padding:5px 13px;border-radius:7px;font-size:13px;font-weight:500;color:var(--ink-2);text-decoration:none;white-space:nowrap}
+#opintel-app .screen[data-layout="settings"] > .segbtns [aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:600}
+#opintel-app .screen[data-layout="settings"] > .segbtns [role="tab"]:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
+#opintel-app .screen[data-layout="settings"] .card{margin-bottom:14px;overflow:hidden}
+#opintel-app .screen[data-layout="settings"] .card-h{padding:10px 16px;background:var(--surface-2)}
+#opintel-app .screen[data-layout="settings"] .card-h h2{font-size:13px;font-weight:650}
+#opintel-app .screen[data-layout="settings"] .frow[data-layout="setting"]{display:grid;grid-template-columns:minmax(0,1fr) 180px 110px 28px;gap:14px;padding:10px 16px;border-bottom:1px solid var(--rule);min-height:42px}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-name"]{font-size:13.5px;font-weight:560;line-height:1.5}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-value"]{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-value"] em{font-style:normal;font-size:12px;color:var(--ink-3);margin-left:5px}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-state"]{font-size:11.5px;font-weight:550;justify-self:end;background:var(--surface-2);color:var(--ink-3);border:0;padding:2px 8px;white-space:nowrap}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-state"][data-state="set"]{background:var(--surface-3);color:var(--plum-2)}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-state"][data-state="decision"]{background:var(--yellow-bg);color:var(--ink)}
+#opintel-app .screen[data-layout="settings"] .frow[data-layout="setting"] .toolchip{padding:0;width:28px;height:21px;border:0;background:transparent;border-radius:6px;color:var(--ink-3)}
+#opintel-app .screen[data-layout="settings"] [data-open="true"] > .frow[data-layout="setting"]{background:var(--surface-3)}
+#opintel-app .screen[data-layout="settings"] .rdetail{padding:4px 16px 16px;background:var(--surface-3);border-top:1px solid var(--rule);overflow-wrap:anywhere}
+#opintel-app .screen[data-layout="settings"] .rdetail:not([hidden]){display:block}
+#opintel-app .screen[data-layout="settings"] .rdetail > p{font-size:12.5px;line-height:1.55;max-width:70ch;margin:8px 0 12px}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-editor"]{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-editor"] input.inp{width:130px;min-width:0;max-width:100%;padding:6px 10px}
+#opintel-app .screen[data-layout="settings"] [data-state="warning"]{background:var(--yellow-bg);border:1px solid var(--yellow-br);border-radius:9px;padding:8px 11px;color:var(--ink-2)}
+#opintel-app .screen[data-layout="settings"] [data-part="settings-picker"]{position:relative;display:inline-flex;max-width:100%;min-width:0}
+#opintel-app .screen[data-layout="settings"] [data-part="settings-picker"] select{appearance:none;background-image:none;width:196px;min-width:0;max-width:min(360px,100%);padding:6px 30px 6px 10px;line-height:20px}
+#opintel-app .screen[data-layout="settings"] [data-part="picker-chevron"]{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:10px;height:6px;pointer-events:none;color:var(--ink)}
+@supports(field-sizing:content){#opintel-app .screen[data-layout="settings"] [data-part="settings-picker"] select{field-sizing:content;width:auto}}
+#opintel-app .screen[data-layout="settings"] .bulkbar[data-layout="weighted"]{bottom:0}
+#opintel-app .screen[data-layout="settings"] .frow[data-layout="engine"]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,160px) 150px auto;gap:14px;padding:11px 16px;font-size:12px}
+#opintel-app .screen[data-layout="settings"] [data-layout="engine"] [data-part="identity"] > b{font-size:13.5px;font-weight:560;line-height:1.4}
+#opintel-app .screen[data-layout="settings"] [data-layout="engine"] > [data-part="identity"]{grid-column:1;min-width:0}
+#opintel-app .screen[data-layout="settings"] [data-part="engine-sources"]{grid-column:2;min-width:0;overflow-wrap:anywhere}
+#opintel-app .screen[data-layout="settings"] [data-part="engine-health"]{grid-column:3;justify-self:start}
+#opintel-app .screen[data-layout="settings"] [data-layout="engine"] > .toolchip{grid-column:4}
+#opintel-app .screen[data-layout="settings"] [data-part="engine-address"]{font-size:11.5px;color:var(--ink-3);overflow-wrap:anywhere}
+#opintel-app .screen[data-layout="settings"] [data-part="finding-count"]{font-size:38px;font-weight:700;line-height:1}
+#opintel-app .screen[data-layout="settings"] .card[data-layout="finding"] [data-part="body"] p{font-size:12.5px;margin:8px 0 0}
+@media(max-width:820px){
+#opintel-app .screen[data-layout="settings"]{padding:20px 0 44px}
+#opintel-app .screen[data-layout="settings"] > .segbtns{flex-wrap:wrap;width:100%}
+#opintel-app .screen[data-layout="settings"] .frow[data-layout="setting"]{grid-template-columns:minmax(0,1fr) auto 28px;gap:8px}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-name"]{grid-column:1 / 3}
+#opintel-app .screen[data-layout="settings"] .frow[data-layout="setting"] .toolchip{grid-column:3;grid-row:1 / 3}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-value"]{grid-column:1;grid-row:2;text-align:left}
+#opintel-app .screen[data-layout="settings"] [data-part="setting-state"]{grid-column:2;grid-row:2}
+#opintel-app .screen[data-layout="settings"] .frow[data-layout="engine"]{grid-template-columns:minmax(0,1fr) auto}
+#opintel-app .screen[data-layout="settings"] [data-part="engine-sources"],#opintel-app .screen[data-layout="settings"] [data-part="engine-health"]{grid-column:1}
+#opintel-app .screen[data-layout="settings"] [data-layout="engine"] > .toolchip{grid-column:2;grid-row:1 / 4}
+}
+
+/* 5.35 approved Data sources and declaration workspace variants. */
+/* Scope every variant to the two redesigned screens. */
+#opintel-app .screen[data-layout="sources"],
+#opintel-app .screen[data-layout="explorer"] {
+  max-width: 1300px;
+  padding: 20px 26px 44px;
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-heading"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 13px 16px;
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-name"] {
+  font-size: 15px;
+  font-weight: 650;
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-facts"] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid var(--rule);
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-fact"] {
+  min-width: 0;
+  padding: 11px 16px;
+  border-right: 1px solid var(--rule);
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-fact"]:last-child {
+  border-right: 0;
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-fact"][data-state="attention"] {
+  background: var(--yellow-bg);
+  color: var(--ink);
+}
+#opintel-app .screen[data-layout="sources"] [data-part="fact-value"] {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+#opintel-app .screen[data-layout="sources"] [data-part="source-exposure"] {
+  padding: 10px 16px;
+}
+#opintel-app .screen[data-layout="sources"] .bar { height: 8px; }
+#opintel-app .screen[data-layout="explorer"] [data-part="explorer-split"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 14px;
+  align-items: start;
+}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] {
+  position: sticky;
+  top: 14px;
+  min-width: 0;
+}
+#opintel-app .screen[data-layout="explorer"] [data-row-kind="object"] .nm {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+#opintel-app .screen[data-layout="explorer"] [data-row-kind="element"] .nm {
+  font-size: 13.5px;
+  font-weight: 560;
+}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-row"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 24px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-name"] {
+  font-size: 13px;
+  font-weight: 560;
+}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-value"] {
+  font-size: 12.5px;
+}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-provenance"] {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-footer"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface-2);
+}
+@media (max-width: 1099px) {
+  #opintel-app .screen[data-layout="explorer"] [data-part="explorer-split"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] {
+    position: static;
+  }
+  #opintel-app .screen[data-layout="sources"] [data-part="source-facts"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 820px) {
+  #opintel-app .screen[data-layout="sources"],
+  #opintel-app .screen[data-layout="explorer"] { padding-inline: 0; }
+  #opintel-app .screen[data-layout="sources"] [data-part="source-heading"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) [data-part="console-picker"]{position:relative;display:inline-flex;max-width:100%;min-width:0}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) [data-part="console-picker"] select{appearance:none;background-image:none;width:196px;min-width:0;max-width:min(360px,100%);padding:6px 30px 6px 10px;line-height:20px}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) [data-part="picker-chevron"]{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:10px;height:6px;pointer-events:none;color:var(--ink)}
+@supports(field-sizing:content){#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) [data-part="console-picker"] select{field-sizing:content;width:auto}}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) .filters{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) .segbtns{padding:2px;gap:2px;border-color:var(--rule);background:var(--surface-2)}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) .segbtns button{padding:4px 11px;font-size:12.5px;font-weight:500;white-space:nowrap;border:0}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) .segbtns button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600}
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) .pick label{padding-inline:7px;letter-spacing:0}
+#opintel-app .screen[data-layout="sources"] [data-part="source-toolbar"]{justify-content:space-between}
+#opintel-app .screen[data-layout="sources"] [data-part="source-title"]{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#opintel-app .screen[data-layout="sources"] [data-part="source-heading"] > div{min-width:0}
+#opintel-app .screen[data-layout="sources"] [data-part="source-heading"] .meta{white-space:normal;overflow-wrap:anywhere;font-size:12px;margin-top:2px}
+#opintel-app .screen[data-layout="sources"] [data-part="source-heading"] .filters{margin:0;justify-content:end}
+#opintel-app .screen[data-layout="sources"] [data-part="source-fact"] .meta{font-size:11.5px;white-space:normal}
+#opintel-app .screen[data-layout="sources"] [data-part="source-fact"] a{font-size:11.5px}
+#opintel-app .screen[data-layout="sources"] [data-part="last-landed"]{font-size:12px;line-height:1.5}
+#opintel-app .screen[data-layout="sources"] .speclegend{display:flex;flex-wrap:wrap;gap:5px 12px;margin:8px 0}
+#opintel-app .screen[data-layout="sources"] .speclegend > div{display:inline-flex;align-items:center;gap:4px;font-size:11.5px}
+#opintel-app .screen[data-layout="sources"] .bar i{display:block}
+#opintel-app .screen[data-layout="explorer"] [data-part="explorer-toolbar"] > input{width:200px;min-width:0;max-width:100%;margin-left:auto}
+#opintel-app .screen[data-layout="explorer"] [data-part="explorer-split"][data-panel="closed"]{grid-template-columns:minmax(0,1fr)}
+#opintel-app .screen[data-layout="explorer"] [data-part="explorer-split"] > .card{min-width:0}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"]{min-height:42px;grid-template-columns:minmax(0,1fr) auto auto;gap:9px;background:var(--plum-soft)}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="element"]{grid-template-columns:minmax(0,1fr) 90px 120px auto;gap:8px}
+#opintel-app .screen[data-layout="explorer"] .trow .tname{min-width:0}
+#opintel-app .screen[data-layout="explorer"] [data-column-name]{display:flex;min-width:0;align-items:center;gap:8px}
+#opintel-app .screen[data-layout="explorer"] .trow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#opintel-app .screen[data-layout="explorer"] [data-column-type]{font-size:11.5px}
+#opintel-app .screen[data-layout="explorer"] [data-part="decision-marks"]{display:inline-flex;align-items:center;gap:4px}
+#opintel-app .screen[data-layout="explorer"] [data-column-treatment]{display:flex;align-items:center;gap:5px;font-size:12px}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-chips"]{display:inline-flex;gap:4px;min-width:0;overflow:hidden}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-chips"] .tr{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] > .toolchip{margin-bottom:6px}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] .card-h{padding:13px 16px;min-width:0}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-value"]{overflow-wrap:anywhere;text-align:right;max-width:190px}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-provenance"]{display:inline}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-row"] .toolchip{padding:0;width:24px;height:24px;background:transparent;border:0}
+#opintel-app .screen[data-layout="explorer"] [data-open="true"] > [data-part="declaration-row"]{background:var(--plum-soft)}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] .rdetail{padding:2px 16px 14px;background:var(--plum-soft)}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] .rdetail .fld{margin:8px 0 0}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] .hint{font-size:12px;line-height:1.5}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] .inp,#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] input{min-width:0;max-width:100%}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-changes"]{flex-basis:100%;font-size:12px;line-height:1.5}
+#opintel-app .screen[data-layout="explorer"] [data-state="warning"]{background:var(--yellow-bg);border:1px solid var(--yellow-br);padding:7px 10px;border-radius:8px}
+@media(max-width:820px){
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="element"]{grid-template-columns:minmax(0,1fr) auto auto}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-chips"]{max-width:45%;flex-shrink:0}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"]{min-height:42px;grid-template-columns:minmax(0,1fr) auto}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"] > .meta{display:none}
+#opintel-app .screen[data-layout="explorer"] [data-part="explorer-toolbar"] > input{margin-left:0}
+}
+
+@container catalogue (max-width:599px){
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="element"]{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"name name name" "type treatment declarations";row-gap:5px}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="element"] > .tname{display:contents}
+#opintel-app .screen[data-layout="explorer"] [data-column-name]{grid-area:name}
+#opintel-app .screen[data-layout="explorer"] [data-column-type]{grid-area:type}
+#opintel-app .screen[data-layout="explorer"] [data-column-treatment]{grid-area:treatment}
+#opintel-app .screen[data-layout="explorer"] [data-column-declarations]{grid-area:declarations}
+#opintel-app .screen[data-layout="explorer"] [data-treatment-label]{display:none}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-chips"]{max-width:45%;flex-shrink:0}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"] > .meta{display:none}
+}
+
+#opintel-app .screen:is([data-layout="sources"],[data-layout="explorer"]) .pick [data-part="picker-chevron"]{right:10px}
+#opintel-app .screen[data-layout="explorer"] [data-part="treatment-visible"]{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
+#opintel-app .screen[data-layout="explorer"] [data-treatment-trigger]{display:none}
+#opintel-app .screen[data-layout="explorer"] [data-treatment-trigger]:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+@media(max-width:599px){
+#opintel-app .screen[data-layout="explorer"] [data-part="treatment-visible"]{display:none}
+#opintel-app .screen[data-layout="explorer"] [data-treatment-trigger]{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;box-sizing:border-box}
+}
+
+#opintel-app .screen[data-layout="explorer"] .trow .nm{font-family:inherit}
+@media(max-width:599px){#opintel-app .screen[data-layout="sources"] [data-part="source-fact"]:last-child{grid-column:1 / -1}}
+
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-panel"] .rdetail:not([hidden]){display:block}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-row"]{min-height:42px;box-sizing:border-box}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-value"]{display:inline-flex;align-items:center;gap:5px;line-height:1.4}
+@container catalogue (max-width:599px){
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"]{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name name" "marks count";row-gap:0}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"] > .tname{grid-area:name}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"] > [data-part="decision-marks"]{grid-area:marks}
+#opintel-app .screen[data-layout="explorer"] .trow[data-row-kind="object"] > .meta{grid-area:count;display:block;font-size:11.5px}
+}
+
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-row"] .toolchip{height:21px}
+#opintel-app .screen[data-layout="explorer"] [data-part="declaration-name"]{line-height:1.4}
+
+/* Source exposure is for the selected pool; compact legend beside its bar. */
+#opintel-app .screen[data-layout="sources"] [data-part="source-exposure"]{display:flex;align-items:center;gap:12px}
+#opintel-app .screen[data-layout="sources"] [data-part="source-exposure"] .bar{flex:1;min-width:100px}
+#opintel-app .screen[data-layout="sources"] .speclegend{flex-wrap:nowrap;gap:8px;margin:0;white-space:nowrap}
+@media(max-width:820px){
+ #opintel-app .screen[data-layout="sources"] [data-part="source-exposure"]{flex-wrap:wrap}
+ #opintel-app .screen[data-layout="sources"] [data-part="source-exposure"] .bar{flex-basis:100%}
+ #opintel-app .screen[data-layout="sources"] .speclegend{flex-wrap:wrap;white-space:normal}
+}

@@ -68,6 +68,36 @@ describe('catalogue tree scoped to real Postgres', () => {
     allowed=false; expect((await get()).status).toBe(404);
   });
 
+  it('DS-001/002: real decisions, object summaries, declarations and source exposure agree',async()=>{
+    const pool=randomUUID(),second=randomUUID();
+    await withTenant(ctx,async tx=>{
+      await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$3,'One'),($2,$3,'Two')",[pool,second,projectId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'tokenized','user',$2 FROM catalog_element WHERE exposed_name='stored_text'",[pool,userId]);
+      await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'withheld','user',$2 FROM catalog_element WHERE exposed_name='stored_text'",[second,userId]);
+      await tx.query("UPDATE catalog_element SET token_domain='treaty' WHERE exposed_name='stored_text'");
+      await tx.query("INSERT INTO landing_receipt(filing_id,project_id,source_id,payload) VALUES($1,$2,$3,$4)",[randomUUID(),projectId,sourceId,JSON.stringify({landedAt:'2026-10-08T12:00:00Z'})]);
+    });
+    const elements=(await page(`?parent=${objectId}`)).nodes;
+    expect(elements.find(n=>n.label==='stored_text')).toMatchObject({state:'mixed',decisions:expect.arrayContaining([{value:'tokenized',count:1},{value:'withheld',count:1}]),declarations:{tokenDomain:'treaty',isolated:false,declared:true}});
+    expect(elements.find(n=>n.label==='stored_number')).toMatchObject({state:'undecided',decisions:[{value:'undecided',count:2}],declarations:{isolated:true}});
+    const objects=await page(`?parent=objects:${sourceId}`);expect(objects.nodes).toHaveLength(1);expect(objects.nodes[0]).toMatchObject({kind:'object',label:'stored_table',schemaName:'public',undecidedCount:1,decisions:expect.arrayContaining([{value:'tokenized',count:1},{value:'withheld',count:1},{value:'undecided',count:2}])});
+    expect((await get(`?parent=objects:${otherSource}`)).status).toBe(404);
+    expect((await page(`?parent=${objectId}&filter=declared`)).nodes.map(n=>n.label)).toEqual(['stored_text']);
+    expect((await page(`?parent=${objectId}&filter=undecided`)).nodes.map(n=>n.label)).toEqual(['stored_number']);
+    const listed=await new PostgresSourceRegistrationRepository().list(ctx,null,50);expect(listed).toMatchObject({ok:true,value:[expect.objectContaining({objectCount:1,undecidedCount:1,lastLandedAt:'2026-10-08T12:00:00.000Z',exposure:expect.arrayContaining([{value:'tokenized',count:1},{value:'withheld',count:1},{value:'undecided',count:2}])})]});
+    if(!listed.ok)throw listed.error;
+    expect(listed.value[0]?.decisionPools).toEqual(expect.arrayContaining([
+      {id:pool,name:'One',undecidedCount:1,decisions:expect.arrayContaining([{value:'tokenized',count:1},{value:'undecided',count:1}])},
+      {id:second,name:'Two',undecidedCount:1,decisions:expect.arrayContaining([{value:'withheld',count:1},{value:'undecided',count:1}])},
+    ]));
+    await withTenant(ctx,async tx=>{await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'clear','user',$2 FROM catalog_element WHERE exposed_name='stored_number'",[pool,userId]);await tx.query("DELETE FROM entitlement WHERE pool_id=$1",[second]);});
+    const scoped=await new PostgresSourceRegistrationRepository().list(ctx,null,50);if(!scoped.ok)throw scoped.error;
+    expect(scoped.value[0]?.decisionPools).toEqual(expect.arrayContaining([expect.objectContaining({id:pool,undecidedCount:0}),expect.objectContaining({id:second,undecidedCount:2,decisions:[{value:'undecided',count:2}]})]));
+    await withTenant(ctx,tx=>tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) SELECT $1,id,project_id,'withheld','user',$2 FROM catalog_element WHERE exposed_name='stored_text'",[second,userId]));
+    await withTenant(ctx,tx=>tx.query("UPDATE entitlement SET treatment='tokenized' WHERE pool_id=$1",[second]));
+    expect((await page(`?parent=${objectId}`)).nodes.find(n=>n.label==='stored_text')).toMatchObject({state:'tokenized',decisions:[{value:'tokenized',count:2}]});
+  });
+
   it('paging contract: 1,001 elements remain bounded, cursor paginated, and cannot cross scope or prefix', async () => {
     await withTenant(ctx,tx=>tx.query(`INSERT INTO catalog_element(object_id,project_id,source_identifier,exposed_name,source_type,exposed_type)
       SELECT $1,$2,'Column '||n,'column_'||n,'int4','INTEGER' FROM generate_series(1,1001) n`,[objectId,projectId]));

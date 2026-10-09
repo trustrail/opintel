@@ -1,7 +1,7 @@
 import {test} from './fixtures.js';
 import {expect} from '@playwright/test';
 import {loadDevEnvironment} from '../scripts/dev-environment.js';
-import {mock as consoleFixture,expand} from './catalog-fixture.js';
+import {mock as consoleFixture,expand,openDeclarations} from './catalog-fixture.js';
 
 // Unlike the presentation fixtures, this test proxies browser requests to real
 // mounted application routes, Postgres repositories and a registered TLS Engine.
@@ -36,7 +36,7 @@ test('DECL-001/006: console declarations and tokenized entitlement through real 
    return route.fallback();
   });
   await page.goto(`/projects/${f.ctx.projectId}/data-sources`);await page.getByRole('link',{name:'Explore schema',exact:true}).click();await expand(page);
-  await page.getByRole('button',{name:'Declarations for field_1',exact:true}).click();await expect(page.getByLabel('Canonicaliser',{exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Declarations for field_1',exact:true}).click();await openDeclarations(page);await expect(page.getByLabel('Canonicaliser',{exact:true})).toBeEnabled();
   await page.getByLabel('Token domain',{exact:true}).fill('customer');await page.getByRole('button',{name:'Declare token domain',exact:true}).click();await expect(page.getByText('Declarations saved.',{exact:true})).toBeVisible();
   expect(unwrap(await declarations.read(f.ctx,f.ids[0]!))).toMatchObject({stored:{tokenDomain:'customer'},discoveryError:null});
   await page.getByRole('button',{name:'Entitlements',exact:true}).click();await page.getByRole('button',{name:'By table',exact:true}).click();await page.getByRole('button',{name:'Everything',exact:true}).click();await expand(page);await page.getByLabel('Select field_1',{exact:true}).check();await page.getByLabel('Treatment',{exact:true}).selectOption('tokenized');await page.getByRole('button',{name:'Apply to selection',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'entitlement decisions saved.'})).toContainText('1 entitlement decisions saved.');

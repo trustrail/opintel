@@ -9,8 +9,8 @@ const schema=source+':public';
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
 for(const width of [390,900,1440])test(`schema explorer states, types and aliases at ${width}`, { tag: '@visual' },async({page})=>{
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/catalog`);await expand(page);
- await expect(page.getByText('Renamed Warehouse',{exact:true})).toBeVisible();
- await expect(page.getByText('INTEGER',{exact:true})).toBeVisible();await expect(page.getByText('Unsupported type',{exact:true})).toBeVisible();await expect(page.getByText('Unnameable element',{exact:true})).toBeVisible();
+ await expect(page.getByRole('combobox',{name:'Source',exact:true})).toBeVisible();await expect(page.getByRole('combobox',{name:'Source',exact:true}).locator('option:checked')).toHaveText('Renamed Warehouse');
+ await expect(page.getByText('INTEGER',{exact:true})).toBeVisible();await expect(page.getByRole('treeitem').filter({has:page.getByText('location',{exact:true})})).toContainText('Unsupported type');await expect(page.getByText('Unnameable element',{exact:true})).toBeVisible();
  if(width===390){
   const element=page.getByRole('treeitem').filter({has:page.getByText('record_name',{exact:true})});
   await expect(element.getByRole('img',{name:'Undecided',exact:true})).toBeVisible();
@@ -18,7 +18,8 @@ for(const width of [390,900,1440])test(`schema explorer states, types and aliase
   await expect(element.locator('[data-treatment-label]')).toBeHidden();
   const bounds=await element.evaluate(row=>{
    const name=row.querySelector('.nm')!,type=row.querySelector('[data-column-type]')!,button=row.querySelector('[data-column-declarations]')!;
-   return {height:row.getBoundingClientRect().height,nameWidth:name.getBoundingClientRect().width,nameTextWidth:name.scrollWidth,nameBottom:name.getBoundingClientRect().bottom,typeTop:type.getBoundingClientRect().top,buttonTop:button.getBoundingClientRect().top};
+   const text=document.createRange();text.selectNodeContents(name);
+   return {height:row.getBoundingClientRect().height,nameWidth:name.getBoundingClientRect().width,nameTextWidth:text.getBoundingClientRect().width,nameBottom:name.getBoundingClientRect().bottom,typeTop:type.getBoundingClientRect().top,buttonTop:button.getBoundingClientRect().top};
   });
   expect(bounds.height).toBe(76);expect(bounds.nameWidth).toBeGreaterThanOrEqual(bounds.nameTextWidth);
   expect(bounds.typeTop).toBeGreaterThan(bounds.nameBottom);expect(bounds.buttonTop).toBeGreaterThan(bounds.nameBottom);
@@ -30,8 +31,8 @@ for(const width of [390,900,1440])test(`schema explorer states, types and aliase
  await page.getByRole('button',{name:'Collapse records',exact:true}).click();await expect(page.getByText('record_name',{exact:true})).toHaveCount(0);
 });
 test('G-020: purposeful empty, loading and error states, including an empty branch',async({page})=>{
- const state=await mock(page);state.loading=true;await page.goto(`/projects/${project}/catalog`);await expect(page.getByText('Preparing this view',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Expand warehouse',exact:true})).toBeVisible();state.loading=false;
- await page.getByRole('button',{name:'Expand warehouse',exact:true}).click();await expect(page.getByRole('button',{name:'Expand public',exact:true})).toBeVisible();state.empty=true;await page.getByRole('button',{name:'Expand public',exact:true}).click();await expect(page.getByText('No catalogue entries here. Introspect the source to discover its structure.',{exact:true})).toBeVisible();
+ const state=await mock(page);state.loading=true;await page.goto(`/projects/${project}/catalog`);await expect(page.getByText('Preparing this view',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Expand records',exact:true})).toBeVisible();state.loading=false;
+ state.empty=true;await page.getByRole('button',{name:'Expand records',exact:true}).click();await expect(page.getByText('No catalogue entries here. Introspect the source to discover its structure.',{exact:true})).toBeVisible();
  state.error=true;await page.reload();await expect(page.getByText('The catalogue is temporarily unavailable. Try again.',{exact:true})).toBeVisible();state.error=false;
  await page.getByRole('button',{name:'Try again',exact:true}).click();await expect(page.getByText('No catalogue yet',{exact:true})).toBeVisible();await accessible(page);
 });
@@ -43,9 +44,9 @@ test('G-019: 5,000 elements stay virtualised while scrolling and keyboard naviga
   await tree.evaluate(el=>{el.scrollTop=el.scrollHeight;});
   await page.getByRole('button',{name:'Load more',exact:true}).click();
   await expect.poll(()=>state.requests.filter(r=>r.parent===object).length).toBe(n+2);
-  await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(((n+2)*50+3+(n===98?0:1))*46);
+  await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(((n+2)*50+(n===98?0:1))*46+42);
  }
- await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(5003*46);
+ await expect.poll(()=>tree.evaluate(el=>el.scrollHeight)).toBe(5000*46+42);
  expect(await page.getByRole('treeitem').count()).toBeLessThanOrEqual(36);
  await tree.evaluate(el=>{el.scrollTop=0;});await expect(page.getByText('field_0000',{exact:true})).toBeVisible();
  await tree.getByRole('treeitem').first().focus();await page.keyboard.press('End');await expect(page.getByText('field_4999',{exact:true})).toBeVisible();await page.keyboard.press('Home');await expect(page.getByText('field_0000',{exact:true})).toBeVisible();
@@ -54,5 +55,5 @@ test('G-019: 5,000 elements stay virtualised while scrolling and keyboard naviga
   for(let frame=0;frame<60;frame++){el.scrollTop=(frame/59)*(el.scrollHeight-el.clientHeight);await new Promise(requestAnimationFrame);counts.push(el.querySelectorAll('[role=treeitem]').length);}
   return counts;
  });expect(Math.max(...rendered)).toBeLessThanOrEqual(36);
- expect(state.requests.every(r=>r.parent===''||r.parent===source||r.parent===schema||r.parent===object)).toBe(true);
+ expect(state.requests.every(r=>r.parent===''||r.parent===source||r.parent===schema||r.parent==='objects:'+source||r.parent===object)).toBe(true);
 });

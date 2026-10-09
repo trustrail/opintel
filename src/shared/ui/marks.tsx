@@ -65,6 +65,8 @@ const marks = {
       <path d="M5 19c0-2.4 1.8-4.2 4-4.2s4 1.8 4 4.2"/>
       <path d="M12.6 15.2c.9-.3 1.9-.4 2.9-.3 2.1.2 3.7 1.9 3.7 4.1"/>
     </>},
+  'healthy': {category: 'state', viewBox: '0 0 24 24', props: {}, geometry: <circle cx="12" cy="12" r="5" fill="var(--green-dk)"/>},
+  'unreachable': {category: 'state', viewBox: '0 0 24 24', props: {}, geometry: <circle cx="12" cy="12" r="5" fill="var(--ink-3)"/>},
   'refused': {category: 'state', viewBox: '0 0 24 24', props: {fill: 'none',stroke: 'var(--ink-3)',strokeWidth: '1.7',strokeLinecap: 'round',strokeLinejoin: 'round'}, geometry: <>
       <circle cx="12" cy="12" r="8.5"/><path d="M8.6 15.4l6.8-6.8"/>
     </>},
@@ -105,9 +107,20 @@ export type MarkSize = 12 | 16 | 17 | 18 | 19 | 22 | 24 | 26 | 30 | 34 | 48;
 const treatmentStrokeWeights:Partial<Record<MarkSize,number>>={12:2.6,16:2.4,17:2.35,18:2.3,22:2.2,34:2,48:1.8};
 export const markNames = Object.keys(marks) as MarkName[];
 const treatmentColours:Partial<Record<MarkName,`var(--${string})`>>={'treatment-clear':'var(--green-dk)','treatment-masked':'var(--mask-dk)','treatment-aggregate':'var(--agg-dk)','treatment-tokenized':'var(--token-dk)','treatment-withheld':'var(--held-dk)','treatment-undecided':'var(--ink-2)'};
-export function Mark({name,size=16,navigation=false,label,treatmentColour}:{name:MarkName;size?:MarkSize;navigation?:boolean;label?:string;treatmentColour?:`var(--${string})`}):ReactNode {
+export function Mark({name,size=16,navigation=false,label,treatmentColour,legendFill}:{name:MarkName;size?:MarkSize;navigation?:boolean;label?:string;treatmentColour?:`var(--${string})`;legendFill?:`var(--${string})`}):ReactNode {
  const mark=marks[name];
- const colour=treatmentColour??treatmentColours[name];
- const style:CSSProperties & {'--plum'?:string;'--ink-3'?:string}={verticalAlign:'middle',flexShrink:0,...(mark.category==='treatment'&&colour?{'--plum':colour,'--ink-3':colour}:{})};
- return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={style} aria-hidden={label?undefined:true} role={label?'img':undefined} aria-label={label} focusable="false" data-mark={name} data-mark-category={mark.category}>{typeof mark.geometry==='function'?mark.geometry(treatmentStrokeWeights[size]??2):mark.geometry}</svg>;
+ const colour=legendFill??treatmentColour??treatmentColours[name];
+ const style:CSSProperties & {'--plum'?:string;'--ink-3'?:string;'--yellow-bg'?:string}={verticalAlign:'middle',flexShrink:0,...(mark.category==='treatment'&&colour?{'--plum':colour,'--ink-3':colour}:{}),...(legendFill?{'--yellow-bg':legendFill}:{})};
+ return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={style} aria-hidden={label?undefined:true} role={label?'img':undefined} aria-label={label} focusable="false" data-mark={name} data-mark-category={mark.category}>{legendFill&&mark.category==='treatment'?<LegendTreatment name={name} fill={legendFill}/>:typeof mark.geometry==='function'?mark.geometry(treatmentStrokeWeights[size]??2):mark.geometry}</svg>;
+}
+
+/** Exposure-legend variant: exact segment fill, uniform one-CSS-pixel ink edges. */
+function LegendTreatment({name,fill}:{name:MarkName;fill:`var(--${string})`}){
+ const edge={stroke:'var(--ink)',strokeWidth:1,vectorEffect:'non-scaling-stroke' as const};
+ if(name==='treatment-clear')return <circle cx="17" cy="17" r="12" fill={fill} {...edge}/>;
+ if(name==='treatment-masked')return <><path d="M17 5a12 12 0 0 0 0 24z" fill={fill} {...edge}/><circle cx="17" cy="17" r="12" fill="none" {...edge}/></>;
+ if(name==='treatment-tokenized')return <><circle cx="17" cy="17" r="12" fill="none" {...edge}/><circle cx="17" cy="17" r="4" fill={fill} {...edge}/></>;
+ if(name==='treatment-aggregate')return <><circle cx="17" cy="17" r="12" fill="none" {...edge}/>{[[11,20],[17,12],[23,20]].map(([cx,cy],i)=><circle key={i} cx={cx} cy={cy} r="3" fill={fill} {...edge}/>)}</>;
+ if(name==='treatment-withheld')return <><circle cx="17" cy="17" r="12" fill={fill} {...edge}/><line x1="9" y1="25" x2="25" y2="9" {...edge}/></>;
+ return <circle cx="17" cy="17" r="12" fill={fill} {...edge} strokeDasharray="3.6 3.6"/>;
 }

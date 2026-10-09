@@ -1386,3 +1386,26 @@ action remains operative and occurs once; recovery caution is a line rather
 than a warning card. Preserve all rotate/restore confirmation and permission
 checks. Run axe and unchanged control/placement checks without snapshots during
 reader review.
+
+
+### 5.34 Settings redesign acceptance
+
+| ID | Proves |
+|---|---|
+| SET-001 | Cross-tab edits use one PATCH, preserve absent limits, survive refused saves and can be discarded |
+| SET-002 | Closed rows distinguish stored/default/unset values; unsafe warnings are conditional; shared bounds/descriptions remain authoritative |
+| SET-003 | One drawer Settings destination reaches five keyboard-operable tabs; legacy area links and engine registration/verification/assignment/custody remain reachable |
+| SET-004 | Measured 390/900/1440 geometry, row typography, wrapping tabs, select chevron clearance, no overflow and axe |
+
+Q-006/Q-038 and ENG-007 open disclosures before accessing editors and use the Engines tab rather than a drawer sub-item, by explicit approval. Their read-only, validation, write/refusal, verification, assignment, recovery and accessibility assertions are retained. No snapshots run or regenerate until screen approval.
+
+
+### 5.35 Data sources redesign
+
+| ID | Contract |
+|---|---|
+| DS-001 | Source cards show authoritative active element/object totals, unique awaiting decisions, landed/quarantined counts, last-landed receipt time and selected-pool exposure. Awaiting decision, spectrum, legend and destination agree for a fully decided pool beside an empty one; never sum pools. Hide equal display name/alias. Readable name/alias, connection state and demo tag; demo connection states remain in the connect flow. |
+| DS-002 | Source-scoped object-root paging/filtering refuses foreign branches and cursors; object and element summaries reflect real entitlements, including mixed treatments across pools, withheld and missing decisions. Existing bounded window and keyboard contracts stay. |
+| DS-003 | Domain/timezone/isolation chips reflect metadata, not inference; stored, inherited, derived and missing provenance remain distinct. Inapplicable declarations say Not needed and offer no editor; stored unused values are retained. |
+| DS-004 | One draft across disclosures, Discard, one atomic save and effective-change typed confirmation. Existing validation, compatibility, viewer authority, recovery and immutable evidence assertions stay. |
+| DS-005 | Measure 390/900/1100/1440 typography, row/card geometry, >=1100 side panel versus below-selected-row layout, picker appearance and symmetric inner-border clearance; axe, mark placement and no horizontal overflow. No visual project or baseline regeneration before design approval. |

@@ -1,0 +1,376 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Data sources · design</title>
+<style>
+:root{
+  --plum:#1B0232; --plum-2:#3A1456; --plum-soft:#F3EEF8;
+  --green:#0CC655; --green-dk:#07803A; --green-bg:#E9FAF0;
+  --yellow:#FFF730; --yellow-dp:#8A7C00; --yellow-bg:#FDFBE3;
+  --bg:#F7F6F9; --surface:#FFFFFF; --surface-2:#F2F0F5; --surface-3:#E9E6EF;
+  --ink:#140A1C; --ink-2:#4B4256; --ink-3:#7A7187;
+  --rule:#E6E2EC; --rule-2:#D3CDDC;
+  --shadow:0 1px 2px rgba(20,10,28,.05), 0 8px 24px -12px rgba(20,10,28,.12);
+  --t-clear:#07803A; --t-mask:#8A5A1A; --t-agg:#1F4FA3; --t-tok:#5A2E8C; --t-held:#A32020;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--ink-2)}
+
+.app{display:grid;grid-template-columns:232px 1fr;height:100%}
+.drawer{background:var(--plum);color:#D9CFE4;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;align-items:center;gap:9px;padding:17px 18px 15px;color:#fff;font-weight:650;font-size:15.5px}
+.brand svg{width:19px;height:19px}
+.proj{margin:0 12px 14px;padding:9px 11px;background:rgba(255,255,255,.07);border-radius:9px;display:flex;align-items:center;gap:9px}
+.proj .av{width:27px;height:27px;border-radius:7px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.proj .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.25}
+.proj .sb{font-size:11px;color:#9C8FAC}
+.sec{padding:13px 18px 5px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#7D6F8D}
+.nav a{display:flex;align-items:center;gap:10px;padding:6.5px 18px;color:#CBBFD8;text-decoration:none;font-size:13.5px}
+.nav a svg{width:16px;height:16px;flex:none;opacity:.78}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 2.5px 0 0 var(--green)}
+.nav a.sub{padding-left:40px;font-size:13px}
+
+.main{overflow:auto}
+.top{display:flex;align-items:center;gap:14px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--surface)}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3)}
+.crumb a{color:var(--ink-3);text-decoration:none}.crumb b{color:var(--ink);font-weight:600}
+.top .sp{flex:1}
+.av-u{width:27px;height:27px;border-radius:999px;background:var(--green);color:#06260f;display:grid;place-items:center;font-weight:700;font-size:11.5px}
+.pad{padding:20px 26px 44px;max-width:1300px}
+
+h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+.lede{color:var(--ink-2);margin:0 0 16px;font-size:13.5px;max-width:72ch}
+.h2{display:flex;align-items:center;gap:9px;margin:34px 0 10px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.h2 .ln{flex:1;height:1px;background:var(--rule)}
+.pagemark{display:inline-block;background:var(--plum);color:#fff;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-bottom:12px}
+
+.btn{border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 13px;font-size:13px;font-weight:550;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.dark{background:var(--plum);border-color:var(--plum);color:#fff}
+.btn.lite{background:transparent;border-color:transparent;color:var(--ink-3)}
+.btn.sm{padding:4px 10px;font-size:12px}
+
+/* toolbar */
+.tools{display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--ink-2);border-radius:6px;padding:4.5px 11px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:6px}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,10,28,.08);font-weight:600}
+.seg button s{text-decoration:none;color:var(--ink-3);font-variant-numeric:tabular-nums;font-size:11.5px}
+.pick{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--ink-2)}
+.pick b{color:var(--ink);font-weight:600}
+.tools .sp{flex:1}
+.find{border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:5.5px 10px;font-size:12.5px;width:200px;color:var(--ink-3)}
+
+/* ---- source card ---- */
+.src{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px}
+.src .hd{display:grid;grid-template-columns:32px 1fr auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--rule)}
+.src .hd .ic{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:var(--surface-2)}
+.src .nm{font-size:15px;font-weight:650;letter-spacing:-.015em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.src .nm .alias{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:500;color:var(--ink-3)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.02em}
+.tag.demo{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--rule-2)}
+.tag.ok{background:var(--green-bg);color:var(--green-dk)}
+.tag.need{background:var(--yellow-bg);color:var(--yellow-dp)}
+.src .meta{font-size:12px;color:var(--ink-3);margin-top:2px}
+.src .meta b{color:var(--ink-2);font-weight:500}
+.src .acts{display:flex;gap:6px}
+
+.facts{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--rule)}
+.fact{padding:11px 16px;border-right:1px solid var(--rule)}
+.fact:last-child{border-right:0}
+.fact .k{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px}
+.fact .v{font-size:20px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1.1}
+.fact .v em{font-style:normal;font-size:12px;font-weight:500;color:var(--ink-2);margin-left:5px}
+.fact.hot .v{color:var(--yellow-dp)}
+.fact .s{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+
+.bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--surface-3)}
+.bar i{display:block}
+.expo{display:flex;align-items:center;gap:14px;padding:10px 16px}
+.expo .bar{flex:1}
+.expo .k{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.expo .k b{color:var(--ink-2);font-weight:600}
+
+/* ---- explorer ---- */
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.thead{display:grid;grid-template-columns:1fr 130px 150px 110px;gap:12px;padding:8px 15px;border-bottom:1px solid var(--rule);background:var(--surface-2);
+  font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.ob{display:flex;align-items:center;gap:9px;padding:9px 15px;background:var(--plum-soft);border-bottom:1px solid var(--rule);cursor:pointer}
+.ob .chev{display:grid;place-items:center;color:var(--ink-3);transition:transform .15s}
+.ob.open .chev{transform:rotate(90deg)}
+.ob b{font-size:13.5px;font-weight:650;letter-spacing:-.01em}
+.ob .ct{margin-left:auto;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.ob .marks{display:flex;gap:4px;margin-left:12px}
+.r{display:grid;grid-template-columns:1fr 130px 150px 110px;gap:12px;align-items:center;padding:8px 15px 8px 38px;border-bottom:1px solid var(--rule);transition:background .08s}
+.r:last-child{border-bottom:0}
+.r:hover{background:var(--surface-2)}
+.r.sel{background:#F6F2FB}
+.r .n{font-weight:560;font-size:13.5px;letter-spacing:-.005em;display:flex;align-items:center;gap:8px}
+.r .ty{font-size:11.5px;color:var(--ink-3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.r .dec{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:550}
+.r .dec.und{color:var(--yellow-dp)}
+.r .decl{display:flex;justify-content:flex-end;gap:5px;opacity:0;transition:opacity .1s}
+.r:hover .decl,.r.sel .decl{opacity:1}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;background:var(--surface-2);border:1px solid var(--rule);border-radius:999px;padding:1px 7px;color:var(--ink-2)}
+
+/* ---- declaration side panel ---- */
+.split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+.side{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);position:sticky;top:14px}
+.side .sh{padding:13px 16px;border-bottom:1px solid var(--rule)}
+.side .sh .el{font-size:15px;font-weight:650;letter-spacing:-.015em;display:flex;align-items:center;gap:8px}
+.side .sh .path{font-size:11.5px;color:var(--ink-3);margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.side .sh .close{float:right;color:var(--ink-3);background:none;border:0;font-size:16px;line-height:1;padding:0 2px}
+.d{border-bottom:1px solid var(--rule)}
+.d:last-of-type{border-bottom:0}
+.dh{display:grid;grid-template-columns:1fr auto 24px;gap:10px;align-items:center;padding:10px 16px;cursor:pointer}
+.dh:hover{background:var(--surface-2)}
+.d.open .dh{background:var(--plum-soft)}
+.dh .n{font-size:13px;font-weight:560}
+.dh .v{font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.dh .v em{font-style:normal;color:var(--ink-3);font-size:11.5px;margin-left:5px}
+.dh .v.iso{color:var(--ink-3)}
+.dh .chev{display:grid;place-items:center;color:var(--ink-3);transition:transform .15s}
+.d.open .dh .chev{transform:rotate(90deg)}
+.db{display:none;padding:2px 16px 14px;background:var(--plum-soft);border-top:1px solid #E3D9EE}
+.d.open .db{display:block}
+.db p{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 0 10px}
+.db p b{color:var(--ink);font-weight:600}
+.db .inp{border:1px solid var(--rule-2);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;width:100%;background:var(--surface)}
+.db .pk{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule-2);background:var(--surface);border-radius:8px;padding:6px 10px;font-size:13px}
+.prov{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.prov span{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--surface);border:1px solid var(--rule)}
+.prov span.stored{border-color:var(--plum-2);color:var(--plum-2)}
+.warn{display:flex;gap:8px;font-size:11.5px;color:var(--ink-2);background:var(--yellow-bg);border:1px solid #EDE28A;border-left:3px solid var(--yellow-dp);border-radius:8px;padding:7px 10px;margin-top:10px;line-height:1.45}
+.sfoot{display:flex;align-items:center;gap:8px;padding:11px 16px;border-top:1px solid var(--rule);background:var(--surface-2);border-radius:0 0 11px 11px}
+.sfoot .sp{flex:1}
+.sfoot .m{font-size:11.5px;color:var(--ink-3)}
+
+.note{margin:24px 0 0;color:var(--ink-3);font-size:12.5px;max-width:94ch;line-height:1.6}
+.note b{color:var(--ink-2)}
+@media (max-width:1100px){.split{grid-template-columns:1fr}.side{position:static}.facts{grid-template-columns:1fr 1fr}.thead,.r{grid-template-columns:1fr 110px}.r .ty,.r .decl,.thead span:nth-child(2),.thead span:nth-child(4){display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<nav class="drawer">
+  <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3.5 0 3.5-10 7-10s3.5 10 7 10 4-4 4-4"/></svg>Opintel</div>
+  <div class="proj"><div class="av">RE</div><div><div class="nm">Reinsurance Demo</div><div class="sb">Development Demo</div></div></div>
+  <div class="sec">Understand</div>
+  <div class="nav">
+    <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/></svg>Data sources</a>
+    <a href="#" class="sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17"/></svg>Explore schema</a>
+    <a href="#" class="sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="7" r="2.6"/><circle cx="17.5" cy="7" r="2.6"/><circle cx="12" cy="17.5" r="2.6"/></svg>Suggestions</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.2h9.5L20 8.7V19.8H6Z"/><path d="M9 11.5h7"/></svg>Vocabulary</a>
+  </div>
+  <div class="sec">Govern</div>
+  <div class="nav">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.5 9.3h17M10 9.3v10.2"/></svg>Entitlements</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="8.6" width="8.6" height="6.6" rx="2.1"/><rect x="12.8" y="11.4" width="8.6" height="6.6" rx="2.1"/></svg>Pools</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="top">
+    <div class="crumb"><a href="#">Development Demo</a>/<a href="#">Reinsurance Demo</a>/<b>Data sources</b></div>
+    <div class="sp"></div><div class="av-u">U</div>
+  </div>
+
+  <div class="pad">
+
+    <!-- ================= SCREEN 1: DATA SOURCES ================= -->
+    <span class="pagemark">Screen 1 · Data sources</span>
+    <h1>Data sources</h1>
+    <p class="lede">What Opintel sits in front of for this project. Agents never reach these directly.</p>
+
+    <div class="tools">
+      <div class="seg"><button class="on">All <s>1</s></button><button>Needs attention <s>1</s></button></div>
+      <div class="sp"></div>
+      <button class="btn dark">Connect a source</button>
+    </div>
+
+    <div class="src">
+      <div class="hd">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7a8.2 3.2 0 1 0 16.4 0 8.2 3.2 0 1 0-16.4 0"/><path d="M3.8 7v10c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V7"/><path d="M3.8 12c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2"/></svg></span>
+        <div>
+          <div class="nm">Reinsurance <span class="alias">reinsurance</span> <span class="tag demo">Demo data</span> <span class="tag ok"><svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>Connected</span></div>
+          <div class="meta">PostgreSQL · landing zone <b>append as at</b> · read by <b>Development engine</b> · last introspected <b>2026-10-05 02:53 UTC · 4 days ago</b></div>
+        </div>
+        <div class="acts"><button class="btn sm">Explore schema</button><button class="btn sm">12 filings</button><button class="btn sm lite">Introspect</button></div>
+      </div>
+
+      <div class="facts">
+        <div class="fact"><div class="k">Elements</div><div class="v">99<em>in 11 tables</em></div><div class="s">0 unsupported</div></div>
+        <div class="fact hot"><div class="k">Awaiting decision</div><div class="v">19</div><div class="s">4 asked for by an agent</div></div>
+        <div class="fact"><div class="k">Filings</div><div class="v">12<em>landed</em></div><div class="s" style="color:var(--yellow-dp)">4 set aside</div></div>
+        <div class="fact"><div class="k">Last landed</div><div class="v" style="font-size:14px;font-weight:600;line-height:1.5">2026-09-30</div><div class="s">9 days ago</div></div>
+      </div>
+
+      <div class="expo">
+        <div class="bar">
+          <i style="width:50.5%;background:var(--t-clear)"></i><i style="width:6.1%;background:var(--t-mask)"></i>
+          <i style="width:10.1%;background:var(--t-agg)"></i><i style="width:14.1%;background:var(--t-tok)"></i>
+          <i style="width:19.2%;background:var(--yellow)"></i>
+        </div>
+        <span class="k"><b>50</b> clear · <b>6</b> masked · <b>10</b> aggregate · <b>14</b> tokenized · <b>19</b> undecided</span>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:8px"><b>What changed.</b> The source leads with its readable name and the alias agents use, not a 40-character id. The four facts an administrator cares about are tiles, and the one that needs them is yellow. The exposure bar is the same one from Entitlements and the Dashboard, so the source reads the same way everywhere. The demo-pack explanation is gone from this screen: it is a one-line tag on the source and belongs in the connect flow.</p>
+
+    <!-- ================= SCREEN 2: EXPLORE SCHEMA ================= -->
+    <div class="h2">Screen 2 <span class="ln"></span></div>
+    <span class="pagemark">Screen 2 · Explore schema, with the declaration panel open</span>
+    <h1 style="font-size:19px">Explore schema</h1>
+    <p class="lede">Every object and element agents can address, with its type and decision. Select an element to see or change its declarations.</p>
+
+    <div class="tools">
+      <div class="pick">Source <b>Reinsurance</b> <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="seg"><button class="on">All <s>99</s></button><button>Undecided <s>19</s></button><button>Declared <s>14</s></button></div>
+      <div class="sp"></div>
+      <div class="find">Filter by name…</div>
+    </div>
+
+    <div class="split">
+      <div class="panel">
+        <div class="thead"><span>Element</span><span>Type</span><span>Decision</span><span></span></div>
+
+        <div class="ob open">
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+          <b>cedant_01_premium</b>
+          <span class="marks">
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--t-clear)"/></svg>
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--t-tok)" stroke-width="3"/><circle cx="17" cy="17" r="4.5" fill="var(--t-tok)"/></svg>
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="3" stroke-dasharray="3.6 3.6"/></svg>
+          </span>
+          <span class="ct">9 elements · 3 undecided</span>
+        </div>
+
+        <div class="r sel">
+          <span class="n"><svg width="16" height="16" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--t-tok)" stroke-width="2.6"/><circle cx="17" cy="17" r="4.3" fill="var(--t-tok)"/></svg>treaty_ref <span class="chip">domain treaty</span></span>
+          <span class="ty">VARCHAR</span>
+          <span class="dec">Tokenized</span>
+          <span class="decl"><button class="btn sm">Declarations</button></span>
+        </div>
+        <div class="r">
+          <span class="n"><svg width="16" height="16" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.6" stroke-dasharray="3.6 3.6"/></svg>opintel_as_at</span>
+          <span class="ty">DATE</span>
+          <span class="dec und">Undecided</span>
+          <span class="decl"><button class="btn sm">Declarations</button></span>
+        </div>
+        <div class="r">
+          <span class="n"><svg width="16" height="16" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="2.6" stroke-dasharray="3.6 3.6"/></svg>opintel_received_at <span class="chip">tz America/Toronto</span></span>
+          <span class="ty">TIMESTAMPTZ</span>
+          <span class="dec und">Undecided</span>
+          <span class="decl"><button class="btn sm">Declarations</button></span>
+        </div>
+        <div class="r">
+          <span class="n"><svg width="16" height="16" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--t-tok)" stroke-width="2.6"/><circle cx="17" cy="17" r="4.3" fill="var(--t-tok)"/></svg>written_premium <span class="chip">isolated</span></span>
+          <span class="ty">DECIMAL(38,9)</span>
+          <span class="dec">Tokenized</span>
+          <span class="decl"><button class="btn sm">Declarations</button></span>
+        </div>
+        <div class="r">
+          <span class="n"><svg width="16" height="16" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--t-clear)"/></svg>currency</span>
+          <span class="ty">VARCHAR</span>
+          <span class="dec">Clear</span>
+          <span class="decl"><button class="btn sm">Declarations</button></span>
+        </div>
+        <div class="r">
+          <span class="n"><svg width="16" height="16" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--t-clear)"/></svg>inception_date</span>
+          <span class="ty">DATE</span>
+          <span class="dec">Clear</span>
+          <span class="decl"><button class="btn sm">Declarations</button></span>
+        </div>
+
+        <div class="ob">
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+          <b>cedant_02_premium</b>
+          <span class="marks">
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--t-clear)"/></svg>
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--t-tok)" stroke-width="3"/><circle cx="17" cy="17" r="4.5" fill="var(--t-tok)"/></svg>
+          </span>
+          <span class="ct">9 elements</span>
+        </div>
+        <div class="ob">
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+          <b>cedant_03_premium</b>
+          <span class="marks">
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--t-clear)"/></svg>
+            <svg width="13" height="13" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" stroke-width="3" stroke-dasharray="3.6 3.6"/></svg>
+          </span>
+          <span class="ct">9 elements · 2 undecided</span>
+        </div>
+      </div>
+
+      <!-- declaration panel -->
+      <aside class="side">
+        <div class="sh">
+          <button class="close" aria-label="Close">×</button>
+          <div class="el"><svg width="17" height="17" viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--t-tok)" stroke-width="2.6"/><circle cx="17" cy="17" r="4.3" fill="var(--t-tok)"/></svg>treaty_ref</div>
+          <div class="path">cedant_01_premium · VARCHAR · tokenized in 1 pool</div>
+        </div>
+
+        <div class="d open">
+          <div class="dh"><span class="n">Token domain</span><span class="v">treaty<em>11 members</em></span>
+            <span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span></div>
+          <div class="db">
+            <p>Columns in the same domain produce matching tokens, so an agent can join them. Without a declaration the column joins only itself.</p>
+            <input class="inp" value="treaty">
+            <div class="prov"><span class="stored">Declared</span><span>Lowercase letters and digits</span></div>
+            <div class="warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 3.5 21 19.5H3Z"/><path d="M12 10v4"/></svg>Changing this changes every future token. Tokens an agent already has will not match. Needs confirmation.</div>
+          </div>
+        </div>
+
+        <div class="d">
+          <div class="dh"><span class="n">Case folding</span><span class="v">Disabled<em>declared</em></span>
+            <span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+
+        <div class="d">
+          <div class="dh"><span class="n">Source timezone</span><span class="v iso">Not needed<em>text column</em></span>
+            <span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+
+        <div class="d">
+          <div class="dh"><span class="n">Epoch unit</span><span class="v iso">Not needed<em>text column</em></span>
+            <span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+
+        <div class="d">
+          <div class="dh"><span class="n">Canonicaliser</span><span class="v">stdtext1<em>derived</em></span>
+            <span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+
+        <div class="sfoot">
+          <span class="m">Unsaved: token domain</span>
+          <span class="sp"></span>
+          <button class="btn sm lite">Discard</button>
+          <button class="btn sm dark">Save</button>
+        </div>
+      </aside>
+    </div>
+
+    <p class="note">
+      <b>What changed.</b> The tree no longer starts with the generated source id twice; the source is a picker in the toolbar and the tree starts at objects. Each object row carries the marks of the treatments it contains, so a table's shape is readable before it is expanded. Declarations that matter show inline as chips — the domain, the timezone — so a reader sees them without opening anything. The declaration panel is a side panel beside the tree rather than a form above it, and each declaration is one line closed: name, value, provenance. A declaration that does not apply to this type says so and does not offer an input. The one warning is on the one dangerous change.
+    </p>
+  </div>
+</main>
+</div>
+<script>
+  document.querySelectorAll('.dh').forEach(function(h){h.addEventListener('click',function(){h.parentElement.classList.toggle('open');});});
+  document.querySelectorAll('.ob').forEach(function(h){h.addEventListener('click',function(){h.classList.toggle('open');});});
+</script>
+</body>
+</html>
+
+</body></html>

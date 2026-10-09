@@ -4,6 +4,8 @@ import {renderHook,act,cleanup} from '@testing-library/react';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import type {PropsWithChildren} from 'react';
 import {usePoolCommand,poolKeys,agentKeys} from '../src/app/pools/data.js';
+import {sourceKeys} from '../src/app/sources/data.js';
+import {elementKeys} from '../src/app/catalog/data.js';
 import {projectKeys} from '../src/app/tenancy/data.js';
 import {projectStreamCache} from '../src/app/stream-cache.js';
 const p='018f8f9d-7f83-7abc-8def-000000000001',id='018f8f9d-7f83-7abc-8def-000000000002',version='018f8f9d-7f83-7abc-8def-000000000003',secret='opk_live_1234567890123456789012';
@@ -14,7 +16,7 @@ it('I-001: creation delivers plaintext only to the shown-once UI, never the muta
  const wrapper=({children}:PropsWithChildren)=><QueryClientProvider client={cache}>{children}</QueryClientProvider>;
  const hook=renderHook(()=>usePoolCommand(p,id,received),{wrapper});await act(async()=>{await hook.result.current.mutateAsync({kind:'create',name:'Reporting',requestKey:'create'});});
  expect(received).toHaveBeenCalledWith(expect.objectContaining({key:secret}));expect(JSON.stringify(cache.getMutationCache().getAll().map(m=>m.state))).not.toContain(secret);
- expect(invalidations.mock.calls.map(([o])=>o?.queryKey)).toEqual([poolKeys.lists(p),projectKeys.stats(p)]);cache.clear();
+ expect(invalidations.mock.calls.map(([o])=>o?.queryKey)).toEqual([poolKeys.lists(p),projectKeys.stats(p),sourceKeys.lists(p),elementKeys.lists(p)]);cache.clear();
 });
 it('rotation invalidates detail only; revocation invalidates detail, lists and presence',async()=>{
  const cache=new QueryClient(),invalidations=vi.spyOn(cache,'invalidateQueries');
