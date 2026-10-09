@@ -980,3 +980,7 @@ The migration cannot recover quarantine revisions or custody outcomes already
 overwritten before it lands. It baselines current failures and durable type-run
 findings and records future lifecycle facts. Earlier missing facts remain a
 known history-coverage limit, rather than being fabricated.
+
+## Type Observations narrow snapshot variability — 2026-10-08
+
+During regeneration of the reader-approved screen baselines, the 390px type-observation capture shifted content left inside the cause card; the existing baseline was retained rather than accepting an unexplained displacement. The subsequent full Linux visual project reported 86 clean passes and one flaky case in 7.4 minutes: the first type-observation capture differed by 10,996 pixels (3%), with captured heights alternating between 1174px and 1180px, and the unchanged retry matched the existing baseline. The difference is within the cause card; the surrounding screen is unchanged. Horizontal scrolling/focus is a possible mechanism, not an established cause. The 900px and 1440px cases passed unchanged. No baseline or threshold was changed for this case, and no untouched screen differed.
