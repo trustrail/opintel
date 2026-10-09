@@ -22,9 +22,24 @@ async function mock(page:Page){
 }
 for(const width of [390,900,1440])test(`unmapped source observation at ${width}`,{tag:'@visual'},async({page})=>{
  await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/observations`);
+ // Finish the entrance transform before clicking: focus can scroll the clipped card.
+ await page.locator('.screen.on').evaluate(async el=>{await document.fonts.ready;await Promise.all(el.getAnimations({subtree:true}).map(animation=>animation.finished));});
  await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByText('Warehouse',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'A source type has no mapping: inet',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:'View introspection'})).toHaveAttribute('href',`/projects/${project}/introspections/${run}`);
- await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await expect(page).toHaveScreenshot(`type-observation-${width}.png`,{fullPage:true});
+ // Wait for exact card/header geometry and scroll position, without a pixel tolerance.
+ await page.locator('article[data-layout="observation"]').evaluate(async el=>{
+  await document.fonts.ready;
+  await Promise.all(el.getAnimations({subtree:true}).map(animation=>animation.finished));
+  let previous='',stable=0;
+  for(let frame=0;frame<120;frame++){
+   await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+   const rect=el.getBoundingClientRect(),header=el.querySelector('.card-h')?.getBoundingClientRect();
+   const current=JSON.stringify([rect.width,rect.height,header?.height,el.scrollLeft,el.scrollHeight]);
+   stable=current===previous?stable+1:0;previous=current;
+   if(stable===3)return;
+  }
+  throw new Error('Observation disclosure layout did not settle.');
+ });await page.evaluate(()=>window.scrollTo(0,0));await expect(page).toHaveScreenshot(`type-observation-${width}.png`,{fullPage:true});
  await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
