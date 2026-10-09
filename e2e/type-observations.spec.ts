@@ -48,3 +48,21 @@ test('type observations load, recover from error and omit the empty card',async(
  state.loading=false;state.error=true;await page.reload();await expect(page.getByText('Source type findings are unavailable.')).toBeVisible();state.error=false;await page.getByRole('button',{name:'Try again'}).click();await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByText('Warehouse',{exact:true})).toBeVisible();
  state.empty=true;await page.reload();await expect(page.getByText('Nothing needs attention.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Unmapped source types'})).toHaveCount(0);
 });
+
+for(const timezone of ['UTC','America/Toronto'])test(`type Observation disclosure stays inside its card at 390 in ${timezone}`,async({page},testInfo)=>{
+ await mock(page);
+ await page.route('**/api/v1/auth/me',route=>route.fulfill({json:{id:run,email:'admin@example.com',fullName:'Admin',timezone,method:'magic_link',sessionCreatedAt:'2026-01-01T00:00:00Z',deviceConfirmed:true}}));
+ await page.setViewportSize({width:390,height:1000});await page.goto(`/projects/${project}/observations`);
+ const card=page.locator('article[data-layout="observation"]');
+ const assertFits=async()=>{
+  const geometry=await card.evaluate(el=>{const bounds=el.getBoundingClientRect();return {clientWidth:el.clientWidth,border:el.clientLeft,scrollWidth:el.scrollWidth,scrollLeft:el.scrollLeft,timestamps:[...el.querySelectorAll('time')].filter(t=>t.getClientRects().length>0).map(t=>({text:t.textContent,parts:[...t.querySelectorAll('span')].map(part=>{const rect=part.getBoundingClientRect();return {left:rect.left-bounds.left,right:rect.right-bounds.left,lines:part.getClientRects().length};})}))};});
+  await testInfo.attach('observation-card-geometry',{body:JSON.stringify(geometry,null,2),contentType:'application/json'});
+  expect(geometry.scrollWidth).toBe(geometry.clientWidth);expect(geometry.scrollLeft).toBe(0);
+  for(const timestamp of geometry.timestamps)for(const part of timestamp.parts){expect(part.lines).toBe(1);expect(part.left).toBeGreaterThanOrEqual(geometry.border);expect(part.right).toBeLessThanOrEqual(geometry.border+geometry.clientWidth);}
+ };
+ await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByText('Warehouse',{exact:true})).toBeVisible();await assertFits();
+ await page.getByRole('link',{name:'View introspection'}).focus();await assertFits();
+ await page.getByRole('button',{name:'History',exact:true}).click();await assertFits();
+ await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
