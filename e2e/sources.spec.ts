@@ -67,13 +67,14 @@ for(const width of [390,900,1440])test(`renders the persisted safe provisioning 
 });
 
 test('source timestamps open history and failed status opens the exact failing run',async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-10-06T15:43:00Z'));
  const state=await mock(page);state.failure=sourceMessages.templateConflict;state.canConnect=false;
  const run={id:industryId,sourceId,state:'failed',progress:{objects:0,total:null},error:state.failure,startedAt:'2026-09-19T12:00:00.000Z',endedAt:'2026-09-19T12:00:01.000Z',diff:null};
  await page.route('**/api/v1/projects/*/**/introspections**',route=>route.fulfill({json:{items:[run],nextCursor:null}}));
  await page.route(`**/api/v1/projects/${projectId}/introspections/${industryId}`,route=>route.fulfill({json:run}));
  await page.goto(`/projects/${projectId}/data-sources`);
  const history=page.getByRole('link',{name:'Introspection runs for Monthly returns'});
- await expect(history).toHaveText('2026-09-19 12:00');await history.focus();await page.keyboard.press('Enter');
+ await expect(history.locator('time[data-part=timestamp]')).toHaveText('2026-09-19 12:00:00 UTC · 17 days ago');await history.focus();await page.keyboard.press('Enter');
  await expect(page).toHaveURL(`/projects/${projectId}/sources/${sourceId}/introspections`);
  await expect(page.getByRole('heading',{name:'Introspection runs',exact:true})).toBeVisible();
  await page.goto(`/projects/${projectId}/data-sources`);
@@ -126,4 +127,18 @@ test('Landing strategy remains a single left-aligned label with a long demo sour
  await page.setViewportSize({width:1440,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  const label=page.getByText('append as at',{exact:true});await expect(label).toBeVisible();
  expect(await label.evaluate(el=>({wrap:getComputedStyle(el).whiteSpace,align:getComputedStyle(el).textAlign,lines:el.getClientRects().length}))).toEqual({wrap:'nowrap',align:'left',lines:1});
+});
+
+for(const timezone of ['UTC','America/Toronto'])test(`Last introspected uses shared Timestamp at 390 in ${timezone}`,async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-10-06T15:43:00Z'));await mock(page);
+ await page.route('**/api/v1/me/settings',route=>route.fulfill({json:{email:'admin@example.com',fullName:'Admin',timezone,dateFormat:'YYYY-MM-DD',reducedMotion:true}}));
+ await page.setViewportSize({width:390,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
+ const link=page.getByRole('link',{name:'Introspection runs for Monthly returns'}),timestamp=link.locator('time[data-part="timestamp"]');
+ await expect(link).toHaveAttribute('href',`/projects/${projectId}/sources/${sourceId}/introspections`);
+ await expect(timestamp).toHaveAttribute('datetime',source.lastIntrospectedAt);
+ await expect(timestamp.locator('[data-part="absolute"]')).toHaveText(timezone==='UTC'?'2026-09-19 12:00:00 UTC':'2026-09-19 08:00:00 EDT');
+ await expect(timestamp.locator('[data-part="relative"]')).toHaveText('17 days ago');
+ const parts=await timestamp.evaluate(el=>[...el.children].map(part=>({lines:part.getClientRects().length,whiteSpace:getComputedStyle(part).whiteSpace})));
+ for(const part of parts){expect(part.lines).toBe(1);expect(part.whiteSpace).toBe('nowrap');}
+ await accessible(page);
 });

@@ -52,3 +52,18 @@ test('Pool detail: zero key impact is one inline fact',async({page})=>{
  await page.route('**/affected-agents*',route=>route.fulfill({json:{...key,affectedAgentCount:0,affectedAgents:[],previouslySeenAgents:[]}}));await page.goto(poolPath);
  const impact=page.locator('[data-part=expired-key-impact]');await expect(impact.getByText('No connected agents last authenticated with this key.',{exact:true})).toBeVisible();await expect(impact.locator('h1,h2,h3')).toHaveCount(0);await expect(impact.locator('p')).toHaveCount(1);await accessible(page);
 });
+
+for(const timezone of ['UTC','America/Toronto'])test(`Agent twin grace expiry renders a Timestamp at 390 in ${timezone}`,async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-10-06T15:43:00Z'));const state=await mockPools(page);
+ state.twin.keyMetadata={...state.twin.keyMetadata,state:'retiring',graceUntil:'2026-10-06T17:43:00Z'};
+ await page.route('**/api/v1/me/settings',route=>route.fulfill({json:{email:'admin@example.com',fullName:'Admin',timezone,dateFormat:'YYYY-MM-DD',reducedMotion:true}}));
+ await page.setViewportSize({width:390,height:1000});await page.goto(twinPath);
+ const grace=page.locator('p').filter({hasText:'Grace ends'}),timestamp=grace.locator('time[data-part="timestamp"]');
+ await expect(timestamp).toHaveAttribute('datetime','2026-10-06T17:43:00Z');
+ await expect(timestamp.locator('[data-part="absolute"]')).toHaveText(timezone==='UTC'?'2026-10-06 17:43:00 UTC':'2026-10-06 13:43:00 EDT');
+ await expect(timestamp.locator('[data-part="relative"]')).toHaveText('in 2 hours');
+ await expect(page.getByText('[object Object]',{exact:false})).toHaveCount(0);
+ const parts=await timestamp.evaluate(el=>{const body=el.closest('.sheetb')!.getBoundingClientRect();return [...el.children].map(part=>{const rect=part.getBoundingClientRect();return {lines:part.getClientRects().length,whiteSpace:getComputedStyle(part).whiteSpace,left:rect.left-body.left,right:rect.right-body.right};});});
+ for(const part of parts){expect(part.lines).toBe(1);expect(part.whiteSpace).toBe('nowrap');expect(part.left).toBeGreaterThanOrEqual(0);expect(part.right).toBeLessThanOrEqual(0);}
+ await accessible(page);
+});
