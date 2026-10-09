@@ -4,6 +4,35 @@ import axe from 'axe-core';
 import {mockActivity,activityPath,detailPath,pool} from './activity-fixture.js';
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
 test.use({reducedMotion:'reduce'});
+test('Activity: measured positions survive initial resize across three cold loads',async({browser})=>{
+ const positions:Array<{dayTop:number;dayHeight:number;rowTop:number;rowHeight:number;cellHeight:number;lineHeight:string}>=[];
+ for(let load=0;load<3;load++){
+  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+  try{
+   const page=await context.newPage();await page.clock.setFixedTime(new Date('2026-10-06T15:43:00Z'));await mockActivity(page);
+   await page.goto(`http://127.0.0.1:4173${activityPath}`);
+   await expect(page.getByRole('heading',{name:'Requests',exact:true})).toBeVisible();
+   await accessible(page);
+   // Exercise the capture-state font/layout flush without comparing or writing
+   // a baseline; the diagnostic showed pre-capture metrics can differ.
+   await page.screenshot({animations:'disabled'});
+   const measure=()=>page.evaluate(()=>{
+    const day=document.querySelector('[data-part="day"]');const row=document.querySelector('.rec[data-mark-row]');
+    const cell=row?.querySelector('.rhead > [data-part="timestamp"]');
+    if(!day||!row||!cell)throw new Error('Activity geometry is not ready');
+    const d=day.getBoundingClientRect(),r=row.getBoundingClientRect(),c=cell.getBoundingClientRect();
+    return {dayTop:d.top,dayHeight:d.height,rowTop:r.top,rowHeight:r.height,cellHeight:c.height,lineHeight:getComputedStyle(cell).lineHeight};
+   });
+   await expect.poll(async()=>{const m=await measure();return {rowHeight:m.rowHeight,gap:m.rowTop-m.dayTop-m.dayHeight};}).toEqual({rowHeight:42,gap:0});
+   await expect.poll(async()=>(await measure()).lineHeight).toBe('14.7px');
+   const first=await measure();
+   await expect.poll(async()=>{await page.waitForTimeout(100);return await measure();}).toEqual(first);
+   positions.push(first);
+  }finally{await context.close();}
+ }
+ expect(positions).toEqual([positions[0],positions[0],positions[0]]);
+ console.log('Activity cold-load geometry',JSON.stringify(positions));
+});
 for(const width of [390,900,1440])test(`5.12 Activity and record at ${width}`,{tag:'@visual'},async({page})=>{
  await mockActivity(page);await page.setViewportSize({width,height:1000});await page.goto(activityPath);await expect(page.getByRole('heading',{name:'Requests',exact:true})).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`activity-${width}.png`,{fullPage:true});
  await page.getByRole('region',{name:'Activity records'}).locator('.rec[data-mark-row]').first().getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('link',{name:'Open evidence record',exact:true}).click();await page.getByRole('button',{name:'Full recorded metadata',exact:true}).click();await expect(page.getByRole('heading',{name:'Versions recorded at open'})).toBeVisible();await expect(page.getByText('Catalogue generation')).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`record-${width}.png`,{fullPage:true});

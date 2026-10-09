@@ -6,7 +6,10 @@ export function createActivityState(){return createStore<{
  scroll:(top:number)=>void;resize:(width:number)=>void;measure:(id:string,height:number)=>void;toggle:(id:string)=>void;
 }>(set=>({top:0,width:1000,expanded:new Set(),heights:{},
  scroll:top=>set(s=>Math.floor(s.top/42)===Math.floor(top/42)?s:{top}),
- resize:width=>set(s=>s.width===width?s:{width,heights:{}}),
+ // ResizeObserver updates entries whose rendered height changes. Clearing all
+ // entries here loses measurements taken before the initial width callback;
+ // unchanged elements then have no resize event with which to restore them.
+ resize:width=>set(s=>s.width===width?s:{width}),
  measure:(id,height)=>set(s=>s.heights[id]===height?s:{heights:{...s.heights,[id]:height}}),
  toggle:id=>set(s=>{const expanded=new Set(s.expanded);if(expanded.has(id))expanded.delete(id);else expanded.add(id);const heights={...s.heights};delete heights[id];return {expanded,heights};}),
 }));}
