@@ -49,7 +49,9 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  test.setTimeout(60_000); // Three screens, screenshots and axe scans in one browser flow.
  let page=initialPage;
  const state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
- await expect(page.getByRole('link',{name:'Introspection runs for Monthly returns'})).toHaveText('Runs');
+ const introspection=page.getByRole('link',{name:'Introspection runs for Monthly returns'});
+ await expect(introspection.locator('..')).toContainText('last introspected Never');
+ await expect(introspection).toHaveAttribute('href',`/projects/${projectId}/sources/${sourceId}/introspections`);
  const pill=page.getByRole('button',{name:'2 filings'});await expect(pill).toHaveAttribute('aria-expanded','false');
  await expect(page.getByRole('row').filter({hasText:'Live database'}).getByRole('button',{name:/filing/})).toHaveCount(0);
  await pill.click();const detail=page.getByRole('region',{name:'Recent filings into this source'});
