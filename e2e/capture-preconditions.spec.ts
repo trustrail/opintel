@@ -1,4 +1,5 @@
-import {test,expect} from '@playwright/test';
+import {test} from './fixtures.js';
+import {expect} from '@playwright/test';
 import {prepareCapture} from './capture.js';
 
 test('capture waits for finite motion and freezes infinite motion',async({page})=>{
