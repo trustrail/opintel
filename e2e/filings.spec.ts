@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {dashboard as dashboardFixture} from './dashboard-fixture.js';
 import {test} from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
@@ -58,16 +59,16 @@ for(const width of [390,900,1440])test(`ING-27/29: source filings and quarantine
  await expect(detail.getByText('Restatement',{exact:true})).toBeVisible();await expect(detail.getByText(current,{exact:true})).toBeVisible();expect(state.cursors).toContain('next-page');
  await expect(detail.getByText(held,{exact:true})).toHaveCount(0);await expect(detail.getByText('OTHER-SOURCE',{exact:true})).toHaveCount(0);
  await expect(detail.locator('tbody tr').first()).toContainText(current);await expect(detail).toContainText('both versions stay queryable');
- await expect(page).toHaveScreenshot(`filings-expanded-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`filings-expanded-${width}.png`,{fullPage:true});await accessible(page);
  await pill.click();await expect(detail).toHaveCount(0);
  await pill.focus();await page.keyboard.press('Enter');await expect(detail).toBeVisible();await pill.focus();await page.keyboard.press('Space');await expect(detail).toHaveCount(0);
  // Start feed snapshots in a fresh page after the keyboard interaction above.
  await page.close();page=await initialPage.context().newPage();await mock(page);await page.setViewportSize({width,height:1000});
  await page.goto(`/projects/${projectId}/dashboard`);await expect(page.getByText('filings did not land',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Prepare for the operator',exact:true})).toBeVisible();await expect(page.getByText(current,{exact:true})).toHaveCount(0);
- await expect(page).toHaveScreenshot(`filings-dashboard-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`filings-dashboard-${width}.png`,{fullPage:true});await accessible(page);
  await page.goto(`/projects/${projectId}/observations`);await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'History',exact:true}).click();await expect(page.getByText(held,{exact:true})).toBeVisible();await expect(page.getByText('The full reason stays in the customer environment because it may contain file contents.',{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');
  await expect(page.getByText('The content does not match the attributed filing party.',{exact:true})).toBeVisible();await expect(page.getByText("Nothing landed, so this data is not in the catalogue.",{exact:true})).toBeVisible();await expect(page.getByText(sourceId,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(held,{exact:true})).toHaveCSS('user-select','all');await expect(page.getByText(/npm run sidecar:register --/)).toHaveCount(0);
- await expect(page).toHaveScreenshot(`filings-observations-${width}.png`,{fullPage:true});
+ await capture(page,test.info(),`filings-observations-${width}.png`,{fullPage:true});
  await accessible(page);
 });
 test('ING-29: loading, empty and error states recover without exposing local details',async({page})=>{
@@ -105,5 +106,5 @@ for(const width of [390,900,1440])test(`TOK-28: custody observations at ${width}
  for(const title of ['Escrow could not be verified','Escrow does not match the recorded key'])await page.getByRole('article',{name:title,exact:true}).getByRole('button',{name:'Details',exact:true}).click();
  await expect(page.getByText('Key version 2',{exact:true})).toBeVisible();await expect(page.getByText('Key version 1',{exact:true})).toBeVisible();
  await expect(page.getByText('This retained key is needed to verify earlier evidence.',{exact:false})).toBeVisible();
- await expect(page).toHaveScreenshot(`custody-observations-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`custody-observations-${width}.png`,{fullPage:true});await accessible(page);
 });

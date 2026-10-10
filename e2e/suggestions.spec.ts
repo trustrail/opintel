@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {expect} from '@playwright/test';
 import axe from 'axe-core';
 import {inspectControls,controlPatterns} from './conformance/checker.js';
@@ -46,7 +47,7 @@ test('SUG-006: loading, empty, error and viewer states',async({page})=>{
  await accessible(page);
 });
 test('SUG-003/006: a new shared domain is an explicit choice',async({page})=>{await setup(page);await page.goto(path);await page.getByRole('radio',{name:'Start a new domain'}).check();await page.getByLabel('New shared domain').fill('newtreaty');await page.getByLabel('Type project name: Reporting').fill('Reporting');await page.getByRole('button',{name:'Confirm',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Decision recorded.'})).toContainText('Decision recorded.');await expect(page.getByRole('article')).toHaveCount(0);await page.getByRole('button',{name:'Reviewed',exact:true}).click();await expect(page.getByRole('button',{name:'Not sure',exact:true})).toHaveCount(0);await page.getByText('Decision and assignment history (1)').click();await expect(page.getByText(/Shared domain: newtreaty/)).toBeVisible();});
-for(const width of [390,900,1440])test(`@visual SUG-006: suggestion review ${width}`,async({page})=>{await setup(page);await page.setViewportSize({width,height:1000});await page.goto(path);await expect(page.getByRole('radio',{name:/Join the treaty domain/})).toBeVisible();await expect(page).toHaveScreenshot(`suggestions-${width}.png`,{fullPage:true});});
+for(const width of [390,900,1440])test(`@visual SUG-006: suggestion review ${width}`,async({page})=>{await setup(page);await page.setViewportSize({width,height:1000});await page.goto(path);await expect(page.getByRole('radio',{name:/Join the treaty domain/})).toBeVisible();await capture(page,test.info(),`suggestions-${width}.png`,{fullPage:true});});
 
 
 test('RED-010: blocked suggestion opens the exact pool and element without selecting it',async({page})=>{

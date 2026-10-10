@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import {expect,type Page} from '@playwright/test';
 import axe from 'axe-core';
@@ -39,7 +40,7 @@ for(const width of [390,900,1440])test(`unmapped source observation at ${width}`
    if(stable===3)return;
   }
   throw new Error('Observation disclosure layout did not settle.');
- });await page.evaluate(()=>window.scrollTo(0,0));await expect(page).toHaveScreenshot(`type-observation-${width}.png`,{fullPage:true});
+ });await page.evaluate(()=>window.scrollTo(0,0));await capture(page,test.info(),`type-observation-${width}.png`,{fullPage:true});
  await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import { sourceMessages } from '../src/shared/source-errors.js';
 import { expect,type Page } from '@playwright/test';
@@ -32,17 +33,17 @@ async function accessible(page:Page){await page.addScriptTag({content:axe.source
 for(const width of [390,900,1440])test(`Data sources ready, empty and wizard at ${width}`, { tag: '@visual' },async({page:initialPage})=>{
  let page=initialPage;let state=await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();await expect(page.getByText('table per filing',{exact:true})).toBeVisible();
- await expect(page).toHaveScreenshot(`sources-ready-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
+ await capture(page,test.info(),`sources-ready-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
  await expect(page.getByRole('button',{name:'2 filings'})).toHaveAttribute('aria-expanded','false');await expect(page.locator(`#filings-${sourceId}`)).toHaveCount(1);await expect(page.locator(`#filings-${sourceId}`)).toBeHidden();
  // Give the empty/wizard fixture its own rendering surface after the ready-state axe scan.
  const context=page.context();await page.close();page=await context.newPage();await page.setViewportSize({width,height:1000});state=await mock(page);state.empty=true;await page.goto(`/projects/${projectId}/data-sources`);await expect(page.getByText('No sources connected',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Connect a source',exact:true}).click();await expect(page.getByText('Not provisioned for this project.',{exact:false})).toBeVisible();await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(state.creates).toEqual([]);
  await page.getByRole('button',{name:'Connect a source',exact:true}).focus();
  await expect(page.getByRole('button',{name:'Connect a source',exact:true})).toBeFocused();
- await expect(page).toHaveScreenshot(`sources-empty-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
+ await capture(page,test.info(),`sources-empty-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
  await page.getByRole('button',{name:'Connect a source',exact:true}).click();await page.getByLabel('Source name',{exact:true}).fill('Reporting');await page.getByLabel('Secret reference',{exact:true}).fill('secret://test/reporting');
  await page.getByLabel('Verified engine',{exact:true}).selectOption(demoId);await page.getByRole('button',{name:'Test connection',exact:true}).click();await expect(page.getByText('Connection passed.',{exact:false})).toBeVisible();
  await page.getByLabel('This source receives landed spreadsheets').check();
- await expect(page).toHaveScreenshot(`sources-wizard-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
+ await capture(page,test.info(),`sources-wizard-${width}.png`,{fullPage:true,animations:'disabled'});await accessible(page);
  await page.getByLabel('Landing strategy',{exact:true}).selectOption('table_per_filing');await page.getByLabel('returns',{exact:true}).check();
  await page.getByRole('button',{name:'Connect and introspect'}).click();await expect(page.getByText('Monthly returns',{exact:true})).toBeVisible();
  expect(state.creates).toEqual([{engineId:demoId,name:'Reporting',kind:'postgres',credentialRef:'secret://test/reporting',includeSchemas:['returns'],samplingConsent:false,receivesLandings:true,landingStrategy:'table_per_filing'}]);
@@ -60,7 +61,7 @@ for(const width of [390,900,1440])test(`renders the persisted safe provisioning 
  const state=await mock(page);state.failure=sourceMessages.templateConflict;
  await page.goto(`/projects/${projectId}/data-sources`);
  await expect(page.getByRole('alert')).toHaveText(sourceMessages.templateConflict);
- await expect(page).toHaveScreenshot(`sources-failed-${width}.png`,{fullPage:true,animations:'disabled'});
+ await capture(page,test.info(),`sources-failed-${width}.png`,{fullPage:true,animations:'disabled'});
  await accessible(page);
  await page.getByRole('region',{name:'Monthly returns',exact:true}).getByRole('button',{name:'Re-introspect',exact:true}).click();
  await expect(page.getByRole('alert')).toHaveCount(0);expect(state.retries).toEqual([{projectId}]);
@@ -99,7 +100,7 @@ for(const width of [390,900,1440])test(`active-run refusal names and links the r
  await expect(page.getByRole('link',{name:'View active run'})).toHaveAttribute('href',`/projects/${projectId}/introspections/${industryId}`);
  await expect(page.getByRole('region',{name:'Monthly returns',exact:true}).getByRole('alert')).toContainText(industryId);
  await expect(page.getByRole('link',{name:'View active run'})).toBeInViewport();
- await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`sources-active-conflict-${width}.png`,{fullPage:true});await accessible(page);
+ await page.evaluate(()=>document.fonts.ready);await capture(page,test.info(),`sources-active-conflict-${width}.png`,{fullPage:true});await accessible(page);
 });
 
 test('Re-introspect acknowledges before a delayed response, blocks repeat clicks, and retains a fast run receipt',async({page})=>{

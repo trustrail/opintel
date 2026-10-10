@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import {expect} from '@playwright/test';
 import axe from 'axe-core';
@@ -15,7 +16,7 @@ for(const width of [390,900,1440])test(`5.19 administrator recovery at ${width}`
  await page.addScriptTag({content:axe.source});
  expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await expect(page).toHaveScreenshot(`sso-recovery-${width}.png`,{fullPage:true});
+ await capture(page,test.info(),`sso-recovery-${width}.png`,{fullPage:true});
 });
 
 test('magic-link request acknowledges in place, blocks pending duplicates and permits a deliberate retry',async({page})=>{

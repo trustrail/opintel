@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import {expect,type Page} from '@playwright/test';
 import axe from 'axe-core';
@@ -71,7 +72,7 @@ for(const width of [390,900,1440])test(`Grouped entitlements at ${width}`,{tag:'
  await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  const name=page.getByRole('list',{name:'Entitlement groups',exact:true}).locator('[data-part=identity]').first().locator('b').first();expect(await name.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length;}),'The exposed name must fit without one-character wrapping').toBe(1);
  const consequence=page.locator('[data-part=consequence]');expect(await consequence.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const rects=[...range.getClientRects()];return rects.length?Math.max(...rects.map(r=>r.width)):0;}),'The action consequence must have room for a readable line').toBeGreaterThan(120);
- await expect(page).toHaveScreenshot(`grouped-entitlements-${width}.png`,{fullPage:true});
+ await capture(page,test.info(),`grouped-entitlements-${width}.png`,{fullPage:true});
  const group=page.getByRole('list',{name:'Entitlement groups',exact:true}).locator('[data-part=identity]').first();await expect(group).toContainText('treaty_ref');await expect(group).toContainText('Mixed · 2 decisions');await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
 });
 

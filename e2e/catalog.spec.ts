@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
@@ -26,7 +27,7 @@ for(const width of [390,900,1440])test(`schema explorer states, types and aliase
   const offsets=await page.getByRole('treeitem').evaluateAll(rows=>rows.map(row=>({top:row.getBoundingClientRect().top,bottom:row.getBoundingClientRect().bottom})));
   for(let i=1;i<offsets.length;i++)expect(offsets[i]!.top).toBe(offsets[i-1]!.bottom);
  }
- await expect(page).toHaveScreenshot(`catalog-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`catalog-${width}.png`,{fullPage:true});await accessible(page);
  await page.getByLabel('Search within').selectOption(object);await page.getByLabel('Name prefix').fill('record_n');await expect(page.getByText('record_id',{exact:true})).toHaveCount(0);await expect(page.getByText('record_name',{exact:true})).toBeVisible();expect(state.requests.at(-1)).toMatchObject({parent:object,prefix:'record_n'});
  await page.getByRole('button',{name:'Collapse records',exact:true}).click();await expect(page.getByText('record_name',{exact:true})).toHaveCount(0);
 });

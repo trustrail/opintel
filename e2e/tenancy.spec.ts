@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
@@ -72,7 +73,7 @@ for (const [path, title, slug] of [['/projects', 'Your projects', 'chooser'], ['
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         window.scrollTo(0, 0);
       });
-      await expect(page).toHaveScreenshot(`${slug}-${width}.png`, { animations: 'disabled', fullPage: true });
+      await capture(page,test.info(),`${slug}-${width}.png`, { animations: 'disabled', fullPage: true });
       await page.addScriptTag({ content: axe.source });
       expect(await page.evaluate(async () => (await axe.run()).violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => ({ target: node.target, message: node.failureSummary })) })))).toEqual([]);
       if (slug === 'chooser') {

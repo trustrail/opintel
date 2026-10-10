@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
@@ -68,7 +69,7 @@ for (const width of [390, 900, 1440]) {
     // Establish the capture origin explicitly, as the tenancy visual tests do.
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-    await expect(page).toHaveScreenshot(`access-${width}.png`, { animations: 'disabled', fullPage: true });
+    await capture(page,test.info(),`access-${width}.png`, { animations: 'disabled', fullPage: true });
     await page.addScriptTag({ content: axe.source });
     expect(await page.evaluate(async () => (await axe.run()).violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => ({ target: node.target, message: node.failureSummary })) })))).toEqual([]);
   });

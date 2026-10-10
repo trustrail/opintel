@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import { expect} from '@playwright/test';
 import axe from 'axe-core';
@@ -36,6 +37,6 @@ for (const width of [390, 900, 1440]) {
   test(`O-009: kitchen sink visual snapshot at ${width}px`, { tag: '@visual' }, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto('/dev/kitchen-sink');
-    await expect(page).toHaveScreenshot(`kitchen-sink-${width}.png`, { animations: 'disabled', fullPage: true });
+    await capture(page,test.info(),`kitchen-sink-${width}.png`, { animations: 'disabled', fullPage: true });
   });
 }

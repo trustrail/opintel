@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import axe from 'axe-core';
@@ -38,12 +39,12 @@ for(const width of [390,900,1440])test(`K7: token key and confirmation at ${widt
  await expect(page.getByRole('button',{name:'Access',exact:true})).toHaveAttribute('data-active','true');
  await expect(page.getByText('Opintel cannot recover a lost key.',{exact:false})).toBeVisible();
  const failure=page.getByRole('alert',{name:'Rehearsal failure'});await expect(failure).toContainText('Version 1: escrow does not match');await expect(failure).toContainText('Version 2: escrow could not be verified');
- await accessible(page);await expect(page).toHaveScreenshot(`token-key-${width}.png`,{fullPage:true});
+ await accessible(page);await capture(page,test.info(),`token-key-${width}.png`,{fullPage:true});
  await page.getByRole('button',{name:'Rotate key',exact:true}).click();
  await expect(page.getByLabel('Type Reporting to confirm')).toBeFocused();
  await expect(page.getByText('Rotation creates and verifies a new key before making it current.',{exact:false})).toBeVisible();
  await page.getByLabel('Reason for rotation').fill('Approved rotation');await page.getByLabel('Type Reporting to confirm').fill('Reporting');
- await accessible(page);await page.evaluate(()=>window.scrollTo(0,0));await expect(page).toHaveScreenshot(`token-key-confirm-${width}.png`,{fullPage:true});
+ await accessible(page);await page.evaluate(()=>window.scrollTo(0,0));await capture(page,test.info(),`token-key-confirm-${width}.png`,{fullPage:true});
 });
 test('typed rotation, retry idempotency, exact error text and refreshed status',async({page})=>{
  const state=await mock(page);await page.goto(`/projects/${projectId}/token-key`);await page.getByRole('button',{name:'Rotate key',exact:true}).click();

@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {ProjectId,ElementId} from '../src/shared/kernel/value-objects.js';
 import {derivedTokenDomain} from '../src/shared/token-domain.js';
 import {test} from './fixtures.js';
@@ -8,7 +9,7 @@ test.use({reducedMotion:'reduce'});
 async function accessible(page:Page){await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
 for(const width of [390,900,1440])test(`Entitlements tree and bulk bar at ${width}`,{tag:'@visual'},async({page})=>{
  await mock(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/entitlements`);await expand(page);await page.evaluate(()=>document.fonts.ready);await page.getByLabel('Select field_0000',{exact:true}).check();await page.getByLabel('Treatment',{exact:true}).selectOption('clear');await page.getByLabel('Justification (required)').fill('Approved for reporting');await page.evaluate(()=>window.scrollTo(0,0));
- await expect(page).toHaveScreenshot(`entitlements-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`entitlements-${width}.png`,{fullPage:true});await accessible(page);
 });
 test('H-009 UI: no reset or undecided treatment; clear needs justification and saves selected decisions',async({page})=>{
  const state=await mock(page);await page.goto(`/projects/${project}/entitlements`);await expand(page);
@@ -34,7 +35,7 @@ for(const width of [390,900,1440])test(`Money locale and unsupported diagnosis a
  await expect(page.getByText(/fractional digits depend on the source server/)).toBeVisible();
  await expect(page.getByLabel('Select field_0006',{exact:true})).toBeDisabled();
  await expect(page.getByText('Unmapped type',{exact:true})).toBeVisible();
- await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await expect(page).toHaveScreenshot(`money-type-diagnostics-${width}.png`,{fullPage:true});await accessible(page);
+ await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await capture(page,test.info(),`money-type-diagnostics-${width}.png`,{fullPage:true});await accessible(page);
 });
 
 test('DECL-007: qualified validation error links to declarations without requiring a loaded explorer branch',async({page})=>{

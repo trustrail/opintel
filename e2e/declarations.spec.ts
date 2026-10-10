@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {ProjectId,ElementId} from '../src/shared/kernel/value-objects.js';
 import {domainMigrationConfirmation,derivedTokenDomain} from '../src/shared/token-domain.js';
 import {test} from './fixtures.js';
@@ -71,5 +72,5 @@ test('DECL-009: deep-linked element survives unloaded tree; loading, error and r
  state.loading=false;state.error=true;await page.reload();await expect(page.getByText('Declarations are temporarily unavailable.',{exact:true})).toBeVisible();state.error=false;await page.getByRole('button',{name:'Try again',exact:true}).click();await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();await openDeclarations(page);await accessible(page);
 });
 for(const width of [390,900,1440])test(`DECL-009: declaration panel at ${width}`,{tag:'@visual'},async({page})=>{
- await declarations(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/catalog?elementId=${element}`);await openDeclarations(page);await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();await openDeclarations(page);await accessible(page);await expect(page).toHaveScreenshot(`declarations-${width}.png`,{fullPage:true});
+ await declarations(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/catalog?elementId=${element}`);await openDeclarations(page);await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();await openDeclarations(page);await accessible(page);await capture(page,test.info(),`declarations-${width}.png`,{fullPage:true});
 });

@@ -17,6 +17,15 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',
+    launchOptions: { args: [
+      '--disable-gpu',
+      '--disable-partial-raster',
+      '--disable-skia-runtime-opts',
+      '--disable-lcd-text',
+      '--font-render-hinting=none',
+      '--force-color-profile=srgb',
+      '--force-device-scale-factor=1',
+    ] },
   },
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 4173',

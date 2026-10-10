@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {fixture} from './settings-fixture.js';
 import {test} from './fixtures.js';
 import {expect,type Page} from '@playwright/test';
@@ -8,10 +9,10 @@ async function accessible(page:Page){await page.addScriptTag({content:axe.source
 test('5.19 enforcement screen states administrator recovery and auditing',async({page})=>{await fixture(page);await page.goto(`/companies/${source}/settings`);await expect(page.getByText(/Company administrators retain magic-link access when SSO is enforced. Every use is audited/)).toBeVisible();await accessible(page);});
 for(const width of [390,900,1440]){
  for(const section of ['settings','settings-discovery','settings-query','settings-evidence','settings-agents'])test(`Q-038 ${section} surface at ${width}`,{tag:'@visual'},async({page})=>{
-  await fixture(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/${section}`);await expect(page.getByRole('heading',{level:1})).toBeVisible();if(section==='settings')await page.getByRole('button',{name:'Project details',exact:true}).click();await expect(page.getByRole('heading',{name:section==='settings'?'Project details':section==='settings-query'?'Limits and disclosure':section==='settings-discovery'?'Introspection':section==='settings-evidence'?'Retention and capture':'Pool keys and presence',exact:true})).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`${section}-${width}.png`,{fullPage:true});
+  await fixture(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/${section}`);await expect(page.getByRole('heading',{level:1})).toBeVisible();if(section==='settings')await page.getByRole('button',{name:'Project details',exact:true}).click();await expect(page.getByRole('heading',{name:section==='settings'?'Project details':section==='settings-query'?'Limits and disclosure':section==='settings-discovery'?'Introspection':section==='settings-evidence'?'Retention and capture':'Pool keys and presence',exact:true})).toBeVisible();await accessible(page);await capture(page,test.info(),`${section}-${width}.png`,{fullPage:true});
  });
  for(const [path,name] of [[`/companies/${source}/settings`,'company'],['/settings','personal']])test(`Q-038 ${name} surface at ${width}`,{tag:'@visual'},async({page})=>{
-  await fixture(page);await page.setViewportSize({width,height:1000});await page.goto(path!);await expect(page.getByRole('button',{name:'Save changes'})).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`${name}-${width}.png`,{fullPage:true});
+  await fixture(page);await page.setViewportSize({width,height:1000});await page.goto(path!);await expect(page.getByRole('button',{name:'Save changes'})).toBeVisible();await accessible(page);await capture(page,test.info(),`${name}-${width}.png`,{fullPage:true});
  });
 }
 test('Q-006: viewer sees all controls read-only; sampling off without size is not incomplete',async({page})=>{const {dashboard}=await fixture(page);dashboard.admin=false;await page.goto(`/projects/${project}/settings-discovery`);for(const d of projectSettingDefinitions.filter(v=>v.path.startsWith('discovery.'))){await page.getByRole('button',{name:'Edit '+d.label,exact:true}).click();await expect(page.getByLabel(d.label,{exact:true})).toBeDisabled();}await expect(page.getByRole('button',{name:'Save changes'})).toBeDisabled();await expect(page.getByRole('alert')).toHaveCount(0);await accessible(page);});

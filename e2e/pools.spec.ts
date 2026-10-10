@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import {expect} from '@playwright/test';
 import axe from 'axe-core';
@@ -6,9 +7,9 @@ async function accessible(page:Parameters<typeof mockPools>[0]){await page.addSc
 test.use({reducedMotion:'reduce'});
 for(const width of [390,900,1440])test(`5.14 Pools, detail, twin and key dialogs at ${width}`,{tag:'@visual'},async({page})=>{
  await mockPools(page);await page.setViewportSize({width,height:1000});
- for(const [path,name,file]of [[poolsPath,'Pools','pools'],[poolPath,'Reporting pool','pool-detail'],[twinPath,'Agent twin','agent-twin']] as const){await page.goto(path);await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();await expect(page.getByText('Preparing this view')).toHaveCount(0);await accessible(page);await expect(page).toHaveScreenshot(`${file}-${width}.png`,{fullPage:true});}
- await page.goto(poolPath);await page.getByRole('button',{name:'Revoke current key'}).click();await expect(page.getByRole('heading',{name:'1 affected agents'})).toBeVisible();await accessible(page);await expect(page).toHaveScreenshot(`revoke-${width}.png`,{fullPage:true});await page.getByRole('button',{name:'Cancel',exact:true}).click();
- await page.getByRole('button',{name:'Rotate key',exact:true}).click();await expect(page.getByRole('heading',{name:'1 affected agents'})).toBeVisible();await page.getByRole('button',{name:'Confirm rotation'}).click();await expect(page.getByLabel('New pool key')).toHaveValue(credential);await accessible(page);await expect(page).toHaveScreenshot(`shown-once-${width}.png`,{fullPage:true});
+ for(const [path,name,file]of [[poolsPath,'Pools','pools'],[poolPath,'Reporting pool','pool-detail'],[twinPath,'Agent twin','agent-twin']] as const){await page.goto(path);await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();await expect(page.getByText('Preparing this view')).toHaveCount(0);await accessible(page);await capture(page,test.info(),`${file}-${width}.png`,{fullPage:true});}
+ await page.goto(poolPath);await page.getByRole('button',{name:'Revoke current key'}).click();await expect(page.getByRole('heading',{name:'1 affected agents'})).toBeVisible();await accessible(page);await capture(page,test.info(),`revoke-${width}.png`,{fullPage:true});await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await page.getByRole('button',{name:'Rotate key',exact:true}).click();await expect(page.getByRole('heading',{name:'1 affected agents'})).toBeVisible();await page.getByRole('button',{name:'Confirm rotation'}).click();await expect(page.getByLabel('New pool key')).toHaveValue(credential);await accessible(page);await capture(page,test.info(),`shown-once-${width}.png`,{fullPage:true});
 });
 test('I-001: copy succeeds before deliberate dismissal; Escape, backdrop, retries and cache cannot recover key',async({page})=>{
  const state=await mockPools(page);state.empty=true;await page.goto(poolsPath);await page.getByRole('button',{name:'Create a pool'}).click();await page.getByLabel('Pool name').fill('Reporting pool');await page.getByRole('button',{name:'Create pool',exact:true}).click();

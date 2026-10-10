@@ -5,6 +5,7 @@
     "e2e/control-conformance.spec.ts",
     "e2e/conformance-coverage.spec.ts",
     "e2e/fixtures.ts",
+    "e2e/capture.ts",
     "playwright.conformance.config.ts",
     "playwright.gates.config.ts"
   ]

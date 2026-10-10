@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {expect} from '@playwright/test';
 import axe from 'axe-core';
 import {test} from './fixtures.js';
@@ -61,6 +62,6 @@ for(const width of [390,900,1440]){
  test(`RED-004: shared patterns snapshot at ${width}px`,{tag:'@visual'},async({page})=>{
   await page.setViewportSize({width,height:1000});await page.goto('/dev/shared-patterns');
   await page.getByRole('button',{name:'Show record'}).click();
-  await expect(page).toHaveScreenshot(`shared-patterns-${width}.png`,{animations:'disabled',fullPage:true});
+  await capture(page,test.info(),`shared-patterns-${width}.png`,{animations:'disabled',fullPage:true});
  });
 }

@@ -1,3 +1,4 @@
+import {capture} from './capture.js';
 import {test} from './fixtures.js';
 import {expect,type Page } from '@playwright/test';
 import axe from 'axe-core';
@@ -41,9 +42,9 @@ for(const width of [390,900,1440])test(`G-003 to G-009: run diff and history at 
  await expect(page.getByRole('row').filter({hasText:'retired_field'})).toContainText('Decision retained, inactive.');
  await expect(page.getByRole('row').filter({hasText:'new_field'})).toContainText('Needs a decision');
  await expect(page.getByRole('button',{name:'Cancel introspection'})).toHaveCount(0);
- await expect(page).toHaveScreenshot(`introspection-diff-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`introspection-diff-${width}.png`,{fullPage:true});await accessible(page);
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'Introspection runs',exact:true}).click();await expect(page.getByRole('heading',{name:'Introspection runs',exact:true})).toBeVisible();
- await expect(page).toHaveScreenshot(`introspection-history-${width}.png`,{fullPage:true});await accessible(page);
+ await capture(page,test.info(),`introspection-history-${width}.png`,{fullPage:true});await accessible(page);
 });
 test('G-003: loading, unchanged, error and empty history are explicit',async({page})=>{
  const state=await mock(page);state.loading=true;state.run.diff=[];await page.goto(path);await expect(page.getByText('Preparing this view')).toBeVisible();await expect(page.getByText('No changes since the last introspection.')).toBeVisible();await accessible(page);
@@ -78,7 +79,7 @@ for(const width of [390,900,1440])test(`Mapping repair diff at ${width}`,{tag:'@
  await expect(page.getByText('Mapping repaired. Identity and decision retained.')).toBeVisible();
  await expect(page.getByText('Source type: numeric',{exact:true})).toBeVisible();
  await expect(page.getByText('Reverts to undecided')).toHaveCount(0);
- await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`mapping-repair-${width}.png`,{fullPage:true});await accessible(page);
+ await page.evaluate(()=>document.fonts.ready);await capture(page,test.info(),`mapping-repair-${width}.png`,{fullPage:true});await accessible(page);
 });
 
 for(const width of [390,900,1440])test(`unsupported types are distinct findings at ${width}`,{tag:'@visual'},async({page})=>{
@@ -92,5 +93,5 @@ for(const width of [390,900,1440])test(`unsupported types are distinct findings 
  await expect(page.getByText('Explicitly excluded',{exact:true})).toBeVisible();
  await expect(page.getByText('Not decidable. No access decision can expose this type.')).toHaveCount(2);
  await expect(page.getByText('Needs a decision')).toHaveCount(0);
- await page.evaluate(()=>document.fonts.ready);await expect(page).toHaveScreenshot(`unsupported-types-${width}.png`,{fullPage:true});await accessible(page);
+ await page.evaluate(()=>document.fonts.ready);await capture(page,test.info(),`unsupported-types-${width}.png`,{fullPage:true});await accessible(page);
 });
