@@ -116,9 +116,16 @@ Most rules below exist to protect that sentence.
 ---
 
 **Validation scheduling**
-- Run typecheck, lint, builds, browser setup and test suites sequentially on one machine. Never overlap separate validation commands. `npm run check` supplies the full ordered path; focused checks follow the same rule.
+- Run typecheck, lint, builds, browser setup and test suites sequentially on one machine. Never overlap separate validation commands. Each validation tier supplies an ordered path; focused checks follow the same rule.
 - Iterate with affected tests; run typecheck and lint after a coherent batch. Run the required gates once on the completed candidate before its commit, using the change-scoped rule and subject to the screen-review workflow below. Never run a full gate with a known defect outstanding: fix it and verify locally first. Quiet output during a long suite is expected, not evidence of a stall. See the plan's §6.6 for the focused path.
-- **Change-scoped completed-item validation:** `npm run check` always. Run the browser pass when anything under `src/app/` or `docs/opintel-master.css` changes. Run performance and ephemerality when Engine, treatment or storage paths change, and always before a release tag. Shared code changes that affect one of those paths count too. This rule selects when suites run; it does not reduce their assertions or thresholds. The current `check` script still includes every suite; until the command is separated, invoking it runs that superset.
+- **Change-scoped completed-item validation:** use the tiers below. Shared code changes that affect a listed path count too. If both UI and data apply, run their additional suites sequentially after one `check`. This selects when suites run; it does not reduce their assertions or thresholds.
+
+  | Script | Trigger and coverage |
+  |---|---|
+  | `npm run check` | Every change: lint, typecheck and the normal test suite only |
+  | `npm run check:ui` | `src/app/` or `docs/opintel-master.css`: check, then the browser pass |
+  | `npm run check:data` | Engine (`sidecar/`, `deploy/engine/`, `src/modules/engines/`), treatment (`src/modules/entitlements/`, `src/modules/catalog/`, `src/modules/querying/`), or storage (`migrations/`, `src/platform/db/`, `src/platform/redis/`, `src/platform/secrets/`, `src/modules/ingest/`, `src/modules/evidence/`, and persistence implementations under `src/modules/*/infrastructure/`): check, then code-performance, collision and ephemerality suites |
+  | `npm run check:release` | Before every release tag: all tiers, with check once; also conformance typecheck, build, bypass and browser-performance gates |
 - **Screen work the user reviews:** during redesign iteration, do not run the visual project or regenerate baselines. Implement, run affected functional, conformance/placement and accessibility checks, then report the screen ready for review. Iterate on the user's judgement. Only when the user explicitly says a screen is right may its baselines be regenerated, in one baseline-only commit naming the approved change. Before the item commit, run snapshots for screens the item did not touch to catch unintended changes. This overrides snapshot iteration in the plan's §6.6: snapshots record the approved design; they do not decide whether a redesign is right.
 
 - **Baseline reproducibility:** after regeneration, capture every changed scenario again on unchanged code in the same pinned browser environment, using Playwright’s stabilized screenshot matcher. Diff the new capture against the regenerated image: dimensions must match and the differing-pixel count must be zero before committing. A matcher pass with tolerance is not sufficient; do not use retries or widen tolerances to establish reproducibility.
