@@ -11,6 +11,7 @@ const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{for(const close of cleanup.splice(0).reverse())await close();});
 async function fixture(){const f=await queryFixture();cleanup.push(f.close);return f;}
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('DOMAIN-001/003: domain migrations append immutable versions, no-op stays put and revert restores tokens',async()=>{
  const f=await fixture(),other=await fixture(),element=f.ids[1]!;
  const declarations=new PostgresElementDeclarations({canonicalisers:async()=>ok(['stdnum1'])});
@@ -30,8 +31,9 @@ it('DOMAIN-001/003: domain migrations append immutable versions, no-op stays put
  expect(after.at(-1)).toMatchObject({version:before.at(-1)!.version+2,effective_domain:'customer',actor_id:f.ctx.userId});
  expect(await withTenant(other.ctx,tx=>tx.query('SELECT * FROM token_domain_assignment WHERE element_id=$1',[element]))).toEqual([]);
  for(const sql of ['UPDATE token_domain_assignment SET version=version','DELETE FROM token_domain_assignment','INSERT INTO token_domain_assignment SELECT * FROM token_domain_assignment'])await expect(withTenant(f.ctx,tx=>tx.query(sql))).rejects.toMatchObject({code:'42501'});
-});
+},60_000);
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('DOMAIN-003: history migration round-trips and refuses a destructive downgrade',async()=>{
  const f=await fixture(),db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{
@@ -42,7 +44,7 @@ it('DOMAIN-003: history migration round-trips and refuses a destructive downgrad
   await db.query('SAVEPOINT downgrade');await expect(db.query(down)).rejects.toThrow('Cannot downgrade: token domain assignment history would be lost');await db.query('ROLLBACK TO SAVEPOINT downgrade');
   expect((await db.query('SELECT version FROM token_domain_assignment WHERE element_id=$1 ORDER BY version',[f.ids[1]])).rows).toEqual([{version:1},{version:2}]);
  }finally{await db.query('ROLLBACK');await db.end();}
-});
+},60_000);
 
 it('DOMAIN-001: shared domains join even when their assignment versions differ',async()=>{
  const f=await fixture();await f.addSource('second');

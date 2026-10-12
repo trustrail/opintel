@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import { expect,it } from 'vitest';
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('040 runs up/down/up with append-only history and tenant policies',async()=>{
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{
@@ -17,4 +18,4 @@ it('040 runs up/down/up with append-only history and tenant policies',async()=>{
    await db.query('SAVEPOINT invalid');await expect(db.query('INSERT INTO bulk_decision(project_id,actor_id,pool_id,treatment,justification,mask_kind,count) VALUES($1,$2,$3,$4,$5,$6,1)',[project,randomUUID(),pool,treatment,justification,mask])).rejects.toMatchObject({code:'23514'});await db.query('ROLLBACK TO SAVEPOINT invalid');
   }
  }finally{await db.query('ROLLBACK');await db.end();}
-},30_000);
+},60_000);

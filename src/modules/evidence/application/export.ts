@@ -47,7 +47,7 @@ export class EvidenceExportService {
 // Fixed columns, one run per row. Quote every cell; double embedded quotes.
 export const exportColumns=Object.keys(EvidenceExportRecord.shape) as (keyof EvidenceExportRecord)[];
 const csvCell=(value:unknown)=>{
- const text=value===null?'':typeof value==='object'?JSON.stringify(value):String(value);
+ const text=value===null||value===undefined?'':typeof value==='object'?JSON.stringify(value):String(value);
  // Quoting alone does not prevent a spreadsheet from executing text as a formula.
  const safe=typeof value==='string'&&(/^[\s]*[=+\-@]/.test(text)||/^[\t\r\n]/.test(text))?"'"+text:text;
  return '"'+safe.replaceAll('"','""')+'"';

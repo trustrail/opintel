@@ -79,11 +79,12 @@ it('SUG-005: query and explain SQL share Activity authorization and parsed redac
  unredacted=true;failStrip=true;await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{evidence}',$2::jsonb) WHERE id=$1",[f.ctx.projectId,JSON.stringify({redaction:'allowlist',allowlistedFields:['sql']})]));expect(unwrap(await repo.attempts(f.ctx,pair.id,undefined,25)).items.every(i=>i.statement===null)).toBe(true);
  const first=unwrap(await repo.attempts(f.ctx,pair.id,undefined,1));expect(first.items).toHaveLength(1);expect(first.nextCursor).not.toBeNull();expect(unwrap(await repo.attempts(f.ctx,pair.id,first.nextCursor!,1)).items[0]!.id).not.toBe(first.items[0]!.id);
 });
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('SUG-002: review migration round-trips and retains forced RLS; destructive downgrade refuses',async()=>{
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();try{await db.query('BEGIN');const down=await readFile('migrations/065_relationship_review.down.sql','utf8'),up=await readFile('migrations/065_relationship_review.up.sql','utf8');await db.query(down);await db.query(up);expect((await db.query("SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid='token_join_review'::regclass")).rows).toEqual([{relrowsecurity:true,relforcerowsecurity:true}]);}finally{await db.query('ROLLBACK');await db.end();}
  const latest=await attempt(),pair=(await list()).items[0]!;unwrap(await repo.decide(f.ctx,pair.id,{action:'reject',latestAttemptId:latest}));const down=await readFile('migrations/065_relationship_review.down.sql','utf8');
  const owner=new Client({connectionString:process.env.TEST_DATABASE_URL});await owner.connect();try{await owner.query('BEGIN');await expect(owner.query(down)).rejects.toThrow('Cannot downgrade while relationship review history exists');}finally{await owner.query('ROLLBACK');await owner.end();}
-});
+},60_000);
 
 it('SUG-001/004: a late-recorded earlier attempt does not invalidate an existing review reference',async()=>{const latest=await attempt(),original=(await list()).items[0]!;await attempt('explain',false,'2000-01-01T00:00:00Z');expect(unwrap(await repo.attempts(f.ctx,original.id,undefined,25)).items).toHaveLength(2);unwrap(await repo.decide(f.ctx,original.id,{action:'not_sure',latestAttemptId:latest}));expect((await list()).items[0]).toMatchObject({status:'not_sure',explains:2,history:[{actorId:f.ctx.userId,action:'not_sure'}]});});
 

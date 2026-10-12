@@ -9,6 +9,7 @@ const silent:MigrationReporter={applied:()=>{},reverted:()=>{},idle:()=>{}};
 it('049 retains the exact bytes already applied in development',async()=>{
  expect(createHash('sha256').update(await readFile('migrations/049_evidence_exports.up.sql')).digest('hex')).toBe(applied049);
 });
+// Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('an original 049 ledger upgrades through 050–053 without checksum repair, data loss or grant changes',async()=>{
  // Separate disposable database: exercise real migration commits and the checksum
  // guard, rather than replacing the ledger in an already-corrected test database.

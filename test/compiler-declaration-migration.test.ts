@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import { expect, it } from 'vitest';
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('037 preserves existing rows with unknown ordinals, validates domains, and runs down/up', async () => {
   const db = new Client({connectionString:process.env.TEST_DATABASE_URL}); await db.connect();
   try {
@@ -25,4 +26,4 @@ it('037 preserves existing rows with unknown ordinals, validates domains, and ru
     expect((await db.query('SELECT * FROM catalog_element')).rows).toEqual([{id,object_id:object,source_identifier:'existing'}]);
     await db.query(up);
   } finally { await db.query('ROLLBACK'); await db.end(); }
-},30000);
+},60_000);

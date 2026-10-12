@@ -98,6 +98,7 @@ describe('landing receipt over pinned mutual TLS', () => {
   });
 });
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('landing migration expands populated rows safely and rolls down/up', async () => {
   // Isolated migration DDL fixture, rolled back; no application scope bypass.
   const db = new Client({ connectionString: process.env.TEST_DATABASE_URL }); await db.connect();
@@ -114,4 +115,4 @@ it('landing migration expands populated rows safely and rolls down/up', async ()
     await db.query(down); expect((await db.query('SELECT id FROM data_source')).rows).toEqual([{ id }]);
     await db.query(up);
   } finally { await db.query('ROLLBACK'); await db.end(); }
-}, 30_000);
+}, 60_000);

@@ -234,7 +234,7 @@ async function start(): Promise<void> {
     ...suggestionRoutes(new PostgresSuggestions(evidenceQuery)),
     ...dashboardRoutes(new PostgresDashboardReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
-    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias)), presence)),
+    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody), presence)),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),

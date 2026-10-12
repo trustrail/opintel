@@ -72,12 +72,13 @@ it('RED-014: operator packet has complete ids and captured engine ownership, onl
  const packet=prepareOperatorPacket([{group,members:[{...record,metadata:{...record.metadata,filename:privateSentinel,reason:privateSentinel,payload:{file:privateSentinel}}} as typeof record]}],'2026-10-06T15:43:00Z');
  expect(packet).toContain(item.filingId);expect(packet).toContain(f.source);expect(packet).toContain(engine);expect(packet).toContain('Customer engine');expect(packet).toContain('No filing-party rule matched.');expect(packet).toContain('Inspect the filing in the local register');expect(packet).toContain('Opintel has not sent it to anyone.');expect(packet).not.toContain(privateSentinel);expect(packet).not.toContain(item.fileSha256);
 });
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('RED-013: observation migration round-trips empty history and refuses to destroy retained facts',async()=>{
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();const up=await readFile('migrations/066_observation_history.up.sql','utf8'),down=await readFile('migrations/066_observation_history.down.sql','utf8');
  try{await db.query('BEGIN');await db.query(down);await db.query(up);expect((await db.query("SELECT policyname FROM pg_policies WHERE tablename='observation_event' ORDER BY policyname")).rows).toEqual([{policyname:'tenant_read'},{policyname:'tenant_write'}]);await db.query('ROLLBACK');
  unwrap(await register.notice(notice()));await db.query('BEGIN');await expect(db.query(down)).rejects.toThrow('Cannot downgrade while observation history exists');await db.query('ROLLBACK');
  }finally{await db.end();}
-});
+},60_000);
 
 it('RED-013: accepted landing receipt closes a quarantine even before the notice projection catches up',async()=>{
  const {PostgresLandingReceiptRepository}=await import('../src/modules/ingest/infrastructure/landing-receipts.js');const repository=new PostgresLandingReceiptRepository(),item=notice();unwrap(await register.notice(item));

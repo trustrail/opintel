@@ -22,7 +22,7 @@ export class PostgresEvidenceWriter implements EvidenceWriterPort {
   const percent=parsedPercent.success?Number(parsedPercent.data):100;
   const selected=createHash('sha256').update(id).digest().readUInt32BE(0)/4294967296*100<percent;
   return withTenant(ctx,async tx=>{
-   await tx.query(`INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,request,versions,started_at,capture_percent,capture_selected) VALUES($1,$2,$3,$4,$5,'query',$6,$7,clock_timestamp(),$8,$9)`,[id,ctx.projectId,principal.pool.id,principal.agentId,principal.keyPrefix,request,plan?.versions??row.versions,percent,selected]);
+   await tx.query(`INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,request,versions,started_at,capture_percent,capture_selected,credential_id,custody_alias) VALUES($1,$2,$3,$4,$5,'query',$6,$7,clock_timestamp(),$8,$9,$10,$11)`,[id,ctx.projectId,principal.pool.id,principal.agentId,principal.keyPrefix,request,plan?.versions??row.versions,percent,selected,principal.credentialId??null,principal.custodyAlias??null]);
    if(request!==sql)await tx.query("INSERT INTO evidence_redaction(project_id,run_id,started_at,policy,fields) SELECT project_id,id,started_at,$2,ARRAY['request'] FROM query_run WHERE id=$1",[id,policy]);
    return ok(id);
   });
@@ -31,7 +31,7 @@ export class PostgresEvidenceWriter implements EvidenceWriterPort {
   const ctx={projectId:principal.pool.projectId,userId:principal.scopeUserId};
   const recordingStarted=performance.now();
   return withTenant(ctx,async tx=>{
-   const [row]=await tx.query<{header:Record<string,unknown>;startedAt:string;captureSelected:boolean}>(`SELECT capture_selected AS "captureSelected",started_at::text AS "startedAt",jsonb_build_object('id',id,'projectId',project_id,'poolId',pool_id,'agentId',agent_id,'keyPrefix',key_prefix,'mode',mode,'request',request,'versions',versions,'startedAt',started_at) AS header FROM query_run WHERE id=$1 AND pool_id=$2`,[id,principal.pool.id]);
+   const [row]=await tx.query<{header:Record<string,unknown>;startedAt:string;captureSelected:boolean}>(`SELECT capture_selected AS "captureSelected",started_at::text AS "startedAt",jsonb_build_object('id',id,'projectId',project_id,'poolId',pool_id,'agentId',agent_id,'keyPrefix',key_prefix,'credentialId',credential_id,'custodyAlias',custody_alias,'mode',mode,'request',request,'versions',versions,'startedAt',started_at) AS header FROM query_run WHERE id=$1 AND pool_id=$2`,[id,principal.pool.id]);
    if(!row)return err(new DomainError('not_found','The open evidence record was not found.'));
    const plan=finish.plan;
    // Sampling may omit detail only for successes. Refusals/failures override selection.

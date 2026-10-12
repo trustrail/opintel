@@ -1437,3 +1437,18 @@ available, behind the provider port, and requires credentials before a live clai
 | REL-014 | HKDF project/version signing keys reproduce across instances, versions rotate atomically, retired verification expires after its window and no private signing material persists |
 | REL-015 | Settings Custody rows accumulate non-secret edits, grant TTL displays minutes, secrets expose presence only, local says development only, aliases appear read-only in Pools, checks/rotation respect permissions; accessible at 390/900/1440 |
 | REL-016 | Provider or tenant changes confirm the current live-grant count, serialize against issuance/redemption, revoke through each grant's original provider and tenant, delete K2, and append reason `provider changed`, actor and time. Unrelated settings saves leave grants usable; stale confirmation counts refuse. |
+
+
+### 5.37 step 1 — Credential identity
+
+| ID | Establishes |
+|---|---|
+| CRED-001 | Seeded forward/back migration preserves key material, current/retiring aliases, grace and pool entitlements; independent identities prevent a destructive downgrade |
+| CRED-002 | Several labelled credentials share pool entitlements but rotate independently, with one current/retiring slot each; rotation preserves the alias and does not register it again |
+| CRED-003 | One credential cannot redeem either custody share addressed to another credential in the same pool; each receipt records its calling credential and actual alias |
+| CRED-004 | Credential revocation confirms the live-grant count, deletes K2, revokes original-provider escrows and invalidates all its usable keys; other credentials remain valid |
+| CRED-005 | A migrated retiring alias retains grants through grace, then loses outstanding escrow; the permanent alias survives |
+| CRED-006 | Pool credential controls work at 390/900/1440 with accessible labels, confirmed grant count and independent rotation targets; no baseline changes before review |
+| CRED-007 | A credential with no key can be revoked without fabricating key-version metadata |
+
+Key-version revocation remains distinct from ending credential identity. The later scope-grant hook is recorded, not implemented in this slice.

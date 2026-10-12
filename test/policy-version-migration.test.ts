@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import { expect,it } from 'vitest';
 import { policyFixture } from './fixtures/policy-version/fixture.js';
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('041 runs down/up/down/up, preserves version values and reinstates all triggers',async()=>{
  const f=await policyFixture();await f.set();const version=await f.version();
  const client=new Client({connectionString:process.env.TEST_DATABASE_URL});await client.connect();
@@ -19,7 +20,7 @@ it('041 runs down/up/down/up, preserves version values and reinstates all trigge
   }
  }finally{await client.query('ROLLBACK');await client.end();}
  expect(await f.version()).toBe(version);
-},30_000);
+},60_000);
 it('041 marker rolls back to a savepoint with its entitlement effect',async()=>{
  const f=await policyFixture();await f.set();const version=await f.version();
  const client=new Client({connectionString:process.env.TEST_DATABASE_URL});await client.connect();

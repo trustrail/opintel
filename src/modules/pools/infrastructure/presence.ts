@@ -32,7 +32,7 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
    if(old&&Date.parse(now)<old.lastSeen.getTime())return err(new DomainError('conflict','Presence time cannot move backwards.'));
    const initial:AgentPresence=old?presence(old):{projectId:ctx.projectId,poolId:authenticated.poolId,agentId:signal.agentId,client:signal.client,verified:false,keyVersion:authenticated.keyVersion,firstSeen:now,lastSeen:now,lastRequestAt:null,lastHeartbeatAt:now,staleAt:null,reconnects:0,state:'connecting'};
    const updated=observePresence(initial,signal.kind,authenticated.keyVersion,signal.client,now,settings.value);
-   await this.save(tx,updated);return ok(updated);
+   await this.save(tx,updated);await tx.query('UPDATE pool_credential SET last_used_at=$2 WHERE id=(SELECT credential_id FROM pool_key WHERE id=$1)',[authenticated.keyVersion,now]);return ok(updated);
   });
   if(result.ok)await this.publish(result.value);
   return result;

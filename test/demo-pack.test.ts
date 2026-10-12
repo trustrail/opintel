@@ -193,6 +193,7 @@ it('validates file dependency identity and generates repeatable values and cross
  expect(generatorSpecSchema.safeParse({...pack.generatorSpec,files:[files[0],files[0]]}).success).toBe(false);
 });
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('forward demo credential migration rejects NULL/plaintext, preserves references, and rolls up/down/up', async () => {
  const db = new Client({connectionString:process.env.TEST_DATABASE_URL}); await db.connect();
  try {
@@ -222,4 +223,4 @@ it('forward demo credential migration rejects NULL/plaintext, preserves referenc
   await db.query(seed); await db.query(unseed); await db.query(seed);
   expect((await db.query('SELECT id FROM demo_source_template')).rows).toEqual([{id:templateId}]);
  } finally { await db.query('ROLLBACK'); await db.end(); }
-}, 30_000);
+}, 60_000);

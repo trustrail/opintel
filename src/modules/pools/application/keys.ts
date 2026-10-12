@@ -1,7 +1,7 @@
 import type { Tx } from '../../../platform/db/scope.js';
 import { DomainError, err, type PoolId, type ProjectId, type UserId, type Timestamp, type Result } from '../../../shared/kernel/index.js';
 import { CreatePoolBody, PoolKeyIdempotency, type PoolKeyCreationResponse, type PoolKeyStored, type PoolKeyMetadata } from '../../../shared/api/pool-keys.js';
-import type { PoolKeyId } from '../domain/pool.js';
+import type { CredentialId, PoolKeyId } from '../domain/pool.js';
 export type PoolKeyContext = {projectId:ProjectId;userId:UserId};
 export type AffectedAgents={affectedAgentCount:number;affectedAgents:string[];previouslySeenAgents:string[]};
 export interface AgentPresenceQuery {
@@ -9,7 +9,7 @@ export interface AgentPresenceQuery {
  affectedInScope?(tx:Tx,poolId:PoolId,keyVersion:PoolKeyId,settings:unknown,at:Timestamp):Promise<Result<AffectedAgents>>;
  affected(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<AffectedAgents>>;
 }
-export type KeyCommand = {kind:'create';name:string} | {kind:'rotate';poolId:PoolId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
+export type KeyCommand = {kind:'create';name:string} | {kind:'issue';poolId:PoolId;label:string} | {kind:'revokeCredential';poolId:PoolId;credentialId:CredentialId;confirmation:string;confirmedLiveGrants?:number} | {kind:'rotate';poolId:PoolId;credentialId?:CredentialId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
 export interface PoolKeyRepository {
  execute(ctx:PoolKeyContext,command:KeyCommand,idempotencyKey:string,presence:AgentPresenceQuery):Promise<Result<PoolKeyCreationResponse|PoolKeyStored>>;
  inspect(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<PoolKeyMetadata>>;
@@ -32,5 +32,10 @@ export class PoolKeyService {
   return {ok:true as const,value:{...key.value,...agents.value}};
  }
 }
-export type KeyVerdict = {ok:true;pool:{id:PoolId;projectId:ProjectId;name:string;modes:{query:boolean;prompt:boolean};clarificationPolicy:'pause'|'refuse'};custodyAlias?:string;keyPrefix:string;keyState:'current'|'retiring';keyVersion:PoolKeyId;scopeUserId:UserId} | {ok:false;reason:'unknown'|'revoked'|'expired'|'malformed'};
+export type KeyVerdict = {ok:true;pool:{id:PoolId;projectId:ProjectId;name:string;modes:{query:boolean;prompt:boolean};clarificationPolicy:'pause'|'refuse'};custodyAlias?:string;credentialId?:CredentialId;keyPrefix:string;keyState:'current'|'retiring';keyVersion:PoolKeyId;scopeUserId:UserId} | {ok:false;reason:'unknown'|'revoked'|'expired'|'malformed'};
 export interface KeyVerifier { verify(presented:string):Promise<KeyVerdict>; }
+
+/** Credential lifecycle hook; row-scope grants attach here when 5.37 continues. */
+export interface CredentialRevocationPort {
+ revokeInScope(tx:Tx,ctx:PoolKeyContext,aliases:readonly string[],confirmedLiveGrants:number|undefined,reason:string):Promise<Result<void>>;
+}

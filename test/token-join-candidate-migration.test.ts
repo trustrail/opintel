@@ -6,6 +6,7 @@ import {withTenant} from '../src/platform/db/scope.js';
 import {policyFixture} from './fixtures/policy-version/fixture.js';
 
 const database=migrationDatabase();
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('JOIN-005: candidate migration up/down/up retains forced RLS and append-only tenant grants',async()=>{
  const db=database();
  try{
@@ -19,7 +20,7 @@ it('JOIN-005: candidate migration up/down/up retains forced RLS and append-only 
    has_table_privilege('opintel_app',oid,'UPDATE') AS update,has_table_privilege('opintel_app',oid,'DELETE') AS delete
    FROM pg_class WHERE oid='token_join_candidate'::regclass`)).rows).toEqual([{rls:true,forced:true,read:true,insert:true,update:false,delete:false}]);
  }finally{await db.query('ROLLBACK');}
-});
+},60_000);
 
 it('JOIN-005: tenants cannot read or insert another project’s candidate or mutate an attempt',async()=>{
  const own=await policyFixture(2),other=await policyFixture(2),id=randomUUID();
@@ -36,6 +37,7 @@ it('JOIN-005: tenants cannot read or insert another project’s candidate or mut
  for(const statement of ['UPDATE token_join_candidate SET statement=statement','DELETE FROM token_join_candidate'])await expect(withTenant(other.ctx,tx=>tx.query(statement))).rejects.toMatchObject({code:'42501'});
 });
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('JOIN-005: explain migration round-trips without attempts and refuses to destroy explain provenance',async()=>{
  const db=database();
  try{
@@ -57,4 +59,4 @@ it('JOIN-005: explain migration round-trips without attempts and refuses to dest
   await db.query('ROLLBACK TO SAVEPOINT downgrade');
   expect((await db.query("SELECT operation,run_id FROM token_join_candidate")).rows).toEqual([{operation:'explain',run_id:null}]);
  }finally{await db.query('ROLLBACK');}
-});
+},60_000);

@@ -17,7 +17,7 @@ export type RunOutcome = Readonly<
  {kind:'failed';code:ErrorCode;retryable:boolean}
 >;
 export type RunHeader = Readonly<{
- id:RunId;projectId:ProjectId;poolId:PoolId;agentId:string|null;keyPrefix:string;
+ id:RunId;projectId:ProjectId;poolId:PoolId;agentId:string|null;keyPrefix:string;credentialId?:string|null;custodyAlias?:string|null;
  mode:'query'|'prompt';request:string|null;versions:VersionStamp;startedAt:Timestamp;
 }>;
 export type RunCompletion = Readonly<{

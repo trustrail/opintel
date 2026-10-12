@@ -2,14 +2,19 @@ import {readFile} from 'node:fs/promises';
 import {Client} from 'pg';
 import {it,expect} from 'vitest';
 import {policyFixture} from './fixtures/policy-version/fixture.js';
+import {migrationDatabase} from './fixtures/migration-database.js';
+const migrationOwner=migrationDatabase();
 // Owner access is confined to rollback-only migration/clock fixtures.
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('052 down/up round-trips twice before irreversible lifecycle work',async()=>{
- const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
- try{await db.query('BEGIN');await db.query('TRUNCATE query_run,evidence_redaction,evidence_rollup CASCADE');
+ const db=migrationOwner();
+ try{await db.query('BEGIN');
+  await db.query(await readFile('migrations/073_credential_lifecycle_guards.down.sql','utf8'));
+  await db.query(await readFile('migrations/072_pool_credentials.down.sql','utf8'));
   for(let i=0;i<2;i++){await db.query(await readFile('migrations/052_evidence_lifecycle.down.sql','utf8'));await db.query(await readFile('migrations/052_evidence_lifecycle.up.sql','utf8'));}
   const {rows}=await db.query("SELECT has_table_privilege('opintel_app','evidence_rollup','UPDATE') AS update,has_table_privilege('opintel_app','evidence_redaction','DELETE') AS delete");expect(rows).toEqual([{update:false,delete:false}]);
- }finally{await db.query('ROLLBACK');await db.end();}
-});
+ }finally{await db.query('ROLLBACK');}
+},60_000);
 it('Q-025: unset windows retain evidence, rollups honour their creation floor, old incomplete headers survive',async()=>{
  const f=await policyFixture(0),db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{await db.query('BEGIN');

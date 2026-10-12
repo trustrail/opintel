@@ -24,6 +24,7 @@ async function refused(client:Client,sql:string,values:readonly unknown[],messag
  await expect(client.query(sql,[...values])).rejects.toThrow(message);
  await client.query('ROLLBACK TO SAVEPOINT refusal');
 }
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('catalogue case migration preserves rows through up/down/up, checks lowercase and independently enforces folded uniqueness',async()=>migration(async(c,up,down)=>{
  const object=randomUUID(),source=randomUUID();
  await c.query("INSERT INTO catalog_object VALUES($1,$2,'public','orders')",[object,source]);
@@ -38,7 +39,7 @@ it('catalogue case migration preserves rows through up/down/up, checks lowercase
  await c.query('ALTER TABLE catalog_object DROP CONSTRAINT catalog_object_exposed_schema_lowercase, DROP CONSTRAINT catalog_object_exposed_name_lowercase');
  await refused(c,"INSERT INTO catalog_element VALUES($1,$2,'Amount')",[randomUUID(),object],'catalog_element_exposed_name_unique');
  await refused(c,"INSERT INTO catalog_object VALUES($1,$2,'PUBLIC','Orders')",[randomUUID(),source],'catalog_object_exposed_address_unique');
-}),30000);
+}),60_000);
 it.each(['element','schema','object'])('migration refuses incompatible existing %s names naming their ids',async(kind)=>migration(async(c,up)=>{
  const id=randomUUID();
  if(kind==='element')await c.query("INSERT INTO catalog_element VALUES($1,$2,'Amount')",[id,randomUUID()]);

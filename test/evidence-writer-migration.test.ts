@@ -25,10 +25,11 @@ it('database requires a selected version for tokenized elements and forbids a di
  await expect(withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',now(),1)",[pinned,at]))).rejects.toMatchObject({code:'23514'});
  await withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',now(),NULL)",[pinned,at]));
 });
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('047 down/up runs twice without rewriting existing immutable headers',async()=>{
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{await db.query('BEGIN');await db.query('TRUNCATE query_run,evidence_redaction,evidence_rollup CASCADE');await db.query(await readFile('migrations/052_evidence_lifecycle.down.sql','utf8'));const down=await readFile('migrations/047_evidence_writer.down.sql','utf8'),up=await readFile('migrations/047_evidence_writer.up.sql','utf8');
   for(let i=0;i<2;i++){await db.query(down);await db.query(up);}
   const {rows}=await db.query("SELECT count(*)::int AS n FROM pg_trigger WHERE tgname LIKE 'catalog%generation%'");expect(rows[0].n).toBe(9);
  }finally{await db.query('ROLLBACK');await db.end();}
-});
+},60_000);

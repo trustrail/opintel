@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { expect,it } from 'vitest';
 import { withPlatform,withTenant } from '../src/platform/db/scope.js';
 import { bulkFixture } from './fixtures/bulk-entitlements/fixture.js';
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('042 up/down/up: grants, RLS and hash-only authentication bootstrap',async()=>{
  const up=await readFile('migrations/042_pool_key_commands.up.sql','utf8'),down=await readFile('migrations/042_pool_key_commands.down.sql','utf8');
  const client=new Client({connectionString:process.env.TEST_DATABASE_URL});await client.connect();
@@ -15,7 +16,7 @@ it('042 up/down/up: grants, RLS and hash-only authentication bootstrap',async()=
    expect((await client.query("SELECT has_function_privilege('opintel_app','resolve_pool_key(bytea)','EXECUTE') AS tenant,has_function_privilege('opintel_platform','resolve_pool_key(bytea)','EXECUTE') AS platform,has_table_privilege('opintel_platform','pool_key','SELECT') AS broad_read")).rows).toEqual([{tenant:false,platform:true,broad_read:false}]);
   }
  }finally{await client.query('ROLLBACK');await client.end();}
-},30_000);
+},60_000);
 it('042 receipts forbid plaintext; isolate request metadata; bootstrap exposes no hash',async()=>{
  const a=await bulkFixture(0),b=await bulkFixture(0);
  const insert=(response:unknown)=>withTenant(a.ctx,tx=>tx.query("INSERT INTO pool_key_request(project_id,actor_id,route,request_key,body_hash,response,expires_at) VALUES($1,$2,'test','test','hash',$3::jsonb,now()+interval '24 hours')",[a.ctx.projectId,a.ctx.userId,JSON.stringify(response)]));

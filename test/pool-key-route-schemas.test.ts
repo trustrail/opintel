@@ -11,7 +11,7 @@ function credentialFields(schema:unknown,path=''):string[]{
  const fields=object.properties&&typeof object.properties==='object'?Object.keys(object.properties).filter(name=>/^(key|poolKey|plaintextKey|plaintext|key_hash|keyHash|credential)$/iu.test(name)).map(name=>`${path}.${name}`):[];
  return [...fields,...Object.entries(object).flatMap(([name,value])=>credentialFields(value,`${path}.${name}`))];
 }
-it('I-003: scans every application route response schema; only initial creation and rotation can contain plaintext',async()=>{
+it('I-003: scans every application route response schema; only initial creation, credential issuance and rotation can contain plaintext',async()=>{
  const routes:ReturnType<typeof defineRoute>[]=[];
  // Discover factories from source, including factories not yet mounted by start.ts.
  // Dependencies are not used until handle runs; a throwing stub catches accidental work.
@@ -27,7 +27,7 @@ it('I-003: scans every application route response schema; only initial creation 
   for(const [,factory] of factories)routes.push(...(factory as (dependency:unknown)=>ReturnType<typeof defineRoute>[])(stub));
  }
  expect(routes.length).toBeGreaterThan(35);
- const exceptions=new Set(['POST /api/v1/projects/:id/pools','POST /api/v1/pools/:id/keys/rotate']);
+ const exceptions=new Set(['POST /api/v1/projects/:id/pools','POST /api/v1/pools/:id/credentials','POST /api/v1/pools/:id/keys/rotate']);
  const found:string[]=[];
  for(const route of routes){
   const key=`${route.method} ${route.path}`,fields=credentialFields(z.toJSONSchema(route.response,{unrepresentable:'any'}));

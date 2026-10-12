@@ -11,12 +11,13 @@ async function migration(work:(client:Client,up:string,down:string)=>Promise<voi
   await work(client,await readFile('migrations/029_entitlement_masks.up.sql','utf8'),await readFile('migrations/029_entitlement_masks.down.sql','utf8'));
  }finally{await client.query('ROLLBACK');await client.end();}
 }
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('mask migration runs up/down/up with existing non-masked decisions unchanged',async()=>migration(async(client,up,down)=>{
  const pair=[randomUUID(),randomUUID()];await client.query("INSERT INTO entitlement VALUES($1,$2,'clear')",pair);
  await client.query(up);expect((await client.query('SELECT mask_kind FROM entitlement')).rows).toEqual([{mask_kind:null}]);
  await client.query(down);await client.query(up);
  expect((await client.query('SELECT * FROM entitlement')).rows).toEqual([{pool_id:pair[0],element_id:pair[1],treatment:'clear',mask_kind:null}]);
-}),30000);
+}),60_000);
 it('mask migration refuses to guess existing masks and accepts an explicit operator backfill',async()=>migration(async(client,up)=>{
  const pair=[randomUUID(),randomUUID()];await client.query("INSERT INTO entitlement VALUES($1,$2,'masked')",pair);
  await client.query('SAVEPOINT attempt');

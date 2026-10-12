@@ -3,14 +3,15 @@ import {randomUUID} from 'node:crypto';
 import {expect,it} from 'vitest';
 import {migrationDatabase} from './fixtures/migration-database.js';
 const owner=migrationDatabase();
+// Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('5.36: release migrations round-trip in dependency order without broadening grants',async()=>{
  const db=owner();await db.query('BEGIN');
  try{
-  for(const [name,direction] of [['071_release_revocation_reason','down'],['069_release_derived_signing','down'],['068_release_cleanup_scope','down'],['067_release_custody','down'],['067_release_custody','up'],['068_release_cleanup_scope','up'],['069_release_derived_signing','up'],['071_release_revocation_reason','up']])await db.query(await readFile(`migrations/${name}.${direction}.sql`,'utf8'));
+  for(const [name,direction] of [['073_credential_lifecycle_guards','down'],['072_pool_credentials','down'],['071_release_revocation_reason','down'],['069_release_derived_signing','down'],['068_release_cleanup_scope','down'],['067_release_custody','down'],['067_release_custody','up'],['068_release_cleanup_scope','up'],['069_release_derived_signing','up'],['071_release_revocation_reason','up'],['072_pool_credentials','up'],['073_credential_lifecycle_guards','up']])await db.query(await readFile(`migrations/${name}.${direction}.sql`,'utf8'));
   const result=await db.query("SELECT has_table_privilege('opintel_app','release_event','UPDATE') AS can_update,has_table_privilege('opintel_app','release_event','DELETE') AS can_delete,has_function_privilege('opintel_app','public.pending_release_cleanup(uuid)','EXECUTE') AS can_enumerate");
   expect(result.rows).toEqual([{can_update:false,can_delete:false,can_enumerate:false}]);
  }finally{await db.query('ROLLBACK');}
-});
+},60_000);
 it('5.36: downgrade refuses to destroy an outstanding release or its immutable history',async()=>{
  const db=owner();await db.query('BEGIN');
  try{

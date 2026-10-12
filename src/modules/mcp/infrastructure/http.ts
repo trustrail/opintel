@@ -155,7 +155,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    }
    const id = request.headers['mcp-session-id'];
    let session = typeof id==='string' ? this.sessions.get(id) : undefined;
-   if (id !== undefined && (!session || session.principal.pool.id!==principal.pool.id || session.principal.pool.projectId!==principal.pool.projectId)) {
+   if (id !== undefined && (!session || session.principal.pool.id!==principal.pool.id || session.principal.pool.projectId!==principal.pool.projectId || session.principal.credentialId!==principal.credentialId)) {
     this.failure(response,requestId,404,'not_found','The MCP session was not found.'); return;
    }
    let body: unknown;

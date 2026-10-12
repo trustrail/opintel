@@ -4,9 +4,11 @@ import { createApiClient } from './client.js';
 export const PoolKeyGraceSeconds = numericProjectSetting('poolKeyGraceSeconds');
 export const PoolKeyIdempotency = z.string().trim().min(1).max(200);
 export const CreatePoolBody = z.strictObject({name:z.string().trim().min(1).max(80)});
-export const RotatePoolKeyBody = z.strictObject({projectId:z.uuid()});
+export const RotatePoolKeyBody = z.strictObject({projectId:z.uuid(),credentialId:z.uuid().optional()});
 export const RevokePoolKeyBody = z.strictObject({projectId:z.uuid(),keyVersion:z.uuid(),confirmation:z.string().min(1)});
-export const PoolKeyMetadata = z.strictObject({custodyAlias:z.string().startsWith('agent:').optional(),poolId:z.uuid(),keyVersion:z.uuid(),prefix:z.string().regex(/^opk_live_[A-Za-z0-9]{1,21}$/u),createdAt:z.iso.datetime(),state:z.enum(['current','retiring','revoked','expired']),graceUntil:z.iso.datetime().nullable()});
+export const IssueCredentialBody=z.strictObject({projectId:z.uuid(),label:z.string().trim().min(1).max(80)});
+export const RevokeCredentialBody=z.strictObject({projectId:z.uuid(),credentialId:z.uuid(),confirmation:z.string().min(1),confirmedLiveGrants:z.number().int().nonnegative().optional()});
+export const PoolKeyMetadata = z.strictObject({credentialId:z.uuid().optional(),label:z.string().optional(),custodyAlias:z.string().startsWith('agent:').optional(),poolId:z.uuid(),keyVersion:z.uuid(),prefix:z.string().regex(/^opk_live_[A-Za-z0-9]{1,21}$/u),createdAt:z.iso.datetime(),state:z.enum(['current','retiring','revoked','expired']),graceUntil:z.iso.datetime().nullable()});
 export type PoolKeyMetadata = z.infer<typeof PoolKeyMetadata>;
 export const PoolKeyReplay = PoolKeyMetadata.extend({keyShown:z.literal(false)});
 export const PoolKeyIssued = PoolKeyMetadata.extend({keyShown:z.literal(true),key:z.string().regex(/^opk_live_[A-Za-z0-9]{22}$/u)});
@@ -14,7 +16,8 @@ export const PoolKeyCreationResponse = z.union([PoolKeyIssued,PoolKeyReplay]);
 export type PoolKeyCreationResponse = z.infer<typeof PoolKeyCreationResponse>;
 export const PoolKeyAffected = PoolKeyMetadata.extend({affectedAgentCount:z.number().int().nonnegative(),affectedAgents:z.array(z.string()),previouslySeenAgents:z.array(z.string()).default([])});
 export const PoolKeyRevoked = PoolKeyReplay.extend({affectedAgentCount:z.number().int().nonnegative(),affectedAgents:z.array(z.string()),previouslySeenAgents:z.array(z.string()).default([])});
-export const PoolKeyStored = z.union([PoolKeyRevoked,PoolKeyReplay]);
+export const CredentialRevoked=z.strictObject({poolId:z.uuid(),credentialId:z.uuid(),label:z.string(),custodyAlias:z.string(),state:z.literal('revoked'),keyShown:z.literal(false)});
+export const PoolKeyStored = z.union([PoolKeyRevoked,PoolKeyReplay,CredentialRevoked]);
 export type PoolKeyStored = z.infer<typeof PoolKeyStored>;
 export function createPool(projectId:string,body:z.input<typeof CreatePoolBody>,idempotencyKey:string,client=createApiClient()) {
  return client.request({path:`/api/v1/projects/${projectId}/pools`,method:'POST',body,headers:{'Idempotency-Key':idempotencyKey},response:PoolKeyCreationResponse});
@@ -31,7 +34,7 @@ export function affectedPoolKeyAgents(poolId:string,keyVersion:string,projectId:
 export function poolKeyOpenApiDocument() {
  const pathParameter={name:'id',in:'path',required:true,schema:{type:'string',format:'uuid'}};
  const responseContent=(schema:z.ZodType)=>({'application/json':{schema:z.toJSONSchema(schema)}});
- const commands=[['/api/v1/projects/{id}/pools',CreatePoolBody,PoolKeyCreationResponse],['/api/v1/pools/{id}/keys/rotate',RotatePoolKeyBody,PoolKeyCreationResponse],['/api/v1/pools/{id}/keys/revoke',RevokePoolKeyBody,PoolKeyRevoked]] as const;
+ const commands=[['/api/v1/pools/{id}/credentials',IssueCredentialBody,PoolKeyCreationResponse],['/api/v1/pools/{id}/credentials/revoke',RevokeCredentialBody,CredentialRevoked],['/api/v1/projects/{id}/pools',CreatePoolBody,PoolKeyCreationResponse],['/api/v1/pools/{id}/keys/rotate',RotatePoolKeyBody,PoolKeyCreationResponse],['/api/v1/pools/{id}/keys/revoke',RevokePoolKeyBody,PoolKeyRevoked]] as const;
  const paths=Object.fromEntries(commands.map(([path,request,response])=>[path,{post:{
   description:'Requires project#administer. Creation/rotation retries return metadata with keyShown: false and no key.',
   parameters:[pathParameter,{name:'Idempotency-Key',in:'header',required:true,schema:z.toJSONSchema(PoolKeyIdempotency)}],
@@ -46,3 +49,6 @@ export function poolKeyOpenApiDocument() {
   }},
  }};
 }
+
+export function issueCredential(poolId:string,body:z.input<typeof IssueCredentialBody>,idempotencyKey:string,client=createApiClient()){return client.request({path:`/api/v1/pools/${poolId}/credentials`,method:'POST',body,headers:{'Idempotency-Key':idempotencyKey},response:PoolKeyCreationResponse});}
+export function revokeCredential(poolId:string,body:z.input<typeof RevokeCredentialBody>,idempotencyKey:string,client=createApiClient()){return client.request({path:`/api/v1/pools/${poolId}/credentials/revoke`,method:'POST',body,headers:{'Idempotency-Key':idempotencyKey},response:CredentialRevoked});}

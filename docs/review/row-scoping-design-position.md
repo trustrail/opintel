@@ -2,7 +2,7 @@
 
 Status: **5.37 ready for implementation**, not implemented. The four readiness questions are resolved by the decisions below. Implementation starts with the credential migration on a separate prompt. Items 5.38 and 5.39 record interfaces and console responsibilities only; their implementation designs are not supplied here.
 
-## Current state first
+## Current state at design recording, before 5.37
 
 A pool holds at most **one current credential**, with at most one retiring credential during rotation. [`027_pools.up.sql`](../../migrations/027_pools.up.sql) enforces `one_current_key_per_pool` and `one_retiring_key_per_pool`. Issuance in [`keys.ts`](../../src/modules/pools/infrastructure/keys.ts), including its insert at line 78, creates `agent:<project>:<pool_key.id>` and provisions that alias with the provider. Rotation acts on the pool's current/retiring pair and issues a new key record and alias.
 
@@ -19,6 +19,14 @@ Implement this **first inside 5.37**, before per-agent scope references or chall
 - Use a new forward migration, never edits to applied migration 027. Existing pools migrate to **one credential per pool**, preserving their current/retiring keys, grace and unchanged behavior. No forced credential redistribution is required merely to migrate. Existing receipts and live grants retain their recorded alias and remain interpretable.
 
 Without this precondition, per-agent scope references and “redeemed by <alias>” cannot distinguish agents sharing a pool key. Assigning different self-declared agent IDs does not repair that identity boundary.
+
+### Credential alias ownership — decided
+
+A custody alias belongs to the credential, not to a key version, and is permanent for the credential's life across rotations. New credentials derive `agent:<project>:<credential>` from their credential id. Rotation never re-registers an alias at the provider. **Reason:** replacing authentication material must not change the recipient identity or strand its live grants.
+
+Each migrated credential takes its current key's alias as its permanent alias. Existing retiring key versions retain their own alias and live grants until grace ends; then that legacy alias is retired at the provider by revoking any escrow still addressed to it. Historical key aliases and receipts remain recorded. For a pool without a current key, retain its latest key's alias; an empty pool receives a new credential identity with no key. This does not make an unusable key usable.
+
+Revoking a key no longer changes identity. Revoking the credential is the act that ends its alias and its live grants, with a confirmed grant count; the same lifecycle hook will revoke its scope grants when row scoping is built. Existing pool entitlements are unchanged. Receipts record the calling credential id and the alias actually used, including a migrated retiring key's legacy alias during grace.
 
 ### Decisions and grammar
 

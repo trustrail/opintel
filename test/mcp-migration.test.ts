@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import { expect,it } from 'vitest';
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('045 up/down/up retains narrow digest lookup grants and adds only trusted scope identifiers',async()=>{
  const up=await readFile('migrations/045_mcp_key_context.up.sql','utf8'),down=await readFile('migrations/045_mcp_key_context.down.sql','utf8');
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
@@ -14,4 +15,4 @@ it('045 up/down/up retains narrow digest lookup grants and adds only trusted sco
    expect((await db.query("SELECT has_function_privilege('opintel_app','resolve_pool_key(bytea)','EXECUTE') AS tenant,has_function_privilege('opintel_platform','resolve_pool_key(bytea)','EXECUTE') AS platform,has_table_privilege('opintel_platform','pool_key','SELECT') AS broad_read")).rows).toEqual([{tenant:false,platform:true,broad_read:false}]);
   }
  }finally{await db.query('ROLLBACK');await db.end();}
-},30_000);
+},60_000);

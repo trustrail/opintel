@@ -50,7 +50,7 @@ integration('pool schema with real Postgres',()=>{
   const columns=await withPlatform(tx=>tx.query<{column_name:string}>("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='pool_key' ORDER BY ordinal_position"));
   // Inspect catalogue attributes regardless of the platform role's data grants.
   const names=await withPlatform(tx=>tx.query<{attname:string}>("SELECT attname FROM pg_attribute WHERE attrelid='public.pool_key'::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum"));
-  expect(names.map(row=>row.attname)).toEqual(['id','pool_id','project_id','key_hash','key_prefix','state','grace_until','created_at','created_by','custody_alias']);
+  expect(names.map(row=>row.attname)).toEqual(['id','pool_id','project_id','key_hash','key_prefix','state','grace_until','created_at','created_by','custody_alias','credential_id','alias_retired_at']);
   expect(columns).toEqual([]); // Platform scope has no tenant data privileges.
  });
  it('isolates pools, keys and bindings and rejects forged cross-project references',async()=>{

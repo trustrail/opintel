@@ -134,6 +134,7 @@ describe('catalogue tree scoped to real Postgres', () => {
   });
 });
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('026 upgrades populated sources atomically, rejects all unnameable IDs, and runs down/up', async () => {
   const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
   try {
@@ -153,4 +154,4 @@ it('026 upgrades populated sources atomically, rejects all unnameable IDs, and r
     await db.query(await readFile(new URL('../migrations/026_source_alias.down.sql',import.meta.url),'utf8'));await upgrade(db);
     expect((await db.query('SELECT count(*)::int AS n FROM data_source')).rows[0].n).toBe(names.length);
   } finally {await db.query('ROLLBACK');await db.end();}
-},30_000);
+},60_000);

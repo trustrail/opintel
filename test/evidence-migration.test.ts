@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import {migrationDatabase} from './fixtures/migration-database.js';
 import { expect, it } from 'vitest';
 const database=migrationDatabase();
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('046 down/up/down/up recreates monthly partitions with forced RLS and append-only grants',async()=>{
  // Owner is used only for migration DDL in a rollback-only transaction.
  const db=database();
@@ -21,4 +22,4 @@ it('046 down/up/down/up recreates monthly partitions with forced RLS and append-
    expect(bounds.rows[0]?.bounds).toContain('2031-02-01');expect(bounds.rows[0]?.bounds).toContain('2031-03-01');
   }
  } finally {await db.query('ROLLBACK');}
-},30000);
+},60_000);

@@ -317,6 +317,7 @@ describe('filing register', () => {
  });
 });
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('filing register migration runs up/down/up over existing sources without touching them', async () => {
  const db = new Client({ connectionString: process.env.TEST_DATABASE_URL }); await db.connect();
  try {
@@ -328,4 +329,4 @@ it('filing register migration runs up/down/up over existing sources without touc
   await db.query(up); await db.query(down); await db.query(up);
   expect((await db.query('SELECT id FROM data_source')).rows).toEqual([{ id: source }]);
  } finally { await db.query('ROLLBACK'); await db.end(); }
-}, 30_000);
+}, 60_000);

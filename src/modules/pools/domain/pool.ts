@@ -1,6 +1,8 @@
 import { DomainError } from '../../../shared/kernel/errors.js';
 import { err, ok, type Result } from '../../../shared/kernel/result.js';
 import type { PoolId, ProjectId, SourceId, UserId, PoolName, Timestamp } from '../../../shared/kernel/index.js';
+export type CredentialId = string & { readonly __brand: 'CredentialId' };
+export const CredentialId = (value:string):CredentialId => value as CredentialId;
 export type PoolKeyId = string & { readonly __brand: 'PoolKeyId' };
 export type KeyHash = string & { readonly __brand: 'KeyHash' };
 export function poolKeyId(value: string): Result<PoolKeyId> {
@@ -13,7 +15,7 @@ export function keyHash(value: string): Result<KeyHash> {
 }
 export type PoolBudgets = Readonly<{ rowsPerDay: number; rowsPerRequest: number; timeoutMs: number; memoryMb: number; concurrency: number }>;
 export type KeyRecord = Readonly<{
- id: PoolKeyId; poolId: PoolId; projectId: ProjectId; hash: KeyHash; prefix: string;
+ id: PoolKeyId; credentialId?:CredentialId; poolId: PoolId; projectId: ProjectId; hash: KeyHash; prefix: string;
  state: 'current' | 'retiring' | 'revoked' | 'expired'; graceUntil: Timestamp | null;
  createdAt: Timestamp; createdBy: UserId;
 }>;
@@ -28,7 +30,7 @@ export class Pool {
   const invalid = (message: string) => err(new DomainError('validation_failed',message));
   if (state.name.trim().length < 1 || state.name.length > 80) return invalid('A pool name must contain 1 to 80 characters.');
   if (new Set(state.boundSources).size !== state.boundSources.length) return invalid('A source can be bound to a pool only once.');
-  if (state.keys.filter(key => key.state === 'current').length > 1 || state.keys.filter(key => key.state === 'retiring').length > 1) return invalid('A pool permits one current key and one retiring key.');
+  if ([...new Set(state.keys.map(key=>key.credentialId??state.id))].some(id=>state.keys.filter(key=>(key.credentialId??state.id)===id&&key.state==='current').length>1||state.keys.filter(key=>(key.credentialId??state.id)===id&&key.state==='retiring').length>1)) return invalid('A credential permits one current key and one retiring key.');
   if (new Set(state.keys.map(key => key.id)).size !== state.keys.length || new Set(state.keys.map(key => key.hash)).size !== state.keys.length) return invalid('Pool keys must have distinct identities and hashes.');
   for (const key of state.keys) {
    if (key.poolId !== state.id || key.projectId !== state.projectId) return invalid('A key must belong to its pool and project.');
@@ -45,7 +47,7 @@ export class Pool {
    clarificationPolicy: state.clarificationPolicy,
    budgets: Object.freeze({rowsPerDay:state.budgets.rowsPerDay,rowsPerRequest:state.budgets.rowsPerRequest,timeoutMs:state.budgets.timeoutMs,memoryMb:state.budgets.memoryMb,concurrency:state.budgets.concurrency}),
    keys: Object.freeze(state.keys.map(key => Object.freeze({
-    id:key.id,poolId:key.poolId,projectId:key.projectId,hash:key.hash,prefix:key.prefix,
+    id:key.id,...key.credentialId?{credentialId:key.credentialId}:{},poolId:key.poolId,projectId:key.projectId,hash:key.hash,prefix:key.prefix,
     state:key.state,graceUntil:key.graceUntil,createdAt:key.createdAt,createdBy:key.createdBy,
    }))),
   })));

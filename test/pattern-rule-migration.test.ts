@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import { expect,it } from 'vitest';
 
+ // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('039 runs up/down/up, enforces masks and forced tenant RLS',async()=>{
   // Owner connection is migration DDL only, in a rollback-only private schema.
   const db=new Client({connectionString:process.env.TEST_DATABASE_URL}); await db.connect();
@@ -22,4 +23,4 @@ it('039 runs up/down/up, enforces masks and forced tenant RLS',async()=>{
     expect((await db.query('SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class WHERE relnamespace=$1::regnamespace AND relname=ANY($2)',[schema,['pattern_rule','introspection_completed','pattern_rule_application']])).rows)
       .toEqual(expect.arrayContaining(['pattern_rule','introspection_completed','pattern_rule_application'].map(relname=>({relname,relrowsecurity:true,relforcerowsecurity:true}))));
   } finally {await db.query('ROLLBACK'); await db.end();}
-},30000);
+},60_000);

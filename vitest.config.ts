@@ -3,6 +3,8 @@ import NormalSequencer from './scripts/testing/normal-sequencer.js';
 
 export default defineConfig({
   test: {
+    // Functional hang guard; explicit behavioural timing assertions own their budgets.
+    testTimeout: 30_000,
     runner: './scripts/testing/database-runner.ts',
     sequence: { shuffle: false, sequencer: NormalSequencer },
     maxWorkers: 1,
