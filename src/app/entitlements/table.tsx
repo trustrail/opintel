@@ -48,7 +48,7 @@ export function PoolTree({projectId,poolId,sourceId,undecided,decided=false,edit
     {root?.isPending ? <LoadingState /> : root?.isError ? <ErrorState title="Catalogue could not be loaded" description={(root.error as unknown as AppError).message} retry={()=>root.refetch()} /> : root?.data?.nodes.length === 0 ? <EmptyState title={elementPrefix ? 'No matching elements' : undecided?'No undecided elements':decided?'No decided elements':'No catalogue yet'} description={elementPrefix ? 'Try a shorter column-name prefix.' : undecided?'Show all decisions to inspect the existing entitlements.':'Bind a source to this pool and introspect it. Every discovered element starts undecided.'} /> : <div className="card">
       
       <SelectionTools store={store} ids={rows.flatMap(row=>'node' in row && row.node.kind==='element'&&row.node.exposedType!==null?[row.node.id]:[])} editable={editable} disabled={bulk.isPending||externalBusy}/>
-      <TreeWindow editable={editable} disabled={bulk.isPending||externalBusy} store={store} rows={rows} viewport={viewport} projectId={projectId} />
+      <TreeWindow poolId={poolId} editable={editable} disabled={bulk.isPending||externalBusy} store={store} rows={rows} viewport={viewport} projectId={projectId} />
     </div>}
     {rows.some(row=>'node' in row && /^money(?:\[\])*$/iu.test(row.node.sourceType??''))?<p className="note">Money columns use DECIMAL(38,9). Their fractional digits depend on the source server’s lc_monetary. Different source settings can interpret the same stored amount differently; verify the source’s monetary locale before deciding access. Opintel converts through numeric and does not correct locale differences.</p>:null}
     <DecisionBar store={store} projectId={projectId} editable={editable} bulk={bulk} disabled={externalBusy} poolName={poolName}/>
@@ -57,14 +57,16 @@ export function PoolTree({projectId,poolId,sourceId,undecided,decided=false,edit
 
 // Only this window subscribes to scrolling. The query observers and flattened
 // tree above update on structural changes, never on each animation frame.
-function TreeWindow({store, rows, viewport,editable,disabled,projectId}: {
-  projectId:string;editable:boolean;disabled:boolean;store: ReturnType<typeof createEntitlementsState>; rows: Row[];
+function TreeWindow({poolId,store, rows, viewport,editable,disabled,projectId}: {
+  poolId:string;projectId:string;editable:boolean;disabled:boolean;store: ReturnType<typeof createEntitlementsState>; rows: Row[];
   viewport: RefObject<HTMLDivElement | null>;
 }) {
   const state = useStore(store);
   const subscribeWidth=useCallback((listener:()=>void)=>{const node=viewport.current;if(!node)return ()=>{};const observer=new ResizeObserver(listener);observer.observe(node);return ()=>observer.disconnect();},[viewport]);
   const widthSnapshot=useCallback(()=>(viewport.current?.clientWidth??window.innerWidth)<=820,[viewport]);
   const narrow=useSyncExternalStore(subscribeWidth,widthSnapshot,()=>false);
+  const compactSnapshot=useCallback(()=>window.innerWidth<600,[]);
+  const compactActions=useSyncExternalStore(subscribeHeight,compactSnapshot,()=>false);
  const geometry=useMemo(()=>{let total=0;const positions=rows.map(row=>{const height='node' in row&&row.node.kind==='element'?(narrow?76:rowHeight):42;const top=total;total+=height;return {top,height};});return {positions,total};},[rows,narrow]);
  let low=0,high=rows.length;while(low<high){const middle=Math.floor((low+high)/2),position=geometry.positions[middle]!;if(position.top+position.height<=state.scrollTop)low=middle+1;else high=middle;}
  const start=Math.max(0,low-overscan);
@@ -100,11 +102,11 @@ function TreeWindow({store, rows, viewport,editable,disabled,projectId}: {
               className="trow" data-row={node?.kind==='element'?'entitlement-member':'entitlement-branch'} data-depth={row.depth} data-selected={node?.kind==='element'&&state.selected.has(node.id)} onKeyDown={event => keyboard(event, row, index)}
               style={{ position: 'absolute', top: geometry.positions[index]!.top, height: geometry.positions[index]!.height, boxSizing: 'border-box', width: '100%' }}>
               {node ? <>
-                <span data-part="selection">{node.kind==='element' && editable?<input type="checkbox" aria-label={`Select ${node.label??'unnameable element'}`} checked={state.selected.has(node.id)} disabled={disabled||node.exposedType===null} onChange={e=>state.check([node.id],e.target.checked)}/>:null}</span>
+                <span data-part="selection">{node.kind==='element' && editable?<input type="checkbox" aria-label={`Select ${node.label??'unnameable element'}`} checked={state.selected.has(node.id)} disabled={disabled||node.exposedType===null} onChange={e=>state.check([node.id],e.target.checked)}/>:node.kind==='object'&&editable&&compactActions?<Link style={{color:'var(--ink-2)'}} to="/projects/$projectId/$screen" params={{projectId,screen:'entitlements'}} search={{poolId,decision:'all',layout:'table',rowObjectId:node.id}} title={`${node.rowScoped?'Rows scoped':'Set a row filter'} · ${node.label}`} aria-label={`Row entitlement for ${node.label}`}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M3 5h18M6 12h12M9 19h6"/></svg></Link>:null}</span>
                 <div data-part="identity"><b title={node.label??'Unnameable element'}>{node.label??'Unnameable element'}</b>{node.kind!=='element'?<span className="meta">{node.childCount} {node.kind==='object'?'members':node.kind==='schema'?'tables':'schemas'}</span>:null}</div>
                 <span data-part="type" className="type">{node.kind==='element'?(node.exposedType??(node.unsupportedReason==='explicitly_excluded'?'Explicitly excluded':'Unmapped type')):node.kind}</span>
                 <span data-part="treatments">{node.kind==='element'?<TreatmentIndicator value={node.treatment??'undecided'}/>:null}</span>
-                {node.kind==='element'?<Link data-part="declarations" className="btn ghost" to="/projects/$projectId/$screen" params={{projectId,screen:'catalog'}} search={{elementId:node.id}} aria-label={`Declarations for ${node.label??'unnameable element'}`}>Declarations</Link>:<button type="button" className="btn ghost" aria-label={`${state.expanded[node.id]?'Collapse':'Expand'} ${node.label}`} onClick={()=>state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id]?'▾':'▸'}</span></button>}
+                {node.kind==='element'?<Link data-part="declarations" className="btn ghost" to="/projects/$projectId/$screen" params={{projectId,screen:'catalog'}} search={{elementId:node.id}} aria-label={`Declarations for ${node.label??'unnameable element'}`}>Declarations</Link>:<span className="tname">{node.kind==='object'&&editable&&!compactActions?<Link className="btn ghost" to="/projects/$projectId/$screen" params={{projectId,screen:'entitlements'}} search={{poolId,decision:'all',layout:'table',rowObjectId:node.id}} title={node.rowScoped?'Rows scoped':'Set a row filter'} aria-label={`Row entitlement for ${node.label}`}>{node.rowScoped?'Scoped':'Rows'}</Link>:node.rowScoped&&!compactActions?<span className="meta">Scoped</span>:null}<button type="button" className="btn ghost" aria-label={`${state.expanded[node.id]?'Collapse':'Expand'} ${node.label}`} onClick={()=>state.toggle(node.id)}><span aria-hidden="true">{state.expanded[node.id]?'▾':'▸'}</span></button></span>}
               </> : <><span className="meta" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'message' in row ? row.message : ''}>{'message' in row ? row.message : ''}</span>{'action' in row && row.action ? <Button variant="ghost" disabled={row.disabled} onClick={row.action}>{row.actionLabel}</Button> : null}</>}
             </div>;
           })}

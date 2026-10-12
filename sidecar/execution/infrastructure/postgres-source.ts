@@ -1,3 +1,5 @@
+import {evaluatePredicate,family} from '../../../src/shared/row-predicate.js';
+import {postgresRowPredicate,postgresPredicateInput} from './postgres-row-predicate.js';
 import { exactDefaultNumeric } from '../application/exact-numeric.js';
 import { stagingType } from '../../../src/shared/staging-types.js';
 import { z } from 'zod';
@@ -11,8 +13,14 @@ import type { EngineSession } from '../../session/index.js';
 import type { Scan,StagingSource } from '../application/ports.js';
 import { nativeExpression } from '../application/pushdown.js';
 const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
+const scopeAlias=(s:Scan,id:string)=>{let alias="__scope_"+id;while(s.object.readPlan.columns.some(c=>c.exposedName===alias))alias="_"+alias;return alias;};
 const selection=(s:Scan,connector=false)=>s.object.readPlan.columns.map(c=>(c.numericDefault==='array'?'to_json('+quote(c.sourceIdentifier)+'::numeric[]::text[])::text':c.numericDefault==='scalar'?quote(c.sourceIdentifier)+'::numeric::text':c.readAs==='text'?quote(c.sourceIdentifier)+'::text':connector&&stagingType(c.exposedType)!.complex?'to_json('+nativeExpression(c)+')::text':nativeExpression(c))+' AS '+quote(c.exposedName)).join(',');
-const select=(s:Scan,connector=false)=>`SELECT ${selection(s,connector)} FROM ${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}${s.predicate?' WHERE '+s.predicate:''}`;
+const select=(s:Scan,connector=false)=>{
+ const scope=s.object.readPlan.rowScope;
+ const inputs=scope&&!scope.pushdown?scope.columns.map(c=>postgresPredicateInput(c)+' AS '+quote(scopeAlias(s,c.id))):[];
+ const filters=[s.predicate,scope?.predicate&&scope.pushdown?postgresRowPredicate(scope.predicate,scope.columns):undefined].filter(Boolean);
+ return `SELECT ${[selection(s,connector),...inputs].join(',')} FROM ${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}${filters.length?' WHERE '+filters.map(p=>'('+p+')').join(' AND '):''}`;
+};
 const credential=(s:Scan)=>SecretRef(s.request.sources.find(v=>v.sourceId===s.object.sourceId)!.credentialRef);
 const key=(s:Scan)=>s.object.sourceId;
 const modes: Readonly<Record<string, string>> = {
@@ -45,6 +53,11 @@ export class PostgresStagingSource implements StagingSource {
  }
  estimate(s:Scan,signal:AbortSignal):Promise<Result<number|null>>{
   return this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
+   if(s.object.readPlan.rowScope?.predicate){
+    const actual=z.array(z.object({name:z.string(),type:z.string()})).parse(await session.query(`SELECT a.attname AS name,t.typname AS type FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid WHERE a.attrelid=to_regclass($1) AND a.attnum>0 AND NOT a.attisdropped`,[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)]));
+    const allowed:Record<string,string[]>={number:['int2','int4','int8','numeric','money'],text:['text','varchar','bpchar','name','char'],uuid:['uuid'],boolean:['bool'],FLOAT:['float4'],DOUBLE:['float8'],DATE:['date'],TIME:['time'],TIMESTAMP:['timestamp'],TIMESTAMPTZ:['timestamptz']};
+    if(s.object.readPlan.rowScope.columns.some(c=>!(allowed[c.type]??allowed[family(c.type)]??[]).includes(actual.find(a=>a.name===c.sourceIdentifier)?.type??'')))return err(new DomainError('validation_failed','A row-scope input no longer has its catalogued source type. Re-introspect and review its row decision.',{cause:'invalid_plan',reason:'row_scope_type'}));
+   }
    const known=await session.query('SELECT reltuples::double precision AS rows FROM pg_class WHERE oid=to_regclass($1)',[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)]);
    const metadata=z.array(z.object({rows:z.number()})).parse(known);
    if(!metadata.length||metadata[0]!.rows<0)return ok(null);
@@ -63,7 +76,7 @@ export class PostgresStagingSource implements StagingSource {
  }
  treated(s:Scan,consume:(rows:unknown[][])=>Promise<Result<void>>,signal:AbortSignal):Promise<Result<void>>{
   const read=async(transforms:((value:unknown)=>Result<unknown>)[]):Promise<Result<void>>=>this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
-   await session.query("SELECT set_config('TimeZone','UTC',true),set_config('DateStyle','ISO, YMD',true)");
+   await session.query("SELECT set_config('TimeZone','UTC',true),set_config('DateStyle','ISO, YMD',true),set_config('extra_float_digits','3',true)");
         const types = z.array(z.object({ name: z.string(), type: z.string() })).parse(await session.query(`
           WITH RECURSIVE types AS (
             SELECT a.attname AS name, t.oid, t.typname, t.typbasetype
@@ -85,6 +98,7 @@ export class PostgresStagingSource implements StagingSource {
         }
 
    await session.query('DECLARE opintel_stage NO SCROLL CURSOR FOR '+select(s,true)+` LIMIT ${s.request.settings.maxStagingRows+1}`);
+   let scanned=0;
    try{for(;;){
     if(signal.aborted)throw new SourceCancelled();
     const raw=await session.query('FETCH FORWARD 256 FROM opintel_stage');
@@ -92,7 +106,11 @@ export class PostgresStagingSource implements StagingSource {
     if(!rows.length)break;
     const treated:unknown[][]=[];
     try{
-     for(const row of rows){const output:unknown[]=[];for(const [i,c] of s.object.readPlan.columns.entries()){
+     for(const row of rows){
+      if(++scanned>s.request.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown','The source scan exceeded maxStagingRows before row filtering. Narrow the query or review the setting.',{cause:'scan_observed_large'}));
+      const scope=s.object.readPlan.rowScope;
+      if(scope&&!scope.pushdown){if(!scope.predicate)continue;const inputs=Object.fromEntries(scope.columns.map(c=>[c.id,row[scopeAlias(s,c.id)]]));const admits=evaluatePredicate(scope.predicate,scope.columns,inputs)===true;for(const k of Object.keys(inputs))inputs[k]=null;if(!admits)continue;}
+      const output:unknown[]=[];for(const [i,c] of s.object.readPlan.columns.entries()){
       if(c.numericDefault){const exact=exactDefaultNumeric(row[c.exposedName],c.exposedName,c.numericDefault);if(!exact.ok)return exact;}
       const v=transforms[i]!(row[c.exposedName]);if(!v.ok)return v;if(c.treatment==='tokenized'&&v.value!==null)s.onTokenized?.();output.push(v.value);
      }treated.push(output);for(const k of Object.keys(row))row[k]=null;}

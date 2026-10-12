@@ -473,7 +473,11 @@ type ReadPlan = {
 };
 ```
 
-**Withheld and undecided columns are absent from the read plan**, as they are from the view. The sidecar never reads a column nobody decided about, so an undecided value is not merely hidden from the agent: it is never fetched from the source at all.
+**Withheld and undecided columns are absent from the returned-column read plan and the view.** The 5.37 row-scope extension adds a separate `rowScope.columns` set containing only administrator-authorized predicate inputs, pinned by stable element identity, source identifier and catalogue type. These filter-only inputs may have any treatment. They are fetched solely to evaluate the scope predicate before treatments, never appended to DuckDB staging or made visible to agent SQL. Without a row decision, withheld and undecided values are not fetched.
+
+At architecture step 3, static row decisions are resolved for object × pool into a typed AST. The Engine independently validates the scope contract, selected pool, predicate hash, inputs and pushdown eligibility. Postgres pushdown is only for all-clear inputs; otherwise the source reader evaluates the predicate on arriving values before transformation. Missing pool decision on a scoped object yields an empty staged relation without opening a source read and a zero-row result with a recorded notice. Source scan limits count all fetched rows, including rows rejected by the predicate. Aggregation/disclosure inspection sees only the scoped staging table. No scope expression is interpolated into the agent's statement.
+
+Comparison semantics and conformance fixtures are defined in the row-scoping design position: SQL three-valued logic, explicit C collation, exact numeric comparison, typed ISO temporal values. Scope set references are reserved for 3a and rejected at save in step 2. Receipt hashes and names contain no literals; the decision row is the administrator-only record of the expression.
 
 **`readAs` is `text` for every tokenized and masked column**, so the sidecar canonicalises the source's own text rather than a driver-parsed value (A.6). Clear and aggregate-only columns are read natively, since their values pass through unchanged.
 

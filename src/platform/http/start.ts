@@ -1,3 +1,5 @@
+import {rowDecisionRoutes} from '../../modules/entitlements/api/row-routes.js';
+import {PostgresRowDecisions} from '../../modules/entitlements/infrastructure/row-decisions.js';
 import {ReleaseRuntime,releaseRoutes} from '../../modules/release-custody/index.js';
 import {observationRoutes,PostgresObservationReader} from '../../modules/observations/index.js';
 import {PostgresSuggestions,suggestionRoutes} from '../../modules/relationships/index.js';
@@ -238,6 +240,7 @@ async function start(): Promise<void> {
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),
+    ...rowDecisionRoutes(new PostgresRowDecisions()),
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),

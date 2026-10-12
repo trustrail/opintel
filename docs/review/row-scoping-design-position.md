@@ -44,6 +44,19 @@ Scope governs reading; treatment governs returning. A predicate input may carry 
 
 Aggregate-only operations aggregate **within scope**, and the existing disclosure threshold applies within that scope. They must not aggregate the whole source and filter afterward.
 
+### Static comparison contract — decided (5.37 step 2)
+
+The grammar admits columns, comparisons (`=`, `<>`, `<`, `<=`, `>`, `>=`), `IN`, `AND`/`OR`/`NOT`, parentheses and `IS NULL` / `IS NOT NULL`. `scope(domain)` is parsed as a reserved set reference and refused at save with “scope references arrive in step 3”. No SQL, functions, arithmetic or implicit coercion is accepted.
+
+- SQL three-valued logic: comparison with NULL is unknown; NOT unknown is unknown; AND/OR use SQL truth tables; only true admits a row. IS NULL / IS NOT NULL explicitly test nullness. Consequently `NOT (status = 'closed')` excludes null status rows.
+- Text comparison is case-sensitive and byte-wise (Unicode code-point order), with no trimming or normalisation. PostgreSQL pushdown explicitly uses `COLLATE "C"`. Another source translator must name an equivalent or decline text pushdown.
+- Integers and decimals compare exactly using a decimal library, never JavaScript doubles. Catalogue types determine literal bounds and scale; out-of-range literals are refused at save. Floating-point values compare by their exact represented value in both paths; the editor warns that equality on floats is rarely intended.
+- Date/time literals are ISO 8601 only. Zoned timestamps compare as instants; unzoned timestamps and dates compare as stored values, labelled in the editor. No implicit timezone conversion.
+- Literals are catalogue-typed scalars. Cross-family comparisons, implicit coercion, arrays, JSON and composite comparisons are refused with a validation message.
+- Equivalence is an executable contract: each predicate shape is tested through source pushdown and Engine filtering on nulls, mixed case, non-ASCII text, boundary numbers and zoned timestamps. An operator/type without established equivalence receives no pushdown.
+
+Static decisions resolve at architecture step **3**; **3a** remains reserved for scope lookups. Filter-only columns travel separately from returned columns and never enter a staging table or agent-visible view. Step 2 implements no scope relationships or challenge.
+
 ### Static predicates and scope references
 
 A static predicate never contacts SpiceDB. A reference such as:
@@ -81,9 +94,9 @@ Record the row line as:
 rows scoped · <pool or alias> · <decision id> · <predicate hash> · <provenance>
 ```
 
-Include entitled row counts only, never table totals. Record the decision in force, a hash of the normalised predicate, the names of its referenced columns, and the SpiceDB zedtoken used for any scope reference. Never include predicate literals in the receipt. The decision row retains the predicate text for administrators; an auditor resolves the hash through the console's decision history.
+Include entitled row counts only, never table totals. Record the decision in force, a hash of the normalised predicate, the names of its referenced columns, and the SpiceDB zedtoken used for any scope reference. Never include predicate literals in the receipt. For an unscoped object, omit `rowScopes` entirely from receipt JSON and stored evidence, including sampled evidence; an empty list is not the historical absence signal. The decision row retains the predicate text for administrators; an auditor resolves the hash through the console's decision history.
 
-Receipts are immutable. A receipt without a rows line means the object was unscoped at that time; the console renders **rows unscoped at the time of the call**. When an object becomes scoped, Activity records one event: **object X scoped by decision Y at T**. There is no rewriting or backfill.
+Receipts are immutable. A receipt without a rows line means the object was unscoped at that time; the Activity summary renders nothing for it; expanded record metadata shows only the muted line **Rows: unscoped at the time of the call**, with no Rows section. Receipts with recorded row facts retain their Rows section. When an object becomes scoped, Activity records one event: **object X scoped by decision Y at T**. There is no rewriting or backfill.
 
 Credential admission provides provenance **agent credential**. A session that passes the custody-provider challenge provides **bound to credential (<provider>)**. The challenge is a nonce packet escrowed through the existing provider port, addressed to the credential's alias and redeemed once per session, with configurable TTL.
 
@@ -136,7 +149,7 @@ Proof obligations for implementation:
 
 1. **Predicate visibility — decided.** The decision row holds predicate text and the console shows it to administrators as any decision. The receipt carries the decision id, a hash of the normalised predicate and referenced column names, never literals. An auditor resolves the hash through the console's decision history. **Reason:** receipts are shared with agents and later auditors; literals such as customer ids and regions may themselves be scoped data. Explanation must not disclose that data.
 
-2. **Receipts before scoping — decided.** Receipts are immutable and never rewritten. No rows line means the object was unscoped at the time; the console renders “rows unscoped at the time of the call”. Becoming scoped produces one Activity event identifying the object, decision and time. No backfill. **Reason:** the timeline must show the boundary from recorded facts, without attributing a later decision to an earlier answer.
+2. **Receipts before scoping — decided.** Receipts are immutable and never rewritten. No rows line means the object was unscoped at the time; the Activity summary renders nothing, and expanded record metadata shows one muted line, “Rows: unscoped at the time of the call”, without a Rows section. Receipts with a rows line keep their Rows section. Absence remains the data signal; the console is quiet until the reader expands the metadata. Becoming scoped produces one Activity event identifying the object, decision and time. No backfill. **Reason:** the timeline must show the boundary from recorded facts, without attributing a later decision to an earlier answer.
 
 3. **Project isolation — decided.** Scope domains and their values are project-prefixed in SpiceDB using the existing schema convention: object type per project or project id as an object-id prefix. They are never shared across projects. The predicate validator refuses references to domains not declared in the same project. **Reason:** scope relationships obey the same project isolation boundary as every other relationship; a scope reference cannot widen it.
 

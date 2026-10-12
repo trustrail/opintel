@@ -2749,28 +2749,15 @@ Three independent layers. Any one of them alone is sufficient to deny.
 
 1. **SpiceDB** at the API boundary, from a cached snapshot with a stored consistency token, failing closed
 2. **Postgres row-level security**, with `app.project_id` and `app.user_id` set per request from the session
-3. **Scope filters** injected into SQL before it reaches the sidecar, and enforced there
+3. **Row scope** resolved from administrator decisions and enforced at the Engine read boundary before treatments
 
-### Scope filters, specified
+### Row scope: enforced at the read boundary
 
-A scope filter is a predicate the API appends to the outermost query before dispatch, derived from the resolved plan rather than from anything the agent sent.
+At architecture step 3 the application resolves the object's immutable row decision for the caller's pool. The Engine enforces the typed predicate at the source read boundary, before column treatments and aggregation. It never appends scope to the agent's outermost SQL: that would not constrain subqueries and aggregates correctly.
 
-```ts
-type ScopeFilter = {
-  object: ExposedName;        // the object it constrains
-  predicate: string;         // parameterised, never interpolated from input
-  params: readonly unknown[];
-};
-```
+Pushdown is permitted only when every predicate input is clear and the source translator establishes equivalent comparison semantics. Otherwise the Engine filters rows as they arrive, before treatment. Separate filter-only inputs may have any treatment, including withheld or undecided; they are never added to returned columns, staged tables or agent-visible views. An unscoped object remains unchanged; a scoped object without a decision for this pool admits no rows.
 
-| Rule | |
-|---|---|
-| Derived from the plan, never from the request | An agent cannot influence its own scope |
-| Appended at the outermost level, after the agent's own `WHERE` | It cannot be escaped by a subquery |
-| Enforced again in the sidecar against the parsed statement | The API could be bypassed; the sidecar cannot |
-| Recorded on the evidence record | A reviewer can see what constrained the query |
-
-In Slice 1 the only scope filters are the pool's bound-source restriction and, for landed sources under `table_per_filing`, the filing restriction where a pool is scoped to one filing party. Row-level entitlements are not expressed this way: those are compiled into the view.
+The receipt records decision identity, normalised predicate hash, referenced names, entitled row count and provenance, never literals or table totals. The administrator editor and immutable history are at Entitlements → By table → Rows/Scoped. Saving invalidates the project's entitlement reads (including row decision/history), statistics/Dashboard and Activity queries. Step 3a is reserved for future scope-reference lookups; static predicates never query SpiceDB. See the row-scoping design position for the comparison contract.
 
 ### The three database scopes
 

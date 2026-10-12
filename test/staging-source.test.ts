@@ -1,3 +1,4 @@
+import {parsePredicate,predicateHash} from '../src/shared/row-predicate.js';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { Client } from 'pg';
@@ -77,4 +78,11 @@ it.each(['name','"char"'])('newly mapped %s text family supports tokenization at
   const result=await executor().execute(r);expect(result.ok,result.ok?'':result.error.message).toBe(true);
   expect(result).toMatchObject({value:{rows:[[expect.stringMatching(/^v1_identity_/)]]}});
  }finally{await fixture(`DROP TABLE ${schema}.numeric_values`);}
+},30000);
+
+it('ROW-003 native clear source path applies the same static row boundary',async()=>{
+ const r=request(),o=r.objects[0]!,column={id:o.readPlan.columns[0]!.elementId,name:'id',sourceIdentifier:'id',type:'INTEGER'},parsed=parsePredicate('id >= 2',[column]);if(!parsed.ok)throw parsed.error;
+ o.readPlan.rowScope={objectId:randomUUID(),poolId:r.poolId,decisionId:randomUUID(),hash:predicateHash(parsed.value),columns:[column],predicate:parsed.value,pushdown:true};
+ const proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]},result=await executor(proof).execute(r);
+ expect(result).toMatchObject({ok:true,value:{rows:[[2],[3]],rowScopes:[{entitledRows:2,columns:['id']}]}});expect(proof.attachments).toBe(1);expect(proof.appended).toEqual([]);
 },30000);

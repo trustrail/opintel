@@ -1,3 +1,4 @@
+import {rowScopeReceipt} from '../row-scope-contract.js';
 import {QueryRefusalMetadata} from './query-refusal.js';
 import { z } from 'zod';
 import {releaseBundle,releaseDescription,releaseRedeemInput,releaseRedeemOutput} from '../release-contract.js';
@@ -12,7 +13,7 @@ export const ExplainOutput = z.discriminatedUnion('permitted', [
  z.strictObject({ permitted: z.literal(false), reason: z.string(), code: z.string() }),
 ]);
 export const QueryInput = z.strictObject({ sql: z.string(), maxRows: z.number().int().positive().optional() });
-export const QueryOutput = z.strictObject({ custody:z.array(releaseBundle).optional(), columns: z.array(z.strictObject({ name: z.string(), type: z.string() })), rows: z.array(z.array(z.unknown())), truncated: z.boolean(), evidenceId: z.string() });
+export const QueryOutput = z.strictObject({ rowScopes:z.array(rowScopeReceipt).optional(), custody:z.array(releaseBundle).optional(), columns: z.array(z.strictObject({ name: z.string(), type: z.string() })), rows: z.array(z.array(z.unknown())), truncated: z.boolean(), evidenceId: z.string() });
 
 // Shared by the server's listing, request validation and future tool clients.
 export const mcpTools = [

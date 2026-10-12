@@ -135,10 +135,11 @@ export function refusalResponse(error:DomainError) {
  return {isError:true,content:[{type:'text' as const,text}],_meta:QueryRefusalMetadata.parse({...details,code:error.code,cause,retryable:retryable==='inherit'?error.retryable:retryable})};
 }
 export function queryResponse(value:z.infer<typeof QueryOutput>&{reduction?:Reduction}) {
- const output=QueryOutput.parse({columns:value.columns,rows:value.rows,truncated:value.truncated,evidenceId:value.evidenceId,...(value.custody?{custody:value.custody}:{})});
+ const output=QueryOutput.parse({...value.rowScopes?.length?{rowScopes:value.rowScopes}:{},columns:value.columns,rows:value.rows,truncated:value.truncated,evidenceId:value.evidenceId,...(value.custody?{custody:value.custody}:{})});
  const r=reductionSchema.parse(value.reduction??{withheld:[],tokenized:[],masked:[],aggregate_only:[]});
  const n=output.rows.length;
  let text=n===0?'No rows.':n===1?'1 row.':`${n} rows.`;
+ if(output.rowScopes?.some(s=>s.missingDecision))text+=' A referenced object is row-scoped but this pool has no row decision. Ask an administrator to set its row predicate in Entitlements; this empty result is not a finding about the source.';
  if(output.truncated)text+=` The result was truncated at ${n} rows; there are more.`;
  if(r.withheld.length)text+=r.withheld.length===1?` 1 element was withheld: ${r.withheld[0]}.`:` ${r.withheld.length} elements were withheld: ${r.withheld.join(', ')}.`;
  for(const kind of ['tokenized','masked'] as const)if(r[kind].length)text+=` ${r[kind].join(', ')} ${r[kind].length===1?'was':'were'} returned ${kind}.`;

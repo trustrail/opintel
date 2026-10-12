@@ -1,7 +1,12 @@
+import {resetDatabaseBeforeEach} from './database-fixture.js';
+import {migrationChainInTransaction} from './migration-chain.js';
 import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import { expect,it } from 'vitest';
 import { policyFixture } from './fixtures/policy-version/fixture.js';
+// The complete migration tail is exercised on this test's own seeded tenant,
+// not on receipt history left by unrelated files. Downgrade guards remain active.
+resetDatabaseBeforeEach('company');
  // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('041 runs down/up/down/up, preserves version values and reinstates all triggers',async()=>{
  const f=await policyFixture();await f.set();const version=await f.version();
@@ -9,6 +14,8 @@ it('041 runs down/up/down/up, preserves version values and reinstates all trigge
  const up=await readFile('migrations/041_entitlement_policy_version.up.sql','utf8'),down=await readFile('migrations/041_entitlement_policy_version.down.sql','utf8');
  try{
   await client.query('BEGIN');
+  const chain=await migrationChainInTransaction(client),reverted=await chain.unwindAfter('041');
+  expect(reverted).toEqual(chain.before.filter(m=>m.version>'041').map(m=>m.version).reverse());
   for(let n=0;n<2;n++){
    await client.query(down);
    expect((await client.query('SELECT policy_version FROM project WHERE id=$1',[f.ctx.projectId])).rows).toEqual([{policy_version:version+n}]);
@@ -18,6 +25,7 @@ it('041 runs down/up/down/up, preserves version values and reinstates all trigge
    await client.query("UPDATE entitlement SET treatment='withheld' WHERE pool_id=$1",[f.pool]);
    expect((await client.query('SELECT policy_version FROM project WHERE id=$1',[f.ctx.projectId])).rows).toEqual([{policy_version:version+n+1}]);
   }
+  expect((await chain.restore()).map(({version,name,checksum})=>({version,name,checksum}))).toEqual(chain.before.map(({version,name,checksum})=>({version,name,checksum})));
  }finally{await client.query('ROLLBACK');await client.end();}
  expect(await f.version()).toBe(version);
 },60_000);

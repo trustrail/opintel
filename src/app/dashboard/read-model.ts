@@ -40,5 +40,5 @@ export async function readDashboardModel(project:string,admin:boolean,client:Cli
  const [all,queries,prompts,recent]=await Promise.all([summary(),summary('query'),summary('prompt'),read(client,base+'/runs?limit=5',ActivityPage)]);
  const spectrum=emptySpectrum();for(const p of pools)for(const key of Object.keys(spectrum) as Array<keyof Spectrum>)spectrum[key]+=p.spectrum[key];
  const days=Array.from({length:7},(_,n)=>{const day=new Date(Date.parse(start)+n*86400000).toISOString().slice(0,10),counts=all.days.find(d=>d.day===day)?.counts;return {day,requests:counts?.all??0,queries:queries.days.find(d=>d.day===day)?.counts.all??0,prompts:prompts.days.find(d=>d.day===day)?.counts.all??0,refused:counts?.refused??0,incomplete:counts?.incomplete??0};});
- return {asOf:stats.asOf,utcDay:stats.utcDay,sources:stats.sources,pools,spectrum,observations:[...observations,...custody],suggestions,failures:oldFeed.filter(f=>f.kind==='source_failure'||f.kind==='custody_provider'),days,recent:recent.items.map(r=>({...r,request:null})),today};
+ return {asOf:stats.asOf,utcDay:stats.utcDay,sources:stats.sources,pools,spectrum,observations:[...observations,...custody],suggestions,failures:oldFeed.filter(f=>f.kind==='source_failure'||f.kind==='custody_provider'||f.kind==='row_scope_missing'),days,recent:recent.items.map(r=>({...r,request:null})),today};
 }

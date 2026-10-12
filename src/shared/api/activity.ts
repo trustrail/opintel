@@ -1,3 +1,4 @@
+import {rowScopeReceipt} from '../row-scope-contract.js';
 import {z} from 'zod';
 import {releaseEvent} from '../release-contract.js';
 import {createApiClient} from './client.js';
@@ -15,10 +16,10 @@ export const EvidenceLifecycle=z.object({
  redactions:z.array(z.object({at:z.iso.datetime({offset:true}),policy:z.object({redaction:z.enum(['aggressive','allowlist','none']),allowlistedFields:z.array(z.string())}),fields:z.array(z.string())})).default([]),
 });
 const address=z.object({catalog:z.string(),schema:z.string(),name:z.string()});
-export const ActivityMetadata=z.object({objects:z.array(address).nullable().default(null),delivered:z.record(z.string(),count).default({}),omissions:z.record(z.string(),count).default({}),refusal:z.object({message:z.string(),stage:z.string().nullable(),candidate:z.object({id:z.uuid(),columns:z.tuple([z.object({elementId:z.uuid(),name:z.string()}),z.object({elementId:z.uuid(),name:z.string()})])}).nullable()}).nullable().default(null)});
+export const ActivityMetadata=z.object({rowScopes:z.array(rowScopeReceipt).optional(),objects:z.array(address).nullable().default(null),delivered:z.record(z.string(),count).default({}),omissions:z.record(z.string(),count).default({}),refusal:z.object({message:z.string(),stage:z.string().nullable(),candidate:z.object({id:z.uuid(),columns:z.tuple([z.object({elementId:z.uuid(),name:z.string()}),z.object({elementId:z.uuid(),name:z.string()})])}).nullable()}).nullable().default(null)});
 export const ActivityCounts=z.object({all:count,refused:count,incomplete:count,answerTreated:count});
 export const CustodySummary=z.array(z.object({day:z.iso.date(),state:z.enum(['granted','redeemed','expired','revoked']),origin:z.string().nullable(),count}));
-export const ActivitySummary=z.object({custody:CustodySummary.default([]),counts:ActivityCounts,days:z.array(z.object({day:z.iso.date(),counts:ActivityCounts,outcomes:z.record(ActivityStatus,count)}))});
+export const ActivitySummary=z.object({scopingEvents:z.array(z.object({objectId:z.uuid(),objectName:z.string(),decisionId:z.uuid(),poolId:z.uuid(),actorId:z.uuid(),at:z.string()})).optional(),custody:CustodySummary.default([]),counts:ActivityCounts,days:z.array(z.object({day:z.iso.date(),counts:ActivityCounts,outcomes:z.record(ActivityStatus,count)}))});
 export const ActivitySummaryQuery=ActivityFilters.refine(v=>!v.from||!v.to||Date.parse(v.from)<Date.parse(v.to),'The end must be after the start.');
 export const ActivityEntry=z.object({...EvidenceLifecycle.shape,id:z.uuid(),projectId:z.uuid(),poolId:z.uuid(),agentId:z.string().nullable(),keyPrefix:z.string(),credentialId:z.uuid().nullable().optional(),custodyAlias:z.string().nullable().optional(),mode:z.enum(['query','prompt']),startedAt:z.iso.datetime({offset:true}),status:ActivityStatus,rowCount:count.nullable(),latencyMs:count.nullable(),synthetic:z.boolean().nullable(),request:z.string().nullable(),argumentVisibility:z.enum(['hidden','literal_stripped','raw']),metadata:ActivityMetadata.default({objects:null,delivered:{},omissions:{},refusal:null}),versions:z.object({policy:count,vocabulary:count,catalog:count,tokenKeyVersionSelected:count.positive().nullable()})});
 export const ActivityPage=z.object({items:z.array(ActivityEntry),nextCursor:z.string().nullable()});

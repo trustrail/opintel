@@ -43,7 +43,7 @@ export class PostgresEvidenceWriter implements EvidenceWriterPort {
    const withheld=elements.filter(e=>e.state==='withheld').length;
    const outcome=finish.kind==='answered'?{kind:withheld?'reduced':'answered',rowCount:finish.rows,truncated:finish.truncated??false,...(withheld?{withheld}:{})}:{kind:'refused',code:finish.code,element:typeof finish.details?.name==='string'?finish.details.name:null,stage};
    const reached=(plan?.sources??[]).filter(s=>finish.sourceIdsReached?.includes(s.id));
-   const completion={outcome,tokenKeyVersionUsed:finish.tokenKeyVersionUsed??null,cil:null,sourcePlan:detailCaptured?plan?.sourcePlan??null:plan?.sourcePlan.tokenDeclarations!==undefined?{tokenDeclarations:plan.sourcePlan.tokenDeclarations}:null,generatedSql:null,latencyMs:finish.elapsedMs??null,freshness:{sources:reached},synthetic:reached.some(s=>s.origin==='demo'),completedAt:new Date().toISOString()};
+   const completion={outcome,tokenKeyVersionUsed:finish.tokenKeyVersionUsed??null,cil:null,sourcePlan:detailCaptured?plan?.sourcePlan??null:plan&&(plan.sourcePlan.tokenDeclarations!==undefined||plan.sourcePlan.rowScopes!==undefined)?{...(plan.sourcePlan.tokenDeclarations!==undefined?{tokenDeclarations:plan.sourcePlan.tokenDeclarations}:{}),...(plan.sourcePlan.rowScopes!==undefined?{rowScopes:plan.sourcePlan.rowScopes}:{})}:null,generatedSql:null,latencyMs:finish.elapsedMs??null,freshness:{sources:reached},synthetic:reached.some(s=>s.origin==='demo'),completedAt:new Date().toISOString()};
    const record=parseQueryRun({header:row.header,elements,stages,completion});if(!record.ok)return record;
    if(finish.kind==='refused'&&finish.details?.cause==='unsatisfiable_token_join'){
     const candidate=joinCandidateColumns.safeParse(finish.details);

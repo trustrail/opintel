@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { CatalogNode } from './catalog.js';
 import { BulkEntitlementBody,BulkEntitlementError } from './bulk-entitlements.js';
 import { createApiClient } from './client.js';
-export const EntitlementNode = CatalogNode.omit({state:true}).extend({treatment:BulkEntitlementBody.shape.treatment.nullable(),maskKind:BulkEntitlementBody.shape.maskKind,justification:z.string().nullable()});
+export const EntitlementNode = CatalogNode.omit({state:true}).extend({rowScoped:z.boolean().optional(),treatment:BulkEntitlementBody.shape.treatment.nullable(),maskKind:BulkEntitlementBody.shape.maskKind,justification:z.string().nullable()});
 export type EntitlementNode = z.infer<typeof EntitlementNode>;
 export const EntitlementPage = z.object({nodes:z.array(EntitlementNode),nextCursor:z.string().nullable()});
 export const PoolChoices = z.object({items:z.array(z.object({id:z.uuid(),name:z.string(),sourceIds:z.array(z.uuid())})),nextCursor:z.string().nullable()});

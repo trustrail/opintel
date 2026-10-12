@@ -1,3 +1,4 @@
+import type {RowScope} from '../../../shared/row-scope-contract.js';
 import { effectiveTokenDomain } from '../../../shared/token-domain.js';
 import type { CatalogElement, CatalogObject, ExposedType } from '../../catalog/index.js';
 import { numericDefault, validateTokenizedTemporal, validateTokenDeclarations } from '../../catalog/index.js';
@@ -17,7 +18,7 @@ export type ReadColumn = Readonly<{
   numericDefault?: 'scalar' | 'array';
   token?: TokenDeclaration; mask?: Readonly<{ kind: MaskKind }>;
 }>;
-export type ReadPlan = Readonly<{ catalog: string; schema: string; object: string; columns: readonly ReadColumn[] }>;
+export type ReadPlan = Readonly<{ catalog: string; schema: string; object: string; columns: readonly ReadColumn[]; rowScope?:RowScope }>;
 export type CompiledColumn = Readonly<{
   elementId: ElementId; tokenDomainVersion?: number; exposedName: ExposedName | null; sourceIdentifier: string;
   declaredType: ExposedType | null; state: 'emitted' | 'withheld' | 'undecided';

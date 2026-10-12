@@ -1,3 +1,4 @@
+import {rowScope,rowScopeReceipt} from './row-scope-contract.js';
 import {sentinel} from './custody-contract.js';
 import {numericProjectSetting} from './project-settings.js';
 import { stagingType } from './staging-types.js';
@@ -18,7 +19,7 @@ const column=z.strictObject({numericDefault:z.enum(['scalar','array']).optional(
  if(c.readAs!==(treated?'text':'native')||treated&&c.exposedType!=='VARCHAR'||(c.treatment==='tokenized')!==(c.token!==undefined)||(c.treatment==='masked')!==(c.mask!==undefined))ctx.addIssue({code:'custom',message:'The treatment declaration and read plan disagree.'});
 });
 export const stagingObject=z.strictObject({catalog:name,schema:name,name:name,sourceId:z.uuid(),
- readPlan:z.strictObject({catalog:name,schema:name,object:name,columns:z.array(column).min(1)}),
+ readPlan:z.strictObject({catalog:name,schema:name,object:name,columns:z.array(column).min(1),rowScope:rowScope.optional()}),
 });
 export const executionRequest=z.strictObject({requestId:name,tokenKeyVersionSelected:positive.nullable().default(null),expectedTokenSentinel:sentinel.nullable().optional(),projectId:z.uuid(),poolId:z.uuid(),policyVersion:z.number().int().nonnegative(),
  sql:z.string().min(1),namespace:z.strictObject({catalog:name,schema:name}),
@@ -34,6 +35,6 @@ export const validationRequest=executionRequest.extend({limits:executionRequest.
 export type ValidationRequest=z.infer<typeof validationRequest>;
 export type ExecutionRequest=z.infer<typeof executionRequest>;
 export type StagingObject=z.infer<typeof stagingObject>;
-export const executionResponse=z.strictObject({custodyIndices:z.array(z.number().int().nonnegative()).optional(),tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
+export const executionResponse=z.strictObject({rowScopes:z.array(rowScopeReceipt).optional(),custodyIndices:z.array(z.number().int().nonnegative()).optional(),tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
  treatmentEvidence:z.strictObject({aggregateMinGroupSize:z.number(),stage2Required:z.boolean(),stage2Ran:z.boolean()})});
 export const validationResponse=z.strictObject({queryEngineVersion:z.string(),treatmentEvidence:executionResponse.shape.treatmentEvidence});

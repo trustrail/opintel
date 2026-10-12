@@ -1452,3 +1452,19 @@ available, behind the provider port, and requires credentials before a live clai
 | CRED-007 | A credential with no key can be revoked without fabricating key-version metadata |
 
 Key-version revocation remains distinct from ending credential identity. The later scope-grant hook is recorded, not implemented in this slice.
+
+### 5.37 step 2 — static row predicates
+
+| ID | Proof |
+|---|---|
+| ROW-001 | Closed grammar, catalogue typing and bounds, canonical hash, three-valued null logic; reserved scope references refused at save |
+| ROW-002 | Source/Engine comparison equivalence for every predicate shape: nulls, case-sensitive non-ASCII text, numeric boundaries and zoned instants; no tolerances |
+| ROW-003 | Clear-input pushdown and tokenized/withheld/undecided filter-only inputs before treatments; no scope literals or hidden inputs in receipts or returned rows |
+| ROW-004 | Missing pool decision yields zero rows without source reads, receipt notice and one actionable finding; deciding resolves the finding |
+| ROW-005 | Aggregate-only aggregation and disclosure threshold within scope |
+| ROW-006 | Immutable decisions, one first-scoping Activity event, type drift fails closed; no historical receipt rewrites |
+| ROW-007 | Seeded migration forward/revert; downgrade refuses to destroy row-decision history |
+| ROW-008 | Row receipt facts survive sampling and retention without predicate literals |
+| ROW-009 | Unscoped receipt JSON and evidence omit rowScopes entirely; sampled evidence preserves its pre-scoping shape |
+| ROW-UI | Object scoped state, editor save/validation/history, accessibility and narrow layout at 390/900/1440; no baseline updates before review |
+| K-007 scoped warm | One steady-state authenticated static-scope query under the existing 2,000ms warm budget, in the performance project only |

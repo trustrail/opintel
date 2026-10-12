@@ -1,3 +1,4 @@
+import {rowScopeReceipt} from '../../../shared/row-scope-contract.js';
 import {z} from 'zod';
 import {withTenant,withPlatform} from '../../../platform/db/scope.js';
 import {ok,err,DomainError,type RunId} from '../../../shared/kernel/index.js';
@@ -27,7 +28,8 @@ const legacyVersions=z.object({policy:z.number(),catalog:z.number(),vocabulary:z
 const storedObjects=z.object({objects:EvidenceDetail.shape.objects.removeDefault()});
 const storedTokens=z.object({tokenDeclarations:EvidenceDetail.shape.tokenDeclarations});
 const storedSources=z.object({sources:EvidenceDetail.shape.sources.default([])});
-function entry(row:Record<string,unknown>){const legacy=typeof row.versions==='object'&&row.versions!==null&&'tokenKey' in row.versions?legacyVersions.safeParse(row.versions):null;const objects=storedObjects.safeParse(row.sourcePlan??{});return ActivityEntry.parse({...row,metadata:ActivityMetadata.parse({objects:objects.success?objects.data.objects:null,delivered:row.delivered??{},omissions:row.omissions??{}}),versions:legacy?.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
+const storedScopes=z.object({rowScopes:z.array(rowScopeReceipt).optional()});
+function entry(row:Record<string,unknown>){const legacy=typeof row.versions==='object'&&row.versions!==null&&'tokenKey' in row.versions?legacyVersions.safeParse(row.versions):null;const objects=storedObjects.safeParse(row.sourcePlan??{});return ActivityEntry.parse({...row,metadata:ActivityMetadata.parse({rowScopes:storedScopes.parse(row.sourcePlan??{}).rowScopes,objects:objects.success?objects.data.objects:null,delivered:row.delivered??{},omissions:row.omissions??{}}),versions:legacy?.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
 export class PostgresEvidenceReader implements EvidenceReader {
  async settings(ctx:EvidenceContext){const [row]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));return row?.settings;}
  async list(ctx:EvidenceContext,filters:ActivityFilters,after:EvidencePosition|null,limit:number){
@@ -50,7 +52,8 @@ export class PostgresEvidenceReader implements EvidenceReader {
   // after redemption remains a corroborating event, not a rewritten state.
   // Scope follows the requests selected by Activity; event days are always UTC.
   const custody=await withTenant(ctx,tx=>tx.query<{day:string;state:string;origin:string|null;count:number}>(`SELECT to_char(ev.occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS day,ev.kind AS state,CASE WHEN ev.kind='redeemed' THEN ev.jur_observed ELSE NULL END AS origin,count(DISTINCT g.receipt_id)::float8 AS count ${joined} JOIN release_grant g ON g.receipt_id=r.id AND g.project_id=r.project_id JOIN release_event ev ON ev.grant_id=g.id AND ev.project_id=g.project_id AND (ev.kind='granted' OR ev.kind=g.state) WHERE ${where.join(' AND ')} AND ev.kind IN ('granted','redeemed','expired','revoked') GROUP BY 1,2,3 ORDER BY 1 DESC,2,3`,params));
-  return ok(ActivitySummary.parse({counts,days:[...days.values()],custody}));
+  const scopingEvents=await withTenant(ctx,tx=>tx.query(`SELECT d.object_id AS "objectId",d.object_name AS "objectName",d.id AS "decisionId",d.pool_id AS "poolId",d.actor_id AS "actorId",d.decided_at::text AS at FROM row_entitlement d JOIN catalog_object o ON o.id=d.object_id WHERE d.first_scoping AND ($1::timestamptz IS NULL OR d.decided_at >= $1) AND ($2::timestamptz IS NULL OR d.decided_at < $2) AND ($3::uuid IS NULL OR d.pool_id=$3) ORDER BY d.decided_at DESC`,[filters.from??null,filters.to??null,filters.poolId??null]));
+  return ok(ActivitySummary.parse({counts,days:[...days.values()],custody,...(scopingEvents.length?{scopingEvents}:{})}));
  }
  async detail(ctx:EvidenceContext,id:RunId,at:string){
   return withTenant(ctx,async tx=>{

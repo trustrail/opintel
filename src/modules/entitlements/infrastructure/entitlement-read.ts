@@ -1,3 +1,4 @@
+import {rowScope,type RowScope} from '../../../shared/row-scope-contract.js';
 import {PostgresGroupedEntitlements} from './grouped-read.js';
 import { classifySourceType } from '../../catalog/index.js';
 import {projectSettingSchema} from '../../../shared/project-settings.js';
@@ -39,7 +40,8 @@ export class PostgresEntitlementReader implements EntitlementReader {
    UNION ALL SELECT object_id::text,object_name,count(*)::int,NULL,NULL,NULL,NULL,NULL FROM visible WHERE $4='object' AND source_id=$5::uuid AND exposed_schema=$6 GROUP BY object_id,object_name
    UNION ALL SELECT id::text,exposed_name,NULL,exposed_type,treatment,mask_kind,justification,source_type FROM visible WHERE $4='element' AND object_id=$7::uuid
   ) SELECT * FROM nodes WHERE ($8='' OR starts_with(label,$8)) AND ($9::text IS NULL OR id COLLATE "C">$9 COLLATE "C") ORDER BY id COLLATE "C" LIMIT $10`,[pool,q.sourceId??null,q.undecided,kind,source,schema,object,q.prefix,q.after,q.limit,q.decided??false,q.elementPrefix??'']);
-  return ok(rows.map(row=>({position:row.id,node:{...row,kind,unsupportedReason:kind==='element'&&row.exposedType===null?classifySourceType(row.sourceType??'').unsupportedReason??'unmapped':null}})));
+  const scoped=kind==='object'?await tx.query<{object_id:string}>('SELECT DISTINCT object_id FROM row_entitlement WHERE object_id=ANY($1::uuid[])',[rows.map(r=>r.id)]):[];
+  return ok(rows.map(row=>({position:row.id,node:{...row,...(kind==='object'?{rowScoped:scoped.some(s=>s.object_id===row.id)}:{}),kind,unsupportedReason:kind==='element'&&row.exposedType===null?classifySourceType(row.sourceType??'').unsupportedReason??'unmapped':null}})));
  });}
  async definition(ctx:EntitlementContext,pool:PoolId){
   const result=await this.compilation(ctx,pool);return result.ok?ok({views:result.value.compilation.views.map(({catalog,schema,name,ddl})=>({catalog,schema,name,ddl})),omitted:[...result.value.compilation.omitted]}):result;
@@ -61,9 +63,23 @@ export class PostgresEntitlementReader implements EntitlementReader {
     SELECT t.pool_id AS "poolId",t.element_id AS "elementId",t.project_id AS "projectId",t.treatment,t.mask_kind AS "maskKind",t.justification,t.set_at AS "setAt",jsonb_build_object('kind',t.source_kind,'id',t.source_ref) AS "setBy" FROM entitlement t JOIN elements e ON e.id=t.element_id WHERE t.pool_id=$1
    ) SELECT COALESCE((SELECT jsonb_agg(s) FROM sources s),'[]') AS sources,COALESCE((SELECT jsonb_agg(o) FROM objects o),'[]') AS objects,COALESCE((SELECT jsonb_agg(e) FROM elements e),'[]') AS elements,COALESCE((SELECT jsonb_agg(t) FROM decisions t),'[]') AS decisions`,[pool]);
    if(!snapshot)throw new Error('Missing catalogue snapshot.');
-   const objects=[];for(const row of snapshot.objects){const object=hydrateCatalogObject(row,snapshot.elements.filter(e=>e.objectId===row.id).map(e=>({...e,discoveredAt:new Date(e.discoveredAt),removedAt:e.removedAt===null?null:new Date(e.removedAt)})));if(!object.ok)return object;objects.push(object.value);}
+   const objects:import("../../catalog/index.js").CatalogObject[]=[];for(const row of snapshot.objects){const object=hydrateCatalogObject(row,snapshot.elements.filter(e=>e.objectId===row.id).map(e=>({...e,discoveredAt:new Date(e.discoveredAt),removedAt:e.removedAt===null?null:new Date(e.removedAt)})));if(!object.ok)return object;objects.push(object.value);}
    const decisions=new Map<ElementId,Entitlement>();for(const row of snapshot.decisions){const decision=Entitlement.decide({...row,setAt:Timestamp(new Date(row.setAt))});if(!decision.ok)return decision;decisions.set(row.elementId,decision.value);}
-   const compiled=compileViews({poolId:pool,boundSources:snapshot.sources.map(s=>({...s,alias:ExposedName(s.alias)})),objects,elements:objects.flatMap(o=>o.elements),entitlements:decisions,aggregateMinGroupSize:Number(settings.data.query.aggregateMinGroupSize),policyVersion:project.version});
+   let compiled=compileViews({poolId:pool,boundSources:snapshot.sources.map(s=>({...s,alias:ExposedName(s.alias)})),objects,elements:objects.flatMap(o=>o.elements),entitlements:decisions,aggregateMinGroupSize:Number(settings.data.query.aggregateMinGroupSize),policyVersion:project.version});
+   if(compiled.ok){
+    const scopes=await tx.query<{objectId:string;decisionId:string|null;hash:string|null;predicate:unknown;columns:unknown}>(`SELECT DISTINCT ON(o.id) o.id AS "objectId",d.id AS "decisionId",d.predicate_hash AS hash,d.predicate,d.columns FROM catalog_object o JOIN row_entitlement existing ON existing.object_id=o.id LEFT JOIN LATERAL(SELECT * FROM row_entitlement WHERE object_id=o.id AND pool_id=$1 ORDER BY sequence DESC LIMIT 1)d ON true WHERE o.project_id=$2 AND o.id=ANY($3::uuid[])`,[pool,ctx.projectId,snapshot.objects.map(o=>o.id)]);
+    const byObject=new Map<string,RowScope>();
+    for(const row of scopes){
+     const decoded=rowScope.safeParse({...row,poolId:pool,columns:row.columns??[],pushdown:false});
+     if(!decoded.success)return err(new DomainError('validation_failed','The stored row decision is invalid. No unscoped read is permitted.'));
+     const scope=decoded.data;
+     for(const c of scope.columns){const current=snapshot.elements.find(e=>e.id===c.id&&e.objectId===row.objectId);if(!current||current.exposedType!==c.type||current.status!=='active')return err(new DomainError('validation_failed','A row-scope column changed or disappeared. Review its row decision in Entitlements before querying.'));c.sourceIdentifier=current.sourceIdentifier;c.name=current.exposedName??c.name;}
+     scope.pushdown=scope.predicate!==null&&scope.columns.every(c=>snapshot.decisions.find(d=>d.elementId===c.id)?.treatment==='clear');
+     byObject.set(row.objectId,scope);
+    }
+    const views=compiled.value.views.map(v=>{const object=objects.find(o=>o.state.exposedName===v.name&&o.state.exposedSchema===v.schema&&snapshot.sources.find(s=>s.id===o.state.sourceId)?.alias===v.catalog);const scope=object?byObject.get(object.state.id):undefined;return scope?{...v,readPlan:{...v.readPlan,rowScope:scope}}:v;});
+    compiled=ok({...compiled.value,views});
+   }
    return compiled.ok?ok({compilation:compiled.value,policyVersion:project.version,projectSettings:project.settings,sources:snapshot.sources,evidence:{versions:{...project.stamp,tokenKeyVersionSelected:null},currentTokenKeyVersion:project.stamp.tokenKeyVersionSelected,withheldReasons:Object.fromEntries(snapshot.decisions.map(d=>[d.elementId,d.justification])),sources:snapshot.sources.map(s=>({id:s.id,origin:s.origin,freshnessMode:s.freshnessMode,landingStrategy:s.landingStrategy,lastIntrospectedAt:s.lastIntrospectedAt}))}}):compiled;
   });
   if(!result.ok)return result;

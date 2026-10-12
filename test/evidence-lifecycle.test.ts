@@ -78,3 +78,17 @@ it('RED-015/016: retained delivery counts keep Answer treated searchable without
  expect(unwrap(await reader.list(f.ctx,{search:'old_mask'},null,50))).toHaveLength(0);
  expect(unwrap(await reader.detail(f.ctx,RunId(run!.id),run!.at))).toMatchObject({objects:[],elements:[],recordKind:'rollup'});
 });
+
+it('ROW-008 row decision facts survive both sampling and retention without predicate literals',async()=>{
+ const f=await fixture({captureSamplingPercent:0.000000001,fullRetentionDays:1,rollupRetentionDays:1});
+ const fact={objectId:f.ids[0]!,objectName:'records',poolId:f.pool,decisionId:f.ids[0]!,hash:'a'.repeat(64),columns:['customer_id'],entitledRows:2,provenance:'agent credential',missingDecision:false};
+ const plan={...f.plan,sourcePlan:{...f.plan.sourcePlan,rowScopes:[fact]}};
+ const seeded=vi.spyOn(UuidV7IdFactory.prototype,'create').mockReturnValueOnce('018f8f9d-7f83-7abc-8def-000000009003');let id:ReturnType<typeof RunId>;try{id=unwrap(await f.writer.open(f.principal,'SELECT 1',plan));}finally{seeded.mockRestore();}
+ unwrap(await f.writer.close(id,{kind:'answered',rows:2,policyVersion:1,queryEngineVersion:'test',plan,tokenKeyVersionUsed:null,sourceIdsReached:[]},f.principal));
+ expect(await withTenant(f.ctx,tx=>tx.query('SELECT detail_captured,source_plan FROM run_completion WHERE run_id=$1',[id]))).toEqual([{detail_captured:false,source_plan:{rowScopes:[fact]}}]);
+ const [old]=await withTenant(f.ctx,async tx=>{
+  const rows=await tx.query<{id:string;at:string}>("INSERT INTO query_run(project_id,pool_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,'test','query','SELECT 1',$3,clock_timestamp()-interval '2 days') RETURNING id,started_at::text AS at",[f.ctx.projectId,f.pool,plan.versions]);const r=rows[0]!;
+  await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,source_plan,completed_at) VALUES($1,$2,$3,$4,$2)',[r.id,r.at,{kind:'answered',rowCount:2,truncated:false},{rowScopes:[fact]}]);return rows;
+ });unwrap(await f.maintenance.project(f.ctx.projectId));
+ expect(unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(old!.id),old!.at))).toMatchObject({recordKind:'rollup',metadata:{rowScopes:[fact]}});
+});
