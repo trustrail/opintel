@@ -1,3 +1,4 @@
+import {startMeasurement} from '../../scripts/testing/performance-measurement.js';
 import {randomUUID} from 'node:crypto';
 import {resolve} from 'node:path';
 import {Client} from 'pg';
@@ -27,9 +28,9 @@ for(const treatment of ['clear','masked'] as const)it(`J-021 ${treatment} source
  const signal=new AbortController(),pending=executor.execute(request,signal.signal);
  try{
   await vi.waitFor(async()=>{expect((await fixture(`SELECT pid FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND state='active' AND (query LIKE '%${schema}%' OR application_name='opintel-sidecar-connector')`)).length).toBeGreaterThan(0);},{timeout:10000,interval:20});
-  const start=performance.now();signal.abort();expect(await pending).toMatchObject({ok:false,error:{code:'budget_exceeded'}});
+  const finish=startMeasurement('J-021');signal.abort();expect(await pending).toMatchObject({ok:false,error:{code:'budget_exceeded'}});
   expect(closed).toEqual(['agent','privileged','agent','privileged']);
   expect(await fixture(`SELECT pid FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND (query LIKE '%${schema}%' OR application_name='opintel-sidecar-connector')`)).toHaveLength(0);
-  expect(performance.now()-start).toBeLessThan(2000);
+  expect(finish()).toBeLessThan(2000);
  }finally{signal.abort();await pending;}
 },30000);

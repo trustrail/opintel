@@ -9,7 +9,7 @@ export function requestLabel(r:ActivityEntry){
  const objects=`${n} ${n===1?'object':'objects'}`;
  return r.status==='refused'||r.status==='failed'?`Planned to read ${objects}`:`Read ${objects}`;
 }
-export const treatmentLabels:Record<string,string>={clear:'In the clear',tokenized:'Tokenized',masked:'Masked',aggregate_only:'Aggregate only',withheld:'Withheld',undecided:'Needs a decision'};
+export const treatmentLabels:Record<string,string>={custody:'Released under custody',clear:'In the clear',tokenized:'Tokenized',masked:'Masked',aggregate_only:'Aggregate only',withheld:'Withheld',undecided:'Needs a decision'};
 export function shortPath(value:string){return value.split('.').slice(-2).join('.');}
 export function evidenceElementName(r:Pick<import('../../shared/api/activity.js').EvidenceDetail,'objects'>,id:string|null,name:string){
  const objects=id?r.objects.filter(o=>o.columns.some(c=>c.elementId===id)):[];

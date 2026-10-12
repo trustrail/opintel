@@ -4762,6 +4762,11 @@ Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `pref
 | `agentHeartbeatSeconds` | integer seconds | 20 | 5–60 | Advertised heartbeat cadence; stale after three missed intervals | Use 20. This does not alter the separate fixed idle threshold of 60 seconds without a request. |
 | `agentDisconnectGraceSeconds` | integer seconds | 300 (5 minutes) | 60–3,600 (1–60 minutes) | Time from entering stale to disconnected | Use 300. Disconnected twins remain visible. |
 
+| `custody.provider` | enum | None | local, xq | Custody provider; local is development only | Custody unavailable until configured and checked. |
+| `custody.tenant` | string | None | 1–200 characters; required for xq | Provider tenant | XQ custody unavailable until configured. |
+| `custody.region` | string | None | 1–200 characters | Fallback reported jurisdiction; proof only | No fallback jurisdiction recorded. |
+| `custody.grant_ttl` | integer seconds | 600 | 1–2,147,483 | Release grant lifetime; entered in minutes | Use ten minutes. |
+
 ### Review points and execution ownership
 
 **Discovery migration evidence.** The migration must distinguish projects existing at migration time from projects created afterwards, record these backfill choices explicitly, and preserve existing explicit valid choices. It must not rewrite saved run options or per-source consent. This is the migration contract, not a claim that a migration has already run.
@@ -5706,3 +5711,40 @@ Cache invalidation: bulk decisions refresh `dataSource.lists` as well as existin
 Source-card review correction: Awaiting decision previously counted unique supported/nameable elements missing a decision in any project pool, while the exposure legend summed pool–element pairs. The card now has an explicit Pool picker: its tile, spectrum, legend and Review decisions destination use that pool only. Fully decided and empty pools are never summed. The existing aggregate API metadata remains for other contracts, but the card does not display it. No pools means no invented decisions. Equal display name/alias renders once. The compact legend lists treatments present beside the bar on desktop; below 820px it wraps beneath the bar to preserve readable names and avoid horizontal scrolling. No combined-decision total is shown.
 
 Exposure spectra on Dashboard, Entitlements and Data sources use one shared component, palette and left-to-right order. Segment fills use `--green`, `--token`, `--mask`, `--agg`, `--held`, `--yellow`; legend marks use those exact segment fills with a uniform 1px ink outline. The outline is identical for all six treatments and carries no additional state. Row and list marks retain their dark treatment variants. Order and treatment/count labels connect legend marks to segments. Units, scope and compact legend presentation do not change the palette.
+
+## 5.36 Release custody
+
+The accepted specification is [custody-design-position.md](review/custody-design-position.md).
+This is distinct from HMAC token-key custody. Custody is the seventh treatment;
+its Engine lineage survives expressions, aliases and nested queries. The
+application seals the result before MCP delivery using one AES-256-GCM key and
+splits it: the provider holds K1, Opintel holds K2. An authenticated
+`opintel.redeem` releases K2 once and atomically appends the receipt event while
+deleting the stored share. Credential aliases are persisted on credentials and
+never derive authorization from a claimed agent id. Provider events corroborate
+rather than define redemption. Explicit revocation never promises recall.
+
+`custody.grant_ttl` defaults to 600 seconds and appears in Settings → Project.
+Project Settings configures the non-secret provider per project. Deployment environment variables supply credentials, the MCP origin and signing master key; `OPINTEL_RELEASE_CUSTODY` is no longer read. No
+provider is inferred. The local provider is for tests/harness; XQ live behaviour
+is unverified until credentials arrive. Signing keys are project-scoped;
+describe publishes public keys only, retaining retired verification keys for
+outstanding grants.
+
+The shared spectrum now has seven treatments. Custody is between tokenized and
+withheld, a closed padlock in a disc using existing plum. Bars and legend discs
+match; legend outlines remain uniform. Row marks use plum. Contrast is 19.07:1
+against white and 17.77:1 against surface-2. No master stylesheet addition is
+needed for this geometry. Answer treated includes completed custody deliveries,
+with the same exclusions as §5.5's existing filter.
+
+Release keys and provider shares never belong in database, evidence, outbox or
+telemetry sinks. K2 is intentionally stored only for the live grant; deletion
+is logical row deletion, not secure erasure of PostgreSQL WAL/backups. C.5's
+managed-heap limitations continue to apply. The proof reports residual matches
+and incomplete coverage independently of persistent-sink failures.
+
+
+**5.36 provider administration.** Settings → Project → Custody uses disclosed one-line rows and the shared accumulating save bar. Provider, tenant, region and grant TTL (entered in minutes, stored as seconds) are editable. API/dashboard keys show deployment-environment presence only. GET custody-provider returns no secret; POST check returns reachability/authentication/failure classes only; POST rotate increments the signing version. These actions declare project view/administer permissions. Seed derivation is HKDF-SHA-256, empty salt, UTF-8 lowercase project UUID concatenated with decimal version, 32-byte output; the environment master key is exactly 32 bytes encoded as 64 lowercase hex characters. No private seed or signing key is written. Credential rows display their stored custody alias read-only. Provider availability gates custody assignment and references in query expressions, including WHERE and aliases/CTEs; unrelated projections remain usable. Failed/missing configuration yields one Needs You finding, not one per column.
+
+5.36 invalidation: a Custody settings save invalidates project settings/detail/stats, custody-provider status and the Activity query family (receipt details and summary), because switching provider or tenant revokes live grants. Connection checks invalidate provider status and project stats; signing rotation invalidates provider status. No request row delivery facts are rewritten.

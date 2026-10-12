@@ -7,10 +7,10 @@ export const treatmentPolicySchema=z.strictObject({
  aggregateMinGroupSize:z.number().int().positive(),
  readPlan:z.array(z.strictObject({catalog:identifier,schema:identifier,name:identifier,
   columns:z.array(z.strictObject({name:identifier,elementId,tokenDomain:z.string().regex(/^[a-z0-9]+$/).optional()}))})),
- entitlements:z.array(z.strictObject({elementId,treatment:z.enum(['clear','masked','tokenized','aggregate_only','withheld'])})),
+ entitlements:z.array(z.strictObject({elementId,treatment:z.enum(['clear','masked','tokenized','aggregate_only','custody','withheld'])})),
 });
 export type TreatmentPolicy=z.infer<typeof treatmentPolicySchema>;
-export type PolicyTable={catalog:string;schema:string;name:string;columns:{name:string;elementId:ElementId;treatment:'clear'|'masked'|'tokenized'|'aggregate_only';tokenDomain?:string}[]};
+export type PolicyTable={catalog:string;schema:string;name:string;columns:{name:string;elementId:ElementId;treatment:'clear'|'masked'|'tokenized'|'aggregate_only'|'custody';tokenDomain?:string}[]};
 const address=(v:{catalog:string;schema:string;name:string})=>JSON.stringify([v.catalog,v.schema,v.name].map(fold));
 export function resolvePolicy(input:unknown,namespace:PoolNamespace):Result<{policy:TreatmentPolicy;tables:PolicyTable[]}>{
  const parsed=treatmentPolicySchema.safeParse(input);

@@ -105,7 +105,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
       if (!this.contractChecked) {
         const response = await this.post('/health', undefined, signal);
         const version = wire.healthContract.safeParse(response);
-        if (version.success && version.data.contract !== 2) return err(new DomainError('dependency_unavailable', 'Opintel Engine contract mismatch: this application requires contract 2.'));
+        if (version.success && version.data.contract !== 3) return err(new DomainError('dependency_unavailable', 'Opintel Engine contract mismatch: this application requires contract 3.'));
         if (!wire.healthResponse.safeParse(response).success) return this.malformed();
         this.contractChecked = true;
       }

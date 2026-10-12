@@ -1,5 +1,6 @@
+import {ReleaseRuntime} from '../src/modules/release-custody/index.js';
 import { randomUUID } from 'node:crypto';
-import { beforeEach, describe, it, expect } from 'vitest';
+import { beforeEach, describe, vi, it, expect } from 'vitest';
 import { resetDatabaseBeforeEach } from './database-fixture.js';
 import { withPlatform, withTenant } from '../src/platform/db/scope.js';
 import { Entitlement, PostgresEntitlements, treatments, type Treatment, type MaskKind } from '../src/modules/entitlements/index.js';
@@ -52,12 +53,19 @@ describe('entitlement domain and persisted decisions',()=>{
   expect(await withTenant(ctx,tx=>tx.query('SELECT treatment FROM entitlement ORDER BY treatment'))).toEqual([{treatment:'masked'},{treatment:'withheld'}]);
   expect(await repository.set(ctx,unwrap(decision()))).toMatchObject({ok:false,error:{code:'not_found'}});
  });
- it('H-009: rejects undecided in the domain and database; accepts exactly the five treatments',async()=>{
+ it('H-009: rejects undecided in the domain and database; accepts exactly the six decided treatments',async()=>{
   await withTenant(ctx,tx=>tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]));
+  vi.stubEnv('OPINTEL_CUSTODY_MASTER_KEY','11'.repeat(32));
+  vi.stubEnv('OPINTEL_API_BASE_URL','http://localhost:3000');
+  try {
+  await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_build_object('custody',jsonb_build_object('provider','local')) WHERE id=$1",[ctx.projectId]));
+  const release=new ReleaseRuntime(JSON.stringify({[ctx.projectId]:{provider:'local',applicationUrl:'http://localhost:3000'}}));
+  expect(await release.checkConnection(ctx)).toMatchObject({authenticated:true,failure:null});
   expect(decision('undecided' as Treatment)).toMatchObject({ok:false,error:{code:'validation_failed'}});
   for(const treatment of treatments){unwrap(await repository.set(ctx,unwrap(decision(treatment))));expect(unwrap(await repository.forElement(ctx,pool,element))).toBe(treatment);}
   await expect(withTenant(ctx,tx=>tx.query("UPDATE entitlement SET treatment='undecided'"))).rejects.toMatchObject({code:'23514'});
   expect(unwrap(await repository.forElement(ctx,pool,element))).toBe('withheld');
+  } finally {vi.unstubAllEnvs();}
  });
  it('H-002/H-007: decision writes check the current element type and round-trip mask configuration and provenance',async()=>{
   await withTenant(ctx,tx=>tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]));

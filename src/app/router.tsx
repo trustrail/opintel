@@ -48,7 +48,7 @@ const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: 
   const { screen, projectId } = projectScreenRoute.useParams();
   const search=projectScreenRoute.useSearch(),navigate=projectScreenRoute.useNavigate();
   if(screen==='relationship-suggestions')return <RouteErrorBoundary><SuggestionsScreen key={projectId} projectId={projectId} filter={{elementId:search.elementId,poolId:search.poolId}}/></RouteErrorBoundary>;
-  if(screen==='settings'||screen==='settings-discovery'||screen==='settings-query'||screen==='settings-evidence'||screen==='settings-agents'||screen==='settings-engines')return <ProjectSettingsScreen key={projectId} projectId={projectId} section={screen}/>;
+  if(screen==='settings'||screen==='settings-project'||screen==='settings-discovery'||screen==='settings-query'||screen==='settings-evidence'||screen==='settings-agents'||screen==='settings-engines')return <ProjectSettingsScreen key={projectId} projectId={projectId} section={screen}/>;
   if(screen==='pools')return <RouteErrorBoundary><PoolsScreen key={projectId} projectId={projectId}/></RouteErrorBoundary>;
   if(screen==='entitlements')return <RouteErrorBoundary><EntitlementsScreen projectId={projectId} search={search} onSearch={next=>{void navigate({search:next});}}/></RouteErrorBoundary>;
   if (screen === 'token-key') return <RouteErrorBoundary><TokenKeyScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;

@@ -6,6 +6,7 @@ import { validateMaskType } from './mask-compatibility.js';
 import type { TokenizerPort } from './tokenizer-port.js';
 export type TreatmentStrategy =
  | { kind: 'omitted'; reason: 'undecided' | 'withheld' | 'unsupported'; outputType: null }
+ | { kind: 'custody'; outputType: ExposedType; apply(value: unknown): Promise<Result<unknown>> }
  | { kind: 'clear'; outputType: ExposedType; apply(value: unknown): Promise<Result<unknown>> }
  | { kind: 'tokenized'; outputType: 'VARCHAR'; apply(value: unknown): Promise<Result<string | null>> }
  | { kind: 'masked'; maskKind: MaskKind; outputType: 'VARCHAR'; apply(value: unknown): Promise<Result<string | null>> }
@@ -19,6 +20,7 @@ export class TreatmentStrategies {
   if (decision === null) return ok({kind:'omitted',reason:'undecided',outputType:null});
   const state=decision.state;
   switch (state.treatment) {
+   case 'custody': return ok({kind:'custody',outputType:element.type,apply:async value=>ok(value)});
    case 'clear': return ok({kind:'clear',outputType:element.type,apply:async value=>ok(value)});
    case 'withheld': return ok({kind:'omitted',reason:'withheld',outputType:null});
    case 'aggregate_only': return ok({kind:'aggregate_only',outputType:element.type,constraint:{kind:'aggregate_only',elementId:element.id}});

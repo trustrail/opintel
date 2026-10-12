@@ -689,7 +689,7 @@ AGENT SESSION (runs agent SQL)
 
 **The treated staging table is the enforcement point**, not the view. Since A.6 the view carries no treatment expression, so an agent that reached a base catalog would not merely bypass a projection: it would find untreated values. That is why step 4 holds without exception, and why the streaming path in C.1.1 is confined to objects whose columns are all clear.
 
-**Plaintext for a treated object never crosses into DuckDB staging.** It is read and treated in sidecar/source-driver buffers. Residual bytes may remain after those references are cleared; C.5 reports them honestly. DuckDB tables and spill files must contain only the treated representation.
+**Plaintext for tokenized and masked columns never crosses into DuckDB staging.** It is read and treated in sidecar/source-driver buffers. Clear, aggregate-only and custody columns legitimately reach DuckDB in their native representation; custody result lineage requires sealing before MCP delivery (5.36). Residual bytes may remain after those references are cleared; C.5 reports them honestly. DuckDB tables and spill files must contain only the treated representation.
 
 **Pushdown is weaker on the treated path.** A predicate on a tokenized column cannot be evaluated by the source, which holds only plaintext (A.6), so the sidecar reads, treats, then filters. Predicates on clear columns in the same object still push down. Where an object is large and its predicates are all on tokenized columns, the execution refuses with `unsupported_pushdown` rather than reading it whole.
 
@@ -853,7 +853,7 @@ the ceiling. Project authorization remains independent of this resource key.
 
 | Guarantee | Enforcement |
 |---|---|
-| Query rows and staging data are not persisted | `temp_directory` empty, spill disabled; deployment filesystem, swap and dump controls are verified separately |
+| Query rows and staging data are not persisted; release custody retains only the live per-grant K2 share (5.36), never rows | `temp_directory` empty, spill disabled; deployment filesystem, swap and dump controls are verified separately |
 | Execution resources close before response serialization | DuckDB instances, prepared statements and source scopes close on success, refusal, failure and cancellation; closing resources does not establish erasure of their former contents |
 | Nothing in logs | Field allowlist in the logger. Row values are not loggable |
 | Telemetry policy (decided) | §8 governs: telemetry records execution metadata only, no SQL text and no statement shape. Row values, prompt text and SQL literals are never emitted. Aliases can carry values; future shape recording requires its own reviewed sanitisation, not the evidence stripper |
@@ -1316,3 +1316,24 @@ performing tokenization, protecting the interval between attestation and use.
 A wrong/stale/missing key refuses, never producing tokens. Distribution remains
 customer-owned provisioning pending the separate key-management item 5.21.
 This adds no SQL or statement-shape telemetry and persists no query values.
+
+
+## Released under custody — 5.36
+
+The normative split-key construction, wire encoding and lifecycle are in
+[the accepted design position](review/custody-design-position.md). A.2 HMAC
+construction is unchanged. Custody is a seventh treatment. The read plan and
+Engine treatment policy carry it through output lineage, including aliases,
+CTEs, subqueries and aggregate expressions; delivery is sealed after execution
+and before the application returns it over MCP. Engine contract 3 is required;
+an older Engine is refused before assignment/use rather than relying on its
+handling of an unknown treatment.
+
+C.5's result-value non-persistence still applies. K/K1 are never persisted by
+Opintel. K2 is the intentional live-grant database share and is deleted on
+redemption, expiry or revocation; no row values are stored with it. The proof
+checks logical deletion separately from container persistent sinks and reports
+managed-heap residuals honestly. It does not claim to erase database WAL,
+backups, freed physical pages or an authorized recipient's own transcript.
+Telemetry remains execution metadata only, with no keys, shares, sealed rows,
+SQL text, statement shape or customer values.

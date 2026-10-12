@@ -1,0 +1,10 @@
+import {z} from 'zod';
+import {ReleaseRevokeInput,ReleaseRevokeOutput,CustodyProviderStatus,CustodyCheckResult,CustodyRotationResult} from '../../../shared/api/release-custody.js';
+import {defineRoute,errorEnvelopeSchema} from '../../../platform/http/index.js';
+import {ProjectId} from '../../../shared/kernel/index.js';
+import type {ReleaseSettingsPort} from '../application/ports.js';
+export function releaseRoutes(service:ReleaseSettingsPort){return [
+ defineRoute({method:'GET',path:'/api/v1/projects/:id/custody-provider',params:z.object({id:z.uuid()}),request:z.undefined(),response:CustodyProviderStatus,permission:{resource:'project',id:r=>r.params.id,permission:'view'},handle:async r=>({body:await service.status({projectId:ProjectId(r.params.id),userId:r.actor.id}),headers:{'cache-control':'no-store'}})}),
+ defineRoute({method:'POST',path:'/api/v1/projects/:id/custody-provider/check',params:z.object({id:z.uuid()}),request:z.strictObject({}),response:CustodyCheckResult,permission:{resource:'project',id:r=>r.params.id,permission:'administer'},handle:async r=>({body:await service.checkConnection({projectId:ProjectId(r.params.id),userId:r.actor.id})})}),
+ defineRoute({method:'POST',path:'/api/v1/projects/:id/custody-provider/rotate',params:z.object({id:z.uuid()}),request:z.strictObject({}),response:CustodyRotationResult,permission:{resource:'project',id:r=>r.params.id,permission:'administer'},handle:async r=>({body:await service.rotateSigningKey({projectId:ProjectId(r.params.id),userId:r.actor.id})})}),
+ defineRoute({method:'POST',path:'/api/v1/projects/:id/releases/:releaseId/revoke',params:z.object({id:z.uuid(),releaseId:z.uuid()}),request:ReleaseRevokeInput,response:z.union([ReleaseRevokeOutput,errorEnvelopeSchema]),permission:{resource:'project',id:r=>r.params.id,permission:'administer'},handle:async r=>{const result=await service.revoke({projectId:ProjectId(r.params.id),userId:r.actor.id},r.params.releaseId,r.actor.id);if(!result.ok)throw result.error;return {body:{revoked:true as const}};}})];}

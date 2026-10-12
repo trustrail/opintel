@@ -122,3 +122,27 @@ implementation shell.
 
 Library references: [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk/tree/v1.x)
 and [LangChain MCP adapters](https://reference.langchain.com/python/langchain-mcp-adapters/).
+
+
+Custody (5.36): run `python harness/custody.py` with the same agent-only
+configuration and `OPINTEL_HARNESS_CUSTODY_SQL`. It records raw MCP and local
+provider responses, verifies the grant against `describe.custody.keys`, and
+unseals locally using Node's AES-256-GCM. No console credentials are used.
+`OPINTEL_HARNESS_SECOND_POOL_KEY` enables the other-alias refusal.
+`OPINTEL_HARNESS_REVOKED_GRANT` supplies a grant revoked outside the harness.
+Use synthetic data: this deliberate recipient transcript contains the shares
+and the received values. Neither belongs in production telemetry.
+For XQ, supply `OPINTEL_XQ_API_KEY` and the named recipient's
+`OPINTEL_XQ_ACCESS_TOKEN`; FetchKey is behind the same adapter and receives
+credentials through stdin, never command arguments. This route remains
+unverified against live XQ until credentials arrive. The local lifecycle,
+expiry and unavailable-Opintel cases also run automatically in the custody
+unit/MCP/proof tests; a transcript is not a substitute for those checks.
+
+The K2-first case uses a fresh grant and a second credential. Set
+`OPINTEL_HARNESS_WAIT_FOR_EXPIRY=1` for a deliberate expiry transcript; it
+waits until the actual signed expiry rather than altering the grant. Set
+`OPINTEL_HARNESS_STOP_APPLICATION=1` only for a disposable local instance:
+the runner pauses after receiving K1 so a person can stop Opintel externally,
+then records the failed K2 transport. Missing prerequisites are recorded as
+cases not run, never as successful refusals.

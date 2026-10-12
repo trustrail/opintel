@@ -1,3 +1,4 @@
+import {writeSync} from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { createInterface } from 'node:readline';
@@ -16,7 +17,7 @@ import { DuckDBSessionEngine, type EngineSession } from '../../../sidecar/sessio
 import { SidecarTokenizer, IanaZoneResolver } from '../../../sidecar/tokenize/index.js';
 import { executionRequest } from '../../../src/shared/execution-contract.js';
 import { PostgresEvidenceWriter } from '../../../src/modules/evidence/index.js';
-import { withTenant } from '../../../src/platform/db/scope.js';
+import { withTenant,withPlatform } from '../../../src/platform/db/scope.js';
 import { queryFixture } from '../../../test/fixtures/query/fixture.js';
 
 const emit = (value: unknown) => process.stdout.write(JSON.stringify(value) + '\n');
@@ -27,9 +28,10 @@ console.warn = console.info;
 console.error = console.info;
 const native = createRequire(import.meta.url)('/work/scripts/ephemerality/infrastructure/address.node') as { address(buffer: Buffer): bigint };
 const command = z.discriminatedUnion('op', [
-  z.strictObject({ op: z.literal('start'), mode: z.enum(['engine', 'application']), controls: z.array(z.strictObject({ name: z.string(), value: z.string(), encoding: z.enum(['utf8', 'utf16le']) })).min(2) }),
+  z.strictObject({ op: z.literal('start'), mode: z.enum(['engine', 'application','custody']), configuration:z.strictObject({master:z.string().regex(/^[0-9a-f]{64}$/u),apiKey:z.string(),dashboardApiKey:z.string(),dashboardAccessToken:z.string()}).optional(),controls: z.array(z.strictObject({ name: z.string(), value: z.string(), encoding: z.enum(['utf8', 'utf16le']) })).min(2) }),
   z.strictObject({ op: z.literal('scenario'), name: z.enum(['success', 'cancel', 'deadline', 'source_failure', 'staging_failure', 'memory_pressure']) }),
   z.strictObject({ op: z.literal('resume') }), z.strictObject({ op: z.literal('expire') }),
+  z.strictObject({ op: z.literal('custody_finish'),grant:z.string(),action:z.enum(['redeemed','expired','revoked']) }),
   z.strictObject({ op: z.literal('evidence') }), z.strictObject({ op: z.literal('stop') }),
 ]);
 const allocations: Buffer[] = [];
@@ -116,8 +118,10 @@ async function start(input: Extract<z.infer<typeof command>, { op: 'start' }>): 
   await writeFile('/ingest/control/transient.bin', Buffer.from(input.controls[0]!.value));
   await unlink('/ingest/control/transient.bin');
   console.info({ event: 's4.positive-control', marker: input.controls[0]!.value });
-  if (input.mode === 'application') {
-    app = await queryFixture(new PostgresEvidenceWriter(), { security: v1.ClientSecurity.INSECURE_PLAINTEXT_CREDENTIALS, sourceLimits: { maxConnectionsPerSource: 2, statementTimeoutMs: 1000000, operationTimeoutMs: 1000000 }, queryTimeoutSeconds: 1000, sidecarDirectory: '/ingest/control/tls-config' }); stop = app.close;
+  if(input.configuration){process.env.OPINTEL_S4_CUSTODY_MASTER=input.configuration.master;process.env.OPINTEL_XQ_API_KEY=input.configuration.apiKey;process.env.OPINTEL_XQ_DASHBOARD_API_KEY=input.configuration.dashboardApiKey;process.env.OPINTEL_XQ_DASHBOARD_ACCESS_TOKEN=input.configuration.dashboardAccessToken;}
+  if (input.mode === 'application'||input.mode==='custody') {
+    app = await queryFixture(new PostgresEvidenceWriter(), {releaseCustody:input.mode==='custody',sealObserver:input.mode==='custody'?(key,first,second)=>{const flag=new Int32Array(new SharedArrayBuffer(4));writeSync(1,JSON.stringify({event:'custody_keys',gate:native.address(Buffer.from(flag.buffer)).toString(),ranges:[key,first,second].map((buffer,i)=>({name:['release_key','provider_share','opintel_share'][i],start:native.address(buffer).toString(),size:buffer.length}))})+'\n');const deadline=Date.now()+60000;while(Atomics.load(flag,0)===0){if(Date.now()>deadline)throw new Error('Custody key observation was not resumed.');Atomics.wait(flag,0,0,10);}}:undefined, security: v1.ClientSecurity.INSECURE_PLAINTEXT_CREDENTIALS, sourceLimits: { maxConnectionsPerSource: 2, statementTimeoutMs: 1000000, operationTimeoutMs: 1000000 }, queryTimeoutSeconds: 1000, sidecarDirectory: '/ingest/control/tls-config' }); stop = app.close;
+    if(input.mode==='custody')await withTenant(app.ctx,async tx=>{await tx.query("UPDATE entitlement SET treatment='custody' WHERE pool_id=$1 AND element_id=$2",[app!.pool,app!.ids[3]]);});
     emit({ event: 'ready', mode: input.mode, pid: process.pid, nodeVersion: process.versions.node, ranges, schema: app.schema, url: app.url.toString(), key: app.issued.key, session: app.transport.sessionId });
     return;
   }
@@ -196,6 +200,16 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (input.op === 'scenario') { scenario = input.name; appended = 0; emit({ event: 'configured' }); }
   if (input.op === 'resume') resume?.();
   if (input.op === 'expire') expire();
+  if(input.op==='custody_finish'){
+    if(!app?.release)throw new Error('Custody application not started');
+    const claims=JSON.parse(Buffer.from(input.grant.split('.')[1]??'','base64url').toString('utf8')) as {jti:string;exp:number};
+    if(input.action==='redeemed'){const second=await app.release.redeem(app.ctx,input.grant,`agent:${app.ctx.projectId}:${app.issued.keyVersion}`,null);if(!second.ok)throw new Error('Custody K2 redemption refused.');const first=await app.release.redeemLocal(app.ctx,input.grant,app.issued.key);if(!first.ok)throw new Error('Custody K1 redemption refused.');}
+    if(input.action==='revoked')await app.release.revoke(app.ctx,claims.jti,app.ctx.userId);
+    if(input.action==='expired')await new Promise(resolve=>setTimeout(resolve,Math.max(0,claims.exp*1000-Date.now()+20)));
+    await app.release.sweep();
+    const rows=await withTenant(app.ctx,tx=>tx.query<{share_present:boolean;state:string}>('SELECT share IS NOT NULL AS share_present,state FROM release_grant WHERE id=$1',[claims.jti]));
+    emit({event:'custody_finished',rows});
+  }
   if (input.op === 'evidence') {
     if (!app) throw new Error('Application not started');
     const evidence = await withTenant(app.ctx, async tx => {
@@ -210,6 +224,10 @@ for await (const line of createInterface({ input: process.stdin })) {
       }
       return { count: runs.length, counts, contents };
     });
+    if(app.release){
+      const tables=await withPlatform(tx=>tx.query<{name:string}>(`SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND has_table_privilege('opintel_app',c.oid,'SELECT') AND EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='project_id' AND NOT a.attisdropped)`));
+      await withTenant(app.ctx,async tx=>{for(const table of tables){const name='"'+table.name.replaceAll('"','""')+'"';const rows=await tx.query(`SELECT to_jsonb(t) AS record FROM ${name} t WHERE project_id=$1`,[app!.ctx.projectId]);evidence.counts['sink:'+table.name]=rows.length;evidence.contents.push(...rows);}});
+    }
     emit({ event: 'evidence', ...evidence });
   }
   if (input.op === 'stop') { await stop?.(); allocations.length = 0; process.exit(0); }

@@ -1,3 +1,4 @@
+import {startMeasurement} from '../../scripts/testing/performance-measurement.js';
 import { performance } from 'node:perf_hooks';
 import { expect, it } from 'vitest';
 import { compileViews } from '../../src/modules/entitlements/index.js';
@@ -13,9 +14,9 @@ it('VC-15: compiles 5,000 elements in under 200ms in isolation', () => {
     })),
   })));
   expect(input.elements).toHaveLength(5000);
-  const started = performance.now();
+  const finish=startMeasurement('VC-15');
   const result = compileViews(input);
-  const elapsed = performance.now()-started;
+  const elapsed = finish();
   console.info(`VC-15: 5,000 elements: ${elapsed.toFixed(1)}ms.`);
   const compiled = unwrap(result);
   expect(compiled.views).toHaveLength(100);

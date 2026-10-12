@@ -198,6 +198,14 @@ export async function migrateUp(
   return pending;
 }
 
+/** Uses the same migration set and checksum verification as the runner. */
+export async function pendingMigrations(client: MigrationClient, directory = migrationsDirectory): Promise<string[]> {
+  const migrations = await migrationsIn(directory);
+  const applied = await verifyAppliedChecksums(client, migrations);
+  const versions = new Set(applied.map(migration => migration.version));
+  return migrations.filter(migration => !versions.has(migration.version)).map(migration => path.basename(migration.upPath));
+}
+
 export async function migrateDown(
   client: MigrationClient,
   directory = migrationsDirectory,

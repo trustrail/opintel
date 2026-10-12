@@ -1,3 +1,4 @@
+import {startMeasurement} from '../../scripts/testing/performance-measurement.js';
 import { readFile } from 'node:fs/promises';
 import { beforeEach, afterEach, it, expect } from 'vitest';
 import { resetDatabaseBeforeEach } from '../database-fixture.js';
@@ -18,10 +19,10 @@ beforeEach(async()=>{
 },30_000);
 afterEach(async()=>{await host?.close();authorization?.close();});
 it('H-010: bulk set 500 elements through HTTP and real authorization completes under 3 seconds',async()=>{
-  const start=performance.now();
+  const finish=startMeasurement('H-010');
   const response=await host.post({...fixture.body,treatment:'clear',justification:'Approved for reporting'});
   const body:unknown=await response.json();
-  const elapsed=performance.now()-start;
+  const elapsed=finish();
   console.info(`H-010: 500 elements, HTTP through commit: ${elapsed.toFixed(1)}ms.`);
   expect(response.status).toBe(200);expect(body).toMatchObject({count:500,treatment:'clear'});
   expect(elapsed).toBeLessThan(3000);

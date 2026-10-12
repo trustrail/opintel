@@ -4,8 +4,8 @@ import {createStore,useStore} from 'zustand';
 import {Mark} from './marks.js';
 const subscribe=(notify:()=>void)=>{const media=window.matchMedia('(max-width:599px)');media.addEventListener('change',notify);return()=>media.removeEventListener('change',notify);};
 const isNarrow=()=>window.matchMedia('(max-width:599px)').matches;
-export type TreatmentValue='clear'|'masked'|'aggregate_only'|'tokenized'|'withheld'|'undecided';
-export function treatmentLabel(value:TreatmentValue){return value==='clear'?'In the clear':value.replaceAll('_',' ').replace(/^./u,c=>c.toUpperCase());}
+export type TreatmentValue='clear'|'masked'|'aggregate_only'|'tokenized'|'withheld'|'undecided'|'custody';
+export function treatmentLabel(value:TreatmentValue){return value==='custody'?'Released under custody':value==='clear'?'In the clear':value.replaceAll('_',' ').replace(/^./u,c=>c.toUpperCase());}
 export function TreatmentIndicator({value}:{value:TreatmentValue}){
  const narrow=useSyncExternalStore(subscribe,isNarrow,()=>false);
  const label=treatmentLabel(value),name=`treatment-${value==='aggregate_only'?'aggregate':value}` as const,id=useId();

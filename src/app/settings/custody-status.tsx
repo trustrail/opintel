@@ -1,0 +1,22 @@
+import {Button,LoadingState,ErrorState} from '../../shared/ui/index.js';
+import {useSettingsDisclosure} from './state.js';
+import {useCustodyAction,useCustodyProvider} from './custody-data.js';
+export function CustodyStatusRows({projectId,disabled,hasDraft}:{projectId:string;disabled:boolean;hasDraft:boolean}){
+ const query=useCustodyProvider(projectId),check=useCustodyAction(projectId,'check'),rotate=useCustodyAction(projectId,'rotate'),ui=useSettingsDisclosure();
+ if(query.isPending)return <LoadingState/>;
+ if(query.isError)return <ErrorState title="Custody status could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>;
+ const status=query.data,connection=ui.expanded[projectId+':custody.connection']??false,signing=ui.expanded[projectId+':custody.signing']??false;
+ return <>
+ {status.provider==='xq'?<>{[['API key',status.apiKeySet],['Dashboard API key',status.dashboardKeySet]].map(([label,set])=><div key={String(label)} className="frow" data-layout="setting" data-custody-credential="true"><span data-part="setting-name">{label}</span><span data-part="setting-value">{set?'Set':'Not set'}</span><span className="tr" data-part="setting-state">{label==='Dashboard API key'?(status.dashboardCheck?.status==='authenticated'?'Authenticated':status.dashboardCheck?.status==='failed'?'Check failed':set?'Check required':'Corroboration off'):'Read-only'}</span></div>)}</>:null}
+ <div data-open={connection||undefined}><div className="frow" data-layout="setting"><span data-part="setting-name">Connection</span><span data-part="setting-value">{status.available?'Passed':status.checkedAt?'Needs checking':'Not checked'}</span><span className="tr" data-part="setting-state">{status.available?'Set':'Needs setting'}</span><button type="button" className="toolchip" aria-label="Connection details" aria-expanded={connection} aria-controls="custody-connection-body" onClick={()=>ui.toggle(projectId+':custody.connection')}>{connection?'⌄':'›'}</button></div>
+ <div className="rdetail" id="custody-connection-body" hidden={!connection}>{status.provider==='xq'?<p className="note">Corroboration: not available for XQ until verified</p>:null}<p>Check the saved configuration using deployment credentials. Credentials cannot be read or edited here.</p><Button type="button" variant="ghost" disabled={disabled||hasDraft||check.isPending||!status.provider} onClick={()=>check.mutate()}>{check.isPending?'Checking…':'Check connection'}</Button>
+ {hasDraft?<p className="note">Save the custody configuration before checking it.</p>:null}
+ {check.data&&'reachable' in check.data?<p role="status" className="note">{check.data.authenticated?'Reachable · authenticated':`${check.data.reachable?'Reachable':'Not reachable'} · ${check.data.failure?.replaceAll('_',' ')??'check failed'}`}</p>:null}
+ {check.data&&'dashboard' in check.data&&check.data.dashboard?<p role="status" className="note">Dashboard key: {check.data.dashboard.status==='authenticated'?'Authenticated':check.data.dashboard.status==='not_set'?'Not set · corroboration disabled':`Failed · ${check.data.dashboard.failure?.replaceAll('_',' ')} · corroboration disabled`}</p>:null}
+ {check.isError?<p role="alert" className="note">{check.error.message}</p>:null}</div></div>
+ <div data-open={signing||undefined}><div className="frow" data-layout="setting"><span data-part="setting-name">Signing key id</span><span data-part="setting-value" className="mono">{status.signingKeyId??'Not initialized'}</span><span className="tr" data-part="setting-state">Derived</span><button type="button" className="toolchip" aria-label="Signing key details" aria-expanded={signing} aria-controls="custody-signing-body" onClick={()=>ui.toggle(projectId+':custody.signing')}>{signing?'⌄':'›'}</button></div>
+ <div className="rdetail" id="custody-signing-body" hidden={!signing}><p>Rotation increments the version. Previous public keys remain available for one grant lifetime. No private signing key is stored.</p><Button type="button" variant="ghost" disabled={disabled||hasDraft||rotate.isPending||!status.provider} onClick={()=>rotate.mutate()}>{rotate.isPending?'Rotating…':'Rotate signing key'}</Button>
+ {rotate.data&&'signingKeyId' in rotate.data?<p role="status" className="note">Signing key {rotate.data.signingKeyId} is in use.</p>:null}
+ {rotate.isError?<p role="alert" className="note">{rotate.error.message}</p>:null}</div></div>
+ </>;
+}

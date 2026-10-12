@@ -9,5 +9,5 @@ for (const directory of ['/audit', '/custody', '/ingest', '/audit/sinks', '/inge
 for (const directory of ['scripts', 'test', 'docs']) {
   await cp(directory === 'docs' ? '/work/docs' : `/work/compiled/${directory}`, `/harness/${directory}`, { recursive: true });
 }
-const child = spawn('npx', ['vitest', 'run', '--config', 'vitest.ephemerality.config.ts'], { stdio: 'inherit' });
+const child = spawn('npx', ['vitest', 'run', '--config', 'vitest.ephemerality.config.ts',...(process.env.S4_CASE?['-t',process.env.S4_CASE]:[])], { stdio: 'inherit' });
 child.on('exit', code => { process.exitCode = code ?? 1; });

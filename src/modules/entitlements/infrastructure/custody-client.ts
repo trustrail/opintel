@@ -16,7 +16,7 @@ export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
   try {
    // Refresh discovery for assignment: a cached manifest must not hide a deployment.
    const response=await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??9000));
-   if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: canonicaliser discovery requires contract 2.'));
+   if(healthContract.parse(response).contract!==3)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: canonicaliser discovery requires contract 3.'));
    return ok(healthResponse.parse(response).canonicalisers);
   }catch{return err(new DomainError('dependency_unavailable','Canonicaliser discovery failed. Check the pinned Opintel Engine connection and its health contract before assigning a canonicaliser.',undefined,true));}
  }
@@ -24,7 +24,7 @@ export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
   const parsed=custodyOperations[operation].request.safeParse(payload);if(!parsed.success)return err(new DomainError('validation_failed','Invalid custody request.'));
   const signal=AbortSignal.timeout(this.options.timeoutMs??9000);
   try{
-   if(!this.checked){const response=await this.post('/health',undefined,signal);if(healthContract.parse(response).contract!==2)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: custody requires contract 2.'));healthResponse.parse(response);this.checked=true;}
+   if(!this.checked){const response=await this.post('/health',undefined,signal);if(healthContract.parse(response).contract!==3)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: custody requires contract 3.'));healthResponse.parse(response);this.checked=true;}
    const body=custodyEnvelope.parse({requestId:randomUUID(),projectId,payload:parsed.data});
    const value=custodyOperations[operation].response.parse(await this.post('/custody/'+operation,body,signal));
    return ok(value as CustodyResponse<K>);

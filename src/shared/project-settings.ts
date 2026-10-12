@@ -1,7 +1,7 @@
 import {z} from 'zod';
 /** §5.8. Both the form and write validation consume these definitions. */
 export type SettingValue=string|number|boolean|string[];
-export type SettingDefinition={path:string;label:string;kind:'integer'|'number'|'boolean'|'enum'|'fields';min?:number;max?:number;options?:readonly string[];default?:SettingValue;effect:string;unset:string};
+export type SettingDefinition={path:string;label:string;kind:'integer'|'number'|'boolean'|'enum'|'fields'|'text';min?:number;max?:number;options?:readonly string[];default?:SettingValue;effect:string;unset:string};
 const required='Not configured; queries refused until this limit is set.';
 const discovery='Uses the safe discovery default when unset; project creation persists it explicitly.';
 export const projectSettingDefinitions:readonly SettingDefinition[]=[
@@ -24,11 +24,16 @@ export const projectSettingDefinitions:readonly SettingDefinition[]=[
  {path:'evidence.redaction',label:'Argument redaction',kind:'enum',options:['aggressive','allowlist','none'],default:'aggressive',effect:'Applied before persistence and to existing stored arguments. Redaction time and policy are recorded; removing redaction cannot restore erased arguments. Without view_unredacted permission no arguments are returned.',unset:'Uses aggressive: no arguments exposed.'},
  {path:'evidence.allowlistedFields',label:'Allowlisted argument fields',kind:'fields',default:[],effect:'Argument names, not source columns. SQL exposes structure with literals stripped. Unsupported text is hidden; raw text requires none.',unset:'No arguments exposed in allowlist mode.'},
  {path:'evidence.captureSamplingPercent',label:'Capture sampling (%)',kind:'number',min:0,max:100,effect:'Greater than 0. Pinned at run open. Only successful runs may omit detailed stages and source plans; headers, completions, element deliveries and effective token declarations remain. Refusals and failures retain full detail.',unset:'Capture 100% of detail when unset.'},
+ {path:'custody.provider',label:'Provider',kind:'enum',options:['local','xq'],effect:'Local is development only. A passed connection check is required before custody can be assigned or used.',unset:'No custody provider configured.'},
+ {path:'custody.tenant',label:'Tenant',kind:'text',effect:'XQ tenant identifier; required for XQ.',unset:'Required for XQ.'},
+ {path:'custody.region',label:'Region',kind:'text',effect:'Fallback for provider-reported jurisdiction when its redemption event carries none. No jurisdiction enforcement in this slice.',unset:'Provider jurisdiction is not recorded if absent.'},
+ {path:'custody.grant_ttl',label:'Release grant lifetime (minutes)',kind:'integer',min:1,max:2147483,default:600,effect:'Single-use custody grants expire at this deadline; a longer provider escrow cannot release K2.',unset:'Uses 600 seconds (10 minutes).'},
  {path:'poolKeyGraceSeconds',label:'Pool key rotation grace (seconds)',kind:'integer',min:3600,max:604800,default:86400,effect:'Applies to future rotations. Existing grace deadlines do not change.',unset:'Uses 86,400 seconds (24 hours).'},
  {path:'agentHeartbeatSeconds',label:'Agent heartbeat interval (seconds)',kind:'integer',min:5,max:60,default:20,effect:'Stale after three missed intervals. Idle remains 60 seconds without a request.',unset:'Uses 20 seconds.'},
  {path:'agentDisconnectGraceSeconds',label:'Agent disconnect grace (seconds)',kind:'integer',min:60,max:3600,default:300,effect:'Measured from entering stale. Disconnected twins remain visible.',unset:'Uses 300 seconds (5 minutes).'},
 ];
 export function settingSchema(d:SettingDefinition):z.ZodType<SettingValue>{
+ if(d.kind==='text')return z.string().trim().min(1).max(200);
  if(d.kind==='boolean')return z.boolean();
  if(d.kind==='enum')return z.enum(d.options as [string,...string[]]);
  if(d.kind==='fields')return z.array(z.string().trim().min(1)).refine(a=>new Set(a).size===a.length,'Field names must be unique.');
@@ -38,15 +43,16 @@ export function settingSchema(d:SettingDefinition):z.ZodType<SettingValue>{
  return schema;
 }
 export function settingDescription(d:SettingDefinition):string{
- const bounds=d.options?.join(', ')??(d.kind==='boolean'?'true or false':d.kind==='fields'?'Unique non-empty argument names':`${d.min===0?'greater than 0':d.min} to ${d.max}`);
+ const bounds=d.kind==='text'?'1 to 200 characters':d.options?.join(', ')??(d.kind==='boolean'?'true or false':d.kind==='fields'?'Unique non-empty argument names':`${d.min===0?'greater than 0':d.min} to ${d.max}`);
  return `Default: ${d.default===undefined?'none':JSON.stringify(d.default)}. Bounds: ${bounds}. ${d.effect} ${d.unset}`;
 }
 export function readSetting(settings:unknown,path:string):unknown{let value=settings;for(const key of path.split('.')){if(!value||typeof value!=='object'||Array.isArray(value))return undefined;value=(value as Record<string,unknown>)[key];}return value;}
 export function effectiveSetting(settings:unknown,path:string):SettingValue|undefined{const d=projectSettingDefinitions.find(v=>v.path===path);if(!d)throw new Error('Unknown setting');const value=readSetting(settings,path);return value===undefined?d.default:settingSchema(d).parse(value);}
 const groups:Record<string,z.ZodType>={};
-for(const section of ['discovery','query','evidence']){const shape:Record<string,z.ZodType>={};for(const d of projectSettingDefinitions.filter(v=>v.path.startsWith(section+'.')))shape[d.path.split('.')[1]!]=settingSchema(d).optional();groups[section]=z.strictObject(shape).optional();}
+for(const section of ['discovery','query','evidence','custody']){const shape:Record<string,z.ZodType>={};for(const d of projectSettingDefinitions.filter(v=>v.path.startsWith(section+'.')))shape[d.path.split('.')[1]!]=settingSchema(d).optional();groups[section]=z.strictObject(shape).optional();}
 for(const d of projectSettingDefinitions.filter(v=>!v.path.includes('.')))groups[d.path]=settingSchema(d).optional();
 export const ProjectSettings=z.strictObject(groups).superRefine((v,ctx)=>{
+ if(readSetting(v,'custody.provider')==='xq'&&!readSetting(v,'custody.tenant'))ctx.addIssue({code:'custom',path:['custody','tenant'],message:'Configure the XQ tenant before saving.'});
  if(readSetting(v,'discovery.valueSampling')===true&&readSetting(v,'discovery.sampleSize')===undefined)ctx.addIssue({code:'custom',path:['discovery','sampleSize'],message:'Configure sample size before enabling sampling.'});
  const full=readSetting(v,'evidence.fullRetentionDays'),rollup=readSetting(v,'evidence.rollupRetentionDays');
  if(typeof full==='number'&&typeof rollup==='number'&&rollup<full)ctx.addIssue({code:'custom',path:['evidence','rollupRetentionDays'],message:'Rollup retention must be at least full-record retention.'});

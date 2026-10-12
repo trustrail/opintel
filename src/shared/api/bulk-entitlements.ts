@@ -4,7 +4,7 @@ import { createApiClient } from './client.js';
 export const BulkEntitlementBody = z.strictObject({
   projectId: z.uuid(),
   elementIds: z.array(z.uuid()).min(1).refine(ids => new Set(ids).size === ids.length, 'Select each element once.'),
-  treatment: z.enum(['clear', 'tokenized', 'masked', 'aggregate_only', 'withheld']),
+  treatment: z.enum(['clear', 'tokenized', 'masked', 'aggregate_only', 'custody', 'withheld']),
   maskKind: z.enum(['last4', 'email', 'year', 'all']).nullable().default(null),
   justification: z.string().nullable().default(null),
 }).refine(value => (value.treatment === 'masked') === (value.maskKind !== null), {

@@ -1,3 +1,4 @@
+import {ReleaseRuntime,releaseRoutes} from '../../modules/release-custody/index.js';
 import {observationRoutes,PostgresObservationReader} from '../../modules/observations/index.js';
 import {PostgresSuggestions,suggestionRoutes} from '../../modules/relationships/index.js';
 import {PostgresExplainJoinCandidates} from '../../modules/evidence/index.js';
@@ -44,6 +45,7 @@ import { PostgresIntrospectionStore } from '../../modules/sources/infrastructure
 import { catalogRoutes } from '../../modules/catalog/api/tree-routes.js';
 import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/tree.js';
 import dotenv from 'dotenv';
+import {checkDevelopmentMigrations} from './development-migrations.js';
 import { apiStartupExceptionLine } from '../telemetry/exception-log.js';
 
 function loadDevelopmentEnvironment(): void {
@@ -65,6 +67,7 @@ function requiredEnvironment(name: 'REDIS_URL' | 'SPICEDB_ENDPOINT' | 'SPICEDB_T
 
 async function start(): Promise<void> {
   loadDevelopmentEnvironment();
+  await checkDevelopmentMigrations();
 
   const [
     { SessionId, SystemClock, UuidV7IdFactory },
@@ -220,14 +223,18 @@ async function start(): Promise<void> {
   sweepPresence();
   const presenceTimer=setInterval(sweepPresence,5000);presenceTimer.unref();
   const evidenceQuery=new EvidenceQuery(new PostgresEvidenceReader(),authorization,new DuckDBEvidenceText());
+  const releaseCustody=new ReleaseRuntime();
+  await releaseCustody.provisionExisting();
+  releaseCustody.start();
   const routes = [
-    ...settingsRoutes(new PostgresSettings()),
+    ...releaseRoutes(releaseCustody),
+    ...settingsRoutes(new PostgresSettings(releaseCustody)),
     ...evidenceExportRoutes(new EvidenceExportService(new PostgresEvidenceExports(),evidenceQuery,authorization)),
     ...evidenceRoutes(evidenceQuery),
     ...suggestionRoutes(new PostgresSuggestions(evidenceQuery)),
     ...dashboardRoutes(new PostgresDashboardReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
-    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(), presence)),
+    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias)), presence)),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),
@@ -256,9 +263,9 @@ async function start(): Promise<void> {
   ];
   const evidence=new PostgresEvidenceWriter();assertEvidenceWriter(evidence);
   const execution=new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),filter=new QueryPreFilter(new DuckDBQueryParser());
-  const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence);
+  const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence,releaseCustody);
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),new PostgresExplainJoinCandidates());
-  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization),query,explain);
+  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization,releaseCustody),query,explain,releaseCustody);
   mcp.start();
   const server = createHttpServer(routes, {
     agentInterface: mcp,
@@ -293,6 +300,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
+    releaseCustody.close();
     stopEvidenceMaintenance();
     clearInterval(presenceTimer);
     clearInterval(rehearsalTimer);

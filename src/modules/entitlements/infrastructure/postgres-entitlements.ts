@@ -1,3 +1,4 @@
+import {custodyAvailability} from '../../release-custody/index.js';
 import { validateCanonicaliserType } from '../application/canonicalisers.js';
 import { validateTokenizedTemporal, validateTokenDeclarations, type TemporalDeclarations, type ExposedType } from '../../catalog/index.js';
 import { validateMaskType } from '../application/mask-compatibility.js';
@@ -11,9 +12,10 @@ export class PostgresEntitlements implements EntitlementRepository {
   const [row]=await tx.query<Omit<EntitlementState,'setAt'> & {setAt:Date}>(`SELECT t.pool_id AS "poolId",t.element_id AS "elementId",t.project_id AS "projectId",t.treatment,t.mask_kind AS "maskKind",jsonb_build_object('kind',t.source_kind,'id',t.source_ref) AS "setBy",t.set_at AS "setAt",t.justification ${active} AND t.element_id=$2`,[pool,element]);
   return row ? Entitlement.decide({...row,setAt:Timestamp(row.setAt)}) : ok(null);
  });}
- set(ctx: EntitlementContext, decision: Entitlement) {
+ async set(ctx: EntitlementContext, decision: Entitlement) {
   const s=decision.state;
   if(s.projectId!==ctx.projectId)return Promise.resolve(err(new DomainError('forbidden','The entitlement belongs to another project.')));
+  if(s.treatment==='custody'&&!(await custodyAvailability(ctx.projectId)).available)return err(new DomainError('dependency_unavailable','Configure a custody provider in Settings and pass its connection check before selecting Released under custody.',{cause:'release_configuration'}));
   return withTenant(ctx,async tx=>{
    // Share the source/element locks used by archive and introspection so an
    // old decision cannot race a type-family invalidation or source archive.

@@ -10,7 +10,7 @@ import { aggregateRefusal, supportsEstimate, withGroupCount, validGroupCount } f
 import {queryEngineBuild} from './engine-build.js';
 export {queryEngineBuild} from './engine-build.js';
 export type TreatmentEvidence={aggregateMinGroupSize:number;stage2Required:boolean;stage2Ran:boolean};
-export type InspectedRows=SessionRows&{queryEngineVersion:string;treatmentEvidence:TreatmentEvidence;truncated?:boolean};
+export type InspectedRows=SessionRows&{queryEngineVersion:string;treatmentEvidence:TreatmentEvidence;truncated?:boolean;custodyIndices?:number[]};
 const equalObject=(a:PoolNamespace['objects'][number],b:PoolNamespace['objects'][number])=>
  foldIdentifier(a.catalog)===foldIdentifier(b.catalog)&&foldIdentifier(a.schema)===foldIdentifier(b.schema)&&foldIdentifier(a.name)===foldIdentifier(b.name);
 
@@ -104,7 +104,7 @@ export class InspectedSessionExecutor {
     }
     const truncated=options.rowLimit!==undefined&&rows.rows.length>options.rowLimit;
     if(truncated)rows.rows.length=options.rowLimit!;
-    return ok({...rows,queryEngineVersion:version,treatmentEvidence:evidence,...(options.rowLimit!==undefined?{truncated}:{})});
+    return ok({...rows,...(boundTreatment.value.custodyIndices?{custodyIndices:boundTreatment.value.custodyIndices}:{}),queryEngineVersion:version,treatmentEvidence:evidence,...(options.rowLimit!==undefined?{truncated}:{})});
    }finally{handle.close();}
   },options.signal,options.stage?async(privileged,agent)=>{const staged=await options.stage!(privileged,agent);return staged.ok?undefined:staged;}:undefined);
   }catch(error){

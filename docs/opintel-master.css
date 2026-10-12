@@ -1079,6 +1079,18 @@
 
 #opintel-app .screen[data-layout="activity"] [data-part="activity-toolbar"] .pick .inp{width:112px;min-width:0;padding:0 10px;border:0;border-radius:0;font-size:12.5px}
 
+/* Custody summary and its preceding text stay on whole-pixel line boxes.
+   Fractional subtitle/toolbar heights otherwise propagate into request rows. */
+#opintel-app .screen[data-layout="activity"]:has(> [aria-label="Custody receipt summary"]) > .sub {
+  line-height:21px;
+}
+#opintel-app .screen[data-layout="activity"]:has(> [aria-label="Custody receipt summary"]) > .filters > .note {
+  line-height:20px;
+}
+#opintel-app .screen[data-layout="activity"] > [aria-label="Custody receipt summary"] {
+  line-height:20px; min-height:20px;
+}
+
 #opintel-app .screen[data-layout="activity"] [data-part="day-outcomes"]:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 
 /* 5.33: approved Dashboard geometry; existing classes and tokens. */
@@ -1167,6 +1179,7 @@
 #opintel-app .screen[data-layout="settings"] .card-h{padding:10px 16px;background:var(--surface-2)}
 #opintel-app .screen[data-layout="settings"] .card-h h2{font-size:13px;font-weight:650}
 #opintel-app .screen[data-layout="settings"] .frow[data-layout="setting"]{display:grid;grid-template-columns:minmax(0,1fr) 180px 110px 28px;gap:14px;padding:10px 16px;border-bottom:1px solid var(--rule);min-height:42px}
+@media(min-width:821px){#opintel-app .screen[data-layout="settings"] .frow[data-layout="setting"][data-custody-credential="true"]{grid-template-columns:minmax(0,1fr) 180px max-content 28px}}
 #opintel-app .screen[data-layout="settings"] [data-part="setting-name"]{font-size:13.5px;font-weight:560;line-height:1.5}
 #opintel-app .screen[data-layout="settings"] [data-part="setting-value"]{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 #opintel-app .screen[data-layout="settings"] [data-part="setting-value"] em{font-style:normal;font-size:12px;color:var(--ink-3);margin-left:5px}

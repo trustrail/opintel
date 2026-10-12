@@ -1,7 +1,9 @@
 import {expect,type Page,type TestInfo} from '@playwright/test';
+import {waitForActivityData} from './capture-readiness.js';
 
 /** Preconditions shared by every committed page snapshot. */
 export async function prepareCapture(page:Page,info:TestInfo,name:string){
+ const initialActivityData=await waitForActivityData(page);
  await page.mouse.move(0,0);
  await page.evaluate(()=>document.fonts.ready);
  const pausedAnimations=await page.evaluate(async()=>{
@@ -26,6 +28,8 @@ export async function prepareCapture(page:Page,info:TestInfo,name:string){
  });
  await page.evaluate(()=>window.scrollTo(0,0));
  await page.waitForFunction(()=>window.scrollY===0);
+ const settledActivityData=await waitForActivityData(page);
+ const activityData=settledActivityData?{...settledActivityData,pendingAtStart:initialActivityData?.pendingAtStart??[]}:null;
  const metadata=await page.evaluate(()=>({
   mouse:{x:0,y:0},fonts:document.fonts.status,
   animations:document.getAnimations().length,
@@ -33,7 +37,7 @@ export async function prepareCapture(page:Page,info:TestInfo,name:string){
   scrollY:window.scrollY,
   url:location.href,viewport:{width:innerWidth,height:innerHeight},
  }));
- const captureMetadata={...metadata,pausedAnimations};
+ const captureMetadata={...metadata,pausedAnimations,activityData};
  await info.attach('capture-'+name,{body:JSON.stringify(captureMetadata,null,2),contentType:'application/json'});
  expect(metadata.fonts).toBe('loaded');
  expect(metadata.finiteAnimations).toBe(0);

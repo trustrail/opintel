@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     server: {
+      port: 5173,
+      strictPort: true,
       proxy: {
         '/auth/oidc': { target: `http://localhost:${apiPort}`, changeOrigin: true },
         '/api': { target: `http://localhost:${apiPort}`, changeOrigin: true },

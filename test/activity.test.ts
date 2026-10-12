@@ -4,7 +4,7 @@ import {beforeEach,afterEach,it,expect} from 'vitest';
 import {createHttpServer} from '../src/platform/http/index.js';
 import {evidenceRoutes} from '../src/modules/evidence/api/routes.js';
 import {EvidenceQuery,PostgresEvidenceReader,DuckDBEvidenceText} from '../src/modules/evidence/index.js';
-import {ActivityPage,EvidenceDetail} from '../src/shared/api/activity.js';
+import {ActivityPage,ActivitySummary,EvidenceDetail} from '../src/shared/api/activity.js';
 import {withTenant,withPlatform} from '../src/platform/db/scope.js';
 import {Timestamp} from '../src/shared/kernel/index.js';
 import type {AuthorizationPort,AuthorizationRevision} from '../src/modules/authz/index.js';
@@ -101,4 +101,20 @@ it('RED-017: refusal projection withholds arbitrary native messages and preserve
   await tx.query("INSERT INTO token_join_candidate(id,run_id,project_id,pool_id,left_element_id,right_element_id,left_name,right_name,agent_id,statement,attempted_at) VALUES($1,$1,$2,$3,$4,$5,'warehouse.public.left.id','warehouse.public.right.id','agent','literal-sentinel-value',$6)",[h.id,f.ctx.projectId,f.pool,left,right,h.startedAt]);
  });authorized=false;
  const raw=await (await fetch(detailUrl(h))).text();expect(raw).not.toContain('sentinel-value');const detail=EvidenceDetail.parse(JSON.parse(raw));expect(detail.metadata.refusal).toMatchObject({stage:'validate',candidate:{id:h.id,columns:[{elementId:left},{elementId:right}]}});expect(detail.metadata.refusal?.message).toContain('administrator');
+});
+
+it('REL-011: custody rollup counts receipt states and first-hand origins in UTC, not provider corroborations or later revoke events',async()=>{
+ await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
+ for(const state of ['redeemed','expired','revoked'] as const){
+  const h=await header('SELECT custody_column','2026-10-06T00:00:00Z'),grant=randomUUID();
+  await withTenant(f.ctx,async tx=>{
+   await tx.query("INSERT INTO release_grant(id,project_id,scope_user_id,receipt_id,claims,grant_jws,expires_at,share,state) VALUES($1,$2,$3,$4,'{}','test-only',now(),NULL,$5)",[grant,f.ctx.projectId,f.ctx.userId,h.id,state]);
+   await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,occurred_at,alias,jur_observed) VALUES($1,$2,$3,$4,'2026-10-05T20:05:00-04:00','test-alias',$5)",[f.ctx.projectId,grant,h.id,state,state==='redeemed'?'2001:db8::1':null]);
+   await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,occurred_at,alias) VALUES($1,$2,$3,'granted','2026-10-06T00:00:01Z','test-alias')",[f.ctx.projectId,grant,h.id]);
+   if(state==='redeemed')for(const kind of ['provider_redeemed','revoked'])await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,occurred_at,alias,jur_observed) VALUES($1,$2,$3,$4,'2026-10-06T00:06:00Z','test-alias','provider-region')",[f.ctx.projectId,grant,h.id,kind]);
+  });
+ }
+ const summary=ActivitySummary.parse(await(await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary`)).json());
+ expect(summary.custody).toEqual([{day:'2026-10-06',state:'expired',origin:null,count:1},{day:'2026-10-06',state:'granted',origin:null,count:3},{day:'2026-10-06',state:'redeemed',origin:'2001:db8::1',count:1},{day:'2026-10-06',state:'revoked',origin:null,count:1}]);
+ const absent=ActivitySummary.parse(await(await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary?poolId=${randomUUID()}`)).json());expect(absent.custody).toEqual([]);
 });

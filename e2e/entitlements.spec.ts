@@ -14,7 +14,7 @@ for(const width of [390,900,1440])test(`Entitlements tree and bulk bar at ${widt
 test('H-009 UI: no reset or undecided treatment; clear needs justification and saves selected decisions',async({page})=>{
  const state=await mock(page);await page.goto(`/projects/${project}/entitlements`);await expand(page);
  await expect(page.getByRole('treeitem').filter({has:page.getByText('field_0000',{exact:true})}).getByRole('img',{name:'Undecided',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/reset/i})).toHaveCount(0);
- await page.getByLabel('Select field_0000',{exact:true}).check();const selector=page.getByLabel('Treatment',{exact:true});expect(await selector.locator('option').evaluateAll(options=>options.map(o=>(o as HTMLOptionElement).value))).toEqual(['clear','tokenized','masked','aggregate_only','withheld']);
+ await page.getByLabel('Select field_0000',{exact:true}).check();const selector=page.getByLabel('Treatment',{exact:true});expect(await selector.locator('option').evaluateAll(options=>options.map(o=>(o as HTMLOptionElement).value))).toEqual(['clear','tokenized','masked','aggregate_only','custody','withheld']);
  await selector.selectOption('clear');const apply=page.getByRole('button',{name:'Apply to selection',exact:true});await expect(apply).toBeDisabled();await page.getByLabel('Justification (required)').fill('   ');await expect(apply).toBeDisabled();await page.getByLabel('Justification (required)').fill('Reporting review');await apply.click();await expect(page.getByRole('status').filter({hasText:'entitlement decisions saved.'})).toHaveText('1 entitlement decisions saved.');expect(state.commands[0]?.body).toMatchObject({treatment:'clear',justification:'Reporting review',projectId:project});expect(state.commands[0]?.key).toBeTruthy();
  await expect(page.getByRole('treeitem').filter({has:page.getByText('field_0000',{exact:true})}).getByRole('img',{name:'In the clear',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'View DDL',exact:true})).toHaveCount(0);await expect(page.locator('pre.code')).toHaveCount(0);expect(state.viewRequests).toBe(0);await accessible(page);
@@ -51,7 +51,7 @@ for(const width of [390,900,1440])test('RED-008: tree identity labels and compac
  const tree=page.getByRole('tree',{name:'Entitlements'});
  const labels=tree.locator('[data-part=identity] > b');await expect(labels.first()).toBeVisible();
  for(const label of await labels.all()){await expect(label).toHaveCSS('font-size','13.5px');await expect(label).toHaveCSS('font-weight',await label.evaluate(el=>el.closest('[data-row]')?.getAttribute('data-row')==='entitlement-member'?'560':'650'));}
- const summary=page.getByRole('region',{name:'Decision distribution'});await expect(summary.locator('.bar')).toHaveCount(1);await expect(summary.locator('.speclegend > div')).toHaveCount(6);
+ const summary=page.getByRole('region',{name:'Decision distribution'});await expect(summary.locator('.bar')).toHaveCount(1);await expect(summary.locator('.speclegend > div')).toHaveCount(7);
  await expect(summary.getByText('7 members',{exact:true})).toBeVisible();await expect(summary.locator('h1,h2,h3,p,footer')).toHaveCount(0);
  await expect(summary.locator('..')).toContainText('Entitlements');
  await accessible(page);

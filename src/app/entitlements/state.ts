@@ -2,8 +2,8 @@ import { createStore } from 'zustand/vanilla';
 export type Branch = { parent: string; prefix: string; cursors: (string | undefined)[] };
 export function createEntitlementsState() {
   return createStore<{
-    pendingGroup:string|null;queueGroup:(group:string|null)=>void;namePrefix:string;filterName:(prefix:string)=>void;groupMembers:Record<string,string[]>; rememberMembers:(members:readonly {id:string;group:string}[])=>void; selected: ReadonlySet<string>; treatment: 'clear'|'tokenized'|'masked'|'aggregate_only'|'withheld'; maskKind:'all'|'last4'|'email'|'year'; justification:string; requestKey:string;
-    check:(ids:string[],checked:boolean)=>void; clearSelection:()=>void; form:(patch:Partial<{treatment:'clear'|'tokenized'|'masked'|'aggregate_only'|'withheld';maskKind:'all'|'last4'|'email'|'year';justification:string}>)=>void;
+    pendingGroup:string|null;queueGroup:(group:string|null)=>void;namePrefix:string;filterName:(prefix:string)=>void;groupMembers:Record<string,string[]>; rememberMembers:(members:readonly {id:string;group:string}[])=>void; selected: ReadonlySet<string>; treatment: 'clear'|'tokenized'|'masked'|'aggregate_only'|'custody'|'withheld'; maskKind:'all'|'last4'|'email'|'year'; justification:string; requestKey:string;
+    check:(ids:string[],checked:boolean)=>void; clearSelection:()=>void; form:(patch:Partial<{treatment:'clear'|'tokenized'|'masked'|'aggregate_only'|'custody'|'withheld';maskKind:'all'|'last4'|'email'|'year';justification:string}>)=>void;
     branches: Record<string, Branch>; expanded: Record<string, boolean>; searchParent: string; scrollTop: number;
     toggle: (id: string) => void; search: (parent: string, prefix: string) => void;
     select: (parent: string) => void; more: (parent: string, cursor: string) => void; scroll: (top: number) => void;

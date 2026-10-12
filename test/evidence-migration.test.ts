@@ -9,7 +9,7 @@ it('046 down/up/down/up recreates monthly partitions with forced RLS and append-
  try {
   await db.query('BEGIN');
   // Empty isolated fixture: guards stay active, and dependants unwind first.
-  for(const migration of ['065_relationship_review','061_explain_join_candidates','060_token_join_candidates','052_evidence_lifecycle'])await db.query(await readFile(`migrations/${migration}.down.sql`,'utf8'));
+  for(const migration of ['068_release_cleanup_scope','067_release_custody','065_relationship_review','061_explain_join_candidates','060_token_join_candidates','052_evidence_lifecycle'])await db.query(await readFile(`migrations/${migration}.down.sql`,'utf8'));
   for(let attempt=0;attempt<2;attempt++) {
    await db.query(down);expect((await db.query("SELECT to_regclass('query_run') AS table")).rows).toEqual([{table:null}]);
    await db.query(up);

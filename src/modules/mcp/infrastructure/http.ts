@@ -1,3 +1,5 @@
+import type {ReleaseRuntime} from '../../release-custody/index.js';
+import {releaseRedeemInput} from '../../../shared/release-contract.js';
 import type { ExplainTool } from '../application/explain.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
@@ -21,10 +23,10 @@ const fingerprint = (principal: McpPrincipal) => JSON.stringify(principal.pool.m
 export class McpHttpServer implements PoolKeyHttpEndpoint {
  readonly permission = 'pool-key' as const;
  private readonly sessions = new Map<string, Session>();
- private readonly context = new AsyncLocalStorage<{principal:McpPrincipal;signal:AbortSignal}>();
+ private readonly context = new AsyncLocalStorage<{principal:McpPrincipal;signal:AbortSignal;origin:string|null}>();
  private timer: ReturnType<typeof setInterval> | undefined;
  private refreshing = false;
- constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool,private readonly queryTool?:QueryTool,private readonly explainTool?:ExplainTool) {}
+ constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool,private readonly queryTool?:QueryTool,private readonly explainTool?:ExplainTool,private readonly custody?:ReleaseRuntime) {}
  start() {
   this.timer ??= setInterval(() => { void this.refresh().catch(() => { console.warn({event:'mcp.refresh_failed',category:'dependency_unavailable'}); }); }, 1000);
   this.timer.unref();
@@ -73,17 +75,24 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
    const caller = this.context.getStore()?.principal;
    if (!caller) throw new Error('Missing authenticated MCP request context.');
-   return {tools:listedTools(caller.pool.modes).map(tool=>ToolSchema.parse(toolDescriptor(tool)))};
+   const custodyConfigured=await this.custody?.isConfigured(caller.pool.projectId);
+   return {tools:listedTools(caller.pool.modes).filter(t=>t.name!=='opintel.redeem'||custodyConfigured).map(tool=>ToolSchema.parse(toolDescriptor(tool)))};
   });
   server.setRequestHandler(CallToolRequestSchema, async (request,extra) => {
    const caller = this.context.getStore()?.principal;
    if (!caller) throw new Error('Missing authenticated MCP request context.');
    const tool = listedTools(caller.pool.modes).find(candidate=>candidate.name===request.params.name);
-   if (!tool) {
+   const custodyConfigured=tool?.name==='opintel.redeem'?await this.custody?.isConfigured(caller.pool.projectId):true;
+   if (!tool||!custodyConfigured) {
     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:'unknown_tool'});
     throw new McpError(ErrorCode.InvalidParams,'Unknown tool.');
    }
    const input = tool.input.safeParse(request.params.arguments ?? {});
+   if(input.success&&tool.name==='opintel.redeem'&&this.custody){
+    if(!caller.custodyAlias)return refusalResponse(new DomainError('forbidden','This credential has no custody alias.',{cause:'release_configuration'}));
+    const result=await this.custody.redeem({projectId:caller.pool.projectId,userId:caller.scopeUserId},releaseRedeemInput.parse(input.data).grant,caller.custodyAlias,this.context.getStore()?.origin??null);
+    return result.ok?{content:[{type:'text' as const,text:JSON.stringify(result.value)}],structuredContent:result.value}:refusalResponse(result.error);
+   }
    if(input.success&&tool.name==='opintel.query'&&this.queryTool){
     try{const result=await this.queryTool.query(caller,input.data,AbortSignal.any([extra.signal,this.context.getStore()!.signal]));
      if(result.ok)return queryResponse(result.value);
@@ -125,7 +134,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
  async handle(request: IncomingMessage, response: ServerResponse, requestId: string): Promise<void> {
   let created: Session | undefined;
   try {
-   const rawProject = new URL(request.url ?? '/', 'http://localhost').pathname.match(/^\/mcp\/v1\/p\/([^/]+)$/u)?.[1];
+   const rawProject = new URL(request.url ?? '/', 'http://localhost').pathname.match(/^\/mcp\/v1\/p\/([^/]+)(?:\/custody\/local)?$/u)?.[1];
    const project = z.uuid().safeParse(rawProject);
    if (!project.success) { this.failure(response,requestId,401,'unauthenticated','The pool key is not valid.'); return; }
    const auth = await this.access.authenticate(ProjectId(project.data),request.headers.authorization,request.headers['x-opintel-agent-id']);
@@ -134,6 +143,16 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    // Reject them rather than accepting a cross-origin request by default.
    if (request.headers.origin) { this.failure(response,requestId,403,'forbidden','Browser origins are not accepted by the agent interface.'); return; }
    const principal = auth.value;
+   if(new URL(request.url??'/','http://localhost').pathname.endsWith('/custody/local')){
+    if(request.method!=='POST'||!this.custody){this.failure(response,requestId,404,'not_found','The local custody provider is unavailable.');return;}
+    const chunks:Buffer[]=[];let size=0;for await(const chunk of request){const b=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);size+=b.length;if(size>16384){this.failure(response,requestId,413,'validation_failed','The release grant is too large.');return;}chunks.push(b);}
+    let input;try{input=releaseRedeemInput.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);}catch{this.failure(response,requestId,400,'validation_failed','Invalid release grant request.');return;}
+    if(!input.success){this.failure(response,requestId,400,'validation_failed','Invalid release grant request.');return;}
+    const credential=(request.headers.authorization??'').replace(/^Bearer /iu,'');
+    const result=await this.custody.redeemLocal({projectId:principal.pool.projectId,userId:principal.scopeUserId},input.data.grant,credential);
+    if(!result.ok){this.failure(response,requestId,403,result.error.code,result.error.message);return;}
+    response.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});response.end(JSON.stringify(result.value));return;
+   }
    const id = request.headers['mcp-session-id'];
    let session = typeof id==='string' ? this.sessions.get(id) : undefined;
    if (id !== undefined && (!session || session.principal.pool.id!==principal.pool.id || session.principal.pool.projectId!==principal.pool.projectId)) {
@@ -167,7 +186,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    response.setHeader('cache-control','no-store');
    const disconnected=new AbortController();
    const abort=()=>{if(!response.writableFinished)disconnected.abort();};response.once('close',abort);if(response.destroyed)disconnected.abort();
-   try{await this.context.run({principal,signal:disconnected.signal},()=>session!.transport.handleRequest(request,response,body));}
+   try{await this.context.run({principal,signal:disconnected.signal,origin:request.socket.remoteAddress??null},()=>session!.transport.handleRequest(request,response,body));}
    finally{response.removeListener('close',abort);}
   } catch {
    if (!response.headersSent) this.failure(response,requestId,503,'dependency_unavailable','The agent interface is temporarily unavailable.');

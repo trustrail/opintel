@@ -31,7 +31,7 @@ export async function demoPack(command: string, projectArg: string, userArg: str
   if (command === 'prepare') {
     const preparedEngineId=options.engineId??(process.env.DEMO_ENGINE_ID?EngineId(process.env.DEMO_ENGINE_ID):undefined);
     if(!preparedEngineId)throw new Error('Prepare requires DEMO_ENGINE_ID naming a verified engine in this project.');
-    const [registeredEngine]=await withTenant(ctx,tx=>tx.query('SELECT id FROM engine WHERE id=$1 AND verified_at IS NOT NULL AND contract_version=2',[preparedEngineId]));
+    const [registeredEngine]=await withTenant(ctx,tx=>tx.query('SELECT id FROM engine WHERE id=$1 AND verified_at IS NOT NULL AND contract_version=3',[preparedEngineId]));
     if(!registeredEngine)throw new Error('The selected demo engine is not verified in this project.');
     await prepareSidecarDevelopment(dirname(serviceFile));
     const credentialRef = SecretRef('secret://demo/postgres');

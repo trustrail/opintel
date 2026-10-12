@@ -123,6 +123,7 @@ services:
     cap_add: [SYS_PTRACE]
     command: [node, scripts/ephemerality/infrastructure/controller.mjs]
     environment:
+      S4_CASE: ${OPINTEL_S4_CASE:-}
       S4_LINUX: "1"
       PYTHONDONTWRITEBYTECODE: "1"
       UV_USE_IO_URING: "0"

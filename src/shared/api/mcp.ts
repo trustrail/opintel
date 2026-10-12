@@ -1,9 +1,10 @@
 import {QueryRefusalMetadata} from './query-refusal.js';
 import { z } from 'zod';
+import {releaseBundle,releaseDescription,releaseRedeemInput,releaseRedeemOutput} from '../release-contract.js';
 
 export const DescribeInput = z.strictObject({ object: z.string().optional() });
-export const DescribeOutput = z.strictObject({ objects: z.array(z.strictObject({
- name: z.string(), columns: z.array(z.strictObject({ name: z.string(), type: z.string(), treatment: z.enum(['clear','tokenized','masked','aggregate_only']) })), withheld: z.array(z.string()),
+export const DescribeOutput = z.strictObject({ custody:releaseDescription.optional(),objects: z.array(z.strictObject({
+ name: z.string(), columns: z.array(z.strictObject({ name: z.string(), type: z.string(), treatment: z.enum(['clear','tokenized','masked','aggregate_only','custody']) })), withheld: z.array(z.string()),
 })) });
 export const ExplainInput = z.strictObject({ sql: z.string() });
 export const ExplainOutput = z.discriminatedUnion('permitted', [
@@ -11,13 +12,14 @@ export const ExplainOutput = z.discriminatedUnion('permitted', [
  z.strictObject({ permitted: z.literal(false), reason: z.string(), code: z.string() }),
 ]);
 export const QueryInput = z.strictObject({ sql: z.string(), maxRows: z.number().int().positive().optional() });
-export const QueryOutput = z.strictObject({ columns: z.array(z.strictObject({ name: z.string(), type: z.string() })), rows: z.array(z.array(z.unknown())), truncated: z.boolean(), evidenceId: z.string() });
+export const QueryOutput = z.strictObject({ custody:z.array(releaseBundle).optional(), columns: z.array(z.strictObject({ name: z.string(), type: z.string() })), rows: z.array(z.array(z.unknown())), truncated: z.boolean(), evidenceId: z.string() });
 
 // Shared by the server's listing, request validation and future tool clients.
 export const mcpTools = [
  { name: 'opintel.describe', description: 'Describe the objects and decisions available to this pool.', mode: null, input: DescribeInput, output: DescribeOutput },
  { name: 'opintel.explain', description: 'Check a SQL question without reading source data.', mode: null, input: ExplainInput, output: ExplainOutput },
  { name: 'opintel.query', description: 'Query data under this pool’s entitlements.', mode: 'query', input: QueryInput, output: QueryOutput },
+ {name:'opintel.redeem',description:'Redeem an Opintel release grant for its single-use key share. Requires the credential named by the grant.',mode:null,input:releaseRedeemInput,output:releaseRedeemOutput},
 ] as const;
 export function listedTools(modes: { query: boolean; prompt: boolean }) {
  return mcpTools.filter(tool => tool.mode === null || modes[tool.mode]);
@@ -30,6 +32,7 @@ export function mcpOpenApiDocument() {
   components: { securitySchemes: { poolKey: { type: 'http', scheme: 'bearer' } }, schemas: {
    DescribeInput: z.toJSONSchema(DescribeInput), DescribeOutput: z.toJSONSchema(DescribeOutput),
    ExplainInput: z.toJSONSchema(ExplainInput), ExplainOutput: z.toJSONSchema(ExplainOutput),
+   ReleaseRedeemInput:z.toJSONSchema(releaseRedeemInput),ReleaseRedeemOutput:z.toJSONSchema(releaseRedeemOutput),
    QueryRefusalMetadata:z.toJSONSchema(QueryRefusalMetadata),
    QueryInput: z.toJSONSchema(QueryInput), QueryOutput: z.toJSONSchema(QueryOutput),
   } },

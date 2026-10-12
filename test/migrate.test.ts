@@ -6,6 +6,7 @@ import {
   migrateDown,
   migrateUp,
   migrationStatus,
+  pendingMigrations,
   type MigrationClient,
   type MigrationReporter,
 } from '../src/platform/db/migrate.js';
@@ -101,6 +102,17 @@ describe('migration runner', () => {
     await writeFile(filename, "export default async function up(client) { await client.query('SELECT 1'); }\n");
     await migrateDown(client, directory, silentReporter);
     expect(await migrationStatus(client)).toHaveLength(1);
+  });
+
+  it('reports the real pending file set and verifies applied checksums', async () => {
+    const directory = await copiedFixture('success');
+    const client = new FakeMigrationClient();
+    const pending = await pendingMigrations(client, directory);
+    expect(pending.length).toBeGreaterThan(0);
+    await migrateUp(client, directory, silentReporter);
+    expect(await pendingMigrations(client, directory)).toEqual([]);
+    await appendFile(path.join(directory, pending[0]!), '\n-- edited applied migration');
+    await expect(pendingMigrations(client, directory)).rejects.toThrow('Checksum mismatch');
   });
 
   it('applies a migration once and treats a second up as a no-op', async () => {

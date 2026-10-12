@@ -41,9 +41,10 @@ export function CardHeader({ title, meta, children }: CardHeaderProps): ReactNod
   return <header className="card-h"><h2>{title}</h2>{meta === undefined ? children : <span className="meta">{meta}</span>}</header>;
 }
 
-export type TreatmentKind = 'clear' | 'tokenized' | 'masked' | 'reference' | 'aggregate' | 'withheld' | 'undecided';
+export type TreatmentKind = 'clear' | 'tokenized' | 'masked' | 'reference' | 'aggregate' | 'withheld' | 'undecided' | 'custody';
 
 const treatmentClass: Readonly<Record<TreatmentKind, string>> = {
+  custody: '',
   clear: 'clear',
   tokenized: 'token',
   masked: 'mask',
@@ -54,6 +55,7 @@ const treatmentClass: Readonly<Record<TreatmentKind, string>> = {
 };
 
 const treatmentLabel: Readonly<Record<TreatmentKind, string>> = {
+  custody: 'Released under custody',
   clear: 'In the clear',
   tokenized: 'Tokenized',
   masked: 'Masked',

@@ -1,9 +1,11 @@
+import {observeCaptureRequests} from './capture-readiness.js';
 import {inspectMarkPlacement} from './conformance/mark-placement.js';
 import {observeConformance} from './conformance/fixture.js';
 import {test as base,expect} from '@playwright/test';
 
 /** Enforce the screen navigation contract across every browser-test state. */
-export const test=base.extend<{screenNavigationContract:void;controlConformance:void;visualClock:void;markPlacement:void}>({
+export const test=base.extend<{screenNavigationContract:void;controlConformance:void;visualClock:void;markPlacement:void;captureRequests:void}>({
+ captureRequests:[async({page},use)=>{const stop=observeCaptureRequests(page);try{await use();}finally{stop();}},{auto:true}],
  markPlacement:[async({context},use,testInfo)=>{
   const findings=new Set<string>();
   // Conformance observes every committed state; other suites check final markup.

@@ -1,3 +1,6 @@
+import {warmedLookupClient,warmPerformanceProcess} from '../../scripts/testing/performance-warmup.js';
+import {datastoreSnapshot} from '../../scripts/testing/spicedb-datastore.js';
+import {startMeasurement} from '../../scripts/testing/performance-measurement.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { v1 } from '@authzed/authzed-node';
@@ -18,11 +21,12 @@ beforeAll(async () => {
   const token = process.env.SPICEDB_TOKEN;
   if (!endpoint || !token) throw new Error('SpiceDB is required. Run npm run dev:up.');
   port = new SpiceDbAuthorizationPort({ endpoint, token, clock: new SystemClock(), stalenessCeilingMs: 0 });
-  sdk = v1.NewClient(token, endpoint, v1.ClientSecurity.INSECURE_LOCALHOST_ALLOWED);
+  await warmPerformanceProcess();
+  sdk = warmedLookupClient();
   await port.loadSchema(await readFile('docs/opintel-schema.zed', 'utf8'));
 
   // Same graph as the main E-015/E-016 functional case: 100 inherited,
-  // 50 directly granted, and 50 inaccessible projects. No lookup warm-up.
+  // 50 directly granted, and 50 inaccessible projects. The suite warm-up has opened this shared LookupResources client.
   const updates: RelationshipUpdate[] = [
     { operation: 'touch', resource: { type: 'company', id: company }, relation: 'admin', subject: { type: 'user', id: user } },
   ];
@@ -35,12 +39,14 @@ beforeAll(async () => {
 afterAll(() => { port?.close(); sdk?.close(); });
 
 it('E-016: fully consistent LookupResources across 200 projects takes under 100ms in isolation', async () => {
-  const started = performance.now();
+  const datastore=await datastoreSnapshot(sdk);
+  console.info(JSON.stringify({measurement:'E-016 datastore before lookup',totalRelationships:datastore.relationships.length,revision:datastore.revision}));
+  const finish=startMeasurement('E-016');
   const lookup = await sdk.promises.lookupResources(v1.LookupResourcesRequest.create({
     consistency: { requirement: { oneofKind: 'fullyConsistent', fullyConsistent: true } },
     resourceObjectType: 'project', permission: 'view', subject: { object: { objectType: 'user', objectId: user } },
   }));
-  const elapsed = performance.now() - started;
+  const elapsed = finish();
   console.info(`E-016: LookupResources over 200 projects: ${elapsed.toFixed(1)}ms.`);
   expect(elapsed).toBeLessThan(100);
   expect(lookup.map((item) => item.resourceObjectId).sort()).toEqual(projects.slice(0, 150).sort());

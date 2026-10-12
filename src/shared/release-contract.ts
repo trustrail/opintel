@@ -1,0 +1,14 @@
+import {z} from 'zod';
+export const sealedPrefix='opintelsealed:v1:';
+export const releaseHeader=z.strictObject({alg:z.literal('EdDSA'),kid:z.string().min(1),typ:z.literal('JWT')});
+export const releaseClaims=z.strictObject({iss:z.uuid(),sub:z.string().startsWith('agent:'),aud:z.string().min(1),jti:z.uuid(),iat:z.number().int().nonnegative(),exp:z.number().int().positive(),rcpt:z.uuid(),cols:z.array(z.string().min(1)).min(1),custody:z.strictObject({provider:z.string().min(1),tenant:z.string().min(1),provider_redeem_at:z.url(),locator:z.string().min(1),opintel_redeem_at:z.url()}),jur:z.string().optional()}).superRefine((v,ctx)=>{if(v.exp<=v.iat||v.aud!==v.custody.provider||new Set(v.cols).size!==v.cols.length)ctx.addIssue({code:'custom',message:'Inconsistent release grant.'});});
+export type ReleaseClaims=z.infer<typeof releaseClaims>;
+export const releaseGrant=z.string().regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u);
+export const releaseBundle=z.strictObject({columns:z.array(z.string()),grant:releaseGrant});
+export const releaseRedeemInput=z.strictObject({grant:releaseGrant});
+export const releaseProviderRedeemOutput=z.strictObject({share:z.string().regex(/^[A-Za-z0-9_-]{43}$/u)});
+export const releaseRedeemOutput=z.strictObject({share:z.string().regex(/^[A-Za-z0-9_-]{43}$/u),receipt:z.uuid(),grantId:z.uuid()});
+export const releaseEvent=z.strictObject({grantId:z.uuid(),receipt:z.uuid(),provider:z.string().optional(),kind:z.enum(['granted','redeemed','expired','revoked','provider_redeemed']),at:z.iso.datetime({offset:true}),alias:z.string(),actor:z.string().nullable(),reason:z.literal('provider changed').nullable().optional(),jurObserved:z.string().nullable()});
+export type ReleaseEvent=z.infer<typeof releaseEvent>;
+export const releasePublicKey=z.strictObject({kid:z.string(),kty:z.literal('OKP'),crv:z.literal('Ed25519'),x:z.string(),alg:z.literal('EdDSA'),use:z.literal('sig')});
+export const releaseDescription=z.strictObject({provider:z.string(),tenant:z.string(),credentialRequired:z.literal(true),keys:z.array(releasePublicKey)});

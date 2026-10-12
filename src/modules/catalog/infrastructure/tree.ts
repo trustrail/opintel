@@ -66,7 +66,7 @@ export class PostgresCatalogTreeReader implements CatalogTreeReader {
       }
       // Enrich the bounded page in two metadata queries, never one request per element.
       const ids=rows.map(row=>row.id);
-      const decisions=kind==='object'||kind==='element'?await tx.query<{id:string;value:'clear'|'masked'|'aggregate_only'|'tokenized'|'withheld'|'undecided';count:number}>(`SELECT ${kind==='object'?'e.object_id':'e.id'} AS id,coalesce(t.treatment,'undecided') AS value,count(*)::int AS count
+      const decisions=kind==='object'||kind==='element'?await tx.query<{id:string;value:'clear'|'masked'|'aggregate_only'|'tokenized'|'custody'|'withheld'|'undecided';count:number}>(`SELECT ${kind==='object'?'e.object_id':'e.id'} AS id,coalesce(t.treatment,'undecided') AS value,count(*)::int AS count
         FROM catalog_element e CROSS JOIN pool p LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=p.id
         WHERE ${kind==='object'?'e.object_id':'e.id'}=ANY($1::uuid[]) AND e.status='active' AND e.exposed_type IS NOT NULL AND e.exposed_name IS NOT NULL
         GROUP BY 1,2`,[ids]):[];

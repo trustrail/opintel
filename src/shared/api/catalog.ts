@@ -5,13 +5,13 @@ export const CatalogNode = z.object({
   kind: z.enum(['source', 'schema', 'object', 'element']),
   id: z.string(), label: z.string().nullable(), childCount: z.number().int().nullable(),
   schemaName: z.string().optional(), qualifiedName:z.string().optional(),
-  decisions:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided']),count:z.number().int().nonnegative()})).optional(),
+  decisions:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided', 'custody']),count:z.number().int().nonnegative()})).optional(),
   undecidedCount:z.number().int().nonnegative().optional(),
   declarations:z.object({tokenDomain:z.string().nullable(),sourceTimezone:z.string().nullable(),timezoneProvenance:z.enum(['declared','inherited','missing']),isolated:z.boolean(),declared:z.boolean()}).optional(),
   sourceType: z.string().nullable().optional(),
   exposedType: z.string().nullable(),
   unsupportedReason: z.enum(['explicitly_excluded','unmapped']).nullable().optional(),
-  state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable', 'clear', 'masked', 'tokenized', 'aggregate_only', 'mixed']).nullable(),
+  state: z.enum(['undecided', 'entitled', 'withheld', 'unsupported', 'unnameable', 'clear', 'masked', 'tokenized', 'aggregate_only', 'mixed', 'custody']).nullable(),
 });
 export type CatalogNode = z.infer<typeof CatalogNode>;
 export const CatalogTreeResponse = z.object({ nodes: z.array(CatalogNode), nextCursor: z.string().nullable() });

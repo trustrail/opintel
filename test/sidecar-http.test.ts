@@ -151,11 +151,11 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     expect(await client('records',{...options,tls:{...options.tls,certificatePin:new X509Certificate(alternate.cert).fingerprint256.replaceAll(':','')}}).testConnection(ref)).toMatchObject({ok:false});
     expect(resolveSpy).not.toHaveBeenCalled();
   });
-  it.each([0,1,3])('refuses contract %s before any source contact',async(contract)=>{
+  it.each([0,1,2])('refuses contract %s before any source contact',async(contract)=>{
     const incompatible=createSidecarServer({config,tls,connector,build:{...sidecarBuild,contract}});
     try{
       const port=await incompatible.listen();
-      expect(await client('records',{...options,baseUrl:`https://127.0.0.1:${port}`}).testConnection(ref)).toMatchObject({ok:false,error:{code:'dependency_unavailable',message:expect.stringContaining('contract 2')}});
+      expect(await client('records',{...options,baseUrl:`https://127.0.0.1:${port}`}).testConnection(ref)).toMatchObject({ok:false,error:{code:'dependency_unavailable',message:expect.stringContaining('contract 3')}});
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await incompatible.close();}
   });

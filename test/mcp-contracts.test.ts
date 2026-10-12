@@ -7,6 +7,7 @@ it('I-023: producer Zod schemas and independent consumer JSON Schema validation 
   {input:{},output:{objects:[{name:'source.public.records',columns:[{name:'id',type:'VARCHAR',treatment:'tokenized'}],withheld:['salary']}]},badInput:{object:4},badOutput:{objects:[{name:'source.public.records',columns:[{name:'secret',type:'VARCHAR',treatment:'undecided'}],withheld:[]}]}},
   {input:{sql:'SELECT id FROM records'},output:{permitted:true,objects:['records'],columns:['id'],notes:[]},badInput:{sql:false},badOutput:{permitted:false}},
   {input:{sql:'SELECT id FROM records',maxRows:10},output:{columns:[{name:'id',type:'VARCHAR'}],rows:[['token']],truncated:false,evidenceId:'run-id'},badInput:{sql:'SELECT 1',maxRows:0},badOutput:{columns:[],rows:[],truncated:false}},
+  {input:{grant:'e30.e30.c2ln'},output:{share:'A'.repeat(43),receipt:'00000000-0000-4000-8000-000000000001',grantId:'00000000-0000-4000-8000-000000000002'},badInput:{grant:'not-a-grant'},badOutput:{share:'short'}},
  ];
  for(const [index,tool] of mcpTools.entries()){
   const example=examples[index]!,wire=toolDescriptor(tool);

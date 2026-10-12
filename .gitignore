@@ -7,6 +7,8 @@ compiled/
 coverage/
 playwright-report/
 test-results/
+tmp/
+.DS_Store
 scripts/ephemerality/**/__pycache__/
 *.local
 

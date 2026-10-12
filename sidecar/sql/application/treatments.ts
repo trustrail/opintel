@@ -4,7 +4,7 @@ import * as syntax from './syntax.js';
 import { foldIdentifier, type PoolNamespace } from './subset.js';
 import { type TreatmentPolicy, type PolicyTable } from './treatment-policy.js';
 
-type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only'; threshold: number; domain?: string };
+type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only' | 'custody'; threshold: number; domain?: string };
 type Field = { name: string; references: Reference[] };
 type Relation = { qualifiers: string[][]; fields: Field[]; opaque?: boolean };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
@@ -63,7 +63,7 @@ class Inspection {
     const aliases = qualifier.length === 0 ? context.aliases?.filter(f => fold(f.name) === fold(name)) ?? [] : [];
     // Ambiguous input/output aliases are refused rather than guessing DuckDB's precedence.
     if (aliases.length && candidates.length) {
-      if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only')) !== JSON.stringify(candidates[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'))) {
+      if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'||r.treatment==='custody')) !== JSON.stringify(candidates[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'||r.treatment==='custody'))) {
         this.refuse(names.at(-1)!); return [];
       }
     }
@@ -110,7 +110,7 @@ class Inspection {
           const tokenOperation = operation ? (name.includes('~~') ? 'LIKE' : name) : name === 'count' || name === 'count_star' ? undefined : name.toUpperCase();
           // Protected aggregate references were checked at their immediate parent.
           if (tokenOperation) this.check(refs.filter(r => r.treatment === 'tokenized'), context, tokenOperation);
-          if (aggregate) return [];
+          if (aggregate) return refs.filter(r=>r.treatment==='custody');
           return refs;
         }
         case 'COMPARISON': {
@@ -132,22 +132,21 @@ class Inspection {
           if (!['COMPARE_EQUAL', 'COMPARE_NOTEQUAL'].includes(e.type)) this.check(refs, context, operation);
           // Equality and predicates produce booleans, not tokens. ORDER BY on a token
           // is still refused while visiting the operand in its original clause.
-          return [];
+          return refs.filter(r=>r.treatment==='custody');
         }
         case 'BETWEEN': {
           const e = this.read(syntax.between, value, 'BETWEEN');
           if (!e) return [];
           const refs = [e.input, e.lower, e.upper].flatMap(child => this.expression(child, { ...context, directAggregate: false }));
-          this.check(refs, context, 'BETWEEN'); return [];
+          this.check(refs, context, 'BETWEEN'); return refs.filter(r=>r.treatment==='custody');
         }
         case 'OPERATOR': case 'CONJUNCTION': {
           const e = this.read(syntax.operator, value, 'operator');
           if (!e) return [];
-          e.children.forEach(child => this.expression(child, { ...context, directAggregate: false, negated: e.type === 'OPERATOR_NOT' ? !context.negated : context.negated }));
-          return [];
+          return e.children.flatMap(child => this.expression(child, { ...context, directAggregate: false, negated: e.type === 'OPERATOR_NOT' ? !context.negated : context.negated })).filter(r=>r.treatment==='custody');
         }
         case 'CASE': {const e=this.read(syntax.caseExpression,value,'CASE');if(!e)return [];return [...e.case_checks.flatMap(c=>[c.when_expr,c.then_expr]),e.else_expr].flatMap(c=>this.expression(c,{...context,directAggregate:false}));}
-        case 'SUBQUERY': {const e=this.read(syntax.subqueryExpression,value,'SUBQUERY');if(!e)return [];if(e.child!==null)this.expression(e.child,{...context,directAggregate:false});return this.query(e.subquery.node).flatMap(f=>f.references);}
+        case 'SUBQUERY': {const e=this.read(syntax.subqueryExpression,value,'SUBQUERY');if(!e)return [];const child=e.child!==null?this.expression(e.child,{...context,directAggregate:false}).filter(r=>r.treatment==='custody'):[];return [...child,...this.query(e.subquery.node).flatMap(f=>f.references)];}
         case 'WINDOW': {
           const e = this.read(syntax.window, value, 'WINDOW');
           if (!e) return [];
@@ -296,18 +295,18 @@ class Inspection {
   }
 }
 
-export type TreatmentInspection={aggregate?: {elementId:ElementId;name:string;threshold:number}};
+export type TreatmentInspection={custodyIndices?:number[];aggregate?: {elementId:ElementId;name:string;threshold:number}};
 export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:TreatmentPolicy, tables:PolicyTable[]):Result<TreatmentInspection>{
- if(!tables.some(t=>t.columns.some(c=>c.treatment==='aggregate_only'||c.treatment==='tokenized')))return ok({});
+ if(!tables.some(t=>t.columns.some(c=>c.treatment==='aggregate_only'||c.treatment==='tokenized'||c.treatment==='custody')))return ok({});
  const i=new Inspection(tables,namespace,policy),doc=syntax.document.safeParse(tree);
  if(!doc.success)return err(new DomainError('sql_not_permitted','The Opintel Engine cannot interpret the statement.'));
  const root=doc.data.statements[0]!.node;
- i.query(root);
+ const output=i.query(root);
  if(i.failure)return err(i.failure);
  // Nested aggregation requires counts to survive the outer projection. Until
  // that transformation is supported, refuse rather than lose the disclosure check.
  if(i.aggregates.some(a=>a.node!==root))return err(new DomainError('unsupported_on_aggregate_only','Construct SELECT_NODE contains nested aggregation over an aggregate-only element. The cardinality check cannot preserve and verify the inner groups’ counts through nesting; it has not determined that those groups are below the threshold. Use a single aggregate query so group sizes can be checked.',{cause:i.aggregateNodes.has(root)?'nested_aggregation':'inner_group_counts_unverifiable',name:i.aggregates.find(a=>a.node!==root)!.reference.name,elementId:i.aggregates.find(a=>a.node!==root)!.reference.elementId,construct:'SELECT_NODE',proofCategory:'sql_not_permitted'}));
  if(i.aggregates.length){const q=syntax.select.parse(root);if(q.modifiers.some(m=>syntax.distinct.safeParse(m).success))return err(new DomainError('sql_not_permitted','Construct DISTINCT_MODIFIER over protected aggregation is not supported.',{cause:'prohibited_construct',construct:'DISTINCT_MODIFIER',proofCategory:'sql_not_permitted'}));}
  const ref=i.aggregates[0]?.reference;
- return ok(ref?{aggregate:{elementId:ref.elementId,name:ref.name,threshold:ref.threshold}}:{});
+ return ok({...(!tables.some(t=>t.columns.some(c=>c.treatment==='custody'))?{}:{custodyIndices:output.flatMap((f,index)=>f.references.some(r=>r.treatment==='custody')?[index]:[])}),...(ref?{aggregate:{elementId:ref.elementId,name:ref.name,threshold:ref.threshold}}:{})});
 }

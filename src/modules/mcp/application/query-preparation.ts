@@ -19,9 +19,9 @@ export class QueryPreparation {
    const evidence:EvidencePlan|undefined=s.evidence?{requiresTokenization:false,versions:{...s.evidence.versions},elements:[],sources:[],sourcePlan:{executionSettings:{...(s.limits?{limits:s.limits}:{}),settings:s.settings,aggregateMinGroupSize:s.aggregateMinGroupSize}},stages:[]}:undefined;
    if(evidence)capture?.(evidence);
    const health=await this.execution.health(signal,{projectId:principal.pool.projectId,userId:principal.scopeUserId,sources:s.sources.map(s=>s.id),parserOnly:true});if(!health.ok)return err(health.error);
-   const touched:ViewDefinition[]=[];const returned=new Set<ElementId>();const starOmitted=new Set<ElementId>();
+   const touched:ViewDefinition[]=[];const returned=new Set<ElementId>();const starOmitted=new Set<ElementId>();const referenced=new Set<ElementId>();
    const filterStarted=performance.now();
-   const filtered=await this.filter.inspect({sql:input.sql,queryEngineBuild:health.value.queryEngineVersion,views:s.compilation.views,omitted:s.compilation.omitted},v=>{if(!touched.includes(v))touched.push(v);},ids=>{for(const id of ids)returned.add(id);},ids=>{for(const id of ids)starOmitted.add(id);});
+   const filtered=await this.filter.inspect({sql:input.sql,queryEngineBuild:health.value.queryEngineVersion,views:s.compilation.views,omitted:s.compilation.omitted},v=>{if(!touched.includes(v))touched.push(v);},ids=>{for(const id of ids)returned.add(id);},ids=>{for(const id of ids)starOmitted.add(id);},ids=>{for(const id of ids)referenced.add(id);});
    if(evidence&&s.evidence){
     evidence.sources=s.evidence.sources.filter(source=>touched.some(v=>s.sources.find(s=>s.id===source.id)?.alias===v.catalog));
     const tokenized=touched.some(v=>v.readPlan.columns.some(c=>c.treatment==='tokenized'));
@@ -56,8 +56,8 @@ export class QueryPreparation {
    for(const view of s.compilation.views.filter(v=>touched.includes(v)))for(const column of view.columns){
     if(column.exposedName===null||column.state==='undecided')continue;
     if(column.state==='withheld'&&starOmitted.has(column.elementId))reduction.withheld.push(column.exposedName);
-    else if(returned.has(column.elementId)&&column.treatment!==null&&column.treatment!=='clear'&&column.treatment!=='withheld')reduction[column.treatment].push(column.exposedName);
+    else if(returned.has(column.elementId)&&column.treatment!==null&&column.treatment!=='clear'&&column.treatment!=='withheld')(reduction[column.treatment]??=[]).push(column.exposedName);
    }
-   return ok({executionNotes:s.executionNotes??[],request:request.data,queryEngineVersion:health.value.queryEngineVersion,reduction});
+   return ok({custodyReferenced:touched.some(v=>v.columns.some(c=>c.treatment==='custody'&&referenced.has(c.elementId))),executionNotes:s.executionNotes??[],request:request.data,queryEngineVersion:health.value.queryEngineVersion,reduction});
  }
 }

@@ -66,6 +66,7 @@ class Configuration:
 class Transcript:
     def __init__(self, behaviour: str, config: Configuration):
         self.key = config.key
+        self.secrets = [config.key]
         self.case = "connection"
         self.sequence = 0
         self.responses: list[dict[str, object]] = []
@@ -85,7 +86,7 @@ class Transcript:
     def write(self, text: str) -> None:
         # An accidental credential echo stops capture; it is never silently redacted
         # and presented as an unchanged server response.
-        if self.key in text:
+        if any(secret in text for secret in self.secrets):
             raise HarnessConfigurationError("Credential found in capture; unsafe content was not written.")
         self.file.write(text)
         self.file.flush()

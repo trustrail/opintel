@@ -62,10 +62,10 @@ export function mapSourceType(source: SourceTypeSpec): ExposedType | null {
   return Object.hasOwn(simpleTypes, name) ? simpleTypes[name] ?? null : null;
 }
 
-export type Treatment = 'clear' | 'tokenized' | 'masked' | 'aggregate_only' | 'withheld';
+export type Treatment = 'clear' | 'tokenized' | 'masked' | 'aggregate_only' | 'custody' | 'withheld';
 export function postTreatmentType(type: ExposedType | null, treatment: Treatment | null): ExposedType | null {
   if (type === null || treatment === null || treatment === 'withheld') return null;
-  return treatment === 'tokenized' || treatment === 'masked' ? 'VARCHAR' : type;
+  return treatment === 'tokenized' || treatment === 'masked' || treatment === 'custody' ? 'VARCHAR' : type;
 }
 
 export type UnsupportedReason = 'explicitly_excluded' | 'unmapped';

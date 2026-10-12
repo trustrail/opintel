@@ -14,7 +14,7 @@ import * as wire from '../../src/shared/sidecar-contract.js';
 import type { SidecarConnector } from '../application/source-connector.js';
 import type { SidecarConfig, SidecarTls } from '../config.js';
 
-export const sidecarBuild = { version: '0.1.0', contract: 2, queryEngineVersion: 'not-loaded', canonicalisers: canonicalisers.ids } as const;
+export const sidecarBuild = { version: '0.1.0', contract: 3, queryEngineVersion: 'not-loaded', canonicalisers: canonicalisers.ids } as const;
 type Route = { permission: 'pinned_application_certificate'; invoke: (body: unknown, signal: AbortSignal) => Promise<Result<unknown>>; response: z.ZodType };
 const statusFor = (code: string) => code === 'forbidden' ? 403 : code === 'validation_failed' ? 400 : code === 'conflict' ? 409 : code === 'object_unavailable' ? 404 : code === 'budget_exceeded' ? 429 : 503;
 const errorMessages: Readonly<Record<string,string>> = {

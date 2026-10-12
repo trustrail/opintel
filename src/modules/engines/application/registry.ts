@@ -31,10 +31,10 @@ export class EngineRegistry {
   const record=await this.repository.get(ctx,id);if(!record.ok)return record;
   const result=await this.probe.health(this.endpoint(record.value));
   if(!result.ok){await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:null,health:'unavailable',message:'Verification failed. Check the address, certificate pin and application TLS trust.',verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`);}
-  const matches=result.value.contract===2;
-  await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 2.',verified:matches});
+  const matches=result.value.contract===3;
+  await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
   if(matches){const current=await this.repository.get(ctx,id);if(!current.ok)return current;if(current.value.address!==record.value.address||current.value.certificatePin!==record.value.certificatePin||!current.value.verifiedAt)return engineRefusal('Engine configuration changed during verification. Test its connection again.');return current;}
-  return engineRefusal(`Engine ${record.value.name} reports contract ${result.value.contract}; this application requires contract 2.`);
+  return engineRefusal(`Engine ${record.value.name} reports contract ${result.value.contract}; this application requires contract 3.`);
  }
  async ready(ctx:EngineContext,id:EngineId){const r=await this.repository.get(ctx,id);if(!r.ok)return r;if(!r.value.verifiedAt)return engineRefusal(`Engine ${r.value.name} has not passed verification. Test its connection in Settings before assigning or using sources.`);return this.verify(ctx,id);}
  async tokenReady(ctx:EngineContext,record:EngineRecord){

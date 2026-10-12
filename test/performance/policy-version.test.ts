@@ -1,3 +1,4 @@
+import {startMeasurement} from '../../scripts/testing/performance-measurement.js';
 import { beforeEach,expect,it } from 'vitest';
 import { PostgresEntitlementReader } from '../../src/modules/entitlements/index.js';
 import { resetDatabaseBeforeEach } from '../database-fixture.js';
@@ -7,10 +8,10 @@ resetDatabaseBeforeEach('company');beforeEach(async()=>{f=await policyFixture(50
 it('H-002: a clear decision and fresh compilation complete under two seconds',async()=>{
  const reader=new PostgresEntitlementReader(),before=await f.version();
  expect(unwrap(await reader.definition(f.ctx,f.pool)).views).toEqual([]);
- const start=performance.now();
+ const finish=startMeasurement('H-002');
  const decision=await f.set('clear');
  const next=unwrap(await reader.definition(f.ctx,f.pool));
- const elapsed=performance.now()-start;
+ const elapsed=finish();
  console.info(`H-002: commit and fresh compilation of 500 clear fields: ${elapsed.toFixed(1)}ms.`);
  expect(decision.status).toBe(200);expect(await f.version()).toBe(before+1);
  expect(next.views).toHaveLength(1);expect(next.omitted).toEqual([]);

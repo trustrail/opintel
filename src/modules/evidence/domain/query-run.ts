@@ -7,7 +7,7 @@ export type RunStage = Readonly<{
 }>;
 export type ElementDelivery = Readonly<{elementId:ElementId|null;exposedName:ExposedName;withheldReason:string|null} & (
  {state:'withheld'|'undecided';treatment:null} |
- {state:'released'|'aggregated';treatment:'clear'|'tokenized'|'masked'|'aggregate_only'}
+ {state:'released'|'aggregated';treatment:'clear'|'tokenized'|'masked'|'aggregate_only'|'custody'}
 )>;
 export type RunOutcome = Readonly<
  {kind:'answered';rowCount:number;truncated:boolean} |

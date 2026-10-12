@@ -2,11 +2,12 @@ import {z} from 'zod';
 import {createApiClient} from './client.js';
 import {quarantineCategorySchema} from '../landing-contract.js';
 const count=z.number().int().nonnegative();
-export const Spectrum=z.object({clear:count,tokenized:count,masked:count,aggregate_only:count,withheld:count,undecided:count});
+export const Spectrum=z.object({custody:count.default(0),clear:count,tokenized:count,masked:count,aggregate_only:count,withheld:count,undecided:count});
 export type Spectrum=z.infer<typeof Spectrum>;
 export const DashboardStats=z.object({asOf:z.iso.datetime(),utcDay:z.iso.date(),pools:count,sources:count,spectrum:Spectrum,requests:count,queries:count,prompts:count,refused:count,incomplete:count,connectedAgents:count,staleAgents:count});
 export type DashboardStats=z.infer<typeof DashboardStats>;
 export const DashboardFinding=z.discriminatedUnion('kind',[
+ z.object({id:z.string(),kind:z.literal('custody_provider'),count}),
  z.object({id:z.string(),kind:z.literal('undecided'),poolId:z.uuid(),poolName:z.string(),sourceId:z.uuid(),sourceName:z.string(),count}),
  z.object({id:z.string(),kind:z.literal('source_failure'),sourceId:z.uuid(),sourceName:z.string(),runId:z.uuid().nullable(),message:z.string().nullable()}),
  z.object({id:z.string(),kind:z.literal('quarantine'),filingId:z.uuid(),zoneId:z.uuid(),category:quarantineCategorySchema,receivedAt:z.iso.datetime({offset:true})}),

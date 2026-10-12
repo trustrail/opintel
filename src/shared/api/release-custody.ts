@@ -1,0 +1,12 @@
+import {z} from 'zod';
+import {createApiClient} from './client.js';
+export const ReleaseRevokeInput=z.strictObject({});
+export const ReleaseRevokeOutput=z.strictObject({revoked:z.literal(true)});
+export const CustodyProviderStatus=z.strictObject({provider:z.enum(['local','xq']).nullable(),available:z.boolean(),reason:z.string().nullable(),checkedAt:z.iso.datetime().nullable(),apiKeySet:z.boolean(),dashboardKeySet:z.boolean(),dashboardCheck:z.strictObject({status:z.enum(['authenticated','failed','not_set']),failure:z.string().nullable()}).nullable().optional(),signingKeyId:z.string().nullable(),affectedColumns:z.number().int().nonnegative()});
+export const CustodyCheckResult=z.strictObject({dashboard:z.strictObject({status:z.enum(['authenticated','failed','not_set']),failure:z.enum(['credentials_missing','authentication_refused','provider_refused','unreachable','deadline_exceeded','invalid_response']).nullable()}).optional(),reachable:z.boolean(),authenticated:z.boolean(),failure:z.enum(['credentials_missing','authentication_refused','provider_refused','unreachable','deadline_exceeded','invalid_response']).nullable()});
+export const CustodyRotationResult=z.strictObject({signingKeyId:z.string()});
+export function revokeRelease(project:string,receipt:string){return createApiClient().request({path:`/api/v1/projects/${project}/releases/${receipt}/revoke`,method:'POST',body:ReleaseRevokeInput.parse({}),response:ReleaseRevokeOutput});}
+export function releaseOpenApiDocument(){
+ const routes=[['/api/v1/projects/{id}/custody-provider','get',CustodyProviderStatus,'view'],['/api/v1/projects/{id}/custody-provider/check','post',CustodyCheckResult,'administer'],['/api/v1/projects/{id}/custody-provider/rotate','post',CustodyRotationResult,'administer'],['/api/v1/projects/{id}/releases/{releaseId}/revoke','post',ReleaseRevokeOutput,'administer']] as const;
+ return {openapi:'3.1.0',info:{title:'Release custody',version:'1'},paths:Object.fromEntries(routes.map(([path,method,response,permission])=>[path,{[method]:{'x-permission':`project#${permission}`,parameters:(path.includes('{releaseId}')?['id','releaseId']:['id']).map(name=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),...(method==='post'?{requestBody:{required:true,content:{'application/json':{schema:z.toJSONSchema(ReleaseRevokeInput)}}}}:{}),responses:{200:{description:'Safe custody metadata only; never provider bodies or credentials',content:{'application/json':{schema:z.toJSONSchema(response)}}},default:{description:'Standard error envelope'}}}}]))};
+}

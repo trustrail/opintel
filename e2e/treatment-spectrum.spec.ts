@@ -3,7 +3,7 @@ import {expect,type Locator} from '@playwright/test';
 import axe from 'axe-core';
 import {mockDashboard,dashboardPath} from './dashboard-fixture.js';
 import {mock as mockEntitlements,project} from './entitlements-fixture.js';
-const order=['clear','tokenized','masked','aggregate_only','withheld','undecided'];
+const order=['clear','tokenized','masked','aggregate_only','custody','withheld','undecided'];
 async function checkSpectrum(panel:Locator){
  const bar=panel.locator('.bar');await expect(bar).toHaveAttribute('role','group');
  const segments=bar.locator('[data-treatment]'),legend=panel.locator('.speclegend > [data-treatment]');
@@ -24,7 +24,7 @@ for(const width of [390,900,1440])for(const screen of ['Dashboard','Entitlements
  if(screen==='Dashboard')await mockDashboard(page);else await mockEntitlements(page);
  await page.setViewportSize({width,height:1000});await page.goto(screen==='Dashboard'?dashboardPath:`/projects/${project}/entitlements`);
  const panel=page.getByRole('region',{name:screen==='Dashboard'?'Exposure':'Decision distribution',exact:true});
- await expect(panel.locator('.speclegend > div')).toHaveCount(6);await checkSpectrum(panel);
+ await expect(panel.locator('.speclegend > div')).toHaveCount(7);await checkSpectrum(panel);
  await page.addScriptTag({content:axe.source});expect(await page.evaluate(async()=>(await axe.run()).violations.map(v=>v.id))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

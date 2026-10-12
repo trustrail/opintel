@@ -24,6 +24,9 @@ const platformManaged: GrantContract = {
 // Explicit contracts, not an exclusion list: discovery below fails on every new
 // public table until its owning scope and privileges have been reviewed.
 const contracts: Record<string, GrantContract> = {
+ release_grant:{opintel_app:['SELECT','INSERT','UPDATE'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
+ release_event:{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
+ release_signing_key:{opintel_app:['SELECT','INSERT','UPDATE','DELETE'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
   // Trigger-owned history: tenant reads only, matching evidence_rollup.
   observation_event:{opintel_app:['SELECT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},
  token_join_review:{opintel_app:['SELECT','INSERT'],opintel_platform:[],opintel_platform_admin:['TRUNCATE']},

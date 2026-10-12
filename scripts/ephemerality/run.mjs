@@ -33,7 +33,8 @@ try {
      mounts.some(mount=>mount.writable && !['/audit','/custody','/ingest'].includes(mount.destination))) throw new Error('Shipping container controls differ from the proof contract');
   writeFileSync(reports+'/shipping-runtime.json',JSON.stringify(controls,null,2)+'\n');
   if(result.status === 0) {
-    for(const name of ['clear','treated','aggregate','cancel','deadline','source_failure','staging_failure','memory_pressure','application']) {
+    for(const name of ['clear','treated','aggregate','cancel','deadline','source_failure','staging_failure','memory_pressure','application','custody_redeemed','custody_expired','custody_revoked']) {
+      if(process.env.OPINTEL_S4_CASE&&!name.match(new RegExp(process.env.OPINTEL_S4_CASE)))continue;
       const report = JSON.parse(readFileSync(reports+'/'+name+'.json','utf8'));
       if(report.status!=='VERIFIED' || report.failures.length || report.incomplete.length) throw new Error('Incomplete scenario: '+name);
     }

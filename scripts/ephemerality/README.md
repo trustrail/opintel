@@ -129,3 +129,12 @@ application fixture adds explicit Redis/SpiceDB destinations to its network
 policy; these are test dependencies, not production-engine source hosts.
 See [deployment instructions](../../deploy/engine/README.md) for both models.
 C.5 explains why immediate erasure needs a different execution architecture.
+
+The custody cases also inject unique deployment-master, API-key, dashboard-key
+and dashboard-token markers without writing them into a fixture file. The
+controller independently derives the version-1 signing seed and scans its raw,
+hex and base64 forms. These are checked in the filesystem, observed writes,
+logs and durable evidence alongside K/K1/K2. Live environment and managed-heap
+configuration matches are reported, not suppressed or asserted erased; the
+configuration is intentionally live for the process lifetime. These local
+provider cases cover resident XQ configuration, not live XQ authentication.

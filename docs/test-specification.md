@@ -327,6 +327,8 @@ no hard-coded provider fallback and retains enabled company providers.
 
 S2b canonical identifiers map to the provisional attack list in [the accepted mapping](review/s2b-mapping.md). Run the separate project with `npm run test:bypass`. Its reviewed open-case registry reports unmet security, refusal-envelope and transport prerequisites as an owned work queue; new or changed failures fail CI. The underlying assertions remain in place. See [the runner policy](../test/bypass/README.md).
 
+The code-performance launcher starts an isolated fresh SpiceDB datastore, verifies it empty before fixtures, and deletes each fixture's relationships at teardown with verification. E-016 logs the datastore relationship count and revision before timing. The code-performance project uses steady-state budgets: K-007 cold runs before one explicit unmeasured warm-up, then budgeted measurements run serially in the same process. Warm-up opens Engine sessions and connection pools, performs an authenticated query with a durable evidence write/read and a LookupResources call; E-016 reuses that channel. Fixture/data setup and normal per-request construction remain included wherever the existing timer includes them. No retries or budget tolerance.
+
 ## S1-K · Query mode: end to end
 
 | ID | Type | Case | Expected |
@@ -337,7 +339,7 @@ S2b canonical identifiers map to the provisional attack list in [the accepted ma
 | K-004 | F | Aggregate over an `aggregate_only` element | Allowed |
 | K-005 | F | Row-level select of an `aggregate_only` element | Refused |
 | K-006 | F | `GROUP BY` producing groups below the minimum size | Refused |
-| K-007 | P | Simple query end to end | Under 2s |
+| K-007 | P | First authenticated query (cold), then identical query after the explicit unmeasured suite warm-up (warm), once each in one serial process | Warm under 2,000 ms, no retries. Cold timing and deadline recorded without blocking pending three check:data runs on different occasions; no cold budget yet. Response correctness and cleanup remain gating |
 | K-008 | P | Cross-source join | Under 15s |
 | K-009 | R | One source unreachable mid-query | Refused, not partially answered |
 
@@ -1409,3 +1411,29 @@ Q-006/Q-038 and ENG-007 open disclosures before accessing editors and use the En
 | DS-003 | Domain/timezone/isolation chips reflect metadata, not inference; stored, inherited, derived and missing provenance remain distinct. Inapplicable declarations say Not needed and offer no editor; stored unused values are retained. |
 | DS-004 | One draft across disclosures, Discard, one atomic save and effective-change typed confirmation. Existing validation, compatibility, viewer authority, recovery and immutable evidence assertions stay. |
 | DS-005 | Measure 390/900/1100/1440 typography, row/card geometry, >=1100 side panel versus below-selected-row layout, picker appearance and symmetric inner-border clearance; axe, mark placement and no horizontal overflow. No visual project or baseline regeneration before design approval. |
+
+## 5.36 Released under custody
+
+| ID | Contract |
+|---|---|
+| REL-001 | One AES-256-GCM key per result; cell nonces unique under that key; receipt, column and row AAD prevent relocation |
+| REL-002 | Provider K1 and Opintel K2 redeem in either order; neither share alone unseals; the named credential alone receives its shares |
+| REL-003 | Replay, another credential, revoked and expired grants receive no K2; concurrent redemption has exactly one winner |
+| REL-004 | K1 obtained before expiry is insufficient after K2 expires; K2 obtained first does not let another alias receive K1; Opintel unavailable fails closed |
+| REL-005 | K2 release commits its event and deletion before delivery; provider corroboration never rewrites that event; K1 remains until corroboration or grant exp |
+| REL-006 | Explicit revocation applies after redemption too; failed remote cleanup remains retryable; archived/memberless projects retain cleanup coverage |
+| REL-007 | Real Engine output lineage through aliases, CTEs and aggregate expressions causes sealed MCP deliveries; describe publishes public verification keys |
+| REL-008 | Release events are tenant-scoped and append-only; migrations round-trip in dependency order and refuse destructive history loss |
+| REL-009 | Container write observation, filesystem, telemetry and durable evidence scans cover keys and sealed values, with live controls and incomplete coverage explicit. K2's live database storage and logical deletion are checked separately; no claim of WAL/backups erasure or zero heap residuals |
+| REL-010 | Activity exposes release events and authorized revocation at 390/900/1440, with accessibility and no overflow. Visual baselines await screen approval |
+
+Local conformance does not establish live XQ conformance. The SDK adapter remains
+available, behind the provider port, and requires credentials before a live claim.
+
+| REL-011 | Activity's custody summary counts receipts by terminal state and first-hand observed origin, in UTC calendar days; provider corroborations and revocation after redemption do not double-count or rewrite redemption |
+
+| REL-012 | Provider checking reports the required API check and optional dashboard read-only check separately; missing/failed dashboard authentication does not disable API custody; reachability/authentication failures are structured, provider bodies and secrets never leave the adapter |
+| REL-013 | Missing/failed/changed provider check disables custody assignment and refuses references before execution, including WHERE and CTEs, while unrelated projections remain usable; one finding counts distinct affected columns |
+| REL-014 | HKDF project/version signing keys reproduce across instances, versions rotate atomically, retired verification expires after its window and no private signing material persists |
+| REL-015 | Settings Custody rows accumulate non-secret edits, grant TTL displays minutes, secrets expose presence only, local says development only, aliases appear read-only in Pools, checks/rotation respect permissions; accessible at 390/900/1440 |
+| REL-016 | Provider or tenant changes confirm the current live-grant count, serialize against issuance/redemption, revoke through each grant's original provider and tenant, delete K2, and append reason `provider changed`, actor and time. Unrelated settings saves leave grants usable; stale confirmation counts refuse. |

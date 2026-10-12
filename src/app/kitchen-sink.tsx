@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AppRoot, Button, Card, CardHeader, EmptyState, ErrorState, LoadingState, StageRail, Treatment, type TreatmentKind } from '../shared/ui/index.js';
 
-const treatments: readonly TreatmentKind[] = ['clear', 'tokenized', 'masked', 'reference', 'aggregate', 'withheld', 'undecided'];
+const treatments: readonly TreatmentKind[] = ['clear', 'tokenized', 'masked', 'reference', 'aggregate', 'custody', 'withheld', 'undecided'];
 
 function KitchenCard({ children, title }: { readonly children: ReactNode; readonly title: string }): ReactNode {
   return <Card><CardHeader title={title} /><div className="sheetb">{children}</div></Card>;

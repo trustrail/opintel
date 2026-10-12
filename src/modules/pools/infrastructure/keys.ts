@@ -1,17 +1,17 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { withPlatform, withTenant, type Tx } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, Timestamp, SystemClock, type Clock, type PoolId, type Result } from '../../../shared/kernel/index.js';
 import { PoolKeyGraceSeconds, PoolKeyStored, type PoolKeyCreationResponse, type PoolKeyMetadata } from '../../../shared/api/pool-keys.js';
 import type { AgentPresenceQuery, KeyCommand, PoolKeyContext, PoolKeyRepository } from '../application/keys.js';
 import type { PoolKeyId } from '../domain/pool.js';
 import { generatePoolKey, hashPoolKey } from './key-material.js';
-type KeyRow={id:PoolKeyId;pool_id:PoolId;key_prefix:string;state:PoolKeyMetadata['state'];grace_until:Date|null;created_at:Date};
-const columns='id,pool_id,key_prefix,state,grace_until,created_at';
+type KeyRow={custody_alias:string;id:PoolKeyId;pool_id:PoolId;key_prefix:string;state:PoolKeyMetadata['state'];grace_until:Date|null;created_at:Date};
+const columns='id,pool_id,key_prefix,state,grace_until,created_at,custody_alias';
 function metadata(row:KeyRow,now:Date):PoolKeyMetadata {
- return {poolId:row.pool_id,keyVersion:row.id,prefix:row.key_prefix,state:row.state==='retiring'&&row.grace_until!==null&&row.grace_until<=now?'expired':row.state,graceUntil:row.grace_until?.toISOString()??null,createdAt:row.created_at.toISOString()};
+ return {custodyAlias:row.custody_alias,poolId:row.pool_id,keyVersion:row.id,prefix:row.key_prefix,state:row.state==='retiring'&&row.grace_until!==null&&row.grace_until<=now?'expired':row.state,graceUntil:row.grace_until?.toISOString()??null,createdAt:row.created_at.toISOString()};
 }
 export class PostgresPoolKeys implements PoolKeyRepository {
- constructor(private readonly clock:Clock=new SystemClock()) {}
+ constructor(private readonly clock:Clock=new SystemClock(),private readonly provisionAlias?:(ctx:PoolKeyContext,alias:string)=>Promise<void>) {}
  async inspect(ctx:PoolKeyContext,pool:PoolId,key:PoolKeyId):Promise<Result<PoolKeyMetadata>> {
   return withTenant(ctx,async tx=>{
    const [row]=await tx.query<KeyRow>(`SELECT ${columns} FROM pool_key WHERE pool_id=$1 AND id=$2`,[pool,key]);
@@ -76,10 +76,11 @@ export class PostgresPoolKeys implements PoolKeyRepository {
   });
  }
  private async insert(tx:Tx,ctx:PoolKeyContext,pool:PoolId,plaintext:string):Promise<PoolKeyMetadata>{
-  const now=new Date(this.clock.now());
-  const [row]=await tx.query<KeyRow>(`INSERT INTO pool_key(pool_id,project_id,key_hash,key_prefix,state,created_at,created_by)
-   VALUES($1,$2,$3,$4,'current',$5,$6) RETURNING ${columns}`,[pool,ctx.projectId,hashPoolKey(plaintext),plaintext.slice(0,16),now,ctx.userId]);
+  const now=new Date(this.clock.now()),id=randomUUID();
+  const [row]=await tx.query<KeyRow>(`INSERT INTO pool_key(id,pool_id,project_id,key_hash,key_prefix,state,created_at,created_by,custody_alias)
+   VALUES($7,$1,$2,$3,$4,'current',$5,$6,$8) RETURNING ${columns}`,[pool,ctx.projectId,hashPoolKey(plaintext),plaintext.slice(0,16),now,ctx.userId,id,`agent:${ctx.projectId}:${id}`]);
   if(!row)throw new Error('Key insert returned no row.');
+  await this.provisionAlias?.(ctx,`agent:${ctx.projectId}:${id}`);
   return metadata(row,now);
  }
 }

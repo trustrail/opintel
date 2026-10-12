@@ -60,6 +60,9 @@ below are copied character for character from the approved specification.
 | Evidence-after | `The query ran but its record could not be completed, so no result was returned. Every answer carries a record of what it read.` |
 | Version | `The query could not be run because a component is out of step with this deployment. No source was contacted. This needs an operator; retrying will not help.` |
 | Result | `The query ran but returned a result this interface cannot trust, so nothing was released. This needs an operator; retrying will not help.` |
+| Release-refused | `This release grant is expired, revoked, already redeemed, or belongs to another credential. No release share was returned.` |
+| Release-config | `Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.` |
+| Release-prepare | `Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.` |
 | Unknown | `The query could not be completed. Whether it reached a source is not established. This needs an operator.` |
 
 ## Proposed mapping
@@ -113,6 +116,11 @@ expose source names, hostnames, secrets, thresholds or suppressed counts.
 | `dependency_unavailable` | `tokenization_failed` | Tokenization fails, without enough provenance to make a narrower claim | Unknown | false |
 | `dependency_unavailable` | `engine_failed` | Unclassified engine failure, without a trustworthy completed result | Unknown | false |
 | `dependency_unavailable` | `unclassified` | Application, metadata, authorization, HTTP or other unclassified failure | Unknown | false |
+
+| `forbidden` | `release_refused` | Custody 5.36 structured refusal | Release-refused | false |
+| `dependency_unavailable` | `release_configuration` | Custody 5.36 structured refusal | Release-config | false |
+| `forbidden` | `release_configuration` | Custody 5.36 structured refusal | Release-config | false |
+| `dependency_unavailable` | `release_prepare_failed` | Custody 5.36 structured refusal | Release-prepare | false |
 
 ### Fallback coverage
 

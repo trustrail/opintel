@@ -31,6 +31,14 @@ class Scanner:
                 self.groups.setdefault(prefix, []).append(encoded)
         self.overlap = max(map(len, self.patterns)) - 1
 
+    def add_binary(self, name, value):
+        import base64
+        representations = {"raw": value, "hex": value.hex().encode(), "base64url": base64.urlsafe_b64encode(value).rstrip(b"="), "base64": base64.b64encode(value)}
+        for encoding, encoded in representations.items():
+            self.patterns[encoded] = name + ":" + encoding
+            self.groups.setdefault(encoded[:3], []).append(encoded)
+        self.overlap = max(map(len, self.patterns)) - 1
+
     def stream(self, stream, size=None, offset=0):
         counts, samples = {}, []
         previous = b""

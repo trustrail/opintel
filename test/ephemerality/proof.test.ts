@@ -30,7 +30,7 @@ it('SD-005 shipping image: declared sources and receipt, forbidden egress and wr
 it('S4 scanner controls: chunk boundaries, encodings, incomplete reads and missing sinks', async () => {
   await execute('python3', ['scripts/ephemerality/infrastructure/scanner.py']);
 });
-for (const name of ['clear', 'treated', 'aggregate', 'cancel', 'deadline', 'source_failure', 'staging_failure', 'memory_pressure', 'application']) {
+for (const name of ['clear', 'treated', 'aggregate', 'cancel', 'deadline', 'source_failure', 'staging_failure', 'memory_pressure', 'application','custody_redeemed','custody_expired','custody_revoked']) {
   it(`J-019/TOK-38 S4: ${name}, live controls, write observation and honest residual report`, async () => {
     const result = await execute('python3', ['scripts/ephemerality/infrastructure/proof.py', name], { timeout: 1090000, maxBuffer: 1024 * 1024 }).catch((error: unknown) => {
       if (typeof error === 'object' && error !== null && 'stdout' in error && typeof error.stdout === 'string') console.info(error.stdout.trim());

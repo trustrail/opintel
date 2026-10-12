@@ -211,3 +211,11 @@ read boundary and uses the validated configuration-refusal pass-through path.
 > Columns {left} and {right} cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.
 
 The metadata retains both element identities and qualified names. It never includes the submitted statement or token domain values. There is no additional notice for a different-domain inequality; it remains an ordinary query mistake.
+
+## Released under custody (5.36)
+
+This release grant is expired, revoked, already redeemed, or belongs to another credential. No release share was returned.
+
+Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.
+
+Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.

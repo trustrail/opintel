@@ -7,8 +7,10 @@ const companySelect=`SELECT id,name,default_industry_id AS "defaultIndustryId",d
 const personalSelect=`SELECT email,full_name AS "fullName",timezone,date_format AS "dateFormat",reduced_motion AS "reducedMotion" FROM user_account WHERE id=$1`;
 const missing=()=>err(new DomainError('not_found','The settings could not be found.'));
 export class PostgresSettings implements SettingsRepository{
+ constructor(private readonly custody?:Pick<import('../../release-custody/index.js').ReleaseSettingsPort,'saveProjectSettings'>){}
  project(id:ProjectId){return withPlatform(async tx=>{const [row]=await tx.query('SELECT settings FROM project WHERE id=$1',[id]);return row?ok(ProjectSettingsView.parse(row)):missing();});}
- async saveProject(id:ProjectId,actor:UserId,settings:Parameters<SettingsRepository['saveProject']>[2]){
+ async saveProject(id:ProjectId,actor:UserId,settings:Parameters<SettingsRepository['saveProject']>[2],confirmedLiveGrants?:number){
+ if(this.custody)return this.custody.saveProjectSettings({projectId:id,userId:actor},settings,confirmedLiveGrants);
  return withTenant({projectId:id,userId:actor},async tx=>{const [row]=await tx.query<{settings:unknown}>('SELECT save_project_settings($1) AS settings',[settings]);return ok(ProjectSettingsView.parse(row));});}
 
  company(id:CompanyId){return withPlatform(async tx=>{const [row]=await tx.query(companySelect,[id]);return row?ok(CompanySettingsView.parse(row)):missing();});}

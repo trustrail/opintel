@@ -1,3 +1,4 @@
+import type {QueryReleasePort} from '../../release-custody/index.js';
 import {executionRequest} from '../../../shared/execution-contract.js';
 import type {EvidencePlan} from '../../evidence/index.js';
 import {z} from 'zod';
@@ -13,7 +14,7 @@ export function assertEvidenceWriter(writer:EvidenceWriterPort,build=process.env
 }
 export class QueryService implements QueryTool {
  private readonly preparation:QueryPreparation;
- constructor(reader:QuerySnapshotReader,filter:QueryPreFilter,private readonly execution:QueryExecutionPort,authorization:AuthorizationPort,private readonly evidence:EvidenceWriterPort){assertEvidenceWriter(evidence);this.preparation=new QueryPreparation(reader,filter,execution,authorization);}
+ constructor(reader:QuerySnapshotReader,filter:QueryPreFilter,private readonly execution:QueryExecutionPort,authorization:AuthorizationPort,private readonly evidence:EvidenceWriterPort,private readonly custody?:QueryReleasePort){assertEvidenceWriter(evidence);this.preparation=new QueryPreparation(reader,filter,execution,authorization);}
  async query(principal:McpPrincipal,input:unknown,signal?:AbortSignal){
   const parsed=QueryInput.safeParse(input);if(!parsed.success)return err(new DomainError('validation_failed','The query arguments do not match their schema.',{cause:'invalid_query'}));
   let captured:EvidencePlan|undefined;
@@ -33,6 +34,10 @@ export class QueryService implements QueryTool {
   try{
    if(!prepared.ok)return refused(prepared.error);
    const plan=prepared.value;plan.request.requestId=id;
+   if(plan.custodyReferenced){
+    if(!this.custody)return refused(new DomainError('dependency_unavailable','Configure a custody provider in Settings.',{cause:'release_configuration',reason:'provider_not_configured'}));
+    const available=await this.custody.available({projectId:principal.pool.projectId,userId:principal.scopeUserId});if(!available.ok)return refused(available.error);
+   }
    // requires_sidecar_inspection is not authorization. No pre-filter outcome
    // is sent to the sidecar; it receives independent plans and entitlements.
    const executable=executionRequest.safeParse(plan.request);
@@ -50,9 +55,20 @@ export class QueryService implements QueryTool {
    progress='after';
    const r=response.value;usage={tokenKeyVersionUsed:r.tokenKeyVersionUsed,sourceIdsReached:r.sourceIdsReached};
    if(r.queryEngineVersion!==plan.queryEngineVersion||r.policyVersion!==plan.request.policyVersion||r.columnTypes.length!==r.columns.length||r.rows.some(row=>row.length!==r.columns.length))return refused(new DomainError('dependency_unavailable','The Opintel Engine returned an inconsistent query result.',{cause:'inconsistent_result',reason:r.queryEngineVersion!==plan.queryEngineVersion?'engine_version':r.policyVersion!==plan.request.policyVersion?'policy_version':r.columnTypes.length!==r.columns.length?'column_types':'row_shape'}));
-   const output=QueryOutput.safeParse({columns:r.columns.map((name,i)=>({name,type:r.columnTypes[i]})),rows:r.rows,truncated:r.truncated,evidenceId:id});
+   let custody: {columns:string[];grant:string}[]|undefined;
+   const hasCustody=plan.request.entitlements.some(e=>e.treatment==='custody');
+   if(hasCustody){
+    if(!r.custodyIndices||r.custodyIndices.some(i=>i>=r.columns.length))return refused(new DomainError('dependency_unavailable','The engine did not establish custody result lineage. No result was released.',{cause:'inconsistent_result',reason:'result_contract'}));
+    if(r.custodyIndices.length){
+     if(!this.custody||!principal.custodyAlias)return refused(new DomainError('dependency_unavailable','Configure release custody and provision this credential alias before querying custody values.',{cause:'release_configuration'}));
+     const sealed=await this.custody.seal({projectId:principal.pool.projectId,userId:principal.scopeUserId},principal.custodyAlias,id,r.columns,r.rows,r.custodyIndices);
+     if(!sealed.ok)return refused(sealed.error);r.rows=sealed.value.rows;custody=sealed.value.custody;for(const i of r.custodyIndices)r.columnTypes[i]='VARCHAR';
+    }
+   }
+   const output=QueryOutput.safeParse({...custody?{custody}:{},columns:r.columns.map((name,i)=>({name,type:r.columnTypes[i]})),rows:r.rows,truncated:r.truncated,evidenceId:id});
    if(!output.success)return refused(new DomainError('dependency_unavailable','The query result does not match its contract.',{cause:'inconsistent_result',reason:'result_contract'}));
    const saved=await finish({kind:'answered',rows:r.rows.length,policyVersion:r.policyVersion,queryEngineVersion:r.queryEngineVersion,truncated:r.truncated,...usage,execution:{executionPath:r.executionPath,queryEngineVersion:r.queryEngineVersion,...r.treatmentEvidence}});
+   if(!saved.ok&&custody)await this.custody?.discard({projectId:principal.pool.projectId,userId:principal.scopeUserId},custody);
    return saved.ok?ok({...output.data,reduction:plan.reduction}):err(evidenceFailure(saved.error));
   }catch{return err(new DomainError('dependency_unavailable','The query could not complete. Its evidence remains incomplete; no result was released.',{evidenceId:id}));}
  }

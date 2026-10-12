@@ -149,7 +149,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
         continue;
       }
       if (e.exposedName === null || e.exposedType === null || !validIdentifier(e.sourceIdentifier)) return invalid(`The entitled element ${e.sourceIdentifier} has no usable exposed name or type.`);
-      if (!['clear','tokenized','masked','aggregate_only'].includes(treatment)) return invalid('An entitlement has an unknown treatment.');
+      if (!['clear','tokenized','masked','aggregate_only','custody'].includes(treatment)) return invalid('An entitlement has an unknown treatment.');
       const exposedType = treatment === 'tokenized' || treatment === 'masked' ? 'VARCHAR' : e.exposedType;
       const column: ReadColumn = { ...(numericDefault(e.sourceType)?{numericDefault:numericDefault(e.sourceType)}:{}), sourceIdentifier:e.sourceIdentifier, exposedName:e.exposedName, exposedType, treatment,
         readAs:treatment === 'tokenized' || treatment === 'masked' ? 'text' : 'native' };

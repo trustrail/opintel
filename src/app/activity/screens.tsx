@@ -8,7 +8,7 @@ import {useActivity,useActivitySummary,useEvidence} from './data.js';
 import {createActivityState,activityWindowSize} from './state.js';
 import {AnswerTreatments,EvidenceDetails} from './detail.js';
 import {requestLabel} from './presentation.js';
-const filterDefinition='Completed answers with recorded tokenized, masked or aggregate-only deliveries. Excludes planned reads, omissions, refusals and incomplete requests.';
+const filterDefinition='Completed answers with recorded tokenized, masked, aggregate-only or released-under-custody deliveries. Excludes planned reads, omissions, refusals and incomplete requests.';
 type Tab='all'|'refused'|'incomplete'|'answerTreated';
 function Outcome({r}:{r:ActivityEntry}){return <span className={r.status==='answered'||r.status==='reduced'?'tr clear':r.status==='incomplete'?'tr wait':'tr ref'} data-part="outcome">{r.status==='refused'?<Mark name="refused"/>:r.status==='incomplete'?<Mark name="incomplete"/>:null}{r.status==='answered'||r.status==='reduced'?`${r.rowCount??'—'} ${r.rowCount===1?'row':'rows'}`:r.status==='incomplete'?'Incomplete':r.status==='refused'?'Refused':r.status==='failed'?'Failed':'Clarification'}</span>;}
 function Chevron(){return <svg data-part="picker-chevron" viewBox="0 0 10 6" aria-hidden="true" focusable="false"><path d="m1 1 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>;}
@@ -21,7 +21,7 @@ export function ActivityScreen({projectId,filters,onFilters}:{projectId:string;f
  function change(key:keyof ActivityFilters,value:string){apply(ActivityFilters.parse({...filters,[key]:value||undefined}));}
  function changeTab(value:Tab){apply({...filters,outcome:value==='refused'||value==='incomplete'?value:undefined,answerTreated:value==='answerTreated'?'true':undefined});}
  const now=new Date(),range=filters.from?String(Math.max(1,Math.ceil((now.getTime()-Date.parse(filters.from))/86400000))):'all';
- return <section className="screen on" data-layout="activity"><h1>Activity</h1><p className="sub">Every request, what it read, and what the agent received. Each record keeps the decisions in force at the time.</p>
+ return <section className="screen on" data-layout="activity" aria-busy={query.isFetching||summary.isFetching} data-rows-state={query.status} data-rollup-state={summary.status}><h1>Activity</h1><p className="sub">Every request, what it read, and what the agent received. Each record keeps the decisions in force at the time.</p>
  <div className="filters" data-part="activity-toolbar">
  <SegmentedFilters label="Activity outcome" value={tab} options={[{value:'all',label:'All',count:summary.data?.counts.all},{value:'refused',label:'Refused',count:summary.data?.counts.refused},{value:'incomplete',label:'Incomplete',count:summary.data?.counts.incomplete},{value:'answerTreated',label:'Answer treated',count:summary.data?.counts.answerTreated}]} onChange={changeTab}/>
  <span className="pick"><label htmlFor="activity-agent">Agent</label><input className="inp" id="activity-agent" aria-label="Agent ID (self-declared)" size={12} value={filters.agentId??''} onChange={e=>change('agentId',e.target.value)} maxLength={200} placeholder="Any"/></span>
@@ -29,10 +29,17 @@ export function ActivityScreen({projectId,filters,onFilters}:{projectId:string;f
  <span className="pick"><label htmlFor="activity-range">Last</label><select id="activity-range" value={['1','7','30','all'].includes(range)?range:'custom'} onChange={e=>{const days=e.target.value;apply({...filters,from:days==='all'?undefined:new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-Number(days)+1)).toISOString(),to:undefined});}}><option value="all">All time</option><option value="1">Today (UTC)</option><option value="7">7 days</option><option value="30">30 days</option>{range==='custom'||!['1','7','30','all'].includes(range)?<option value="custom">Custom range</option>:null}</select><Chevron/></span>
  <input className="inp" type="search" aria-label="Filter by object or element" value={filters.search??''} onChange={e=>change('search',e.target.value)} maxLength={200} placeholder="Object or element…"/>
  </div>
- <div className="filters"><span className="note" title={filterDefinition}>Answer treated: recorded tokenized, masked or aggregate-only deliveries.</span><Button variant="ghost" onClick={()=>apply({})}>Clear filters</Button><AsyncButton variant="ghost" pendingLabel="Refreshing…" refusal={null} run={async()=>{await query.refetch();await summary.refetch();}}>Refresh</AsyncButton></div>
+ <div className="filters"><span className="note" title={filterDefinition}>{summary.data?.custody.some(r=>r.state==='granted'&&r.count>0)?'Answer treated: recorded tokenized, masked, aggregate-only or released-under-custody deliveries.':'Answer treated: recorded tokenized, masked or aggregate-only deliveries.'}</span><Button variant="ghost" onClick={()=>apply({})}>Clear filters</Button><AsyncButton variant="ghost" pendingLabel="Refreshing…" refusal={null} run={async()=>{await query.refetch();await summary.refetch();}}>Refresh</AsyncButton></div>
  {pools.isError?<p role="alert">{pools.error.message}</p>:null}{summary.isError?<p role="alert">Day summaries could not be loaded: {summary.error.message}</p>:null}
+ {summary.data?<CustodyRollup rows={summary.data.custody}/>:null}
  {query.isPending?<LoadingState/>:query.isError?<ErrorState title="Activity could not be loaded" description={query.error.message} retry={()=>query.refetch()}/>:!items.length?<EmptyState title="No requests match" description="Clear the filters or send a request through a pool to create an evidence record."/>:<ActivityRecords projectId={projectId} items={items} query={query} summary={summary.data} store={store} viewport={viewport} pools={pools.data}/>}
  </section>;
+}
+function CustodyRollup({rows}:{rows:ActivitySummary['custody']}){
+ const states=['granted','redeemed','expired','revoked'] as const,origins=new Map<string,number>();
+ for(const row of rows)if(row.state==='redeemed'){const origin=row.origin??'Not recorded';origins.set(origin,(origins.get(origin)??0)+row.count);}
+ if(!rows.some(r=>r.state==='granted'&&r.count>0))return null;
+ return <p className="note" aria-label="Custody receipt summary">Custody{states.map(state=><span key={state}> · {rows.filter(r=>r.state===state).reduce((n,r)=>n+r.count,0)} {state}</span>)}{origins.size?<> · origins {[...origins].map(([origin,count])=>`${origin} ${count}`).join(', ')}</>:null}</p>;
 }
 type TimelineItem={key:string;record:ActivityEntry}|{key:string;day:string};
 function Measured({id,store,children}:PropsWithChildren<{id:string;store:ReturnType<typeof createActivityState>}>){

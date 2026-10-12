@@ -8,7 +8,8 @@ import { performance } from 'node:perf_hooks';
 import { Client, Pool, type ClientConfig, type PoolClient } from 'pg';
 
 // Test infrastructure only. The production scopes, roles and transaction
-// ownership are unchanged. Never emit SQL, parameters or connection material.
+// ownership are unchanged. SQL diagnostics use the evidence literal stripper;
+// parameters and connection material are never emitted.
 interface NativeClient extends Client { processID: number; connectionParameters: ClientConfig }
 interface Lease { client: NativeClient; tag: string; pending: Set<Promise<unknown>>; queue: Promise<unknown>; birth?: string; pool?: Pool; retiring?: boolean }
 interface GuardState {
@@ -19,6 +20,7 @@ interface GuardState {
   leases: WeakMap<Client, Lease>;
   controls: WeakSet<Client>;
   installed: boolean;
+  pools: Set<Pool>;
   now: () => number;
 }
 // Vitest imports its runner and test modules through separate module graphs.
@@ -28,7 +30,7 @@ const holder = Client as typeof Client & { [key]?: GuardState };
 const state = holder[key] ??= {
   rawQuery: Client.prototype.query, rawConnect: Client.prototype.connect, rawPoolConnect: Pool.prototype.connect,
   storage: new AsyncLocalStorage<DatabaseOwner>(), leases: new WeakMap<Client, Lease>(),
-  controls: new WeakSet<Client>(), installed: false, now: performance.now.bind(performance),
+  controls: new WeakSet<Client>(), pools: new Set<Pool>(), installed: false, now: performance.now.bind(performance),
 };
 const { rawQuery, rawConnect, rawPoolConnect, storage, leases, controls } = state;
 const now = state.now;
@@ -60,6 +62,64 @@ function sqlText(input: unknown): string {
 function code(error: unknown): unknown { return typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined; }
 function invoke(client: Client, args: unknown[]): Promise<unknown> {
   return Promise.resolve(Reflect.apply(rawQuery, client, args) as unknown);
+}
+
+interface BlockingSession {
+  blocked_pid: number; pid: number; application_name: string; state: string;
+  backend_start: Date; query_start: Date | null; query: string;
+}
+// A timed-out lock request no longer appears in pg_blocking_pids. Retain the
+// last observed wait as well as querying again at failure; never call an empty
+// post-timeout snapshot proof that there was no blocker.
+export async function observeReset(client: NativeClient): Promise<{finish(failed: boolean): Promise<void>}> {
+  const control = new Client({...client.connectionParameters,password:client.connectionParameters.password,
+    application_name:'opintel-test-reset-observer',connectionTimeoutMillis:1000,statement_timeout:500,query_timeout:1000});
+  controls.add(control);
+  control.on('error',()=>{});
+  let last: BlockingSession[] = [];
+  let observedAt: string | undefined;
+  let stopped = false;
+  let wake!:()=>void;
+  const finished=new Promise<void>(resolve=>{wake=resolve;});
+  const sample = async (): Promise<BlockingSession[]> => {
+    const result = await control.query<BlockingSession>(`SELECT blocked.pid AS blocked_pid,
+      blocker.pid,blocker.application_name,blocker.state,blocker.backend_start,blocker.query_start,blocker.query
+      FROM pg_stat_activity blocked
+      CROSS JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS waiting(pid)
+      JOIN pg_stat_activity blocker ON blocker.pid=waiting.pid
+      WHERE blocked.pid=$1`,[client.processID]);
+    if(result.rows.length){last=result.rows;observedAt=new Date().toISOString();}
+    return result.rows;
+  };
+  try{await control.connect();}catch(error){await control.end();throw error;}
+  const polling=(async()=>{while(!stopped){await sample();await Promise.race([delay(100),finished]);}})();
+  // Attach immediately; an observer failure must never become unhandled.
+  void polling.catch(()=>{});
+  return {async finish(failed){
+    stopped=true;wake();
+    try{
+      await polling;
+      const current=failed?await sample():[];
+      if(failed){
+        const {DuckDBEvidenceText}=await import('../../src/modules/evidence/infrastructure/text.js');
+        const parser=new DuckDBEvidenceText();
+        const redact=async(rows:BlockingSession[])=>Promise.all(rows.map(async row=>({...row,query:await parser.stripSql(row.query)??'[SQL withheld: literal stripping unavailable]'})));
+        const record={event:'database.reset_blockers',blockedPid:client.processID,observedAt,
+          lastObserved:await redact(last),afterTimeout:await redact(current)};
+        console.error(JSON.stringify(record));
+        const directory=process.env.OPINTEL_TEST_DATABASE_DIAGNOSTICS;
+        if(directory)appendFileSync(join(directory,`worker-${process.pid}.jsonl`),JSON.stringify(record)+'\n',{mode:0o600});
+      }
+    }catch{
+      if(failed)console.error(JSON.stringify({event:'database.reset_blockers',blockedPid:client.processID,coverage:'incomplete: observer failed'}));
+    }finally{await control.end();}
+  }};
+}
+
+// Test-only lifecycle access: do not export the handwritten production pool.
+export async function closeTestDatabasePools(): Promise<void> {
+  await Promise.all([...state.pools].filter(pool=>!pool.ended&&!pool.ending).map(pool=>pool.end()));
+  state.pools.clear();
 }
 
 export class DatabaseOwner {
@@ -178,6 +238,8 @@ export class DatabaseOwner {
           previousLock = settings.rows[0]?.previous;
         } else await invoke(client, ["SELECT set_config('statement_timeout',$1,false)", [milliseconds]]);
       }
+      const observer = reset ? await observeReset(native(client)) : undefined;
+      let resetBlocked = false;
       try {
         const result = await invoke(client, args);
         // The reset's cap must not replace an application's own lock timeout
@@ -187,12 +249,13 @@ export class DatabaseOwner {
       }
       catch (error) {
         if (reset && code(error) === '55P03') {
+          resetBlocked = true;
           this.blockedReset = true;
           this.abort();
           throw new Error('Database reset blocked for 1 second. The run will stop rather than queue further resets.');
         }
         throw error;
-      }
+      } finally { await observer?.finish(resetBlocked); }
     });
     lease.queue = operation;
     lease.pending.add(operation);
@@ -233,6 +296,7 @@ export function installDatabaseDeadlines(): void {
   if (state.installed) return;
   state.installed = true;
   Pool.prototype.connect = function(this: Pool, ...args: unknown[]): unknown {
+    state.pools.add(this);
     const register = (client: PoolClient): void => {
       const lease = leases.get(client);
       if (!lease) return;

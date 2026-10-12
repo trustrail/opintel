@@ -42,13 +42,15 @@ integration('pool schema with real Postgres',()=>{
   const credential='opk_live_'+'A'.repeat(22);
   await expect(scope(tx=>tx.query("INSERT INTO pool_key(pool_id,project_id,key_hash,key_prefix,state,created_by) VALUES($1,$2,$3,'opk_live_A','current',$4)",[pool,projectId,Buffer.from(credential),userId]))).rejects.toMatchObject({code:'23514'});
   await expect(scope(tx=>tx.query("INSERT INTO pool_key(pool_id,project_id,key_hash,key_prefix,state,created_by) VALUES($1,$2,$3,$4,'current',$5)",[pool,projectId,digest(8),credential,userId]))).rejects.toMatchObject({code:'23514'});
-  await insert(8);
+  const [credentialRow]=await insert(8);
+  const [alias]=await scope(tx=>tx.query<{custody_alias:string}>('SELECT custody_alias FROM pool_key WHERE id=$1',[credentialRow!.id]));
+  expect(alias?.custody_alias).toBe(`agent:${projectId}:${credentialRow!.id}`);
   const [stored]=await scope(tx=>tx.query<{key_hash:Buffer;key_prefix:string}>('SELECT key_hash,key_prefix FROM pool_key'));
   expect(stored).toEqual({key_hash:digest(8),key_prefix:'opk_live_example'});
   const columns=await withPlatform(tx=>tx.query<{column_name:string}>("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='pool_key' ORDER BY ordinal_position"));
   // Inspect catalogue attributes regardless of the platform role's data grants.
   const names=await withPlatform(tx=>tx.query<{attname:string}>("SELECT attname FROM pg_attribute WHERE attrelid='public.pool_key'::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum"));
-  expect(names.map(row=>row.attname)).toEqual(['id','pool_id','project_id','key_hash','key_prefix','state','grace_until','created_at','created_by']);
+  expect(names.map(row=>row.attname)).toEqual(['id','pool_id','project_id','key_hash','key_prefix','state','grace_until','created_at','created_by','custody_alias']);
   expect(columns).toEqual([]); // Platform scope has no tenant data privileges.
  });
  it('isolates pools, keys and bindings and rejects forged cross-project references',async()=>{

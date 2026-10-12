@@ -14,7 +14,7 @@ export const runStageSchema=z.strictObject({stage,result:z.enum(['ok','clarify',
 const element={elementId:z.uuid().transform(ElementId).nullable(),exposedName:name,withheldReason:z.string().nullable()};
 export const elementDeliverySchema=z.union([
  z.strictObject({...element,state:z.enum(['withheld','undecided']),treatment:z.null()}),
- z.strictObject({...element,state:z.enum(['released','aggregated']),treatment:z.enum(['clear','tokenized','masked','aggregate_only'])}),
+ z.strictObject({...element,state:z.enum(['released','aggregated']),treatment:z.enum(['clear','tokenized','masked','aggregate_only','custody'])}),
 ]);
 export const runOutcomeSchema=z.discriminatedUnion('kind',[
  z.strictObject({kind:z.literal('answered'),rowCount:count,truncated:z.boolean()}),

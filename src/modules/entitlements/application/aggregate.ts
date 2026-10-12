@@ -5,7 +5,7 @@ import type { QueryParserPort } from './query-parser-port.js';
 import { resolveIdentifier } from './resolve.js';
 import * as syntax from './query-syntax.js';
 
-type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only'; threshold: number; domain?: string };
+type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only' | 'custody'; threshold: number; domain?: string };
 type Field = { name: string; references: Reference[]; omitted?:'withheld'|'undecided'; elementId?:ElementId; starOmissions?:ElementId[] };
 type Relation = { qualifiers: string[][]; fields: Field[] };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
@@ -17,6 +17,7 @@ const same = (a: readonly string[], b: readonly string[]) => a.length === b.leng
 class Inspection {
   failure: DomainError | undefined;
   readonly aggregated = new Set<ElementId>();
+  readonly referenced = new Set<ElementId>();
   private depth = 0;
   private visits = 0;
   constructor(private readonly views: readonly ViewDefinition[],private readonly omitted:readonly OmittedObject[]=[],private readonly onObject?:(view:ViewDefinition)=>void) {}
@@ -45,6 +46,7 @@ class Inspection {
 
   private check(references: Reference[], context: Context, operation?: string): void {
     for (const ref of references) {
+      this.referenced.add(ref.elementId);
       if(ref.treatment==='aggregate_only'&&context.directAggregate)this.aggregated.add(ref.elementId);
       if (ref.treatment === 'aggregate_only' && !context.directAggregate) {
         this.failure ??= new DomainError('unsupported_on_aggregate_only', `Element ${ref.name} is aggregate-only and cannot appear in ${context.clause}${operation ? ` (${operation})` : ''}. Minimum group size is ${ref.threshold}; refused by the application pre-filter. Use an aggregate over a sufficiently large group instead.`, {
@@ -67,7 +69,7 @@ class Inspection {
     // lineage is reporting metadata and cannot introduce a new refusal.
     // Ambiguous input/output aliases are refused rather than guessing DuckDB's precedence.
     if (aliases.length && candidates.length) {
-      if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only')) !== JSON.stringify(candidates[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'))) {
+      if (aliases.length !== 1 || candidates.length !== 1 || JSON.stringify(aliases[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'||r.treatment==='custody')) !== JSON.stringify(candidates[0]!.references.filter(r=>r.treatment==='tokenized'||r.treatment==='aggregate_only'||r.treatment==='custody'))) {
         this.refuse(`ambiguous identifier ${names.join('.')}`); return [];
       }
     }
@@ -113,7 +115,7 @@ class Inspection {
           const tokenOperation = operation ? (name.includes('~~') ? 'LIKE' : name) : name === 'count' || name === 'count_star' ? undefined : name.toUpperCase();
           // Protected aggregate references were checked at their immediate parent.
           if (tokenOperation) this.check(refs.filter(r => r.treatment === 'tokenized'), context, tokenOperation);
-          if (aggregate) return name==='min'||name==='max'?refs.filter(r=>r.treatment==='masked'):[];
+          if (aggregate) return refs.filter(r=>r.treatment==='custody'||(name==='min'||name==='max')&&r.treatment==='masked');
           return refs;
         }
         case 'COMPARISON': {
@@ -134,19 +136,18 @@ class Inspection {
           if (!['COMPARE_EQUAL', 'COMPARE_NOTEQUAL'].includes(e.type)) this.check(refs, context, e.type);
           // Equality and predicates produce booleans, not tokens. ORDER BY on a token
           // is still refused while visiting the operand in its original clause.
-          return [];
+          return refs.filter(r=>r.treatment==='custody');
         }
         case 'BETWEEN': {
           const e = this.read(syntax.between, value, 'BETWEEN');
           if (!e) return [];
           const refs = [e.input, e.lower, e.upper].flatMap(child => this.expression(child, { ...context, directAggregate: false }));
-          this.check(refs, context, 'BETWEEN'); return [];
+          this.check(refs, context, 'BETWEEN'); return refs.filter(r=>r.treatment==='custody');
         }
         case 'OPERATOR': case 'CONJUNCTION': {
           const e = this.read(syntax.operator, value, 'operator');
           if (!e) return [];
-          e.children.forEach(child => this.expression(child, { ...context, directAggregate: false, negated: e.type === 'OPERATOR_NOT' ? !context.negated : context.negated }));
-          return [];
+          return e.children.flatMap(child => this.expression(child, { ...context, directAggregate: false, negated: e.type === 'OPERATOR_NOT' ? !context.negated : context.negated })).filter(r=>r.treatment==='custody');
         }
         case 'WINDOW': {
           const e = this.read(syntax.window, value, 'WINDOW');
@@ -193,7 +194,7 @@ class Inspection {
               const domain = view.readPlan.columns.find(c => c.exposedName === col.exposedName)?.token?.domain;
               if (col.treatment === 'tokenized' && !domain) this.refuse(`token domain for ${col.exposedName}`);
               refs.push({ elementId: col.elementId, name: col.exposedName, qualifiedName: `${view.catalog}.${view.schema}.${view.name}.${col.exposedName}`, treatment: col.treatment, threshold: constraint?.minGroupSize ?? 0, domain });
-            } else if(col.treatment==='clear'||col.treatment==='masked')refs.push({elementId:col.elementId,name:col.exposedName,qualifiedName:`${view.catalog}.${view.schema}.${view.name}.${col.exposedName}`,treatment:col.treatment,threshold:0});
+            } else if(col.treatment==='clear'||col.treatment==='masked'||col.treatment==='custody')refs.push({elementId:col.elementId,name:col.exposedName,qualifiedName:`${view.catalog}.${view.schema}.${view.name}.${col.exposedName}`,treatment:col.treatment,threshold:0});
             else this.refuse(`treatment for ${col.exposedName}`);
             fields.push({ name: col.exposedName, references: refs });
           }
@@ -319,7 +320,7 @@ export type QueryPreFilterOutcome = Readonly<{ kind: 'requires_sidecar_inspectio
 export class QueryPreFilter {
   constructor(private readonly parser: QueryParserPort) {}
 
-  async inspect(input: QueryPreFilterInput,onObject?:(view:ViewDefinition)=>void,onReturned?:(elements:readonly ElementId[])=>void,onStarOmitted?:(elements:readonly ElementId[])=>void): Promise<Result<QueryPreFilterOutcome>> {
+  async inspect(input: QueryPreFilterInput,onObject?:(view:ViewDefinition)=>void,onReturned?:(elements:readonly ElementId[])=>void,onStarOmitted?:(elements:readonly ElementId[])=>void,onReferenced?:(elements:readonly ElementId[])=>void): Promise<Result<QueryPreFilterOutcome>> {
     const boundary = z.object({ sql: z.string().min(1), queryEngineBuild: z.string().min(1) }).safeParse(input);
     if (!boundary.success) return err(new DomainError('sql_not_permitted', 'A SQL statement and the Opintel Engine build are required.'));
     const parsed = await this.parser.parse(input.sql);
@@ -332,6 +333,7 @@ export class QueryPreFilter {
     for(const id of inspection.aggregated)returned.add(id);
     if(inspection.failure)return err(inspection.failure);
     onReturned?.([...returned]);
+    onReferenced?.([...inspection.referenced]);
     onStarOmitted?.([...new Set(output.flatMap(f=>f.starOmissions??[]))]);
     return ok({ kind: 'requires_sidecar_inspection' });
   }

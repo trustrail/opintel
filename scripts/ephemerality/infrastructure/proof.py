@@ -99,10 +99,16 @@ class Target:
         self.stream.write(json.dumps(value) + "\n")
         self.stream.flush()
 
-    def until(self, event, timeout=180):
+    def until(self, event, timeout=180, request=None):
         deadline = time.monotonic() + timeout
         while True:
-            item = self.messages.get(timeout=max(0.1, deadline - time.monotonic()))
+            if request is not None and request.done():
+                raise RuntimeError("custody_request_finished_before_key_observation")
+            if time.monotonic() >= deadline: raise RuntimeError("target_event_timeout_" + event)
+            try:
+                item = self.messages.get(timeout=min(0.25, max(0.1, deadline - time.monotonic())))
+            except queue.Empty:
+                continue
             self.events.append(item)
             if item["event"] == event:
                 return item
@@ -191,6 +197,8 @@ def snapshot(target, ready, scanner, name):
 
 
 def main(case):
+    custody = case.startswith("custody_")
+    application = case == "application" or custody
     REPORTS.mkdir(exist_ok=True); SINKS.mkdir(exist_ok=True); CONTROL.mkdir(exist_ok=True)
     REPORTS.chmod(0o700)
     CONTROL.chmod(0o700)
@@ -198,6 +206,10 @@ def main(case):
     expected_token = token(markers["token_plain"])
     markers["token_output"] = expected_token
     controls = [{"name": "heap_utf8", "value": markers["heap_utf8"], "encoding": "utf8"}, {"name": "heap_utf16", "value": markers["heap_utf16"], "encoding": "utf16le"}]
+    configuration = None
+    if custody:
+        markers.update(configuration_master=secrets.token_hex(32), configuration_api=new_marker(), configuration_dashboard=new_marker(), configuration_dashboard_token=new_marker())
+        configuration = {"master": markers["configuration_master"], "apiKey": markers["configuration_api"], "dashboardApiKey": markers["configuration_dashboard"], "dashboardAccessToken": markers["configuration_dashboard_token"]}
     scanner = Scanner(markers)
     report = {"case": case, "status": "INCOMPLETE", "failures": [], "incomplete": [], "checkpoints": [], "memoryResiduals": [], "scope": {
         "filesystem": "container regular files, writable layer and mounts, /dev/shm, open unlinked files; root scan plus syscall writes",
@@ -207,6 +219,8 @@ def main(case):
         "ioBackend": "Docker default seccomp and UV_USE_IO_URING=0: syscall-observable backend. Successful io_uring activity, shared file stores and zero-copy writes are incomplete, never treated as zero matches",
         "rawHostDiskKernelHypervisor": "outside container-level proof",
     }}
+    if custody:
+        report["configurationSecretScope"] = "Deployment master, API key, dashboard key and dashboard token: no filesystem, database or telemetry persistence; live environment/managed-heap matches remain legitimate and reported for process lifetime."
     # The shipping target stays non-root and cannot access controller reports.
     target = None
     try:
@@ -219,7 +233,7 @@ def main(case):
         tracing = tracing or any(re.search(r"@opentelemetry|start(?:Active)?Span\s*\(", path.read_text()) for directory in ("/work/src", "/work/sidecar") for path in Path(directory).rglob("*.ts"))
         if tracing:
             report["incomplete"].append("tracing_detected_without_export_coverage_adapter")
-        if case != "application":
+        if not application:
             values = [markers[name] for name in ["clear", "mixed_clear", "token_plain", "masked_plain", "aggregate", "withheld", "undecided"]]
             sql("DROP SCHEMA IF EXISTS s4_source CASCADE; CREATE SCHEMA s4_source; "
                 "CREATE TABLE s4_source.plain AS SELECT i::integer AS id,'" + values[0] + "'::text AS clear,'" + values[5] + "'::text AS withheld,'" + values[6] + "'::text AS undecided FROM generate_series(1,100000) i; "
@@ -228,8 +242,15 @@ def main(case):
                 "ANALYZE s4_source.plain; ANALYZE s4_source.treated; ANALYZE s4_source.aggregate_values;")
         target = Target(case)
         report["phase"] = "target_start"
-        target.send(op="start", mode="application" if case == "application" else "engine", controls=controls)
+        target.send(op="start", mode="custody" if custody else "application" if application else "engine", controls=controls, **({"configuration": configuration} if custody else {}))
         ready = target.until("ready")
+        if custody:
+            project_id = __import__("urllib.parse", fromlist=["urlparse"]).urlparse(ready["url"]).path.rsplit("/", 1)[-1]
+            # Independently derive the actual version-1 signing seed. Scan its
+            # binary/encoded forms as well as the deployment configuration.
+            extracted = hmac.new(bytes(32), bytes.fromhex(configuration["master"]), hashlib.sha256).digest()
+            seed = hmac.new(extracted, (project_id.lower() + "1").encode() + bytes([1]), hashlib.sha256).digest()
+            scanner.add_binary("signing_seed", seed)
         attempts = [event for event in target.events if event["event"] == "forbidden_writes"]
         report["forbiddenWrites"] = attempts
         if len(attempts) != 1 or len(attempts[0]["attempts"]) != 4:
@@ -246,9 +267,9 @@ def main(case):
         context = ssl.create_default_context(cafile="/ingest/control/tls-config/tls/ca.pem")
         context.load_cert_chain("/ingest/control/tls-config/tls/client.pem", "/ingest/control/tls-config/tls/client.key")
         report["phase"] = "request"
-        if case == "application":
+        if application:
             schema = ready["schema"]
-            sql(f"TRUNCATE {schema}.records; INSERT INTO {schema}.records SELECT i,1000+i,10,'{markers['application']}','{markers['withheld']}','{markers['undecided']}' FROM generate_series(1,100000) i; ANALYZE {schema}.records;")
+            sql(f"TRUNCATE {schema}.records; INSERT INTO {schema}.records SELECT i,1000+i,10,'{markers['application']}','{markers['withheld']}','{markers['undecided']}' FROM generate_series(1,{10 if custody else 100000}) i; ANALYZE {schema}.records;")
             # Project configuration owns the row limit, not an agent override.
             # Updating metadata remains through its existing scoped test fixture.
             target.send(op="scenario", name="success"); target.until("configured")
@@ -259,15 +280,46 @@ def main(case):
             # Keep this application's configured 100-row delivery cap; the direct
             # Engine cases independently verify 100k delivered rows.
             body = {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "opintel.query", "arguments": {"sql": "SELECT field_4 FROM warehouse.public.records"}}}
-            status, response = receive(connection, url.path, body, headers)
+            if custody:
+                if case == "custody_expired":
+                    project = url.path.rsplit("/", 1)[-1]
+                    sql(f"UPDATE project SET settings=jsonb_set(settings,'{{custody,grant_ttl}}','5') WHERE id='{project}';")
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    pending = pool.submit(receive, connection, url.path, body, headers)
+                    keys = target.until("custody_keys", request=pending)
+                    try:
+                        with open(f"/proc/{ready['pid']}/mem", "r+b", buffering=0) as memory:
+                            for item in keys["ranges"]:
+                                memory.seek(int(item["start"])); value = memory.read(item["size"])
+                                if len(value) != 32: raise RuntimeError("custody_key_observation_incomplete")
+                                scanner.add_binary(item["name"], value)
+                                control = scanner.allocation(ready["pid"], item["start"], item["size"])
+                                if not control["complete"] or not any(name.startswith(item["name"] + ":") for name in control["counts"]):
+                                    raise RuntimeError("custody_key_live_control_not_found")
+                        report["custodyKeyObservation"] = [{"name": item["name"], "bytes": item["size"]} for item in keys["ranges"]]
+                    finally:
+                        # No key bytes cross target stdout, metadata or log files.
+                        with open(f"/proc/{ready['pid']}/mem", "r+b", buffering=0) as memory:
+                            memory.seek(int(keys["gate"])); memory.write(__import__("struct").pack("=i",1))
+                    status, response = pending.result()
+            else:
+                status, response = receive(connection, url.path, body, headers)
             result = response.get("result", {})
             rows = result.get("structuredContent", {}).get("rows", [])
             report["applicationOutcome"] = {key: result.get("_meta", {}).get(key) for key in ("code", "cause", "retryable")}
-            if status != 200 or result.get("isError") or not rows or any(row != [markers["application"]] for row in rows):
+            if status != 200 or result.get("isError") or not rows or (any(not str(row[0]).startswith("opintelsealed:v1:") for row in rows) if custody else any(row != [markers["application"]] for row in rows)):
                 report["failures"].append("application_delivery_failed")
             report["responseCompletedAtUnixSeconds"] = time.time()
             report["delivery"] = {"rows": len(rows), "status": status, "authorizedBoundary": "external MCP receiver"}
             connection.close()
+            if custody:
+                for i, row in enumerate(rows): scanner.add_binary("sealed_" + str(i), str(row[0]).encode())
+                bundle = result.get("structuredContent", {}).get("custody", [])[0]
+                target.send(op="custody_finish", grant=bundle["grant"], action=case.removeprefix("custody_"))
+                finished = target.until("custody_finished")
+                report["custodyLifecycle"] = finished["rows"]
+                if finished["rows"] != [{"share_present": False, "state": case.removeprefix("custody_")}]:
+                    report["failures"].append("custody_share_lifecycle_failed")
             report["checkpoints"].append(snapshot(target, ready, scanner, "immediate_after_response_no_forced_gc"))
             target.send(op="evidence"); evidence = target.until("evidence")
             evidence_check = scanner.stream(__import__("io").BytesIO(json.dumps(evidence["contents"]).encode()))
@@ -377,10 +429,14 @@ def main(case):
             if not workload:
                 continue
             sink = item["sink"]
-            source_query = sink.startswith("TCP:") and ":5432" in sink and case != "application" and all(key.startswith("query_literal:") for key in workload)
-            receiver_port = ready.get("port") if case != "application" else __import__("urllib.parse", fromlist=["urlparse"]).urlparse(ready["url"]).port
+            source_query = sink.startswith("TCP:") and ":5432" in sink and not application and all(key.startswith("query_literal:") for key in workload)
+            receiver_port = ready.get("port") if not application else __import__("urllib.parse", fromlist=["urlparse"]).urlparse(ready["url"]).port
             delivery = sink.startswith("TCP:") and "127.0.0.1:" + str(receiver_port) in sink
-            if not source_query and not delivery:
+            # K2 is the one intentionally persisted share, in the application
+            # database while the grant lives. K/K1 and every other sink remain
+            # checked. Logical deletion is asserted above, not physical WAL erasure.
+            custody_share_store = custody and sink.startswith("TCP:") and ":5432" in sink and all(key.startswith("opintel_share:") for key in workload)
+            if not source_query and not delivery and not custody_share_store:
                 report["failures"].append("observed_workload_write:" + sink)
         log = scanner.file(target.log)
         report["telemetry"] = {"log": log, "spans": {"status": "INCOMPLETE" if tracing else "NOT_CONFIGURED", "reason": "export adapter missing" if tracing else "no production span exporter or tracing SDK detected"}}

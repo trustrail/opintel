@@ -15,7 +15,7 @@ export interface TokenDeclarationRepository {
 }
 export function validateTokenDeclarations(type: ExposedType | null, value: TokenDeclarations): Result<void> {
   if (value.tokenDomain !== null && !tokenDomain.safeParse(value.tokenDomain).success) {
-    return err(new DomainError('validation_failed', 'Declare tokenDomain using lowercase letters and digits; sentinel and opintelisolated domains are reserved.',{fields:['tokenDomain']}));
+    return err(new DomainError('validation_failed', 'Declare tokenDomain using lowercase letters and digits; sentinel, opintelisolated and opintelsealed domains are reserved.',{fields:['tokenDomain']}));
   }
   if (value.caseInsensitive !== null && type !== 'VARCHAR' && type !== 'UUID') {
     return err(new DomainError('validation_failed', 'caseInsensitive may only be declared on a text-mode column.',{fields:['caseInsensitive']}));

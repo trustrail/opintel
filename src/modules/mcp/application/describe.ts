@@ -1,3 +1,5 @@
+import type {ReleaseContext} from '../../release-custody/index.js';
+import type {releaseDescription} from '../../../shared/release-contract.js';
 import { z } from 'zod';
 import { DescribeInput, DescribeOutput } from '../../../shared/api/mcp.js';
 import { DomainError, err, ok, type PoolId, type SourceId, type Result } from '../../../shared/kernel/index.js';
@@ -17,7 +19,7 @@ export interface DescribeTool {
  describe(principal: McpPrincipal, input: unknown): Promise<Result<z.infer<typeof DescribeOutput>>>;
 }
 export class DescribeService implements DescribeTool {
- constructor(private readonly reader: DescribeReader, private readonly authorization: AuthorizationPort) {}
+ constructor(private readonly reader: DescribeReader, private readonly authorization: AuthorizationPort,private readonly custody?:{describe(ctx:ReleaseContext):Promise<z.infer<typeof releaseDescription>|undefined>}) {}
  async describe(principal: McpPrincipal, input: unknown): Promise<Result<z.infer<typeof DescribeOutput>>> {
   const parsed = DescribeInput.safeParse(input);
   if (!parsed.success) return err(new DomainError('validation_failed','The tool arguments do not match its schema.'));
@@ -40,7 +42,8 @@ export class DescribeService implements DescribeTool {
   }
   // Explicit projection only: no source identifiers, compiler omissions or
   // catalogue diagnostics are passed through to the agent.
-  const output = DescribeOutput.safeParse({objects:[...objects.values()]});
+  const custody=await this.custody?.describe({projectId:principal.pool.projectId,userId:principal.scopeUserId});
+  const output = DescribeOutput.safeParse({...custody?{custody}:{},objects:[...objects.values()]});
   return output.success ? ok(output.data) : err(new DomainError('dependency_unavailable','The pool description is unavailable.'));
  }
 }

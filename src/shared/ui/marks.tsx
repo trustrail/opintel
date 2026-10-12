@@ -7,6 +7,7 @@ const marks = {
   'treatment-aggregate': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/><circle cx="11" cy="20" r="3" fill="var(--plum)"/><circle cx="17" cy="12" r="3" fill="var(--plum)"/><circle cx="23" cy="20" r="3" fill="var(--plum)"/></>},
   'treatment-tokenized': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/><circle cx="17" cy="17" r="4" fill="var(--plum)"/></>},
   'treatment-withheld': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="none" stroke="var(--ink-3)" strokeWidth={_stroke}/><line x1="9" y1="25" x2="25" y2="9" stroke="var(--ink-3)" strokeWidth={_stroke}/></>},
+  'treatment-custody': {category:'treatment',viewBox:'0 0 34 34',props:{},geometry:(_stroke:number)=><><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/><path d="M13 16v-3a4 4 0 0 1 8 0v3" fill="none" stroke="var(--plum)" strokeWidth={_stroke}/><rect x="11" y="16" width="12" height="9" rx="2" fill="var(--plum)"/></>},
   'treatment-undecided': {category: 'treatment', viewBox: '0 0 34 34', props: {}, geometry: (_stroke:number)=> <><circle cx="17" cy="17" r="12" fill="var(--yellow-bg)" stroke="var(--ink-2)" strokeWidth={_stroke} strokeDasharray="3.6 3.6"/></>},
   'source': {category: 'kind', viewBox: '0 0 24 24', props: {fill: 'none',stroke: 'var(--ink-2)',strokeWidth: '1.7',strokeLinecap: 'round',strokeLinejoin: 'round'}, geometry: <>
       <path d="M3 7.5a9 3.5 0 1 0 18 0 9 3.5 0 1 0-18 0"/>
@@ -106,11 +107,11 @@ export type MarkName = keyof typeof marks;
 export type MarkSize = 12 | 16 | 17 | 18 | 19 | 22 | 24 | 26 | 30 | 34 | 48;
 const treatmentStrokeWeights:Partial<Record<MarkSize,number>>={12:2.6,16:2.4,17:2.35,18:2.3,22:2.2,34:2,48:1.8};
 export const markNames = Object.keys(marks) as MarkName[];
-const treatmentColours:Partial<Record<MarkName,`var(--${string})`>>={'treatment-clear':'var(--green-dk)','treatment-masked':'var(--mask-dk)','treatment-aggregate':'var(--agg-dk)','treatment-tokenized':'var(--token-dk)','treatment-withheld':'var(--held-dk)','treatment-undecided':'var(--ink-2)'};
+const treatmentColours:Partial<Record<MarkName,`var(--${string})`>>={'treatment-custody':'var(--plum)','treatment-clear':'var(--green-dk)','treatment-masked':'var(--mask-dk)','treatment-aggregate':'var(--agg-dk)','treatment-tokenized':'var(--token-dk)','treatment-withheld':'var(--held-dk)','treatment-undecided':'var(--ink-2)'};
 export function Mark({name,size=16,navigation=false,label,treatmentColour,legendFill}:{name:MarkName;size?:MarkSize;navigation?:boolean;label?:string;treatmentColour?:`var(--${string})`;legendFill?:`var(--${string})`}):ReactNode {
  const mark=marks[name];
  const colour=legendFill??treatmentColour??treatmentColours[name];
- const style:CSSProperties & {'--plum'?:string;'--ink-3'?:string;'--yellow-bg'?:string}={verticalAlign:'middle',flexShrink:0,...(mark.category==='treatment'&&colour?{'--plum':colour,'--ink-3':colour}:{}),...(legendFill?{'--yellow-bg':legendFill}:{})};
+ const style:CSSProperties & {'--plum'?:string;'--ink-3'?:string;'--yellow-bg'?:string}={verticalAlign:'middle',flexShrink:0,...(mark.category==='treatment'&&colour?{...(colour==='var(--plum)'?{}:{'--plum':colour}),'--ink-3':colour}:{}),...(legendFill?{'--yellow-bg':legendFill}:{})};
  return <svg {...mark.props} {...(navigation?{stroke:'currentColor'}:{})} viewBox={mark.viewBox} width={size} height={size} style={style} aria-hidden={label?undefined:true} role={label?'img':undefined} aria-label={label} focusable="false" data-mark={name} data-mark-category={mark.category}>{legendFill&&mark.category==='treatment'?<LegendTreatment name={name} fill={legendFill}/>:typeof mark.geometry==='function'?mark.geometry(treatmentStrokeWeights[size]??2):mark.geometry}</svg>;
 }
 
@@ -121,6 +122,7 @@ function LegendTreatment({name,fill}:{name:MarkName;fill:`var(--${string})`}){
  if(name==='treatment-masked')return <><path d="M17 5a12 12 0 0 0 0 24z" fill={fill} {...edge}/><circle cx="17" cy="17" r="12" fill="none" {...edge}/></>;
  if(name==='treatment-tokenized')return <><circle cx="17" cy="17" r="12" fill="none" {...edge}/><circle cx="17" cy="17" r="4" fill={fill} {...edge}/></>;
  if(name==='treatment-aggregate')return <><circle cx="17" cy="17" r="12" fill="none" {...edge}/>{[[11,20],[17,12],[23,20]].map(([cx,cy],i)=><circle key={i} cx={cx} cy={cy} r="3" fill={fill} {...edge}/>)}</>;
+ if(name==='treatment-custody')return <><circle cx="17" cy="17" r="12" fill={fill} {...edge}/><path d="M12 16v-3a5 5 0 0 1 10 0v3h-2v-3a3 3 0 0 0-6 0v3z" fill="var(--surface)" {...edge}/><rect x="11" y="16" width="12" height="9" rx="2" fill="var(--surface)" {...edge}/></>;
  if(name==='treatment-withheld')return <><circle cx="17" cy="17" r="12" fill={fill} {...edge}/><line x1="9" y1="25" x2="25" y2="9" {...edge}/></>;
  return <circle cx="17" cy="17" r="12" fill={fill} {...edge} strokeDasharray="3.6 3.6"/>;
 }

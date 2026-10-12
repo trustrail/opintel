@@ -1,8 +1,11 @@
 import { configDefaults, defineConfig } from 'vitest/config';
+import NormalSequencer from './scripts/testing/normal-sequencer.js';
 
 export default defineConfig({
   test: {
     runner: './scripts/testing/database-runner.ts',
+    sequence: { shuffle: false, sequencer: NormalSequencer },
+    maxWorkers: 1,
     reporters: ['default', './scripts/testing/database-stop-reporter.ts'],
     include: configDefaults.include.map(pattern => `test/${pattern}`),
     exclude: [...configDefaults.exclude, 'test/performance/**', 'test/tokenization-stress/**', 'test/bypass/**', 'test/ephemerality/**'],

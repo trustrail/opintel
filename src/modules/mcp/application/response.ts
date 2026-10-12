@@ -4,6 +4,9 @@ import {queryRefusalDetails,QueryRefusalMetadata} from '../../../shared/api/quer
 import { QueryOutput } from '../../../shared/api/mcp.js';
 
 export const messages = {
+  "Release-refused": "This release grant is expired, revoked, already redeemed, or belongs to another credential. No release share was returned.",
+  "Release-config": "Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.",
+  "Release-prepare": "Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.",
   "W": "{name} was withheld from this pool. It cannot be returned in any form.",
   "E": "{name} has no decision recorded for this pool, so it cannot be returned. An administrator decides each element before an agent can read it.",
   "T": "{name} is tokenized, so it supports equality, grouping and joins, but not {operation}. Tokens preserve which values are the same, not how they order.",
@@ -30,6 +33,10 @@ export const messages = {
   "Unknown": "The query could not be completed. Whether it reached a source is not established. This needs an operator."
 } as const;
 const mapping: Readonly<Record<string, readonly [keyof typeof messages, boolean | 'inherit']>> = {
+ 'forbidden/release_refused': ['Release-refused', false],
+ 'dependency_unavailable/release_configuration': ['Release-config', false],
+ 'forbidden/release_configuration': ['Release-config', false],
+ 'dependency_unavailable/release_prepare_failed': ['Release-prepare', false],
  'element_withheld/withheld': ['W', false],
  'entitlement_missing/undecided': ['E', false],
  'unsupported_on_token/unsatisfiable_token_join': ['T-join', false],
@@ -79,7 +86,7 @@ const mapping: Readonly<Record<string, readonly [keyof typeof messages, boolean 
 
 const name = z.string().min(1).refine(v => !v.includes('\0'));
 export const reductionSchema = z.object({
- withheld:z.array(name), tokenized:z.array(name), masked:z.array(name), aggregate_only:z.array(name),
+ withheld:z.array(name), tokenized:z.array(name), masked:z.array(name), aggregate_only:z.array(name), custody:z.array(name).optional(),
 });
 export type Reduction = z.infer<typeof reductionSchema>;
 const passThroughCauses: Readonly<Record<string, readonly string[]>> = {
@@ -119,20 +126,25 @@ export function refusalResponse(error:DomainError) {
   if(columns.success&&columns.data)text=text.replace('{left}',columns.data[0].name).replace('{right}',columns.data[1].name);
   else text=messages.Unknown;
  }
- if(passThroughCauses[error.code]&&error.code!=='sql_not_permitted')text=error.message;
+ if(passThroughCauses[error.code]?.includes(cause)&&error.code!=='sql_not_permitted')text=error.message;
+ if(label==='Release-config'){
+  const reasons:Readonly<Record<string,string>>={provider_not_configured:'No custody provider is configured.',provider_not_checked:'The custody provider has not passed a connection check.',provider_configuration_changed:'The custody provider configuration changed after its connection check.',provider_check_failed:'The custody provider connection check failed.'};
+  if(typeof details.reason==='string'&&reasons[details.reason])text=`${reasons[details.reason]} No result was released. Configure a custody provider in Settings.`;
+ }
  if(label==='Unknown'||label==='Version'||label==='Result'||text.includes('operator'))retryable=false;
  return {isError:true,content:[{type:'text' as const,text}],_meta:QueryRefusalMetadata.parse({...details,code:error.code,cause,retryable:retryable==='inherit'?error.retryable:retryable})};
 }
 export function queryResponse(value:z.infer<typeof QueryOutput>&{reduction?:Reduction}) {
- const output=QueryOutput.parse({columns:value.columns,rows:value.rows,truncated:value.truncated,evidenceId:value.evidenceId});
+ const output=QueryOutput.parse({columns:value.columns,rows:value.rows,truncated:value.truncated,evidenceId:value.evidenceId,...(value.custody?{custody:value.custody}:{})});
  const r=reductionSchema.parse(value.reduction??{withheld:[],tokenized:[],masked:[],aggregate_only:[]});
  const n=output.rows.length;
  let text=n===0?'No rows.':n===1?'1 row.':`${n} rows.`;
  if(output.truncated)text+=` The result was truncated at ${n} rows; there are more.`;
  if(r.withheld.length)text+=r.withheld.length===1?` 1 element was withheld: ${r.withheld[0]}.`:` ${r.withheld.length} elements were withheld: ${r.withheld.join(', ')}.`;
  for(const kind of ['tokenized','masked'] as const)if(r[kind].length)text+=` ${r[kind].join(', ')} ${r[kind].length===1?'was':'were'} returned ${kind}.`;
+ if(value.custody?.length)text+=' Custody values are sealed. Redeem both release shares with your credential and unseal locally before use; the grant identifies both redemption endpoints.';
  if(r.aggregate_only.length)text+=` ${r.aggregate_only.join(', ')} can only be read in aggregate.`;
  if(r.tokenized.length)text+=' Tokens are stable: the same value is always the same token, so they can be grouped and joined, but not ordered or compared.';
- const elements=Object.entries(r).flatMap(([treatment,names])=>names.map(name=>({name,treatment})));
+ const elements=Object.entries(r).flatMap(([treatment,names])=>(names??[]).map(name=>({name,treatment})));
  return {content:[{type:'text' as const,text}],structuredContent:output,_meta:{recordId:output.evidenceId,reduced:elements.length>0,elements}};
 }

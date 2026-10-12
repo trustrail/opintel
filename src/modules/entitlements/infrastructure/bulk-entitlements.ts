@@ -1,3 +1,4 @@
+import {custodyAvailability} from '../../release-custody/index.js';
 import { createHash } from 'node:crypto';
 import { withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, ElementId, type PoolId, type SourceId, type Result } from '../../../shared/kernel/index.js';
@@ -14,7 +15,7 @@ type ElementRow = TemporalDeclarations & {
   tokenDomain: string | null; caseInsensitive: boolean | null; canonId: string | null;
 };
 export class PostgresBulkEntitlements implements BulkEntitlementRepository {
-  set(ctx: EntitlementContext, pool: PoolId, input: BulkEntitlementBody, key: string, requestId: string): Promise<Result<BulkStoredResponse>> {
+  async set(ctx: EntitlementContext, pool: PoolId, input: BulkEntitlementBody, key: string, requestId: string): Promise<Result<BulkStoredResponse>> {
     const route = `/api/v1/pools/${pool}/entitlements/bulk`;
     // Fixed property order hashes the validated command, independent of JSON key order.
     const hash = createHash('sha256').update(JSON.stringify({projectId:input.projectId,elementIds:input.elementIds,treatment:input.treatment,maskKind:input.maskKind,justification:input.justification})).digest('hex');
@@ -23,6 +24,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
       const [prior] = await tx.query<{body_hash:string;response:unknown}>(`SELECT body_hash,response FROM bulk_entitlement_request
         WHERE actor_id=$1 AND route=$2 AND request_key=$3 AND expires_at>clock_timestamp()`,[ctx.userId,route,key]);
       if (prior) return prior.body_hash === hash ? ok(BulkStoredResponse.parse(prior.response)) : err(new DomainError('idempotency_key_reused','This Idempotency-Key was used with a different bulk decision.'));
+      if(input.treatment==='custody'&&!(await custodyAvailability(ctx.projectId)).available)return err(new DomainError('dependency_unavailable','Configure a custody provider in Settings and pass its connection check before selecting Released under custody.',{cause:'release_configuration'}));
       const ids = input.elementIds.map(ElementId);
       // Same source-first order as manual decisions, declarations and introspection.
       // Sorted locks also serialize overlapping batches without reversing lock order.

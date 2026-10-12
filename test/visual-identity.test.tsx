@@ -9,17 +9,17 @@ const geometry=(svg:string)=>[...svg.matchAll(/<(circle|path|rect|line)\b([^>]*)
  tag:shape[1],attributes:[...shape[2]!.matchAll(/([\w-]+)="([^"]*)"/gu)].map(attribute=>[attribute[1],attribute[2]]).sort((a,b)=>a[0]!.localeCompare(b[0]!)),
 }));
 describe('5.27 visual identity',()=>{
- it('VIS-001: all 40 specified marks are identifiable, passive geometry using existing tokens',()=>{
-  expect(markNames).toHaveLength(40);
+ it('VIS-001: all 41 specified marks are identifiable, passive geometry using existing tokens',()=>{
+  expect(markNames).toHaveLength(41);
   const master=readFileSync(new URL('../docs/opintel-master.css',import.meta.url),'utf8');
   const spec=readFileSync(new URL('../docs/visual-language.html',import.meta.url),'utf8');
   const expected=new Map<string,string>();
   const spectrum=spec.slice(spec.indexOf('<h2>Exposure is a spectrum'),spec.indexOf('<h2>At the sizes'));
-  for(const match of spectrum.matchAll(/(<svg[^>]*>.*?<\/svg>)<\/div>\s*<div class="nm">([^<]+)<\/div>/gsu))expected.set('treatment-'+match[2]!.toLowerCase(),match[1]!);
+  for(const match of spectrum.matchAll(/(<svg[^>]*>.*?<\/svg>)<\/div>\s*<div class="nm">([^<]+)<\/div>/gsu))expected.set('treatment-'+(match[2]==='Released under custody'?'custody':match[2]!.toLowerCase()),match[1]!);
   const kinds=spec.slice(spec.indexOf('<h2>The things themselves'),spec.indexOf('<h2>Navigation'));
   for(const match of kinds.matchAll(/(<svg[^>]*>.*?<\/svg>)\s*<div class="nm">([^<]+)<\/div>/gsu))expected.set(match[2]!.toLowerCase().replaceAll(' ','-'),match[1]!);
   for(const match of spec.matchAll(/<div class="ni">(<svg.*?<\/svg>)<span>([^<]+)<\/span>/gsu))expected.set('nav-'+match[2]!.toLowerCase().replaceAll(' ','-'),match[1]!);
-  expect(expected.size).toBe(40);
+  expect(expected.size).toBe(41);
   for(const name of markNames){
    const markup=renderToStaticMarkup(<Mark name={name} size={34}/>);
    expect(markup).toContain(`data-mark="${name}"`);

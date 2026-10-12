@@ -1,5 +1,5 @@
 import { DomainError, err, ok, type Result, type PoolId, type ElementId, type ProjectId, type ActorRef, type Timestamp } from '../../../shared/kernel/index.js';
-export const treatments = ['clear', 'tokenized', 'masked', 'aggregate_only', 'withheld'] as const;
+export const treatments = ['clear', 'tokenized', 'masked', 'aggregate_only', 'custody', 'withheld'] as const;
 export const maskKinds = ['last4', 'email', 'year', 'all'] as const;
 export type MaskKind = typeof maskKinds[number];
 export type Treatment = typeof treatments[number];
