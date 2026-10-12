@@ -9,7 +9,7 @@ export interface ReleaseProvider {
  readonly id:string;readonly tenant:string;readonly redeemAt:string;
  readonly reportedRegion?:string;
  register(alias:string):Promise<void>;
- escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true):Promise<string>;
+ escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true,receipt?:string):Promise<string>;
  revoke(locator:string):Promise<void>;
  redemptions(since:Date):Promise<ProviderRedemptions>;
 }

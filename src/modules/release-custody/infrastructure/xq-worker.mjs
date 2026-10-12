@@ -9,12 +9,13 @@ globalThis.window={navigator:{platform:'Node'},crypto:webcrypto};
 globalThis.console.log=globalThis.console.info=globalThis.console.warn=globalThis.console.error=globalThis.console.debug=()=>{};
 try{
  const {XQSDK,AuthorizeAlias,GeneratePacket,RevokeKeyAccess,FetchKey,CheckApiKey,GetCurrentBusiness,ServerResponse}=await import('@xqmsg/jssdk-core');
- const {configuration,operation,alias,locator,share,ttlSeconds}=workerData;
+ const {configuration,operation,alias,locator,share,ttlSeconds,receipt}=workerData;
  const sdk=new XQSDK({XQ_API_KEY:configuration.apiKey,DASHBOARD_API_KEY:configuration.dashboardApiKey});
  // Explicit infrastructure injection for local adapter contract tests; never
  // exposed through Settings or agent input.
  if(configuration.dashboardUrl)sdk.DASHBOARD_SERVER_URL=configuration.dashboardUrl;
  if(configuration.subscriptionUrl)sdk.SUBSCRIPTION_SERVER_URL=configuration.subscriptionUrl;
+ if(configuration.validationUrl)sdk.VALIDATION_SERVER_URL=configuration.validationUrl;
  let healthStatus;
  // Native fetch transport avoids XMLHttpRequest and shares no response cache.
  sdk.makeRequest=async(url,method,service,headers,payload,requiresApiKey)=>{
@@ -31,7 +32,7 @@ try{
  if(operation==='dashboard_health'){sdk.getCache().putDashboardAccess(configuration.senderAlias,configuration.dashboardAccessToken);response=await new GetCurrentBusiness(sdk).supplyAsync(null);}
  else if(operation==='health')response=await new CheckApiKey(sdk).supplyAsync({'api-key':configuration.apiKey});
  else if(operation==='register')response=await new AuthorizeAlias(sdk).supplyAsync({user:alias});
- else if(operation==='escrow')response=await new GeneratePacket(sdk).supplyAsync({key:share,recipients:[alias],expires:Math.ceil(ttlSeconds/3600),dor:true,type:'unknown',meta:null});
+ else if(operation==='escrow')response=await new GeneratePacket(sdk).supplyAsync({key:share,recipients:[alias],expires:Math.ceil(ttlSeconds/3600),dor:true,type:'unknown',meta:receipt?{receipt}:null});
  else if(operation==='revoke')response=await new RevokeKeyAccess(sdk).supplyAsync({tokens:[locator]});
  else if(operation==='fetch')response=await new FetchKey(sdk).supplyAsync({locatorKey:locator});
  else throw new Error('Unknown XQ operation.');

@@ -1,7 +1,7 @@
 import {Worker} from 'node:worker_threads';
 import {z} from 'zod';
 import type {ReleaseProvider,ProviderHealth} from '../application/ports.js';
-export type XqConfiguration={apiKey:string;dashboardApiKey:string;senderAlias:string;senderAccessToken:string;accessToken?:string;dashboardAccessToken?:string;dashboardUrl?:string;subscriptionUrl?:string};
+export type XqConfiguration={apiKey:string;dashboardApiKey:string;senderAlias:string;senderAccessToken:string;accessToken?:string;dashboardAccessToken?:string;dashboardUrl?:string;subscriptionUrl?:string;validationUrl?:string};
 /** Disposable SDK workers isolate its browser compatibility globals and caches.
  * Only K1 crosses this adapter. Live XQ remains unverified without credentials. */
 export class XqReleaseProvider implements ReleaseProvider {
@@ -20,7 +20,7 @@ export class XqReleaseProvider implements ReleaseProvider {
  }
  private async dashboardHealth(){try{const result=z.strictObject({reachable:z.boolean(),authenticated:z.boolean(),failure:z.enum(['credentials_missing','authentication_refused','provider_refused','unreachable','deadline_exceeded','invalid_response']).nullable()}).parse(await this.call('dashboard_health',{}));return {status:result.authenticated?'authenticated' as const:'failed' as const,failure:result.failure};}catch{return {status:'failed' as const,failure:'unreachable' as const};}}
  async register(alias:string){await this.call('register',{alias});}
- async escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true){if(key.length!==32||singleUse!==true||ttlSeconds<=0)throw new Error('Invalid custody escrow.');return z.string().min(1).parse(await this.call('escrow',{share:Buffer.from(key).toString('base64url'),alias,ttlSeconds}));}
+ async escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true,receipt?:string){if(key.length!==32||singleUse!==true||ttlSeconds<=0)throw new Error('Invalid custody escrow.');return z.string().min(1).parse(await this.call('escrow',{share:Buffer.from(key).toString('base64url'),alias,ttlSeconds,receipt}));}
  async revoke(locator:string){await this.call('revoke',{locator});}
  async redemptions(_since:Date){return {status:'unsupported' as const}; /* Event-field mapping awaits verification against a real tenant. */}
  async fetch(locator:string,alias:string,accessToken:string){return Buffer.from(z.string().regex(/^[A-Za-z0-9_-]{43}$/u).parse(await this.call('fetch',{locator,alias},{...this.configuration,accessToken})),'base64url');}

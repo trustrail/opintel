@@ -18,7 +18,7 @@ export class QueryRelease implements QueryReleasePort {
   const ttl=Number(parsed.data),iat=Math.floor(Date.now()/1000),exp=iat+ttl,id=randomUUID();
   const sealed=this.sealer(rows,columns,indices,receipt);let locator:string|undefined;
   try{
-   locator=await this.provider.escrow(sealed.first,alias,ttl,true);sealed.first.fill(0);
+   locator=await this.provider.escrow(sealed.first,alias,ttl,true,receipt);sealed.first.fill(0);
    const names=indices.map(i=>columns[i]!);
    const issued=await this.service.issue(ctx,{iss:ctx.projectId,sub:alias,aud:this.provider.id,jti:id,iat,exp,rcpt:receipt,cols:names,custody:{provider:this.provider.id,tenant:this.provider.tenant,provider_redeem_at:this.provider.redeemAt,locator,opintel_redeem_at:this.redeemAt}},sealed.second);
    if(!issued.ok){await this.provider.revoke(locator).catch(()=>{});return issued;}
