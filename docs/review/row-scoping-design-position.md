@@ -57,6 +57,14 @@ The grammar admits columns, comparisons (`=`, `<>`, `<`, `<=`, `>`, `>=`), `IN`,
 
 Static decisions resolve at architecture step **3**; **3a** remains reserved for scope lookups. Filter-only columns travel separately from returned columns and never enter a staging table or agent-visible view. Step 2 implements no scope relationships or challenge.
 
+### Step 2b — editing and scale, ready
+
+The [row-entitlements console position](row-entitlements-console-position.md) resolves the editing and inheritance decisions. Its model extends the step 2 object × pool decisions into pool overrides alongside object defaults and future project tag rules. **Composition is tag rule AND object default AND pool override**, including every level present, not replacement. Resolve at step 3; receipts name every contributing decision and one effective-predicate hash, retaining literal privacy and historical immutability.
+
+An object with any row decision is scoped. If no tag rule, default or caller-pool override applies, it returns zero rows with the existing Activity mark and Needs You finding. Only an object with no decisions at any level is unscoped. This preserves step 2's missing-pool behavior. Explicit widening is refused; a future exemption decision with a reason and second approver is recorded, not designed.
+
+Step 2b's pool editor shows the default read-only above the additional restriction. Its privileged, evidenced preview uses exact counts and deterministic sampling, with the same pool treatments and aggregate disclosure threshold as a real call. Catalogue tag binding is specified for future tag rules; scope-reference choices do not appear until declared domains arrive in step 3a, and the text save refusal remains in 2b. The console position records all seven decisions and their reasons. **Step 2b is ready; this update implements no code.**
+
 ### Static predicates and scope references
 
 A static predicate never contacts SpiceDB. A reference such as:
