@@ -58,7 +58,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
  cleanup.push(async()=>{await mcp?.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const applicationUrl=`http://127.0.0.1:${address.port}`;
- const release=fixtureOptions.releaseCustody?new ReleaseRuntime(JSON.stringify({[f.ctx.projectId]:{provider:'local',applicationUrl}}),(rows,columns,indices,receipt)=>sealResult(rows,columns,indices,receipt,fixtureOptions.sealObserver),process.env.OPINTEL_S4_CUSTODY_MASTER??'11'.repeat(32)):undefined;
+ const release=fixtureOptions.releaseCustody?new ReleaseRuntime(JSON.stringify({[f.ctx.projectId]:{provider:'local',applicationUrl}}),process.env.OPINTEL_S4_CUSTODY_MASTER??'11'.repeat(32)):undefined;
  if(release){await withPlatform(async tx=>{await tx.query("INSERT INTO project_member(project_id,user_id,role) VALUES($1,$2,'admin')",[f.ctx.projectId,f.ctx.userId]);await tx.query("UPDATE project SET settings=settings||'{\"custody\":{\"provider\":\"local\"}}'::jsonb WHERE id=$1",[f.ctx.projectId]);});await release.checkConnection(f.ctx);cleanup.push(async()=>release.close());}
  const presence=new PostgresAgentPresence({publish:async()=>{}}),keys=new PoolKeyService(new PostgresPoolKeys(undefined,release?(ctx,alias)=>release.provision(ctx,alias):undefined),presence),outbox=new RelationshipOutbox(),bindings=new PoolBindingService(new PostgresPoolBindings(outbox),outbox,authorization);
  const issue=async(name:string)=>{const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name},randomUUID())));if(!issued.keyShown)throw new Error('Missing key');await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[issued.poolId,JSON.stringify({threads:1})]));return issued;};
@@ -89,7 +89,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const tokenSecrets={resolveBytes:async(_ref:unknown)=>Buffer.alloc(32,1)};
  const source=new PostgresStagingSource(scope,new SidecarTokenizer(tokenSecrets,new IanaZoneResolver()));
  const boundary={executions:0};
- const executor=new StagedExecutor(source,r=>new DuckDBSessionEngine(undefined,event=>{if(event.stage==='execute_started')boundary.executions++;},resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),r.limits));
+ const executor=new StagedExecutor(source,r=>new DuckDBSessionEngine(undefined,event=>{if(event.stage==='execute_started')boundary.executions++;},resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),r.limits),undefined,undefined,undefined,(rows,columns,indices,receipt)=>sealResult(rows,columns,indices,receipt,fixtureOptions.sealObserver));
  const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.4.3/d1dc88f950'}});const port=await host.listen();cleanup.push(()=>host.close());
  const execution=new SidecarQueryExecution({...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`});
  const reader=new PostgresQueryReader(),filter=new QueryPreFilter(new DuckDBQueryParser()),service=new QueryService(reader,filter,execution,authorization,writer,release);

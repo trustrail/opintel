@@ -1,3 +1,5 @@
+import {assertTestDatabase,assertTestSpiceDb} from '../scripts/testing/datastore-safety.js';
+if(process.env.SPICEDB_ENDPOINT)assertTestSpiceDb(process.env.SPICEDB_ENDPOINT);
 function testDatabaseUrl(): string | undefined {
   const configuredUrl = process.env.TEST_DATABASE_URL;
   if (configuredUrl !== undefined && configuredUrl.length > 0) {
@@ -23,6 +25,7 @@ const developmentDatabaseUrl = process.env.DATABASE_URL;
 const isolatedDatabaseUrl = testDatabaseUrl();
 
 if (isolatedDatabaseUrl !== undefined) {
+  assertTestDatabase(isolatedDatabaseUrl,developmentDatabaseUrl);
   if (developmentDatabaseUrl === isolatedDatabaseUrl) {
     throw new Error('TEST_DATABASE_URL must not equal DATABASE_URL.');
   }

@@ -29,6 +29,7 @@ export class QueryService implements QueryTool {
   const id=opened.value;let progress:'before'|'unknown'|'after'='before';
   const evidenceFailure=(error:DomainError)=>new DomainError(error.code,error.message,{...error.details,cause:progress==='before'?'evidence_before_execution':progress==='after'?'evidence_after_execution':'evidence_execution_unknown',evidenceId:id},error.retryable);
   const finish=async(outcome:Parameters<EvidenceWriterPort['close']>[1])=>{try{return await this.evidence.close(id,{...outcome,plan:captured,elapsedMs:Math.max(0,Math.round(performance.now()-started))},principal);}catch{return err(new DomainError('dependency_unavailable','Evidence could not be recorded. No query result was released.'));}};
+  let transientShares:{first:string;second:string}|undefined;
   let usage:{tokenKeyVersionUsed:number|null;sourceIdsReached:string[]}={tokenKeyVersionUsed:null,sourceIdsReached:[]};
   const refused=async(error:DomainError)=>{const saved=await finish({kind:'refused',...(error.details?.cause==='unsatisfiable_token_join'?{attemptedStatement:parsed.data.sql}:{}),code:error.code,message:error.message,details:error.details,stage:progress==='before'?(['source_not_bound','source_not_ready'].includes(String(error.details?.cause))?'resolve_sources':'validate'):'execute',retryable:error.retryable,...usage});const failure=saved.ok?error:evidenceFailure(saved.error);return err(new DomainError(failure.code,failure.message,{...failure.details,evidenceId:id},failure.retryable));};
   try{
@@ -53,7 +54,7 @@ export class QueryService implements QueryTool {
     return refused(response.error);
    }
    progress='after';
-   const r=response.value;if(captured&&r.rowScopes?.length)captured.sourcePlan={...captured.sourcePlan,rowScopes:r.rowScopes};usage={tokenKeyVersionUsed:r.tokenKeyVersionUsed,sourceIdsReached:r.sourceIdsReached};
+   const r=response.value;transientShares=r.custodyShares;if(captured&&r.rowScopes?.length)captured.sourcePlan={...captured.sourcePlan,rowScopes:r.rowScopes};usage={tokenKeyVersionUsed:r.tokenKeyVersionUsed,sourceIdsReached:r.sourceIdsReached};
    if(r.queryEngineVersion!==plan.queryEngineVersion||r.policyVersion!==plan.request.policyVersion||r.columnTypes.length!==r.columns.length||r.rows.some(row=>row.length!==r.columns.length))return refused(new DomainError('dependency_unavailable','The Opintel Engine returned an inconsistent query result.',{cause:'inconsistent_result',reason:r.queryEngineVersion!==plan.queryEngineVersion?'engine_version':r.policyVersion!==plan.request.policyVersion?'policy_version':r.columnTypes.length!==r.columns.length?'column_types':'row_shape'}));
    let custody: {columns:string[];grant:string}[]|undefined;
    const hasCustody=plan.request.entitlements.some(e=>e.treatment==='custody');
@@ -61,7 +62,8 @@ export class QueryService implements QueryTool {
     if(!r.custodyIndices||r.custodyIndices.some(i=>i>=r.columns.length))return refused(new DomainError('dependency_unavailable','The engine did not establish custody result lineage. No result was released.',{cause:'inconsistent_result',reason:'result_contract'}));
     if(r.custodyIndices.length){
      if(!this.custody||!principal.custodyAlias)return refused(new DomainError('dependency_unavailable','Configure release custody and provision this credential alias before querying custody values.',{cause:'release_configuration'}));
-     const sealed=await this.custody.seal({projectId:principal.pool.projectId,userId:principal.scopeUserId},principal.custodyAlias,id,r.columns,r.rows,r.custodyIndices);
+     if(!r.custodyShares||r.rows.some(row=>r.custodyIndices!.some(i=>typeof row[i]!=='string'||!String(row[i]).startsWith('opintelsealed:v1:'))))return refused(new DomainError('dependency_unavailable','The engine did not seal custody results. No result was released.',{cause:'inconsistent_result',reason:'result_contract'}));
+     const sealed=await this.custody.seal({projectId:principal.pool.projectId,userId:principal.scopeUserId},principal.custodyAlias,id,r.columns,r.rows,r.custodyIndices,r.custodyShares);
      if(!sealed.ok)return refused(sealed.error);r.rows=sealed.value.rows;custody=sealed.value.custody;for(const i of r.custodyIndices)r.columnTypes[i]='VARCHAR';
     }
    }
@@ -70,6 +72,6 @@ export class QueryService implements QueryTool {
    const saved=await finish({kind:'answered',rows:r.rows.length,policyVersion:r.policyVersion,queryEngineVersion:r.queryEngineVersion,truncated:r.truncated,...usage,execution:{executionPath:r.executionPath,queryEngineVersion:r.queryEngineVersion,...r.treatmentEvidence}});
    if(!saved.ok&&custody)await this.custody?.discard({projectId:principal.pool.projectId,userId:principal.scopeUserId},custody);
    return saved.ok?ok({...output.data,reduction:plan.reduction}):err(evidenceFailure(saved.error));
-  }catch{return err(new DomainError('dependency_unavailable','The query could not complete. Its evidence remains incomplete; no result was released.',{evidenceId:id}));}
+  }catch{return err(new DomainError('dependency_unavailable','The query could not complete. Its evidence remains incomplete; no result was released.',{evidenceId:id}));}finally{if(transientShares){transientShares.first='';transientShares.second='';}}
  }
 }

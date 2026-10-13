@@ -1,9 +1,9 @@
+import {requireEngineShares} from '../application/query-release.js';
 import {z} from 'zod';
 import {ProjectSettingsView,type ProjectSettings} from '../../../shared/api/settings.js';
 import {custodyAvailability,custodyEnvironment,checkBinding,custodyExecutionAvailable} from './availability.js';
 import {readSetting} from '../../../shared/project-settings.js';
 import {CustodyProviderStatus} from '../../../shared/api/release-custody.js';
-import {sealResult} from './crypto.js';
 import {withPlatform,withTenant,type Tx} from '../../../platform/db/scope.js';
 import {DomainError,err,ProjectId,UserId} from '../../../shared/kernel/index.js';
 import {releaseClaims} from '../../../shared/release-contract.js';
@@ -26,7 +26,7 @@ export class ReleaseRuntime {
  private readonly bindings=new Map<string,string>();
  private sweeping=false;
  private timer:ReturnType<typeof setInterval>|undefined;
- constructor(raw?:string,private readonly sealer:typeof sealResult=sealResult,private readonly master=process.env.OPINTEL_CUSTODY_MASTER_KEY){
+ constructor(raw?:string,private readonly master=process.env.OPINTEL_CUSTODY_MASTER_KEY){
   const parsed=config.parse(raw?JSON.parse(raw) as unknown:{});
   this.fixtureProjects=raw?new Set(Object.keys(parsed)):undefined;
   for(const [project,c] of Object.entries(parsed))this.install(project,c);
@@ -41,7 +41,7 @@ export class ReleaseRuntime {
    signatures=new PostgresGrantSignatures(provider,this.master);
    if(provider instanceof LocalReleaseProvider)Object.defineProperty(provider,'redeemAt',{value:new URL(`/mcp/v1/p/${project}/custody/local`,c.applicationUrl).href});
    const service=new ReleaseService(new PostgresReleaseRepository(project),signatures,provider);
-   this.projects.set(project,{provider,service,query:new QueryRelease(provider,service,new URL(`/mcp/v1/p/${project}`,c.applicationUrl).href,this.sealer)});
+   this.projects.set(project,{provider,service,query:new QueryRelease(provider,service,new URL(`/mcp/v1/p/${project}`,c.applicationUrl).href)});
  }
  private async ensure(ctx:ReleaseContext){
   const state=await custodyAvailability(ctx.projectId);if(!state.configuration)return undefined;
@@ -125,7 +125,7 @@ export class ReleaseRuntime {
   await withTenant(ctx,tx=>tx.query('SELECT record_custody_check($1)',[{binding:state.configuration?checkBinding(state.configuration):'',passed:result.authenticated&&result.failure===null,at:new Date().toISOString(),failure:result.failure,dashboard:result.dashboard??null}]));return result;
  }
  async rotateSigningKey(ctx:ReleaseContext){const p=await this.ensure(ctx);if(!p)throw new DomainError('dependency_unavailable','Configure a custody provider before rotating its signing key.',{cause:'release_configuration'});const state=await custodyAvailability(ctx.projectId),ttl=Number(readSetting(state.settings,'custody.grant_ttl')??600),keys=new PostgresGrantSignatures(p.provider,this.master);const result=await keys.rotate(ctx,ttl);const active=await withTenant(ctx,tx=>tx.query<{kid:string}>('SELECT kid FROM release_signing_key WHERE retired_at IS NULL'));return {signingKeyId:active[0]?.kid??result.keys.at(-1)!.kid};}
- async seal(...args:Parameters<QueryRelease['seal']>){const state=await custodyAvailability(args[0].projectId);if(!state.available)return err(new DomainError('dependency_unavailable',`Custody provider unavailable: ${state.reason}. No result was released. Configure a custody provider in Settings.`,{cause:'release_configuration',reason:state.reason}));const p=await this.ensure(args[0]);return p?p.query.seal(...args):err(new DomainError('dependency_unavailable','Release custody is not configured for this project. No result was released.',{cause:'release_configuration'}));}
+ async seal(...args:Parameters<QueryRelease['seal']>){const valid=requireEngineShares(args[6]);if(!valid.ok)return valid;const state=await custodyAvailability(args[0].projectId);if(!state.available)return err(new DomainError('dependency_unavailable',`Custody provider unavailable: ${state.reason}. No result was released. Configure a custody provider in Settings.`,{cause:'release_configuration',reason:state.reason}));const p=await this.ensure(args[0]);return p?p.query.seal(...args):err(new DomainError('dependency_unavailable','Release custody is not configured for this project. No result was released.',{cause:'release_configuration'}));}
  async discard(ctx:ReleaseContext,grants:readonly {grant:string}[]){await this.projects.get(ctx.projectId)?.query.discard(ctx,grants);}
  async describe(ctx:ReleaseContext){return (await this.ensure(ctx))?.service.describe(ctx);}
  async provision(ctx:ReleaseContext,alias:string){await (await this.ensure(ctx))?.provider.register(alias);}

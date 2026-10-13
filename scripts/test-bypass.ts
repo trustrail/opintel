@@ -1,3 +1,5 @@
+import {loadDevEnvironment} from './dev-environment.js';
+import {freshNormalSpiceDb} from './testing/normal-environment.js';
 import { mkdtemp,readFile,rm,writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +20,9 @@ async function main(){
   result={reason,errors:[...unhandled,...modules.flatMap(m=>[...m.errors(),...[...m.children.allSuites()].flatMap(s=>s.errors())])].map(e=>({name:e.name??'Error',message:e.message??''})),
    tests:modules.flatMap(m=>[...m.children.allTests()].map(t=>{const r=t.result();return {file:m.relativeModuleId,name:t.name,state:r.state,errors:(r.errors??[]).map(e=>({name:e.name??'Error',message:e.message??''}))};}))};
  }};
+ const owned=await freshNormalSpiceDb(loadDevEnvironment());
+ const previousEndpoint=process.env.SPICEDB_ENDPOINT,previousToken=process.env.SPICEDB_TOKEN;
+ process.env.SPICEDB_ENDPOINT=owned.endpoint;process.env.SPICEDB_TOKEN=owned.token;
  try{
   const context=await startVitest('test',[],{config:fileURLToPath(new URL('../vitest.bypass.config.ts',import.meta.url)),watch:false,reporters:[reporter]});
   try{
@@ -37,6 +42,9 @@ async function main(){
   }
   process.exitCode=evaluation.ok?0:1;
  }finally{
+  await owned.close();
+  if(previousEndpoint===undefined)delete process.env.SPICEDB_ENDPOINT;else process.env.SPICEDB_ENDPOINT=previousEndpoint;
+  if(previousToken===undefined)delete process.env.SPICEDB_TOKEN;else process.env.SPICEDB_TOKEN=previousToken;
   if(previousReport===undefined)delete process.env.BYPASS_REPORT;else process.env.BYPASS_REPORT=previousReport;
   await rm(directory,{recursive:true,force:true});
  }

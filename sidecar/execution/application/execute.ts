@@ -1,3 +1,4 @@
+import {sealResult} from '../../../src/shared/infrastructure/sealed-result.js';
 import {previewRows} from './preview.js';
 import {hasScope,predicateHash,referencedColumns} from '../../../src/shared/row-predicate.js';
 import type {RowScopeReceipt} from '../../../src/shared/row-scope-contract.js';
@@ -13,7 +14,7 @@ export const stagingRef=(o:StagingObject)=>`${o.catalog}__${o.schema}__${o.name}
 const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
 const cancelled=()=>err(new DomainError('budget_exceeded','The execution exceeded timeoutMs or was cancelled. No partial result was returned.',{cause:'interruption_unclassified',resource:'time'},true));
 export class StagedExecutor {
- constructor(private readonly source:StagingSource,private readonly engine:(r:ExecutionRequest)=>SessionEngine=r=>new DuckDBSessionEngine(undefined,undefined,undefined,r.limits),private readonly queue=new ExecutionQueue(),private readonly clock:DeadlineClock=deadlineClock,private readonly audit:ExecutionAudit=executionAudit){}
+ constructor(private readonly source:StagingSource,private readonly engine:(r:ExecutionRequest)=>SessionEngine=r=>new DuckDBSessionEngine(undefined,undefined,undefined,r.limits),private readonly queue=new ExecutionQueue(),private readonly clock:DeadlineClock=deadlineClock,private readonly audit:ExecutionAudit=executionAudit,private readonly sealer:typeof sealResult=sealResult){}
  preview(input:unknown,signal?:AbortSignal){return previewRows(input,this.source,this.queue,signal);}
  execute(input:unknown,signal?:AbortSignal){return this.logged(input,signal);}
  validate(input:unknown,signal?:AbortSignal){return new StagedValidator().validate(input,signal);}
@@ -94,7 +95,16 @@ export class StagedExecutor {
    };
    const result=await new InspectedSessionExecutor(this.wrap(r,active,signal)).execute(r.sql,limits,ns,policy,{rowLimit:r.limits.rowLimit,signal,stage});
    if(signal.aborted)return cancelled();
-   return result.ok?ok({...result.value,...(rowScopes.length?{rowScopes}:{}),...(rowScopes.some(s=>s.missingDecision)?{rows:[]}:{}),truncated:result.value.truncated??false,executionPath:'staged',policyVersion:r.policyVersion}):result;
+   // Seal only the final bounded result, after SQL and disclosure enforcement.
+   // K is generated/split here and never crosses the Engine transport.
+   let custodyShares:{first:string;second:string}|undefined;
+   if(result.ok&&result.value.custodyIndices?.length){
+    const sealed=this.sealer(result.value.rows,result.value.columns,result.value.custodyIndices,r.requestId);
+    try{result.value.rows=sealed.rows;custodyShares={first:sealed.first.toString('base64url'),second:sealed.second.toString('base64url')};
+     for(const i of result.value.custodyIndices)if(result.value.columnTypes)result.value.columnTypes[i]='VARCHAR';
+    }finally{sealed.first.fill(0);sealed.second.fill(0);}
+   }
+   return result.ok?ok({...result.value,...(custodyShares?{custodyShares}:{}),...(rowScopes.length?{rowScopes}:{}),...(rowScopes.some(s=>s.missingDecision)?{rows:[]}:{}),truncated:result.value.truncated??false,executionPath:'staged',policyVersion:r.policyVersion}):result;
   }catch(error){if(signal.aborted)return cancelled();if(error instanceof DomainError)return err(error);return err(new DomainError('dependency_unavailable','Staged execution could not complete. No partial result was returned.'));}
   finally{stop();signal.removeEventListener('abort',interrupt);parent?.removeEventListener('abort',abort);release?.();}
  }

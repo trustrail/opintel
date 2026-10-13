@@ -1297,3 +1297,87 @@ The component now uses project/element identity, with one form store for that id
 ### Pools 900: post-capture accessibility deadline during 2b baseline recapture
 
 The focused three-width revoke-baseline verification completed all three strict zero-diff revoke screenshot comparisons. The 900 scenario then timed out at **30.3 seconds** in `accessible()` / `page.evaluate(axe.run())` at `e2e/pools.spec.ts:12`, on the subsequent shown-once-key dialog. The 390 and 1440 scenarios finished in 20.2s and 14.0s. The full gate's functional checks had passed; its Pools visual scenarios stopped earlier at the now-approved revoke-background mismatch. This is one observed deadline, not an established cause or a passing retry. No rerun, threshold, assertion or timeout change was made. The screenshot-reproduction requirement was satisfied before the timeout; the whole focused invocation was not green.
+
+### Dev demo visibility and test datastore fencing — 2026-10-13
+
+The reported missing demo is not a missing Postgres project: read-only inspection
+found Development Demo (company) and Reinsurance Demo (unarchived project
+`de000000-0000-4000-8000-000000000003`). Dev SpiceDB at localhost:50051 has zero
+relationships. Its container restarted at 14:14 UTC; the log explicitly reports
+an in-memory, nonpersistent datastore. Restarting it loses authorization grants.
+`npm run dev:demo` is the documented resumable provisioner, including restoration
+of demo authorization relationships. No reprovisioning was performed during this
+investigation. Persistent development authorization storage remains an operational
+follow-up; the actor that restarted SpiceDB is not established.
+
+The last 48 hours of Postgres logs contain failed DROP/TRUNCATE statements
+(including permission-denied grant tests), but successful statements are not
+logged (`log_statement=none`, duration logging disabled), and the prefix has no
+database name. They cannot establish that no dev reset occurred or attribute a
+statement to opintel versus opintel_test. Current demo rows survived. Private
+log copies are in tmp/review/dev-datastore-loss/.
+
+The audit nevertheless found unsafe paths: direct Vitest and test:bypass could
+inherit dev SpiceDB; the Postgres destination guard compared URL strings or
+unnormalised hostnames; performance preflight contacted dev SpiceDB before
+starting its owned instance. These are fixed independently of incident causation:
+normal/bypass/performance use owned random-port SpiceDB; setup refuses loopback
+port 50051 before connection; performance preflight uses its owned instance.
+Database guards require an underscore-delimited `test` name segment (including
+`opintel_test` and `opintel_test_unused`), explicitly refuse development/production
+names and the configured development target, reject URL routing overrides,
+and reject the configured development database name regardless of hostname before reset. Direct Vitest against
+the dev environment now fails with an instruction to use the isolated launcher.
+Migration fixture databases remain random run-owned names and are dropped only
+through their validated run prefix; browser scenarios use mocked APIs; the
+Linux ephemerality network uses dedicated synthetic datastore addresses.
+
+**Resolution of the custody sealing-boundary finding (2026-10-13).** The approved
+boundary is the Engine's final result read, after DuckDB and before transport,
+not the source read used for tokenization. Ordinary calls now share preview's
+sealing implementation. K is generated and split inside the Engine; only sealed
+rows and K1/K2 reach the Application, which never constructs K. Aggregates remain
+sealed aggregates. DuckDB spill is already disabled at creation and hardening
+(`temp_directory=''`, `max_temp_directory_size='0B'`); no spill setting changed.
+Plaintext remains transiently in Engine/DuckDB memory. See the custody position.
+The architecture document is maintained outside this repository; the user
+withdrew the request to edit its §5/§7. The custody position and checked-in
+technical documentation's treatment section record the exact boundary.
+
+
+### Dev authorization persistence and hostname-alias fence — 2026-10-13
+
+Resolved the nonpersistent development authorization store: Compose now runs
+SpiceDB on a separate Postgres datastore with the named `spicedb-data` volume,
+a migration job and startup dependencies. The application's existing Postgres
+storage was not replaced. Test launchers retain their fresh, owned memory
+stores; this change affects development durability only.
+
+Before the switch, six relationship identities were saved privately; all six
+were restored. The authorized `npm run dev:demo` completed, reused the existing
+pool key and restored the demo relationships. Restarting both `spicedb-postgres`
+and `spicedb` preserved exactly the same six identities (not merely the count).
+Private snapshots and the seed log are in `tmp/review/dev-spicedb-persistence/`.
+Commands: `docker compose up -d --wait --wait-timeout 60 spicedb`, the private
+backup/restore helper, `npm run dev:demo`, then `docker compose restart
+spicedb-postgres spicedb` and a before/after relationship comparison.
+
+The remaining hostname-alias bypass is closed conservatively before connection:
+Postgres rejects the configured dev database name independently of hostname;
+SpiceDB accepts only owned dynamic loopback ports (never 50051) or the proof's
+fixed isolated address. Arbitrary DNS names are refused, so a CNAME or changed
+DNS resolution cannot route a test to dev. Guard tests cover Docker hostnames,
+DNS aliases and a custom dev database whose name itself contains `test`.
+Validation: all 10 focused datastore guard tests, typecheck and lint pass.
+This does not establish which process restarted the old memory store, nor turn
+the unavailable historical Postgres statement audit into evidence of a reset.
+
+### Shown-once pool-key dialogs: explained background differences
+
+The three sealing-gate failures contain no dialog-content change: no shares or
+alias were added. Inspected diff regions are x88–364/y820–1191 at 390,
+x277–869/y751–1084 at 900, and x277–1336/y639–917 at 1440, all below the dialog.
+The background Row access section and “No bound objects.” introduced by 5.37 2b
+(commit `2944ddf`) push Agents down; the image grows 93px at 390 and 900.
+The sealing move did not change the dialog. Baselines remain unchanged while
+Row access is being redesigned to list decisions rather than the catalogue.

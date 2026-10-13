@@ -1,3 +1,4 @@
+import {assertTestSpiceDb} from '../scripts/testing/datastore-safety.js';
 import {randomUUID} from 'node:crypto';
 import {Client} from 'pg';
 import { mkdtemp, rm, mkdir } from 'node:fs/promises';
@@ -8,6 +9,7 @@ import { testPreflight } from '../scripts/service-readiness.js';
 
 export default async function globalSetup(): Promise<()=>Promise<void>> {
   const environment = loadDevEnvironment();
+  assertTestSpiceDb(environment.spiceDbEndpoint);
   await testPreflight(environment);
   const deadlineDirectory = await mkdtemp(join(tmpdir(), 'opintel-database-deadline-'));
   process.env.OPINTEL_TEST_DATABASE_STOP = join(deadlineDirectory, 'stop');

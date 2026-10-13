@@ -35,6 +35,7 @@ export const validationRequest=executionRequest.extend({limits:executionRequest.
 export type ValidationRequest=z.infer<typeof validationRequest>;
 export type ExecutionRequest=z.infer<typeof executionRequest>;
 export type StagingObject=z.infer<typeof stagingObject>;
-export const executionResponse=z.strictObject({rowScopes:z.array(rowScopeReceipt).optional(),custodyIndices:z.array(z.number().int().nonnegative()).optional(),tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
+export const engineCustodyShares=z.strictObject({first:z.string().regex(/^[A-Za-z0-9_-]{43}$/u),second:z.string().regex(/^[A-Za-z0-9_-]{43}$/u)});
+export const executionResponse=z.strictObject({custodyShares:engineCustodyShares.optional(),rowScopes:z.array(rowScopeReceipt).optional(),custodyIndices:z.array(z.number().int().nonnegative()).optional(),tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
  treatmentEvidence:z.strictObject({aggregateMinGroupSize:z.number(),stage2Required:z.boolean(),stage2Ran:z.boolean()})});
 export const validationResponse=z.strictObject({queryEngineVersion:z.string(),treatmentEvidence:executionResponse.shape.treatmentEvidence});

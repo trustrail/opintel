@@ -1,3 +1,4 @@
+import {assertTestDatabase} from './testing/datastore-safety.js';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 
@@ -24,10 +25,7 @@ export function loadDevEnvironment(): DevEnvironment {
   if (development.pathname.length <= 1) throw new Error('DATABASE_URL must include a database name.');
   derivedTest.pathname += '_test';
   const testDatabaseUrl = process.env.TEST_DATABASE_URL || derivedTest.toString();
-  const test = new URL(testDatabaseUrl);
-  if (development.hostname === test.hostname && (development.port || '5432') === (test.port || '5432') && development.pathname === test.pathname) {
-    throw new Error('TEST_DATABASE_URL must name a different database from DATABASE_URL.');
-  }
+  assertTestDatabase(testDatabaseUrl,databaseUrl);
   process.env.TEST_DATABASE_URL = testDatabaseUrl;
   return {
     databaseUrl, testDatabaseUrl,

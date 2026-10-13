@@ -16,6 +16,13 @@ clear, tokenized, masked, aggregate-only and withheld decisions. Synthetic
 spreadsheets land in the local Compose Postgres. The seeded user is a project
 administrator; it is not an authentication bypass.
 
+Dev SpiceDB stores authorization relationships in its own Postgres service and
+the named `spicedb-data` volume. Compose migrates that datastore before starting
+SpiceDB; restarting either service preserves relationships. This is separate
+from the application's Postgres storage. `docker compose down -v` deliberately
+removes named volumes; ordinary restarts do not. After a deliberate wipe,
+`npm run dev:demo` restores the demo relationships as well as its database seed.
+
 Treaty references are tokenized, currencies alternate between masked and
 withheld, inception dates are aggregate-only, and supported landing provenance
 is clear. The pack's unbounded numeric premiums are unsupported by the existing

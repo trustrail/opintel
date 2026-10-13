@@ -1,3 +1,4 @@
+import {assertTestSpiceDb} from './testing/datastore-safety.js';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
@@ -20,6 +21,7 @@ async function main():Promise<void>{
    spice=await freshNormalSpiceDb(environment);
    process.env.SPICEDB_ENDPOINT=spice.endpoint;process.env.SPICEDB_TOKEN=spice.token;
   }
+  assertTestSpiceDb(spice?.endpoint??environment.spiceDbEndpoint);
   await testPreflight(spice?{...environment,spiceDbEndpoint:spice.endpoint,spiceDbToken:spice.token}:environment);
   if(!performance){
    baseline=await seedNormalPostgres(environment);

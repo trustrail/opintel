@@ -1,3 +1,4 @@
+import {sealResult} from '../src/shared/infrastructure/sealed-result.js';
 import {Client} from 'pg';
 import {randomUUID} from 'node:crypto';
 import {expect,it,vi} from 'vitest';
@@ -67,7 +68,10 @@ it('5.37 step 1: a migrated retiring alias loses outstanding escrow at grace end
   // is transaction-local setup; ordinary callers cannot rewrite an alias.
   await owner.query('BEGIN');
   try{await owner.query('ALTER TABLE pool_key DISABLE TRIGGER pool_key_custody_alias');await owner.query("UPDATE pool_key SET custody_alias=$2,created_at=now()-interval '2 hours',grace_until=now()+interval '1 hour' WHERE id=$1",[f.issued.keyVersion,legacy]);await owner.query('ALTER TABLE pool_key ENABLE TRIGGER pool_key_custody_alias');await owner.query('COMMIT');}catch(error){await owner.query('ROLLBACK');throw error;}
-  const receipt=randomUUID(),result=unwrap(await f.release!.seal(f.ctx,legacy,receipt,['value'],[['sealed test']],[0]));expect(result.custody).toHaveLength(1);
+  const receipt=randomUUID(),sealed=sealResult([['sealed test']],['value'],[0],receipt);
+  let result;
+  try{result=unwrap(await f.release!.seal(f.ctx,legacy,receipt,['value'],sealed.rows,[0],{first:sealed.first.toString('base64url'),second:sealed.second.toString('base64url')}));}finally{sealed.first.fill(0);sealed.second.fill(0);}
+  expect(result.custody).toHaveLength(1);
   await f.release!.sweep();expect(await withTenant(f.ctx,tx=>tx.query('SELECT state FROM release_grant WHERE receipt_id=$1',[receipt]))).toEqual([{state:'granted'}]);
   await withTenant(f.ctx,tx=>tx.query("UPDATE pool_key SET grace_until=now()-interval '1 minute' WHERE id=$1",[f.issued.keyVersion]));await f.release!.sweep();
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT share,state,escrow_revoked FROM release_grant WHERE receipt_id=$1',[receipt]))).toEqual([{share:null,state:'revoked',escrow_revoked:true}]);

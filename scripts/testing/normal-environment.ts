@@ -1,3 +1,4 @@
+import {assertTestDatabase,assertTestSpiceDb} from './datastore-safety.js';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
@@ -19,7 +20,7 @@ export async function freshNormalSpiceDb(environment:DevEnvironment){
   await exec('docker',['run','--detach','--name',name,'--publish','127.0.0.1::50051',image,'serve','--grpc-preshared-key',token,'--datastore-engine','memory']);created=true;
   const address=(await exec('docker',['port',name,'50051/tcp'])).stdout.trim();
   if(!/^127\.0\.0\.1:\d+$/u.test(address))throw new Error('Unexpected isolated SpiceDB bind address.');
-  const endpoint=address.replace('127.0.0.1:','localhost:');const until=Date.now()+20_000;
+  const endpoint=address.replace('127.0.0.1:','localhost:');assertTestSpiceDb(endpoint);const until=Date.now()+20_000;
   for(;;){try{await checkSpiceDb({...environment,spiceDbEndpoint:endpoint,spiceDbToken:token},false);break;}catch(error){if(Date.now()>=until)throw error;await new Promise(resolve=>setTimeout(resolve,100));}}
   const client=v1.NewClient(token,endpoint,v1.ClientSecurity.INSECURE_LOCALHOST_ALLOWED);
   let revision:string|null;
@@ -35,7 +36,7 @@ export async function freshNormalSpiceDb(environment:DevEnvironment){
 // loadDevEnvironment before this can run. Hold a session lock until Vitest exits
 // so another normal invocation cannot truncate this invocation's fixtures.
 export async function seedNormalPostgres(environment:DevEnvironment){
- if(environment.testDatabaseUrl===environment.databaseUrl)throw new Error('Refusing to reset the development database.');
+ assertTestDatabase(environment.testDatabaseUrl,environment.databaseUrl);
  const client=new Client({connectionString:environment.testDatabaseUrl,application_name:'opintel-normal-baseline',connectionTimeoutMillis:5000});
  try{
   await client.connect();const locked=await client.query<{locked:boolean}>("SELECT pg_try_advisory_lock(hashtextextended('opintel-normal-suite',0)) AS locked");

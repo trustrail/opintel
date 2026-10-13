@@ -48,7 +48,7 @@ Revocation is available from Activity and the API. Redemption is Opintel's first
 - Associated data per cell: receipt id || column name || row ordinal, so a sealed value cannot be moved to another cell or another result.
 - Sealed value format: `opintelsealed:v1:` + base64url(nonce || ciphertext || tag). The prefix is reserved like `opintelisolated` and `sentinel`.
 - After sealing, K1 is a random 256-bit share and K2 = K XOR K1. Escrow K1 with the provider addressed to the alias, single-use, with the provider TTL rounded up as below. Store K2 in Opintel keyed by grant id with the grant's exp.
-- Zeroise K and K1 once escrow is acknowledged. K and K1 never persist in Opintel: neither is written to the database, logs, receipts or outbox. K2 is deleted at redemption, expiry or revocation and is never logged. The ephemerality proof covers K, K1 and K2, including all four sinks.
+- Zeroise K in the Engine after sealing and splitting; zeroise its share buffers after transport encoding, and Application K1 after escrow is acknowledged. K and K1 never persist in Opintel: neither is written to the database, logs, receipts or outbox. K2 is deleted at redemption, expiry or revocation and is never logged. The ephemerality proof covers K, K1 and K2, including all four sinks.
 - Neither Opintel nor the provider alone can read a sealed value. Opintel unavailable means nothing can be unsealed: fail closed, by design.
 
 ### Release grant
@@ -223,3 +223,28 @@ The paths below are under `src/com/xqmsg/sdk/v2/` in that pinned GitHub commit; 
 - The SDK transport parses JSON only when response text contains `status`, whereas Opintel's native transport parses valid JSON generally. Raw packet/locator/key text is covered by the adapter contract test; retain current transport and verify actual response envelopes with XQ before changing either behavior. SDK DELETE calls duplicate payload into query parameters and a JSON body; the contract test records that behavior without guessing the server's preference.
 - VerifyAccount's exchange path calls session validation with the incoming token after obtaining a dashboard token (`VerifyAccount.ts:122–132`), and its semantics need live verification before adoption. Do not add it merely because it exists.
 - Verify `dor` single-use enforcement, TTL rounding and revocation acknowledgement with real credentials. Confirm event mapping (locator, alias, time, origin), pagination and receipt metadata exposure/retention. Optional corroboration remains unsupported until then.
+
+### Decision: ordinary sealing at the Engine result boundary
+
+Tokenization is applied at the source read, before the query engine. Custody
+sealing is applied at the final result read, after the query engine and before
+transport. The guarantee is **custody plaintext never leaves the Engine**, not
+that it never enters the query engine. Aggregates over custody columns preserve
+their current behaviour: the aggregate result is sealed, with result aliases and
+row ordinals used in AAD. Preview and ordinary calls share the sealing routine.
+
+The Engine generates K, seals, and splits K into K1/K2. Only sealed rows and the
+two shares cross pinned mTLS to the Application. Grant signing requires claims,
+not K: the Application escrows K1 and stores K2 without constructing K. The Engine
+zeroises K and its share buffers after encoding; Application share buffers are
+zeroised after escrow/issuance. JSON transport strings are managed memory and
+cannot promise immediate erasure; C.5's residual-memory qualification applies.
+Preview discards both shares in the Engine; no grant or escrow is issued.
+
+Custody plaintext remains transiently inside DuckDB and Engine result memory
+for the query's life. Spill is already disabled at instance creation by
+`temp_directory: ''` and `max_temp_directory_size: '0B'`, also enforced by
+session hardening. This item changes neither setting. Queries exceeding memory
+must refuse rather than spill; this limits capacity for large custody queries.
+If spill is ever enabled, disabling it for custody queries or encrypting the
+spill directory requires a separate reviewed design and performance assessment.

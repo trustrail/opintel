@@ -1,3 +1,4 @@
+import {assertTestSpiceDb} from './testing/datastore-safety.js';
 import {sanitiseException} from '../src/platform/telemetry/exception-log.js';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -14,7 +15,6 @@ const exec=promisify(execFile);
 
 async function main():Promise<void>{
   const environment=loadDevEnvironment();
-  await testPreflight(environment);
   // Resolve the locally installed image to its immutable ID. Never implicitly
   // pull a floating tag while taking a performance measurement.
   const image=(await exec('docker',['image','inspect',process.env.OPINTEL_PERFORMANCE_SPICEDB_IMAGE??'authzed/spicedb:latest','--format','{{.Id}}'])).stdout.trim();
@@ -25,6 +25,7 @@ async function main():Promise<void>{
     const address=(await exec('docker',['port',name,'50051/tcp'])).stdout.trim();
     if(!/^127\.0\.0\.1:\d+$/u.test(address))throw new Error('Unexpected isolated SpiceDB bind address.');
     const endpoint=address.replace('127.0.0.1:','localhost:');
+    assertTestSpiceDb(endpoint);
     const readyUntil=Date.now()+20_000;
     for(;;){
       try{await checkSpiceDb({...environment,spiceDbEndpoint:endpoint,spiceDbToken:token},false);break;}
@@ -33,6 +34,7 @@ async function main():Promise<void>{
     const client=v1.NewClient(token,endpoint,v1.ClientSecurity.INSECURE_LOCALHOST_ALLOWED);
     try{await client.promises.writeSchema(v1.WriteSchemaRequest.create({schema:await readFile(new URL('../docs/opintel-schema.zed',import.meta.url),'utf8')}));}finally{client.close();}
     console.info(JSON.stringify({performanceDatastore:'fresh memory',image,expectedInitialRelationships:0,verification:'checked from the datastore before fixtures by the performance runner'}));
+    await testPreflight({...environment,spiceDbEndpoint:endpoint,spiceDbToken:token});
     const observer=new Client({connectionString:environment.testDatabaseUrl,application_name:'opintel-performance-exit-observer'});
     await observer.connect();
     const sessions=async()=> (await observer.query<{pid:number;backend_start:string;application_name:string;state:string}>("SELECT pid,backend_start::text,application_name,state FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() ORDER BY pid")).rows;

@@ -21,7 +21,32 @@ services:
       timeout: 3s
       retries: 10
 
+  spicedb-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: spicedb
+      POSTGRES_PASSWORD: spicedb
+      POSTGRES_DB: spicedb
+    volumes: ["spicedb-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spicedb"]
+      interval: 5s
+      retries: 10
+
+  spicedb-migrate:
+    image: authzed/spicedb:latest
+    command: migrate head --datastore-engine postgres --datastore-conn-uri postgres://spicedb:spicedb@spicedb-postgres:5432/spicedb?sslmode=disable
+    depends_on:
+      spicedb-postgres:
+        condition: service_healthy
+
   spicedb:
     image: authzed/spicedb:latest
-    command: serve --grpc-preshared-key devkey --datastore-engine memory
+    command: serve --grpc-preshared-key devkey --datastore-engine postgres --datastore-conn-uri postgres://spicedb:spicedb@spicedb-postgres:5432/spicedb?sslmode=disable
+    depends_on:
+      spicedb-migrate:
+        condition: service_completed_successfully
     ports: ["50051:50051"]
+
+volumes:
+  spicedb-data:

@@ -5706,12 +5706,27 @@ Exposure spectra on Dashboard, Entitlements and Data sources use one shared comp
 The accepted specification is [custody-design-position.md](review/custody-design-position.md).
 This is distinct from HMAC token-key custody. Custody is the seventh treatment;
 its Engine lineage survives expressions, aliases and nested queries. The
-application seals the result before MCP delivery using one AES-256-GCM key and
-splits it: the provider holds K1, Opintel holds K2. An authenticated
+Engine seals final result rows before transport using one AES-256-GCM key and
+splits it inside the Engine: the provider holds K1, Opintel holds K2. The Application
+never constructs K. An authenticated
 `opintel.redeem` releases K2 once and atomically appends the receipt event while
 deleting the stored share. Credential aliases are persisted on credentials and
 never derive authorization from a claimed agent id. Provider events corroborate
 rather than define redemption. Explicit revocation never promises recall.
+
+### Custody execution boundary — ordinary calls and preview
+
+Tokenization happens at source read, before the query engine. Custody sealing
+happens at final result read, after the query engine and before transport.
+Custody plaintext never leaves the Engine; it does transiently enter DuckDB.
+The Engine generates and splits K; the Application receives sealed rows and
+K1/K2, escrows K1 and retains K2 without constructing K. Grants, redemption,
+sealed aggregate behaviour and receipt semantics are unchanged. Preview uses the
+same sealing routine but destroys both shares without issuing a grant.
+DuckDB spill remains disabled (`temp_directory=''`, `max_temp_directory_size='0B'`)
+from instance creation. Memory exhaustion refuses rather than spilling. See the
+[custody position](review/custody-design-position.md) for memory residuals and the
+review required before any future spill policy change.
 
 `custody.grant_ttl` defaults to 600 seconds and appears in Settings → Project.
 Project Settings configures the non-secret provider per project. Deployment environment variables supply credentials, the MCP origin and signing master key; `OPINTEL_RELEASE_CUSTODY` is no longer read. No

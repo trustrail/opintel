@@ -44,7 +44,7 @@ export const envelope = z.strictObject({
 export function sidecarOpenApiDocument() {
   const operations = [
     ...Object.entries(custodyOperations).map(([path,operation])=>['/custody/'+path,custodyEnvelope.extend({payload:operation.request}),operation.response] as const),
-    ['/execute',executionRequest,validationRequest,executionResponse],
+    ['/execute',executionRequest,executionResponse],
     ['/validate',validationRequest,validationResponse],
     ['/preview-rows',rowPreviewRequest,rowPreviewResponse],
     ['/health', null, healthResponse],
