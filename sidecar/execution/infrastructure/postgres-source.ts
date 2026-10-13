@@ -97,7 +97,9 @@ export class PostgresStagingSource implements StagingSource {
           if (type === undefined || modes[type] !== expected) return refused();
         }
 
-   await session.query('DECLARE opintel_stage NO SCROLL CURSOR FOR '+select(s,true)+` LIMIT ${s.request.settings.maxStagingRows+1}`);
+   let previewOrder=s.preview?.orderBy??[];
+   if(s.preview){const primary=z.array(z.object({name:z.string()})).parse(await session.query(`SELECT a.attname AS name FROM pg_constraint k JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attnum=ANY(k.conkey) WHERE k.contype='p' AND k.conrelid=to_regclass($1) ORDER BY array_position(k.conkey,a.attnum)`,[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)]));if(primary.length)previewOrder=primary.map(c=>c.name);}
+   await session.query('DECLARE opintel_stage NO SCROLL CURSOR FOR '+select(s,true)+(s.preview?' ORDER BY '+previewOrder.map(quote).join(','):'')+` LIMIT ${s.request.settings.maxStagingRows+1}`);
    let scanned=0;
    try{for(;;){
     if(signal.aborted)throw new SourceCancelled();
@@ -108,6 +110,7 @@ export class PostgresStagingSource implements StagingSource {
     try{
      for(const row of rows){
       if(++scanned>s.request.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown','The source scan exceeded maxStagingRows before row filtering. Narrow the query or review the setting.',{cause:'scan_observed_large'}));
+      s.preview?.scanned();
       const scope=s.object.readPlan.rowScope;
       if(scope&&!scope.pushdown){if(!scope.predicate)continue;const inputs=Object.fromEntries(scope.columns.map(c=>[c.id,row[scopeAlias(s,c.id)]]));const admits=evaluatePredicate(scope.predicate,scope.columns,inputs)===true;for(const k of Object.keys(inputs))inputs[k]=null;if(!admits)continue;}
       const output:unknown[]=[];for(const [i,c] of s.object.readPlan.columns.entries()){

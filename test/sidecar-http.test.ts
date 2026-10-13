@@ -192,7 +192,12 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await limited.close();}
     const specification=wire.sidecarOpenApiDocument();
-    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/attest','/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/execute','/health','/introspect','/provision-demo','/sample','/test-connection','/validate']);
+    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/attest','/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/execute','/health','/introspect','/preview-rows','/provision-demo','/sample','/test-connection','/validate']);
+    const preview=specification.paths['/preview-rows']!.post;
+    expect(preview.security).toEqual([{applicationCertificate:[]}]);
+    expect(preview.description).toContain('Internal Application-only');
+    expect(preview.description).toContain('set_entitlement');
+    expect(preview.responses['200'].content['application/json'].schema).toMatchObject({additionalProperties:false,properties:{rows:{maxItems:5},total:{type:'integer'},entitled:{}}});
     expect(JSON.parse(await readFile(new URL('../sidecar/openapi.json',import.meta.url),'utf8'))).toEqual(specification);
   });
 

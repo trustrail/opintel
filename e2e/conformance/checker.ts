@@ -6,7 +6,7 @@ export const controlPatterns = [
   })),
   ...['.dnav button','.pop button','.segbtns button','.setnav button','.wbeg button'].map(selector => ({kind:'button',selector,master:`#opintel-app ${selector}`})),
   ...['.inp','.fld input','.search input'].map(selector => ({kind:'text',selector,master:`#opintel-app ${selector}`})),
-  ...['.inp','.pick select','.tsel select','.bulkbar select'].map(selector => ({kind:'select',selector,master:`#opintel-app ${selector}`})),
+  ...['.inp','.sel','.pick select','.tsel select','.bulkbar select'].map(selector => ({kind:'select',selector,master:`#opintel-app ${selector}`})),
   ...['.pgbox textarea','.wbp textarea'].map(selector => ({kind:'textarea',selector,master:`#opintel-app ${selector}`})),
   {kind:'checkbox',selector:'input[type=checkbox]',master:'#opintel-app input[type=checkbox]'},
   {kind:'radio',selector:'input[type=radio]',master:'#opintel-app input[type=radio]'},
@@ -40,6 +40,12 @@ export function inspectControls(patterns: readonly {kind:string;selector:string;
     const type=element instanceof HTMLInputElement?element.type:'';
     const kind=tag==='button'||element.getAttribute('role')==='button'?'button':tag==='select'?'select':tag==='textarea'?'textarea':tag==='input'?(['button','submit','reset'].includes(type)?'button':['checkbox','radio','range','file','color','image'].includes(type)?type:'text'):element.getAttribute('role')??'unclassified';
     if(!patterns.some(pattern=>pattern.kind===kind&&element.matches(pattern.selector)))report(element,`Unclassified ${kind} control: no matching master control pattern.`);
+    if(element.matches('select.sel')){
+      const style=getComputedStyle(element),encoded=/data:image\/svg\+xml,([^"\)]+)/u.exec(style.backgroundImage)?.[1];
+      const svg=encoded?new DOMParser().parseFromString(decodeURIComponent(encoded),'image/svg+xml'):null;
+      const fill=svg?.querySelector('path')?.getAttribute('fill');
+      if(!fill||fill.toLowerCase()!==style.getPropertyValue('--ink').trim().toLowerCase())report(element,'Select chevron fill must equal computed --ink.');
+    }
     if((element.hasAttribute('aria-expanded')||element.hasAttribute('aria-controls')||element.matches('.dtoggle,.projbtn,button[data-disclosure]'))&&visible(element)){
       const expanded=element.getAttribute('aria-expanded');
       const ids=element.getAttribute('aria-controls')?.trim().split(/\s+/u).filter(Boolean)??[];

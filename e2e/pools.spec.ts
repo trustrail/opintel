@@ -45,7 +45,7 @@ for(const width of [390,900,1440])test(`Pool detail: expired-key facts stay insi
  const screen=page.locator('.screen.on'),card=screen.locator('.card').filter({has:page.getByRole('heading',{name:'Pool keys',exact:true})});
  await expect(card.locator('[data-part=expired-key-impact]')).toContainText('1 connected agent last authenticated with this key.');
  await expect(card.locator('[data-part=expired-key-impact]')).toContainText('1 previously seen · disconnected');
- await expect(screen.getByRole('heading')).toHaveText(['Reporting pool','Pool keys','Agents']);await expect(screen.getByText(version,{exact:true})).toHaveCount(0);
+ await expect(screen.getByRole('heading')).toHaveText(['Reporting pool','Pool keys','Row access','Agents']);await expect(screen.getByText(version,{exact:true})).toHaveCount(0);
  const facts=await card.locator('[data-part=expired-key-impact]').evaluate(el=>{const r=el.getBoundingClientRect(),card=el.closest('.card')!.getBoundingClientRect();return {height:r.height,inside:r.top>=card.top&&r.bottom<=card.bottom};});expect(facts.inside).toBe(true);await info.attach('key-facts',{body:JSON.stringify({width,...facts}),contentType:'application/json'});await accessible(page);
 });
 test('Pool detail: zero key impact is one inline fact',async({page})=>{

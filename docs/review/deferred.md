@@ -1266,3 +1266,34 @@ The subsequent close-out instruction includes a **30-second normal-suite default
 ### Declaration panel 1440: one pass-on-retry observation (5.37 close-out)
 
 In the credential migration slice's `check:ui` run, Declaration panel at 1440 failed its first visual capture and passed on retry. The first attempt reported an expected 1440×1609 image and a 1440×1016 capture, with intermediate capture heights of 1616 and 1609. This is one flaky observation; the cause was not investigated. No assertion, tolerance, timeout or Declaration-panel baseline was changed. All 241 functional checks passed; the three separate Pools-list differences were the approved per-agent-credential subtitle change.
+
+
+### Custody sealing boundary differs from the stated Engine architecture (5.37 step 2b audit)
+
+Recorded separately from 2b; neither resolution is chosen. The reader identifies an architecture promise that all treatments, including sealing, happen in the Engine at the read boundary so custody plaintext never enters the Application. The implementation does not meet that boundary:
+
+| Treatment | Actual location and code |
+|---|---|
+| Tokenization | Engine source reader prepares tokenizers at `sidecar/execution/infrastructure/postgres-source.ts:126–134` and applies them to raw values at lines 113–116 before consuming treated rows |
+| Masking | Engine source reader selects `maskValue` at `sidecar/execution/infrastructure/postgres-source.ts:124` and applies it at lines 113–116 before staging |
+| Aggregate-only | Engine SQL inspection rejects direct row access at `sidecar/sql/application/treatments.ts:45–54`; `sidecar/sql/application/execute.ts:58–77` establishes the cardinality check and lines 98–103 execute and enforce observed group counts before release. Aggregation is performed over staged scoped rows, not as a scalar source-reader transform |
+| Sealing | **Application**, after execution. Engine returns result rows plus `custodyIndices` at `sidecar/sql/application/execute.ts:107`; the Application HTTPS client buffers and parses them at `src/modules/mcp/infrastructure/execution-client.ts:30–34`. `src/modules/mcp/application/query.ts:64–65` then invokes sealing and replaces the result rows. `src/modules/release-custody/infrastructure/query-release.ts:20–25` seals, escrows K1 and issues the grant; AES-GCM is implemented in the shared `src/shared/infrastructure/sealed-cell.ts:9–14` helper |
+
+**Custody plaintext therefore transits the Application**, inside the TLS-protected Engine response and then decoded Application memory, before sealing. TLS protects transport; it does not make the payload sealed to the Application. This finding does not assert that plaintext is persisted. Withheld and undecided columns are omitted during read-plan compilation (`src/modules/entitlements/application/compile.ts:146–150`), apart from the separately authorised filter-only inputs consumed within the Engine.
+
+Two possible resolutions, requiring a separate decision:
+
+1. Move sealing into the Engine beside tokenization, matching the documented architecture boundary.
+2. Amend the architecture document and partner brief to state that custody plaintext reaches the Application and is sealed there, describing that trust boundary accurately.
+
+Do not resolve this inside 2b. The superseding preview decision uses a temporary key generated and destroyed in the Engine, with no shares or grant. It does not change the ordinary query path audited here. The repository's `docs/review/xq-integration-brief.md` describes K1/K2 provider operations but does not specify the sealing boundary; an architecture/partner artifact outside these checked-in passages must also be reconciled by the chosen follow-up, rather than assuming the current brief establishes the stronger promise.
+
+### Declaration editors reset on refreshed values (5.37 step 2b close-out)
+
+The 1440 capture again moved from open editors (1661/1652px) to all editors closed (1016px), matching Sunday's credential-slice pass-on-retry observation above. Treat this as a product-state defect, not a snapshot tolerance issue. Ten unforced instrumented captures did not reproduce it: no post-open refetch, remount or reset occurred. A controlled background refetch with changed stored declarations did reproduce the defect: all five open states were true; the declarations GET completed; the data-derived React key changed; the form unmounted and mounted with an empty open-state map; all five editors became closed. This establishes the reset mechanism, but the earlier captures have no network/component trace proving what initiated their reset. Scope tags and the 9px height change are not established triggers.
+
+The component now uses project/element identity, with one form store for that identity. A refresh updates pristine fields and the discard baseline while retaining dirty fields and disclosure state; a successful save accepts the returned values without closing editors. DECL-010 exercises a real focus-triggered query refetch at 390/900/1440, checking all five open editors, a retained draft, a refreshed pristine field and discard against the new baseline. The existing four declaration functional scenarios and all three new refetch scenarios passed. Temporary diagnostic logging is not production code.
+
+### Pools 900: post-capture accessibility deadline during 2b baseline recapture
+
+The focused three-width revoke-baseline verification completed all three strict zero-diff revoke screenshot comparisons. The 900 scenario then timed out at **30.3 seconds** in `accessible()` / `page.evaluate(axe.run())` at `e2e/pools.spec.ts:12`, on the subsequent shown-once-key dialog. The 390 and 1440 scenarios finished in 20.2s and 14.0s. The full gate's functional checks had passed; its Pools visual scenarios stopped earlier at the now-approved revoke-background mismatch. This is one observed deadline, not an established cause or a passing retry. No rerun, threshold, assertion or timeout change was made. The screenshot-reproduction requirement was satisfied before the timeout; the whole focused invocation was not green.

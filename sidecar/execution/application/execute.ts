@@ -1,3 +1,4 @@
+import {previewRows} from './preview.js';
 import {hasScope,predicateHash,referencedColumns} from '../../../src/shared/row-predicate.js';
 import type {RowScopeReceipt} from '../../../src/shared/row-scope-contract.js';
 import {StagedValidator} from './validate.js';
@@ -13,6 +14,7 @@ const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
 const cancelled=()=>err(new DomainError('budget_exceeded','The execution exceeded timeoutMs or was cancelled. No partial result was returned.',{cause:'interruption_unclassified',resource:'time'},true));
 export class StagedExecutor {
  constructor(private readonly source:StagingSource,private readonly engine:(r:ExecutionRequest)=>SessionEngine=r=>new DuckDBSessionEngine(undefined,undefined,undefined,r.limits),private readonly queue=new ExecutionQueue(),private readonly clock:DeadlineClock=deadlineClock,private readonly audit:ExecutionAudit=executionAudit){}
+ preview(input:unknown,signal?:AbortSignal){return previewRows(input,this.source,this.queue,signal);}
  execute(input:unknown,signal?:AbortSignal){return this.logged(input,signal);}
  validate(input:unknown,signal?:AbortSignal){return new StagedValidator().validate(input,signal);}
  private async logged(input:unknown,signal?:AbortSignal){
@@ -51,7 +53,7 @@ export class StagedExecutor {
    if(signal.aborted)return cancelled();if(!preflight.ok)return preflight;
    const referenced=referencedObjects(tree,r.objects,r);
    const scans=referenced.map(object=>({object,request:r,predicate:pushdown(tree,object,r)}));
-   const rowScopes:RowScopeReceipt[]=scans.flatMap(({object:o})=>o.readPlan.rowScope?[{objectId:o.readPlan.rowScope.objectId,objectName:[o.catalog,o.schema,o.name].join('.'),poolId:r.poolId,decisionId:o.readPlan.rowScope.decisionId,hash:o.readPlan.rowScope.hash,columns:o.readPlan.rowScope.columns.map(c=>c.name),entitledRows:null,provenance:'agent credential',missingDecision:o.readPlan.rowScope.predicate===null}]:[]);
+   const rowScopes:RowScopeReceipt[]=scans.flatMap(({object:o})=>o.readPlan.rowScope?[{objectId:o.readPlan.rowScope.objectId,objectName:[o.catalog,o.schema,o.name].join('.'),poolId:r.poolId,decisionId:o.readPlan.rowScope.decisionId,...(o.readPlan.rowScope.decisionIds?{decisionIds:o.readPlan.rowScope.decisionIds}:{}),hash:o.readPlan.rowScope.hash,columns:o.readPlan.rowScope.columns.map(c=>c.name),entitledRows:null,provenance:'agent credential',missingDecision:o.readPlan.rowScope.predicate===null}]:[]);
    // Admit every source scan before fetching any rows.
    if(r.objects.some(o=>o.readPlan.columns.some(c=>c.treatment==='tokenized'))&&r.tokenKeyVersionSelected===null)return err(new DomainError('dependency_unavailable','A tokenized plan requires a selected token key version.'));
    for(const scan of scans){

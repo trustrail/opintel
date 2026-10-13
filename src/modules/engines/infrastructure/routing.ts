@@ -1,3 +1,4 @@
+import type {RowPreviewRequest} from '../../../shared/row-preview-contract.js';
 import type {z} from 'zod';
 import {DomainError,err,ok,type ProjectId,type Result,type SourceId,type ElementId} from '../../../shared/kernel/index.js';
 import type {ExecutionRequest,ValidationRequest,executionResponse,validationResponse} from '../../../shared/execution-contract.js';
@@ -28,6 +29,7 @@ export class RegistryQueryExecution implements QueryExecutionPort,QueryValidatio
   return ok(new SidecarQueryExecution(endpoint));
  }
  async execute(input:ExecutionRequest,signal?:AbortSignal,ctx?:EngineContext):Promise<Result<z.infer<typeof executionResponse>>>{const c=await this.client(input,ctx);if(!c.ok)return c;const tokenized=input.objects.some(o=>o.readPlan.columns.some(c=>c.treatment==='tokenized'));if(tokenized){if(!ctx||!this.repository)return err(new DomainError('source_unavailable','Tokenized execution requires registered key metadata.'));const key=await this.repository.key(ctx);if(!key||key.version!==input.tokenKeyVersionSelected)return err(new DomainError('source_unavailable','The project token key changed while preparing this query. Prepare the query again.'));return c.value.execute({...input,expectedTokenSentinel:key.sentinel},signal);}return c.value.execute(input,signal);}
+ async preview(input:RowPreviewRequest,signal?:AbortSignal,ctx?:EngineContext){const c=await this.client(input,ctx);if(!c.ok)return c;const tokenized=input.objects.some(o=>o.readPlan.columns.some(c=>c.treatment==='tokenized'));if(tokenized){if(!ctx||!this.repository)return err(new DomainError('source_unavailable','Tokenized preview requires registered key metadata.'));const key=await this.repository.key(ctx);if(!key||key.version!==input.tokenKeyVersionSelected)return err(new DomainError('source_unavailable','The project token key changed. Prepare the preview again.'));return c.value.preview({...input,expectedTokenSentinel:key.sentinel},signal);}return c.value.preview(input,signal);}
  async validate(input:ValidationRequest,signal?:AbortSignal,ctx?:EngineContext):Promise<Result<z.infer<typeof validationResponse>>>{const c=await this.client(input,ctx);return c.ok?c.value.validate(input,signal):c;}
 }
 export class RegistryCustodyClient implements CustodyPort,CanonicaliserCatalog {

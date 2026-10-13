@@ -27,6 +27,7 @@ export async function mockPools(page:Page){
  state.reads.push(path);if(state.loading)await new Promise(r=>setTimeout(r,800));
  if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Pools are temporarily unavailable.',requestId:'test',retryable:true}}});
  if(state.missing)return route.fulfill({status:404,json:{error:{code:'not_found',message:'This pool or agent was not found.',requestId:'test',retryable:false}}});
+ if(path.endsWith('/row-entitlements'))return route.fulfill({json:{items:[],nextCursor:null}});
  if(path.endsWith('/affected-agents'))return route.fulfill({json:{...key,affectedAgentCount:1,affectedAgents:['worker'],previouslySeenAgents:['reporter']}});
  if(path.endsWith('/pools'))return route.fulfill({json:{items:state.empty?[]:[state.detail],nextCursor:null}});
  if(path.endsWith('/agents'))return route.fulfill({json:{items:state.empty?[]:[state.twin.presence,{...state.twin.presence,agentId:'worker',state:'active'}],nextCursor:null}});

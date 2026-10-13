@@ -74,3 +74,19 @@ test('DECL-009: deep-linked element survives unloaded tree; loading, error and r
 for(const width of [390,900,1440])test(`DECL-009: declaration panel at ${width}`,{tag:'@visual'},async({page})=>{
  await declarations(page);await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/catalog?elementId=${element}`);await openDeclarations(page);await expect(page.getByRole('heading',{name:'Token declarations',exact:true})).toBeVisible();await openDeclarations(page);await accessible(page);await capture(page,test.info(),`declarations-${width}.png`,{fullPage:true});
 });
+
+for(const width of [390,900,1440])test(`DECL-010: editors and draft survive a background refetch at ${width}`,async({page})=>{
+ const state=await declarations(page);await page.setViewportSize({width,height:1000});
+ await page.goto(`/projects/${project}/catalog?elementId=${element}`);await openDeclarations(page);
+ await page.getByLabel('Token domain',{exact:true}).fill('draft');
+ state.data.stored.tokenDomain='updated';state.data.stored.epochUnit='seconds';
+ const response=page.waitForResponse(r=>r.url().includes('/declarations')&&r.request().method()==='GET');
+ await page.evaluate(()=>window.dispatchEvent(new Event('visibilitychange')));await response;
+ await expect(page.getByText('Stored: updated.',{exact:false})).toBeVisible();
+ for(const name of ['Token domain','Case folding','Source timezone','Epoch unit','Canonicaliser'])await expect(page.getByRole('button',{name:`Edit ${name}`,exact:true})).toHaveAttribute('aria-expanded','true');
+ await expect(page.getByLabel('Token domain',{exact:true})).toHaveValue('draft');
+ await expect(page.getByLabel('Epoch unit',{exact:true})).toHaveValue('seconds');
+ await page.getByRole('button',{name:'Discard',exact:true}).click();
+ await expect(page.getByLabel('Token domain',{exact:true})).toHaveValue('updated');
+ await expect(page.getByRole('button',{name:'Edit Token domain',exact:true})).toHaveAttribute('aria-expanded','true');
+});

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Opintel · visual language</title>
+<link rel="stylesheet" href="opintel-master.css">
 <style>
 :root{
   box-sizing:border-box;
@@ -435,5 +436,17 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
 
 </div>
 <section><h2>Released under custody — item 5.36</h2><p>The seventh treatment is a disc containing a closed padlock. Place custody between tokenized and withheld on the exposure spectrum. It uses the existing plum token, which no other treatment uses. Row and list marks use plum; exposure fills and their legend marks also use plum, with the uniform ink outline shared by all legend marks. No new colour is introduced. Plum contrasts 19.07:1 against the white card and 17.77:1 against surface-2; the white padlock on a plum legend disc has the same 19.07:1 contrast. The mark means sealed delivery requiring redemption, never recall.</p><svg width="34" height="34" viewBox="0 0 34 34" role="img" aria-label="Released under custody"><circle cx="17" cy="17" r="12" fill="none" stroke="var(--plum)" stroke-width="2"/><path d="M13 16v-3a4 4 0 0 1 8 0v3" fill="none" stroke="var(--plum)" stroke-width="2"/><rect x="11" y="16" width="12" height="9" rx="2" fill="var(--plum)"/></svg></section>
+
+<section id="opintel-app" aria-labelledby="form-controls-title">
+<h2 id="form-controls-title">Form controls</h2>
+<p>Use <code>.inp</code> for typed values and <code>.sel</code> for a choice from a fixed list. Both use the same base, focus, disabled and invalid states. The native select adds only its chevron and clearance; keyboard and screen-reader behaviour remain native. Labels are visible. Yellow is not an error colour: invalid uses the existing held/error token.</p>
+<p>The examples load the master stylesheet. Focus examples illustrate its focus ring. The master has no dark palette; no dark-mode tokens or examples are invented here. The chevron fill must equal <code>--ink</code>, checked by conformance.</p>
+<style>#opintel-app [data-example-state="focus"] :is(.inp,.sel){outline:2px solid var(--green);outline-offset:-1px}</style>
+<table><thead><tr><th>State</th><th>Text input</th><th>Native select</th></tr></thead><tbody>
+<tr data-example-state="default"><th scope="row">Default</th><td><label for="input-default">Column name</label><input class="inp" id="input-default" value="Region"></td><td><label for="select-default">Operator</label><select class="sel" id="select-default"><option>Equals</option><option>Does not equal</option></select></td></tr>
+<tr data-example-state="focus"><th scope="row">Focus</th><td><label for="input-focus">Column name</label><input class="inp" id="input-focus" value="Region"></td><td><label for="select-focus">Operator</label><select class="sel" id="select-focus"><option>Equals</option><option>Does not equal</option></select></td></tr>
+<tr data-example-state="disabled"><th scope="row">Disabled</th><td><label for="input-disabled">Column name</label><input class="inp" id="input-disabled" value="Region" disabled></td><td><label for="select-disabled">Operator</label><select class="sel" id="select-disabled" disabled><option>Equals</option><option>Does not equal</option></select></td></tr>
+<tr data-example-state="invalid"><th scope="row">Invalid</th><td><label for="input-invalid">Column name</label><input class="inp" id="input-invalid" value="Region" aria-invalid="true"></td><td><label for="select-invalid">Operator</label><select class="sel" id="select-invalid" aria-invalid="true"><option>Equals</option><option>Does not equal</option></select></td></tr>
+</tbody></table></section>
 </body>
 </html>

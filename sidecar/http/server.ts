@@ -1,3 +1,4 @@
+import {rowPreviewRequest,rowPreviewResponse} from '../../src/shared/row-preview-contract.js';
 import { executionRequest,validationRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
 import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
 import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
@@ -26,7 +27,7 @@ const errorMessages: Readonly<Record<string,string>> = {
 
 export function createSidecarServer(options: {
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
-  execution?: {execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
+  execution?: {preview?(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
   demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
   custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
   canonicalisers?: CanonicaliserRegistry;
@@ -36,6 +37,7 @@ export function createSidecarServer(options: {
   const pin = new X509Certificate(options.tls.clientPin).fingerprint256;
   const routes: Record<string, Route> = {
     ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
+    ...(options.execution?.preview?{'/preview-rows':{permission:'pinned_application_certificate' as const,response:rowPreviewResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.preview!(body,signal)}}:{}),
     ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),
     '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:build}) },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
@@ -67,7 +69,7 @@ export function createSidecarServer(options: {
     if (route === undefined) { fail(res,404,'not_found','The endpoint does not exist.',requestId); req.resume(); return; }
     if (req.method !== 'POST') { fail(res,405,'method_not_allowed','This endpoint requires POST.',requestId); req.resume(); return; }
     try {
-      const execution=path==='/execute'||path==='/validate';
+      const execution=path==='/execute'||path==='/validate'||path==='/preview-rows';
       const bytes = await readBody(req,options.config.maxRequestBytes);
       const size = bytes.length;
       if (controller.signal.aborted) return;
@@ -78,7 +80,7 @@ export function createSidecarServer(options: {
         if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) { fail(res,415,'validation_failed','A JSON request body is required.',requestId); return; }
         try { body = JSON.parse(bytes.toString('utf8')) as unknown; }
         catch { fail(res,400,'validation_failed','The request body is not valid JSON.',requestId); return; }
-        const parsed = (path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
+        const parsed = (path==='/preview-rows'?rowPreviewRequest:path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
         if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));

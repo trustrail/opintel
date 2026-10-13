@@ -1,6 +1,7 @@
+import {ColumnTagsEditor} from './column-tags.js';
 import {domainMigrationConfirmation} from '../../shared/token-domain.js';
 import {ProjectId,ElementId} from '../../shared/kernel/value-objects.js';
-import {useMemo,useId,type ReactNode} from 'react';
+import {useMemo,useId,useState,useEffect,type ReactNode} from 'react';
 import {useStore} from 'zustand';
 import type {z} from 'zod';
 import {DeclarationCommand,ElementDeclarations,SchemaDeclarations,type DeclarationValues} from '../../shared/api/declarations.js';
@@ -20,10 +21,11 @@ export function DeclarationPanel({projectId,elementId,onSchema}:{projectId:strin
  if(query.isPending||projects.isPending)return <LoadingState/>;
  if(query.isError||projects.isError)return <ErrorState title="Declarations could not be loaded" description={(query.error as AppError|null)?.message??projects.error?.message??'Try again.'} retry={()=>Promise.all([query.refetch(),projects.refetch()])}/>;
  if(!query.data)return <EmptyState title="No element selected" description="Select an element to inspect its declarations."/>;
- return <ElementForm key={JSON.stringify(query.data.stored)+query.data.schemaTimezone} projectId={projectId} data={query.data} save={save} admin={projects.data?.find(p=>p.id===projectId)?.role==='admin'} onSchema={onSchema}/>;
+ return <><ElementForm key={`${projectId}:${elementId}`} projectId={projectId} data={query.data} save={save} admin={projects.data?.find(p=>p.id===projectId)?.role==='admin'} onSchema={onSchema}/>{projects.data?.find(p=>p.id===projectId)?.role==='admin'?<ColumnTagsEditor projectId={projectId} elementId={elementId}/>:null}</>;
 }
 function ElementForm({projectId,data,admin,onSchema,save}:{projectId:string;save:ReturnType<typeof useDeclarationSave>;data:z.infer<typeof ElementDeclarations>;admin:boolean;onSchema:(id:string)=>void}){
- const store=useMemo(()=>createDeclarationForm(data.stored),[data.stored]),state=useStore(store);
+ const [store]=useState(()=>createDeclarationForm(data.stored)),state=useStore(store);
+ useEffect(()=>store.getState().receive(data.stored),[store,data.stored]);
  const identity={projectId:ProjectId(projectId),elementId:ElementId(data.elementId)};
  const values=state.values,effective=effectiveDeclarations(data.exposedType,values,data.schemaTimezone,identity),changed=JSON.stringify(values)!==JSON.stringify(data.stored);
  const breaking=data.tokenizedEntitlements>0&&tokenBehaviour(data.exposedType,values,data.schemaTimezone,identity)!==tokenBehaviour(data.exposedType,data.stored,data.schemaTimezone,identity);
@@ -32,7 +34,7 @@ function ElementForm({projectId,data,admin,onSchema,save}:{projectId:string;save
  const compatible=(id:string)=>id===requiredCanon||(text&&requiredCanon==='stdtext1'&&!['stdtext1','stdnum1','stddate1','stdtime1'].includes(id));
  const conflict=values.canonId!==null&&!compatible(values.canonId);
  function fieldError(field:keyof DeclarationValues|'confirmation'){if(state.errors[field])return <p className="hint" role="alert">{state.errors[field]}</p>;return save.error?.details?.fields instanceof Array&&save.error.details.fields.includes(field)?<p className="hint" role="alert">{save.error.message}</p>:null;}
- return <form className="card" aria-label="Element declarations" onSubmit={e=>{e.preventDefault();const parsed=DeclarationCommand.safeParse({...values,...(breaking?{confirmation:state.confirmation}:{})});if(!parsed.success){state.invalid(Object.fromEntries(parsed.error.issues.map(issue=>[String(issue.path[0]??'declarations'),issue.message])));return;}save.mutate(parsed.data);}}>
+ return <form className="card" aria-label="Element declarations" onSubmit={e=>{e.preventDefault();const parsed=DeclarationCommand.safeParse({...values,...(breaking?{confirmation:state.confirmation}:{})});if(!parsed.success){state.invalid(Object.fromEntries(parsed.error.issues.map(issue=>[String(issue.path[0]??'declarations'),issue.message])));return;}save.mutate(parsed.data,{onSuccess:result=>store.getState().saved(result.stored)});}}>
  <div className="card-h"><div><h2>Token declarations</h2><b>{data.qualifiedName.split('.').at(-1)}</b><div className="meta" title={data.qualifiedName}>{data.qualifiedName.split('.').slice(-2,-1).join('')} · {data.exposedType??'Unsupported'} · tokenized in {data.tokenizedEntitlements} pools</div></div></div>
  {!admin?<p className="note">Read-only. A project administrator declares these properties.</p>:null}
  <DeclarationRow name="Token domain" value={data.exposedType===null?'Not needed':values.tokenDomain??'Isolated'} provenance={values.tokenDomain===null?'Derived from element identity':'Declared'} open={!!state.open['tokenDomain']} onToggle={()=>state.toggle('tokenDomain')}><div className="fld"><label htmlFor="declaration-domain">Token domain</label>{data.exposedType!==null?<input id="declaration-domain" value={values.tokenDomain??''} disabled={disabled} onChange={e=>state.edit({tokenDomain:e.target.value||null})}/>:<p className="hint">Not needed — unsupported elements cannot tokenize.</p>}<p className="hint" style={{overflowWrap:'anywhere'}}>Stored: {display(data.stored.tokenDomain)}. Effective: {domainDisplay(data.stored.tokenDomain,data.effective.tokenDomain)}{data.stored.tokenDomain!==null?' — declared':''}. Declaring a shared domain enables cross-element joins. Lowercase letters and digits; sentinel and opintelisolated domains are reserved.</p>{data.stored.tokenDomain===null?<DerivedDomain domain={data.effective.tokenDomain} open={state.derivedDomainOpen} onToggle={state.showDerivedDomain}/>:null}{fieldError('tokenDomain')}</div></DeclarationRow>

@@ -1,3 +1,4 @@
+import {composeRowDecisions,contributingDecision} from '../../../shared/row-decision-composition.js';
 import {rowScope,type RowScope} from '../../../shared/row-scope-contract.js';
 import {PostgresGroupedEntitlements} from './grouped-read.js';
 import { classifySourceType } from '../../catalog/index.js';
@@ -67,10 +68,12 @@ export class PostgresEntitlementReader implements EntitlementReader {
    const decisions=new Map<ElementId,Entitlement>();for(const row of snapshot.decisions){const decision=Entitlement.decide({...row,setAt:Timestamp(new Date(row.setAt))});if(!decision.ok)return decision;decisions.set(row.elementId,decision.value);}
    let compiled=compileViews({poolId:pool,boundSources:snapshot.sources.map(s=>({...s,alias:ExposedName(s.alias)})),objects,elements:objects.flatMap(o=>o.elements),entitlements:decisions,aggregateMinGroupSize:Number(settings.data.query.aggregateMinGroupSize),policyVersion:project.version});
    if(compiled.ok){
-    const scopes=await tx.query<{objectId:string;decisionId:string|null;hash:string|null;predicate:unknown;columns:unknown}>(`SELECT DISTINCT ON(o.id) o.id AS "objectId",d.id AS "decisionId",d.predicate_hash AS hash,d.predicate,d.columns FROM catalog_object o JOIN row_entitlement existing ON existing.object_id=o.id LEFT JOIN LATERAL(SELECT * FROM row_entitlement WHERE object_id=o.id AND pool_id=$1 ORDER BY sequence DESC LIMIT 1)d ON true WHERE o.project_id=$2 AND o.id=ANY($3::uuid[])`,[pool,ctx.projectId,snapshot.objects.map(o=>o.id)]);
+    const scopes=await tx.query<{objectId:string;decisions:unknown[]}>(`SELECT o.id AS "objectId",COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'level',d.level,'predicate',d.predicate,'columns',d.columns) ORDER BY d.level) FROM (SELECT DISTINCT ON(level) * FROM row_entitlement WHERE object_id=o.id AND (level='object_default' OR level='pool_override' AND pool_id=$1) ORDER BY level,sequence DESC)d),'[]'::jsonb) AS decisions FROM catalog_object o WHERE o.project_id=$2 AND o.id=ANY($3::uuid[]) AND EXISTS(SELECT 1 FROM row_entitlement existing WHERE existing.object_id=o.id)`,[pool,ctx.projectId,snapshot.objects.map(o=>o.id)]);
     const byObject=new Map<string,RowScope>();
     for(const row of scopes){
-     const decoded=rowScope.safeParse({...row,poolId:pool,columns:row.columns??[],pushdown:false});
+     const decisions=contributingDecision.array().safeParse(row.decisions);
+     if(!decisions.success)return err(new DomainError('validation_failed','The stored row decision is invalid. No unscoped read is permitted.'));
+     const decoded=rowScope.safeParse({objectId:row.objectId,...composeRowDecisions(decisions.data),poolId:pool,pushdown:false});
      if(!decoded.success)return err(new DomainError('validation_failed','The stored row decision is invalid. No unscoped read is permitted.'));
      const scope=decoded.data;
      for(const c of scope.columns){const current=snapshot.elements.find(e=>e.id===c.id&&e.objectId===row.objectId);if(!current||current.exposedType!==c.type||current.status!=='active')return err(new DomainError('validation_failed','A row-scope column changed or disappeared. Review its row decision in Entitlements before querying.'));c.sourceIdentifier=current.sourceIdentifier;c.name=current.exposedName??c.name;}

@@ -2,6 +2,7 @@ import type {ActivityEntry} from '../../shared/api/activity.js';
 
 /** Labels depend on recorded object references, never parsed/hidden arguments. */
 export function requestLabel(r:ActivityEntry){
+ if(r.metadata.rowPreview)return r.status==='refused'?'Row preview refused':'Previewed entitled rows';
  if(r.status==='incomplete')return 'Started a request';
  if(r.recordKind==='rollup')return 'Retained answer summary';
  const n=r.metadata.objects?.length;

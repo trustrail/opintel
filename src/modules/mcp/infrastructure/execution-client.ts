@@ -1,3 +1,4 @@
+import {rowPreviewRequest,rowPreviewResponse,type RowPreviewRequest} from '../../../shared/row-preview-contract.js';
 import {request} from 'node:https';
 import {X509Certificate} from 'node:crypto';
 import {checkServerIdentity} from 'node:tls';
@@ -13,6 +14,7 @@ export class SidecarQueryExecution implements QueryExecutionPort,QueryValidation
  private readonly base:URL;private readonly pin:string;
  constructor(private readonly options:SidecarOptions){this.base=new URL(options.baseUrl);if(this.base.protocol!=='https:'||this.base.username||this.base.password||this.base.search||this.base.hash)throw new Error('Query execution requires an HTTPS Opintel Engine URL.');this.pin=options.tls.certificatePin ? options.tls.certificatePin.match(/.{2}/gu)!.join(':') : new X509Certificate(options.tls.pinnedCertificate!).fingerprint256;}
  async health(signal?:AbortSignal){const result=await this.call('/health',undefined,healthResponse,this.options.timeoutMs??9000,signal);if(!result.ok)return result;return result.value.contract===3?ok({queryEngineVersion:result.value.queryEngineVersion}):err(new DomainError('dependency_unavailable','The Opintel Engine contract is incompatible with query execution.',{cause:'sidecar_contract_mismatch',reason:'health_contract'}));}
+ preview(input:RowPreviewRequest,signal?:AbortSignal){const parsed=rowPreviewRequest.safeParse(input);return parsed.success?this.call('/preview-rows',parsed.data,rowPreviewResponse,Math.min(2147483647,parsed.data.limits.timeoutMs+2000),signal):Promise.resolve(err(new DomainError('validation_failed','Invalid preview request.')));}
  execute(input:ExecutionRequest,signal?:AbortSignal){const parsed=executionRequest.safeParse(input);return parsed.success?this.call('/execute',parsed.data,executionResponse,Math.min(2147483647,parsed.data.limits.timeoutMs+2000),signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
  validate(input:ValidationRequest,signal?:AbortSignal){const parsed=validationRequest.safeParse(input);return parsed.success?this.call('/validate',parsed.data,validationResponse,this.options.timeoutMs??9000,signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
  private async call<T>(path:string,body:unknown,schema:z.ZodType<T>,timeoutMs:number,parent?:AbortSignal):Promise<Result<T>>{

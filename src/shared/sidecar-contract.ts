@@ -4,6 +4,7 @@ import { custodyEnvelope,custodyOperations } from './custody-contract.js';
 import { provisionDemoPayload, provisionDemoResponse } from './demo-contract.js';
 import { z } from 'zod';
 import { Timestamp } from './kernel/index.js';
+import {rowPreviewRequest,rowPreviewResponse} from './row-preview-contract.js';
 
 const count = z.number().int().nonnegative().safe();
 export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, queryEngineVersion: z.string(), canonicalisers: z.array(z.string().regex(/^[a-z0-9]+$(?![\s\S])/u)).refine(ids => new Set(ids).size === ids.length) });
@@ -45,6 +46,7 @@ export function sidecarOpenApiDocument() {
     ...Object.entries(custodyOperations).map(([path,operation])=>['/custody/'+path,custodyEnvelope.extend({payload:operation.request}),operation.response] as const),
     ['/execute',executionRequest,validationRequest,executionResponse],
     ['/validate',validationRequest,validationResponse],
+    ['/preview-rows',rowPreviewRequest,rowPreviewResponse],
     ['/health', null, healthResponse],
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
@@ -58,6 +60,7 @@ export function sidecarOpenApiDocument() {
     components:{securitySchemes:{applicationCertificate:{type:'mutualTLS'}}},
     paths:Object.fromEntries(operations.map(([path,body,response])=>[path,{post:{
       security:[{applicationCertificate:[]}],
+      ...(path==='/preview-rows'?{description:'Internal Application-only row preview over pinned mutual TLS. The Application requires the project set_entitlement deciding permission. Returns exact counts (subject to disclosure threshold) and at most five treated sample rows; no untreated values, custody grants or agent MCP tool.'}:{}),
       ...(body===null?{}:{requestBody:{required:true,content:{'application/json':{schema:z.toJSONSchema(body,{io:'input'})}}}}),
       responses:{'200':{description:'Success',content:{'application/json':{schema:z.toJSONSchema(response,{io:'input'})}}},
         default:{description:'Refusal or failure',content:{'application/json':{schema:z.toJSONSchema(error)}}}},

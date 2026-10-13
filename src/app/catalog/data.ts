@@ -1,6 +1,7 @@
 import { projectKeys } from '../tenancy/data.js';
 import { catalogPage, type CatalogPage } from '../../shared/api/catalog.js';
 export const elementKeys = {
+  tags:(project:string,element:string)=>[...elementKeys.all(project),'tags',element] as const,
   all: (projectId: string) => [...projectKeys.scope(projectId), 'catalogElement'] as const,
   declarations: (projectId: string) => [...elementKeys.all(projectId), 'declarations'] as const,
   declaration: (projectId: string, elementId: string) => [...elementKeys.declarations(projectId), 'element', elementId] as const,

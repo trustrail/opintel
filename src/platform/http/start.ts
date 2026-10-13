@@ -1,3 +1,6 @@
+import {columnTagRoutes} from '../../modules/catalog/api/tag-routes.js';
+import {PostgresColumnTags} from '../../modules/catalog/infrastructure/column-tags.js';
+import {PostgresRowPreview} from '../../modules/entitlements/infrastructure/row-preview.js';
 import {rowDecisionRoutes} from '../../modules/entitlements/api/row-routes.js';
 import {PostgresRowDecisions} from '../../modules/entitlements/infrastructure/row-decisions.js';
 import {ReleaseRuntime,releaseRoutes} from '../../modules/release-custody/index.js';
@@ -240,10 +243,11 @@ async function start(): Promise<void> {
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),
-    ...rowDecisionRoutes(new PostgresRowDecisions()),
+    ...rowDecisionRoutes(new PostgresRowDecisions(),new PostgresRowPreview(new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),new PostgresEvidenceWriter())),
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
+    ...columnTagRoutes(new PostgresColumnTags()),
     ...declarationRoutes(new PostgresElementDeclarations(new engines.RegistryCustodyClient(engineRegistry)),new PostgresTemporalRepository()),
     ...sourceRoutes(sources),...engines.engineRoutes(engineRegistry),
     ...typeObservationRoutes(new PostgresTypeObservations()),
