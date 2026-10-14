@@ -220,3 +220,21 @@ Evidence index: `tmp/pool-proof/index.html`; final matrix: `tmp/pool-proof/final
 The agents list and twin return required `authenticatedWith`: `{kind: "credential", label, alias}` at or after migration 072, and `{kind: "legacy_pool_key"}` before it. The server evaluates the cutoff at PostgreSQL precision; the console renders the explicit kind. Legacy responses have neither label nor alias. No presence column or migration changes are needed. Display text and markup remain unchanged.
 
 I-003 correctly rejected the property named `credential`. Its recursive schema guard matches exact property names case-insensitively, not prefixes or substrings. `authenticatedWith`, `kind`, `label` and `alias` do not collide; the enum value `credential` is not a property name. The guard and its exceptions remain unchanged. Regression coverage checks the new response schema and a rejected literal `credential` property, plus before/at/after attribution for list and twin responses.
+
+### Missed revoke-dialog baselines — 2026-10-14
+
+The `revoke-390.png`, `revoke-900.png` and `revoke-1440.png` scenarios were included in the approved pool-page baseline scope but missed in e42bdd7. Their dialog overlays the redesigned page. The three failures in a1b24de's first browser gate were the old Row access section and Agents table/footer behind that dialog, plus the resulting page-height changes. They are explained by this missed approved regeneration, not by the settled-paint precondition or an environmental waiver.
+
+Before regeneration, decoded RGBA comparison against the a1b24de gate captures found **zero differences across the full-width dialog guard**: y=0–649 at 390 and y=0–579 at 900/1440. Differences started at y=772, 702 and 624 respectively, below the dialog, in the redesigned background. The modal, impact and key-action components and their relevant fixture inputs are byte-identical to baseline commit 3a1ba9d. That establishes unchanged dialog text; the retained current DOM text agrees across all three widths. Historical full dialog `innerText` was not retained, so the historical text check uses unchanged source and inputs rather than claiming an unavailable DOM capture.
+
+With explicit approval, one baseline-only regeneration and one unchanged-code recapture ran in pinned Playwright 1.63.0 / Chromium 153.0.8010.12, with the settled-paint precondition, stabilized screenshot matcher and no test retries. Only these three baseline PNGs were regenerated. Both runs passed 3/3 scenarios (51.8s and 49.2s). Independent decoded-RGBA comparison, including dimensions, is exact; body/dialog DOM text and dialog geometry match between generation and recapture. The regenerated dialog guards still differ from the old baselines by zero pixels.
+
+| Scenario | Old → new image height | Generation ↔ recapture differing pixels | Dialog guard vs old baseline |
+|---|---|---|---|
+| revoke-390 | 1183 → 1528 | 0 | 0 |
+| revoke-900 | 1086 → 1282 | 0 | 0 |
+| revoke-1440 | 1016 → 1123 | 0 | 0 |
+
+Each generation/recapture pair has the matrix `[[0, 0], [0, 0]]`. Evidence: `tmp/revoke-missed/index.html`, `preflight-pixels.json`, `preflight-dom.json`, `final-matrix.json`, `generate.log` and `recapture.log`.
+
+**a1b24de's gate record stands unchanged:** `check` passed 1,808 tests in 195 files (14m 32.228s overall); `check:ui` passed 1,808 normal tests and 377 browser scenarios, with these three snapshot failures (43m 15.277s overall; browser 28.0m). Control conformance covered 54/54 routes with zero findings. The three later shown-once captures were not reached in that gate because revoke failed first. No gate rerun was performed. This baseline correction and explanation do not retrospectively turn the recorded failing run green.
