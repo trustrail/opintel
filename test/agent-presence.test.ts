@@ -37,7 +37,7 @@ describe('5.4 agent presence',{timeout:30_000},()=>{
   const f=await presenceFixture();const first=unwrap(await f.signal('request'));f.clock.advance(7*86400000);
   expect(await f.state()).toBe('disconnected');
   await sweepAgentPresence(f.repository);await f.repository.sweep(f.ctx);
-  expect(await f.list()).toEqual([{...first,state:'disconnected',staleAt:'2026-01-01T00:01:00.000Z'}]);
+  expect(await f.list()).toEqual([{...first,authenticatedWith:{kind:'legacy_pool_key'},state:'disconnected',staleAt:'2026-01-01T00:01:00.000Z'}]);
   await expect(withTenant(f.ctx,tx=>tx.query('DELETE FROM agent_presence WHERE pool_id=$1',[f.pool]))).rejects.toMatchObject({code:'42501'});
  });
  it('I-020: stale and disconnected reconnect to the same twin; concurrent reconnects increment once',async()=>{

@@ -1,3 +1,5 @@
+import {AuthenticatedWith} from '../../../shared/api/agent-presence.js';
+import {authenticatedWithSql} from './authenticated-with.js';
 import { withPlatform,withTenant,type Tx } from '../../../platform/db/scope.js';
 import { notify,type ProjectEvents } from '../../../platform/sse/port.js';
 import { DomainError,err,ok,SystemClock,Timestamp,type Clock,type PoolId,type Result } from '../../../shared/kernel/index.js';
@@ -41,12 +43,9 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
   const settings=await this.settings(ctx);if(!settings.ok)return settings;
   return withTenant(ctx,async tx=>{
    if(!(await tx.query('SELECT id FROM pool WHERE id=$1',[pool])).length)return err(new DomainError('not_found','The pool was not found in this project.'));
-   const rows=await tx.query<Row&{credential:AgentPresenceRead['credential']|null}>(`SELECT ${columns},
-    (SELECT jsonb_build_object('id',c.id,'label',c.label,'custodyAlias',k.custody_alias)
-     FROM pool_key k JOIN pool_credential c ON c.id=k.credential_id AND c.pool_id=k.pool_id
-     WHERE k.id=a.key_version AND k.pool_id=a.pool_id AND public.is_credential_authentication(a.last_seen)) AS credential
+   const rows=await tx.query<Row&{authenticatedWith:unknown}>(`SELECT ${columns},${authenticatedWithSql} AS "authenticatedWith"
     FROM agent_presence a WHERE pool_id=$1 AND ($2::text IS NULL OR agent_id>$2 COLLATE "C") ORDER BY agent_id LIMIT $3`,[pool,after,limit]);
-   const now=this.clock.now();return ok(rows.map(({credential,...row})=>({...agePresence(presence(row),now,settings.value),...(credential?{credential}:{})})));
+   const now=this.clock.now();return ok(rows.map(({authenticatedWith,...row})=>({...agePresence(presence(row),now,settings.value),authenticatedWith:AuthenticatedWith.parse(authenticatedWith)})));
   });
  }
  async affected(ctx:PoolKeyContext,pool:PoolId,keyVersion:PoolKeyId){

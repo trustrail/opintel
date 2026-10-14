@@ -2,6 +2,7 @@ import {readFile} from 'node:fs/promises';
 import {Client} from 'pg';
 import {expect,it} from 'vitest';
 import {presenceFixture,unwrap} from './fixtures/agent-presence/fixture.js';
+import {PostgresPoolReader} from '../src/modules/pools/index.js';
 import {withTenant} from '../src/platform/db/scope.js';
 
 // Unit-test the database predicate at PostgreSQL's native timestamp precision.
@@ -18,9 +19,14 @@ it('CRED-008 last authentication resolves its key, including revoked versions; l
    for(const [agent,offset] of [['before','-1 microsecond'],['at','0 microseconds'],['after','1 microsecond']])await tx.query('UPDATE agent_presence SET last_seen=$3::timestamptz + $4::interval WHERE pool_id=$1 AND agent_id=$2',[f.pool,agent,cutoff,offset]);
    await tx.query("UPDATE pool_key SET state='revoked' WHERE id=$1",[f.keyVersion]);
   });
-  const [key]=await withTenant(f.ctx,tx=>tx.query<{id:string;label:string;custodyAlias:string}>(`SELECT c.id,c.label,k.custody_alias AS "custodyAlias" FROM pool_key k JOIN pool_credential c ON c.id=k.credential_id WHERE k.id=$1`,[f.keyVersion]));
-  const rows=await f.list();expect(rows.find(r=>r.agentId==='before')).not.toHaveProperty('credential');
-  expect(rows.find(r=>r.agentId==='at')?.credential).toEqual(key);expect(rows.find(r=>r.agentId==='after')?.credential).toEqual(key);
+  const [key]=await withTenant(f.ctx,tx=>tx.query<{label:string;alias:string}>(`SELECT c.label,k.custody_alias AS alias FROM pool_key k JOIN pool_credential c ON c.id=k.credential_id WHERE k.id=$1`,[f.keyVersion]));
+  const rows=await f.list();const reader=new PostgresPoolReader();
+  for(const agent of ['before','at','after']){
+   const expected=agent==='before'?{kind:'legacy_pool_key'}:{kind:'credential',...key};
+   expect(rows.find(r=>r.agentId===agent)?.authenticatedWith).toEqual(expected);
+   expect(unwrap(await reader.twin(f.ctx,f.pool,agent)).presence.authenticatedWith).toEqual(expected);
+   expect(rows.find(r=>r.agentId===agent)).not.toHaveProperty('credential');
+  }
   expect(await withTenant(f.ctx,tx=>tx.query("SELECT has_table_privilege(current_user,'schema_migration','SELECT') AS ledger"))).toEqual([{ledger:false}]);
  }finally{await db.end();}
 });

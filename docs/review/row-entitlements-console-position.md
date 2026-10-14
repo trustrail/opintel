@@ -214,3 +214,9 @@ The single regeneration pass passed 18/18 scenarios (2.6 minutes). Exact generat
 | shown-once | 0 | 0 | 0 |
 
 Evidence index: `tmp/pool-proof/index.html`; final matrix: `tmp/pool-proof/final-matrix.json`; pairwise and region proofs: `tmp/pool-diagnosis/report.json`, `flush-report.json`, `region-proof.json`. Generation/recapture logs and preserved PNG/DOM records are under `tmp/pool-proof/`. Lint passed. The conformance typecheck reported three existing missing-`custody` errors at `e2e/dashboard-fixture.ts:9–10`; that fixture and its API schema are unchanged. No capture-helper type error was reported. This is not a green conformance typecheck or a gate result. No gate, commit or push was run. Stopped before commit for review.
+
+### Agents response contract — I-003 correction
+
+The agents list and twin return required `authenticatedWith`: `{kind: "credential", label, alias}` at or after migration 072, and `{kind: "legacy_pool_key"}` before it. The server evaluates the cutoff at PostgreSQL precision; the console renders the explicit kind. Legacy responses have neither label nor alias. No presence column or migration changes are needed. Display text and markup remain unchanged.
+
+I-003 correctly rejected the property named `credential`. Its recursive schema guard matches exact property names case-insensitively, not prefixes or substrings. `authenticatedWith`, `kind`, `label` and `alias` do not collide; the enum value `credential` is not a property name. The guard and its exceptions remain unchanged. Regression coverage checks the new response schema and a rejected literal `credential` property, plus before/at/after attribution for list and twin responses.

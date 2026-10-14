@@ -1,10 +1,10 @@
 import { DomainError,err,type PoolId,type Result } from '../../../shared/kernel/index.js';
 import { PresenceSignal } from '../../../shared/api/agent-presence.js';
 import type { AgentPresence } from '../domain/presence.js';
-import type { PoolKeyId,CredentialId } from '../domain/pool.js';
+import type { PoolKeyId } from '../domain/pool.js';
 import type { PoolKeyContext } from './keys.js';
 export type AuthenticatedPresence={poolId:PoolId;keyVersion:PoolKeyId};
-export type AgentPresenceRead=AgentPresence&{credential?:{id:CredentialId;label:string;custodyAlias:string}};
+export type AgentPresenceRead=AgentPresence&{authenticatedWith:{kind:'credential';label:string;alias:string}|{kind:'legacy_pool_key'}};
 export interface AgentPresenceRepository {
  observe(ctx:PoolKeyContext,authenticated:AuthenticatedPresence,signal:{agentId:string;client:string|null;kind:'connect'|'request'|'heartbeat'}):Promise<Result<AgentPresence>>;
  list(ctx:PoolKeyContext,pool:PoolId,after:string|null,limit:number):Promise<Result<AgentPresenceRead[]>>;

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { expect,it } from 'vitest';
 import { z } from 'zod';
 import ts from 'typescript';
+import {AgentPresencePage,AuthenticatedWith} from '../src/shared/api/agent-presence.js';
 import type { defineRoute } from '../src/platform/http/index.js';
 async function files(root:string):Promise<string[]>{return (await Promise.all((await readdir(root,{withFileTypes:true})).map(e=>e.isDirectory()?files(`${root}/${e.name}`):Promise.resolve(e.name.endsWith('.ts')?[`${root}/${e.name}`]:[])))).flat();}
 function credentialFields(schema:unknown,path=''):string[]{
@@ -35,3 +36,12 @@ it('I-003: scans every application route response schema; only initial creation,
  }
  expect(found.sort()).toEqual([...exceptions].sort());
 },30_000);
+
+it('I-003: authenticatedWith metadata passes; a literal credential property still fails',()=>{
+ expect(credentialFields(z.toJSONSchema(AgentPresencePage))).toEqual([]);
+ expect(credentialFields(z.toJSONSchema(z.object({credential:z.string()})))).toEqual(['.credential']);
+ expect(AuthenticatedWith.parse({kind:'legacy_pool_key'})).toEqual({kind:'legacy_pool_key'});
+ expect(AuthenticatedWith.safeParse({kind:'legacy_pool_key',label:'Legacy',alias:'alias'}).success).toBe(false);
+ expect(AuthenticatedWith.parse({kind:'credential',label:'Reader',alias:'agent:alias'})).toEqual({kind:'credential',label:'Reader',alias:'agent:alias'});
+ expect(AuthenticatedWith.safeParse({kind:'credential'}).success).toBe(false);
+});

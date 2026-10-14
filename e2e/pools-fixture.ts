@@ -5,7 +5,7 @@ export const observedCredential={id:'018f8f9d-7f83-7abc-8def-000000000090',label
 export const credential='opk_live_1234567890123456789012';
 const key={poolId:pool,keyVersion:version,prefix:'opk_live_12345678',createdAt:'2026-09-01T12:00:00.000Z',state:'current' as const,graceUntil:null};
 export const detail:PoolDetail={id:pool,name:'Reporting pool',sourceIds:[],modeQuery:true,modePrompt:true,workingKeys:1,agents:2,activeAgents:1,clearElements:3,activeElements:99,keys:[key],graceSeconds:86400};
-export const twin:AgentTwin={keyMetadata:key,presence:{poolId:pool,agentId:'reporter',client:'Reporting client',verified:false,keyVersion:version,firstSeen:'2026-09-01T12:00:00.000Z',lastSeen:'2026-09-20T12:00:00.000Z',lastRequestAt:'2026-09-20T12:00:00.000Z',lastHeartbeatAt:'2026-09-20T12:00:00.000Z',staleAt:'2026-09-20T12:01:00.000Z',reconnects:2,state:'disconnected'}};
+export const twin:AgentTwin={keyMetadata:key,presence:{authenticatedWith:{kind:'legacy_pool_key'},poolId:pool,agentId:'reporter',client:'Reporting client',verified:false,keyVersion:version,firstSeen:'2026-09-01T12:00:00.000Z',lastSeen:'2026-09-20T12:00:00.000Z',lastRequestAt:'2026-09-20T12:00:00.000Z',lastHeartbeatAt:'2026-09-20T12:00:00.000Z',staleAt:'2026-09-20T12:01:00.000Z',reconnects:2,state:'disconnected'}};
 export const poolsPath=`/projects/${project}/pools`,poolPath=`${poolsPath}/${pool}`,twinPath=`${poolPath}/agents/reporter`;
 export async function mockPools(page:Page){
  const state={detail:structuredClone(detail),twin:structuredClone(twin),empty:false,error:false,missing:false,loading:false,replay:false,posts:[] as {path:string;body:unknown}[],reads:[] as string[]};
@@ -31,7 +31,7 @@ export async function mockPools(page:Page){
  if(path.endsWith('/row-entitlements'))return route.fulfill({json:{projectHasDefault:false,counts:{missing:0,overridden:0,inherited:0,unscoped:0},items:[],nextCursor:null}});
  if(path.endsWith('/affected-agents'))return route.fulfill({json:{...key,affectedAgentCount:1,affectedAgents:['worker'],previouslySeenAgents:['reporter']}});
  if(path.endsWith('/pools'))return route.fulfill({json:{items:state.empty?[]:[state.detail],nextCursor:null}});
- if(path.endsWith('/agents'))return route.fulfill({json:{items:state.empty?[]:[state.twin.presence,{...state.twin.presence,agentId:'worker',state:'active',lastSeen:'2026-10-06T15:42:00.000Z',lastRequestAt:'2026-10-06T15:42:00.000Z',lastHeartbeatAt:'2026-10-06T15:42:00.000Z',staleAt:null,credential:observedCredential}],nextCursor:null}});
+ if(path.endsWith('/agents'))return route.fulfill({json:{items:state.empty?[]:[state.twin.presence,{...state.twin.presence,agentId:'worker',state:'active',lastSeen:'2026-10-06T15:42:00.000Z',lastRequestAt:'2026-10-06T15:42:00.000Z',lastHeartbeatAt:'2026-10-06T15:42:00.000Z',staleAt:null,authenticatedWith:{kind:'credential',label:observedCredential.label,alias:observedCredential.custodyAlias}}],nextCursor:null}});
  if(path.includes('/agents/'))return route.fulfill({json:state.twin});
  if(path.endsWith('/'+pool))return route.fulfill({json:state.detail});
  return route.fulfill({status:404,json:{}});
