@@ -5,7 +5,7 @@ export const AgentIdHeader = z.string().min(1).refine(value=>value.trim().length
 export const PresenceSettings = z.object({agentHeartbeatSeconds:numericProjectSetting('agentHeartbeatSeconds'),agentDisconnectGraceSeconds:numericProjectSetting('agentDisconnectGraceSeconds')});
 export const AgentPresenceState = z.enum(['connecting','active','idle','stale','disconnected']);
 export const PresenceSignal = z.strictObject({agentId:AgentIdHeader,client:z.string().nullable().default(null),kind:z.enum(['connect','request','heartbeat'])});
-export const AgentPresenceView = z.strictObject({poolId:z.uuid(),agentId:z.string(),client:z.string().nullable(),verified:z.literal(false),keyVersion:z.uuid(),firstSeen:z.iso.datetime(),lastSeen:z.iso.datetime(),lastRequestAt:z.iso.datetime().nullable(),lastHeartbeatAt:z.iso.datetime(),staleAt:z.iso.datetime().nullable(),reconnects:z.number().int().nonnegative(),state:AgentPresenceState});
+export const AgentPresenceView = z.strictObject({poolId:z.uuid(),credential:z.object({id:z.uuid(),label:z.string(),custodyAlias:z.string()}).optional(),agentId:z.string(),client:z.string().nullable(),verified:z.literal(false),keyVersion:z.uuid(),firstSeen:z.iso.datetime(),lastSeen:z.iso.datetime(),lastRequestAt:z.iso.datetime().nullable(),lastHeartbeatAt:z.iso.datetime(),staleAt:z.iso.datetime().nullable(),reconnects:z.number().int().nonnegative(),state:AgentPresenceState});
 export type AgentPresenceView = z.infer<typeof AgentPresenceView>;
 export const AgentPresenceQuerySchema = z.object({projectId:z.uuid(),cursor:z.string().optional(),limit:z.coerce.number().int().positive().default(50)});
 export const AgentPresencePage = z.object({items:z.array(AgentPresenceView),nextCursor:z.string().nullable()});

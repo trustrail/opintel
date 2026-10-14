@@ -5,7 +5,7 @@ import {Button,PickerChevron,SegmentedFilters,EmptyState,ErrorState,LoadingState
 import {useSources} from '../sources/data.js';
 import {usePools} from './data.js';
 import {useProjects} from '../tenancy/data.js';
-export type EntitlementsSearch={rowDecisionId?:string;rowObjectId?:string;poolId?:string;sourceId?:string;elementId?:string;undecided?:boolean;decision?:'undecided'|'decided'|'all';layout?:'name'|'table'};
+export type EntitlementsSearch={rowFilter?:'unscoped';rowDecisionId?:string;rowObjectId?:string;poolId?:string;sourceId?:string;elementId?:string;undecided?:boolean;decision?:'undecided'|'decided'|'all';layout?:'name'|'table'};
 export function EntitlementsScreen({projectId,search,onSearch}:{projectId:string;search:EntitlementsSearch;onSearch:(search:EntitlementsSearch)=>void}){
  const pools=usePools(projectId),sources=useSources(projectId),projects=useProjects();
  const pool=pools.data?.find(p=>p.id===search.poolId)??(!search.poolId?pools.data?.[0]:undefined);
@@ -20,10 +20,11 @@ export function EntitlementsScreen({projectId,search,onSearch}:{projectId:string
  const renderHeader=(summary?:ReactNode)=><header className="tiles" data-part="title-band"><div><h1>Entitlements</h1><p className="sub">Decide what this pool may see. Elements without a decision are undecided and absent from the agent’s view.</p></div>{summary}</header>;
  const editable=projects.data?.find(p=>p.id===projectId)?.role==='admin';
  return <section className="screen on" data-layout="decisions">
+ {search.rowFilter?<p className="note">Objects with no row filter. <Button variant="ghost" onClick={()=>onSearch({...search,rowFilter:undefined})}>Show all objects</Button></p>:null}
  {search.elementId?<p className="note">Showing the element linked from Suggestions. <Button variant="ghost" onClick={()=>onSearch({...search,elementId:undefined})}>Show all elements</Button></p>:null}
  {pools.isPending?<>{renderHeader()}<LoadingState/></>:pools.isError?<>{renderHeader()}<ErrorState title="Pools could not be loaded" description={pools.error.message} retry={()=>pools.refetch()}/></>:!pools.data.length?<>{renderHeader()}<EmptyState title="No pools yet" description="Create a pool and bind a source before deciding its entitlements."/></>:<>
 
  {pool&&search.rowObjectId&&editable?<RowEditor projectId={projectId} poolId={pool.id} objectId={search.rowObjectId} historyDecisionId={search.rowDecisionId} close={()=>onSearch({...search,rowObjectId:undefined})}/>:null}
- {pool?<GroupedDecisions key={JSON.stringify([projectId,pool.id,search.sourceId,search.elementId,decision,layout])} projectId={projectId} poolId={pool.id} poolName={pool.name} sourceId={search.sourceId} elementId={search.elementId} decision={decision} mode={layout} editable={editable} renderFilters={renderFilters} renderHeader={renderHeader}/>:<>{renderHeader()}{renderFilters(undefined)}<EmptyState title="Pool not found" description="Choose an available pool."/></>}</>}
+ {pool?<GroupedDecisions key={JSON.stringify([projectId,pool.id,search.sourceId,search.elementId,search.rowFilter,decision,layout])} projectId={projectId} poolId={pool.id} poolName={pool.name} rowFilter={search.rowFilter} sourceId={search.sourceId} elementId={search.elementId} decision={decision} mode={layout} editable={editable} renderFilters={renderFilters} renderHeader={renderHeader}/>:<>{renderHeader()}{renderFilters(undefined)}<EmptyState title="Pool not found" description="Choose an available pool."/></>}</>}
  </section>;
 }

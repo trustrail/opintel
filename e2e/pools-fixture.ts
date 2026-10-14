@@ -1,6 +1,7 @@
 import type {Page} from '@playwright/test';
 import type {PoolDetail,AgentTwin} from '../src/shared/api/pools.js';
 export const project='018f8f9d-7f83-7abc-8def-000000000001',pool='018f8f9d-7f83-7abc-8def-000000000002',version='018f8f9d-7f83-7abc-8def-000000000003',nextVersion='018f8f9d-7f83-7abc-8def-000000000004';
+export const observedCredential={id:'018f8f9d-7f83-7abc-8def-000000000090',label:'Claims reader',custodyAlias:'agent:018f8f9d-7f83-7abc-8def-000000000001:018f8f9d-7f83-7abc-8def-000000000090'};
 export const credential='opk_live_1234567890123456789012';
 const key={poolId:pool,keyVersion:version,prefix:'opk_live_12345678',createdAt:'2026-09-01T12:00:00.000Z',state:'current' as const,graceUntil:null};
 export const detail:PoolDetail={id:pool,name:'Reporting pool',sourceIds:[],modeQuery:true,modePrompt:true,workingKeys:1,agents:2,activeAgents:1,clearElements:3,activeElements:99,keys:[key],graceSeconds:86400};
@@ -27,10 +28,10 @@ export async function mockPools(page:Page){
  state.reads.push(path);if(state.loading)await new Promise(r=>setTimeout(r,800));
  if(state.error)return route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Pools are temporarily unavailable.',requestId:'test',retryable:true}}});
  if(state.missing)return route.fulfill({status:404,json:{error:{code:'not_found',message:'This pool or agent was not found.',requestId:'test',retryable:false}}});
- if(path.endsWith('/row-entitlements'))return route.fulfill({json:{items:[],nextCursor:null}});
+ if(path.endsWith('/row-entitlements'))return route.fulfill({json:{projectHasDefault:false,counts:{missing:0,overridden:0,inherited:0,unscoped:0},items:[],nextCursor:null}});
  if(path.endsWith('/affected-agents'))return route.fulfill({json:{...key,affectedAgentCount:1,affectedAgents:['worker'],previouslySeenAgents:['reporter']}});
  if(path.endsWith('/pools'))return route.fulfill({json:{items:state.empty?[]:[state.detail],nextCursor:null}});
- if(path.endsWith('/agents'))return route.fulfill({json:{items:state.empty?[]:[state.twin.presence,{...state.twin.presence,agentId:'worker',state:'active'}],nextCursor:null}});
+ if(path.endsWith('/agents'))return route.fulfill({json:{items:state.empty?[]:[state.twin.presence,{...state.twin.presence,agentId:'worker',state:'active',lastSeen:'2026-10-06T15:42:00.000Z',lastRequestAt:'2026-10-06T15:42:00.000Z',lastHeartbeatAt:'2026-10-06T15:42:00.000Z',staleAt:null,credential:observedCredential}],nextCursor:null}});
  if(path.includes('/agents/'))return route.fulfill({json:state.twin});
  if(path.endsWith('/'+pool))return route.fulfill({json:state.detail});
  return route.fulfill({status:404,json:{}});

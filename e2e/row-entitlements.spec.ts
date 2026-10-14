@@ -16,7 +16,7 @@ for(const width of [390,900,1440])test(`ROW-UI static row editor and scoped obje
  await page.route('**/entitlements?*',route=>new URL(route.request().url()).searchParams.get('parent')===source+':public'?route.fulfill({json:{nodes:[{id:object,label:'records',kind:'object',childCount:7,exposedType:null,treatment:null,maskKind:null,justification:null,rowScoped:current!==null}],nextCursor:null}}):route.fallback());
  await page.setViewportSize({width,height:1000});await page.goto(`/projects/${project}/entitlements`);await expand(page);
  await page.getByRole('link',{name:'Row entitlement for records'}).click();
- const editor=page.getByRole('region',{name:'Row entitlement editor'});await expect(editor).toContainText('Rows unscoped');await expect(editor.getByRole('button',{name:'Save row decision'})).toBeDisabled();
+ const editor=page.getByRole('region',{name:'Row entitlement editor'});await expect(editor).toContainText('No row filter');await expect(editor.getByRole('button',{name:'Save row decision'})).toBeDisabled();
  await editor.getByRole('button',{name:'Text',exact:true}).click();
  await editor.getByLabel('Row predicate for this object and pool').fill('field_0000 IN scope(customer)');await editor.getByRole('button',{name:'Save row decision'}).click();await expect(editor.getByRole('alert')).toHaveText('scope references arrive in step 3');
  await editor.getByLabel('Row predicate for this object and pool').fill("field_0000 = 'EU'");await editor.getByRole('button',{name:'Save row decision'}).click();await expect(editor.getByRole('status')).toHaveText('Row decision saved.');await expect(editor).toContainText('Rows scoped');

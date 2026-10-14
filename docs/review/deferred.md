@@ -1381,3 +1381,46 @@ The background Row access section and “No bound objects.” introduced by 5.37
 (commit `2944ddf`) push Agents down; the image grows 93px at 390 and 900.
 The sealing move did not change the dialog. Baselines remain unchanged while
 Row access is being redesigned to list decisions rather than the catalogue.
+
+
+### Row access gate: pre-existing Activity deadlines, unresolved teardown stalls (2026-10-13)
+
+The browser run grew from 32.9m to 56.7m. Five Activity/Catalog cases contributed approximately 1,312s of the increase; pool-page scenarios (including the nine new cases) changed from 163.7s to 164.6s. The 200-inherited-object fixture is local to the new test file, not a shared fixture or database seed.
+
+Five isolated repetitions of each named scenario on the redesign and clean `cab221a` showed Activity cold-load geometry at 4/5 versus 3/5 passing, and Activity state transitions at 5/5 versus 4/5. The baseline state-transition failure waits for the same error message as the gate. RED-015, DOMAIN-002 and custody Activity 900 passed 5/5 on both. Thus the two deadlines predate the redesign, while the original multi-minute teardown stalls and custody retry remain unexplained. These are not accepted as harmless flakes. Tracing was enabled equally on both revisions; no deadline, wait, assertion, product behavior or baseline changed. Investigation stopped at the requested pre-existing-failure boundary. Full timings and trace limits: [row-access-validation-investigation.md](row-access-validation-investigation.md).
+
+G-019's existing reporter incorrectly implemented its non-gating deadline decision as a whole-run override, which only applied when no other unexpected tests failed. It now classifies the individual deadline as an expected `timedOut` result before aggregation, retaining errors and incomplete-proof reporting; all other failures still block. The whole-run override was removed, not supplemented. A focused runner integration test verifies mixed failures, ordinary deadlines, G-019 assertions and the deadline-only case. This does not reinstate or alter the recorded performance budgets.
+
+
+### Open: Activity functional scenario cost on isolated runs (2026-10-13)
+
+Read-only accounting from the fifth passing redesign repetition of each scenario; no tests, fixtures, waits or deadlines changed. These were isolated browser selections with tracing enabled and no concurrent validation command. Neither the isolation artifacts nor the 1h18m gate log establish that the entire host was otherwise quiet. The gate log has no contemporaneous process inventory/load samples, so unrelated machine activity remains unknown.
+
+| Scenario | Setup / ready rendering | Assertions and scenario actions | Teardown | Trace interval | Reported test duration |
+|---|---:|---:|---:|---:|---:|
+| Activity cold-load geometry | 6.736s | 8.452s | 0.268s | 15.456s | 15.428s |
+| Activity state transitions | 3.657s | 12.439s | 0.775s | 16.871s | 16.847s |
+
+Accounting is non-overlapping: geometry setup includes the test fixture and all three new-context/load-to-visible-Requests-heading intervals; teardown includes the three context closures plus after-hooks. The middle column contains remaining body work. State-transition setup ends when the initial request row is visible; subsequent navigation/reloads are part of the scenario actions. Trace intervals and runner duration use slightly different instrumentation boundaries (24–28ms here). These traces do not contain an independently instrumented first-paint metric; visible heading/row readiness is the stated proxy, not a claim about first paint.
+
+**Geometry:** no database seed; `mockActivity` installs in-memory routes. Route/init-script setup totals about 0.046s over three contexts. Three navigations take 4.761s and their visible-heading waits 1.403s. Assertions dominate: three accessibility injections/scans and page-width checks take 6.447s (1.806s injecting axe, 4.588s running axe, about 0.052s width/assertion work); screenshots take 0.507s. The actual geometry polling and 100ms stability waits are a small fraction of the body. The scenario pays for the full shell and Activity page three times, including auth, projects, display settings, pools and summary responses. It loads 50 generated rows per context although it compares the first row/day geometry, not the records' content or the advertised one-million count. Full-page accessibility is explicitly asserted by the helper, so that cost is not unasserted work. No million-row array or database fixture is constructed.
+
+**State transitions:** no database seed; route/init-script installation takes about 0.006s. The initial two visibility checks take 1.340s, including the deliberate 700ms mock delay. Two navigations and three reloads total 9.002s across the scenario (2.165s initial navigation, 6.836s subsequent navigation/reloads); the three accessibility checks total 1.878s. Another deliberate 700ms mock delay exercises detail loading. The scenario actions dominate, especially remounting/reloading the shell and waiting for the requested states, rather than teardown. Each remount fetches auth/project/preferences data whose values this test does not assert. Pagination genuinely needs successive pages and asserts cursor=50 and a bounded mounted window; it does not need a real million-record fixture. The million total is arithmetic metadata, not a million records of work. The trace does not establish that removing incidental shell data would materially reduce these times.
+
+Ten isolation measurements per scenario, seconds; F is a deadline failure:
+
+| Scenario | Revision | Run 1 | Run 2 | Run 3 | Run 4 | Run 5 |
+|---|---|---:|---:|---:|---:|---:|
+| Cold-load geometry | Redesign | 30.276 F | 26.008 | 18.074 | 16.687 | 15.428 |
+| Cold-load geometry | cab221a | 30.317 F | 30.393 F | 24.437 | 20.620 | 20.118 |
+| State transitions | Redesign | 26.236 | 21.510 | 16.921 | 16.881 | 16.847 |
+| State transitions | cab221a | 34.448 F | 29.709 | 27.878 | 23.712 | 21.649 |
+
+Exact durations are retained in `tmp/row-access-diagnosis/working-isolation.json` and `cab-isolation.json`. Existing failing sets remain an open item. This accounting explains the cost of representative passing runs, not the prior multi-minute stalls. No test changes are proposed or applied here. Trace sources: `tmp/row-access-diagnosis/results/activity-Activity-measured-2c9eb-ize-across-three-cold-loads-functional-repeat4/trace.zip` and `activity-5-12-filters-curs-e72c8-ading-and-incomplete-states-functional-repeat4/trace.zip`.
+
+
+### Clean-HEAD conformance fixture errors — verified for 5.37 (2026-10-14)
+
+Before committing the pool-page batch, the complete tracked and untracked batch was stashed (`962316fddad9bcf5a5ed1beee630836195262f7c`). `git status --porcelain` was empty at `685ae9e155e4cc4ef1ccf88219299a4f2fe46b4b`, both before and after running the same `npm run typecheck:conformance` invocation (`tsc --project tsconfig.conformance.json`). It exited 2 with exactly the same three TS2741 errors: `e2e/dashboard-fixture.ts(9,110)`, `(10,72)`, and `(10,118)`, where the fixture spectrum omits the required output-type `custody` count. The stash was then popped successfully with no conflicts. This establishes that the errors predate this batch; they are not fixed in the pool-page commit, per the reader's instruction. Log: `tmp/pool-gate-record/clean-685ae9e-conformance.log`.
+
+Why `check` can pass with these errors present: its script runs lint, `tsc --noEmit`, and the normal test suite. The root `tsconfig.json` includes `src/**/*.ts`, `src/**/*.tsx`, `scripts/**/*.ts`, `sidecar/**/*.ts`, and `migrations/**/*.ts`; this E2E fixture is outside that project's includes. `typecheck:conformance` selects a different project, including E2E conformance files and their fixture imports. It is not invoked by `check` or `check:ui` (the latter runs `check` then the browser suite). Lint likewise targets `src`, `scripts`, and `sidecar`. A green `check` therefore does not claim a green conformance typecheck.

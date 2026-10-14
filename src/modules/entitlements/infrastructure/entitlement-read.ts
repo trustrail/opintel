@@ -34,13 +34,13 @@ export class PostgresEntitlementReader implements EntitlementReader {
    SELECT e.id,e.source_type,e.exposed_name,e.exposed_type,o.id AS object_id,o.exposed_name AS object_name,o.exposed_schema,s.id AS source_id,s.exposed_alias,
    t.treatment,t.mask_kind,t.justification FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id
    JOIN pool_source_binding b ON b.source_id=s.id AND b.pool_id=$1 LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=$1
-   WHERE e.status='active' AND o.status='active' AND s.status<>'archived' AND ($2::uuid IS NULL OR s.id=$2) AND (NOT $3::boolean OR t.element_id IS NULL) AND (NOT $11::boolean OR t.element_id IS NOT NULL) AND ($12='' OR starts_with(e.exposed_name,$12))
+   WHERE e.status='active' AND o.status='active' AND s.status<>'archived' AND ($2::uuid IS NULL OR s.id=$2) AND (NOT $3::boolean OR t.element_id IS NULL) AND (NOT $11::boolean OR t.element_id IS NOT NULL) AND ($12='' OR starts_with(e.exposed_name,$12)) AND ($13::text IS NULL OR NOT EXISTS(SELECT 1 FROM row_entitlement r WHERE r.object_id=o.id))
   ), nodes AS (
    SELECT source_id::text AS id,exposed_alias AS label,count(DISTINCT exposed_schema)::int AS "childCount",NULL::text AS "exposedType",NULL::text AS treatment,NULL::text AS "maskKind",NULL::text AS justification,NULL::text AS "sourceType" FROM visible WHERE $4='source' GROUP BY source_id,exposed_alias
    UNION ALL SELECT source_id::text||':'||exposed_schema,exposed_schema,count(DISTINCT object_id)::int,NULL,NULL,NULL,NULL,NULL FROM visible WHERE $4='schema' AND source_id=$5::uuid GROUP BY source_id,exposed_schema
    UNION ALL SELECT object_id::text,object_name,count(*)::int,NULL,NULL,NULL,NULL,NULL FROM visible WHERE $4='object' AND source_id=$5::uuid AND exposed_schema=$6 GROUP BY object_id,object_name
    UNION ALL SELECT id::text,exposed_name,NULL,exposed_type,treatment,mask_kind,justification,source_type FROM visible WHERE $4='element' AND object_id=$7::uuid
-  ) SELECT * FROM nodes WHERE ($8='' OR starts_with(label,$8)) AND ($9::text IS NULL OR id COLLATE "C">$9 COLLATE "C") ORDER BY id COLLATE "C" LIMIT $10`,[pool,q.sourceId??null,q.undecided,kind,source,schema,object,q.prefix,q.after,q.limit,q.decided??false,q.elementPrefix??'']);
+  ) SELECT * FROM nodes WHERE ($8='' OR starts_with(label,$8)) AND ($9::text IS NULL OR id COLLATE "C">$9 COLLATE "C") ORDER BY id COLLATE "C" LIMIT $10`,[pool,q.sourceId??null,q.undecided,kind,source,schema,object,q.prefix,q.after,q.limit,q.decided??false,q.elementPrefix??'',q.rowFilter??null]);
   const scoped=kind==='object'?await tx.query<{object_id:string}>('SELECT DISTINCT object_id FROM row_entitlement WHERE object_id=ANY($1::uuid[])',[rows.map(r=>r.id)]):[];
   return ok(rows.map(row=>({position:row.id,node:{...row,...(kind==='object'?{rowScoped:scoped.some(s=>s.object_id===row.id)}:{}),kind,unsupportedReason:kind==='element'&&row.exposedType===null?classifySourceType(row.sourceType??'').unsupportedReason??'unmapped':null}})));
  });}

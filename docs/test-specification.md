@@ -1450,6 +1450,7 @@ available, behind the provider port, and requires credentials before a live clai
 | CRED-005 | A migrated retiring alias retains grants through grace, then loses outstanding escrow; the permanent alias survives |
 | CRED-006 | Pool credential controls work at 390/900/1440 with accessible labels, confirmed grant count and independent rotation targets; no baseline changes before review |
 | CRED-007 | A credential with no key can be revoked without fabricating key-version metadata |
+| CRED-008 | Presence before migration 072’s application timestamp shows pool key (legacy); equality and later timestamps show the last authenticated key’s credential label and actual alias. Test both sides and exact equality at PostgreSQL precision, revoked-version attribution, ledger isolation, and collapsed/expanded agents-table captures at 390/900/1440 |
 
 Key-version revocation remains distinct from ending credential identity. The later scope-grant hook is recorded, not implemented in this slice.
 
@@ -1468,3 +1469,7 @@ Key-version revocation remains distinct from ending credential identity. The lat
 | ROW-009 | Unscoped receipt JSON and evidence omit rowScopes entirely; sampled evidence preserves its pre-scoping shape |
 | ROW-UI | Object scoped state, editor save/validation/history, accessibility and narrow layout at 390/900/1440; no baseline updates before review |
 | K-007 scoped warm | One steady-state authenticated static-scope query under the existing 2,000ms warm budget, in the performance project only |
+
+### ROW-SCALE — pool row access as decisions
+
+Four exclusive counts in order: missing, overridden, inherited, unscoped. The normal fixture proves latest-decision metadata, literal object-name search, four cursor pages for 200 inherited objects without duplicates, and count-only unscoped reads. The catalogue no-row-filter selection applies before grouping, tree pagination and member selection, excluding any object with a row decision at any level. A no-default override is the sole contributor to its effective predicate and receipt. Picker metadata identifies absence of a default, including overridden and missing-filter objects. Browser scenarios at 390/900/1440 prove both empty override states, the no-row-filter catalogue link, search only for nonempty decision views, no-default picker selection and override save, three overrides, missing-filter direct action and Needs You link, read-only inherited pagination, shared picker search/pagination, and two overridden pools with twenty inherited collapsed by default. No baseline changes until review.

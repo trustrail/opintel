@@ -18,14 +18,14 @@ const rowHeight = 38; const windowRows = 24; const overscan = 2;
 
 const windowHeight=()=>window.innerHeight;
 function subscribeHeight(listener:()=>void){window.addEventListener('resize',listener);return ()=>window.removeEventListener('resize',listener);}
-export function PoolTree({projectId,poolId,sourceId,undecided,decided=false,editable,externalStore,externalBusy=false,elementPrefix='',poolName='this pool'}:{externalBusy?:boolean;elementPrefix?:string;poolName?:string;externalStore?:ReturnType<typeof createEntitlementsState>;projectId:string;poolId:string;sourceId?:string;undecided:boolean;decided?:boolean;editable:boolean}){
+export function PoolTree({projectId,poolId,sourceId,rowFilter,undecided,decided=false,editable,externalStore,externalBusy=false,elementPrefix='',poolName='this pool'}:{externalBusy?:boolean;elementPrefix?:string;poolName?:string;externalStore?:ReturnType<typeof createEntitlementsState>;projectId:string;poolId:string;sourceId?:string;rowFilter?:'unscoped';undecided:boolean;decided?:boolean;editable:boolean}){
   const localStore = useMemo(createEntitlementsState, [projectId]); const store=externalStore??localStore; const state = useStore(store, useShallow(s => ({ branches: s.branches, expanded: s.expanded, searchParent: s.searchParent,
     toggle: s.toggle, search: s.search, select: s.select, more: s.more })));
   const viewport = useRef<HTMLDivElement>(null);
   const sources = useSources(projectId);
   const branches = Object.values(state.branches).filter(branch => !branch.parent || state.expanded[branch.parent]);
   const requests = branches.flatMap(branch => branch.cursors.map(cursor => ({ parent: branch.parent, prefix: branch.prefix, cursor })));
-  const queries = useQueries({ queries: requests.map(page => entitlementOptions(projectId,poolId,{...page,sourceId,undecided:undecided?'true':'false',decided:decided?'true':'false',elementPrefix,limit:200})) });
+  const queries = useQueries({ queries: requests.map(page => entitlementOptions(projectId,poolId,{...page,sourceId,rowFilter,undecided:undecided?'true':'false',decided:decided?'true':'false',elementPrefix,limit:200})) });
   const root = queries[0];
   const rows: Row[] = [];
   function level(parent: string, depth: number) {

@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {BulkEntitlementBody} from './bulk-entitlements.js';
 import {createApiClient} from './client.js';
-export const GroupFilter=z.object({projectId:z.uuid(),sourceId:z.uuid().optional(),elementId:z.uuid().optional(),prefix:z.string().max(63).default(''),decision:z.enum(['undecided','decided','all']).default('undecided'),mode:z.enum(['name','table']).default('name'),cursor:z.string().max(2048).optional(),limit:z.coerce.number().int().positive().optional()});
+export const GroupFilter=z.object({projectId:z.uuid(),rowFilter:z.literal('unscoped').optional(),sourceId:z.uuid().optional(),elementId:z.uuid().optional(),prefix:z.string().max(63).default(''),decision:z.enum(['undecided','decided','all']).default('undecided'),mode:z.enum(['name','table']).default('name'),cursor:z.string().max(2048).optional(),limit:z.coerce.number().int().positive().optional()});
 export const MemberFilter=GroupFilter.extend({group:z.string().max(512).optional()});
 export type GroupFilter=z.infer<typeof GroupFilter>;
 export type MemberFilter=z.infer<typeof MemberFilter>;

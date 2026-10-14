@@ -2,7 +2,7 @@ import { withPlatform,withTenant,type Tx } from '../../../platform/db/scope.js';
 import { notify,type ProjectEvents } from '../../../platform/sse/port.js';
 import { DomainError,err,ok,SystemClock,Timestamp,type Clock,type PoolId,type Result } from '../../../shared/kernel/index.js';
 import { PresenceSettings } from '../../../shared/api/agent-presence.js';
-import type { AgentPresenceRepository,AuthenticatedPresence } from '../application/presence.js';
+import type { AgentPresenceRepository,AuthenticatedPresence,AgentPresenceRead } from '../application/presence.js';
 import type { AgentPresenceQuery,PoolKeyContext } from '../application/keys.js';
 import type { PoolKeyId } from '../domain/pool.js';
 import { agePresence,observePresence,type AgentPresence,type PresenceTiming } from '../domain/presence.js';
@@ -37,12 +37,16 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
   if(result.ok)await this.publish(result.value);
   return result;
  }
- async list(ctx:PoolKeyContext,pool:PoolId,after:string|null,limit:number):Promise<Result<AgentPresence[]>>{
+ async list(ctx:PoolKeyContext,pool:PoolId,after:string|null,limit:number):Promise<Result<AgentPresenceRead[]>>{
   const settings=await this.settings(ctx);if(!settings.ok)return settings;
   return withTenant(ctx,async tx=>{
    if(!(await tx.query('SELECT id FROM pool WHERE id=$1',[pool])).length)return err(new DomainError('not_found','The pool was not found in this project.'));
-   const rows=await tx.query<Row>(`SELECT ${columns} FROM agent_presence WHERE pool_id=$1 AND ($2::text IS NULL OR agent_id>$2 COLLATE "C") ORDER BY agent_id LIMIT $3`,[pool,after,limit]);
-   const now=this.clock.now();return ok(rows.map(row=>agePresence(presence(row),now,settings.value)));
+   const rows=await tx.query<Row&{credential:AgentPresenceRead['credential']|null}>(`SELECT ${columns},
+    (SELECT jsonb_build_object('id',c.id,'label',c.label,'custodyAlias',k.custody_alias)
+     FROM pool_key k JOIN pool_credential c ON c.id=k.credential_id AND c.pool_id=k.pool_id
+     WHERE k.id=a.key_version AND k.pool_id=a.pool_id AND public.is_credential_authentication(a.last_seen)) AS credential
+    FROM agent_presence a WHERE pool_id=$1 AND ($2::text IS NULL OR agent_id>$2 COLLATE "C") ORDER BY agent_id LIMIT $3`,[pool,after,limit]);
+   const now=this.clock.now();return ok(rows.map(({credential,...row})=>({...agePresence(presence(row),now,settings.value),...(credential?{credential}:{})})));
   });
  }
  async affected(ctx:PoolKeyContext,pool:PoolId,keyVersion:PoolKeyId){

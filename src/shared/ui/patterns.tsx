@@ -4,8 +4,8 @@ import type {PropsWithChildren, ReactNode} from 'react';
 export function FindingGrid({children}:PropsWithChildren){
  return <div className="tiles" data-layout="findings">{children}</div>;
 }
-export function FindingCard({title,children,footer,needsDecision=false}:PropsWithChildren<{title:string;footer:ReactNode;needsDecision?:boolean}>){
- return <article className="card" data-layout="finding" data-state={needsDecision?'decision':undefined}><header className="card-h"><h2>{title}</h2></header><div data-part="body">{children}</div><footer data-part="footer">{footer}</footer></article>;
+export function FindingCard({id,title,children,footer,needsDecision=false}:PropsWithChildren<{id?:string;title:string;footer:ReactNode;needsDecision?:boolean}>){
+ return <article id={id} className="card" data-layout="finding" data-state={needsDecision?'decision':undefined}><header className="card-h"><h2>{title}</h2></header><div data-part="body">{children}</div><footer data-part="footer">{footer}</footer></article>;
 }
 export type FilterOption<T extends string>={value:T;label:string;count?:number;disabled?:boolean};
 export function SegmentedFilters<T extends string>({label,value,options,onChange}: {label:string;value:T;options:readonly FilterOption<T>[];onChange:(value:T)=>void}){

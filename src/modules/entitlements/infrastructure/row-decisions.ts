@@ -1,4 +1,6 @@
-import {withTenant} from '../../../platform/db/scope.js';
+import {predicateWords} from '../../../shared/predicate-words.js';
+import {predicate,predicateColumn} from '../../../shared/row-scope-contract.js';
+import {withTenant,withPlatform} from '../../../platform/db/scope.js';
 import {RowDecision,RowDecisionRead,RowDecisionHistory,PoolRowObjects} from '../../../shared/api/row-entitlements.js';
 import {hasScope,parsePredicate,predicateHash,referencedColumns} from '../../../shared/row-predicate.js';
 import type {PredicateColumn} from '../../../shared/row-scope-contract.js';
@@ -7,10 +9,31 @@ import type {RowDecisionRepository} from '../application/row-decisions.js';
 const projection=`id,expression,predicate_hash AS hash,actor_id AS "actorId",decided_at::text AS "decidedAt",first_scoping AS "firstScoping",level`;
 export class PostgresRowDecisions implements RowDecisionRepository{
  decision(...[ctx,id]:Parameters<RowDecisionRepository['decision']>){return withTenant(ctx,async tx=>{const [row]=await tx.query(`SELECT ${projection} FROM row_entitlement WHERE id=$1`,[id]);return row?ok(RowDecision.parse(row)):err(new DomainError('not_found','The historical row decision was not found.'));});}
- objects(...[ctx,pool,cursor]:Parameters<RowDecisionRepository['objects']>){return withTenant(ctx,async tx=>{
-  const rows=await tx.query<{id:string;name:string;status:string}>(`SELECT o.id,o.exposed_name AS name,CASE WHEN EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=o.id AND d.pool_id=$1) THEN 'overridden' WHEN EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=o.id AND d.level='object_default') THEN 'inherited' WHEN EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=o.id) THEN 'missing' ELSE 'unscoped' END AS status FROM catalog_object o JOIN pool_source_binding b ON b.source_id=o.source_id WHERE b.pool_id=$1 AND o.status='active' AND ($2::uuid IS NULL OR o.id>$2) ORDER BY o.id LIMIT 51`,[pool,cursor??null]);
-  return ok(PoolRowObjects.parse({items:rows.slice(0,50),nextCursor:rows.length>50?rows[49]!.id:null}));
- });}
+ async objects(...[ctx,pool,filter]:Parameters<RowDecisionRepository['objects']>){const result=await withTenant(ctx,async tx=>{
+  const base=`WITH objects AS (
+   SELECT o.id,o.exposed_name AS name,s.id AS "sourceId",s.name AS "sourceName",
+    CASE WHEN own.id IS NOT NULL THEN 'overridden' WHEN def.id IS NOT NULL THEN 'inherited'
+     WHEN EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=o.id) THEN 'missing' ELSE 'unscoped' END AS status,
+    (def.id IS NOT NULL) AS "hasDefault",own.id AS "decisionId",own.predicate,own.columns,own.actor_id,own.decided_at
+   FROM catalog_object o JOIN data_source s ON s.id=o.source_id JOIN pool_source_binding b ON b.source_id=o.source_id
+   LEFT JOIN LATERAL(SELECT d.* FROM row_entitlement d WHERE d.object_id=o.id AND d.pool_id=$1 ORDER BY sequence DESC LIMIT 1) own ON true
+   LEFT JOIN LATERAL(SELECT d.id FROM row_entitlement d WHERE d.object_id=o.id AND d.level='object_default' ORDER BY sequence DESC LIMIT 1) def ON true
+   WHERE b.pool_id=$1 AND o.status='active' AND s.status<>'archived'
+  )`;
+  const [counts]=await tx.query(base+` SELECT count(*) FILTER(WHERE status='missing')::int AS missing,count(*) FILTER(WHERE status='overridden')::int AS overridden,count(*) FILTER(WHERE status='inherited')::int AS inherited,count(*) FILTER(WHERE status='unscoped')::int AS unscoped FROM objects`,[pool]);
+  const [defaults]=await tx.query<{present:boolean}>(`SELECT EXISTS(SELECT 1 FROM row_entitlement d JOIN catalog_object o ON o.id=d.object_id JOIN data_source s ON s.id=o.source_id WHERE d.level='object_default' AND o.status='active' AND s.status<>'archived') AS present`);
+  const projectHasDefault=defaults!.present;
+  // "all" is the bounded picker only. Unscoped is count-only on the pool page.
+  if(filter.status==='unscoped')return ok(PoolRowObjects.parse({projectHasDefault,counts,items:[],nextCursor:null}));
+  const rows=await tx.query<{id:string;name:string;sourceId:string;sourceName:string;status:string;decisionId:string|null;predicate:unknown;columns:unknown;actorName:string;decidedAt:string}>(base+` SELECT o.*,o.actor_id::text AS "actorName",o.decided_at::text AS "decidedAt" FROM objects o WHERE ($2='all' OR o.status=$2) AND strpos(lower(o.name),lower($3))>0 AND ($4::uuid IS NULL OR o.id>$4) ORDER BY o.id LIMIT 51`,[pool,filter.status,filter.search,filter.cursor??null]);
+  return ok(PoolRowObjects.parse({projectHasDefault,counts,items:rows.slice(0,50).map(o=>({...o,decision:o.decisionId?{id:o.decisionId,words:predicateWords(predicate.parse(o.predicate),predicateColumn.array().parse(o.columns)),actorName:o.actorName,decidedAt:o.decidedAt}:null})),nextCursor:rows.length>50?rows[49]!.id:null}));
+ });
+  if(!result.ok)return result;
+  const ids=[...new Set(result.value.items.flatMap(o=>o.decision?[o.decision.actorName]:[]))];
+  const actors=ids.length?await withPlatform(tx=>tx.query<{id:string;name:string}>('SELECT id,COALESCE(full_name,email) AS name FROM user_account WHERE id=ANY($1::uuid[])',[ids])):[];
+  const names=new Map(actors.map(actor=>[actor.id,actor.name]));
+  return ok({...result.value,items:result.value.items.map(o=>({...o,decision:o.decision?{...o.decision,actorName:names.get(o.decision.actorName)??o.decision.actorName}:null}))});
+ }
 
  history(...[ctx,pool,object,cursor]:Parameters<RowDecisionRepository['history']>){return withTenant(ctx,async tx=>{
   const rows=await tx.query<{sequence:string}>(`SELECT ${projection},sequence::text FROM row_entitlement WHERE object_id=$1 AND (pool_id=$2 OR level='object_default') AND ($3::bigint IS NULL OR sequence<$3) ORDER BY sequence DESC LIMIT 51`,[object,pool,cursor??null]);
