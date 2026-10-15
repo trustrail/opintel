@@ -73,3 +73,17 @@ it('5.17: both export formats identify rollups and exclude derived deliveries fr
   else expect(parse(body,{columns:true})).toMatchObject([{id,recordKind:'rollup',treatmentCounts:'{"clear":1}',elements:'[]'}]);
  }
 });
+
+it.each((['ndjson','csv'] as const).flatMap(format=>['provider changed','credential revoked','legacy alias grace ended'].map(reason=>[format,reason] as const)))('%s evidence export must not silently omit persisted release events (%s)',async(format,reason)=>{
+ const run=await f.run(false),grant=randomUUID(),alias=`agent:${f.ctx.projectId}:${randomUUID()}`,iat=Math.floor(Date.now()/1000);
+ await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
+ await withTenant(f.ctx,async tx=>{
+  const claims={iss:f.ctx.projectId,sub:alias,aud:'local',jti:grant,iat,exp:iat+600,rcpt:run.id,cols:['field_1'],custody:{provider:'local',tenant:'local',locator:'export-test',provider_redeem_at:'https://provider.invalid',opintel_redeem_at:'https://opintel.invalid'}};
+  await tx.query("INSERT INTO release_grant(id,project_id,scope_user_id,receipt_id,claims,grant_jws,expires_at,share,state,escrow_revoked) VALUES($1,$2,$3,$4,$5,'a.b.c',to_timestamp($6),NULL,'redeemed',false)",[grant,f.ctx.projectId,f.ctx.userId,run.id,claims,iat+600]);
+  for(const kind of ['granted','redeemed','expired','revoked','provider_redeemed'])await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,reason,occurred_at,alias,actor,jur_observed) VALUES($1,$2,$3,$4,$5,clock_timestamp(),$6,$6,'test-origin')",[f.ctx.projectId,grant,run.id,kind,kind==='revoked'?reason:null,alias]);
+ });
+  const link=await f.link({format,filters:{}}),body=await (await fetch(f.base+link.downloadUrl)).text();
+  const events:unknown=format==='ndjson'?EvidenceExportRecord.parse(JSON.parse(body)).releaseEvents:JSON.parse((parse(body,{columns:true}) as Array<{releaseEvents:string}>)[0]!.releaseEvents);
+  expect(events).toEqual(expect.arrayContaining(['granted','redeemed','expired','revoked','provider_redeemed'].map(kind=>expect.objectContaining({grantId:grant,receipt:run.id,kind,alias,reason:kind==='revoked'?reason:null}))));
+  expect(events).toHaveLength(5);
+});
