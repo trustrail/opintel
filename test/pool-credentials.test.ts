@@ -53,7 +53,7 @@ it('5.37 step 1: same-pool credentials cannot redeem each other; receipts snapsh
   const refusal=await keys.execute(f.ctx,command,randomUUID());expect(refusal).toMatchObject({ok:false,error:{code:'conflict',details:{liveGrantCount:1}}});
   unwrap(await keys.execute(f.ctx,{...command,confirmedLiveGrants:1},randomUUID()));
   await expect(f.client.callTool({name:'opintel.redeem',arguments:{grant}})).rejects.toThrow('unauthenticated');
-  const [stored]=await withTenant(f.ctx,tx=>tx.query('SELECT share,state,escrow_revoked FROM release_grant WHERE receipt_id=$1',[answer.evidenceId]));expect(stored).toEqual({share:null,state:'revoked',escrow_revoked:true});
+  const [stored]=await withTenant(f.ctx,tx=>tx.query('SELECT share,state,escrow_revoked FROM release_grant WHERE receipt_id=$1',[answer.evidenceId]));expect(stored).toEqual({share:null,state:'revoked',escrow_revoked:false});await f.release!.sweep();expect(await withTenant(f.ctx,tx=>tx.query('SELECT escrow_revoked FROM release_grant WHERE receipt_id=$1',[answer.evidenceId]))).toEqual([{escrow_revoked:true}]);
   expect(await new PostgresKeyVerifier().verify(other.key)).toMatchObject({ok:true});
  }finally{await f.close();}
 },60_000);

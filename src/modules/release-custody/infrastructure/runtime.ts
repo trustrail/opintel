@@ -91,12 +91,11 @@ export class ReleaseRuntime {
  async revokeInScope(tx:Tx,ctx:ReleaseContext,aliases:readonly string[],confirmedLiveGrants:number|undefined,reason:string){
   const rows=await tx.query<{id:string;receipt_id:string;claims:unknown}>("SELECT id,receipt_id,claims FROM release_grant WHERE claims->>'sub'=ANY($1::text[]) AND expires_at>clock_timestamp() AND state IN ('granted','redeemed') AND NOT EXISTS(SELECT 1 FROM release_event e WHERE e.grant_id=release_grant.id AND e.kind='revoked') ORDER BY id FOR UPDATE",[aliases]);
   if(rows.length&&confirmedLiveGrants!==rows.length)return err(new DomainError('conflict',`Revoke ${rows.length} live grants and revoke this credential?`,{cause:'credential_revocation',liveGrantCount:rows.length}));
-  for(const row of rows){const claims=releaseClaims.parse(row.claims);
-   try{await this.originalProvider(ctx.projectId,claims).revoke(claims.custody.locator);}catch{return err(new DomainError('dependency_unavailable','The original custody provider could not acknowledge revocation. The credential was not revoked.',{cause:'release_configuration'}));}
-  }
-  // Apply local changes only after every remote acknowledgement succeeds.
-  for(const row of rows){const claims=releaseClaims.parse(row.claims);
-   await tx.query("UPDATE release_grant SET share=NULL,state='revoked',escrow_revoked=true WHERE id=$1",[row.id]);
+  // Local revocation is atomic with credential/key revocation under the
+  // exclusive project release lock. Provider cleanup never gates this commit.
+  const affected=await tx.query<{id:string;receipt_id:string;claims:unknown}>("SELECT id,receipt_id,claims FROM release_grant WHERE claims->>'sub'=ANY($1::text[]) AND (share IS NOT NULL OR NOT escrow_revoked OR id=ANY($2::uuid[])) ORDER BY id FOR UPDATE",[aliases,rows.map(row=>row.id)]);
+  for(const row of affected){const claims=releaseClaims.parse(row.claims);
+   await tx.query("UPDATE release_grant SET share=NULL,state=CASE WHEN state='granted' THEN 'revoked' ELSE state END WHERE id=$1",[row.id]);
    await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,occurred_at,alias,actor,jur_observed,reason) VALUES($1,$2,$3,'revoked',clock_timestamp(),$4,$5,NULL,$6) ON CONFLICT(grant_id,kind) DO NOTHING",[ctx.projectId,row.id,row.receipt_id,claims.sub,ctx.userId,reason]);
   }
   return {ok:true as const,value:undefined};

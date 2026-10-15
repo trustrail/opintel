@@ -1,7 +1,7 @@
 import {DomainError,err,ok,type Result} from '../../../shared/kernel/index.js';
-import {releaseClaims,type ReleaseClaims,type ReleaseEvent} from '../../../shared/release-contract.js';
+import {releaseNonClaim,releaseClaims,type ReleaseClaims,type ReleaseEvent} from '../../../shared/release-contract.js';
 import type {GrantSignatures,ReleaseContext,ReleaseProvider,ReleaseRepository} from './ports.js';
-const refused=()=>err(new DomainError('forbidden','This release grant is expired, revoked, already redeemed, or belongs to another credential. No release share was returned.',{cause:'release_refused'}));
+const refused=()=>err(new DomainError('forbidden',"This release grant is expired, revoked, has already released its Opintel share, or belongs to another credential. No release share was returned. "+releaseNonClaim,{cause:'release_refused'}));
 export class ReleaseService {
  constructor(private readonly repository:ReleaseRepository,private readonly signatures:GrantSignatures,private readonly provider:ReleaseProvider,private readonly now:()=>Date=()=>new Date()){}
  describe(ctx:ReleaseContext){return this.signatures.describe(ctx);}
@@ -10,7 +10,13 @@ export class ReleaseService {
   try{
    if(!parsed.success||claims.iss!==ctx.projectId||claims.aud!==this.provider.id||share.length!==32||claims.exp<=Math.floor(this.now().getTime()/1000))return err(new DomainError('validation_failed','The custody grant cannot be issued.'));
    const grant=await this.signatures.sign(ctx,claims);
-   return await this.repository.exclusive(ctx,claims.jti,async s=>{if(await s.get())return err(new DomainError('conflict','This release grant already exists.'));await s.save({claims,grant,share,state:'granted',escrowRevoked:false});await s.event(this.event(claims,'granted',null,null));return ok(grant);});
+   return await this.repository.exclusive(ctx,claims.jti,async s=>{if(await s.get())return err(new DomainError('conflict','This release grant already exists.'));if(!await s.canIssue(claims.sub)){
+    // Escrow may have finished after credential revocation. Persist its locator
+    // without K2 so a provider outage cannot orphan the cleanup record.
+    await s.save({claims,grant,share:null,state:'revoked',escrowRevoked:false});
+    await s.event(this.event(claims,'revoked','system:credential_revoked',null));
+    return err(new DomainError('forbidden','The credential was revoked before release. No result was released.',{cause:'credential_revoked_after_escrow'}));
+   }await s.save({claims,grant,share,state:'granted',escrowRevoked:false});await s.event(this.event(claims,'granted',null,null));return ok(grant);});
   }finally{share.fill(0);}
  }
  async redeem(ctx:ReleaseContext,grant:string,alias:string,origin:string|null):Promise<Result<{share:string;receipt:string;grantId:string}>> {

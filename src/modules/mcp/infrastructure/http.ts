@@ -1,3 +1,4 @@
+import {releaseRedeemOutput} from '../../../shared/release-contract.js';
 import type {ReleaseRuntime} from '../../release-custody/index.js';
 import {releaseRedeemInput} from '../../../shared/release-contract.js';
 import type { ExplainTool } from '../application/explain.js';
@@ -91,7 +92,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    if(input.success&&tool.name==='opintel.redeem'&&this.custody){
     if(!caller.custodyAlias)return refusalResponse(new DomainError('forbidden','This credential has no custody alias.',{cause:'release_configuration'}));
     const result=await this.custody.redeem({projectId:caller.pool.projectId,userId:caller.scopeUserId},releaseRedeemInput.parse(input.data).grant,caller.custodyAlias,this.context.getStore()?.origin??null);
-    return result.ok?{content:[{type:'text' as const,text:JSON.stringify(result.value)}],structuredContent:result.value}:refusalResponse(result.error);
+    return result.ok?{content:[{type:'text' as const,text:JSON.stringify(releaseRedeemOutput.parse(result.value))}],structuredContent:releaseRedeemOutput.parse(result.value)}:refusalResponse(result.error);
    }
    if(input.success&&tool.name==='opintel.query'&&this.queryTool){
     try{const result=await this.queryTool.query(caller,input.data,AbortSignal.any([extra.signal,this.context.getStore()!.signal]));

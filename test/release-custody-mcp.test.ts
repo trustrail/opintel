@@ -19,6 +19,7 @@ it('5.36: real engine lineage seals direct, aliased, CTE and aggregate deliverie
   const grant=bundle!.grant,claims=releaseClaims.parse(JSON.parse(Buffer.from(grant.split('.')[1]!,'base64url').toString('utf8')));
   expect(await second.client.callTool({name:'opintel.redeem',arguments:{grant}})).toMatchObject({isError:true});
   const k2=await f.client.callTool({name:'opintel.redeem',arguments:{grant}});expect(k2.isError,JSON.stringify(k2)).not.toBe(true);
+  expect(k2.structuredContent).toMatchObject({evidenceMeaning:"Opintel released its share of the key. This does not evidence that the agent obtained the provider's share or decrypted the value."});
   const denied=await fetch(claims.custody.provider_redeem_at,{method:'POST',headers:{authorization:`Bearer ${other.key}`,'content-type':'application/json','x-opintel-agent-id':'custody-recipient'},body:JSON.stringify({grant})});expect(denied.status).toBe(403);
   const firstResponse=await fetch(claims.custody.provider_redeem_at,{method:'POST',headers:{authorization:`Bearer ${f.issued.key}`,'content-type':'application/json','x-opintel-agent-id':'custody-recipient'},body:JSON.stringify({grant})});expect(firstResponse.status).toBe(200);const first=releaseProviderRedeemOutput.parse(await firstResponse.json());
   const share=(k2.structuredContent as {share:string}).share,key=xorShares(Buffer.from(first.share,'base64url'),Buffer.from(share,'base64url'));

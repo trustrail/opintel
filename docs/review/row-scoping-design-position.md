@@ -192,3 +192,7 @@ A valid token for a non-member returns nothing and raises a Needs You item namin
 Custody aliases derive from the issuer subject. Receipt provenance becomes **verified by <issuer>**. A delegation claim naming the human the agent acts for intersects the agent's scope with that human's scope; it adds the delegated subject to the receipt. Delegation is the only remaining designed-not-built item of the architecture's §8 referenced by this position, not the technical documentation's §8 telemetry rules.
 
 Record the pool's console admission-policy switch and these inputs, outcomes and provenance fields. Do not design validation beyond reuse of the existing token module. Issuer token validation satisfies the per-object require-bound switch without a challenge. Its “verified by <issuer>” provenance is a peer of “bound to credential (<provider>)”, as decided above.
+
+### Credential revocation clarification — approved 2026-10-15
+
+Credential revocation takes local effect atomically without custody-provider acknowledgement: revoke all key versions and destroy unreleased K2, then retry remote cleanup durably, including legacy aliases and already-redeemed grants. A provider outage must not leave a credential live. See [the approved position](custody-revocation-and-redemption-position.md) for concurrency, residual risk and share-release wording.

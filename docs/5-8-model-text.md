@@ -214,7 +214,7 @@ The metadata retains both element identities and qualified names. It never inclu
 
 ## Released under custody (5.36)
 
-This release grant is expired, revoked, already redeemed, or belongs to another credential. No release share was returned.
+This release grant is expired, revoked, has already released its Opintel share, or belongs to another credential. No release share was returned. This does not evidence that the agent obtained the provider's share or decrypted the value.
 
 Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.
 

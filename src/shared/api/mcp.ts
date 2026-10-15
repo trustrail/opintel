@@ -1,7 +1,7 @@
 import {rowScopeReceipt} from '../row-scope-contract.js';
 import {QueryRefusalMetadata} from './query-refusal.js';
 import { z } from 'zod';
-import {releaseBundle,releaseDescription,releaseRedeemInput,releaseRedeemOutput} from '../release-contract.js';
+import {releaseNonClaim,releaseBundle,releaseDescription,releaseRedeemInput,releaseRedeemOutput} from '../release-contract.js';
 
 export const DescribeInput = z.strictObject({ object: z.string().optional() });
 export const DescribeOutput = z.strictObject({ custody:releaseDescription.optional(),objects: z.array(z.strictObject({
@@ -20,7 +20,7 @@ export const mcpTools = [
  { name: 'opintel.describe', description: 'Describe the objects and decisions available to this pool.', mode: null, input: DescribeInput, output: DescribeOutput },
  { name: 'opintel.explain', description: 'Check a SQL question without reading source data.', mode: null, input: ExplainInput, output: ExplainOutput },
  { name: 'opintel.query', description: 'Query data under this pool’s entitlements.', mode: 'query', input: QueryInput, output: QueryOutput },
- {name:'opintel.redeem',description:'Redeem an Opintel release grant for its single-use key share. Requires the credential named by the grant.',mode:null,input:releaseRedeemInput,output:releaseRedeemOutput},
+ {name:'opintel.redeem',description:'Opintel share released on successful redemption of a single-use grant. Requires the credential named by the grant. '+releaseNonClaim,mode:null,input:releaseRedeemInput,output:releaseRedeemOutput},
 ] as const;
 export function listedTools(modes: { query: boolean; prompt: boolean }) {
  return mcpTools.filter(tool => tool.mode === null || modes[tool.mode]);
