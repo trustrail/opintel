@@ -4,7 +4,7 @@ import {DomainError,err,ok} from '../../../shared/kernel/index.js';
 import {EvidenceExportDescriptor,type ExportCommand} from '../../../shared/api/evidence-export.js';
 import type {EvidenceContext,EvidencePosition} from '../application/read.js';
 import type {ExportId,ExportRepository} from '../application/export.js';
-import {columns,childColumns,time,detailRecord,activityScope} from './read.js';
+import {columns,childColumns,releaseEventColumns,time,detailRecord,activityScope} from './read.js';
 const descriptorColumns=`id,project_id AS "projectId",format,filters,${time('created_at')} AS "createdAt"`;
 const missing=()=>err(new DomainError('not_found','This export was not found in this project.'));
 export class PostgresEvidenceExports implements ExportRepository {
@@ -37,7 +37,7 @@ export class PostgresEvidenceExports implements ExportRepository {
   if(f.elementId)add('EXISTS(SELECT 1 FROM run_element e WHERE e.run_id=r.id AND e.started_at=r.started_at AND e.element_id=?)',f.elementId);
   if(after){params.push(after.at,after.id);where.push(`(r.started_at,r.id)<($${params.length-1}::timestamptz,$${params.length}::uuid)`);}params.push(limit);
   const rows=await withTenant(ctx,tx=>tx.query<Record<string,unknown>>(`SELECT ${columns},${time('c.completed_at')} AS "completedAt",c.token_key_version_used AS "tokenKeyVersionUsed",(c.outcome->>'truncated')::boolean AS truncated,c.outcome->>'code' AS "refusalCode",c.generated_sql AS "generatedSql",c.freshness,c.source_plan AS "sourcePlan",
-   ${childColumns}
+   ${childColumns},${releaseEventColumns}
    FROM evidence_run_read r LEFT JOIN evidence_completion_read c ON c.run_id=r.id AND c.started_at=r.started_at WHERE ${where.join(' AND ')} ORDER BY r.started_at DESC,r.id DESC LIMIT $${params.length}`,params));
   return ok(rows.map(detailRecord));
  }
