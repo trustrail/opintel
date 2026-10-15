@@ -6,7 +6,7 @@ import type {ReleaseClaims,ReleaseEvent} from '../src/shared/release-contract.js
 const ctx={projectId:ProjectId('00000000-0000-4000-8000-000000000051'),userId:UserId('00000000-0000-4000-8000-000000000052')};
 class Repository implements ReleaseRepository {
  values=new Map<string,StoredRelease>();events:ReleaseEvent[]=[];private tail=Promise.resolve();
- async exclusive<T>(_ctx:typeof ctx,id:string,work:Parameters<ReleaseRepository['exclusive']>[2]):Promise<T>{const before=this.tail;let done=()=>{};this.tail=new Promise<void>(resolve=>{done=resolve;});await before;try{return await work({get:async()=>this.values.get(id)??null,save:async v=>{this.values.set(id,{...v,share:v.share?Buffer.from(v.share):null});},event:async e=>{if(!this.events.some(v=>v.kind===e.kind&&v.grantId===e.grantId))this.events.push(e);}}) as T;}finally{done();}}
+ async exclusive<T>(_ctx:typeof ctx,id:string,work:Parameters<ReleaseRepository['exclusive']>[2]):Promise<T>{const before=this.tail;let done=()=>{};this.tail=new Promise<void>(resolve=>{done=resolve;});await before;try{return await work({canIssue:async()=>true,get:async()=>this.values.get(id)??null,save:async v=>{this.values.set(id,{...v,share:v.share?Buffer.from(v.share):null});},event:async e=>{if(!this.events.some(v=>v.kind===e.kind&&v.grantId===e.grantId))this.events.push(e);}}) as T;}finally{done();}}
  async due(){return [...this.values.keys()].map(grantId=>({ctx,grantId}));}
 }
 function fixture(){

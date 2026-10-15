@@ -21,6 +21,7 @@ export interface GrantSignatures {
 export type StoredRelease={claims:ReleaseClaims;grant:string;share:Uint8Array|null;state:'granted'|'redeemed'|'expired'|'revoked';escrowRevoked:boolean;revocationRequested?:boolean};
 export interface ReleaseSession {
  get():Promise<StoredRelease|null>;
+ canIssue(alias:string):Promise<boolean>;
  save(value:StoredRelease):Promise<void>;
  event(value:ReleaseEvent):Promise<void>;
 }

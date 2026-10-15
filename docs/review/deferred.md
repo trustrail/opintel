@@ -1286,7 +1286,7 @@ Two possible resolutions, requiring a separate decision:
 1. Move sealing into the Engine beside tokenization, matching the documented architecture boundary.
 2. Amend the architecture document and partner brief to state that custody plaintext reaches the Application and is sealed there, describing that trust boundary accurately.
 
-Do not resolve this inside 2b. The superseding preview decision uses a temporary key generated and destroyed in the Engine, with no shares or grant. It does not change the ordinary query path audited here. The repository's `docs/review/xq-integration-brief.md` describes K1/K2 provider operations but does not specify the sealing boundary; an architecture/partner artifact outside these checked-in passages must also be reconciled by the chosen follow-up, rather than assuming the current brief establishes the stronger promise.
+Do not resolve this inside 2b. The superseding preview decision uses a temporary key generated and destroyed in the Engine, with no shares or grant. It does not change the ordinary query path audited here. The repository's `docs/review/custody-revocation-and-redemption-position.md` describes K1/K2 provider operations but does not specify the sealing boundary; an architecture/partner artifact outside these checked-in passages must also be reconciled by the chosen follow-up, rather than assuming the current brief establishes the stronger promise.
 
 ### Declaration editors reset on refreshed values (5.37 step 2b close-out)
 

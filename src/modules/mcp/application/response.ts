@@ -1,10 +1,11 @@
+import {releaseNonClaim} from '../../../shared/release-contract.js';
 import { z } from 'zod';
 import type { DomainError } from '../../../shared/kernel/index.js';
 import {queryRefusalDetails,QueryRefusalMetadata} from '../../../shared/api/query-refusal.js';
 import { QueryOutput } from '../../../shared/api/mcp.js';
 
 export const messages = {
-  "Release-refused": "This release grant is expired, revoked, already redeemed, or belongs to another credential. No release share was returned.",
+  "Release-refused": "This release grant is expired, revoked, has already released its Opintel share, or belongs to another credential. No release share was returned. "+releaseNonClaim,
   "Release-config": "Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.",
   "Release-prepare": "Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.",
   "W": "{name} was withheld from this pool. It cannot be returned in any form.",

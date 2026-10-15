@@ -23,7 +23,12 @@ export class QueryRelease implements QueryReleasePort {
    locator=await this.provider.escrow(sealed.first,alias,ttl,true,receipt);sealed.first.fill(0);
    const names=indices.map(i=>columns[i]!);
    const issued=await this.service.issue(ctx,{iss:ctx.projectId,sub:alias,aud:this.provider.id,jti:id,iat,exp,rcpt:receipt,cols:names,custody:{provider:this.provider.id,tenant:this.provider.tenant,provider_redeem_at:this.provider.redeemAt,locator,opintel_redeem_at:this.redeemAt}},sealed.second);
-   if(!issued.ok){await this.provider.revoke(locator).catch(()=>{});return issued;}
+   if(!issued.ok){
+    // The revoked-credential path persisted a cleanup record. Let the sweeper
+    // acknowledge it atomically instead of revoking here without recording ack.
+    if(issued.error.details?.cause!=='credential_revoked_after_escrow')await this.provider.revoke(locator).catch(()=>{});
+    return issued;
+   }
    return ok({rows:sealed.rows,custody:[{columns:names,grant:issued.value}]});
   }catch{if(locator)await this.provider.revoke(locator).catch(()=>{});return err(new DomainError('dependency_unavailable','Custody release could not be prepared. No result was released.',{cause:'release_prepare_failed'}));}
   finally{sealed.first.fill(0);sealed.second.fill(0);}

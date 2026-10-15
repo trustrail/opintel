@@ -100,7 +100,7 @@ custody: [{ columns, grant }]
 The receipt shows:
 
 ```text
-released under custody (<provider>) · granted T · redeemed T+n by alias
+released under custody (<provider>) · granted T · Opintel share released T+n for credential alias
 ```
 
 Its alternatives are `not redeemed` and `revoked T`. Activity shows decision and release as two events on one receipt id. Historical evidence remains immutable; subsequent release/revocation facts are retained as events associated with that receipt, not edits to its original answer.
@@ -162,7 +162,7 @@ The Specification fixes sealing, split-key ownership, grant encoding, signing-ke
 
 **Rollup counts.** Granted counts issued grants in the selected request range, including those subsequently redeemed, expired or revoked. Terminal counts use the current receipt state; explicit revocation after redemption does not rewrite redemption. Origins count first-hand redemptions only. No custody grant in scope means no extra Activity line.
 
-**Activity presentation.** The rollup is one line above Requests: `Custody · 12 granted · 9 redeemed · 2 expired · 1 revoked · origins CA 8, US 1`. It is absent without a grant in the selected range, preserving existing Activity without custody. Origins are recorded facts, not inferred countries. Receipt details use the granted/redeemed/not-redeemed/revoked receipt-line format above, with provider corroboration separate. No Dashboard summary is added. Revocation invalidates the affected receipt detail and project Activity summaries; delivery rows do not change.
+**Activity presentation.** The rollup is one line above Requests: `Custody · 12 granted · 9 Opintel share released · 2 expired · 1 revoked · origins CA 8, US 1`. It is absent without a grant in the selected range, preserving existing Activity without custody. Origins are recorded facts, not inferred countries. Receipt details use the granted/redeemed/not-redeemed/revoked receipt-line format above, with provider corroboration separate. No Dashboard summary is added. Revocation invalidates the affected receipt detail and project Activity summaries; delivery rows do not change.
 
 **Cleanup timing.** Expiry is enforced by the signed `exp` check on every K2 redemption, independently of the cleanup timer. Logical deletion and remote revocation are attempted by the one-second, non-overlapping sweeper; process/network outages can delay deletion. Expired state never becomes usable again. Physical erasure and instantaneous scheduling are not promised.
 
@@ -191,7 +191,7 @@ Changing provider or tenant confirms the number of live grants before saving: �
 
 XQ corroboration is explicitly unavailable until its event contract is verified against a real tenant. The adapter returns `unsupported`, never an empty list presented as evidence of no events. Settings states “Corroboration: not available for XQ until verified” on the provider row. Dashboard authentication is still checked separately; successful authentication does not establish an event mapping. Receipts carry first-hand K2 events only for XQ. Local corroboration remains supported.
 
-Verify the provider event fields and semantics that identify locator, redeeming alias, timestamp and request origin, including pagination, duplicates and delay. The typed `ProviderRedemption`/`ProviderRedemptions` adapter seam is where the verified mapping belongs. See [XQ integration brief](xq-integration-brief.md).
+Verify the provider event fields and semantics that identify locator, redeeming alias, timestamp and request origin, including pagination, duplicates and delay. The typed `ProviderRedemption`/`ProviderRedemptions` adapter seam is where the verified mapping belongs. See [Custody receipt evidence boundary](custody-revocation-and-redemption-position.md).
 
 ### SDK source verification (2026-10-12, decided)
 
@@ -248,3 +248,7 @@ session hardening. This item changes neither setting. Queries exceeding memory
 must refuse rather than spill; this limits capacity for large custody queries.
 If spill is ever enabled, disabling it for custody queries or encrypting the
 spill directory requires a separate reviewed design and performance assessment.
+
+### Share-release wording — approved 2026-10-15
+
+“Opintel share released” is the user-facing name for the existing `redeemed` event. This does not evidence that the agent obtained the provider's share or decrypted the value. The event records the authenticated single-use K2 release before the response is sent, not confirmation of client receipt. API receipts and CSV/NDJSON exports include this meaning without rewriting immutable events. Provider-reported share retrieval remains a separate fact. This supersedes ambiguous “redeemed/not redeemed” presentation wording above; see [the approved position](custody-revocation-and-redemption-position.md).

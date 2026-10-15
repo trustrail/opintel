@@ -1,3 +1,4 @@
+import {releaseNonClaim} from '../../shared/release-contract.js';
 import {useEffect,useMemo,useRef,type PropsWithChildren,type RefObject} from 'react';
 import {useStore} from 'zustand';
 import {AsyncButton,Button,EmptyState,ErrorState,InlineExpansion,LoadingState,Mark,SegmentedFilters} from '../../shared/ui/index.js';
@@ -40,7 +41,7 @@ function CustodyRollup({rows}:{rows:ActivitySummary['custody']}){
  const states=['granted','redeemed','expired','revoked'] as const,origins=new Map<string,number>();
  for(const row of rows)if(row.state==='redeemed'){const origin=row.origin??'Not recorded';origins.set(origin,(origins.get(origin)??0)+row.count);}
  if(!rows.some(r=>r.state==='granted'&&r.count>0))return null;
- return <p className="note" aria-label="Custody receipt summary">Custody{states.map(state=><span key={state}> · {rows.filter(r=>r.state===state).reduce((n,r)=>n+r.count,0)} {state}</span>)}{origins.size?<> · origins {[...origins].map(([origin,count])=>`${origin} ${count}`).join(', ')}</>:null}</p>;
+ return <p className="note" aria-label="Custody receipt summary">Custody{states.map(state=><span key={state}> · {rows.filter(r=>r.state===state).reduce((n,r)=>n+r.count,0)} {state==='redeemed'?'Opintel share released':state}</span>)}{origins.size?<> · origins {[...origins].map(([origin,count])=>`${origin} ${count}`).join(', ')}</>:null} · {releaseNonClaim}</p>;
 }
 type TimelineItem={key:string;record:ActivityEntry}|{key:string;day:string};
 function Measured({id,store,children}:PropsWithChildren<{id:string;store:ReturnType<typeof createActivityState>}>){

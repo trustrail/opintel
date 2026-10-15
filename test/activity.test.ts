@@ -1,4 +1,5 @@
 import {once} from 'node:events';
+import {releaseEvidenceMeaning} from '../src/shared/release-contract.js';
 import {randomUUID} from 'node:crypto';
 import {beforeEach,afterEach,it,expect} from 'vitest';
 import {createHttpServer} from '../src/platform/http/index.js';
@@ -115,6 +116,6 @@ it('REL-011: custody rollup counts receipt states and first-hand origins in UTC,
   });
  }
  const summary=ActivitySummary.parse(await(await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary`)).json());
- expect(summary.custody).toEqual([{day:'2026-10-06',state:'expired',origin:null,count:1},{day:'2026-10-06',state:'granted',origin:null,count:3},{day:'2026-10-06',state:'redeemed',origin:'2001:db8::1',count:1},{day:'2026-10-06',state:'revoked',origin:null,count:1}]);
+ expect(summary.custody).toEqual([{day:'2026-10-06',state:'expired',origin:null,count:1},{day:'2026-10-06',state:'granted',origin:null,count:3},{day:'2026-10-06',state:'redeemed',origin:'2001:db8::1',count:1,evidenceMeaning:releaseEvidenceMeaning},{day:'2026-10-06',state:'revoked',origin:null,count:1}]);
  const absent=ActivitySummary.parse(await(await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary?poolId=${randomUUID()}`)).json());expect(absent.custody).toEqual([]);
 });

@@ -5,7 +5,7 @@ import {AgentPresenceView} from './agent-presence.js';
 export const PoolSummary=z.object({id:z.uuid(),name:z.string(),sourceIds:z.array(z.uuid()),modeQuery:z.boolean(),modePrompt:z.boolean(),workingKeys:z.number().int().nonnegative(),agents:z.number().int().nonnegative(),activeAgents:z.number().int().nonnegative(),clearElements:z.number().int().nonnegative(),activeElements:z.number().int().nonnegative()});
 export type PoolSummary=z.infer<typeof PoolSummary>;
 export const PoolPage=z.object({items:z.array(PoolSummary),nextCursor:z.string().nullable()});
-export const CredentialMetadata=z.object({id:z.uuid(),label:z.string(),custodyAlias:z.string(),state:z.enum(['active','revoked']),lastUse:z.iso.datetime().nullable()});
+export const CredentialMetadata=z.object({id:z.uuid(),label:z.string(),custodyAlias:z.string(),state:z.enum(['active','revoked']),pendingCleanupCount:z.number().int().nonnegative().optional().describe('Revoked grants awaiting provider cleanup acknowledgement, including legacy aliases and already-released Opintel shares.'),lastUse:z.iso.datetime().nullable()});
 export const PoolDetail=PoolSummary.extend({keys:z.array(PoolKeyMetadata),credentials:z.array(CredentialMetadata).optional(),graceSeconds:z.number().int().positive()});
 export type PoolDetail=z.infer<typeof PoolDetail>;
 export const AgentTwin=z.object({presence:AgentPresenceView,keyMetadata:PoolKeyMetadata});
