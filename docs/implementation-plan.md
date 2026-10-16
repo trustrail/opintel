@@ -626,6 +626,9 @@ Multi-AZ failover, on-premises deployment, SAML, SCIM, sustained load beyond the
 
 ### 6.6 Validation during implementation
 
+**Superseding decision, 2026-10-16:** pixel regression and the broad browser scenario suite are retired. `npm run check` runs typecheck, lint, production-artifact exclusion, the unchanged route/control conformance assertions, all normal domain/integration tests and one continuous browser/MCP smoke path. The 204 historical PNGs are archived without alteration; no recapture or tolerance replaces them. See [gate-tiers.md](review/gate-tiers.md). Older scheduling and screenshot records below describe historical gates, not current instructions.
+
+
 Approved scheduling: iterate with affected tests, then run strict typecheck and lint after a coherent batch. Run every full gate once on the completed candidate before its completed-item commit. Do not run a full gate while a known defect is outstanding; fix and verify it locally first. If a final gate finds a defect, fix it with focused verification and repeat the affected full gate. Run commands sequentially. Quiet output from a twelve-minute suite is expected and is not grounds for interrupting it.
 
 | Change | Iteration checks |

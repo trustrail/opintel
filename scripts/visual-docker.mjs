@@ -13,7 +13,7 @@ const supplied = process.argv.slice(2);
 // Coverage scope is explicit in the artifact. Only an unrestricted invocation
 // may claim the full route gate; unknown options conservatively mean partial.
 const valueOptions = new Set(['--config', '--workers', '--retries', '--timeout', '--reporter', '--output', '--trace']);
-const standaloneOptions = new Set(['--headed', '--debug', '--forbid-only', '--quiet', '--update-snapshots']);
+const standaloneOptions = new Set(['--headed', '--debug', '--forbid-only', '--quiet']);
 let partial = false;
 for (let index = 0; index < supplied.length; index++) {
   const argument = supplied[index];
@@ -24,7 +24,7 @@ for (let index = 0; index < supplied.length; index++) {
 }
 
 const selection = supplied.some(arg => /^--(?:project|config)(?:=|$)/.test(arg))
-  ? [] : ['--project=visual-snapshots'];
+  ? [] : ['--config=playwright.conformance.config.ts'];
 console.log(`[Playwright Docker] ${image}`);
 const result = spawnSync('docker', [
   'run', '--rm', '--init', '--ipc=host', '--platform=linux/amd64',

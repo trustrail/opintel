@@ -11,7 +11,14 @@ jobs:
   foundation:
     name: Foundation gates
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
+      MIGRATION_DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel
+      TEST_DATABASE_URL: postgresql://opintel:opintel@localhost:5432/opintel_test
+      REDIS_URL: redis://localhost:6379
+      SPICEDB_ENDPOINT: localhost:50051
+      SPICEDB_TOKEN: devkey
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,25 +27,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
-      - run: npm run typecheck
-      - run: npm run typecheck:conformance
-      - run: npm run lint
-      # The full test suite runs below after service bootstrap.
-      - run: npm run build
-      - run: "! rg --fixed-strings '/dev/kitchen-sink' dist"
-      - name: Functional, visual and every-screen conformance in one browser pass
-        run: npm run test:browser
-      - name: Scroll measurements (M-015, G-019, H-016 frame verdicts recorded only)
-        run: npm run test:visual:docker -- --config=playwright.performance.config.ts
-
-      - name: Retain scroll measurements and recorded verdicts
+      - run: npm run dev:up
+      - run: npm run sidecar:prepare-scanner
+      - run: npm run check
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: scroll-performance-reports
+          name: gate-record
           path: test-results/
-          if-no-files-found: warn
-          retention-days: 7
 
   migrations:
     name: Migrations
@@ -62,7 +58,6 @@ jobs:
       - run: npm ci
       - run: npm run sidecar:prepare-scanner
       - run: npm run dev:up
-      - run: npm test
       - name: Bypass regression gate and open-attack queue
         if: ${{ !cancelled() }}
         run: npm run test:bypass

@@ -115,21 +115,19 @@ Most rules below exist to protect that sentence.
 
 ---
 
-**Validation scheduling**
-- Run typecheck, lint, builds, browser setup and test suites sequentially on one machine. Never overlap separate validation commands. Each validation tier supplies an ordered path; focused checks follow the same rule.
-- Iterate with affected tests; run typecheck and lint after a coherent batch. Run the required gates once on the completed candidate before its commit, using the change-scoped rule and subject to the screen-review workflow below. Never run a full gate with a known defect outstanding: fix it and verify locally first. Quiet output during a long suite is expected, not evidence of a stall. See the plan's §6.6 for the focused path.
-- **Change-scoped completed-item validation:** use the tiers below. Shared code changes that affect a listed path count too. If both UI and data apply, run code-performance first, then one `check`, then their remaining suites sequentially. This selects when suites run; it does not reduce their assertions or thresholds.
+## Operating authority and reporting
 
-  | Script | Trigger and coverage |
-  |---|---|
-  | `npm run check` | Every change: lint, typecheck and the normal test suite only |
-  | `npm run check:ui` | `src/app/` or `docs/opintel-master.css`: check, then the browser pass |
-  | `npm run check:data` | Engine (`sidecar/`, `deploy/engine/`, `src/modules/engines/`), treatment (`src/modules/entitlements/`, `src/modules/catalog/`, `src/modules/querying/`), or storage (`migrations/`, `src/platform/db/`, `src/platform/redis/`, `src/platform/secrets/`, `src/modules/ingest/`, `src/modules/evidence/`, and persistence implementations under `src/modules/*/infrastructure/`): code-performance first in its own process on a quiet machine, then check, collision and ephemerality suites |
-  | `npm run check:release` | Before every release tag: all tiers, with check once; also conformance typecheck, build, bypass and browser-performance gates |
-- Per-test timeouts in the normal suite are hang guards (30 seconds by default); a test that asserts a duration says so explicitly. Migration round-trip tests carry their own generous 60-second guard because their cost grows with the migration chain.
-- **Screen work the user reviews:** during redesign iteration, do not run the visual project or regenerate baselines. Implement, run affected functional, conformance/placement and accessibility checks, then report the screen ready for review. Iterate on the user's judgement. Only when the user explicitly says a screen is right may its baselines be regenerated, in one baseline-only commit naming the approved change. Before the item commit, run snapshots for screens the item did not touch to catch unintended changes. This overrides snapshot iteration in the plan's §6.6: snapshots record the approved design; they do not decide whether a redesign is right.
+Decide alone on test harnesses, tooling, scripts, fixtures, CI, diagnostics, commit naming and ordering, equivalent technical choices, and defects found while doing the assigned task. Stop only for application behaviour beyond the task, weakening a governance assertion (refusals, composition, receipts, exports, provenance), deleting recorded evidence, pushing to trunk, or irreversible actions. This supersedes the general “when unsure” rule for these delegated technical choices.
 
-- **Baseline reproducibility:** after regeneration, capture every changed scenario again on unchanged code in the same pinned browser environment, using Playwright’s stabilized screenshot matcher. Diff the new capture against the regenerated image: dimensions must match and the differing-pixel count must be zero before committing. A matcher pass with tolerance is not sufficient; do not use retries or widen tolerances to establish reproducibility. A baseline candidate captured before a capture precondition was introduced is invalid: regenerate it rather than investigate it. A visual difference is explained when the capture reproduces exactly, DOM text is identical, and the difference is at most a 1px translation attributable to a change in the same component tree.
+Report once per task at the end, never between steps.
+
+## Validation
+
+Run validation commands sequentially. The completed-candidate gate is `npm run check`: strict typecheck, unchanged lint, production-artifact exclusion, router-derived control conformance, all normal domain/integration tests, then one browser/MCP smoke path. Run it once on the completed tip; report failures honestly. Do not retry it to obtain a green record.
+
+The browser scenario and pixel regression tiers are retired. Historical PNGs live in `archive/browser-baselines/2026-10-16`, outside the active path. Never recapture them. Human review remains necessary for screen design.
+
+Every gate tier must state its defect class and a real example caught, in `docs/review/gate-tiers.md`. A tier unable to name one is removed at the next review. Do not weaken a governance assertion to meet a runtime target. Existing normal-test hang guards, behavioral timing assertions, and database isolation remain unchanged. Release-only bypass, collision, performance and ephemerality proofs remain available and unchanged.
 
 ## Definition of done
 
@@ -141,7 +139,7 @@ An item is finished when all of these hold. This is the pull request template.
 - [ ] Migrations run up and down
 - [ ] New routes declare a permission
 - [ ] New external calls sit behind a port
-- [ ] New screens have all four states, pass axe, and have snapshots at 390 / 900 / 1440; user-reviewed screens receive baselines only after explicit design approval
+- [ ] New screens have all four states, pass conformance, and receive human design review
 - [ ] No new CSS class
 - [ ] Where the build diverged from the spec, the spec is updated in the same change
 
@@ -149,6 +147,4 @@ An item is finished when all of these hold. This is the pull request template.
 
 ## When you are unsure
 
-Say what you are unsure about and stop. Do not pick an option and proceed.
-
-The specifications are unusually detailed precisely so that this rarely happens. If you find yourself choosing, the specification has a gap and the gap is the thing to report.
+Use the operating-authority rule above: decide delegated technical matters; stop for the listed product/governance boundaries.

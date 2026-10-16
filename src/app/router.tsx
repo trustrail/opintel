@@ -23,6 +23,9 @@ import { KitchenSinkScreen } from './kitchen-sink.js';
 import { SharedPatternsScreen } from './shared-patterns.js';
 import { CreateCompanyScreen, CreateProjectScreen, ProjectChooser, ProjectDashboard } from './tenancy/screens.js';
 
+// Component review routes belong in development and the optimized browser-test build only.
+const componentReviewEnabled=import.meta.env.DEV||import.meta.env.MODE==='browser-test';
+
 function RouteScreen({ title }: { title: string }): ReactNode {
   return <RouteErrorBoundary><section className="screen on"><h1>{title}</h1></section></RouteErrorBoundary>;
 }
@@ -31,7 +34,7 @@ function RootLayout(): ReactNode {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const search = useRouterState({ select: (state) => state.location.searchStr });
   const hash = useRouterState({ select: (state) => state.location.hash });
-  return isAuthPath(pathname) || (import.meta.env.DEV && ['/dev/kitchen-sink','/dev/shared-patterns'].includes(pathname)) ? <Outlet /> : <AuthGuard intendedPath={`${pathname}${search}${hash}`}><AppShell /></AuthGuard>;
+  return isAuthPath(pathname) || (componentReviewEnabled && ['/dev/kitchen-sink','/dev/shared-patterns'].includes(pathname)) ? <Outlet /> : <AuthGuard intendedPath={`${pathname}${search}${hash}`}><AppShell /></AuthGuard>;
 }
 
 function AuthRoute({ children }: { readonly children: ReactNode }): ReactNode {
@@ -70,7 +73,7 @@ const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
 const confirmDeviceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/confirm-device', component: () => <AuthRoute><ConfirmDeviceScreen /></AuthRoute> });
-const kitchenSinkRoutes = import.meta.env.DEV
+const kitchenSinkRoutes = componentReviewEnabled
   ? [createRoute({ getParentRoute: () => rootRoute, path: '/dev/kitchen-sink', component: KitchenSinkScreen }),createRoute({getParentRoute:()=>rootRoute,path:'/dev/shared-patterns',component:SharedPatternsScreen})]
   : [];
 
