@@ -5,7 +5,7 @@ import type {Suggestion} from '../src/shared/api/suggestions.js';
 import type {Page} from '@playwright/test';
 import type {DashboardStats,DashboardFinding,PoolShield} from '../src/shared/api/dashboard.js';
 export const project='018f8f9d-7f83-7abc-8def-000000000001',pool='018f8f9d-7f83-7abc-8def-000000000002',source='018f8f9d-7f83-7abc-8def-000000000003',filing='018f8f9d-7f83-7abc-8def-000000000004';
-export const spectrum={clear:80,tokenized:5,masked:4,aggregate_only:3,withheld:6,undecided:2};
+export const spectrum={custody:0,clear:80,tokenized:5,masked:4,aggregate_only:3,withheld:6,undecided:2};
 export const dashboard:DashboardStats={asOf:'2026-09-29T00:30:00.000Z',utcDay:'2026-09-29',pools:1,sources:1,spectrum,requests:12,queries:10,prompts:2,refused:1,incomplete:1,connectedAgents:3,staleAgents:0};
 export const shield:PoolShield={id:pool,name:'Reporting pool',agents:3,spectrum,sources:[{id:source,name:'Warehouse',spectrum}]};
 export const quarantine:Extract<DashboardFinding,{kind:"quarantine"}>={id:'quarantine:'+filing,kind:'quarantine',filingId:filing,zoneId:source,category:'verification_mismatch',receivedAt:'2026-09-28T20:30:00Z'};
