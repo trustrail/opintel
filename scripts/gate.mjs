@@ -18,12 +18,13 @@ async function isolation(tier){
 const commit=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
 const start=performance.now(),tiers=[];
 // Sequential; never retry a tier or run domains concurrently with smoke setup.
-for(const script of ['typecheck','lint','build:production','test:conformance','test','test:smoke']){
+const scripts=['typecheck','typecheck:conformance','lint','build:production','test:conformance','test','test:smoke'];
+for(const script of scripts){
  if(script==='test:conformance'||script==='test:smoke')await isolation(script.replace(':','-'));
  const began=performance.now();const result=spawnSync('npm',['run',script],{stdio:'inherit'});
  tiers.push({tier:script,seconds:(performance.now()-began)/1000,exitCode:result.status??1});
  mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,tiers,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===6},null,2)+'\n');
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,tiers,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===scripts.length},null,2)+'\n');
  if(result.status!==0){process.exitCode=result.status??1;break;}
 }
 console.log(`Gate wall time: ${((performance.now()-start)/1000).toFixed(2)}s`);

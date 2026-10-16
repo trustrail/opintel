@@ -1,6 +1,6 @@
 # Slice 1 remaining — status register
 
-Version: 1.0 — 2026-10-16
+Version: 1.1 — 2026-10-16
 
 ## How to use this register
 
@@ -41,7 +41,7 @@ DELIBERATELY DEFERRED means retained future work subject to its recorded scope/d
 | E3 | IMPLEMENTED | sidecar/sql/application/treatments.ts:53; test/query-pre-filter.test.ts:65 | None: token ordering refusal and explicit tests exist. | None. |
 | E4 | PARTIAL | migrations/018_extraction.up.sql:1; docs/review/extraction-backfill.md:12 | Verify each deployment backfill, then add the follow-on constraints. Expand migration, refusal and operator procedure exist. | Deployment owner supplies/validates declarations, including inactive rows; code does not prove backfill completion. |
 | E5 | PARTIAL | src/platform/db/scope.ts:73; test/http-server.test.ts:234 | withPlatformAdmin audit, customer-route call-graph proof and dedicated pool-import lint rule remain missing. Invalid-path Zod test exists; export-surface test is narrower. | Reviewed treatment of the handwritten scope boundary; audit actor semantics and explicit migration exemption. |
-| F1 | PARTIAL | scripts/gate.mjs:21; e2e/dashboard-fixture.ts:8 | Separate conformance typecheck exists but is not in the gate; fixture assignments still omit required output custody. Phase 1 did not rerun tsc or establish a new error count. | Repair fixture contract, then integrate the typecheck tier without weakening it. |
+| F1 | IMPLEMENTED | scripts/gate.mjs:21; e2e/dashboard-fixture.ts:8 | Explicit custody:0 satisfies all three fixture assignments; typecheck:conformance is a separately timed, fail-fast gate tier. Standalone conformance typecheck passed with zero errors before gate wiring. | None for this item. |
 | F2 | IMPLEMENTED | scripts/prepare-duckdb-scanner.ts:11; test/fixtures/query/fixture.ts:92 | None in the inspected checkout: scanner binary and preparation/compatibility-load tooling exist. | Every fresh isolated checkout must provision its platform-compatible scanner; this is an environment prerequisite. |
 | F3 | CANCELLED | docs/review/gate-tiers.md:19 | None. Retired pixel comparisons and archived pre-wording images are not recapture work. | None; do not return this item to the backlog. |
 | F4 | CANCELLED | docs/review/deferred.md:1386; docs/review/gate-tiers.md:19 | None for the retired Activity scenarios. Historical teardown/deadline causes remain undetermined, not diagnosed or repaired. Phase 1 source verdict was CANNOT DETERMINE; cancellation is the work disposition. | None. Historical traces would be needed to establish cause, but that investigation is not scheduled. |
@@ -65,3 +65,4 @@ These six items were identified in the technical documentation. A recorded scope
 | Version | Date | Change | Impact on the product |
 |---|---|---|---|
 | 1.0 | 2026-10-16 | Establish status from Phase 1/1b at 073cf74; distinguish implemented, partial, deferred and cancelled work; record outside-Slice-1a boundaries and XQ dependencies. | Documentation only. No implementation, tests, gate, deployment or external partner-document changes. |
+| 1.1 | 2026-10-16 | Close F1: explicit fixture custody count and conformance typecheck in the gate; standalone typecheck passed. | No product behavior change; conformance TypeScript errors now fail the gate. |

@@ -1,11 +1,12 @@
 # Gate tiers
-Version: 1.0 — 2026-10-16
+Version: 1.1 — 2026-10-16
 
 `npm run check` is the sequential completed-tip gate. It stops at a failed tier, records each duration and total wall time in `test-results/gate.json`, and never retries. The ten-minute objective is not permission to reduce domain/integration coverage. The previous normal suite alone took 1,211.51 seconds, so that is the expected dominant cost until measured otherwise.
 
 | Tier | Defect class | Existing concrete counterexample / caught defect |
 |---|---|---|
-| Strict typecheck | Invalid typed contracts | The three recorded dashboard-fixture missing-custody errors in the conformance project; normal strict typecheck catches the equivalent production contract mismatch. Conformance typecheck remains separately available. |
+| Strict typecheck | Invalid typed contracts | The three recorded dashboard-fixture missing-custody errors in the conformance project; normal strict typecheck catches the equivalent production contract mismatch. The production and conformance projects are checked separately. |
+| Conformance typecheck (`typecheck:conformance`) | Invalid TypeScript contracts in conformance checks and their imported fixtures, outside the production tsc project | Three TS2741 assignments in `e2e/dashboard-fixture.ts` omitted the required output custody count. The fixture now explicitly records zero; this tier prevents the omission being invisible to a green gate. |
 | Lint and boundaries | Forbidden dependency direction and unsafe implementation patterns | `test/module-boundary.test.mjs` catches domain→infrastructure and cross-module non-index imports with the real ESLint rule. During this change lint also rejected twelve undeclared Node globals in the new scripts; explicit imports fixed them. |
 | Production artifact exclusion | Shipping review-only routes | The positive counterexample is an artifact containing either literal `/dev/kitchen-sink` or `/dev/shared-patterns`; the checker rejects it. Normal production must omit both. |
 | 54-route conformance | Unclassified controls, broken disclosure semantics, navigation and identity-mark placement; missing route visits | Existing checker counterexamples reject five broken controls and a disclosure whose target visibility contradicts `aria-expanded`; the full-route reporter rejects missing visits. |
@@ -24,3 +25,4 @@ The smoke uses fixture mail/session responses and pool header data. Row decision
 | Version | Date | Change | Impact on the product |
 |---|---|---|---|
 | 1.0 | 2026-10-16 | Retire pixel/scenario tiers; retain conformance and governance tests; add connected smoke. | No custody or query behavior changes. Review routes remain development/browser-test only and are excluded from normal production artifacts. |
+| 1.1 | 2026-10-16 | Add conformance typecheck immediately after production typecheck as a separately timed, fail-fast gate tier. | No product behavior change; the gate now covers the conformance TypeScript project. |
