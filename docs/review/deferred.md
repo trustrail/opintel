@@ -1424,3 +1424,60 @@ Exact durations are retained in `tmp/row-access-diagnosis/working-isolation.json
 Before committing the pool-page batch, the complete tracked and untracked batch was stashed (`962316fddad9bcf5a5ed1beee630836195262f7c`). `git status --porcelain` was empty at `685ae9e155e4cc4ef1ccf88219299a4f2fe46b4b`, both before and after running the same `npm run typecheck:conformance` invocation (`tsc --project tsconfig.conformance.json`). It exited 2 with exactly the same three TS2741 errors: `e2e/dashboard-fixture.ts(9,110)`, `(10,72)`, and `(10,118)`, where the fixture spectrum omits the required output-type `custody` count. The stash was then popped successfully with no conflicts. This establishes that the errors predate this batch; they are not fixed in the pool-page commit, per the reader's instruction. Log: `tmp/pool-gate-record/clean-685ae9e-conformance.log`.
 
 Why `check` can pass with these errors present: its script runs lint, `tsc --noEmit`, and the normal test suite. The root `tsconfig.json` includes `src/**/*.ts`, `src/**/*.tsx`, `scripts/**/*.ts`, `sidecar/**/*.ts`, and `migrations/**/*.ts`; this E2E fixture is outside that project's includes. `typecheck:conformance` selects a different project, including E2E conformance files and their fixture imports. It is not invoked by `check` or `check:ui` (the latter runs `check` then the browser suite). Lint likewise targets `src`, `scripts`, and `sidecar`. A green `check` therefore does not claim a green conformance typecheck.
+
+
+## Dated supersession notes — 2026-10-16
+
+These append-only notes use the completed read-only Phase 1 findings at `073cf74`; they do not re-run validation or erase the historical record. [slice1-remaining.md](slice1-remaining.md) is the status authority for these items.
+
+### 2026-10-16 — Lines 25–28 — request idempotency
+
+The blanket “not implemented” finding is superseded: pool creation/rotation, bulk decisions and export creation have replay protection. Source deletion remains the A5 gap. Code: `src/modules/pools/api/key-routes.ts:12`, `src/modules/entitlements/application/bulk.ts:10`, `src/modules/evidence/application/export.ts:19`, `src/modules/sources/api/source-routes.ts:9`. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 33 — invalid path-parameter test
+
+The missing-test finding is resolved by `test/http-server.test.ts:234`, which asserts validation_failed without invoking the handler. This does not close the separate E5 audit/call-graph/lint gaps. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 38 — stylesheet/docs packaging
+
+The build imports the stylesheet and the Engine Dockerfile copies docs in both stages: `src/shared/ui/styles.ts:1`, `deploy/engine/Dockerfile:10` and `:26`. A8 is implemented; API supervision/packaging remains separate. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 43 and 48 — demo shell identity
+
+The project switcher and breadcrumb use real project state. The footer is generic Your account/U, not the former demo person; authenticated identity presentation remains A9. Code: `src/app/shell.tsx:47`, `:59–81`. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 88–113 — SSO lockout safety
+
+The enabling-administrator exact-configuration proof now exists: `src/modules/identity/infrastructure/sso-enforcement.ts:4`, called from `src/modules/tenancy/infrastructure/settings.ts:20`. The log already records administrator magic-link recovery at lines 62–85; the earlier claim about losing administrator recovery is historical. Two-phase provider rotation remains A1. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 209 — filing-party compatibility shim location
+
+The state shim still exists but moved to `sidecar/ingest/register.ts:40–44`; the customer-column rename remains at `sidecar/ingest/infrastructure/postgres-landing.ts:57`. A7 removal remains pending; the old watch.ts location is stale. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 301 — tokenized ordering
+
+The former unrestricted-ordering finding is resolved: `sidecar/sql/application/treatments.ts:53` refuses unsupported token operations; `test/query-pre-filter.test.ts:75` explicitly checks refusal. E3 is implemented. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 403 — S2 binding choice
+
+The three-way choice is resolved in code: `sidecar/sql/application/execute.ts:87` prepares after inspection and refuses unresolved binding; `sidecar/session/infrastructure/duckdb.ts:145` prepares in the contained session. B3 is implemented. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 454 — production supervision
+
+The blanket absence claim is superseded for the Engine: `deploy/engine/compose.yml:42` supplies restart supervision and `deploy/engine/README.md:80` records operators. API production supervision remains A3; the Engine configuration does not close it. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 643 — token-domain friction
+
+The no-default finding is resolved by `src/shared/token-domain.ts:8–12` and `src/modules/entitlements/application/compile.ts:54`. The implemented default derives from project/element UUID identity, not the exposed-name proposal. B1 is implemented. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 1271–1289 — custody sealing boundary
+
+Ordinary final-result sealing now occurs inside the Engine before transport: `sidecar/execution/application/execute.ts:98–107`. Both K1 and K2 still reach the Application transiently (`src/modules/release-custody/infrastructure/query-release.ts:19–25`), so Engine sealing does not establish that the Application cannot reconstruct K. The remaining trust-boundary/provider-contract question is B5, not an Application-side plaintext-sealing defect. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 1386–1395 — historical browser deadlines/stalls
+
+The original failures remain evidence, with causes undetermined. Their broad browser scenarios and pixel comparisons are retired; `scripts/gate.mjs:21` selects current tiers and `docs/review/gate-tiers.md:19` records cancellation. F3/F4 are cancelled work, not pending recapture or a diagnosed product defect. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Line 1422 — conformance typecheck and gate composition
+
+The typecheck exclusion and missing custody fixture values remain F1 (`e2e/dashboard-fixture.ts:8–10`). The command description is superseded by `scripts/gate.mjs:21`: the gate includes production-artifact exclusion, conformance, domain tests and smoke alongside typecheck/lint. No fresh tsc diagnostics were obtained for this register. Current status authority: [slice1-remaining.md](slice1-remaining.md).

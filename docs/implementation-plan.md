@@ -944,3 +944,16 @@ placement and accessibility checks; no visual project or baseline regeneration.
 Custody sealing follow-up (approved): ordinary calls seal final DuckDB result rows inside the Engine, before transport; K generation/splitting stays there, Application receives only sealed rows and K1/K2. Preview shares the implementation; aggregates stay sealed. Transport conformance inspects HTTP payloads; existing redemption and preview assertions remain. Spill stays disabled under C.2. See the custody position for the precise boundary and residual.
 
 5.37 step 2b scale correction: pool Row access lists decisions with four exclusive counts (missing filters first, overrides, inherited defaults, no row filter), a no-row-filter link to the filtered Entitlements catalogue, default-setting guidance and two empty-state variants, a bounded shared object picker, read-only inherited pages, labelled no-default picker objects and override-only composition, no catalogue list on the pool page, and collapsed inherited pool counts on the object card. See the console position. Rick approved the design on 2026-10-14. The initial 40/42 reproduction failure was diagnosed through five unchanged-tree captures per failing scenario: glyph paint varied while DOM text and geometry remained identical. The shared capture precondition now forces a fresh paint without changing layout or focus. Five captures with that precondition are pairwise exact for both scenarios. One authorized regeneration and one recapture then passed 18/18 scenarios each, with all 42 images reproducing at zero RGBA differences and identical DOM text. Conformance typecheck remains blocked by three existing dashboard-fixture missing-custody errors; lint passed. No gate, commit or push; stopped for review. The console position records the cause, limits and matrices.
+
+
+## Dated supersession notes — 2026-10-16
+
+These append-only notes use the completed read-only Phase 1 findings at `073cf74`; they do not re-run validation or erase the historical record. [slice1-remaining.md](review/slice1-remaining.md) is the status authority for these items.
+
+### 2026-10-16 — Line 352 — live XQ prerequisite
+
+“Until credentials arrive” is superseded as the recorded live blocker: credentials were exercised and packet generation was refused for transfer/data (`docs/review/xq-escrow-entitlement.md:9–17`). The implemented operation is `src/modules/release-custody/infrastructure/xq-worker.mjs:35`. D1 remains partial and XQ-dependent; this is not a new check of account entitlement. Current status authority: [slice1-remaining.md](review/slice1-remaining.md).
+
+### 2026-10-16 — Line 364 — broad 5.37 target versus implemented subset
+
+The item row is target scope, not an implementation-status claim. The step-status paragraph at line 370 correctly limits the implemented path to static predicates. `src/modules/entitlements/infrastructure/row-decisions.ts:58` and `sidecar/execution/application/execute.ts:31` reject scope references. C1–C5 record the unimplemented/partial scope and challenge work. Current status authority: [slice1-remaining.md](review/slice1-remaining.md).

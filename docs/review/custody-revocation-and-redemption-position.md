@@ -243,3 +243,24 @@ Overall this gate record is **not green**: the performance tier failed on the mi
 | Receipt note 1.2 | 2026-10-15 | Record repository/system and external/partner authority; describe the unverified event mapping as an implementation boundary. | No behaviour changed in the custody mechanism; wording now matches what the system proves. Corroborated redemption still requires XQ's fetch event. |
 | Receipt note 1.3 | 2026-10-15 | Rename to custody-receipt-evidence-boundary.md, narrow authority and remove the legacy code from customer prose. | No behaviour changed in the custody mechanism; wording now matches what the system proves. Corroborated redemption still requires XQ's fetch event. |
 | 1.4 | 2026-10-15 | Fold the evidence note, record the open 390 question and approved warm-pass gate precondition. | No custody-mechanism behaviour changed by the wording/fold; wording matches what the system proves. Corroborated redemption still requires XQ's fetch event. Harness adoption remains separate. |
+
+
+## Dated supersession notes — 2026-10-16
+
+These append-only notes use the completed read-only Phase 1 findings at `073cf74`; they do not re-run validation or erase the historical record. [slice1-remaining.md](slice1-remaining.md) is the status authority for these items.
+
+### 2026-10-16 — Lines 5 and 209 — latest warm-pass requirement/order
+
+The stated latest warm-pass precondition and ordering are superseded. The current production-build harness and sequential gate invoke no throwaway warm pass: `scripts/gate.mjs:21`; `docs/review/gate-tiers.md:17–19`. Historical invocation results below remain intact. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 201–203 — 390 investigation status
+
+The later production-build outcome closed 390 as not reproducible there; the dev-server penalty was never explained and no narrow-viewport custody defect was established. The subsequent scenario-tier retirement cancels further work on those scenarios (`scripts/gate.mjs:21`, `docs/review/gate-tiers.md:19`). Do not reinterpret the preserved timing correlation as a diagnosed product defect or active gate blocker; F4 is cancelled. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 221–231 — scanner and wording comparisons
+
+The isolated-candidate failure record remains historical evidence. Scanner preparation/compatibility-load tooling exists at `scripts/prepare-duckdb-scanner.ts:11–17`, and the inspected checkout has its binary. The three old wording comparisons belong to the retired pixel tier (`docs/review/gate-tiers.md:19`), not outstanding recapture work. F2 is implemented; F3 is cancelled. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 187–199 — sealing trust-boundary omission
+
+The provider-operation/evidence account needs this explicit boundary qualification: the Engine seals final custody results before transport, but returns both K1 and K2 to the Application (`sidecar/execution/application/execute.ts:98–107`). The Application transiently handles both before escrow/grant issuance (`src/modules/release-custody/infrastructure/query-release.ts:19–25`). “No custody plaintext transported into Application” is distinct from “Application cannot reconstruct K”; B5 records the latter decision and XQ contract dependency. No external partner document is modified. Current status authority: [slice1-remaining.md](slice1-remaining.md).

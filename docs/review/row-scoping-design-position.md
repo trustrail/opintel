@@ -196,3 +196,16 @@ Record the pool's console admission-policy switch and these inputs, outcomes and
 ### Credential revocation clarification — approved 2026-10-15
 
 Credential revocation takes local effect atomically without custody-provider acknowledgement: revoke all key versions and destroy unreleased K2, then retry remote cleanup durably, including legacy aliases and already-redeemed grants. A provider outage must not leave a credential live. See [the approved position](custody-revocation-and-redemption-position.md) for concurrency, residual risk and share-release wording.
+
+
+## Dated supersession notes — 2026-10-16
+
+These append-only notes use the completed read-only Phase 1 findings at `073cf74`; they do not re-run validation or erase the historical record. [slice1-remaining.md](slice1-remaining.md) is the status authority for these items.
+
+### 2026-10-16 — Line 3 — blanket implementation status
+
+The blanket “not implemented” status is superseded for credential migration and static predicates: `src/modules/pools/infrastructure/keys.ts:103–108` and `src/modules/entitlements/infrastructure/row-decisions.ts:57–60`. Scope grants/resolution and possession challenge remain C1–C5. The explicitly labelled pre-5.37 account at lines 5–9 remains history, not current behavior. Current status authority: [slice1-remaining.md](slice1-remaining.md).
+
+### 2026-10-16 — Lines 60–66 — step 2b readiness
+
+“This update implements no code” describes that historical document update, not current product status. Defaults/overrides and composition now exist: `src/shared/row-decision-composition.ts:5–12`, `src/modules/entitlements/infrastructure/row-decisions.ts:60`. This does not assert implementation of future tag-rule administration or scope lookups. Current status authority: [slice1-remaining.md](slice1-remaining.md).
