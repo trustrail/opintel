@@ -22,7 +22,12 @@ for(const pattern of screenPaths())test(`conformance: ${pattern}`,async({page})=
  const path=pattern.replace('$projectId',project).replace('$companyId',source).replace('$poolId',pool).replace('$sourceId',source).replace('$runId',entry.id).replace('$agentId','reporter');
  const query=pattern.includes('/runs/')?`?startedAt=${encodeURIComponent(entry.startedAt)}`:pattern.includes('/auth/')?'?token=conformance':'';
  await page.goto(path+query);
- await expect(page.locator('#opintel-app h1')).toBeVisible();
+ if(pattern==='/auth/callback'){
+  const app=page.locator('#opintel-app');
+  await expect(app.getByText('We could not complete that',{exact:true})).toBeVisible();
+  await expect(app.getByText('Sign-in unavailable. Request a new link.',{exact:true})).toBeVisible();
+  await expect(app.getByRole('button',{name:'Try again',exact:true})).toBeVisible();
+ }else await expect(page.locator('#opintel-app h1')).toBeVisible();
  // Let all outstanding fixture responses commit before the final observer scan.
  await page.waitForLoadState('networkidle');
 });
