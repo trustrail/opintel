@@ -1,0 +1,77 @@
+[
+  {
+    "width": 390,
+    "errors": [],
+    "violations": [],
+    "overflow": false,
+    "fonts": [
+      "Space Grotesk",
+      "Space Grotesk",
+      "IBM Plex Sans",
+      "IBM Plex Sans",
+      "IBM Plex Sans",
+      "IBM Plex Mono",
+      "IBM Plex Mono"
+    ],
+    "visuals": [
+      {
+        "container": 358,
+        "svg": 358
+      },
+      {
+        "container": 358,
+        "svg": 358
+      }
+    ]
+  },
+  {
+    "width": 900,
+    "errors": [],
+    "violations": [],
+    "overflow": false,
+    "fonts": [
+      "Space Grotesk",
+      "Space Grotesk",
+      "IBM Plex Sans",
+      "IBM Plex Sans",
+      "IBM Plex Sans",
+      "IBM Plex Mono",
+      "IBM Plex Mono"
+    ],
+    "visuals": [
+      {
+        "container": 852,
+        "svg": 852
+      },
+      {
+        "container": 852,
+        "svg": 852
+      }
+    ]
+  },
+  {
+    "width": 1440,
+    "errors": [],
+    "violations": [],
+    "overflow": false,
+    "fonts": [
+      "Space Grotesk",
+      "Space Grotesk",
+      "IBM Plex Sans",
+      "IBM Plex Sans",
+      "IBM Plex Sans",
+      "IBM Plex Mono",
+      "IBM Plex Mono"
+    ],
+    "visuals": [
+      {
+        "container": 1152,
+        "svg": 1152
+      },
+      {
+        "container": 1152,
+        "svg": 1152
+      }
+    ]
+  }
+]

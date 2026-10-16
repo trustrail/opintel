@@ -11,9 +11,9 @@ import { useConnectSource,useDemos,useSources,useTestSource,useRetrySource } fro
 import { useSourceUi,useFilingExpansion,useSourceListUi } from './state.js';
 import { SourceFilings,landingLabels } from '../filings/screens.js';
 
-function Wizard({projectId,industryId}:{projectId:string;industryId:string}):ReactNode{
+export function Wizard({projectId,industryId,onConnected,onClose}:{projectId:string;industryId:string;onClose?:()=>void;onConnected?:(source:string)=>void}):ReactNode{
  const engines=useEngines(projectId);const ui=useSourceUi();const test=useTestSource(projectId);const connect=useConnectSource(projectId,industryId);const form=ui.form;
- async function submit(event:FormEvent){event.preventDefault();if(ui.step===1){const result=await test.mutateAsync({credentialRef:form.credentialRef,engineId:form.engineId}).catch(()=>null);if(result?.reachable)ui.next();}else{const parsed=CreateSourceBody.safeParse(form);if(!parsed.success)return;await connect.mutateAsync(parsed.data).then(()=>ui.close()).catch(()=>undefined);}}
+ async function submit(event:FormEvent){event.preventDefault();if(ui.step===1){const result=await test.mutateAsync({credentialRef:form.credentialRef,engineId:form.engineId}).catch(()=>null);if(result?.reachable)ui.next();}else{const parsed=CreateSourceBody.safeParse(form);if(!parsed.success)return;await connect.mutateAsync(parsed.data).then(source=>{ui.close();onConnected?.(source.id);}).catch(()=>undefined);}}
  return <section className="card" aria-labelledby="connect-heading" style={{marginBottom:16}}><div className="card-h"><h2 id="connect-heading">Connect a source</h2><span className="meta">Step {ui.step} of 2</span></div><form className="sheetb" onSubmit={event=>{void submit(event);}}>
  <p className="note">PostgreSQL · Source contact goes through your Opintel Engine. Supply an operator-configured Secret reference, never a password or connection string.</p>
  {ui.step===1?<><div className="fld"><label htmlFor="source-engine">Verified engine</label><ConsoleSelect className="inp" id="source-engine" required value={form.engineId??''} onChange={e=>ui.edit({engineId:e.target.value?EngineId(e.target.value):undefined})}><option value="">Choose an engine</option>{engines.data?.filter(e=>e.verifiedAt&&e.contractVersion===3).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</ConsoleSelect>{engines.isError?<p role="alert">{engines.error.message}</p>:null}</div><div className="fld"><label htmlFor="source-name">Source name</label><input id="source-name" required maxLength={80} value={form.name} onChange={e=>ui.edit({name:e.target.value})}/></div><div className="fld"><label htmlFor="source-ref">Secret reference</label><input id="source-ref" required pattern="secret://.+" placeholder="secret://sources/reporting" value={form.credentialRef} onChange={e=>{ui.edit({credentialRef:e.target.value});test.reset();}}/></div></>:<>
@@ -25,7 +25,7 @@ function Wizard({projectId,industryId}:{projectId:string;industryId:string}):Rea
  </>}
  {test.isError||connect.isError?<p className="note" role="alert">{connect.error?.message??test.error?.message}</p>:null}
  {test.data&&!test.data.reachable?<p className="note" role="alert">{test.data.reason??'The source could not be reached.'}</p>:null}
- <div className="filters"><Button variant="go" type="submit" disabled={test.isPending||connect.isPending}>{test.isPending?'Testing…':connect.isPending?'Connecting…':ui.step===1?'Test connection':'Connect and introspect'}</Button><Button variant="ghost" disabled={connect.isPending} onClick={ui.close}>Cancel</Button></div>
+ <div className="filters"><Button variant="go" type="submit" disabled={test.isPending||connect.isPending}>{test.isPending?'Testing…':connect.isPending?'Connecting…':ui.step===1?'Test connection':'Connect and introspect'}</Button><Button variant="ghost" disabled={connect.isPending} onClick={()=>{ui.close();onClose?.();}}>Cancel</Button></div>
  </form></section>;
 }
 export function SourcesScreen({projectId}:{projectId:string}):ReactNode{

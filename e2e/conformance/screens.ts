@@ -1,5 +1,6 @@
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
+import {destinations} from '../../src/app/next/state.js';
 import {navGroups} from '../../src/app/navigation.js';
 
 /** Derived from routing, not a hand-maintained sample of screens. A new literal
@@ -14,6 +15,8 @@ export function screenPaths():string[]{
  };visit(source);
  paths.delete('/'); // redirect to /projects, not a screen
  paths.delete('/projects/$projectId/$screen');
+ paths.delete('/next/projects/$projectId/$destination');
+ for(const destination of destinations)paths.add(`/next/projects/$projectId/${destination}`);
  for(const group of navGroups)for(const item of group.items){
   paths.add(item.path);
   if(item.path!=='/projects')paths.add(`/projects/$projectId${item.path}`);

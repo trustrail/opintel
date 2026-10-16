@@ -27,9 +27,12 @@ export default defineConfig({
       '--force-device-scale-factor=1',
     ] },
   },
+  // Compile once before any scenario deadline; never reuse an unrelated dev server.
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173',
+    command: 'VITE_CONSOLE_NEXT=true npm run build -- --mode browser-test && npm exec vite preview -- --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
+    // Build/startup budget, outside every scenario deadline.
+    timeout: 120_000,
+    reuseExistingServer: false,
   },
 });

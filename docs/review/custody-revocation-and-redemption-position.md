@@ -1,6 +1,6 @@
 # Custody revocation and redemption evidence — approved positions
 
-Version: 1.4 — 2026-10-15.
+Version: 1.5 — 2026-10-15.
 
 Latest decision: no custody product defect established. Gate unblocked with one full throwaway browser warm pass as a stated precondition. Custody commits precede the separately validated production-build harness change. The 390 timing correlation is an open question, not a blocker.
 
@@ -230,6 +230,38 @@ Collision validation passed 1/1 test in 98.75s (103.51s command time). Shipping-
 
 Overall this gate record is **not green**: the performance tier failed on the missing isolated-checkout scanner prerequisite, and three browser comparisons retain the old custody summary wording. Normal checks, collision and ephemerality passed. No tier was rerun. No product defect was established by these failures; the remaining baseline differences are explained and left unchanged. Harness adoption and any later baseline work are separate from these custody commits.
 
+### Follow-up: isolated production timing and required listener precondition
+
+A timing or baseline run requires **no other listener on the dev ports**, verified immediately before the invocation and recorded in its report, alongside the settled-paint precondition. A run that cannot assert this is **not a measurement**. For these isolated runs the stronger check was used: no host Node listener on any port, and no Node process in the test container before each invocation. Ports 3000, 3100, 3101, 5173 and the test server's 4173 were clear. The test runner then started its own production preview server and cleaned it up after its single scenario. No assertion, scenario timeout, screenshot tolerance or retry count changed. No gate was rerun.
+
+On 2026-10-15, with the user's explicit authorization, the following stack was recorded before SIGTERM. Launchers have no listening port. Commands below are the recorded full commands; nothing was restarted afterward.
+
+| PID | Port(s) | Command |
+|---:|---|---|
+| 14775 | — (launcher) | `npm run dev:sidecar` |
+| 14796 | — (launcher) | `node /Users/rzarita/opintel/node_modules/.bin/tsx sidecar/start.ts` |
+| 14797 | 3100 | `/Users/rzarita/.nvm/versions/node/v20.19.3/bin/node --require /Users/rzarita/opintel/node_modules/tsx/dist/preflight.cjs --import file:///Users/rzarita/opintel/node_modules/tsx/dist/loader.mjs sidecar/start.ts` |
+| 14709 | — (launcher) | `npm run dev` |
+| 14724 | 5173 | `node /Users/rzarita/opintel/node_modules/.bin/vite` |
+| 14841 | — (launcher) | `npm run dev:api` |
+| 14855 | — (launcher) | `node /Users/rzarita/opintel/node_modules/.bin/tsx --watch src/platform/http/start.ts` |
+| 14856 | — (launcher) | `/Users/rzarita/.nvm/versions/node/v20.19.3/bin/node --require /Users/rzarita/opintel/node_modules/tsx/dist/preflight.cjs --import file:///Users/rzarita/opintel/node_modules/tsx/dist/loader.mjs --watch src/platform/http/start.ts` |
+| 14857 | 3000, 3101 | `/Users/rzarita/.nvm/versions/node/v20.19.3/bin/node --require /Users/rzarita/opintel/node_modules/tsx/dist/preflight.cjs --import file:///Users/rzarita/opintel/node_modules/tsx/dist/loader.mjs src/platform/http/start.ts` |
+
+Reverse-order isolated runs used the same already-built optimized browser-test bundle, pinned Chromium 153.0.8010.12, desktop contexts and settled-paint preparation. All had zero redirects, zero touch points, no storage-state override and retry index zero. Each scenario is `5.36 custody receipt, revocation and accessibility at <width>` in `e2e/release-custody.spec.ts`.
+
+| Order / width | First navigation to load | HTML responseEnd | Scenario duration | Whole invocation | Result |
+|---|---:|---:|---:|---:|---|
+| 1 / 1440 | 879.3ms | 70.8ms | 7.795s | 24.45s | Passed |
+| 2 / 900 | 334.9ms | 20.2ms | 3.862s | 12.32s | Passed |
+| 3 / 390 | 476.9ms | 39.2ms | 3.707s | 13.79s | Passed |
+
+First-navigation timing is the browser PerformanceNavigationTiming duration through load; scenario duration is Playwright's test result, and whole invocation includes server/runner startup and teardown. Listener checks were saved immediately before invocation at 21:04:32, 21:06:28 and 21:07:49 EDT respectively. All three recorded empty Node-listener lists. Final verification also found no Node listeners; the user's stack remains stopped.
+
+The earlier ~2.3× narrow-width penalty and 3.444s HTML response do not persist: 390 is 0.96× the 900 scenario duration and is the fastest scenario, while the first run (1440) is slowest. This supports a development compilation/serving or run-order cost rather than an established narrow custody rendering defect. The first-navigation durations are not strictly monotonic (390 exceeds 900), so this does not prove run order is the only remaining timing variable. No application fix or deadline relaxation is justified by these results. Earlier full-production observations made with the user's stack active are not isolated measurements under this rule.
+
+Artifacts: `tmp/custody-dev-stack-stopped.json`; `tmp/production-isolated-{1440,900,390}-precondition.json`; `tmp/production-isolated-{1440,900,390}.log`; `tmp/production-isolated-summary.json`; per-run JSON and navigation attachments under `tmp/custody-candidate/tmp/production-isolated-<width>.json`. These are follow-up harness measurements, not another gate record.
+
 ## Change ledger
 
 | Version | Date | Change | Impact on the product |
@@ -243,3 +275,4 @@ Overall this gate record is **not green**: the performance tier failed on the mi
 | Receipt note 1.2 | 2026-10-15 | Record repository/system and external/partner authority; describe the unverified event mapping as an implementation boundary. | No behaviour changed in the custody mechanism; wording now matches what the system proves. Corroborated redemption still requires XQ's fetch event. |
 | Receipt note 1.3 | 2026-10-15 | Rename to custody-receipt-evidence-boundary.md, narrow authority and remove the legacy code from customer prose. | No behaviour changed in the custody mechanism; wording now matches what the system proves. Corroborated redemption still requires XQ's fetch event. |
 | 1.4 | 2026-10-15 | Fold the evidence note, record the open 390 question and approved warm-pass gate precondition. | No custody-mechanism behaviour changed by the wording/fold; wording matches what the system proves. Corroborated redemption still requires XQ's fetch event. Harness adoption remains separate. |
+| 1.5 | 2026-10-15 | Record authorized shutdown, reverse-order isolated production timings and mandatory immediately recorded listener precondition. | No custody mechanism changed. Wording matches what the system proves; corroborated redemption still requires XQ’s fetch event. No gate rerun or baseline change. |

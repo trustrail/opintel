@@ -1,0 +1,131 @@
+/* Private family aliases prevent prototype fonts from replacing legacy font faces. */
+@font-face{font-family:"Opintel Next Display";font-style:normal;font-display:swap;font-weight:500;src:url("@fontsource/space-grotesk/files/space-grotesk-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Opintel Next Display";font-style:normal;font-display:swap;font-weight:600;src:url("@fontsource/space-grotesk/files/space-grotesk-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Opintel Next Text";font-style:normal;font-display:swap;font-weight:400;src:url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Opintel Next Text";font-style:normal;font-display:swap;font-weight:500;src:url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Opintel Next Text";font-style:normal;font-display:swap;font-weight:600;src:url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Opintel Next Mono";font-style:normal;font-display:swap;font-weight:400;src:url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2") format("woff2")}
+/* Proposed opt-in master block. No existing product selectors are changed. */
+#opintel-app[data-language="next"] {
+  --plum:#1b0232; --green:#0cc655; --ivory:#fbfaf7; --yellow:#fff730;
+  --ink:var(--plum); --ink-2:#5a4a6b; --surface:#ffffff; --rule:#c7bdd6;
+  --clear:var(--green); --token:#1f6fd0; --mask:#c8bca9; --agg:#65417f;
+  --custody:#b09279; --held:var(--plum); --undecided:var(--yellow);
+  --error:#7a1428; --error-bg:#fceaed;
+  --display:"Opintel Next Display",sans-serif; --body:"Opintel Next Text",sans-serif; --mono:"Opintel Next Mono",monospace;
+  --title:32px; --section:24px; --body-size:16px; --secondary:14px; --caption:12px;
+  --s1:8px; --s2:16px; --s3:24px; --s4:32px; --s5:40px; --s6:48px; --s8:64px;
+  --radius-control:8px; --radius-panel:16px; --elevation:0 8px 24px rgb(27 2 50 / .16);
+  --focus:var(--plum); --focus-gap:var(--ivory);
+  margin:0; background:var(--ivory); color:var(--ink); font:var(--body-size)/1.5 var(--body);
+}
+#opintel-app[data-language="next"] * {box-sizing:border-box}
+#opintel-app[data-language="next"] :is(button,input,select,textarea){font:inherit;color:inherit}
+#opintel-app[data-language="next"] :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible {outline:3px solid var(--focus);outline-offset:3px;box-shadow:0 0 0 3px var(--focus-gap)}
+#opintel-app[data-language="next"] [data-inverse] {background:var(--plum);color:var(--ivory);--focus:var(--green);--focus-gap:var(--plum)}
+#opintel-app[data-language="next"] main {max-width:1200px;margin:auto;padding:var(--s4) var(--s3) var(--s8)}
+#opintel-app[data-language="next"] header {padding:var(--s3);border-bottom:1px solid var(--rule)}
+#opintel-app[data-language="next"] :is(h1,h2,h3,p){margin:0 0 var(--s2)}
+#opintel-app[data-language="next"] h1 {font:600 var(--title)/1.25 var(--display);letter-spacing:-.025em}
+#opintel-app[data-language="next"] h2 {font:500 var(--section)/1.33 var(--display);letter-spacing:-.02em}
+#opintel-app[data-language="next"] h3 {font:600 var(--body-size)/1.5 var(--body)}
+#opintel-app[data-language="next"] :is(.mono,code,input[type=number],input[type=date]){font-family:var(--mono)}
+#opintel-app[data-language="next"] :is(small,[data-caption]){font-size:var(--caption);line-height:16px}
+#opintel-app[data-language="next"] [data-secondary]{font-size:var(--secondary);line-height:24px;color:var(--ink-2)}
+#opintel-app[data-language="next"] section {padding:var(--s4) 0;border-bottom:1px solid var(--rule)}
+#opintel-app[data-language="next"] [data-row]{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+#opintel-app[data-language="next"] [data-stack]{display:grid;gap:var(--s2)}
+#opintel-app[data-language="next"] [data-label]{font:500 var(--caption)/16px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+#opintel-app[data-language="next"] a{color:inherit;text-underline-offset:.2em}
+#opintel-app[data-language="next"] .btn {font-size:var(--body-size);line-height:24px;font-family:var(--body);display:inline-flex;align-items:center;justify-content:center;gap:var(--s1);min-height:var(--s6);padding:var(--s1) var(--s2);border:1px solid currentColor;border-radius:var(--radius-control);background:transparent;cursor:pointer;text-decoration:none;font-weight:500}
+#opintel-app[data-language="next"] .btn[data-primary]{background:var(--green);color:var(--plum);border-color:var(--plum)}
+#opintel-app[data-language="next"] button:disabled{cursor:not-allowed;opacity:1;color:var(--ink-2);background:var(--ivory)}
+#opintel-app[data-language="next"] .tr {font-family:var(--body);line-height:24px;white-space:normal;display:inline-flex;align-items:center;padding:var(--s1) var(--s2);border-radius:var(--radius-control);font-size:var(--secondary);font-weight:500;border:1px solid currentColor;background:var(--ivory);color:var(--plum)}
+#opintel-app[data-language="next"] [data-treatment="clear"]{background:var(--clear);color:var(--plum)}
+#opintel-app[data-language="next"] [data-treatment="tokenized"]{background:var(--token);color:var(--ivory)}
+#opintel-app[data-language="next"] [data-treatment="masked"]{background:var(--mask);color:var(--plum)}
+#opintel-app[data-language="next"] [data-treatment="aggregate_only"]{background:var(--agg);color:var(--ivory)}
+#opintel-app[data-language="next"] [data-treatment="custody"]{background:var(--custody);color:var(--plum)}
+#opintel-app[data-language="next"] [data-treatment="withheld"]{background:var(--held);color:var(--ivory)}
+#opintel-app[data-language="next"] [data-treatment="undecided"]{background:var(--undecided);color:var(--plum);border-style:dashed}
+#opintel-app[data-language="next"] [data-notice]{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap;padding:var(--s2);border-block:1px solid var(--rule)}
+#opintel-app[data-language="next"] [data-notice] p{margin:0;flex:1;min-width:16ch}
+#opintel-app[data-language="next"] [role=group][data-segmented]{display:inline-flex;flex-wrap:wrap;gap:var(--s1)}
+#opintel-app[data-language="next"] [aria-pressed=true]{background:var(--plum);color:var(--ivory)}
+#opintel-app[data-language="next"] label {display:grid;gap:var(--s1)}
+#opintel-app[data-language="next"] :is(input,select,textarea){min-height:var(--s6);padding:var(--s1);background-color:var(--surface);border:1px solid var(--ink-2);border-radius:var(--radius-control);max-width:100%;min-width:0}
+#opintel-app[data-language="next"] [data-inputs]{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:var(--s3)}
+#opintel-app[data-language="next"] [data-summary]{display:flex;flex-wrap:wrap;gap:var(--s3);padding:var(--s2) 0;border-block:1px solid var(--plum)}
+#opintel-app[data-language="next"] [data-summary] p{margin:0}
+#opintel-app[data-language="next"] [data-table]{overflow:auto}
+#opintel-app[data-language="next"] table{border-collapse:collapse;width:100%;text-align:left}
+#opintel-app[data-language="next"] :is(th,td){padding:var(--s2);border-bottom:1px solid var(--rule);vertical-align:top}
+#opintel-app[data-language="next"] th{font-size:var(--caption);font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+#opintel-app[data-language="next"] [data-visual]{height:48vh;min-height:0;position:relative}
+#opintel-app[data-language="next"] svg{display:block;overflow:visible}
+#opintel-app[data-language="next"] [data-tile]{cursor:pointer;stroke:var(--ivory);stroke-width:2}
+#opintel-app[data-language="next"] [data-tooltip]{position:absolute;inset:auto var(--s2) var(--s2);padding:var(--s2);background:var(--plum);color:var(--ivory);border-radius:var(--radius-control);pointer-events:none;font-size:var(--secondary);box-shadow:var(--elevation)}
+#opintel-app[data-language="next"] [data-panel-example]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s3)}
+#opintel-app[data-language="next"] aside {padding:var(--s3);background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-panel);box-shadow:var(--elevation)}
+#opintel-app[data-language="next"] [data-state]{padding:var(--s3);border:1px solid var(--rule);border-radius:var(--radius-panel)}
+#opintel-app[data-language="next"] [data-state=error]{color:var(--error)}
+#opintel-app[data-language="next"] progress {accent-color:var(--plum);width:100%}
+@media(max-width:600px){#opintel-app[data-language="next"] main{padding:var(--s3) var(--s2)}#opintel-app[data-language="next"] [data-panel-example]{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){#opintel-app[data-language="next"] *{scroll-behavior:auto;transition:none;animation:none}}
+
+#opintel-app[data-language="next"] .tr.mono{font-family:var(--mono)}
+/* Prototype-only composition. Legacy roots never match this scope. */
+#opintel-app[data-language="next"] [data-split]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s3);align-items:start}
+#opintel-app[data-language="next"] [data-list]{list-style:none;margin:0;padding:0}
+#opintel-app[data-language="next"] [data-list]>li{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--s2);padding:var(--s2) 0;border-bottom:1px solid var(--rule)}
+#opintel-app[data-language="next"] [data-next-destination]>.screen>h1,#opintel-app[data-language="next"] [data-settings-embedded] .setnav{display:none}
+#opintel-app[data-language="next"] [data-next-destination] .screen{padding:0;display:block}
+#opintel-app[data-language="next"] [hidden]{display:none!important}
+#opintel-app[data-language="next"] [data-next-destination] :is(.card,.tiles,.spec){box-shadow:none;border-radius:var(--radius-panel);max-width:100%;margin-inline:0}
+#opintel-app[data-language="next"] [data-next-destination] :is(.card-h,.sheetb,.pgbox){padding:var(--s2)}
+#opintel-app[data-language="next"] [data-next-destination] :is(.note,.sub,.meta,.rmeta){font:var(--secondary)/24px var(--body);color:var(--ink-2)}
+#opintel-app[data-language="next"] [data-next-destination] :is(.segbtns,.filters){display:flex;gap:var(--s1);flex-wrap:wrap;margin-block:var(--s2)}
+#opintel-app[data-language="next"] [data-next-destination] :is(.inp,.sel){font-size:var(--body-size);max-width:100%}
+#opintel-app[data-language="next"] [data-inverse] [data-secondary]{color:var(--ivory)}
+#opintel-app[data-language="next"] [data-detail-panel]{min-width:0;overflow-wrap:anywhere}
+#opintel-app[data-language="next"] [data-visual="receipt"]{height:40vh;margin:var(--s2) 0}
+#opintel-app[data-language="next"] figure{margin:0}
+#opintel-app[data-language="next"] .modal .sheet{background:var(--ivory);max-height:90vh;overflow:auto;padding:var(--s3)}
+#opintel-app[data-language="next"] [data-group]{padding:var(--s2) 0}
+#opintel-app[data-language="next"] .btn[aria-current=page]{background:var(--green);color:var(--plum)}
+@media(max-width:1000px){#opintel-app[data-language="next"] [data-split]{grid-template-columns:minmax(0,1fr)}}
+body:has(#opintel-app[data-language="next"]){margin:0}
+#opintel-app[data-language="next"] [data-next-destination] .segbtns button{font-size:var(--body-size);padding:var(--s1) var(--s2);min-height:var(--s6)}
+#opintel-app[data-language="next"] [data-next-destination] :is(.toolchip,.gchip){font-size:var(--secondary);padding:var(--s1);min-height:var(--s5)}
+#opintel-app[data-language="next"] [data-next-destination] .tr{font-size:var(--secondary)}
+#opintel-app[data-language="next"] .modal .sheet h2{margin-top:0}
+#opintel-app[data-language="next"] [data-split][data-detail=true]{grid-template-columns:minmax(0,1fr) minmax(0,3fr)}
+#opintel-app[data-language="next"] [data-detail-panel] :is(button,a,td){overflow-wrap:normal}
+#opintel-app[data-language="next"] td{font:var(--secondary)/24px var(--body);min-width:8ch;padding:var(--s1)}
+#opintel-app[data-language="next"] td .btn{white-space:nowrap}
+#opintel-app[data-language="next"] td.mono{font-family:var(--mono)}
+#opintel-app[data-language="next"] [data-treatment-control]{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+#opintel-app[data-language="next"] [data-treatment-control] .fld{margin:0;min-width:16ch}
+#opintel-app[data-language="next"] [data-treatment-control] p{margin:0;flex:1;min-width:16ch}
+#opintel-app[data-language="next"] [data-group]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:var(--s1) var(--s2)}
+#opintel-app[data-language="next"] [data-group]>[id]{grid-column:1/-1}
+#opintel-app[data-language="next"] [data-group]>button{justify-self:start}
+#opintel-app[data-language="next"] [data-next-destination] :is(.toolchip,.gchip)[aria-pressed=true]{color:var(--ivory)}
+#opintel-app[data-language="next"] [data-visual="receipt"]{height:24vh}
+@media(max-width:1000px){#opintel-app[data-language="next"] [data-split][data-detail=true],#opintel-app[data-language="next"] [data-group]{grid-template-columns:minmax(0,1fr)}}
+#opintel-app[data-language="next"] [data-group] h2{font-size:var(--body-size);margin:0;overflow-wrap:anywhere}
+#opintel-app[data-language="next"] [data-settings-embedded] [aria-label="Settings areas"]{display:none}
+#opintel-app[data-language="next"] [data-settings-embedded]>.screen>h1{display:none}
+@media(min-width:801px) and (max-width:1000px){#opintel-app[data-language="next"] [data-split][data-detail=true]{grid-template-columns:minmax(0,1fr) minmax(0,3fr)}}
+@media(max-width:800px){#opintel-app[data-language="next"] [data-split][data-detail=true]>section{display:none}}
+#opintel-app[data-language="next"] :is(.audw,.rwhen){font:var(--caption)/24px var(--mono)}
+#opintel-app[data-language="next"] .blank p{font-size:var(--secondary)}
+#opintel-app[data-language="next"] .blank b{font-size:var(--body-size)}
+#opintel-app[data-language="next"] [data-settings-embedded] .card-h h2{font-size:var(--section)}
+#opintel-app[data-language="next"] [data-settings-embedded] .frow [data-part]{font-size:var(--body-size)}
+#opintel-app[data-language="next"] :is(.qbox,.code,.toolchip,.num){font-family:var(--mono)}
+#opintel-app[data-language="next"] .qbox{font-size:var(--secondary)}
+
+#opintel-app[data-language="next"] .joinbox{font-size:var(--secondary)}
+#opintel-app[data-language="next"] :is(.toolchip,.gchip,.segbtns,.ichip,.code){border-radius:var(--radius-control)}
+#opintel-app[data-language="next"] .modal .sheet{border-radius:var(--radius-panel);box-shadow:var(--elevation)}

@@ -1,0 +1,9 @@
+import type {ReactNode} from 'react';
+import {Button} from '../../shared/ui/index.js';
+import {useNext} from './context.js';
+import type {NextSearch} from './state.js';
+export function QueryState({pending,error,retry,children}:{pending:boolean;error:{message:string}|null;retry?:()=>void;children:ReactNode}){return pending?<p role="status">Loading…</p>:error?<div><p role="alert">{error.message}</p>{retry?<Button onClick={retry}>Try again</Button>:null}</div>:children;}
+export function Tabs({items,value,field='view'}:{items:readonly (readonly [string,string])[];value:string;field?:'view'|'groupBy'|'decision'}){const {destination,search,go}=useNext();return <div className="segbtns" aria-label={field==='view'?'Views':field==='groupBy'?'Group columns':'Decision filter'}>{items.map(([id,label])=><Button key={id} variant="ghost" aria-pressed={id===value} onClick={()=>go(destination,{...search,[field]:id,cursor:undefined,memberCursor:undefined,group:undefined,scroll:undefined} as NextSearch)}>{label}</Button>)}</div>;}
+export function Search({label='Search by name'}:{label?:string}){const {destination,search,go}=useNext();return <label className="fld">{label}<input className="inp" value={search.prefix??''} maxLength={destination==='decisions'||destination==='sources'&&search.view==='schema'?63:200} onChange={e=>go(destination,{...search,prefix:e.target.value||undefined,cursor:undefined,scroll:undefined},true)}/></label>;}
+export function Empty({children}:{children:ReactNode}){return <div className="blank"><p>{children}</p></div>;}
+export function Disclosure({id,label,open,toggle,children}:{id:string;label:string;open:boolean;toggle:()=>void;children:ReactNode}){return <><button type="button" className="toolchip" aria-expanded={open} aria-controls={id} onClick={toggle}>{label}</button><div id={id} hidden={!open}>{children}</div></>;}

@@ -1,0 +1,93 @@
+[
+  {
+    "name": "Primary / ivory",
+    "fg": "#1b0232",
+    "bg": "#fbfaf7",
+    "luminance": 0.9559584425209583,
+    "ratio": 18.267841965006202
+  },
+  {
+    "name": "Secondary / ivory",
+    "fg": "#5a4a6b",
+    "bg": "#fbfaf7",
+    "luminance": 0.9559584425209583,
+    "ratio": 7.659919465116676
+  },
+  {
+    "name": "Primary / surface",
+    "fg": "#1b0232",
+    "bg": "#ffffff",
+    "luminance": 1,
+    "ratio": 19.06762074105948
+  },
+  {
+    "name": "Secondary / surface",
+    "fg": "#5a4a6b",
+    "bg": "#ffffff",
+    "luminance": 1,
+    "ratio": 7.995276045615516
+  },
+  {
+    "name": "Inverse / purple",
+    "fg": "#fbfaf7",
+    "bg": "#1b0232",
+    "luminance": 0.0050671745709190905,
+    "ratio": 18.267841965006202
+  },
+  {
+    "name": "Clear / action",
+    "fg": "#1b0232",
+    "bg": "#0cc655",
+    "luminance": 0.4112220658846999,
+    "ratio": 8.375626123521338
+  },
+  {
+    "name": "Tokenized",
+    "fg": "#fbfaf7",
+    "bg": "#1f6fd0",
+    "luminance": 0.16214251733558724,
+    "ratio": 4.741899243750546
+  },
+  {
+    "name": "Masked",
+    "fg": "#1b0232",
+    "bg": "#c8bca9",
+    "luminance": 0.511103724078627,
+    "ratio": 10.1894409591689
+  },
+  {
+    "name": "Aggregate only",
+    "fg": "#fbfaf7",
+    "bg": "#65417f",
+    "luminance": 0.08079601038064475,
+    "ratio": 7.691048370614677
+  },
+  {
+    "name": "Custody",
+    "fg": "#1b0232",
+    "bg": "#b09279",
+    "luminance": 0.31168351168692815,
+    "ratio": 6.5680419325151425
+  },
+  {
+    "name": "Withheld",
+    "fg": "#fbfaf7",
+    "bg": "#1b0232",
+    "luminance": 0.0050671745709190905,
+    "ratio": 18.267841965006202
+  },
+  {
+    "name": "Undecided",
+    "fg": "#1b0232",
+    "bg": "#fff730",
+    "luminance": 0.8799492893565128,
+    "ratio": 16.887543197969304
+  },
+  {
+    "name": "Error / ivory",
+    "fg": "#7a1428",
+    "bg": "#fbfaf7",
+    "luminance": 0.9559584425209583,
+    "ratio": 10.274225251253736
+  }
+]

@@ -10,7 +10,7 @@ type Sender={apiKey:string;alias:string};
 type Authorize=(sender:Sender)=>Promise<unknown>;
 const failure='XQ bootstrap failed. Check the .env API key and sender alias, provider availability, and token expiry. No credentials were printed.';
 
-function authorizeWithWorker(sender:Sender):Promise<unknown>{return new Promise((resolve,reject)=>{
+export function authorizeWithWorker(sender:Sender):Promise<unknown>{return new Promise((resolve,reject)=>{
  const worker=new Worker(new URL('./infrastructure/xq-bootstrap-worker.mjs',import.meta.url),{workerData:{kind:'xq-bootstrap',...sender},stdout:true,stderr:true});
  // SDK diagnostics (including error bodies) must never reach the terminal.
  worker.stdout.resume();worker.stderr.resume();

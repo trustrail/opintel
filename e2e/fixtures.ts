@@ -37,6 +37,11 @@ export const test=base.extend<{screenNavigationContract:void;controlConformance:
  screenNavigationContract:[async({context},use)=>{
   await use();
   for(const page of context.pages()){
+   // Approved /next IA uses history Back; legacy breadcrumb assertions remain intact.
+   if(new URL(page.url()).pathname.startsWith('/next/')&&await page.locator('#opintel-app[data-language=next]').count()){
+    await expect(page.getByRole('button',{name:'← Back',exact:true})).toHaveCount(1);
+    continue;
+   }
    const outsideBreadcrumb=page.locator(':not(nav[aria-label="Breadcrumb"] *)');
    const name=/^(back|back to |. back)/i;
    await expect(page.getByRole('link',{name}).and(outsideBreadcrumb)).toHaveCount(0);

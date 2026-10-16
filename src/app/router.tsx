@@ -1,3 +1,6 @@
+import {lazy,Suspense} from 'react';
+import {nextEnabled,nextSearchSchema,destinations} from './next/state.js';
+const NextConsole=lazy(()=>import('./next/console.js'));
 import {SuggestionsScreen} from './relationships/screen.js';
 import {ProjectSettingsScreen,PersonalSettingsScreen,CompanySettingsScreen} from './settings/screens.js';
 import {PoolsScreen,PoolDetailScreen,AgentTwinScreen} from './pools/screens.js';
@@ -23,6 +26,9 @@ import { KitchenSinkScreen } from './kitchen-sink.js';
 import { SharedPatternsScreen } from './shared-patterns.js';
 import { CreateCompanyScreen, CreateProjectScreen, ProjectChooser, ProjectDashboard } from './tenancy/screens.js';
 
+// Component review routes belong in development and the optimized browser-test build only.
+const componentReviewEnabled=import.meta.env.DEV||import.meta.env.MODE==='browser-test';
+
 function RouteScreen({ title }: { title: string }): ReactNode {
   return <RouteErrorBoundary><section className="screen on"><h1>{title}</h1></section></RouteErrorBoundary>;
 }
@@ -31,7 +37,8 @@ function RootLayout(): ReactNode {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const search = useRouterState({ select: (state) => state.location.searchStr });
   const hash = useRouterState({ select: (state) => state.location.hash });
-  return isAuthPath(pathname) || (import.meta.env.DEV && ['/dev/kitchen-sink','/dev/shared-patterns'].includes(pathname)) ? <Outlet /> : <AuthGuard intendedPath={`${pathname}${search}${hash}`}><AppShell /></AuthGuard>;
+  if(pathname.startsWith('/next/')&&nextEnabled(import.meta.env.VITE_CONSOLE_NEXT))return <AuthGuard intendedPath={`${pathname}${search}${hash}`}><Outlet/></AuthGuard>;
+  return isAuthPath(pathname) || (componentReviewEnabled && ['/dev/kitchen-sink','/dev/shared-patterns'].includes(pathname)) ? <Outlet /> : <AuthGuard intendedPath={`${pathname}${search}${hash}`}><AppShell /></AuthGuard>;
 }
 
 function AuthRoute({ children }: { readonly children: ReactNode }): ReactNode {
@@ -70,7 +77,7 @@ const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-
 const checkEmailRoute = createRoute({ getParentRoute: () => rootRoute, path: '/check-email', component: () => <AuthRoute><CheckEmailScreen /></AuthRoute> });
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: () => <AuthRoute><AuthCallbackScreen /></AuthRoute> });
 const confirmDeviceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/confirm-device', component: () => <AuthRoute><ConfirmDeviceScreen /></AuthRoute> });
-const kitchenSinkRoutes = import.meta.env.DEV
+const kitchenSinkRoutes = componentReviewEnabled
   ? [createRoute({ getParentRoute: () => rootRoute, path: '/dev/kitchen-sink', component: KitchenSinkScreen }),createRoute({getParentRoute:()=>rootRoute,path:'/dev/shared-patterns',component:SharedPatternsScreen})]
   : [];
 
@@ -82,8 +89,10 @@ function routeFor(item: NavItem) {
   });
 }
 
+const nextRoute=createRoute({getParentRoute:()=>rootRoute,path:'/next/projects/$projectId/$destination',validateSearch:s=>nextSearchSchema.parse(s),component:()=>{const {projectId,destination}=nextRoute.useParams(),search=nextRoute.useSearch(),navigate=nextRoute.useNavigate();if(!nextEnabled(import.meta.env.VITE_CONSOLE_NEXT)||!destinations.includes(destination as typeof destinations[number]))return <RouteScreen title="Not found"/>;return <Suspense fallback={<p role="status">Loading console preview…</p>}><NextConsole projectId={projectId} destination={destination as typeof destinations[number]} search={search} navigate={(destination,search,replace)=>{void navigate({params:{projectId,destination},search,replace});}}/></Suspense>;}});
+
 const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects'&&item.path!=='/settings').map(routeFor));
-const routeTree = rootRoute.addChildren([personalSettingsRoute,companySettingsRoute,poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routeTree = rootRoute.addChildren([nextRoute,personalSettingsRoute,companySettingsRoute,poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
 
 export const router = createRouter({ routeTree });
 

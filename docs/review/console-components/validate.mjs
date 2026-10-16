@@ -1,0 +1,18 @@
+import {chromium} from '../../../node_modules/playwright/index.mjs';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+const out=new URL('../../../tmp/review/console-language/',import.meta.url);await mkdir(out,{recursive:true});
+const browser=await chromium.launch({channel:'chrome',headless:true});const results=[];
+try {for(const width of [390,900,1440]){const page=await browser.newPage({viewport:{width,height:900},deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(new URL('./index.html',import.meta.url).href);await page.evaluate(()=>document.fonts.ready);await page.waitForFunction(()=>[...document.querySelectorAll('[data-visual]')].every(el=>el.querySelector('svg')));await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+await page.addScriptTag({path:fileURLToPath(new URL('../../../node_modules/axe-core/axe.min.js',import.meta.url))});
+const violations=await page.evaluate(async()=>{const r=await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}});return r.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}));});
+const geometry=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,fonts:[...document.fonts].filter(f=>f.status==='loaded').map(f=>f.family),visuals:[...document.querySelectorAll('[data-visual]')].map(el=>({container:el.getBoundingClientRect().width,svg:el.querySelector('svg')?.getBoundingClientRect().width}))}));
+await page.screenshot({path:fileURLToPath(new URL(`components-${width}.png`,out)),fullPage:true});await page.locator('#visuals').screenshot({path:fileURLToPath(new URL(`visuals-${width}.png`,out))});
+await page.getByRole('button',{name:'Rows',exact:true}).click();if(await page.getByRole('button',{name:'Rows',exact:true}).getAttribute('aria-pressed')!=='true')throw Error('Segment failed');
+for(const state of ['L','E0','EF','X','P','M','S']){await page.getByRole('button',{name:state,exact:true}).click();await page.locator('[data-state]').scrollIntoViewIfNeeded();const stateViolations=await page.evaluate(async()=>{const r=await axe.run(document.querySelector('[data-state]'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}});return r.violations.map(v=>v.id);});if(stateViolations.length)errors.push(`${state}: ${stateViolations.join(', ')}`);if(width===1440)await page.locator('[data-state]').screenshot({path:fileURLToPath(new URL(`state-${state}.png`,out))});}
+await page.getByRole('button',{name:'M',exact:true}).click();await page.getByRole('button',{name:'Load more objects'}).click();if(!await page.getByRole('heading',{name:'Showing 6 of 6 specimen objects'}).count())throw Error('Load more failed');
+await page.getByRole('button',{name:'claims, 6000',exact:false}).focus();await page.keyboard.press('Enter');if(!await page.getByText('Selected claims in this specimen.',{exact:false}).count())throw Error('Tile keyboard failed');
+await page.getByRole('link',{name:'← Back to list',exact:true}).click();if(await page.locator('aside').count())throw Error('Panel close failed');await page.getByRole('button',{name:'Open row-filter specimen'}).click();if(!await page.locator('aside').count())throw Error('Panel reopen failed');
+results.push({width,errors,violations,...geometry});await page.close();}
+await writeFile(new URL('validation.json',out),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));if(results.some(r=>r.errors.length||r.violations.length||r.overflow))process.exitCode=1;
+}finally{await browser.close();}
