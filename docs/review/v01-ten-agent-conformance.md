@@ -1,6 +1,6 @@
 # V-01 — ten-agent, two-pool reinsurance conformance
 
-Version: 1.0 — 2026-10-17
+Version: 1.1 — 2026-10-17
 
 ## Scope and reproduction
 
@@ -94,8 +94,31 @@ when complete; this focused result is not a gate claim.
 - Targeted strict TypeScript checking of the new test files passed after adding
   the JSON import attribute and validating MCP content before accessing it.
 
+## Completed-candidate gate
+
+One `npm run check` on commit `3f4df43`, 17 Oct 2026. No Node listeners were
+present before invocation; the gate also recorded dev-port isolation before each
+browser tier. No warm pass, gate retry, baseline work, live XQ call or product
+behavior change. V-01 passed again within this gate: 1,006 checks, 42.44 seconds.
+
+| Tier | Result | Seconds |
+|---|---|---:|
+| typecheck | Passed | 35.21 |
+| typecheck:conformance | Passed | 8.65 |
+| lint | Passed | 23.37 |
+| build:production | Passed | 2.59 |
+| test:conformance | Passed | 188.05 |
+| test | Passed | 1282.53 |
+| test:smoke | Passed | 55.09 |
+
+Total wall time: **1,595.55 seconds (26m 35.55s)**. Domain/integration: **1,845
+passed in 202 files**. Conformance: **54/54 routes, zero findings**. Smoke: **one
+passed**. The later backlog-closeout commit changes documentation only; the gate
+record belongs to `3f4df43`.
+
 ## Change ledger
 
 | Version | Date | Change | Impact on the product |
 |---|---|---|---|
 | 1.0 | 2026-10-17 | Extend existing reinsurance fixture and record amended V-01 focused conformance. | Test/fixture work only; no entitlement, custody or execution behavior changed. |
+| 1.1 | 2026-10-17 | Record the single green gate on 3f4df43 and close V-01. | Documentation only; V-02 remains open. |

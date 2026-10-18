@@ -114,16 +114,6 @@ deferred, and remove the AddContact proposal as superseded rather than complete.
 
 ## Next — make it demonstrable
 
-### V-01 · Ten-agent, two-pool conformance run
-**Customer** Proves that ten concurrent agents receive their own pool's column treatments
-and cedant row scope, and that binding a source does not inherit another pool's decisions.
-This run is also the spine of the demonstration.
-**Status** In progress · Medium
-**Detail** Amended 17 Oct 2026: assertion 1a requires different treatments on the same column
-in the two pools; 1b requires an A-only decision to refuse in B with entitlement_missing.
-The earlier source-level inheritance prerequisite is superseded, not implemented.
-No XQ or custody calls; V-02 is separate. Expectations come only from the reinsurance fixture.
-
 ### V-02 · Custody leg: release and non-recipient refusal
 **Customer** Proves the property custody rests on — that an agent can unseal only what was
 released to it. A shared certificate cannot prove this, so one pool carries a third
@@ -301,6 +291,20 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 ---
 
 ## Done
+
+### V-01 · Ten-agent, two-pool conformance run
+**Customer** Proves that ten concurrent agents receive their own pool's column treatments
+and cedant row scope, and that binding a source does not inherit another pool's decisions.
+This run is also the spine of the demonstration.
+**Status** Done · Medium
+**Detail** Amended 17 Oct 2026: assertion 1a requires different treatments on the same column
+in the two pools; 1b requires an A-only decision to refuse in B with entitlement_missing.
+The earlier source-level inheritance prerequisite is superseded, not implemented.
+No XQ or custody calls; V-02 is separate. Expectations come only from the reinsurance fixture.
+**Evidence** `3f4df43`, checked 17 Oct 2026: ten independent credentials, two cedant
+pools, eight concurrent batches, 80 distinct receipts and 1,006 checks passed.
+Full gate passed once: 1,845 domain/integration tests, 54/54 conformance routes and
+one smoke path; 26m 35.55s. [Fixture, assertions and retained failed attempts](review/v01-ten-agent-conformance.md).
 
 | # | Row | Closed by |
 |---|---|---|
