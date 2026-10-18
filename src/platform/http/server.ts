@@ -1,3 +1,4 @@
+import {publicAssociationOnly} from '../../shared/api/certificate-association.js';
 import { randomUUID } from 'node:crypto';
 import {once} from 'node:events';
 import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -159,8 +160,8 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   }
 }
 
-function validationFailure(requestId: string): ErrorEnvelope {
-  return errorEnvelope('validation_failed', 'The request did not pass validation.', requestId, false);
+function validationFailure(requestId: string, message='The request did not pass validation.'): ErrorEnvelope {
+  return errorEnvelope('validation_failed', message, requestId, false);
 }
 
 function routeMatch(path: string, route: RegisteredRoute): Record<string, string> | null {
@@ -262,7 +263,7 @@ export function createHttpServer(
       const parsedParams = matched.route.params.safeParse(matched.params);
       const parsedQuery = (matched.route.query ?? z.object({})).safeParse(queryParameters(url.searchParams));
       if (!parsedRequest.success || !parsedParams.success || !parsedQuery.success) {
-        writeJson(response, 400, requestId, validationFailure(requestId));
+        writeJson(response, 400, requestId, validationFailure(requestId,!parsedRequest.success&&parsedRequest.error.issues.some(issue=>issue.message===publicAssociationOnly)?publicAssociationOnly:undefined));
         return;
       }
 

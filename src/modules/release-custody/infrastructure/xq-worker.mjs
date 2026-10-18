@@ -1,5 +1,7 @@
 import {parentPort,workerData} from 'node:worker_threads';
 import {webcrypto} from 'node:crypto';
+// XQ's Gateway/Transfer licence guidance recommends database (8) for our key packets.
+const XQ_DATABASE_STORAGE_TYPE=8;
 // jssdk-core 2.0.6 inspects a browser platform at import even for key-only
 // operations. Keep that compatibility surface in a disposable worker, never
 // mutate the application's globals or use the SDK's encryption implementation.
@@ -8,8 +10,8 @@ globalThis.window={navigator:{platform:'Node'},crypto:webcrypto};
 // this worker into application logs, including health-check failure bodies.
 globalThis.console.log=globalThis.console.info=globalThis.console.warn=globalThis.console.error=globalThis.console.debug=()=>{};
 try{
- const {XQSDK,AuthorizeAlias,GeneratePacket,RevokeKeyAccess,FetchKey,CheckApiKey,GetCurrentBusiness,ServerResponse}=await import('@xqmsg/jssdk-core');
- const {configuration,operation,alias,locator,share,ttlSeconds,receipt}=workerData;
+ const {XQSDK,GeneratePacket,RevokeKeyAccess,FetchKey,CheckApiKey,GetCurrentBusiness,ServerResponse}=await import('@xqmsg/jssdk-core');
+ const {configuration,operation,alias,recipientIdentifier,locator,share,ttlSeconds,receipt}=workerData;
  const sdk=new XQSDK({XQ_API_KEY:configuration.apiKey,DASHBOARD_API_KEY:configuration.dashboardApiKey});
  // Explicit infrastructure injection for local adapter contract tests; never
  // exposed through Settings or agent input.
@@ -31,8 +33,7 @@ try{
  let response;
  if(operation==='dashboard_health'){sdk.getCache().putDashboardAccess(configuration.senderAlias,configuration.dashboardAccessToken);response=await new GetCurrentBusiness(sdk).supplyAsync(null);}
  else if(operation==='health')response=await new CheckApiKey(sdk).supplyAsync({'api-key':configuration.apiKey});
- else if(operation==='register')response=await new AuthorizeAlias(sdk).supplyAsync({user:alias});
- else if(operation==='escrow')response=await new GeneratePacket(sdk).supplyAsync({key:share,recipients:[alias],expires:Math.ceil(ttlSeconds/3600),dor:true,type:'unknown',meta:receipt?{receipt}:null});
+ else if(operation==='escrow')response=await new GeneratePacket(sdk).supplyAsync({key:share,recipients:[recipientIdentifier],expires:Math.ceil(ttlSeconds/3600),dor:true,type:XQ_DATABASE_STORAGE_TYPE,meta:receipt?{receipt}:null});
  else if(operation==='revoke')response=await new RevokeKeyAccess(sdk).supplyAsync({tokens:[locator]});
  else if(operation==='fetch')response=await new FetchKey(sdk).supplyAsync({locatorKey:locator});
  else throw new Error('Unknown XQ operation.');

@@ -45,6 +45,7 @@ integration('pool schema with real Postgres',()=>{
   const [credentialRow]=await insert(8);
   const [alias]=await scope(tx=>tx.query<{custody_alias:string}>('SELECT custody_alias FROM pool_key WHERE id=$1',[credentialRow!.id]));
   expect(alias?.custody_alias).toBe(`agent:${projectId}:${credentialRow!.id}`);
+  expect(await scope(tx=>tx.query('SELECT certificate_id,device_name,recipient_identifier,identity_kind,association_status,association_recorded_at FROM pool_credential'))).toEqual([{certificate_id:null,device_name:null,recipient_identifier:null,identity_kind:null,association_status:null,association_recorded_at:null}]);
   const [stored]=await scope(tx=>tx.query<{key_hash:Buffer;key_prefix:string}>('SELECT key_hash,key_prefix FROM pool_key'));
   expect(stored).toEqual({key_hash:digest(8),key_prefix:'opk_live_example'});
   const columns=await withPlatform(tx=>tx.query<{column_name:string}>("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='pool_key' ORDER BY ordinal_position"));

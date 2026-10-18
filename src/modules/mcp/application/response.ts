@@ -128,6 +128,7 @@ export function refusalResponse(error:DomainError) {
   else text=messages.Unknown;
  }
  if(passThroughCauses[error.code]?.includes(cause)&&error.code!=='sql_not_permitted')text=error.message;
+ if(label==='Release-prepare'&&details.reason==='certificate_association_missing')text='This credential has no active XQ certificate association. No result was released. Ask an administrator to register its public certificate association.';
  if(label==='Release-config'){
   const reasons:Readonly<Record<string,string>>={provider_not_configured:'No custody provider is configured.',provider_not_checked:'The custody provider has not passed a connection check.',provider_configuration_changed:'The custody provider configuration changed after its connection check.',provider_check_failed:'The custody provider connection check failed.'};
   if(typeof details.reason==='string'&&reasons[details.reason])text=`${reasons[details.reason]} No result was released. Configure a custody provider in Settings.`;

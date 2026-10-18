@@ -1,12 +1,13 @@
+import {CertificateAssociation,publicAssociationOnly,publicAssociationText} from './certificate-association.js';
 import {numericProjectSetting} from '../project-settings.js';
 import { z } from 'zod';
 import { createApiClient } from './client.js';
 export const PoolKeyGraceSeconds = numericProjectSetting('poolKeyGraceSeconds');
 export const PoolKeyIdempotency = z.string().trim().min(1).max(200);
-export const CreatePoolBody = z.strictObject({name:z.string().trim().min(1).max(80)});
+export const CreatePoolBody = z.strictObject({name:publicAssociationText.pipe(z.string().trim().min(1).max(80)),certificateAssociation:CertificateAssociation.optional()},{error:publicAssociationOnly});
 export const RotatePoolKeyBody = z.strictObject({projectId:z.uuid(),credentialId:z.uuid().optional()});
 export const RevokePoolKeyBody = z.strictObject({projectId:z.uuid(),keyVersion:z.uuid(),confirmation:z.string().min(1)});
-export const IssueCredentialBody=z.strictObject({projectId:z.uuid(),label:z.string().trim().min(1).max(80)});
+export const IssueCredentialBody=z.strictObject({projectId:z.uuid(),label:publicAssociationText.pipe(z.string().trim().min(1).max(80)),certificateAssociation:CertificateAssociation.optional()},{error:publicAssociationOnly});
 export const RevokeCredentialBody=z.strictObject({projectId:z.uuid(),credentialId:z.uuid(),confirmation:z.string().min(1),confirmedLiveGrants:z.number().int().nonnegative().optional()});
 export const PoolKeyMetadata = z.strictObject({credentialId:z.uuid().optional(),label:z.string().optional(),custodyAlias:z.string().startsWith('agent:').optional(),poolId:z.uuid(),keyVersion:z.uuid(),prefix:z.string().regex(/^opk_live_[A-Za-z0-9]{1,21}$/u),createdAt:z.iso.datetime(),state:z.enum(['current','retiring','revoked','expired']),graceUntil:z.iso.datetime().nullable()});
 export type PoolKeyMetadata = z.infer<typeof PoolKeyMetadata>;

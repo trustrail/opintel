@@ -8,7 +8,7 @@ export const queryRefusalDetails = z.object({
  proofCategory:z.enum(['parse_failed','serialization_refused','sql_not_permitted','aggregate_stage2']).optional(),
  resource:z.enum(['memory','queue','time','cancellation']).optional(),
  queryEngineVersion:name.optional(), evidenceId:name.optional(),
- reason:z.enum(['provider_not_configured','provider_not_checked','provider_configuration_changed','provider_check_failed','all_withheld','all_undecided','mixed_withheld_undecided','source_status','credential_missing','source_status_and_credential_missing',
+ reason:z.enum(['certificate_association_missing','provider_not_configured','provider_not_checked','provider_configuration_changed','provider_check_failed','all_withheld','all_undecided','mixed_withheld_undecided','source_status','credential_missing','source_status_and_credential_missing',
  'namespace','staged_schema','policy','group_count_rewrite','row_limit_rewrite','engine_version','policy_version','column_types','row_shape','result_contract',
  'secret_missing','secret_malformed','secret_storage','staging_capability','scanner','read_plan','query_limits','metadata','data',
  'response_incomplete','response_oversized','response_content_type','response_json','response_error_envelope','health_contract',

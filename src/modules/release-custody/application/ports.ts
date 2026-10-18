@@ -8,7 +8,7 @@ export type ProviderRedemptions={status:'supported';events:ProviderRedemption[]}
 export interface ReleaseProvider {
  readonly id:string;readonly tenant:string;readonly redeemAt:string;
  readonly reportedRegion?:string;
- register(alias:string):Promise<void>;
+ register?(alias:string):Promise<void>;
  escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true,receipt?:string):Promise<string>;
  revoke(locator:string):Promise<void>;
  redemptions(since:Date):Promise<ProviderRedemptions>;

@@ -3,10 +3,30 @@ import {randomUUID} from 'node:crypto';
 import {expect,it} from 'vitest';
 import {migrationDatabase} from './fixtures/migration-database.js';
 const owner=migrationDatabase();
+it('079 nullable association round-trips without changing identity triggers; recorded associations block destructive downgrade',async()=>{
+ const db=owner(),up=await readFile('migrations/079_credential_certificate_association.up.sql','utf8'),down=await readFile('migrations/079_credential_certificate_association.down.sql','utf8');
+ await db.query('BEGIN');
+ try{
+  const triggers=(await db.query("SELECT pg_get_functiondef(oid) AS definition FROM pg_proc WHERE proname IN ('bind_pool_credential','bind_custody_alias') ORDER BY proname")).rows;
+  await db.query(down);await db.query(up);
+  expect((await db.query("SELECT pg_get_functiondef(oid) AS definition FROM pg_proc WHERE proname IN ('bind_pool_credential','bind_custody_alias') ORDER BY proname")).rows).toEqual(triggers);
+  const project=randomUUID(),pool=randomUUID(),credential=randomUUID();
+  const company=await db.query("INSERT INTO company(name,default_region) VALUES('Association migration','eu-west-1') RETURNING id"),industry=await db.query('SELECT id FROM industry LIMIT 1');
+  await db.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,'Association','eu-west-1')",[project,company.rows[0].id,industry.rows[0].id]);
+  await db.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Association')",[pool,project]);
+  await db.query("INSERT INTO pool_credential(id,pool_id,project_id,label,custody_alias) VALUES($1,$2,$3,'Reader','trigger')",[credential,pool,project]);
+  expect((await db.query('SELECT certificate_id,device_name,recipient_identifier,identity_kind,association_status,association_recorded_at FROM pool_credential')).rows).toEqual([{certificate_id:null,device_name:null,recipient_identifier:null,identity_kind:null,association_status:null,association_recorded_at:null}]);
+  await db.query('SAVEPOINT partial');await expect(db.query('UPDATE pool_credential SET certificate_id=223')).rejects.toMatchObject({code:'23514'});await db.query('ROLLBACK TO SAVEPOINT partial');
+  await db.query("UPDATE pool_credential SET certificate_id=223,device_name='reader',recipient_identifier='opaque recipient',identity_kind='certificate',association_status='associated',association_recorded_at=now()");
+  expect((await db.query('SELECT custody_alias FROM pool_credential')).rows).toEqual([{custody_alias:`agent:${project}:${credential}`}]);
+  await db.query('SAVEPOINT recorded');await expect(db.query(down)).rejects.toMatchObject({code:'P0001'});await db.query('ROLLBACK TO SAVEPOINT recorded');
+ }finally{await db.query('ROLLBACK');}
+},60000);
  // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('072 seeded up/down/up preserves keys, aliases, entitlements and a legacy retiring alias; independent identities block downgrade',async()=>{
  const db=owner(),up=await readFile('migrations/072_pool_credentials.up.sql','utf8'),down=await readFile('migrations/072_pool_credentials.down.sql','utf8');await db.query('BEGIN');
  try{
+  await db.query(await readFile('migrations/079_credential_certificate_association.down.sql','utf8'));
   await db.query(await readFile('migrations/073_credential_lifecycle_guards.down.sql','utf8'));
   await db.query(down);
   const user=randomUUID(),project=randomUUID(),pool=randomUUID(),current=randomUUID(),retiring=randomUUID();

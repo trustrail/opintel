@@ -75,6 +75,7 @@ it('5.17: both export formats identify rollups and exclude derived deliveries fr
 });
 
 it.each((['ndjson','csv'] as const).flatMap(format=>['provider changed','credential revoked','legacy alias grace ended'].map(reason=>[format,reason] as const)))('%s evidence export must not silently omit persisted release events (%s)',async(format,reason)=>{
+ // Receipt/export identity remains the internal alias, never the external certificate recipient.
  const run=await f.run(false),grant=randomUUID(),alias=`agent:${f.ctx.projectId}:${randomUUID()}`,iat=Math.floor(Date.now()/1000);
  await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
  await withTenant(f.ctx,async tx=>{

@@ -2,6 +2,7 @@ export { CredentialId, Pool, poolKeyId, keyHash, type PoolState, type PoolBudget
 export { PoolKeyService, type CredentialRevocationPort, type AgentPresenceQuery, type PoolKeyRepository, type PoolKeyContext, type KeyCommand, type KeyVerifier, type KeyVerdict } from './application/keys.js';
 export { PostgresPoolKeys } from './infrastructure/keys.js';
 export { PostgresKeyVerifier } from './infrastructure/key-verifier.js';
+export {credentialCustodyRecipient} from './infrastructure/custody-recipient.js';
 export { PoolBindingService, PoolElementResolver, type PoolBindingRepository, type PoolAccessRefusals } from './application/binding.js';
 export { PostgresPoolBindings } from './infrastructure/binding.js';
 export { InfoPoolAccessRefusals } from './infrastructure/access-refusals.js';

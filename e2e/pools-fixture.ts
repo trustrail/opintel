@@ -1,3 +1,4 @@
+// Existing credentials intentionally have no certificate association; internal custody identity is unchanged.
 import type {Page} from '@playwright/test';
 import type {PoolDetail,AgentTwin} from '../src/shared/api/pools.js';
 export const project='018f8f9d-7f83-7abc-8def-000000000001',pool='018f8f9d-7f83-7abc-8def-000000000002',version='018f8f9d-7f83-7abc-8def-000000000003',nextVersion='018f8f9d-7f83-7abc-8def-000000000004';
