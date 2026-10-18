@@ -114,6 +114,31 @@ deferred, and remove the AddContact proposal as superseded rather than complete.
 
 ## Next — make it demonstrable
 
+### V-01 · Ten-agent, two-pool conformance run
+**Customer** The product's central claim is that one entitlement set at the source governs
+every agent that reaches the column, and that two pools see different rows from the same
+sources. Nothing has exercised that with more than one caller. This run is also the spine of
+the demonstration.
+**Status** Blocked · Medium
+**Detail** Requested 17 Oct 2026 against main at `865c3de`. Preflight found that assertion 1
+cannot be configured: column entitlements are pool × element decisions, not source defaults
+inherited by pools. Copying decisions to both pools would weaken the requested assertion.
+Implementing source-level column inheritance is a product/governance change, not fixture work.
+No fixture changes or conformance run were made; assertions 2–5 remain unexecuted, not passed.
+The existing reinsurance fixture has twelve cedant premium objects (twelve declared rows each),
+a shared treaty-reference generator, twelve original spreadsheet filings and one restatement;
+it does not yet contain the requested two-source policy/claim dataset.
+**Evidence** `865c3de`: `migrations/028_entitlements.up.sql:3,:11`,
+`src/modules/entitlements/infrastructure/postgres-entitlements.ts:33`,
+`src/modules/entitlements/infrastructure/entitlement-read.ts:64`; checked 17 Oct 2026.
+Row-filter object defaults at `entitlement-read.ts:71` are distinct from column treatments.
+
+### V-02 · Custody leg: release and non-recipient refusal
+**Customer** Proves the property custody rests on — that an agent can unseal only what was
+released to it. A shared certificate cannot prove this, so one pool carries a third
+certificate held by a single agent.
+**Status** Open · Medium · depends on V-01 and three XQ certificates
+
 ### K-01 · `/next` console: finish Pools
 **Customer** The console is the demonstration. Pools is the screen that shows the product's
 central idea — credentials, bindings, treatments and row filters in one place.
