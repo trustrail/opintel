@@ -1,0 +1,185 @@
+# XQ documentation table of contents
+
+Retrieved: 2026-10-18T00:55:30.608085+00:00
+
+140 pages. Hierarchy and titles follow the published Stoplight table of contents.
+
+- Topic
+- Introduction
+  - [Welcome to the XQ Platform](d32bcfcfc5cff-introduction.md)
+- Quick Start Guide
+  - [User Flow](194av0m0pnyzd-user-flow.md)
+  - [Data Flow](nuwp758yspf9r-data-flow.md)
+  - [Key Authorization Policies](a6f5f085b4e4f-key-authorization-policies.md)
+  - [Audit Logs](83530d1aff0f1-audit-logs.md)
+  - Encrypt Api Tutorial
+    - [Introduction](ab9c86ba2c5d8-introduction.md)
+    - [Tutorial](f0d8c4bc4b728-encryption-tutorial.md)
+  - Decrypt Api Tutorial
+    - [Introduction](dd7e30ba2730f-decryption-tutorial.md)
+    - [Tutorial](849b4a8be091d-decryption-tutorial.md)
+  - Data Segregation Tutorial
+    - [Introduction](4da28167c9bc4-customer-data-segregation.md)
+    - [Tutorial](0da9fb5832d1f-data-segregation-tutorial.md)
+  - Device Certificate Authorization
+    - [Introduction](b2e549d6f9514-device-certificate-authorization.md)
+    - [Tutorial](ec9e694a7484a-device-certificate-tutorial.md)
+  - [Storing Multiple Keys](5a6b030c8b55e-storing-multiple-keys.md)
+  - [Encrypt Your Data Locally](db46f9a48a734-encrypt-your-data-locally.md)
+  - [Key & Log Retention](922e0aadbd2e6-key-retention.md)
+  - [Available Resources](f43987fde462b-available-resources.md)
+- Use Cases
+  - [Data & Key Separation](c85a4b5a5a7a3-data-and-key-separation.md)
+  - [Data Access Logging](1799905056ae3-data-access-logging.md)
+  - [Data Compliance](9f613a8ec69ae-data-compliance.md)
+- FAQ
+  - [Authorize vs AuthorizeAlias?](b7c4d1a2fa3f0-what-s-the-difference-between-authorize-and-authorizealias.md)
+- APIS
+- [Quantum](ae10da785de65-quantum.md)
+  - Generate
+    - [Quantum Generator](78d76288e9add-quantum-generator.md)
+- [Subscription](aa6d8de4fa5b2-subscription.md)
+  - User Management
+    - [Request Access For a User](c290077aff9fd-request-access-for-a-user.md)
+    - [Authorize a User Without 2FA](3e81e7a946a74-authorize-a-user-without-2-fa.md)
+    - [Delete a User From the Platform](bac53c97ebd6c-delete-a-user-from-the-platform.md)
+    - [Get information About the Current User](0a40764acc475-get-information-about-the-current-user.md)
+    - [Get Settings For the Current User](e1e8633a365e9-get-settings-for-the-current-user.md)
+    - [Update the current user settings](03f0143ba5904-update-the-current-user-settings.md)
+  - Authentication
+    - [Authorize a Device With a Certificate](eb5ecb08a475f-authorize-a-device-with-a-certificate.md)
+    - [Create a Short-Lived Access Token](bd1adb075b346-create-a-short-lived-access-token.md)
+    - [Check if Valid API Key](6d1bffdb02a92-check-if-valid-api-key.md)
+    - [Get the Current Server Time](7553461cf0540-get-the-current-server-time.md)
+    - [Validate Access Request With a PIN](7160ffa67e2af-validate-access-request-with-a-pin.md)
+    - [Merge Tokens for Short-Lived Read](3d9503fef5fab-merge-tokens-for-short-lived-read.md)
+    - [Revoke AuthToken](0622d4ca93d8b-revoke-auth-token.md)
+    - [Exchange for Access Token](81f93b4249ece-exchange-for-access-token.md)
+  - Key Management
+    - [Create a New Key Packet](a593767490467-create-a-new-key-packet.md)
+    - [Create and Save a New Key Packet](1f9bc1713a7cd-create-and-save-a-new-key-packet.md)
+    - [Create and Save Multiple Key Packets With Individual Metadata](8e03fb4bd5ea0-create-and-save-multiple-key-packets-with-individual-metadata.md)
+  - Schemas
+    - [User](2d2fa75e1761c-user.md)
+    - [Newsletter](5c5e29b65d367-newsletter.md)
+    - [KeyManagement](2e0e59ba7dfee-key-management.md)
+    - [MultiKeyManagement](af84f25f0805f-multi-key-management.md)
+    - [KeyPacketBatchEntry](f3bbfd80618d1-key-packet-batch-entry.md)
+- [Validation](eebfb7f9fc3ca-validation.md)
+  - KeyManagement
+    - [Check whether a key is expired](e5b0d6e2b5f5f-check-whether-a-key-is-expired.md)
+    - [Retrieve a Key With Its Token](2bc87668ba508-retrieve-a-key-with-its-token.md)
+    - [Revoke Access to a Key](a3f5d1799d408-revoke-access-to-a-key.md)
+    - [Retrieve Multiple Keys With Their Tokens](f5531e851637a-retrieve-multiple-keys-with-their-tokens.md)
+    - [Add a New Key Packet](fcad4f6954e75-add-a-new-key-packet.md)
+    - [Grant a User Access to a Key](4b3c0bd9a1f63-grant-a-user-access-to-a-key.md)
+    - [Grant a User Access to a Key](fada46959c924-grant-a-user-access-to-a-key.md)
+    - [Revoke User Access](7d2c51b0b2890-revoke-user-access.md)
+- [Manage](a92720bfbb44a-manage.md)
+  - Contact Management
+    - [Get a user avatar or business icon image](359f210c35d11-get-a-user-avatar-or-business-icon-image.md)
+    - [List Contacts for a Business](1c295e9963d7b-list-contacts-for-a-business.md)
+    - [Add a new business contact](9910e7097b171-add-a-new-business-contact.md)
+    - [Remove a contact](b2d2264741334-remove-a-contact.md)
+    - [Get the details of a contact](7503d11547eea-get-the-details-of-a-contact.md)
+    - [Make changes to an existing contact](5fd58f8fb4dc2-make-changes-to-an-existing-contact.md)
+  - Key Management
+    - [Export a single message key](b6c2a60f74cdb-export-a-single-message-key.md)
+    - [Revoke a message token](c0dba6480b3c6-revoke-a-message-token.md)
+    - [Export multiple keys at once](22f930568b284-export-multiple-keys-at-once.md)
+  - Communications
+    - [List Communications](6bcf3698bb5b4-list-communications.md)
+    - [Get Communications by ID](d117f2846c23b-get-communications-by-id.md)
+    - [Get Communication by its locator token](005edb8a9ec2b-get-communication-by-its-locator-token.md)
+  - Authentication
+    - [Resend dashboard invitation to a user](08733966cce7a-resend-dashboard-invitation-to-a-user.md)
+    - [Request a password reset for a dashboard account](2ac924f193247-request-a-password-reset-for-a-dashboard-account.md)
+    - [Complete a password reset request](e094cf49f6477-complete-a-password-reset-request.md)
+    - [Switch Business](076ac3c9ed126-switch-business.md)
+    - [Self Sign up](1306a81a01b1e-self-sign-up.md)
+    - [Login to the dashboard](8940c90beff8b-login-to-the-dashboard.md)
+    - [Send login magic link to a user](5cde236a164ba-send-login-magic-link-to-a-user.md)
+    - [Get current user](e0797f733fbe9-get-current-user.md)
+    - [Validate an access token](f260b4a8eb1ea-validate-an-access-token.md)
+    - [Log a user out of the dashboard](5535a10ed45fb-log-a-user-out-of-the-dashboard.md)
+  - Business
+    - [Register a new business](fb1fd23394522-register-a-new-business.md)
+    - [Alter an existing business](2ef838a7f9669-alter-an-existing-business.md)
+    - [List businesses that a current user is part of](3b7aaecb91710-list-businesses-that-a-current-user-is-part-of.md)
+    - [Get the seats available for a business](0d4a9f488384d-get-the-seats-available-for-a-business.md)
+    - [Check whether a workspace exists or not](02b0610db9667-check-whether-a-workspace-exists-or-not.md)
+  - Policy
+    - [Update business account policies](9ced378c084a7-update-business-account-policies.md)
+    - [Get the dashboard policies for a business](4f206ee19b36e-get-the-dashboard-policies-for-a-business.md)
+  - Images
+    - [Delete a user avatar or business icon](20fbfdc50ce4e-delete-a-user-avatar-or-business-icon.md)
+    - [Upload a user avatar or business icon](b4dc4f487a81c-upload-a-user-avatar-or-business-icon.md)
+  - API Keys
+    - [Add a new API key](30b2d58176bd4-add-a-new-api-key.md)
+    - [Fetch a list of registered API keys](34fecda910af5-fetch-a-list-of-registered-api-keys.md)
+    - [Delete a registered API key](f98f0f17f693e-delete-a-registered-api-key.md)
+    - [Update an API Key](b0296d2e9f9f6-update-an-api-key.md)
+    - [Create a new developer application](bd0060c499f5a-create-a-new-developer-application.md)
+    - [Fetches the list of developer applications](6106e955da216-fetches-the-list-of-developer-applications.md)
+    - [Updates an existing developer application](9831703e79d23-updates-an-existing-developer-application.md)
+    - [Deletes a developer application](1c2f01d50f4f2-deletes-a-developer-application.md)
+  - Monitoring
+    - [Search the monitor logs](6a56576f1cb4d-search-the-monitor-logs.md)
+    - [Get more information about a log entry event](62116b21154ce-get-more-information-about-a-log-entry-event.md)
+    - [List review jobs assigned to a user](31c2a922820ac-list-review-jobs-assigned-to-a-user.md)
+    - [Resolves an assigned review](5a6f820e2d0e3-resolves-an-assigned-review.md)
+    - [Get chartable data from a log slice](f02999ff40ca0-get-chartable-data-from-a-log-slice.md)
+    - [Get basic usage statistics from logs](2281ff338726d-get-basic-usage-statistics-from-logs.md)
+    - [Assign a log item for review](e2133d1bbd0fd-assign-a-log-item-for-review.md)
+  - Events
+    - [Modify an existing webhook](40fe3b3f43ba1-modify-an-existing-webhook.md)
+    - [Delete an existing webhook](3acca575ae027-delete-an-existing-webhook.md)
+    - [Create a Hook](069fc5540d8c6-create-a-hook.md)
+    - [Fetch all hooks for an API key](3154800288b0a-fetch-all-hooks-for-an-api-key.md)
+    - [List event types](c543b524ef0bd-list-event-types.md)
+  - Trusted Range
+    - [Check whether a page has been visited or not.](81ce7a835908f-check-whether-a-page-has-been-visited-or-not.md)
+    - [List trusted address ranges for a team](a28e50b0a1e8d-list-trusted-address-ranges-for-a-team.md)
+    - [Create trusted address ranges for a team](2c6f6ef621d89-create-trusted-address-ranges-for-a-team.md)
+    - [Update an existing trusted Range](780a4d4bb824d-update-an-existing-trusted-range.md)
+    - [Delete an existing trusted range](0f0884d9f5b56-delete-an-existing-trusted-range.md)
+    - [Announce a trusted device](bb79491c661b9-announce-a-trusted-device.md)
+  - Messaging
+    - [Send Email](491a6ff428429-send-email.md)
+  - Schemas
+    - [TrustedRangeSummary](7b5293cc1e126-trusted-range-summary.md)
+    - [CreateTrustedRangeBody](b0e72c0a445ee-create-trusted-range-body.md)
+    - [UpdateTrustedRangeBody](a58e283f5fa4d-update-trusted-range-body.md)
+    - [HookSummary](7108c0b0b040c-hook-summary.md)
+    - [SignUpRequestBody](8965ce2aa3e7a-sign-up-request-body.md)
+    - [LoginRequestBody](7d94b8f34bc12-login-request-body.md)
+    - [SendMagicLink](8c037dacef506-send-magic-link.md)
+    - [EventSummary](3dddf815a642f-event-summary.md)
+    - [EventDetails](ca51c5a852842-event-details.md)
+    - [ChartPoint](a8a20e03ccd07-chart-point.md)
+    - [CreateContactRequestBody](a293967bde15c-create-contact-request-body.md)
+    - [ContactSummary](423fede330448-contact-summary.md)
+    - [ContactDetails](67d611fa94460-contact-details.md)
+    - [UpdateContactRequestBody](6a17b96fc3852-update-contact-request-body.md)
+    - [SeatsUsageSummary](7df45ce978260-seats-usage-summary.md)
+    - [UpdateSubscriptionRequestBody](fbb7eced4f57c-update-subscription-request-body.md)
+    - [KeyPacketRecipientInfo](235a322b8d230-key-packet-recipient-info.md)
+    - [KeyPacketSummary](8c7fe9a7159a3-key-packet-summary.md)
+    - [BusinessSummary](1a6331e00ecb4-business-summary.md)
+    - [KeyPacketDetails](d16f78534e839-key-packet-details.md)
+    - [BusinessOverview](f6a01c273378b-business-overview.md)
+    - [CreateBusinessBody](fb0cb5e0bfad7-create-business-body.md)
+    - [UpdateBusinessBody](79997486a6d5a-update-business-body.md)
+    - [EventType](074bb0931250e-event-type.md)
+    - [BaseResponse](d860ccd6b25f4-base-response.md)
+- Client SDKs
+- JavaScript
+- Java
+- C
+- PHP
+- Python
+- About XQ
+- [Who We Are](ab06c24b5d3f8-who-is-xq-people-who-care-about-data.md)
+- Contact Us
+- Terms of Service
+- Privacy Policy
