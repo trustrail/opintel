@@ -41,7 +41,7 @@ export class TestEvidenceWriter implements EvidenceWriterPort {
  async open(principal:Parameters<EvidenceWriterPort['open']>[0],sql:string){const id=RunId(randomUUID());this.records.set(id,{principal,sql});return ok(id);}
  async close(id:RunId,outcome:Parameters<EvidenceWriterPort['close']>[1]){const record=this.records.get(id);if(!record||record.outcome)throw new Error('Missing or already finished record');record.outcome=outcome;return ok(undefined);}
 }
-export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWriter(),fixtureOptions:Pick<SpiceDbAuthorizationPortOptions,'security'>&{sourceLimits?:SourceLimits;queryTimeoutSeconds?:number;sidecarDirectory?:string;releaseCustody?:boolean;sealObserver?:(key:Buffer,first:Buffer,second:Buffer)=>void}={}){
+export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWriter(),fixtureOptions:Pick<SpiceDbAuthorizationPortOptions,'security'>&{sourceLimits?:SourceLimits;queryTimeoutSeconds?:number;sidecarDirectory?:string;releaseCustody?:boolean;liveXqCustody?:boolean;sealObserver?:(key:Buffer,first:Buffer,second:Buffer)=>void}={}){
  const cleanup:Array<()=>Promise<void>>=[];
  const close=async()=>{for(const fn of cleanup.splice(0).reverse())await fn();};
  try{
@@ -58,8 +58,10 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
  cleanup.push(async()=>{await mcp?.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const applicationUrl=`http://127.0.0.1:${address.port}`;
- const release=fixtureOptions.releaseCustody?new ReleaseRuntime(JSON.stringify({[f.ctx.projectId]:{provider:'local',applicationUrl}}),process.env.OPINTEL_S4_CUSTODY_MASTER??'11'.repeat(32)):undefined;
- if(release){await withPlatform(async tx=>{await tx.query("INSERT INTO project_member(project_id,user_id,role) VALUES($1,$2,'admin')",[f.ctx.projectId,f.ctx.userId]);await tx.query("UPDATE project SET settings=settings||'{\"custody\":{\"provider\":\"local\"}}'::jsonb WHERE id=$1",[f.ctx.projectId]);});await release.checkConnection(f.ctx);cleanup.push(async()=>release.close());}
+ const custody=fixtureOptions.liveXqCustody?{provider:'xq',tenant:process.env.OPINTEL_XQ_TEAM_ID!}:{provider:'local'};
+ const configuration=fixtureOptions.liveXqCustody?{...custody,applicationUrl,providerRedeemAt:process.env.OPINTEL_XQ_REDEEM_URL!,apiKey:process.env.OPINTEL_XQ_API_KEY!,dashboardApiKey:process.env.OPINTEL_XQ_DASHBOARD_API_KEY??'',senderAlias:process.env.OPINTEL_XQ_SENDER_ALIAS!,senderAccessToken:process.env.OPINTEL_XQ_SENDER_ACCESS_TOKEN!}:{provider:'local',applicationUrl};
+ const release=fixtureOptions.releaseCustody||fixtureOptions.liveXqCustody?new ReleaseRuntime(JSON.stringify({[f.ctx.projectId]:configuration}),fixtureOptions.liveXqCustody?process.env.OPINTEL_CUSTODY_MASTER_KEY:process.env.OPINTEL_S4_CUSTODY_MASTER??'11'.repeat(32)):undefined;
+ if(release){await withPlatform(async tx=>{await tx.query("INSERT INTO project_member(project_id,user_id,role) VALUES($1,$2,'admin')",[f.ctx.projectId,f.ctx.userId]);await tx.query("UPDATE project SET settings=settings||jsonb_build_object('custody',$2::jsonb) WHERE id=$1",[f.ctx.projectId,JSON.stringify(custody)]);});const health=await release.checkConnection(f.ctx);cleanup.push(async()=>release.close());if(fixtureOptions.liveXqCustody&&!health.authenticated)throw new Error('Live XQ custody health check failed');}
  const presence=new PostgresAgentPresence({publish:async()=>{}}),keys=new PoolKeyService(new PostgresPoolKeys(undefined,release?(ctx,alias)=>release.provision(ctx,alias):undefined),presence),outbox=new RelationshipOutbox(),bindings=new PoolBindingService(new PostgresPoolBindings(outbox),outbox,authorization);
  const issue=async(name:string)=>{const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name},randomUUID())));if(!issued.keyShown)throw new Error('Missing key');await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[issued.poolId,JSON.stringify({threads:1})]));return issued;};
  const issued=await issue('Query pool'),pool=PoolId(issued.poolId);

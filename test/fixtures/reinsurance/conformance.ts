@@ -1,3 +1,4 @@
+import type {CertificateAssociation} from '../../../src/shared/api/certificate-association.js';
 import {randomUUID} from 'node:crypto';
 import pack from '../../../src/modules/sources/demo/reinsurance.json' with {type:'json'};
 import {withTenant,withPlatform} from '../../../src/platform/db/scope.js';
@@ -9,8 +10,8 @@ import {PoolKeyCreationResponse} from '../../../src/shared/api/pool-keys.js';
 import {queryFixture,unwrap} from '../query/fixture.js';
 
 export const definition=pack.conformance;
-export async function reinsuranceConformance(){
- const f=await queryFixture(new PostgresEvidenceWriter(),{sourceLimits:{maxConnectionsPerSource:10,statementTimeoutMs:10000,operationTimeoutMs:15000}});
+export async function reinsuranceConformance(options:{liveXqCustody?:boolean;associations?:CertificateAssociation[]}={}){
+ const f=await queryFixture(new PostgresEvidenceWriter(),{liveXqCustody:options.liveXqCustody,sourceLimits:{maxConnectionsPerSource:10,statementTimeoutMs:10000,operationTimeoutMs:15000}});
  try{
   // Reuse only the real HTTP/MCP/Engine harness. Its generic warehouse is not
   // reachable by either conformance pool; data below extends the existing pack.
@@ -63,9 +64,9 @@ export async function reinsuranceConformance(){
   const agents=[];
   for(let i=0;i<10;i++){
    const poolIndex=i<5?0:1,pool=pools[poolIndex]!,agentId=`v01-cedant-${poolIndex+1}-agent-${i%5+1}`;
-   const issued=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'issue',poolId:pool,label:agentId},randomUUID())));
+   const issued=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'issue',poolId:pool,label:agentId,...(options.associations?{certificateAssociation:options.associations[i]}:{})},randomUUID())));
    if(!issued.keyShown||!issued.credentialId)throw new Error('Missing conformance credential');
-   agents.push({poolIndex,pool,agentId,credentialId:issued.credentialId,...await f.connect(issued.key,agentId)});
+   agents.push({poolIndex,pool,agentId,credentialId:issued.credentialId,key:issued.key,...await f.connect(issued.key,agentId)});
   }
   return {...f,pools,objects,agents};
  }catch(error){await f.close();throw error;}
