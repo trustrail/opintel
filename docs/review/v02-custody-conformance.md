@@ -2,6 +2,8 @@
 
 Version: 2 · 2026-10-18
 
+Implementation and live assertions: `c00965d` (2026-10-18).
+
 **Current live outcome: the approved two-certificate V-02 passed all 40 checks on
 2026-10-18. Earlier blocked attempts are retained below as history. The full gate passed once.**
 

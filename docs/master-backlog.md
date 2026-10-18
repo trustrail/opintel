@@ -114,12 +114,6 @@ deferred, and remove the AddContact proposal as superseded rather than complete.
 
 ## Next — make it demonstrable
 
-### V-02 · Custody leg: release and non-recipient refusal
-**Customer** Proves the property custody rests on — that an agent can unseal only what was
-released to it. A shared certificate cannot prove this, so one pool carries a third
-certificate held by a single agent.
-**Status** Open · Medium · depends on V-01 and three XQ certificates
-
 ### K-01 · `/next` console: finish Pools
 **Customer** The console is the demonstration. Pools is the screen that shows the product's
 central idea — credentials, bindings, treatments and row filters in one place.
@@ -291,6 +285,21 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 ---
 
 ## Done
+
+### V-02 · Custody leg: release and non-recipient refusal
+**Customer** Proves the property custody rests on — an agent can unseal only a packet
+addressed to its XQ identity. Approved 2026-10-18 amendment: two working certificates, one
+per pool, prove refusal in both cross-pool directions. This does not distinguish agents
+sharing the same pool certificate; the original three-certificate run is not claimed.
+**Status** Done · Medium
+**Evidence** `c00965d`, checked 2026-10-18 · [V-02 run record](review/v02-custody-conformance.md): 40/40 checks;
+224 and 226 serve five credentials each; both cross-pool fetches refused with HTTP 403;
+rightful retrieval, unsealing, one-time K2 release, revocation and receipts passed.
+225 is excluded: its retained HTTP 403 body explicitly refuses the current location.
+The failed URL-guard attempt and separately authorized successful resume are both recorded.
+
+**Gate** Passed once: 1,845 domain/integration tests, 54/54 conformance routes with zero
+findings, one smoke path; 34m 35.32s. No production source changed.
 
 ### V-01 · Ten-agent, two-pool conformance run
 **Customer** Proves that ten concurrent agents receive their own pool's column treatments
