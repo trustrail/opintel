@@ -80,21 +80,6 @@ that row.
 
 ## Now
 
-### Z-01 · Merge the outstanding branches
-**Customer** Nothing downstream can be built on work that is not on main; today's certificate
-integration exists only on a branch.
-**Status** Open · Small
-**Detail** `feat/credential-certificate-association` (0140f42), `docs/xq-certificate-probe`
-(eb60a7b), `docs/first-deployment-position` (b83e2cf). All pushed, none merged.
-`fix/conformance-typecheck-gate` is already merged — 49be1db — and is not pending.
-**Evidence** branch heads, checked 17 Oct 2026
-
-### Z-02 · Commit the vendor documentation
-**Customer** XQ's published API reference is the basis for several decisions below and exists
-only as untracked files on one machine.
-**Status** Open · Small
-**Evidence** `docs/vendor/xq-docs/` untracked, 140 pages with manifest, checked 17 Oct 2026
-
 ### Z-03 · Restrict company creation
 **Customer** Any authenticated account can create a company and becomes its administrator.
 For a product whose proposition is governed access, this is the defect class we least survive
@@ -303,6 +288,8 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 | # | Row | Closed by |
 |---|---|---|
+| Z-01 | Merge the three outstanding branches | 24bfc6e completes the ordered integration: 0140f42 fast-forward, 4a31c0d probe merge, 24bfc6e deployment-position merge; checked 17 Oct 2026 |
+| Z-02 | Preserve the 140-page XQ reference, index and manifest | f4edc83; checked 17 Oct 2026 |
 | A8 | docs packaging — stylesheet import and Engine image | API image limitation noted under A3 |
 | A10 | Engine registry: creation, verification, assignment routes | distribution remains O3 |
 | B1 | Token-domain default | |
@@ -310,7 +297,7 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 | E3 | Tokenized ordering refusal | |
 | F1 | Conformance typecheck as a gate tier | 2594da3, 49be1db |
 | F2 | DuckDB scanner provisioning tooling | environment prerequisite remains |
-| G-05 | Credential–certificate association, escrow to stored recipient or refuse | 0140f42, unmerged — see Z-01 |
+| G-05 | Credential–certificate association, escrow to stored recipient or refuse | 0140f42, integrated into main by Z-01; checked 17 Oct 2026 |
 | — | AddContact enrolment | **Superseded, not done.** No production reference exists; the alias-registration call it would have joined is removed by G-05. |
 
 **Cancelled, not pending:** pixel comparisons · archived custody baselines · the Activity
