@@ -631,5 +631,228 @@
         "dependsOn": "cedant_01_original"
       }
     ]
+  },
+  "conformance": {
+    "description": "V-01 extends the existing cedant/treaty demo with explicit synthetic policy and claim rows; never infer expected counts from query results. Existing spreadsheet generation is unchanged.",
+    "cedants": [
+      "cedant_01",
+      "cedant_02"
+    ],
+    "policies": [
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0001",
+        "insured_name": "Insured 0001",
+        "treaty_ref": "000001",
+        "line_of_business": "Property",
+        "underwriter_note": "PRIVATE-0001",
+        "broker_reference": "BROKER-0001",
+        "risk_code": "RISK-0001"
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0002",
+        "insured_name": "Insured 0002",
+        "treaty_ref": "000002",
+        "line_of_business": "Marine",
+        "underwriter_note": "PRIVATE-0002",
+        "broker_reference": "BROKER-0002",
+        "risk_code": "RISK-0002"
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0003",
+        "insured_name": "Insured 0003",
+        "treaty_ref": "000003",
+        "line_of_business": "Property",
+        "underwriter_note": "PRIVATE-0003",
+        "broker_reference": "BROKER-0003",
+        "risk_code": "RISK-0003"
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0004",
+        "insured_name": "Insured 0004",
+        "treaty_ref": "000004",
+        "line_of_business": "Marine",
+        "underwriter_note": "PRIVATE-0004",
+        "broker_reference": "BROKER-0004",
+        "risk_code": "RISK-0004"
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0005",
+        "insured_name": "Insured 0005",
+        "treaty_ref": "000005",
+        "line_of_business": "Property",
+        "underwriter_note": "PRIVATE-0005",
+        "broker_reference": "BROKER-0005",
+        "risk_code": "RISK-0005"
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0006",
+        "insured_name": "Insured 0006",
+        "treaty_ref": "000006",
+        "line_of_business": "Marine",
+        "underwriter_note": "PRIVATE-0006",
+        "broker_reference": "BROKER-0006",
+        "risk_code": "RISK-0006"
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0007",
+        "insured_name": "Insured 0007",
+        "treaty_ref": "000001",
+        "line_of_business": "Property",
+        "underwriter_note": "PRIVATE-0007",
+        "broker_reference": "BROKER-0007",
+        "risk_code": "RISK-0007"
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0008",
+        "insured_name": "Insured 0008",
+        "treaty_ref": "000002",
+        "line_of_business": "Marine",
+        "underwriter_note": "PRIVATE-0008",
+        "broker_reference": "BROKER-0008",
+        "risk_code": "RISK-0008"
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0009",
+        "insured_name": "Insured 0009",
+        "treaty_ref": "000003",
+        "line_of_business": "Property",
+        "underwriter_note": "PRIVATE-0009",
+        "broker_reference": "BROKER-0009",
+        "risk_code": "RISK-0009"
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0010",
+        "insured_name": "Insured 0010",
+        "treaty_ref": "000004",
+        "line_of_business": "Marine",
+        "underwriter_note": "PRIVATE-0010",
+        "broker_reference": "BROKER-0010",
+        "risk_code": "RISK-0010"
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0011",
+        "insured_name": "Insured 0011",
+        "treaty_ref": "000005",
+        "line_of_business": "Property",
+        "underwriter_note": "PRIVATE-0011",
+        "broker_reference": "BROKER-0011",
+        "risk_code": "RISK-0011"
+      },
+      {
+        "cedant": "cedant_03",
+        "policy_id": "POL-0012",
+        "insured_name": "Insured 0012",
+        "treaty_ref": "000006",
+        "line_of_business": "Marine",
+        "underwriter_note": "PRIVATE-0012",
+        "broker_reference": "BROKER-0012",
+        "risk_code": "RISK-0012"
+      }
+    ],
+    "claims": [
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0001",
+        "claim_id": "CLM-0001",
+        "loss_date": "2026-03-02",
+        "claim_amount": 156
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0002",
+        "claim_id": "CLM-0002",
+        "loss_date": "2026-03-03",
+        "claim_amount": 293
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0003",
+        "claim_id": "CLM-0003",
+        "loss_date": "2026-03-04",
+        "claim_amount": 430
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0101",
+        "claim_id": "CLM-0101",
+        "loss_date": "2026-03-21",
+        "claim_amount": 13856
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0102",
+        "claim_id": "CLM-0102",
+        "loss_date": "2026-03-22",
+        "claim_amount": 13993
+      },
+      {
+        "cedant": "cedant_01",
+        "policy_id": "POL-0103",
+        "claim_id": "CLM-0103",
+        "loss_date": "2026-03-23",
+        "claim_amount": 14130
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0007",
+        "claim_id": "CLM-0007",
+        "loss_date": "2026-03-08",
+        "claim_amount": 978
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0008",
+        "claim_id": "CLM-0008",
+        "loss_date": "2026-03-09",
+        "claim_amount": 1115
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0009",
+        "claim_id": "CLM-0009",
+        "loss_date": "2026-03-10",
+        "claim_amount": 1252
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0107",
+        "claim_id": "CLM-0107",
+        "loss_date": "2026-03-27",
+        "claim_amount": 14678
+      },
+      {
+        "cedant": "cedant_02",
+        "policy_id": "POL-0108",
+        "claim_id": "CLM-0108",
+        "loss_date": "2026-03-01",
+        "claim_amount": 14815
+      },
+      {
+        "cedant": "cedant_03",
+        "policy_id": "POL-0012",
+        "claim_id": "CLM-0012",
+        "loss_date": "2026-03-13",
+        "claim_amount": 1663
+      }
+    ],
+    "treaty_reference": [
+      {
+        "treaty_ref": "000001"
+      },
+      {
+        "treaty_ref": "000002"
+      }
+    ]
   }
 }

@@ -98,7 +98,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),new DescribeService(new PostgresDescribeReader(),authorization,release),service,explain,release);
 
  const url=new URL(`http://127.0.0.1:${address.port}/mcp/v1/p/${f.ctx.projectId}`);
- const connect=async(key:string)=>{const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(url,{requestInit:{headers:{authorization:`Bearer ${key}`,'x-opintel-agent-id':'unverified-agent'}}});await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};
+ const connect=async(key:string,agentId='unverified-agent')=>{const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(url,{requestInit:{headers:{authorization:`Bearer ${key}`,'x-opintel-agent-id':agentId}}});await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};
  const agent=await connect(issued.key);
  return {...f,release,pool,schema,db,issued,issue,keys,bindings,authorization,writer,reader,filter,execution,service,secrets,tokenSecrets,stagingSource:source,sourceScope:scope,boundary,candidates,addSource,host,connect,url,...agent,close};
  }catch(error){await close();throw error;}

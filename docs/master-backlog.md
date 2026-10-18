@@ -115,23 +115,14 @@ deferred, and remove the AddContact proposal as superseded rather than complete.
 ## Next — make it demonstrable
 
 ### V-01 · Ten-agent, two-pool conformance run
-**Customer** The product's central claim is that one entitlement set at the source governs
-every agent that reaches the column, and that two pools see different rows from the same
-sources. Nothing has exercised that with more than one caller. This run is also the spine of
-the demonstration.
-**Status** Blocked · Medium
-**Detail** Requested 17 Oct 2026 against main at `865c3de`. Preflight found that assertion 1
-cannot be configured: column entitlements are pool × element decisions, not source defaults
-inherited by pools. Copying decisions to both pools would weaken the requested assertion.
-Implementing source-level column inheritance is a product/governance change, not fixture work.
-No fixture changes or conformance run were made; assertions 2–5 remain unexecuted, not passed.
-The existing reinsurance fixture has twelve cedant premium objects (twelve declared rows each),
-a shared treaty-reference generator, twelve original spreadsheet filings and one restatement;
-it does not yet contain the requested two-source policy/claim dataset.
-**Evidence** `865c3de`: `migrations/028_entitlements.up.sql:3,:11`,
-`src/modules/entitlements/infrastructure/postgres-entitlements.ts:33`,
-`src/modules/entitlements/infrastructure/entitlement-read.ts:64`; checked 17 Oct 2026.
-Row-filter object defaults at `entitlement-read.ts:71` are distinct from column treatments.
+**Customer** Proves that ten concurrent agents receive their own pool's column treatments
+and cedant row scope, and that binding a source does not inherit another pool's decisions.
+This run is also the spine of the demonstration.
+**Status** In progress · Medium
+**Detail** Amended 17 Oct 2026: assertion 1a requires different treatments on the same column
+in the two pools; 1b requires an A-only decision to refuse in B with entitlement_missing.
+The earlier source-level inheritance prerequisite is superseded, not implemented.
+No XQ or custody calls; V-02 is separate. Expectations come only from the reinsurance fixture.
 
 ### V-02 · Custody leg: release and non-recipient refusal
 **Customer** Proves the property custody rests on — that an agent can unseal only what was
