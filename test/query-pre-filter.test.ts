@@ -6,7 +6,7 @@ import { errorCodeSchema } from '../src/shared/error-contract.js';
 
 const parser = new DuckDBQueryParser();
 const inspector = new QueryPreFilter(parser);
-const queryEngineBuild = 'v1.4.3/d1dc88f950';
+const queryEngineBuild = 'v1.5.6/069cc9f9b5';
 const table = 'fixture_catalog.fixture_schema.orders';
 const compilation = compileViews(fixture([{ name: 'orders', columns: [
   { name: 'city', treatment: 'clear' },
@@ -125,7 +125,7 @@ describe('4.5 application pre-filter — real DuckDB syntax, no execution permis
   });
 
   it('build mismatches and absent builds refuse', async () => {
-    for (const build of ['', 'not-loaded', 'v1.4.3/another-build', 'v1.5.0/d1dc88f950']) {
+    for (const build of ['', 'not-loaded', 'v1.5.6/another-build', 'v1.4.3/069cc9f9b5']) {
       expect(await inspector.inspect({ sql: 'SELECT 1', views, queryEngineBuild: build })).toMatchObject({ ok: false, error: { code: 'sql_not_permitted' } });
     }
   });

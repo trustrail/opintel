@@ -9,7 +9,7 @@ const result = await executor.execute(sql, { memoryMb: 32, threads: 1 });
 ```
 
 Each call opens two independent, uncached in-memory DuckDB instances on the
-pinned v1.4.3 engine. The privileged instance receives only hardening statements;
+pinned v1.5.6 engine. The privileged instance receives only hardening statements;
 external access remains enabled at construction for future trusted scanners.
 The agent instance receives C.2's complete ordered sequence, ending with
 `SET lock_configuration = true`, immediately followed by the caller's SQL.

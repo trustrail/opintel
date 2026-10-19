@@ -63,7 +63,7 @@ npm run sidecar:prepare-scanner
 ```
 
 Set `postgresExtension` in Opintel Engine configuration to that file (relative paths
-resolve beside the configuration file). The download is pinned to DuckDB 1.4.3
+resolve beside the configuration file). The download is pinned to DuckDB 1.5.6
 and the runtime platform; DuckDB verifies its signature. CI provisions it before
 tests. Missing scanner configuration refuses clear staging with an actionable
 error. Query execution never INSTALLs or downloads an extension.

@@ -11,8 +11,12 @@ provided manifest, not an unrestricted `docker run`.
    The `engine` target of `deploy/engine/Dockerfile` produces
    `opintel-engine:local`; distribute a reviewed immutable image digest. The
    matching `egress` target supplies the firewall companion. The PostgreSQL
-   scanner for pinned DuckDB 1.4.3 is fetched, signature/build checked and baked
-   at build time. Runtime does not install extensions.
+   scanner for pinned DuckDB 1.5.6 is fetched, signature/build checked and baked
+   at build time. `sidecar:prepare-scanner` checks the exact engine build, uses its
+   version/platform in the upstream download URL and LOAD-validates the signed
+   binary. Rebuild the image on every engine upgrade; never reuse a 1.4 scanner
+   with a 1.5 engine. For local development run `npm run sidecar:prepare-scanner`
+   and point `postgresExtension` at its output. Runtime does not install extensions.
 2. Provision a read-only configuration directory and TLS identities outside the
    image. Set `ENGINE_CONFIG_DIRECTORY` and `ENGINE_SECRET_ENV_FILE` (customer
    owned, mode 0600). Secret references resolve from that environment, as in

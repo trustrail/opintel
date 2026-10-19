@@ -17,7 +17,7 @@ it('E-10: signed scanner stages only a constant through Postgres, verifies memor
  const engine:SessionEngine={open:async role=>{expect(role).toBe('privileged');const session=await native.open(role),materialize=session.staging!.materialize,close=session.close;
  session.staging!.materialize=async(...args)=>{queries.push(args[1]);expect(args[3]).toEqual([{name:'ready',type:'INTEGER'}]);await materialize(...args);};
  session.close=()=>{closed();close();};return session;}};
- expect(await checkQueryReadiness(config(),scope(),engine)).toContain('v1.4.3');
+ expect(await checkQueryReadiness(config(),scope(),engine)).toContain('v1.5.6');
  expect(queries).toEqual(['SELECT 1 AS ready']);expect(closed).toHaveBeenCalledTimes(1);
 });
 it('E-10: incompatible extension and unreachable source fail readiness',async()=>{

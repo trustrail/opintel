@@ -47,6 +47,17 @@ describe('S2c authoritative subset and preparation order',{timeout:30000},()=>{
   expect(f.events.map(e=>e.stage)).toEqual(['parse_started','parse_succeeded','serialize_started','serialized','inspected','prepare_started','prepared','inspected','execute_started','executed','released']);
   expect(f.raw).not.toContain(sql);expect(f.closed).toEqual(['agent','privileged']);
  });
+ it('inspects both UNION operands and refuses unexpected set-operation children',async()=>{
+  const session=await new DuckDBSessionEngine().open('agent');
+  try{
+   const parsed=await session.inspection!.parse('SELECT amount FROM orders UNION ALL SELECT amount FROM private_data');
+   expect(parsed.kind).toBe('parsed');if(parsed.kind!=='parsed')return;
+   expect(inspectSubset(parsed.tree,namespace).ok).toBe(false);
+   const tree=structuredClone(parsed.tree) as {statements:{node:Record<string,unknown>}[]};
+   tree.statements[0]!.node.children=[{type:'SELECT_NODE'}];
+   expect(inspectSubset(tree,namespace).ok).toBe(false);
+  }finally{session.close();}
+ });
  it('two malformed spellings have engine error evidence and no invented tree',async()=>{
   for(const sql of ["ＡＴＴＡＣＨ 'x' AS y","PREPARE p AS 'ATTACH x'; EXECUTE p"]){
    const f=fixture(),result=await f.executor.execute(sql,limits,namespace,policy);

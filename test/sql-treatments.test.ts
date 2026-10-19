@@ -141,7 +141,7 @@ describe('S2d authoritative treatment enforcement',{timeout:30000},()=>{
  it('a permissive application outcome cannot authorize a protected selection',async()=>{
   const f=fixture(),sql='SELECT amount FROM memory.main.orders';
   const views=unwrap(compileViews(compileFixture([{name:'orders',alias:'memory',schema:'main',columns:[{name:'amount',treatment:'clear',type:'BIGINT'}]}]))).views;
-  const application=await new QueryPreFilter(new DuckDBQueryParser()).inspect({sql,views,queryEngineBuild:'v1.4.3/d1dc88f950'});
+  const application=await new QueryPreFilter(new DuckDBQueryParser()).inspect({sql,views,queryEngineBuild:'v1.5.6/069cc9f9b5'});
   expect(application).toEqual({ok:true,value:{kind:'requires_sidecar_inspection'}});
   expectCode(await f.run(sql),'unsupported_on_aggregate_only');
  });

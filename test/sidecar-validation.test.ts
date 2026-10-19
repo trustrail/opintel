@@ -16,7 +16,7 @@ it('J-003: validation exposes binding but no statement execution capability',asy
 });
 it('J-003: the fixed two-second deadline aborts validation independently of execution limits',async()=>{
  let deadline=0,stopped=false,closed=false;
- const validator=new StagedValidator({open:async(_request,signal)=>({build:async()=>'v1.4.3/d1dc88f950',columns:async()=>[],objects:async()=>[],hasExternalState:async()=>false,parse:async()=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('Interrupted')),{once:true})),close:()=>{closed=true;}})},{after:(ms,expire)=>{deadline=ms;const timer=setTimeout(expire,0);return()=>{stopped=true;clearTimeout(timer);};}},{record:()=>{}});
+ const validator=new StagedValidator({open:async(_request,signal)=>({build:async()=>'v1.5.6/069cc9f9b5',columns:async()=>[],objects:async()=>[],hasExternalState:async()=>false,parse:async()=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('Interrupted')),{once:true})),close:()=>{closed=true;}})},{after:(ms,expire)=>{deadline=ms;const timer=setTimeout(expire,0);return()=>{stopped=true;clearTimeout(timer);};}},{record:()=>{}});
  expect(await validator.validate({...request(),limits:{memoryMb:999,threads:99,timeoutMs:999999,rowLimit:999,concurrency:99}})).toMatchObject({ok:false,error:{code:'budget_exceeded',message:'Validation exceeded its fixed 2-second deadline or was cancelled.'}});
  expect(deadline).toBe(2000);expect(stopped).toBe(true);expect(closed).toBe(true);expect(validationBudget).toEqual({memoryMb:128,threads:1,timeoutMs:2000});expect(Object.isFrozen(validationBudget)).toBe(true);
 });

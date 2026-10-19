@@ -189,7 +189,7 @@ async function start(input: Extract<z.infer<typeof command>, { op: 'start' }>): 
       emit({ event: 'teardown', ok: result.ok, code: result.ok ? undefined : result.error.code, opened, closed, prepared, released, sourceOpen, stagingChecks, appendChecks, appended, appendedRows });
       return result;
     },
-  }, build: { ...sidecarBuild, queryEngineVersion: 'v1.4.3/d1dc88f950' } });
+  }, build: { ...sidecarBuild, queryEngineVersion: 'v1.5.6/069cc9f9b5' } });
   stop = host.close;
   emit({ event: 'ready', mode: input.mode, pid: process.pid, nodeVersion: process.versions.node, ranges, port: await host.listen() });
 }

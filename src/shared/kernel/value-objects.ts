@@ -33,7 +33,7 @@ export type GrainRule = 'sum' | 'sum_over_sum' | 'avg_of_ratio' | 'none';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const reservedExposedNames = new Set([
-  // DuckDB v1.4.3 parser/kwlist.hpp reserved entries, plus the existing
+  // DuckDB v1.5.6 duckdb_keywords() reserved entries (unchanged from v1.4.3), plus the existing
   // conservative identifier restrictions below. This is a discovery-time list.
   'analyse', 'analyze', 'any', 'array', 'asymmetric', 'both', 'collate',
   'deferrable', 'describe', 'do', 'foreign', 'initially', 'lambda', 'lateral',

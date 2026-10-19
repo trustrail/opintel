@@ -92,7 +92,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const source=new PostgresStagingSource(scope,new SidecarTokenizer(tokenSecrets,new IanaZoneResolver()));
  const boundary={executions:0};
  const executor=new StagedExecutor(source,r=>new DuckDBSessionEngine(undefined,event=>{if(event.stage==='execute_started')boundary.executions++;},resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),r.limits),undefined,undefined,undefined,(rows,columns,indices,receipt)=>sealResult(rows,columns,indices,receipt,fixtureOptions.sealObserver));
- const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.4.3/d1dc88f950'}});const port=await host.listen();cleanup.push(()=>host.close());
+ const host=createSidecarServer({config:{...config,port:0},tls,connector:new PostgresConnector(scope,{record:async()=>{}}),execution:executor,build:{...sidecarBuild,queryEngineVersion:'v1.5.6/069cc9f9b5'}});const port=await host.listen();cleanup.push(()=>host.close());
  const execution=new SidecarQueryExecution({...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`});
  const reader=new PostgresQueryReader(),filter=new QueryPreFilter(new DuckDBQueryParser()),service=new QueryService(reader,filter,execution,authorization,writer,release);
  const candidates=new PostgresExplainJoinCandidates();

@@ -11,7 +11,7 @@ refusal. Column inventory must agree with the read plan.
 
 After S2a's session construction and hardening, the executor:
 
-1. Verifies `v1.4.3/d1dc88f950` in the agent connection.
+1. Verifies `v1.5.6/069cc9f9b5` in the agent connection.
 2. Invokes `json_serialize_sql` with the agent text as a VARCHAR parameter.
    The pinned engine function parses first, then serializes. Its returned
    error type distinguishes parser rejection from unsupported serialization.

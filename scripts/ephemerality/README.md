@@ -11,7 +11,7 @@ It never uses the developer's databases. CI runs this as its own job.
 ## What is exercised
 
 The inspected target runs the real Engine HTTP host, source connector,
-tokenizer and pinned DuckDB 1.4.3 build. Clear, mixed clear/tokenized/masked,
+tokenizer and pinned DuckDB 1.5.6 build. Clear, mixed clear/tokenized/masked,
 and aggregate-only sources each have 100,000 rows. Independent expected-token
 calculation, every treated append batch, and complete distinct-value reads of
 both live DuckDB tables verify treatment and authorized delivery. Withheld and

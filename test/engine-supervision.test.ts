@@ -43,3 +43,18 @@ it.each(['scanner_configuration_missing','source_connection_refused'] as const)(
  expect(status).toBe(1);expect(logs.at(-1)).toMatchObject({event:'engine.restart_exhausted',readinessReason:reason,message:expect.any(String)});
  expect(logs.at(-1)?.message).not.toContain('Inspect Engine');
 });
+
+it('X-01: exit logs retain signal and a bounded safe stderr tail without row values',async()=>{
+ const {stderrTailLimit}=await import('../sidecar/stderr-tail.js');const logs:Record<string,unknown>[]=[];
+ const diagnostic='FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory';
+ const code=await supervise({command:process.execPath,args:['-e',`process.stderr.write('PRIVATE_ROW_SENTINEL\\n'.repeat(400)+process.argv[1]+'\\n',()=>process.kill(process.pid,'SIGKILL'));`,diagnostic],signal:new AbortController().signal,shutdownMs:100,delays:[],log:e=>logs.push(e)});
+ expect(code).toBe(1);const exit=logs.find(e=>e.event==='engine.process_exited');
+ expect(exit).toMatchObject({code:null,signal:'SIGKILL',stderrTailTruncated:true,stderrWithheldLines:400});
+ expect(String(exit?.stderrTail)).toContain(diagnostic);expect(String(exit?.stderrTail)).toContain('[stderr content withheld]');expect(JSON.stringify(logs)).not.toContain('PRIVATE_ROW_SENTINEL');
+ expect(Buffer.byteLength(String(exit?.stderrTail))).toBeLessThanOrEqual(stderrTailLimit);
+});
+it('X-01: stderr redaction handles split writes and EOF without retaining unknown text',async()=>{
+ const {EngineStderrTail}=await import('../sidecar/stderr-tail.js');const tail=new EngineStderrTail();let output='';
+ for(const chunk of ['FATAL ERROR: Reached heap limit ','Allocation failed - JavaScript heap out of memory\n','PRIVATE','_ROW_SENTINEL'])output+=tail.push(Buffer.from(chunk));
+ output+=tail.finish();expect(output).toContain('FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory');expect(output).not.toContain('PRIVATE');expect(tail.snapshot()).toMatchObject({stderrWithheldLines:1,stderrTailTruncated:false});
+});

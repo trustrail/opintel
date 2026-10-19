@@ -66,7 +66,7 @@ export const window = z.object({ ...expression, class: z.literal('WINDOW'), func
   ignore_nulls: z.boolean(), filter_expr: z.unknown(), exclude_clause: z.string(), distinct: z.boolean(), arg_orders: orders.shape.orders,
 }).strict();
 export const setOperation = z.object({type:z.literal('SET_OPERATION_NODE'),modifiers:list,cte_map:select.shape.cte_map,
- setop_type:z.enum(['UNION','EXCEPT','INTERSECT','UNION_BY_NAME']),left:z.unknown(),right:z.unknown(),setop_all:z.boolean(),children:empty}).strict();
+ setop_type:z.enum(['UNION','EXCEPT','INTERSECT','UNION_BY_NAME']),left:z.unknown(),right:z.unknown(),setop_all:z.boolean(),children:empty.optional()}).strict();
 export const tableFunction = z.object({...table,type:z.literal('TABLE_FUNCTION'),function:func,column_name_alias:z.array(z.string()),with_ordinality:z.literal('WITHOUT_ORDINALITY')}).strict();
 export const subqueryExpression = z.object({...expression,class:z.literal('SUBQUERY'),type:z.literal('SUBQUERY'),
  subquery_type:z.enum(['SCALAR','EXISTS','NOT_EXISTS','ANY']),subquery:statement,child:z.unknown(),comparison_type:z.string()}).strict();

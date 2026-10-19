@@ -244,7 +244,7 @@ it('J-003/S2e execution and validation use the pinned certificate and structured
  // J-003: missing execution limits cannot block or grant execution to validation.
  validationEvents.length=0;validationStatements.length=0;executionReached.mockClear();resolveSpy.mockClear();
  const {limits:_,...dryRun}=r;
- expect(await json('/validate',dryRun)).toMatchObject({status:200,value:{queryEngineVersion:'v1.4.3/d1dc88f950'}});
+ expect(await json('/validate',dryRun)).toMatchObject({status:200,value:{queryEngineVersion:'v1.5.6/069cc9f9b5'}});
  expect(executionReached).not.toHaveBeenCalled();expect(resolveSpy).not.toHaveBeenCalled();
  expect(validationEvents.map(e=>e.stage)).toEqual(['parse_started','parse_succeeded','serialize_started','serialized','prepare_started','prepared','released']);
  expect(validationStatements.every(s=>s.sql.startsWith('SET '))).toBe(true);

@@ -3907,8 +3907,8 @@ compiler, UDF registration, or query inspector is supplied by item 4.2.
 **Item 4.5 is the application pre-filter only (algorithm C.3.1).**
 `QueryPreFilter.inspect` takes SQL, the compiled views and the sidecar's exact
 engine build identity. `QueryParserPort` is implemented by `DuckDBQueryParser`
-in infrastructure, pinned to `@duckdb/node-api` 1.4.3-r.3. The adapter reports
-`library_version/source_id` (`v1.4.3/d1dc88f950`), not just a semver. Agent SQL is
+in infrastructure, pinned to `@duckdb/node-api` 1.5.6-r.1. The adapter reports
+`library_version/source_id` (`v1.5.6/069cc9f9b5`), not just a semver. Agent SQL is
 only a bound VARCHAR argument to `json_serialize_sql` in an empty in-memory
 instance; it is never submitted for execution. Connections and instances close
 in `finally`. No source is attached or contacted, and SQL/values are not logged.
