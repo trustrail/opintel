@@ -175,15 +175,6 @@ position, or invests in bounded differencing control with contributor tracking a
 stable snapshot.
 **Status** Open · Decision, not work
 
-### H-05 · The soak observer stops verifying and keeps going
-**Customer** On 19 Oct the observer took an HTTP 401 and skipped 3,396 receipt checks while
-the run continued and reported. Every governance claim we make rests on these runs, and a
-harness that silently stops checking makes a clean result meaningless. Fail the run on any
-non-2xx, surface skipped checks at the top of the summary, and fix the underlying auth
-expiry.
-**Evidence** docs/review/x01-duckdb-binding-upgrade.md
-**Status** Open · Small · Before the next soak
-
 ### X-06 · Console fetches every run individually
 **Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,
 roughly 3.8 per second, including about 440 calls to /api/v1/runs/<id> with each id fetched
@@ -483,6 +474,24 @@ set, retained on the same terms as receipts. Alert bodies carry counts and ident
 ---
 
 ## Done
+
+### H-05 · The soak observer stops verifying and keeps going
+**Customer** On 19 Oct the observer took an HTTP 401 and skipped 3,396 receipt checks while
+the run continued and reported. Every governance claim we make rests on these runs, and a
+harness that silently stops checking makes a clean result meaningless. Fail the run on any
+non-2xx, surface skipped checks at the top of the summary, and fix the underlying auth
+expiry.
+**Evidence** docs/review/x01-duckdb-binding-upgrade.md
+**Status** Done · 19 October 2026 · d55ad1b
+**Resolution** Receipt preflight is mandatory; a non-2xx, network or response-contract
+failure halts the run with exit 1. Verdict and skipped receipt checks lead the summary.
+The normal runner owns Redis, so its FLUSHDB tests cannot erase console sessions.
+Receipt-only heartbeats retain idle activity but neither bypass absolute expiry nor
+survive revocation; both are tested through production HTTP authentication,
+CurrentUserService and real Redis in test/soak-observer-session.test.ts.
+**Verification** Full gate passed once: 1,871 tests / 206 files, 59 conformance checks /
+54 routes and one browser/MCP smoke path; 1,474.245 seconds. Standalone observer checks:
+17 passed. Checked 19 October 2026. No production session policy was changed.
 
 ### E-10 · Readiness proves the process is alive, not that it can serve
 **Customer (original finding)** Startup opens DuckDB without postgresExtension and /health returns build metadata
