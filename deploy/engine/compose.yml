@@ -39,4 +39,6 @@ services:
       UV_USE_IO_URING: "0"
     env_file:
       - ${ENGINE_SECRET_ENV_FILE:?operator-provisioned secret references}
-    restart: unless-stopped
+    # The Engine supervisor owns the bounded restart budget. Docker must not
+    # reset that budget indefinitely after terminal exhaustion.
+    restart: "no"

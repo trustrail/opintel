@@ -41,7 +41,7 @@ COPY --from=build /work/tmp/duckdb-extensions ./tmp/duckdb-extensions
 RUN mkdir /audit /custody /ingest && chmod 0555 /audit /custody /ingest /tmp
 USER 65534:65534
 ENV NODE_ENV=production UV_USE_IO_URING=0 SIDECAR_CONFIG_FILE=/config/service.json
-CMD ["node","sidecar/start.js"]
+CMD ["node","sidecar/supervise.js"]
 
 FROM node:22-bookworm-slim AS egress
 RUN apt-get update && apt-get install -y --no-install-recommends iptables && rm -rf /var/lib/apt/lists/*

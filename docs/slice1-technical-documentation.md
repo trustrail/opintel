@@ -5462,6 +5462,16 @@ Routing rechecks health rather than trusting an old successful test. Queries
 whose touched sources belong to different engines refuse sources_cannot_be_joined;
 there is no distributed execution in this item.
 
+**X-02–X-04 recovery (18 October 2026).** A failed probe still clears current
+verification and refuses service, but unavailable/contract-mismatch registrations
+are re-probed on the next request. Successful pinned TLS health with the current
+contract restores verification; new/edited registrations retain their explicit
+initial verification requirement. MCP preserves `source_unavailable/engine_registry`
+as an infrastructure refusal, and evidence retains the same code/cause. The
+supervised Engine entrypoint has five consecutive restart attempts, replenished after 60 seconds of ready child
+heartbeats, with bounded
+backoff and a logged terminal exhausted state; see `deploy/engine/README.md`.
+
 One verified engine is explicitly designated for project custody. Assignment of a source with tokenized entitlements
 requires current primary key version and sentinel matching token_key_version.
 The read-only /custody/attest operation derives the sentinel from the primary

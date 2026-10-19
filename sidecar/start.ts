@@ -75,5 +75,6 @@ async function main(): Promise<void> {
     throw error;
   }
   console.info('Opintel Engine ready.',{host:config.host,port:boundPort,certificatePin:certificatePin(tls.cert)});
+  if(process.send){const heartbeat=()=>{if(process.connected)process.send?.({event:'engine.healthy'},()=>{});};heartbeat();const timer=setInterval(heartbeat,5000);timer.unref();}
 }
 void startupCheck('startup initialization', main).catch((error:unknown)=>{console.error(error instanceof Error ? error.message : 'Opintel Engine startup failed.');process.exit(1);});

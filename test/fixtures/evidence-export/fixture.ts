@@ -24,12 +24,15 @@ export async function exportFixture(){
   settings:(redaction:string,fields:string[]=[])=>withPlatform(tx=>tx.query('UPDATE project SET settings=$2 WHERE id=$1',[f.ctx.projectId,{evidence:{redaction,allowlistedFields:fields}}])),
   link:async(command:ExportCommand)=>{const d=EvidenceExportDescriptor.parse(await (await post(command)).json());return EvidenceExportStatus.parse(await (await status(d.id)).json());},
   run:async(synthetic:boolean|null=false,request="SELECT field_1 FROM warehouse.public.records WHERE field_1='private-value'",mode='query',agent='export-agent')=>{
-   const id=randomUUID(),at=new Date().toISOString();await withTenant(f.ctx,async tx=>{
-    await tx.query('INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,$4,\'opk_export\',$5,$6,$7,$8)',[id,f.ctx.projectId,f.pool,agent,mode,request,{policy:19,catalog:11,vocabulary:3,tokenKeyVersionSelected:null},at]);
+   const id=randomUUID();const at=await withTenant(f.ctx,async tx=>{
+    const [row]=await tx.query<{at:string}>('INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,$4,\'opk_export\',$5,$6,$7,clock_timestamp()) RETURNING started_at::text AS at',[id,f.ctx.projectId,f.pool,agent,mode,request,{policy:19,catalog:11,vocabulary:3,tokenKeyVersionSelected:null}]);
+    // Keep the database's exact timestamp, including microseconds, for child keys.
+    const at=row!.at;
     if(synthetic!==null){
      for(const [elementId,name,state,treatment] of [[f.ids[0],'field_1','released','clear'],[null,'derived_output','released','clear'],[null,'unknown_field','undecided',null]] as const)await tx.query('INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment) VALUES($1,$2,$3,$4,$5,$6)',[id,at,elementId,name,state,treatment]);
      await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,synthetic,completed_at,source_plan) VALUES($1,$2,$3,$4,$2,$5)',[id,at,{kind:'answered',rowCount:1,truncated:false},synthetic,{sources:[{origin:'demo'}]}]);
     }
+    return at;
    });return {id,at};
   },
  };

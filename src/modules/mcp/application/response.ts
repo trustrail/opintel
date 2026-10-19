@@ -5,6 +5,7 @@ import {queryRefusalDetails,QueryRefusalMetadata} from '../../../shared/api/quer
 import { QueryOutput } from '../../../shared/api/mcp.js';
 
 export const messages = {
+  "Engine-unavailable": "The registered Engine is unavailable or has not passed verification. This is an infrastructure refusal, not an entitlement decision. No result was returned. A later request will recheck an Engine whose health probe failed.",
   "Release-refused": "This release grant is expired, revoked, has already released its Opintel share, or belongs to another credential. No release share was returned. "+releaseNonClaim,
   "Release-config": "Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.",
   "Release-prepare": "Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.",
@@ -34,6 +35,7 @@ export const messages = {
   "Unknown": "The query could not be completed. Whether it reached a source is not established. This needs an operator."
 } as const;
 const mapping: Readonly<Record<string, readonly [keyof typeof messages, boolean | 'inherit']>> = {
+ 'source_unavailable/engine_registry': ['Engine-unavailable', 'inherit'],
  'forbidden/release_refused': ['Release-refused', false],
  'dependency_unavailable/release_configuration': ['Release-config', false],
  'forbidden/release_configuration': ['Release-config', false],
@@ -70,8 +72,8 @@ const mapping: Readonly<Record<string, readonly [keyof typeof messages, boolean 
  'source_unavailable/source_read_failed': ['Source-read', 'inherit'],
  'source_unavailable/source_response_unusable': ['Unknown', false],
  'source_unavailable/source_not_ready': ['Unknown', false],
- 'source_unavailable/sidecar_transport_failed': ['Unknown', false],
- 'source_unavailable/sidecar_response_unusable': ['Unknown', false],
+ 'source_unavailable/sidecar_transport_failed': ['Engine-unavailable', 'inherit'],
+ 'source_unavailable/sidecar_response_unusable': ['Engine-unavailable', 'inherit'],
  'source_unavailable/staging_failed': ['Unknown', false],
  'source_unavailable/interruption_unclassified': ['Unknown', false],
  'dependency_unavailable/evidence_before_execution': ['Evidence-before', 'inherit'],

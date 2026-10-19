@@ -76,9 +76,85 @@ that row.
 | D-04 | Jurisdiction in industry packs: a pack dimension or separate packs; project or filing party. | B4 | Deferred is an acceptable answer; say so explicitly. |
 | D-05 | Pool exemption workflow — in Slice 1 or not. | B2 | Currently deferred by design. |
 
+**D-05 consequence (c):** Alert delivery uses the customer's own channels, their internal relay
+for email, so no new egress is introduced by Opintel. Alert bodies carry counts and
+identifiers only, never personal data, with detail behind the console.
+
 ---
 
 ## Now
+
+### X-01 · Engine segfaults under sustained concurrency
+**Customer** The Engine is the data plane. On 18 October it crashed with EXC_BAD_ACCESS in
+duckdb::DBConfigOptions::operator= inside DatabaseInstance::Configure while opening a DuckDB
+instance, after 878 queries and roughly eighteen minutes of ten concurrent agents. In a
+customer deployment this is a total outage of governed data access. It is the most serious
+defect found to date and nothing else in this document matters if it recurs.
+**What** Reproduce it, find the root cause, fix it. Likely candidates are instance lifetime
+or concurrent configuration of DuckDB instances opened at
+sidecar/session/infrastructure/duckdb.ts:21, two per execution.
+**Evidence** /Users/rzarita/Library/Logs/DiagnosticReports/node-2026-10-18-140612.ips, PID
+72511, 18:06:04 UTC; tmp/soak/2026-10-18T17-47-21.269Z-72578.jsonl
+**Status** Open · Large
+**Note** Fail-closed held throughout: 5,685 queries after the crash were refused and none
+returned data.
+
+### X-02 · Nothing supervises the Engine
+**Customer** The Engine stayed dead for 38 minutes. No restart, no alert, no notice. A
+customer would discover it from their agents, not from us. This is the Engine half of A3 and
+should not wait for it.
+**What** Supervision that restarts the Engine, and something that says it happened.
+**Status** Open · Medium
+
+### X-03 · An Engine outage cannot be diagnosed from its refusals
+**Customer** Of 5,685 refusals, 3 named the real cause and 5,682 were unclassified, because
+the response mapper does not recognise engine_registry. An administrator facing this outage
+would have no idea what was wrong.
+**Evidence** src/modules/mcp/application/response.ts:109,
+src/modules/engines/application/registry.ts:33
+**Status** Open · Small
+**Note** Same class as E-07. Consider fixing them together.
+
+### X-05 · Console unusable while agents are running
+**Customer** With ten agents running, the operator cannot see the system they are meant to be
+governing. Screens load, wait, then show "The service could not be reached".
+**Cause, now measured** Database pool exhaustion. In the 18 Oct 21:12 to 21:32 capture, 632 of
+1,196 one-second samples had idle 0 with callers queued, peaking at 33 waiters on a pool of 10.
+Event loop delay averaged 22 ms with one sample above 100 ms in the whole run, so the process
+was not CPU bound. /runs/summary reached p95 20.6s, max 21.0s. Four requests ended status 0,
+the client hanging up. src/platform/db/scope.ts:6, scope.ts:31
+**Fix** Reserved connection capacity for console reads, bounded admission and a bounded
+acquisition wait on the agent side, plus an application timeout in the client so a failure is
+fast and says what it was. tmp/diag/2026-10-18T21-12-51.565Z.jsonl
+**Status** Open · Medium
+
+### G-07 · Evidence left open when the Engine dies mid-query
+**Customer** Eighteen requests in the 18 Oct fault run, three of them custody queries, were
+classified correctly to the agent but left their evidence open with no completed outcome. The
+product asserts a receipt on every answer; these are holes in the record, and an abandoned
+request is indistinguishable from one still in flight. query.ts:51 deliberately declines to
+write a refusal without source-usage proof, which is right: we cannot claim nothing was
+disclosed when we cannot prove it. But we can record what is true, that the Engine serving
+this request terminated at a known time and the outcome is unproven, which closes the record
+without asserting an outcome we did not observe. Keep that state distinct from a proven
+refusal in both the receipt and the console.
+**Evidence** tmp/soak/2026-10-18T22-18-38.220Z-81762.jsonl; src/modules/mcp/application/query.ts:51
+**Status** Open · Governance · Ahead of X-06
+
+### X-06 · Console fetches every run individually
+**Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,
+roughly 3.8 per second, including about 440 calls to /api/v1/runs/<id> with each id fetched
+exactly once. The console is a large part of what exhausts the pool it then cannot get a
+connection from. Batch or embed the run detail the feed already lists.
+**Evidence** Same capture; src/app/dashboard/read-model.ts:21
+**Status** Open · Small, and the cheapest of the three
+
+### X-07 · A query held a pooled connection for 19 seconds
+**Customer** Against a p95 hold time of 219 ms, one acquisition held its connection for 19.2
+seconds, which is a tenth of the pool for that whole period. Identify the query. It may be the
+same work behind /runs/summary at p95 20.6s.
+**Evidence** Same capture, db records, scope opintel_app
+**Status** Open · Investigate before sizing
 
 ### Z-03 · Restrict company creation
 **Customer** Any authenticated account can create a company and becomes its administrator.
@@ -160,6 +236,22 @@ large source.
 
 ## Next — make custody true and visible
 
+### G-06 · Verify a credential's recipient identifier at registration
+**Customer** The recipient identifier decides where every custody release for a credential
+is escrowed. Today it is supplied at registration and stored as given, so an identifier that
+is wrong, mistyped or claimed by the wrong party sends that credential's releases to someone
+else, permanently, and nothing downstream notices. This is the most consequential unverified
+input in the system.
+**What** Opintel escrows a nonce addressed to the claimed identifier and requires the caller
+to return it before the association is stored. Only the holder of that certificate can fetch
+it, so the claim is proven rather than trusted. The identifier itself is discoverable: it is
+the `sub` claim of the token the exchange returns, so the agent knows it first-hand and does
+not read it from a dashboard.
+**Note** This is the same challenge mechanism as C3, applied at registration rather than at
+query time. C3 as written covers only the row-scoping use. The partner brief's Figure 4 shows
+only that use as well, and should gain this one when the brief is next revised.
+**Status** Open · Medium · after V-01 and V-02 soak testing
+
 ### G-01 · Sender authentication and renewal
 **Customer** Opintel's escrow identity is a hand-made token from a PIN flow with no renewal
 path and roughly a sixty-day life. An unattended deployment stops escrowing when it expires,
@@ -239,6 +331,74 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### E-06 · Custody preparation discards its cause
+**Customer** When release preparation fails, the operator is told to check the custody
+provider and nothing else. The underlying exception is caught and thrown away, so six
+failures in a soak run cannot be attributed to XQ, the network, the database or anything
+else. In production this is an incident with no evidence.
+**What** Record the cause: in the evidence record, in the server log, or both. The agent's
+message can stay as it is.
+**Evidence** src/modules/release-custody/infrastructure/query-release.ts:23
+**Status** Open · Small
+
+### E-07 · Refusal taxonomy conflates governance with infrastructure
+**Customer** A credential with no certificate association and an unconfigured source scanner
+both surface as dependency_unavailable. One means the agent is correctly not entitled; the
+other means the deployment is broken. An administrator reading Activity cannot tell them
+apart, and will chase the wrong thing.
+**What** Separate the codes so a governance refusal reads as a decision and an infrastructure
+failure reads as a fault.
+**Evidence** 686 and 155 occurrences respectively in the 18 Oct soak run
+**Status** Open · Small
+
+### E-08 · Fresh dev environments have no PostgreSQL scanner configured
+**Customer** Not customer-facing, but it costs a day per person. `dev:up` writes a sidecar
+configuration with no `postgresExtension`, so every clear-column read fails with "A signed
+PostgreSQL scanner matching DuckDB v1.4.3 is required". It produced 686 of the 847 refusals
+in the 18 Oct soak run before anyone noticed, and every fresh checkout reproduces it.
+**What** `dev:up` configures it, or fails loudly at startup saying what is missing. Deployed
+configurations need the same setting; production bakes the scanner into its image but the
+setting must still be present.
+**Evidence** tmp/sidecar/service.json, configured by hand on 18 Oct 2026;
+sidecar/session/infrastructure/duckdb.ts:62
+**Status** Open · Small
+
+### E-10 · Readiness proves the process is alive, not that it can serve
+**Customer** Startup opens DuckDB without postgresExtension and /health returns build metadata
+without exercising the scanner, so a replaced Engine reports ready while potentially unable to
+answer any query that needs Postgres. A missing scanner fails at materialisation, an invalid
+configured extension fails when the execution session loads it, and in both cases the operator
+sees a recovered Engine and an agent sees a failure. This is the detection gap that sits
+alongside E-08's configuration defect; supplying the setting does not close it.
+**Fix** Readiness requires the scanner configuration when Postgres scanning is needed, opens
+the privileged session, loads the signed extension, attaches the intended source read-only and
+materialises a constant SELECT 1, then closes everything. It must never read a customer value:
+a probe that reads a real row would be an ungoverned read by the product itself. It runs on
+startup and after a replacement, not on every health poll, since each run costs a connection.
+Proves one source path at one moment; table permissions and other sources still need their own
+checks.
+**Evidence** sidecar/start.ts:37, sidecar/http/server.ts:42,
+sidecar/session/infrastructure/duckdb.ts:32 and :62
+**Status** Open · Small · Next, after this branch lands
+
+### E-11 · An empty evidence export is indistinguishable from an excluded one
+**Customer** When the cutoff excluded every row, the export succeeded with empty NDJSON and a
+header-only CSV. An auditor cannot tell that from a genuine zero-record export. The export
+should state the window it covered and the number of records it found, so an empty result is
+an assertion rather than an absence.
+**Evidence** src/modules/evidence/infrastructure/export.ts:35; the 18 Oct gate failures
+**Status** Open · Small
+
+### E-09 · entitledRows reports rows staged, not rows entitled
+**Customer** The receipt's entitledRows field reports the count after the agent's own filter
+is combined with the governance predicate, so a query for one record in a pool entitled to
+five records reports 1. An auditor reading the receipt takes that as the entitlement. The
+partner brief describes receipts as carrying entitled-row counts, which is the same reading.
+Either the field means what its name says, or its name has to change, and the brief with it.
+**Evidence** 110 alarms in the 18 Oct 16:07 soak run, every one this mismatch;
+scripts/soak/reinsurance.ts:154, sidecar/execution/application/execute.ts:89
+**Status** Open · Small, once the semantics are decided
+
 | # | Row | Why it matters | Size |
 |---|---|---|---|
 | A5 | Idempotency key on source deletion | Replay of a delete is unprotected where every other pool operation is | Small |
@@ -257,6 +417,19 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 | A2 | First-account bootstrap: operator CLI, one company and admin, durable claim, audit | Medium |
 | A3 | Production API supervision: dedicated container, readiness separate from liveness, partition-horizon alerting | Medium |
 | A1 | Two-phase SSO provider rotation under enforcement | Medium |
+
+---
+
+## Not scheduled
+
+### F-01 · Threshold alerts
+**Customer** Clients set thresholds on the conditions that matter to them and are notified out
+of band when one is crossed. This is the channel responsible for timely detection, so
+thresholds are evaluated server side rather than in a browser that may be closed. A sent
+alert carries evidentiary weight, SMS notably so, which makes the record of what was
+evaluated, what fired, what was sent and whether delivery was confirmed part of the evidence
+set, retained on the same terms as receipts. Alert bodies carry counts and identifiers only.
+**Status** Open · Not scheduled · Blocked by X-05 and X-06
 
 ---
 

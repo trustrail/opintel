@@ -87,6 +87,21 @@ is implemented by S5.
 
 ## Verification and controller boundary
 
+The Engine entrypoint supervises its child process. Unexpected exits (including
+exit code zero) allow five restarts after 1, 2, 4, 8 and 16 seconds. The budget
+resets after 60 seconds of ready, responsive child heartbeats. A missing heartbeat
+for more than 10 seconds restarts that stability interval. Brief recovery does not reset it. Restart scheduling,
+child exits and terminal exhaustion are timestamped JSON log events. On exhaustion
+the supervisor exits nonzero; Compose does not restart it and reset the budget.
+Inspect the logs and correct the cause before explicitly restarting the service.
+SIGTERM/SIGINT stop the child with a bounded grace period and do not restart it.
+Only landing locks naming the exact child just reaped are reclaimed; unknown
+locks and all landing state/evidence remain untouched.
+
+After a failed health check, the next application request re-probes the registered
+Engine using its pinned TLS identity and required contract. It serves only after
+that succeeds. New or edited registrations still require Test connection.
+
 Run `npm run test:ephemerality`. It builds the **same engine target and image tag**
 as this package, verifies Docker's actual image ID and runtime controls in
 `test-results/ephemerality/<run>/shipping-runtime.json`, performs SD-005 active probes,

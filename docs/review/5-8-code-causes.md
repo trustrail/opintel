@@ -63,6 +63,7 @@ below are copied character for character from the approved specification.
 | Release-refused | `This release grant is expired, revoked, has already released its Opintel share, or belongs to another credential. No release share was returned. This does not evidence that the agent obtained the provider's share or decrypted the value.` |
 | Release-config | `Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.` |
 | Release-prepare | `Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.` |
+| Engine-unavailable | `The registered Engine is unavailable or has not passed verification. This is an infrastructure refusal, not an entitlement decision. No result was returned. A later request will recheck an Engine whose health probe failed.` |
 | Unknown | `The query could not be completed. Whether it reached a source is not established. This needs an operator.` |
 
 ## Proposed mapping
@@ -103,8 +104,8 @@ expose source names, hostnames, secrets, thresholds or suppressed counts.
 | `source_unavailable` | `source_read_failed` | A reached source explicitly returns an error, including a rejected query or access attempt | Source-read | inherit |
 | `source_unavailable` | `source_response_unusable` | A source returned data or metadata, but local decoding/validation fails; the source did not necessarily return an error | Unknown | false |
 | `source_unavailable` | `source_not_ready` | Stored source status or missing credential reference prevents attempting the read; live reachability is not established | Unknown | false |
-| `source_unavailable` | `sidecar_transport_failed` | Sidecar connection/TLS failure; source reachability/progress are not established | Unknown | false |
-| `source_unavailable` | `sidecar_response_unusable` | Malformed/incomplete/oversized response or invalid error envelope; execution is not established | Unknown | false |
+| `source_unavailable` | `sidecar_transport_failed` | Sidecar connection/TLS failure; source reachability/progress are not established | Engine-unavailable | inherit |
+| `source_unavailable` | `sidecar_response_unusable` | Malformed/incomplete/oversized response or invalid error envelope; execution is not established | Engine-unavailable | inherit |
 | `source_unavailable` | `staging_failed` | An error is known to come from local staging/appending inside the source wrapper, rather than from the reached source | Unknown | false |
 | `source_unavailable` | `interruption_unclassified` | Existing source/client deadline-cancellation conflation; classification is deferred to 5.7a | Unknown | false |
 | `dependency_unavailable` | `evidence_before_execution` | Evidence fails and execution is known not to have occurred | Evidence-before | inherit |

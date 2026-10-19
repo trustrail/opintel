@@ -1,5 +1,5 @@
 import {PostgresElementDeclarations} from '../src/modules/catalog/index.js';
-import {beforeAll,afterAll,it,expect} from 'vitest';
+import {beforeAll,afterAll,it,expect,vi} from 'vitest';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -17,13 +17,25 @@ import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe,RegistryCustody
 import {KeyCustodyService,PostgresCustodyRepository} from '../src/modules/entitlements/index.js';
 import {createHttpServer} from '../src/platform/http/index.js';
 import {withTenant,withPlatform} from '../src/platform/db/scope.js';
-import {ok,Timestamp} from '../src/shared/kernel/index.js';
+import {ok,err,DomainError,Timestamp} from '../src/shared/kernel/index.js';
 import {SidecarTokenizer,IanaZoneResolver} from '../sidecar/tokenize/index.js';
 import {allowBulk} from './fixtures/bulk-entitlements/fixture.js';
 let directory:string,host:ReturnType<typeof createSidecarServer>,options:Awaited<ReturnType<typeof developmentEngineOptions>>,custody:FileCustody;
 beforeAll(async()=>{directory=await mkdtemp(join(tmpdir(),'engine-registry-'));await prepareSidecarDevelopment(directory);const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));custody=new FileCustody(await DevelopmentFileKeyStore.open(config.custody!.keyStore),await DevelopmentFileKeyEscrow.open(config.custody!.keyEscrow));const unused=async()=>ok({reachable:true as const});host=createSidecarServer({config:{...config,port:0},tls,custody,connector:{testConnection:unused,introspect:unused,sampleTopValues:unused,estimateRowCount:unused} as Parameters<typeof createSidecarServer>[0]['connector']});const port=await host.listen();options={...await developmentEngineOptions(join(directory,'service.json')),baseUrl:`https://127.0.0.1:${port}`};},30000);
 afterAll(async()=>{await host?.close();await rm(directory,{recursive:true,force:true});});
 async function fixture(){const f=await policyFixture(1);await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT DO NOTHING',[f.ctx.userId,f.ctx.userId+'@test.example']));await f.set('tokenized');const repo=new PostgresEngineRepository(),registry=new EngineRegistry(repo,new HttpsEngineProbe(),options.tls);const registered=unwrap(await registry.register(f.ctx,{name:'Customer segment A',address:options.baseUrl,certificatePin:options.tls.certificatePin}));return {...f,repo,registry,registered};}
+it('X-04: a failed probe refuses and clears authority, then the next source request re-verifies without operator action',async()=>{
+ const f=await fixture();unwrap(await f.registry.verify(f.ctx,f.registered.id));unwrap(await f.repo.assign(f.ctx,f.source,f.registered.id));
+ let available=false,probes=0;
+ const registry=new EngineRegistry(f.repo,{health:async()=>{probes++;return available?ok({contract:3,queryEngineVersion:'test',canonicalisers:[]}):err(new DomainError('source_unavailable','unreachable'));},sentinel:async()=>ok({version:null,sentinel:null})},options.tls);
+ const failed=await registry.forSource(f.ctx,f.source);expect(failed).toMatchObject({ok:false,error:{code:'source_unavailable',details:{cause:'engine_registry'},retryable:true}});
+ expect(unwrap(await f.repo.get(f.ctx,f.registered.id))).toMatchObject({verifiedAt:null,contractVersion:null,health:'unavailable'});
+ expect(await authorizeEngineReceipt(options.tls.certificatePin,f.ctx.projectId,f.source)).toBe(false);
+ expect((await registry.forSource(f.ctx,f.source)).ok).toBe(false);available=true;await new Promise(resolve=>setTimeout(resolve,1100));
+ expect((await registry.forSource(f.ctx,f.source)).ok).toBe(true);expect(probes).toBe(2);
+ expect(unwrap(await f.repo.get(f.ctx,f.registered.id))).toMatchObject({verifiedAt:expect.any(String),contractVersion:3,health:'healthy'});
+ expect(await authorizeEngineReceipt(options.tls.certificatePin,f.ctx.projectId,f.source)).toBe(true);
+});
 it('5.20: registration is unverified; a valid hex typo fails verification before assignment; correcting it requires a fresh check',async()=>{const f=await fixture();expect((await f.registry.forEngine(f.ctx,f.registered.id)).ok).toBe(false);unwrap(await f.registry.update(f.ctx,f.registered.id,{name:f.registered.name,address:options.baseUrl,certificatePin:'00'.repeat(32)}));const bad=await f.registry.verify(f.ctx,f.registered.id);expect(bad.ok).toBe(false);if(!bad.ok){expect(bad.error.message).toContain('could not be verified');expect(bad.error.message).not.toContain('ERR_TLS');}expect(unwrap(await f.repo.get(f.ctx,f.registered.id)).verifiedAt).toBeNull();expect((await f.registry.assign(f.ctx,f.source,f.registered.id)).ok).toBe(false);unwrap(await f.registry.update(f.ctx,f.registered.id,{name:f.registered.name,address:options.baseUrl,certificatePin:options.tls.certificatePin}));expect(unwrap(await f.registry.verify(f.ctx,f.registered.id))).toMatchObject({contractVersion:3,health:'healthy'});});
 it('5.20: missing engine names the source; custody is designated explicitly and source assignment checks the primary sentinel',async()=>{const f=await fixture();const absent=await f.registry.forSource(f.ctx,f.source);expect(absent.ok).toBe(false);if(!absent.ok)expect(absent.error.message).toContain('Source Warehouse has no assigned engine');unwrap(await f.registry.verify(f.ctx,f.registered.id));unwrap(await f.registry.designate(f.ctx,f.registered.id));const service=new KeyCustodyService(new PostgresCustodyRepository(),new RegistryCustodyClient(f.registry),{...allowBulk,checkMany:async r=>Promise.all(r.map(q=>allowBulk.check(q)))});unwrap(await service.ensure(f.ctx));unwrap(await f.registry.assign(f.ctx,f.source,f.registered.id));expect(unwrap(await f.registry.forSource(f.ctx,f.source,true)).baseUrl).toBe(options.baseUrl);expect(await authorizeEngineReceipt(options.tls.certificatePin,f.ctx.projectId,f.source)).toBe(true);expect(await authorizeEngineReceipt('00'.repeat(32),f.ctx.projectId,f.source)).toBe(false);const foreign=await policyFixture(0);expect(await authorizeEngineReceipt(options.tls.certificatePin,foreign.ctx.projectId,f.source)).toBe(false);const page=await f.registry.list(f.ctx,null,10);expect(page[0]?.sources).toEqual([{id:f.source,name:'Warehouse'}]);});
 it('5.20: an unprovisioned engine and a stale key after rotation refuse tokenized execution; clear routing remains available',async()=>{const f=await fixture();unwrap(await f.registry.verify(f.ctx,f.registered.id));unwrap(await f.registry.designate(f.ctx,f.registered.id));const actual=unwrap(await custody.invoke('initialize',f.ctx.projectId,{})) as {keyVersion:number;sentinelToken:string};await withTenant(f.ctx,tx=>tx.query("INSERT INTO token_key_version(project_id,version,sentinel_token,state) VALUES($1,1,$2,'current')",[f.ctx.projectId,actual.sentinelToken]));unwrap(await f.registry.assign(f.ctx,f.source,f.registered.id));await withTenant(f.ctx,async tx=>{await tx.query("UPDATE token_key_version SET state='retired'");await tx.query("INSERT INTO token_key_version(project_id,version,sentinel_token,state) VALUES($1,2,$2,'current')",[f.ctx.projectId,actual.sentinelToken]);});const stale=await f.registry.forSource(f.ctx,f.source,true);expect(stale.ok).toBe(false);if(!stale.ok)expect(stale.error.message).toContain('key version or sentinel');expect((await f.registry.forSource(f.ctx,f.source,false)).ok).toBe(true);expect((await f.registry.assign(f.ctx,f.source,f.registered.id)).ok).toBe(false);});
@@ -67,4 +79,14 @@ it('DECL-006: declaration discovery follows the element source to its verified p
  const service=new KeyCustodyService(new PostgresCustodyRepository(),new RegistryCustodyClient(f.registry),{...allowBulk,checkMany:async r=>Promise.all(r.map(q=>allowBulk.check(q)))});
  unwrap(await service.ensure(f.ctx));unwrap(await f.registry.assign(f.ctx,f.source,f.registered.id));
  const assigned=unwrap(await declarations.read(f.ctx,f.ids[0]!));expect(assigned.discoveryError).toBeNull();expect(assigned.canonicalisers).toEqual(expect.arrayContaining(['stdtext1','stdnum1','stdtime1','stddate1']));
+});
+
+it('X-04: concurrent outage requests share a probe and a failed-probe cooldown',async()=>{
+ const f=await fixture();unwrap(await f.registry.verify(f.ctx,f.registered.id));
+ let release!:()=>void;const blocked=new Promise<void>(r=>{release=r;});const health=vi.fn(async()=>{await blocked;return err(new DomainError('source_unavailable','offline'));});
+ const registry=new EngineRegistry(f.repo,{health,sentinel:async()=>ok({version:null,sentinel:null})},options.tls);
+ const calls=Array.from({length:10},()=>registry.forEngine(f.ctx,f.registered.id));await vi.waitFor(()=>expect(health).toHaveBeenCalledTimes(1));release();
+ expect((await Promise.all(calls)).every(r=>!r.ok&&r.error.details?.cause==='engine_registry')).toBe(true);expect(health).toHaveBeenCalledTimes(1);
+ expect((await registry.forEngine(f.ctx,f.registered.id)).ok).toBe(false);expect(health).toHaveBeenCalledTimes(1);
+ await new Promise(r=>setTimeout(r,1100));expect((await registry.forEngine(f.ctx,f.registered.id)).ok).toBe(false);expect(health).toHaveBeenCalledTimes(2);
 });

@@ -18,7 +18,7 @@ export async function portAvailable(host: string, port: number): Promise<boolean
 }
 
 /** Never signal an unrecorded listener or a PID reused by another program. */
-export async function stopRecordedSidecar(options: { pidFile: string; entryPoint: string; host: string; port: number; timeoutMs: number }): Promise<void> {
+export async function stopRecordedSidecar(options: { pidFile: string; entryPoint: string; legacyEntryPoint?:string; host: string; port: number; timeoutMs: number }): Promise<void> {
   let pid: number | undefined;
   try {
     const recorded = (await readFile(options.pidFile,'utf8')).trim();
@@ -29,7 +29,7 @@ export async function stopRecordedSidecar(options: { pidFile: string; entryPoint
     let command: string;
     try { command = (await exec('ps',['-p',String(pid),'-o','command='])).stdout; }
     catch (error) { if (alive(pid)) throw error; command = ''; }
-    if (command && !command.trim().split(/\s+/).includes(options.entryPoint))
+    if (command && ![options.entryPoint,options.legacyEntryPoint].some(entry=>entry!==undefined&&command.trim().split(/\s+/).includes(entry)))
       throw new Error(`Recorded Opintel Engine PID ${pid} belongs to another command. Refusing to signal it; inspect ${options.pidFile}.`);
     if (alive(pid)) process.kill(pid,'SIGTERM');
   }

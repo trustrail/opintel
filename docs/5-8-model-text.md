@@ -219,3 +219,8 @@ This release grant is expired, revoked, has already released its Opintel share, 
 Release custody is not configured for this project or credential. No result was released. Ask an administrator to configure the custody provider and credential alias.
 
 Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.
+
+
+X-03 Engine infrastructure refusal (18 October 2026):
+
+The registered Engine is unavailable or has not passed verification. This is an infrastructure refusal, not an entitlement decision. No result was returned. A later request will recheck an Engine whose health probe failed.

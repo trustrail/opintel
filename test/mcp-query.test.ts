@@ -8,6 +8,14 @@ const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).reverse())await close();});
 async function fixture(writer=new TestEvidenceWriter()){const f=await queryFixture(writer);cleanup.push(f.close);return {...f,writer};}
 describe('5.7 authenticated query through authoritative sidecar',{timeout:60000},()=>{
+ it('X-03: registry outage is an infrastructure refusal in MCP and its evidence, with no values delivered',async()=>{
+  const f=await fixture();vi.spyOn(f.execution,'health').mockResolvedValue(err(new DomainError('source_unavailable','Engine unavailable.',{cause:'engine_registry'},true)));
+  for(let attempt=0;attempt<3;attempt++){
+  const response=await f.query('SELECT field_1 FROM warehouse.public.records');
+  expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'engine_registry',retryable:true}});expect(response.structuredContent).toBeUndefined();expect(response.content[0]?.text).toContain('infrastructure refusal');
+  const record=[...f.writer.records.values()].at(-1);expect(record).toMatchObject({outcome:{kind:'refused',code:'source_unavailable',details:{cause:'engine_registry'}}});
+ }
+ });
  it('K-001: real treated rows and native expression types, evidence before release, and caller row limit',async()=>{
   const f=await fixture(),response=await f.query('SELECT field_1,field_2,field_4 FROM warehouse.public.records ORDER BY field_1',2);
   expect(response.isError,JSON.stringify(response)).not.toBe(true);const output=QueryOutput.parse(response.structuredContent);
@@ -68,7 +76,7 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
  });
  it('a dead sidecar after a successful request never serves the preceding result',async()=>{
   const f=await fixture(),sql='SELECT field_1 FROM warehouse.public.records';expect((await f.query(sql)).isError).not.toBe(true);await f.host.close();
-  const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'sidecar_transport_failed',retryable:false}});expect(response.structuredContent).toBeUndefined();
+  const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'sidecar_transport_failed',retryable:true}});expect(response.structuredContent).toBeUndefined();
  });
  it('disconnecting the MCP request aborts its sidecar request',async()=>{
   const f=await fixture();let started!:()=>void;const beginning=new Promise<void>(resolve=>{started=resolve;});let stopped!:()=>void;const ended=new Promise<void>(resolve=>{stopped=resolve;});

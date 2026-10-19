@@ -60,7 +60,7 @@ it('bounds real SIGTERM shutdown while a watcher is waiting on a receipt',async(
 it('dev:up replaces the recorded sidecar only after it exits and its port is free',async()=>{
  const file=join(directory,'service.json');const original=JSON.parse(await readFile(file,'utf8')) as Record<string,unknown>;const port=await availablePort();
  await writeFile(file,JSON.stringify({...original,port,shutdownTimeoutMs:500}));
- const pidFile=join(directory,'sidecar.pid');const stop={pidFile,entryPoint,host:'127.0.0.1',port,timeoutMs:2500};
+ const pidFile=join(directory,'sidecar.pid');const stop={pidFile,entryPoint:fileURLToPath(new URL('../sidecar/supervise.ts',import.meta.url)),host:'127.0.0.1',port,timeoutMs:4500};
  try{
   await startDevelopmentSidecar(directory);const first=Number(await readFile(pidFile,'utf8'));
   const {stdout}=await promisify(execFile)(process.execPath,['--import','tsx',fileURLToPath(new URL('../sidecar/pin-command.ts',import.meta.url)),file]);

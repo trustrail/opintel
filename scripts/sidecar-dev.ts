@@ -65,9 +65,9 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
   const lock=await open(lockFile,'wx',0o600).catch(()=>{throw new Error(`Opintel Engine startup is locked: ${lockFile}. Check for another dev:up or an interrupted startup before removing the lock.`);});
   try {
   const {config}=await loadSidecarConfig(resolve(directory,'service.json'));
-  const entryPoint=fileURLToPath(new URL('../sidecar/start.ts',import.meta.url));
+  const entryPoint=fileURLToPath(new URL('../sidecar/supervise.ts',import.meta.url));
   const pidFile=resolve(directory,'sidecar.pid');
-  const stop=()=>stopRecordedSidecar({pidFile,entryPoint,host:config.host,port:config.port,timeoutMs:config.shutdownTimeoutMs+2000});
+  const stop=()=>stopRecordedSidecar({pidFile,entryPoint,legacyEntryPoint:fileURLToPath(new URL('../sidecar/start.ts',import.meta.url)),host:config.host,port:config.port,timeoutMs:config.shutdownTimeoutMs+4000});
   await stop();
   const output=await open(resolve(directory,'service.log'),'a',0o600);
   const logOffset=(await output.stat()).size;
@@ -90,7 +90,12 @@ export async function startDevelopmentSidecar(directory=sidecarDevDirectory): Pr
         child.unref();console.info(`Local Opintel Engine ready. Deployment: ${resolve(directory,'service.json')}; application TLS: ${resolve(directory,'application-tls.json')}.`);return;
       }catch{await delay(250);}
     }
-    throw new Error('Local Opintel Engine did not become healthy. Check tmp/sidecar/service.log.');
-  }catch(error:unknown){child.kill('SIGTERM');await stop();throw error;}
+    throw await startupFailure();
+  }catch(error:unknown){
+    // Reap our own supervisor before PID validation: ps can otherwise observe
+    // an exiting/zombie process and mistake it for a reused PID.
+    if(child.pid!==undefined&&child.exitCode===null&&child.signalCode===null){const exited=new Promise<void>(resolve=>child.once('exit',()=>resolve()));child.kill('SIGTERM');await exited;}
+    await stop();throw error;
+  }
   } finally {await lock.close();await unlink(lockFile);}
 }
