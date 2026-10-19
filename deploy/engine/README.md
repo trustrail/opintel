@@ -23,6 +23,26 @@ provided manifest, not an unrestricted `docker run`.
    `{ "keyStore": "/custody/primary", "keyEscrow": "/custody/escrow" }`.
    TLS file paths should be under `/config`; the UID 65534 engine must be able
    to read the private key, without making it world-readable.
+   Set `postgresReadinessSource` to a `secret://` reference for one intended
+   PostgreSQL source. The target is mandatory, including for landing/demo
+   deployments; no source is inferred. No target or no scanner means startup fails. Before
+   listening, every child (including replacements) loads the signed scanner,
+   attaches that source read-only and materialises only `SELECT 1 AS ready` in
+   memory, verifies it and closes the session. Never replace this constant with
+   a customer row: readiness is not authorization to read customer data. This
+   proves one source path at startup, not other sources or table permissions.
+   Health polls return the startup result/build metadata without opening sources;
+   an unready child exits and the supervisor applies its bounded retry policy.
+   During backoff and terminal failure the supervisor serves only authenticated
+   `/health` diagnostics at the same address, with a closed readiness reason and
+   no query capabilities. Terminal logs include that reason. Settings → Engines
+   retains the last readiness reason across transport gaps until a successful
+   check clears it. Terminal stops child launches, keeping diagnostics reachable
+   until the operator stops/restarts the supervisor. Agent refusals stay unchanged.
+   A query racing a child exit receives the same infrastructure refusal if it
+   reaches the diagnostic responder. That responder can prove zero source access
+   for requests it receives because it has no execution/source-reading capability;
+   this says nothing about requests interrupted in the departed child (G-07).
 3. Set `ENGINE_AUDIT_DIRECTORY` and `ENGINE_CUSTODY_DIRECTORY` to customer-owned
    directories, owned by UID/GID 65534, mode 0700. `/audit` holds the metadata-only
    sampling audit; `/custody` holds encrypted custody and separately located
@@ -92,8 +112,10 @@ exit code zero) allow five restarts after 1, 2, 4, 8 and 16 seconds. The budget
 resets after 60 seconds of ready, responsive child heartbeats. A missing heartbeat
 for more than 10 seconds restarts that stability interval. Brief recovery does not reset it. Restart scheduling,
 child exits and terminal exhaustion are timestamped JSON log events. On exhaustion
-the supervisor exits nonzero; Compose does not restart it and reset the budget.
-Inspect the logs and correct the cause before explicitly restarting the service.
+the supervisor stops launching children and keeps only its authenticated diagnostic
+listener alive. Compose does not restart it and reset the budget. Its terminal
+record carries the last readiness reason and safe message. Inspect those diagnostics
+and correct the cause before explicitly restarting the service.
 SIGTERM/SIGINT stop the child with a bounded grace period and do not restart it.
 Only landing locks naming the exact child just reaped are reclaimed; unknown
 locks and all landing state/evidence remain untouched.

@@ -22,6 +22,7 @@ import { createPostgresConnector } from './create-postgres-connector.js';
 import { FileSamplingAudit } from './infrastructure/file-sampling-audit.js';
 import { createSidecarServer,sidecarBuild } from './http/server.js';
 import {certificatePin} from './certificate.js';
+import {checkQueryReadiness,QueryReadinessError} from './readiness.js';
 
 async function main(): Promise<void> {
   console.info({event:'tokenization.unicode', runtime:process.versions.unicode, folding:foldingVersion});
@@ -34,8 +35,10 @@ async function main(): Promise<void> {
   const audit = await startupCheck(`audit file ${config.auditFile}`, () => FileSamplingAudit.open(config.auditFile));
   const secrets=new EnvironmentSecretStore(),scope=new PostgresSourceScope(secrets,config.limits);
   const execution=new StagedExecutor(new PostgresStagingSource(scope,new SidecarTokenizer(custody??secrets,new IanaZoneResolver())),r=>new DuckDBSessionEngine(undefined,undefined,config.postgresExtension,r.limits));
-  const engineProbe=await startupCheck('query engine initialization', () => new DuckDBSessionEngine().open('privileged'));
-  let queryEngineVersion:string;try{queryEngineVersion=await engineProbe.inspection!.build();}finally{engineProbe.close();}
+  const queryEngineVersion=await startupCheck('query engine readiness', async () => {
+    try{return await checkQueryReadiness(config,scope);}
+    catch(error){if(process.connected)await new Promise<void>(resolve=>process.send?.({event:'engine.readiness_failed',reason:error instanceof QueryReadinessError?error.reason:'engine_process_stopped'},()=>resolve()));throw error;}
+  });
   const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;

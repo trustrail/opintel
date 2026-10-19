@@ -10,7 +10,7 @@ import { createServer as createTcpServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join,resolve } from 'node:path';
 import { request } from 'node:https';
 import { Client } from 'pg';
 import { beforeAll, beforeEach, afterAll, describe, expect, it, vi, type MockInstance } from 'vitest';
@@ -207,7 +207,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     const address=reservation.address();if(!address||typeof address==='string')throw new Error('No port');
     const port=address.port;await new Promise<void>(resolve=>reservation.close(()=>resolve()));
     const file=join(directory,'signal.json');const auditFile=join(directory,'signal-audit.jsonl');
-    await writeFile(file,JSON.stringify({...config,port,auditFile,shutdownTimeoutMs:2000,limits:{...config.limits,statementTimeoutMs:60000,operationTimeoutMs:60000}}));
+    await writeFile(file,JSON.stringify({...config,port,auditFile,postgresExtension:resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),postgresReadinessSource:ref,shutdownTimeoutMs:2000,limits:{...config.limits,statementTimeoutMs:60000,operationTimeoutMs:60000}}));
     const child=spawn(process.execPath,['--import','tsx',fileURLToPath(new URL('../sidecar/start.ts',import.meta.url)),file],{env:{...process.env,OPINTEL_SECRET_TEST_SOURCE:sourceUrl},stdio:['ignore','pipe','pipe']});
     let output='';child.stdout.on('data',(chunk:Buffer)=>{output+=chunk.toString();});child.stderr.on('data',(chunk:Buffer)=>{output+=chunk.toString();});
     const exited=new Promise<{code:number|null;signal:NodeJS.Signals|null}>((resolve,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>resolve({code,signal}));});

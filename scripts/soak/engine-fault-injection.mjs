@@ -3,6 +3,10 @@ import {spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {homedir} from 'node:os';
+import process from 'node:process';
+import console from 'node:console';
+import {Buffer} from 'node:buffer';
+import {setInterval,clearInterval} from 'node:timers';
 const exec=promisify(execFile),stamp=new Date().toISOString().replaceAll(':','-');
 const report=`tmp/diag/engine-fault-${stamp}.jsonl`,terminal=`tmp/diag/engine-fault-${stamp}-soak.log`;
 const emit=async value=>{const line=JSON.stringify({timestamp:new Date().toISOString(),...value});await appendFile(report,line+'\n',{mode:0o600});console.log(line);};
@@ -20,7 +24,7 @@ async function observe(){if(reading)return;reading=true;try{
 }finally{reading=false;}}
 const monitor=setInterval(()=>{void observe();},500);
 const events=async()=>{const lines=(await readFile('tmp/sidecar/service.log','utf8')).split('\n');return lines.flatMap(l=>{try{return [JSON.parse(l)];}catch{return [];}});};
-async function child(){try{const {stdout}=await exec('pgrep',['-P',String(supervisor)]);for(const token of stdout.trim().split(/\s+/)){const pid=Number(token);const {stdout:command}=await exec('ps',['-p',String(pid),'-o','command=']);if(command.includes('/sidecar/start.ts '))return pid;}}catch{}return null;}
+async function child(){try{const {stdout}=await exec('pgrep',['-P',String(supervisor)]);for(const token of stdout.trim().split(/\s+/)){const pid=Number(token);const {stdout:command}=await exec('ps',['-p',String(pid),'-o','command=']);if(command.includes('/sidecar/start.ts '))return pid;}}catch{/* The child may have exited between pgrep and ps; polling continues. */}return null;}
 async function waitFor(fn,label,timeout=100000){const deadline=Date.now()+timeout;while(Date.now()<deadline){if(ended)throw new Error('Soak stopped before '+label);const v=await fn();if(v)return v;await sleep(250);}throw new Error('Timed out: '+label);}
 async function ready(excluded){return waitFor(async()=>{const pid=await child();return pid&&pid!==excluded&&(await events()).some(e=>e.event==='engine.child_ready'&&e.pid===pid)?pid:null;},'replacement ready');}
 async function kill(pid,phase,index){await emit({kind:'kill',phase,index,pid});process.kill(pid,'SIGKILL');return Date.now();}

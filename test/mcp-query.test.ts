@@ -2,7 +2,8 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 import {QueryOutput} from '../src/shared/api/mcp.js';
 import {RunId,DomainError,err} from '../src/shared/kernel/index.js';
 import {withTenant,withPlatform} from '../src/platform/db/scope.js';
-import {assertEvidenceWriter} from '../src/modules/mcp/index.js';
+import {unavailableEngine} from '../sidecar/http/unavailable.js';
+import {assertEvidenceWriter,refusalResponse} from '../src/modules/mcp/index.js';
 import {queryFixture,TestEvidenceWriter,UnavailableEvidenceWriter} from './fixtures/query/fixture.js';
 const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).reverse())await close();});
@@ -15,6 +16,22 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'engine_registry',retryable:true}});expect(response.structuredContent).toBeUndefined();expect(response.content[0]?.text).toContain('infrastructure refusal');
   const record=[...f.writer.records.values()].at(-1);expect(record).toMatchObject({outcome:{kind:'refused',code:'source_unavailable',details:{cause:'engine_registry'}}});
  }
+ });
+ it.each([1,2])('E-10: child exit after health check %i remains an infrastructure refusal through the diagnostic listener',async cutoff=>{
+  const f=await fixture(),execute=vi.spyOn(f.execution,'execute');
+  const initial=await f.query('SELECT field_1 FROM warehouse.public.records');expect(initial.isError).not.toBe(true);
+  const request=execute.mock.calls[0]![0],address=f.host.server.address();if(!address||typeof address==='string')throw new Error('Missing Engine port');
+  const health=f.execution.health.bind(f.execution);
+  let checks=0;vi.spyOn(f.execution,'health').mockImplementation(async()=>{
+   const ready=await health();if(++checks===cutoff){expect(ready.ok).toBe(true);await f.host.close();
+   const diagnostic=await unavailableEngine({...f.engineConfig,port:address.port},f.engineTls,'scanner_configuration_missing');cleanup.push(()=>diagnostic.close());}return ready;
+  });
+  const response=await f.query('SELECT field_1 FROM warehouse.public.records');
+  expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'engine_registry',retryable:true}});expect(response.structuredContent).toBeUndefined();
+  expect(response.content).toEqual(refusalResponse(new DomainError('source_unavailable','ignored',{cause:'engine_registry'},true)).content);
+  expect(JSON.stringify(response)).not.toContain('scanner_configuration_missing');
+  expect([...f.writer.records.values()].at(-1)).toMatchObject({outcome:{kind:'refused',code:'source_unavailable',details:{cause:'engine_registry'}}});
+  const racedExecution=await f.execution.execute(request);expect(racedExecution).toMatchObject({ok:false,error:{code:'source_unavailable',details:{cause:'engine_registry'},retryable:true}});
  });
  it('K-001: real treated rows and native expression types, evidence before release, and caller row limit',async()=>{
   const f=await fixture(),response=await f.query('SELECT field_1,field_2,field_4 FROM warehouse.public.records ORDER BY field_1',2);

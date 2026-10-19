@@ -45,9 +45,11 @@ const config = JSON.parse(await readFile('/ingest/control/tls-config/service.jso
 config.host = '127.0.0.1'; config.port = 3100; config.auditFile = '/audit/sampling.jsonl';
 config.custody = {keyStore:'/custody/primary', keyEscrow:'/custody/escrow'};
 delete config.demo;
+config.postgresExtension = '/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension';
+config.postgresReadinessSource = 'secret://deployment/readiness';
 for (const name of ['caFile','certFile','keyFile','clientPinFile']) config.tls[name] = '/ingest/control/tls-config/'+config.tls[name];
 await writeFile('/ingest/control/shipping.json', JSON.stringify(config));
-const child = spawn('node', ['sidecar/start.js', '/ingest/control/shipping.json'], {stdio:['ignore','pipe','pipe']});
+const child = spawn('node', ['sidecar/start.js', '/ingest/control/shipping.json'], {env:{...process.env,OPINTEL_SECRET_DEPLOYMENT_READINESS:process.env.DATABASE_URL},stdio:['ignore','pipe','pipe']});
 const logs = []; child.stdout.on('data', data => logs.push(data.toString())); child.stderr.on('data', data => logs.push(data.toString()));
 try {
   let ready = false;

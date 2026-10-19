@@ -2195,12 +2195,30 @@ no source connection. Execution returns columns, rows, `truncated`,
 include structured code, human message, retryability and diagnostic details;
 queue saturation includes its current depth. The application transport is 5.7.
 
-The optional `postgresExtension` host setting names the signed PostgreSQL scanner
+The `postgresExtension` host setting names the signed PostgreSQL scanner
 file, resolved relative to the configuration file. Provision it with
 `npm run sidecar:prepare-scanner` before using the clear staging path. Queries
 never install extensions. Both staging readers and S1 operations share the same
 source connection ceiling. See `sidecar/execution/README.md` for the execution
 and cleanup boundary.
+E-10 startup readiness requires this scanner and one source target, supplied by
+`postgresReadinessSource` (a mandatory, explicit secret reference). No landing or
+demo source is inferred. All current execution source paths use PostgreSQL. The privileged
+session loads the signed extension and stages only constant `SELECT 1 AS ready`
+through a read-only scanner attachment, verifies the in-memory result, then closes.
+No customer row is read. Failure prevents query listening and healthy heartbeats; the
+supervisor retries within its existing budget and the API reports the existing
+`source_unavailable` / `engine_registry` infrastructure refusal. Replacement
+children repeat readiness; health polls do not. One source path at one moment is
+proven, not every table permission or every source's availability. The supervisor
+retains the closed readiness failure code in its terminal log and serves a pinned
+mTLS `/health` diagnostic while backing off or terminal. The registry stores its
+safe message for Settings → Engines; transport-only gaps preserve that last known
+reason until a successful health check clears it. No native error, source value
+or connection string is published. Agent refusal wording and metadata are unchanged.
+Requests racing a child exit are also refused as `source_unavailable/engine_registry`
+by the diagnostic responder. Its zero-source-usage proof covers only requests it
+receives, never a request interrupted in the departed child; G-07 remains open.
 The built wire contract is 2 and the independently reported sidecar version
 starts at 0.1.0. Local bootstrap creates expiring development certificates and
 starts the host; it does not build the S5 deployment package.

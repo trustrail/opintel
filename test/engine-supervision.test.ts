@@ -36,3 +36,10 @@ it('X-02: stable ready children replenish the budget beyond five failures',async
 it('X-02: surviving without readiness does not replenish the restart budget',async()=>{
  const logs:Record<string,unknown>[]=[];expect(await supervise({command:process.execPath,args:['-e','setTimeout(()=>process.exit(1),100)'],signal:new AbortController().signal,shutdownMs:100,stableMs:20,delays:[5],log:e=>logs.push(e)})).toBe(1);expect(logs.some(e=>e.event==='engine.restart_budget_reset')).toBe(false);expect(logs.at(-1)?.event).toBe('engine.restart_exhausted');
 });
+
+it.each(['scanner_configuration_missing','source_connection_refused'] as const)('E-10: terminal supervisor log retains the closed readiness reason %s',async reason=>{
+ const logs:Record<string,unknown>[]=[];
+ const status=await supervise({command:process.execPath,args:['-e',`process.send({event:'engine.readiness_failed',reason:process.argv[1]});setTimeout(()=>process.exit(1),10);`,reason],signal:new AbortController().signal,shutdownMs:100,delays:[],log:e=>logs.push(e)});
+ expect(status).toBe(1);expect(logs.at(-1)).toMatchObject({event:'engine.restart_exhausted',readinessReason:reason,message:expect.any(String)});
+ expect(logs.at(-1)?.message).not.toContain('Inspect Engine');
+});

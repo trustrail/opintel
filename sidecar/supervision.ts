@@ -1,5 +1,6 @@
 import {spawn,type ChildProcess} from 'node:child_process';
 import {readFile,unlink} from 'node:fs/promises';
+import {readinessFailure,readinessMessages,type ReadinessFailure} from '../src/shared/engine-readiness.js';
 import {performance} from 'node:perf_hooks';
 
 /** Call only after reaping the owned child; state files are never removed. */
@@ -12,27 +13,28 @@ export async function releaseChildLocks(paths:readonly string[],pid:number):Prom
 export const restartDelaysMs=[1000,2000,4000,8000,16000] as const;
 export const stablePeriodMs=60_000;
 /** Replenish only after readiness and sustained responsive child heartbeats. */
-export async function supervise(options:{command:string;args:string[];signal:AbortSignal;shutdownMs:number;log:(entry:Record<string,unknown>)=>void;afterExit?:(pid:number)=>Promise<void>;delays?:readonly number[];stableMs?:number}):Promise<number>{
+export async function supervise(options:{command:string;args:string[];signal:AbortSignal;shutdownMs:number;log:(entry:Record<string,unknown>)=>void;beforeStart?:()=>Promise<void>;afterExit?:(pid:number,reason?:ReadinessFailure)=>Promise<void>;delays?:readonly number[];stableMs?:number}):Promise<number>{
  const delays=options.delays??restartDelaysMs;
  let attempt=0;
  for(;;){
   if(options.signal.aborted)return 0;
-  const outcome=await new Promise<{code:number|null;signal:ChildProcess['signalCode'];pid?:number}>(resolve=>{
+  await options.beforeStart?.();
+  const outcome=await new Promise<{code:number|null;signal:ChildProcess['signalCode'];pid?:number;readinessReason?:ReadinessFailure}>(resolve=>{
    const child:ChildProcess=spawn(options.command,options.args,{stdio:['inherit','inherit','inherit','ipc']});
    let killTimer:ReturnType<typeof setTimeout>|undefined;
-   let readyAt:number|undefined,lastBeat=0;
-   child.on('message',message=>{if(message&&typeof message==='object'&&'event'in message&&message.event==='engine.healthy'){const now=performance.now();if(readyAt===undefined||now-lastBeat>10_000){readyAt=now;options.log({event:'engine.child_ready',pid:child.pid});}lastBeat=now;}});
+   let readyAt:number|undefined,lastBeat=0,readinessReason:ReadinessFailure|undefined;
+   child.on('message',message=>{if(message&&typeof message==='object'&&'event'in message&&message.event==='engine.readiness_failed'&&'reason'in message){const parsed=readinessFailure.safeParse(message.reason);if(parsed.success)readinessReason=parsed.data;}if(message&&typeof message==='object'&&'event'in message&&message.event==='engine.healthy'){const now=performance.now();if(readyAt===undefined||now-lastBeat>10_000){readyAt=now;options.log({event:'engine.child_ready',pid:child.pid});}lastBeat=now;}});
    const stableTimer=setInterval(()=>{if(readyAt!==undefined&&performance.now()-lastBeat<=10_000&&performance.now()-readyAt>=(options.stableMs??stablePeriodMs)&&attempt>0){options.log({event:'engine.restart_budget_reset',previousFailures:attempt,stableMs:options.stableMs??stablePeriodMs,pid:child.pid});attempt=0;}},Math.min(1000,options.stableMs??stablePeriodMs));
    const stop=()=>{child.kill('SIGTERM');killTimer=setTimeout(()=>child.kill('SIGKILL'),options.shutdownMs);};
-   const done=(code:number|null,signal:ChildProcess['signalCode'])=>{options.signal.removeEventListener('abort',stop);clearTimeout(killTimer);clearInterval(stableTimer);resolve({code,signal,pid:child.pid});};
+   const done=(code:number|null,signal:ChildProcess['signalCode'])=>{options.signal.removeEventListener('abort',stop);clearTimeout(killTimer);clearInterval(stableTimer);resolve({code,signal,pid:child.pid,...(readinessReason?{readinessReason}:{})});};
    child.once('error',()=>done(1,null));child.once('exit',done);
    options.signal.addEventListener('abort',stop,{once:true});if(options.signal.aborted)stop();
   });
   options.log({event:'engine.process_exited',attempt,...outcome});
-  if(outcome.pid)await options.afterExit?.(outcome.pid);
+  if(outcome.pid)await options.afterExit?.(outcome.pid,outcome.readinessReason);
   if(options.signal.aborted){options.log({event:'engine.supervisor_stopped'});return 0;}
   const delayMs=delays[attempt];
-  if(delayMs===undefined){options.log({event:'engine.restart_exhausted',restarts:attempt,state:'stopped',action:'Inspect Engine diagnostics, correct the cause, then restart the supervisor.'});return 1;}
+  if(delayMs===undefined){options.log({event:'engine.restart_exhausted',restarts:attempt,state:'stopped',readinessReason:outcome.readinessReason??'engine_process_stopped',message:readinessMessages[outcome.readinessReason??'engine_process_stopped'],action:'Inspect Engine diagnostics, correct the cause, then restart the supervisor.'});return 1;}
   options.log({event:'engine.restart_scheduled',restart:attempt+1,delayMs});
   await new Promise<void>(resolve=>{const finish=()=>{clearTimeout(timer);options.signal.removeEventListener('abort',finish);resolve();};const timer=setTimeout(finish,delayMs);options.signal.addEventListener('abort',finish,{once:true});if(options.signal.aborted)finish();});
   if(!options.signal.aborted){attempt++;options.log({event:'engine.restarting',restart:attempt});}

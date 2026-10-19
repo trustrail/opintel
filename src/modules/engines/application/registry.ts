@@ -1,3 +1,4 @@
+import {readinessFailure,readinessMessages,isReadinessMessage} from '../../../shared/engine-readiness.js';
 import {DomainError,err,ok,type EngineId,type ProjectId,type UserId,type SourceId,type Result} from '../../../shared/kernel/index.js';
 import type {EngineRegistration,EngineView} from '../../../shared/api/engines.js';
 export type EngineContext={projectId:ProjectId;userId:UserId};
@@ -38,7 +39,7 @@ export class EngineRegistry {
  private async verifyRecord(ctx:EngineContext,id:EngineId,value:EngineRecord):Promise<Result<EngineRecord>>{
   const record={value};
   const result=await this.probe.health(this.endpoint(record.value)).catch(()=>engineRefusal('Engine health probe failed.',true));
-  if(!result.ok){await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:null,health:'unavailable',message:'Verification failed. Check the address, certificate pin and application TLS trust.',verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
+  if(!result.ok){const reason=readinessFailure.safeParse(result.error.details?.readinessReason);const message=reason.success?readinessMessages[reason.data]:isReadinessMessage(record.value.healthMessage)?record.value.healthMessage:'Verification failed. Check the address, certificate pin and application TLS trust.';await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:null,health:'unavailable',message,verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
   const matches=result.value.contract===3;
   await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
   if(matches){const current=await this.repository.get(ctx,id);if(!current.ok)return current;if(current.value.address!==record.value.address||current.value.certificatePin!==record.value.certificatePin||!current.value.verifiedAt)return engineRefusal('Engine configuration changed during verification. Test its connection again.');return current;}

@@ -13,6 +13,7 @@ export const sidecarConfigSchema = z.strictObject({
   tls: z.strictObject({ caFile: z.string().min(1), certFile: z.string().min(1), keyFile: z.string().min(1), clientPinFile: z.string().min(1) }),
   auditFile: z.string().min(1),
   postgresExtension:z.string().min(1).optional(),
+  postgresReadinessSource:z.string().startsWith('secret://').min(10).transform(SecretRef).optional(),
   custody:z.strictObject({keyStore:z.string().min(1),keyEscrow:z.string().min(1)}).optional(),
   limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds }),
   demo: z.strictObject({ database: z.string().min(1), credentialRef: z.string().startsWith('secret://').min(10).transform(SecretRef) }).optional(),

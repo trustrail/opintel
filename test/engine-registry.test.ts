@@ -90,3 +90,30 @@ it('X-04: concurrent outage requests share a probe and a failed-probe cooldown',
  expect((await registry.forEngine(f.ctx,f.registered.id)).ok).toBe(false);expect(health).toHaveBeenCalledTimes(1);
  await new Promise(r=>setTimeout(r,1100));expect((await registry.forEngine(f.ctx,f.registered.id)).ok).toBe(false);expect(health).toHaveBeenCalledTimes(2);
 });
+
+it.each(['scanner_configuration_missing','source_connection_refused'] as const)('E-10: pinned diagnostic health surfaces %s to operators, survives a transport gap and clears on recovery',async reason=>{
+ const {unavailableEngine}=await import('../sidecar/http/unavailable.js');
+ const {readinessMessages}=await import('../src/shared/engine-readiness.js');
+ const f=await fixture(),{config,tls}=await loadSidecarConfig(join(directory,'service.json'));
+ const diagnostic=await unavailableEngine({...config,port:0},tls,reason);
+ const endpoint=`https://127.0.0.1:${diagnostic.port}`;
+ const e=unwrap(await f.registry.register(f.ctx,{name:'Readiness diagnostics',address:endpoint,certificatePin:options.tls.certificatePin}));
+ let replacement:ReturnType<typeof createSidecarServer>|undefined;
+ try{
+  // A CA-valid certificate which is not the pinned Application must not obtain
+  // readiness diagnostics (the server identity also permits client auth).
+  const intruder=await new HttpsEngineProbe().health({baseUrl:endpoint,tls:{ca:tls.ca,cert:tls.cert,key:tls.key,certificatePin:options.tls.certificatePin}});
+  expect(intruder.ok).toBe(false);if(!intruder.ok)expect(intruder.error.details?.readinessReason).toBeUndefined();
+  const failed=await f.registry.verify(f.ctx,e.id);
+  expect(failed).toMatchObject({ok:false,error:{code:'source_unavailable',details:{cause:'engine_registry'}}});
+  expect(unwrap(await f.repo.get(f.ctx,e.id))).toMatchObject({health:'unavailable',healthMessage:readinessMessages[reason],verifiedAt:null});
+  await diagnostic.close();await new Promise(r=>setTimeout(r,1100));
+  expect((await f.registry.verify(f.ctx,e.id)).ok).toBe(false);
+  expect(unwrap(await f.repo.get(f.ctx,e.id)).healthMessage).toBe(readinessMessages[reason]);
+  const unused=async()=>ok({reachable:true as const});
+  replacement=createSidecarServer({config:{...config,port:diagnostic.port},tls,connector:{testConnection:unused,introspect:unused,sampleTopValues:unused,estimateRowCount:unused} as Parameters<typeof createSidecarServer>[0]['connector']});
+  await replacement.listen();await new Promise(r=>setTimeout(r,1100));
+  expect((await f.registry.verify(f.ctx,e.id)).ok).toBe(true);
+  expect(unwrap(await f.repo.get(f.ctx,e.id))).toMatchObject({health:'healthy',healthMessage:null});
+ }finally{await diagnostic.close();await replacement?.close();}
+});

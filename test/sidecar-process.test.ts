@@ -4,7 +4,7 @@ import { createServer as tcpServer } from 'node:net';
 import { createServer as httpsServer } from 'node:https';
 import { mkdtemp, readFile, writeFile, mkdir, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join,resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID,X509Certificate } from 'node:crypto';
 import { beforeAll, afterAll, it, expect, vi } from 'vitest';
@@ -12,10 +12,16 @@ import { prepareSidecarDevelopment, startDevelopmentSidecar, checkLocalSidecar }
 import { stopRecordedSidecar, portAvailable } from '../scripts/sidecar-process.js';
 import { loadSidecarConfig } from '../sidecar/config.js';
 import { Client } from 'pg';
+import {supervise} from '../sidecar/supervision.js';
 
 const entryPoint=fileURLToPath(new URL('../sidecar/start.ts',import.meta.url));
 let directory:string;
-beforeAll(async()=>{directory=await mkdtemp(join(tmpdir(),'sidecar-process-'));await prepareSidecarDevelopment(directory);},30000);
+beforeAll(async()=>{
+ directory=await mkdtemp(join(tmpdir(),'sidecar-process-'));await prepareSidecarDevelopment(directory);
+ const file=join(directory,'service.json'),{config}=await loadSidecarConfig(file);
+ await writeFile(file,JSON.stringify({...config,postgresExtension:resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension'),postgresReadinessSource:'secret://test/readiness'}));
+ process.env.OPINTEL_SECRET_TEST_READINESS=process.env.TEST_DATABASE_URL;
+},30000);
 afterAll(async()=>{await rm(directory,{recursive:true,force:true});});
 async function availablePort(){const server=tcpServer();await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();if(!address||typeof address==='string')throw new Error('No port');await new Promise<void>(resolve=>server.close(()=>resolve()));return address.port;}
 function launch(file:string,env:NodeJS.ProcessEnv=process.env){
@@ -25,6 +31,17 @@ function launch(file:string,env:NodeJS.ProcessEnv=process.env){
  return {child,exited,output:()=>output};
 }
 function forceCleanup(child:ChildProcess){if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');}
+
+it('E-10: missing scanner fails real replacements before readiness and exhausts the bounded budget',async()=>{
+ const {config}=await loadSidecarConfig(join(directory,'service.json'));const file=join(directory,'no-scanner.json');
+ await writeFile(file,JSON.stringify({...config,postgresExtension:undefined,port:0}));
+ const logs:Record<string,unknown>[]=[];
+ const code=await supervise({command:process.execPath,args:['--import','tsx',entryPoint,file],signal:new AbortController().signal,shutdownMs:1000,delays:[5],log:e=>logs.push(e)});
+ expect(code).toBe(1);expect(logs.filter(e=>e.event==='engine.process_exited')).toHaveLength(2);
+ expect(logs.filter(e=>e.event==='engine.process_exited').every(e=>e.code===1)).toBe(true);
+ expect(logs.some(e=>e.event==='engine.child_ready'||e.event==='engine.restart_budget_reset')).toBe(false);
+ expect(logs.at(-1)).toMatchObject({event:'engine.restart_exhausted',restarts:1,state:'stopped',readinessReason:'scanner_configuration_missing',message:expect.stringContaining('Scanner configuration missing')});
+});
 
 it('bounds real SIGTERM shutdown while a watcher is waiting on a receipt',async()=>{
  const {config,tls}=await loadSidecarConfig(join(directory,'service.json'));
