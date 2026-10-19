@@ -9,24 +9,19 @@ export function aggregateRefusal(aggregate:Aggregate,stage:1|2,invalid=false):Do
   proofCategory:stage===2?'aggregate_stage2':'sql_not_permitted',
  });
 }
-/** A group average cannot support a disclosure decision. The native estimator
- * is consulted only for one unfiltered base-table group. Every richer shape is
- * uncertain until an estimator that describes its individual groups exists. */
-export function supportsEstimate(tree:unknown):boolean{
- const doc=syntax.document.parse(tree),q=syntax.select.safeParse(doc.statements[0]!.node);
- return q.success&&q.data.cte_map.map.length===0&&q.data.group_expressions.length===0&&q.data.group_sets.length===0
-  &&q.data.where_clause===null&&syntax.baseTable.safeParse(q.data.from_table).success;
-}
-export function withGroupCount(tree:unknown,columnNames:readonly string[]):unknown{
+export function withGroupCount(tree:unknown,columnNames:readonly string[],contributors:Aggregate['contributors']):unknown{
  const doc=syntax.document.parse(structuredClone(tree));
  const q=syntax.select.parse(doc.statements[0]!.node);
  const names=new Set(columnNames.map(n=>n.toLowerCase()));
  const collect=(value:unknown):void=>{if(typeof value==='string')names.add(value.toLowerCase());else if(Array.isArray(value))value.forEach(collect);else if(value&&typeof value==='object')Object.values(value).forEach(collect);};
- collect(tree);let alias='__group_size';while(names.has(alias))alias+='_';
- const count={class:'FUNCTION',type:'FUNCTION',alias,query_location:0,
-  function_name:'count_star',schema:'',catalog:'',children:[],filter:null,
-  order_bys:{type:'ORDER_MODIFIER',orders:[]},distinct:false,is_operator:false,export_state:false};
- q.select_list.push(count);doc.statements[0]!.node=q;
+ collect(tree);let alias='__group_size';while(names.has(alias)||contributors.some((_,i)=>names.has(alias+i)))alias+='_';
+ for(const [i,contributor] of contributors.entries()){
+ const count={class:'FUNCTION',type:'FUNCTION',alias:alias+i,query_location:0,
+  function_name:'count',schema:'',catalog:'',children:[{class:'CASE',type:'CASE_EXPR',alias:'',query_location:0,case_checks:[{when_expr:{class:'OPERATOR',type:'OPERATOR_IS_NOT_NULL',alias:'',query_location:0,children:[{class:'COLUMN_REF',type:'COLUMN_REF',alias:'',query_location:0,column_names:contributor.value}]},then_expr:{class:'COLUMN_REF',type:'COLUMN_REF',alias:'',query_location:0,column_names:contributor.key}}],else_expr:{class:'CONSTANT',type:'VALUE_CONSTANT',alias:'',query_location:0,value:{type:{id:'NULL',type_info:null},is_null:true}}}],filter:null,
+  order_bys:{type:'ORDER_MODIFIER',orders:[]},distinct:true,is_operator:false,export_state:false};
+ q.select_list.push(count);
+ }
+ doc.statements[0]!.node=q;
  return doc;
 }
 export function validGroupCount(value:unknown,threshold:number):boolean{

@@ -1,3 +1,4 @@
+import {stagedColumns} from '../../../src/shared/execution-contract.js';
 import type {ValidationRequest} from '../../../src/shared/execution-contract.js';
 import type {InspectionObserver,StatementObserver} from '../ports.js';
 import type {ValidationSessions,ValidationSession} from '../validation.js';
@@ -16,7 +17,7 @@ export class DuckDBValidationSessions implements ValidationSessions {
    if(signal.aborted)throw new Error('Interrupt Error: Cancelled');
    if(!agent.staging||!agent.inspection)throw new Error('Validation inspection unavailable.');
    await agent.staging.namespace(request.namespace.catalog,request.namespace.schema);
-   for(const o of request.objects)await agent.staging.create(o.catalog,o.schema,o.name,o.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));
+   for(const o of request.objects)await agent.staging.create(o.catalog,o.schema,o.name,stagedColumns(o.readPlan));
    await agent.execute("SET search_path='"+(quote(request.namespace.catalog)+'.'+quote(request.namespace.schema)).replaceAll("'","''")+"'");
    await harden(agent,'agent',validationBudget);
    if(signal.aborted)throw new Error('Interrupt Error: Cancelled');

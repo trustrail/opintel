@@ -8,7 +8,7 @@ import { createHttpServer } from '../../../src/platform/http/index.js';
 import type { AuthorizationPort, AuthorizationRevision } from '../../../src/modules/authz/index.js';
 import type { CurrentUser } from '../../../src/modules/identity/application/current-user.js';
 
-export async function bulkFixture(count = 3) {
+export async function bulkFixture(count = 3, options:{contributorKey?:boolean}={}) {
   const ctx={projectId:ProjectId(randomUUID()),userId:UserId(randomUUID())};
   const pool=PoolId(randomUUID()),source=SourceId(randomUUID()),ids=Array.from({length:count},()=>ElementId(randomUUID()));
   await withPlatform(async tx=>{
@@ -24,6 +24,9 @@ export async function bulkFixture(count = 3) {
     await tx.query(`INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,token_domain)
       SELECT id,$2,$3,'field_'||ordinal,'text','field_'||ordinal,'VARCHAR','customer' FROM unnest($1::uuid[]) WITH ORDINALITY AS elements(id,ordinal)`,[ids,ctx.projectId,object!.id]);
   });
+  // Fixture author declares field_1 as this synthetic object's entity key.
+  // Tests of missing configuration explicitly opt out; production never infers it.
+  if(options.contributorKey!==false)await withTenant(ctx,tx=>tx.query('UPDATE catalog_element SET contributor_key=true WHERE id=$1',[ids[0]]));
   const actor:CurrentUser={id:ctx.userId,email:'bulk@example.com',fullName:null,timezone:'UTC',method:'magic_link',sessionCreatedAt:Timestamp(new Date()),deviceConfirmed:true};
   const body={projectId:ctx.projectId,elementIds:ids,treatment:'withheld' as const};
   return {ctx,pool,source,ids,actor,body};

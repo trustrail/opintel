@@ -70,6 +70,22 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
   expect(response.isError,JSON.stringify(response)).not.toBe(true);const output=QueryOutput.parse(response.structuredContent);expect(output.rows).toHaveLength(7);expect(output.rows.map(r=>r[0])).toEqual([1,2,3,4,5,6,7]);expect(output.rows.every(r=>typeof r[1]==='string'&&r[1].startsWith('v1_customer_'))).toBe(true);
   expect(new Set(reads.mock.calls.map(args=>args[0].object.sourceId))).toEqual(new Set([f.source,second]));
  });
+ it('G-08: MIN/MAX are named governance refusals through MCP and recorded as such',async()=>{
+  const f=await fixture();for(const operation of ['MIN','MAX']){
+   const response=await f.query(`SELECT ${operation}(field_3) FROM warehouse.public.records`);
+   expect(response).toMatchObject({isError:true,_meta:{code:'unsupported_on_aggregate_only',cause:'unsupported_operation'}});expect(response.structuredContent).toBeUndefined();expect(JSON.stringify(response.content)).toContain(`${operation} is not permitted on aggregate-only column field_3`);
+   expect([...f.writer.records.values()].at(-1)).toMatchObject({outcome:{kind:'refused',code:'unsupported_on_aggregate_only',details:{cause:'unsupported_operation'}}});
+  }
+ });
+ it('G-09: a declared entity key crosses the real scanner and join; one entity with seven amounts still refuses',async()=>{
+  const f=await fixture();
+  await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='withheld' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[0]]));
+  const passing=await f.query('SELECT SUM(field_3) AS total FROM warehouse.public.records');expect(passing.isError).not.toBe(true);expect(QueryOutput.parse(passing.structuredContent).rows).toEqual([['70']]);
+  await f.db(`UPDATE ${f.schema}.records SET field_1=1,field_3=field_2`);
+  const response=await f.query('SELECT SUM(a.field_3) FROM warehouse.public.records a JOIN warehouse.public.records b ON a.field_4=b.field_4');
+  expect(response).toMatchObject({isError:true,_meta:{code:'unsupported_on_aggregate_only',cause:'cardinality_count_low'}});expect(response.structuredContent).toBeUndefined();
+  expect([...f.writer.records.values()].at(-1)).toMatchObject({outcome:{kind:'refused',code:'unsupported_on_aggregate_only',details:{cause:'cardinality_count_low',stage:2}}});
+ });
  it('K-004/K-005/K-006: aggregates run, raw aggregate-only values and small groups refuse the whole result',async()=>{
   const f=await fixture();const allowed=await f.query('SELECT SUM(field_3) AS total FROM warehouse.public.records');expect(allowed.isError,JSON.stringify(allowed)).not.toBe(true);expect(QueryOutput.parse(allowed.structuredContent).rows).toEqual([['70']]);
   for(const sql of ['SELECT field_3 FROM warehouse.public.records','SELECT field_4,SUM(field_3) FROM warehouse.public.records GROUP BY field_4']){

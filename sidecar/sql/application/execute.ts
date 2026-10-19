@@ -5,7 +5,7 @@ import { inspectSubset, namespaceSchema, foldIdentifier, type PoolNamespace } fr
 import { resolvePolicy } from './treatment-policy.js';
 import { inspectTreatments } from './treatments.js';
 import { withRowLimit } from './row-limit.js';
-import { aggregateRefusal, supportsEstimate, withGroupCount, validGroupCount } from './cardinality.js';
+import { aggregateRefusal, withGroupCount, validGroupCount } from './cardinality.js';
 
 import {queryEngineBuild} from './engine-build.js';
 export {queryEngineBuild} from './engine-build.js';
@@ -52,29 +52,23 @@ export class InspectedSessionExecutor {
    const columns=await inspection.columns();
    if(tables.some(t=>{
     const actual=columns.filter(c=>equalObject(c,t));
-    return actual.length!==t.columns.length||actual.some(c=>!t.columns.some(p=>foldIdentifier(p.name)===foldIdentifier(c.column)));
+    return actual.length!==t.columns.length+(t.contributor?1:0)||actual.some(c=>foldIdentifier(c.column)!==foldIdentifier(t.contributor??'')&&!t.columns.some(p=>foldIdentifier(p.name)===foldIdentifier(c.column)));
    }))return err(new DomainError('sql_not_permitted','The staged columns do not match the pool read plan.',{cause:'inspection_inconsistent',reason:'staged_schema'}));
    const treatment=inspectTreatments(parsed.tree,namespace,policy,tables);if(!treatment.ok)return report(parsed.tree,treatment);
    const aggregate=treatment.value.aggregate;
-   let stage2=false;
-   if(aggregate){
-    const estimate=supportsEstimate(parsed.tree)?await inspection.estimate(sql):null;
-    const supported=estimate!==null&&Number.isFinite(estimate)&&estimate>=0;
-    const passed=!supported||estimate>=aggregate.threshold;
-    stage2=!supported||estimate<=2*aggregate.threshold;
-    this.observe?.({stage:'cardinality',phase:1,threshold:aggregate.threshold,estimate:supported?estimate:null,passed,counted:false});
-    if(!passed)return report(parsed.tree,err(aggregateRefusal(aggregate,1)));
-   }
+   // Row estimates cannot prove distinct contributors. Count exactly after
+   // joins and filtering, for every protected relation used by an aggregate.
+   const stage2=Boolean(aggregate);
    const evidence:TreatmentEvidence={aggregateMinGroupSize:policy.aggregateMinGroupSize,stage2Required:stage2,stage2Ran:false};
    if(stage2){
     // Tree transformation only. Reparse, reinspect and bind the transformed
     // statement; no original-text execution and no uninspected generated SQL.
-    const counted=withGroupCount(parsed.tree,tables.flatMap(t=>t.columns.map(c=>c.name)));
+    const counted=withGroupCount(parsed.tree,tables.flatMap(t=>t.columns.map(c=>c.name)),aggregate!.contributors);
     const rendered=await inspection.render(counted);
     parsed=await inspection.parse(rendered);
     if(parsed.kind!=='parsed')return err(new DomainError('sql_not_permitted','The internal group-count statement could not be inspected.',{cause:'inspection_inconsistent',reason:'group_count_rewrite'}));
     const subset=report(parsed.tree,inspectSubset(parsed.tree,namespace));if(!subset.ok)return subset;
-    const treatments=inspectTreatments(parsed.tree,namespace,policy,tables);if(!treatments.ok)return report(parsed.tree,treatments);
+    const treatments=inspectTreatments(parsed.tree,namespace,policy,tables,stage2);if(!treatments.ok)return report(parsed.tree,treatments);
    }
    if(options.rowLimit!==undefined){
     const limit=z.number().int().positive().max(2147483646).parse(options.rowLimit);
@@ -82,7 +76,7 @@ export class InspectedSessionExecutor {
     parsed=await inspection.parse(rendered);
     if(parsed.kind!=='parsed')return err(new DomainError('sql_not_permitted','The bounded statement could not be inspected.',{cause:'inspection_inconsistent',reason:'row_limit_rewrite'}));
     const subset=report(parsed.tree,inspectSubset(parsed.tree,namespace));if(!subset.ok)return subset;
-    const treatment=inspectTreatments(parsed.tree,namespace,policy,tables);if(!treatment.ok)return report(parsed.tree,treatment);
+    const treatment=inspectTreatments(parsed.tree,namespace,policy,tables,stage2);if(!treatment.ok)return report(parsed.tree,treatment);
    }
    const preparation=await parsed.prepare();
    if(preparation.kind==='unresolved'){
@@ -93,14 +87,18 @@ export class InspectedSessionExecutor {
    const handle=preparation.handle;
    try{
     const boundCheck=report(parsed.tree,inspectSubset(parsed.tree,namespace));if(!boundCheck.ok)return boundCheck;
-    const boundTreatment=inspectTreatments(parsed.tree,namespace,policy,tables);if(!boundTreatment.ok)return report(parsed.tree,boundTreatment);
+    const boundTreatment=inspectTreatments(parsed.tree,namespace,policy,tables,stage2);if(!boundTreatment.ok)return report(parsed.tree,boundTreatment);
     if(!execute)return ok({columns:[],rows:[],queryEngineVersion:version,treatmentEvidence:evidence});
     const rows=await handle.execute();
     if(stage2&&aggregate){
-     const passed=rows.rows.every(row=>row.length===rows.columns.length&&validGroupCount(row.at(-1),aggregate.threshold));
+     const passed=rows.rows.every(row=>row.length===rows.columns.length&&aggregate.contributors.every((_,i)=>validGroupCount(row[row.length-aggregate.contributors.length+i],aggregate.threshold)));
      this.observe?.({stage:'cardinality',phase:2,threshold:aggregate.threshold,estimate:null,passed,counted:true});
-     if(!passed)return err(aggregateRefusal(aggregate,2,rows.rows.some(row=>row.length!==rows.columns.length||!validGroupCount(row.at(-1),0))));
-     rows.columns.pop();rows.columnTypes?.pop();for(const row of rows.rows)row.pop();evidence.stage2Ran=true;
+     if(!passed)return err(aggregateRefusal(aggregate,2,rows.rows.some(row=>row.length!==rows.columns.length||aggregate.contributors.some((_,i)=>!validGroupCount(row[row.length-aggregate.contributors.length+i],0)))));
+     for(let i=0;i<aggregate.contributors.length;i++){rows.columns.pop();rows.columnTypes?.pop();for(const row of rows.rows)row.pop();}evidence.stage2Ran=true;
+    }
+    if(boundTreatment.value.describePrivate){
+     if(foldIdentifier(rows.columns[0]??'')!=='column_name')return err(new DomainError('sql_not_permitted','The Engine metadata response did not match the inspected object description.',{cause:'inspection_inconsistent',reason:'describe_schema'}));
+     rows.rows=rows.rows.filter(row=>row[0]!==boundTreatment.value.describePrivate);
     }
     const truncated=options.rowLimit!==undefined&&rows.rows.length>options.rowLimit;
     if(truncated)rows.rows.length=options.rowLimit!;

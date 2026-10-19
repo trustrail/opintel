@@ -5,12 +5,12 @@ const identifier=z.string().min(1).refine(v=>!v.includes('\0'));
 const elementId=z.uuid().transform(v=>ElementId(v));
 export const treatmentPolicySchema=z.strictObject({
  aggregateMinGroupSize:z.number().int().positive(),
- readPlan:z.array(z.strictObject({catalog:identifier,schema:identifier,name:identifier,
+ readPlan:z.array(z.strictObject({catalog:identifier,schema:identifier,name:identifier,contributor:identifier.optional(),
   columns:z.array(z.strictObject({name:identifier,elementId,tokenDomain:z.string().regex(/^[a-z0-9]+$/).optional()}))})),
  entitlements:z.array(z.strictObject({elementId,treatment:z.enum(['clear','masked','tokenized','aggregate_only','custody','withheld'])})),
 });
 export type TreatmentPolicy=z.infer<typeof treatmentPolicySchema>;
-export type PolicyTable={catalog:string;schema:string;name:string;columns:{name:string;elementId:ElementId;treatment:'clear'|'masked'|'tokenized'|'aggregate_only'|'custody';tokenDomain?:string}[]};
+export type PolicyTable={catalog:string;schema:string;name:string;contributor?:string;columns:{name:string;elementId:ElementId;treatment:'clear'|'masked'|'tokenized'|'aggregate_only'|'custody';tokenDomain?:string}[]};
 const address=(v:{catalog:string;schema:string;name:string})=>JSON.stringify([v.catalog,v.schema,v.name].map(fold));
 export function resolvePolicy(input:unknown,namespace:PoolNamespace):Result<{policy:TreatmentPolicy;tables:PolicyTable[]}>{
  const parsed=treatmentPolicySchema.safeParse(input);
@@ -28,6 +28,8 @@ export function resolvePolicy(input:unknown,namespace:PoolNamespace):Result<{pol
    if(!treatment||treatment==='withheld'||(treatment==='tokenized')!==Boolean(column.tokenDomain))return failure();
    columns.push({...column,treatment});
   }
+  if(table.contributor&&columns.some(c=>fold(c.name)===fold(table.contributor!)))return failure();
+  if(columns.some(c=>c.treatment==='aggregate_only')!==Boolean(table.contributor))return failure();
   tables.push({...table,columns});
  }
  return ok({policy,tables});

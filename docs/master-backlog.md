@@ -141,40 +141,6 @@ refusal in both the receipt and the console.
 **Evidence** tmp/soak/2026-10-18T22-18-38.220Z-81762.jsonl; src/modules/mcp/application/query.ts:51
 **Status** Open · Governance · Ahead of X-06
 
-### G-08 · MIN and MAX return a real individual value from an aggregate-only column
-**Customer** MIN and MAX are permitted aggregates, and their result is an actual contributing
-value, so a single query returns one individual's data from a column the pool was never
-entitled to read. The group-size floor does not help: five rows contribute and one of them is
-returned verbatim. Unlike differencing this needs no intent, no sequence and no skill.
-**Fix** Either exclude MIN and MAX from the permitted aggregate list for aggregate-only
-columns, or permit them only above a separate and higher threshold with the result bucketed.
-Decide which, since excluding them removes real analytical value.
-**Evidence** sidecar/sql/application/treatments.ts:95
-**Status** Open · Governance · Highest in this group
-
-### G-09 · The group-size floor counts rows, not contributors
-**Customer** The floor uses COUNT(*), so join duplication inflates it without adding
-independent contributors, and a group of five rows can be one person counted five times.
-Count distinct non-null contributors instead.
-**Evidence** sidecar/sql/application/cardinality.ts:26
-**Status** Open · Small
-
-### G-10 · HAVING acts as an outcome oracle
-**Customer** For a filtered singleton group, a HAVING clause that removes the group returns
-zero rows and passes validation, while a predicate that retains it is refused. The difference
-between those two outcomes discloses information about the protected value.
-**Evidence** sidecar/sql/application/treatments.ts:105, sidecar/sql/application/execute.ts:98
-**Status** Open · Medium
-
-### G-11 · Decision needed: differencing across queries
-**Decision** Reconstruction by differencing is unprevented and undetectable after the fact,
-documented in docs/algorithm-specifications.md:288 and expected by regression J-055. Receipts
-retain neither predicates nor group sizes, so an auditor cannot reconstruct what a sequence
-revealed. Decide whether Opintel claims only scope reduction, which is the current honest
-position, or invests in bounded differencing control with contributor tracking across a
-stable snapshot.
-**Status** Open · Decision, not work
-
 ### X-06 · Console fetches every run individually
 **Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,
 roughly 3.8 per second, including about 440 calls to /api/v1/runs/<id> with each id fetched
@@ -365,6 +331,22 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### G-10 · HAVING acts as an outcome oracle
+**Customer** For a filtered singleton group, a HAVING clause that removes the group returns
+zero rows and passes validation, while a predicate that retains it is refused. The difference
+between those two outcomes discloses information about the protected value.
+**Evidence** sidecar/sql/application/treatments.ts:105, sidecar/sql/application/execute.ts:98
+**Status** Open · Medium
+
+### G-11 · Decision needed: differencing across queries
+**Decision** Reconstruction by differencing is unprevented and undetectable after the fact,
+documented in docs/algorithm-specifications.md:288 and expected by regression J-055. Receipts
+retain neither predicates nor group sizes, so an auditor cannot reconstruct what a sequence
+revealed. Decide whether Opintel claims only scope reduction, which is the current honest
+position, or invests in bounded differencing control with contributor tracking across a
+stable snapshot.
+**Status** Open · Decision, not work
+
 ### E-06 · Custody preparation discards its cause
 **Customer** When release preparation fails, the operator is told to check the custody
 provider and nothing else. The underlying exception is caught and thrown away, so six
@@ -474,6 +456,29 @@ set, retained on the same terms as receipts. Alert bodies carry counts and ident
 ---
 
 ## Done
+
+### G-08 · MIN and MAX return a real individual value from an aggregate-only column
+**Customer** MIN and MAX are permitted aggregates, and their result is an actual contributing
+value, so a single query returns one individual's data from a column the pool was never
+entitled to read. The group-size floor does not help: five rows contribute and one of them is
+returned verbatim. Unlike differencing this needs no intent, no sequence and no skill.
+**Decision** Remove MIN and MAX for aggregate-only columns. This deliberately loses extrema
+analysis; there is no bucketing or second-threshold alternative. Preserve a specific governance
+refusal naming the operation and column.
+**Evidence** sidecar/sql/application/treatments.ts:128; test/sql-treatments.test.ts:38; test/mcp-query.test.ts:73
+**Status** Done · Governance · 19 October 2026
+
+### G-09 · The group-size floor counts rows, not contributors
+**Customer** The floor uses COUNT(*), so join duplication inflates it without adding
+independent contributors, and a group of five rows can be one person counted five times.
+Count distinct non-null contributors instead.
+**Evidence** sidecar/sql/application/cardinality.ts:12; src/modules/entitlements/application/compile.ts:171; test/aggregate-contributor.test.ts:17; test/staging-source.test.ts:91
+**Status** Done · 19 October 2026
+**Decision · 19 October 2026** The source author declares the contributor entity key, which may identify a policy, cedant or claimant rather than a person. Reject aggregate-only authoring/compilation if it is missing, naming the column. Carry it through joins and count distinct non-null contributors in each final group, not on the base table. No inferred primary key and no distinct-value substitute.
+**Rejected** `COUNT(DISTINCT protected_value)` still lets one policyholder with five claims and five distinct amounts pass a floor of five. Claiming that counts contributors would be worse than the honest row-count limitation. Equal values from distinct entities must not collapse either.
+**Configuration impact** The Reinsurance workbook demo needs `Treaty Ref` on each landed object; the V-01/self-contained soak Claims source and external demo Reinsurance Claims source need `policy_id` on claims. The generator declares these keys explicitly. Reinsurance Policies and Reinsurance Recoveries have no aggregate-only columns today and need no key until one is authored. Existing customer sources require their author's declaration; migration does not guess it.
+
+**Validation · 19 October 2026** Completed `npm run check`: both typechecks, lint, production artefact exclusion, 59 conformance checks (54/54 routes), 1,898 tests in 208 files, and the browser/MCP smoke passed; wall 1,733.745s (28m 53.75s). The unchanged bypass inventory separately passed 97 checks with zero regressions. A prior partial gate was stopped and has no passing claim: review found ambiguous generated references for same-named tables in different source catalogs. The dedicated regression at test/sql-treatments.test.ts:208 failed without the qualification fix and passed with it. The subsequent completed-candidate gate is the valid record. No pixel comparisons or baseline recaptures.
 
 ### H-05 · The soak observer stops verifying and keeps going
 **Customer** On 19 Oct the observer took an HTTP 401 and skipped 3,396 receipt checks while

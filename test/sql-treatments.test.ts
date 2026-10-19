@@ -6,22 +6,22 @@ import { fixture as compileFixture,unwrap } from './fixtures/view-compiler/input
 import { sqlPolicy } from './fixtures/sql-policy.js';
 const limits={memoryMb:32,threads:1};
 const namespace={catalog:'memory',schema:'main',objects:[{catalog:'memory',schema:'main',name:'orders'}]};
-function fixture(rows=12,estimate?:number|null){
+function fixture(rows=12,estimate?:number|null,entity='i',amount='i*10'){
  const events:InspectionEvent[]=[],estimates:string[]=[],rendered:unknown[]=[];
  const driver=new DuckDBSessionEngine(undefined,e=>events.push(e));
  const engine:SessionEngine={open:async role=>{
   const session=await driver.open(role);
-  if(role==='agent')await session.execute(`CREATE TABLE orders AS SELECT i AS id, i*10 AS amount, CASE WHEN i<=5 THEN 'a' WHEN i<=11 THEN 'b' ELSE 'c' END AS city, 'held-token' AS customer_id FROM range(1,${rows+1}) r(i)`);
+  if(role==='agent')await session.execute(`CREATE TABLE orders AS SELECT i AS id,${entity} AS __entity, ${amount} AS amount, CASE WHEN i<=5 THEN 'a' WHEN i<=11 THEN 'b' ELSE 'c' END AS city, 'held-token' AS customer_id FROM range(1,${rows+1}) r(i)`);
   const inspection=session.inspection!;
   return {...session,inspection:{...inspection,estimate:async sql=>{estimates.push(sql);return estimate===undefined?inspection.estimate(sql):estimate;},render:async tree=>{rendered.push(tree);return inspection.render(tree);}}};
  }};
- const policy=sqlPolicy([{...namespace.objects[0]!,columns:[{name:'id'},{name:'amount',treatment:'aggregate_only'},{name:'city'},{name:'customer_id',treatment:'tokenized'}]}]);
+ const policy=sqlPolicy([{...namespace.objects[0]!,contributor:'__entity',columns:[{name:'id'},{name:'amount',treatment:'aggregate_only'},{name:'city'},{name:'customer_id',treatment:'tokenized'}]}]);
  const executor=new InspectedSessionExecutor(engine,e=>events.push(e));
  return {events,estimates,rendered,policy,executor,run:(sql:string)=>executor.execute(sql,limits,namespace,policy)};
 }
 function expectCode(result:Awaited<ReturnType<InspectedSessionExecutor['execute']>>,code:string){
  expect(result.ok,result.ok?'Unexpected rows':result.error.message).toBe(false);
- if(!result.ok)expect(result.error.code).toBe(code);
+ if(!result.ok)expect(result.error.code,result.error.message+JSON.stringify(result.error.details)).toBe(code);
 }
 describe('S2d authoritative treatment enforcement',{timeout:30000},()=>{
  for(const [id,sql] of [
@@ -34,6 +34,38 @@ describe('S2d authoritative treatment enforcement',{timeout:30000},()=>{
   const f=fixture(),result=await f.run(sql);expectCode(result,'unsupported_on_aggregate_only');
   expect(f.events.some(e=>e.stage==='prepare_started'||e.stage==='execute_started')).toBe(false);
   if(!result.ok){expect(result.error.details).toMatchObject({stage:1,aggregateMinGroupSize:5});expect(result.error.message).toContain('amount');expect(result.error.message).toContain('Use an aggregate');}
+ });
+ for(const operation of ['MIN','MAX'])it(`G-08: ${operation} is refused on aggregate-only despite sufficiently large groups`,async()=>{
+  const f=fixture(11),result=await f.run(`SELECT city,${operation}(amount) FROM orders GROUP BY city`);
+  expectCode(result,'unsupported_on_aggregate_only');if(!result.ok){expect(result.error.details).toMatchObject({cause:'unsupported_operation',name:'amount',operation,stage:1});expect(result.error.message).toBe(`${operation} is not permitted on aggregate-only column amount. Use SUM, AVG or COUNT instead.`);}
+  expect(f.events.some(e=>e.stage==='prepare_started'||e.stage==='execute_started')).toBe(false);expect(result).not.toHaveProperty('value');
+ });
+ it('G-08: MIN and MAX remain available for clear columns',async()=>{
+  const f=fixture(11),result=await f.run('SELECT MIN(id),MAX(id) FROM orders');expect(result.ok).toBe(true);if(result.ok)expect(result.value.rows[0]?.map(Number)).toEqual([1,11]);
+ });
+ for(const sql of [
+  'SELECT SUM(a.amount) FROM orders a JOIN orders b ON a.city=b.city',
+  'SELECT COUNT(amount),SUM(amount),AVG(amount) FROM orders',
+ ])it(`G-09: one entity with many distinct amounts cannot pass the contributor floor: ${sql}`,async()=>{
+  const f=fixture(6,1000,'1');const result=await f.run(sql);expectCode(result,'unsupported_on_aggregate_only');expect(result).not.toHaveProperty('value');expect(!result.ok&&result.error.details?.stage).toBe(2);
+ });
+ it('G-09: null keys do not contribute and joins cannot inflate four contributors to five',async()=>{
+  const f=fixture(5,1000,'CASE WHEN i=5 THEN NULL ELSE i END');expectCode(await f.run('SELECT SUM(a.amount) FROM orders a JOIN orders b ON a.city=b.city'),'unsupported_on_aggregate_only');
+ });
+ it('G-09: keys without a contributing non-null value do not inflate the floor',async()=>{
+  const f=fixture(6,1000,'i','CASE WHEN i=1 THEN i*10 ELSE NULL END');expectCode(await f.run('SELECT SUM(amount) FROM orders'),'unsupported_on_aggregate_only');
+ });
+ it('G-09: five distinct contributors pass despite duplicate joined rows; proof inputs never leave the Engine',async()=>{
+  const f=fixture(5),result=await f.run('SELECT SUM(a.amount) AS total FROM orders a JOIN orders b ON a.city=b.city');expect(result.ok,result.ok?'':result.error.message).toBe(true);if(result.ok){expect(result.value.columns).toEqual(['total']);expect(result.value.rows).toEqual([['750']]);}
+  for(const sql of ['SELECT __entity FROM orders','SELECT COUNT(__entity) FROM orders','SELECT a.__entity FROM orders a'])expectCode(await f.run(sql),'sql_not_permitted');
+ });
+ it('G-09: DESCRIBE exposes only public columns, never the private proof key',async()=>{const f=fixture(),result=await f.run('DESCRIBE orders');expect(result.ok).toBe(true);if(result.ok)expect(result.value.rows.map(r=>r[0])).toEqual(['id','amount','city','customer_id']);});
+ it('G-09: equal protected values from five different entities count as five contributors',async()=>{const f=fixture(5,1000,'i','1');const result=await f.run('SELECT SUM(amount) FROM orders');expect(result.ok).toBe(true);if(result.ok)expect(result.value.rows).toEqual([['5']]);});
+ it('G-09: every protected join input must have enough independent contributors',async()=>{
+  const f=fixture(6,1000,'CASE WHEN i<=2 THEN 1 ELSE i END');
+  // Left has five distinct entities, right is narrowed to one; a first-input-only
+  // proof would release both sums because the join repeats its one contributor.
+  expectCode(await f.run('SELECT SUM(a.amount),SUM(b.amount) FROM orders a JOIN orders b ON b.id=1'),'unsupported_on_aggregate_only');
  });
  it('5.8: nested refusal retains S2d message and distinguishes the actual outer aggregate',async()=>{
   for(const [sql,cause] of [
@@ -65,20 +97,20 @@ describe('S2d authoritative treatment enforcement',{timeout:30000},()=>{
   expect(!result.ok&&result.error.details).toMatchObject({stage:2,aggregateMinGroupSize:5});
   expect(f.events).toContainEqual({stage:'cardinality',phase:2,threshold:5,estimate:null,passed:false,counted:true});
  });
- it('stage 1 refuses a supported estimate below the threshold without execution',async()=>{
+ it('G-09: low row estimates do not replace exact contributor proof',async()=>{
   const f=fixture(2),result=await f.run('SELECT SUM(amount) FROM orders');expectCode(result,'unsupported_on_aggregate_only');
-  expect(!result.ok&&result.error.details?.stage).toBe(1);expect(f.rendered).toEqual([]);
-  expect(f.events.some(e=>e.stage==='execute_started'||e.stage==='prepare_started')).toBe(false);
+  expect(!result.ok&&result.error.details?.stage).toBe(2);expect(f.rendered).toHaveLength(1);
+  expect(f.estimates).toEqual([]);expect(f.events.some(e=>e.stage==='execute_started')).toBe(true);
  });
  it('VC-24 an overestimate close to the threshold cannot release a singleton',async()=>{
   const f=fixture(1,6),result=await f.run('SELECT SUM(amount) FROM orders');expectCode(result,'unsupported_on_aggregate_only');
   expect(!result.ok&&result.error.details?.stage).toBe(2);
-  expect(f.events).toContainEqual({stage:'cardinality',phase:1,threshold:5,estimate:6,passed:true,counted:false});
+  expect(f.estimates).toEqual([]);
  });
- it('VC-25 supported estimate above twice the threshold has no COUNT rewrite or stage 2',async()=>{
+ it('VC-25 / G-09: even a large row estimate requires exact distinct contributor proof',async()=>{
   const f=fixture(),result=await f.run('SELECT SUM(amount) FROM orders');expect(result.ok&&result.value.rows).toEqual([['780']]);
-  expect(result.ok&&result.value.treatmentEvidence.stage2Ran).toBe(false);expect(f.rendered).toEqual([]);
-  expect(f.events.filter(e=>e.stage==='parse_started')).toHaveLength(1);
+  expect(result.ok&&result.value.treatmentEvidence.stage2Ran).toBe(true);expect(f.rendered).toHaveLength(1);
+  expect(f.events.filter(e=>e.stage==='parse_started')).toHaveLength(2);
  });
  it('an estimate exactly twice the threshold still requires stage 2',async()=>{
   const f=fixture(10),result=await f.run('SELECT SUM(amount) FROM orders');expect(result.ok&&result.value.treatmentEvidence.stage2Ran).toBe(true);
@@ -171,4 +203,17 @@ describe('5.24a independent authoritative equality join inspection',{timeout:300
  });
  it.each(['SELECT a.id FROM lefts a JOIN lefts b ON a.id=b.id','SELECT a.id FROM lefts a JOIN rights b ON a.id<>b.id','SELECT a.id FROM lefts a JOIN rights b ON NOT(a.id=b.id)',"SELECT id FROM lefts WHERE id='held-token'"])
  ('JOIN-003: accepts unchanged semantics: %s',async sql=>{const {result}=await run(sql);expect(result.ok).toBe(true);if(result.ok&&!sql.includes('held-token'))expect(result.value.rows).toHaveLength(1);});
+});
+
+it('G-09: qualified same-named relations in different source catalogs keep their contributor references unambiguous',async()=>{
+ const objects=['leftsource','rightsource'].map(catalog=>({catalog,schema:'main',name:'records'})),ns={catalog:'leftsource',schema:'main',objects};
+ const policy=sqlPolicy(objects.map(o=>({...o,contributor:'__entity',columns:[{name:'id'},{name:'amount',treatment:'aggregate_only' as const}]})));
+ const driver=new DuckDBSessionEngine(),engine:SessionEngine={open:async role=>{
+  const session=await driver.open(role);if(role==='agent')for(const [i,o] of objects.entries()){
+   await session.execute(`ATTACH ':memory:' AS ${o.catalog}`);
+   await session.execute(`CREATE TABLE ${o.catalog}.main.records AS SELECT i AS id,i AS __entity,i*${10*(i+1)} AS amount FROM range(1,6) r(i)`);
+  }return session;
+ }};
+ const result=await new InspectedSessionExecutor(engine).execute('SELECT SUM(leftsource.main.records.amount) AS left_total,SUM(rightsource.main.records.amount) AS right_total FROM leftsource.main.records JOIN rightsource.main.records ON leftsource.main.records.id=rightsource.main.records.id',limits,ns,policy);
+ expect(result.ok,result.ok?'':result.error.message).toBe(true);if(result.ok){expect(result.value.columns).toEqual(['left_total','right_total']);expect(result.value.rows).toEqual([['150','300']]);}
 });

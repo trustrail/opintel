@@ -42,6 +42,12 @@ describe('4.5 application pre-filter — real DuckDB syntax, no execution permis
     }
   });
 
+  it.each(['MIN','MAX'])('G-08: %s on aggregate-only is a specific governance refusal',async operation=>{
+    const result=await inspect(`SELECT ${operation}(amount) FROM ${table}`);
+    expect(result).toMatchObject({ok:false,error:{code:'unsupported_on_aggregate_only',details:{cause:'unsupported_operation',name:'amount',operation,stage:'application_pre_filter'}}});
+    if(!result.ok)expect(result.error.message).toBe(`${operation} is not permitted on aggregate-only column amount. Use SUM, AVG or COUNT instead.`);
+  });
+
   it.each([
     ['VC-11', `SELECT city, SUM(amount) FROM ${table} GROUP BY city`],
     ['single-row aggregate', `SELECT SUM(amount) FROM ${table}`],

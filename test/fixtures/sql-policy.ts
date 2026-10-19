@@ -1,6 +1,6 @@
 import { ElementId } from '../../src/shared/kernel/index.js';
 import type { TreatmentPolicy } from '../../sidecar/sql/index.js';
-export function sqlPolicy(tables:{catalog:string;schema:string;name:string;columns:{name:string;treatment?:'clear'|'masked'|'tokenized'|'aggregate_only';tokenDomain?:string}[]}[],threshold=5):TreatmentPolicy{
+export function sqlPolicy(tables:{catalog:string;schema:string;name:string;contributor?:string;columns:{name:string;treatment?:'clear'|'masked'|'tokenized'|'aggregate_only';tokenDomain?:string}[]}[],threshold=5):TreatmentPolicy{
  let next=0;
  const entitlements:TreatmentPolicy['entitlements']=[];
  const readPlan=tables.map(t=>({...t,columns:t.columns.map(c=>{

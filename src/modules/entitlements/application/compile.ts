@@ -18,7 +18,7 @@ export type ReadColumn = Readonly<{
   numericDefault?: 'scalar' | 'array';
   token?: TokenDeclaration; mask?: Readonly<{ kind: MaskKind }>;
 }>;
-export type ReadPlan = Readonly<{ catalog: string; schema: string; object: string; columns: readonly ReadColumn[]; rowScope?:RowScope }>;
+export type ReadPlan = Readonly<{ catalog: string; schema: string; object: string; columns: readonly ReadColumn[]; contributor?: Readonly<{sourceIdentifier:string;internalName:string;exposedType:ExposedType}>; rowScope?:RowScope }>;
 export type CompiledColumn = Readonly<{
   elementId: ElementId; tokenDomainVersion?: number; exposedName: ExposedName | null; sourceIdentifier: string;
   declaredType: ExposedType | null; state: 'emitted' | 'withheld' | 'undecided';
@@ -136,6 +136,11 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
         names.add(e.exposedName);
       }
     }
+    const entityKeys=group.filter(e=>e.state.contributorKey);
+    if(entityKeys.length>1)return invalid(`Object ${address.catalog}.${address.schema}.${address.name} declares more than one contributor key.`);
+    const entityKey=entityKeys[0]?.state;
+    let internalName='__opintel_contributor';while(names.has(internalName))internalName+='_';
+    const contributor=entityKey&&entityKey.exposedType&&validIdentifier(entityKey.sourceIdentifier)&&['VARCHAR','UUID','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','DATE','TIMESTAMP','TIMESTAMPTZ'].includes(entityKey.exposedType)?{sourceIdentifier:entityKey.sourceIdentifier,internalName,exposedType:entityKey.exposedType}:undefined;
     group.sort((a,b) => a.state.ordinal! - b.state.ordinal!);
     const columns: CompiledColumn[] = [], readColumns: ReadColumn[] = [], constraints: AggregateOnly[] = [];
     let withheld = 0, undecided = 0;
@@ -163,6 +168,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
       }
       readColumns.push(Object.freeze({...column,...(token ? {token} : {}),...(mask ? {mask} : {})}));
       columns.push(Object.freeze({elementId:e.id,tokenDomainVersion:e.tokenDomainVersion,exposedName:e.exposedName,sourceIdentifier:e.sourceIdentifier,declaredType:exposedType,state:'emitted',treatment,expression:quoteIdent(e.exposedName)}));
+      if(treatment==='aggregate_only'&&!contributor)return invalid(`Aggregate-only column ${address.catalog}.${address.schema}.${address.name}.${e.exposedName} requires a declared source contributor key identifying the protected entity.`);
       if (treatment === 'aggregate_only') constraints.push(Object.freeze({elementId:e.id,exposedName:e.exposedName,object:o.exposedName,minGroupSize:input.aggregateMinGroupSize}));
     }
     if (!readColumns.length) {
@@ -171,7 +177,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
     }
     const ddl = `CREATE VIEW ${[address.catalog,address.schema,address.name].map(quoteIdent).join('.')} AS SELECT ${readColumns.map(column => quoteIdent(column.exposedName)).join(', ')} FROM ${quoteIdent('__staging')}.${quoteIdent(staged)};`;
     views.push(Object.freeze({...address,ddl,columns:Object.freeze(columns),constraints:Object.freeze(constraints),
-      readPlan:Object.freeze({catalog:address.catalog,schema:o.schemaName,object:o.objectName,columns:Object.freeze(readColumns)})}));
+      readPlan:Object.freeze({catalog:address.catalog,schema:o.schemaName,object:o.objectName,columns:Object.freeze(readColumns),...(constraints.length?{contributor}: {})})}));
   }
   return ok(Object.freeze({views:Object.freeze(views),omitted:Object.freeze(omitted)}));
 }

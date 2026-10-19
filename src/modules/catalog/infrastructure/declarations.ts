@@ -11,12 +11,12 @@ import type { ExposedType } from '../domain/type-mapping.js';
 type Row = DeclarationValues & { elementId:ElementId;sourceId:SourceId;schemaName:string;qualifiedName:string;exposedType:ExposedType|null;schemaTimezone:string|null;tokenizedEntitlements:number };
 const select=`SELECT e.id AS "elementId",o.source_id AS "sourceId",o.schema_name AS "schemaName",
  concat_ws('.',s.exposed_alias,o.exposed_schema,o.exposed_name,COALESCE(e.exposed_name,'[unnameable element]')) AS "qualifiedName",
- e.exposed_type AS "exposedType",e.token_domain AS "tokenDomain",e.case_insensitive AS "caseInsensitive",e.source_timezone AS "sourceTimezone",e.epoch_unit AS "epochUnit",e.canon_id AS "canonId",d.source_timezone AS "schemaTimezone",
+ e.contributor_key AS "contributorKey",e.exposed_type AS "exposedType",e.token_domain AS "tokenDomain",e.case_insensitive AS "caseInsensitive",e.source_timezone AS "sourceTimezone",e.epoch_unit AS "epochUnit",e.canon_id AS "canonId",d.source_timezone AS "schemaTimezone",
  (SELECT count(*)::int FROM entitlement t WHERE t.element_id=e.id AND t.treatment='tokenized') AS "tokenizedEntitlements"
  FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id
  LEFT JOIN catalog_schema_temporal d ON d.source_id=o.source_id AND d.schema_name=o.schema_name
  WHERE e.id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived'`;
-const stored=(row:DeclarationValues):DeclarationValues=>({tokenDomain:row.tokenDomain,caseInsensitive:row.caseInsensitive,sourceTimezone:row.sourceTimezone,epochUnit:row.epochUnit,canonId:row.canonId});
+const stored=(row:DeclarationValues):DeclarationValues=>({...(row.contributorKey===undefined?{}:{contributorKey:row.contributorKey}),tokenDomain:row.tokenDomain,caseInsensitive:row.caseInsensitive,sourceTimezone:row.sourceTimezone,epochUnit:row.epochUnit,canonId:row.canonId});
 const missing=()=>err(new DomainError('not_found','The catalogue element or schema was not found in this project.'));
 async function projectName(ctx:TemporalContext){const [p]=await withPlatform(tx=>tx.query<{name:string}>('SELECT name FROM project WHERE id=$1',[ctx.projectId]));return p?.name??'';}
 export class PostgresElementDeclarations implements DeclarationRepository {
@@ -36,13 +36,23 @@ export class PostgresElementDeclarations implements DeclarationRepository {
   const result=await withTenant(ctx,async tx=>{
    const locked=await tx.query('SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 FOR UPDATE OF s',[element]);if(!locked.length)return missing();
    const [row]=await tx.query<Row>(select+' FOR UPDATE OF e',[element]);if(!row)return missing();
+   // Source lock serializes entity-key changes with entitlement authoring.
+   // A missing key is an authoring error, never an agent governance decision.
+   if(next.contributorKey!==undefined&&next.contributorKey!==row.contributorKey){
+    if(next.contributorKey&&(!row.exposedType||!['VARCHAR','UUID','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','DATE','TIMESTAMP','TIMESTAMPTZ'].includes(row.exposedType)))return err(new DomainError('validation_failed','A contributor key must be a text, UUID, integer or temporal entity identifier.',{fields:['contributorKey']}));
+    if(!next.contributorKey&&(await tx.query(`SELECT t.element_id FROM entitlement t JOIN catalog_element e ON e.id=t.element_id WHERE e.object_id=(SELECT object_id FROM catalog_element WHERE id=$1) AND t.treatment='aggregate_only' LIMIT 1`,[element])).length)return err(new DomainError('validation_failed','A contributor key is required while this object has aggregate-only decisions.',{fields:['contributorKey']}));
+   }
    for(const validation of [validateTokenDeclarations(row.exposedType,next),validateTemporalType(row.exposedType,next),...(next.canonId===null?[]:[validateCanonicaliserType(next.canonId,row.exposedType,next.epochUnit)]),...(row.tokenizedEntitlements>0?[validateTokenizedTemporal(row.exposedType,{...next,sourceTimezone:next.sourceTimezone??row.schemaTimezone})]:[])])if(!validation.ok)return validation;
    if(next.canonId!==null&&next.canonId!==row.canonId){
     const available=await this.canonicalisers.canonicalisers(ctx,element);if(!available.ok)return available;
     if(!available.value.includes(next.canonId))return err(new DomainError('validation_failed','This canonicaliser is not advertised by the source’s Engine. Deploy it before assigning it.',{fields:['canonId']}));
    }
    if(row.tokenizedEntitlements>0&&tokenBehaviour(row.exposedType,row,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})!==tokenBehaviour(row.exposedType,next,row.schemaTimezone,{projectId:ctx.projectId,elementId:element})&&parsed.data.confirmation!==await projectName(ctx))return err(new DomainError('conflict',(next.tokenDomain!==row.tokenDomain?domainMigrationConfirmation:'This changes effective tokenization for an already-tokenized element. Previously issued tokens will no longer match subsequent tokens.')+' Type the project name exactly to confirm.',{fields:['confirmation']}));
-   if(JSON.stringify(stored(row))!==JSON.stringify(next))await tx.query('UPDATE catalog_element SET token_domain=$2,case_insensitive=$3,source_timezone=$4,epoch_unit=$5,canon_id=$6 WHERE id=$1',[element,next.tokenDomain,next.caseInsensitive,next.sourceTimezone,next.epochUnit,next.canonId]);
+   if(next.contributorKey!==undefined&&next.contributorKey!==row.contributorKey){
+    if(next.contributorKey)await tx.query('UPDATE catalog_element SET contributor_key=false WHERE object_id=(SELECT object_id FROM catalog_element WHERE id=$1) AND contributor_key AND id<>$1',[element]);
+    await tx.query('UPDATE catalog_element SET contributor_key=$2 WHERE id=$1',[element,next.contributorKey]);
+   }
+   if((['tokenDomain','caseInsensitive','sourceTimezone','epochUnit','canonId'] as const).some(key=>row[key]!==next[key]))await tx.query('UPDATE catalog_element SET token_domain=$2,case_insensitive=$3,source_timezone=$4,epoch_unit=$5,canon_id=$6 WHERE id=$1',[element,next.tokenDomain,next.caseInsensitive,next.sourceTimezone,next.epochUnit,next.canonId]);
    return ok(undefined);
   });
   return result.ok?this.read(ctx,element):result;

@@ -73,6 +73,7 @@ export class PostgresPatternRules implements IntrospectionCompletedHandler {
       }
       const rule = selected.value;
       if (!rule) { await finish(); return; }
+      if(rule.treatment==='aggregate_only'&&!(await tx.query(`SELECT k.id FROM catalog_element k WHERE k.object_id=(SELECT object_id FROM catalog_element WHERE id=$1) AND k.contributor_key AND k.status='active' AND k.exposed_type IN ('VARCHAR','UUID','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','DATE','TIMESTAMP','TIMESTAMPTZ')`,[elementId])).length){await finish([rule.id],`Aggregate-only column ${element.exposedName} requires a declared source contributor key identifying the protected entity.`);return;}
       const valid = validateRuleTreatment(rule,element);
       if (!valid.ok) { await finish([rule.id],valid.error.message); return; }
       await tx.query(`INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,mask_kind)

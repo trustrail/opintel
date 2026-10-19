@@ -7,7 +7,7 @@ export const IanaTimezone = z.string().refine(value => {
   if (!/^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/u.test(value)) return false;
   try { new Intl.DateTimeFormat('en', {timeZone:value}); return true; } catch { return false; }
 }, 'Use a valid IANA timezone such as America/Toronto.');
-export const DeclarationValues = z.strictObject({tokenDomain:z.string().nullable(),caseInsensitive:z.boolean().nullable(),sourceTimezone:z.string().nullable(),epochUnit:z.enum(['seconds','milliseconds']).nullable(),canonId:z.string().nullable()});
+export const DeclarationValues = z.strictObject({contributorKey:z.boolean().optional(),tokenDomain:z.string().nullable(),caseInsensitive:z.boolean().nullable(),sourceTimezone:z.string().nullable(),epochUnit:z.enum(['seconds','milliseconds']).nullable(),canonId:z.string().nullable()});
 export const DeclarationCommand = DeclarationValues.extend({
   tokenDomain:declaredTokenDomain.nullable(),
   sourceTimezone:IanaTimezone.nullable(),canonId:z.string().regex(/^[a-z0-9]+$(?![\s\S])/u,'Choose an advertised lowercase alphanumeric canonicaliser ID.').nullable(),confirmation:z.string().optional(),

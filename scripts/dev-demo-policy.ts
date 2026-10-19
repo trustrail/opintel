@@ -6,7 +6,7 @@ export function retainDemoLandingZone(zone:{projectId:ProjectId;sourceId:SourceI
 }
 /** A deterministic spread based on the demo's column names and text order. Numeric totals
  * are aggregate-only; text identifiers tokenize; other text alternates masks
- * and withholding. Inception dates support aggregate-only COUNT/MIN; landing metadata remains clear. Unsupported unbounded numerics are withheld. */
+ * and withholding. Inception dates support aggregate-only COUNT; landing metadata remains clear. Unsupported unbounded numerics are withheld. */
 export function demoTreatment(column:{sourceIdentifier:string;exposedType:string|null;ordinal:number|null},index:number):Treatment {
  if(column.exposedType===null)return 'withheld';
  if(column.sourceIdentifier.startsWith('_'))return 'clear';

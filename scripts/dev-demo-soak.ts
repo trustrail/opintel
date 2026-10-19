@@ -17,7 +17,7 @@ import {createSourceRuntime} from '../src/modules/sources/infrastructure/source-
 import {PoolKeyCreationResponse} from '../src/shared/api/pool-keys.js';
 import {demoManifest,certificateMapping,certificateForAgent,type DemoManifest} from './soak/manifest.js';
 import pack from '../src/modules/sources/demo/reinsurance.json' with {type:'json'};
-import {demoTables,declaredTreatment,declaredFilter,generateSpecification} from './demo-soak-definition.js';
+import {demoTables,declaredContributorKey,declaredTreatment,declaredFilter,generateSpecification} from './demo-soak-definition.js';
 import {PostgresRowDecisions} from '../src/modules/entitlements/infrastructure/row-decisions.js';
 import type {Result} from '../src/shared/kernel/index.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
@@ -76,7 +76,14 @@ export async function seedDemoSoak(ctx:{projectId:ProjectId;userId:UserId},regis
    for(const object of objects){
     if(!demoTables.some(t=>t.name===object.name))throw new Error('Unexpected object in demo sources');
     manifest.objects[`${object.source}.${object.schema}.${object.name}`]=object.name;
-    const columns=await withTenant(ctx,tx=>tx.query<{id:string;name:string;treatment:string|null}>(`SELECT e.id,e.exposed_name AS name,t.treatment FROM catalog_element e LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=$2 WHERE e.object_id=$1 AND e.status='active'`,[object.id,pool.id]));
+    const columns=await withTenant(ctx,tx=>tx.query<{id:string;name:string;treatment:string|null;contributorKey:boolean}>(`SELECT e.id,e.exposed_name AS name,e.contributor_key AS "contributorKey",t.treatment FROM catalog_element e LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=$2 WHERE e.object_id=$1 AND e.status='active'`,[object.id,pool.id]));
+    // Claim aggregates protect the policy entity; repeated claims for one
+    // policy must not count as independent contributors.
+    const contributor=declaredContributorKey(object.name);
+    if(contributor){
+     if(columns.some(c=>c.contributorKey&&c.name!==contributor))throw new Error('Existing contributor declaration differs: '+object.name+'; it was not overwritten');
+     await withTenant(ctx,tx=>tx.query('UPDATE catalog_element SET contributor_key=true WHERE id=$1 AND NOT contributor_key',[columns.find(c=>c.name===contributor)!.id]));
+    }
     for(const column of columns){
      const treatment=declaredTreatment(object.name,column.name,poolIndex);
      if(treatment==='undecided'){if(column.treatment)throw new Error('Declared undecided column already has a decision: '+object.name+'.'+column.name+'; no entitlement was deleted');continue;}

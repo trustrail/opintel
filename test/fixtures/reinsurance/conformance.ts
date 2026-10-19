@@ -46,6 +46,7 @@ export async function reinsuranceConformance(options:{liveXqCustody?:boolean;ass
      const id=ElementId(randomUUID());columns.set(c.name,id);
      await tx.query('INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,ordinal,token_domain,case_insensitive) VALUES($1,$2,$3,$4,$5,$4,$6,$7,$8,false)',[id,f.ctx.projectId,o!.id,c.name,c.type==='INTEGER'?'int4':c.type==='DATE'?'date':'text',c.type??'VARCHAR',ordinal,c.name==='policy_id'?'policy':null]);
     }
+    if(table.name==='claims')await tx.query('UPDATE catalog_element SET contributor_key=true WHERE id=$1',[columns.get('policy_id')]);
     return {id:ObjectId(o!.id),columns};
    });objects[table.name]=object;
    for(const [poolIndex,pool] of pools.entries()){

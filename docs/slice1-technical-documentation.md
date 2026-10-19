@@ -189,6 +189,7 @@ class CatalogElement {
   readonly stableRef: string | null;   // attnum, field id, if the source has one
   type: SourceType;
   exposedType: ExposedType | null;       // null means unsupported type
+  contributorKey: boolean;              // explicit source-author entity identity; one per active object
   status: 'active' | 'removed';
 }
 ```
@@ -197,6 +198,7 @@ class CatalogElement {
 - `exposedName` is assigned at first discovery and is immutable. Recomputing it would rename tables under running agents
 - Two elements in one object cannot share a `exposedName`. Collisions get a numeric suffix and raise a catalog diff entry
 - An element marked `removed` keeps its entitlements for evidence reproducibility
+- Aggregate-only decisions require an explicitly declared contributor entity key in the same object. This is separate from introspected `isKey`; no primary-key or protected-value inference. Declare through the element declarations API (`contributorKey`) or its source-column editor. The key may remain withheld or undecided to a pool. The compiler carries private proof metadata and the Engine counts distinct non-null contributor labels after joins; see algorithm B.4. Private proof labels and counts are not delivered; visible columns still follow their authored treatment.
 
 ### Entitlement (root: `Entitlement`, keyed by pool and element)
 

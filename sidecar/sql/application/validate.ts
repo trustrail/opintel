@@ -29,7 +29,7 @@ export async function validateStatement(session:ValidationSession,sql:string,inp
    const columns=await inspection.columns();
    if(tables.some(t=>{
     const actual=columns.filter(c=>equalObject(c,t));
-    return actual.length!==t.columns.length||actual.some(c=>!t.columns.some(p=>foldIdentifier(p.name)===foldIdentifier(c.column)));
+    return actual.length!==t.columns.length+(t.contributor?1:0)||actual.some(c=>foldIdentifier(c.column)!==foldIdentifier(t.contributor??'')&&!t.columns.some(p=>foldIdentifier(p.name)===foldIdentifier(c.column)));
    }))return err(new DomainError('sql_not_permitted','The staged columns do not match the pool read plan.',{cause:'inspection_inconsistent',reason:'staged_schema'}));
    const treatment=inspectTreatments(parsed.tree,namespace,policy,tables);if(!treatment.ok)return report(parsed.tree,treatment);
 

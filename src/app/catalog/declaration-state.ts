@@ -16,7 +16,7 @@ export function createDeclarationForm(stored:DeclarationValues){
   // or changes which editors the administrator has opened.
   receive:next=>set(state=>{
    const retained=<K extends keyof DeclarationValues>(key:K):DeclarationValues[K]=>state.values[key]===state.stored[key]?next[key]:state.values[key];
-   return {stored:{...next},values:{tokenDomain:retained('tokenDomain'),caseInsensitive:retained('caseInsensitive'),sourceTimezone:retained('sourceTimezone'),epochUnit:retained('epochUnit'),canonId:retained('canonId')},confirmation:''};
+   return {stored:{...next},values:{...(retained('contributorKey')===undefined?{}:{contributorKey:retained('contributorKey')}),tokenDomain:retained('tokenDomain'),caseInsensitive:retained('caseInsensitive'),sourceTimezone:retained('sourceTimezone'),epochUnit:retained('epochUnit'),canonId:retained('canonId')},confirmation:''};
   }),
   saved:next=>set({stored:{...next},values:{...next},confirmation:'',errors:{}}),
   discard:()=>set(state=>({values:{...state.stored},confirmation:'',errors:{}})),

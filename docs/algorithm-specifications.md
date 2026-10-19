@@ -510,36 +510,27 @@ for each aggregate-only element E referenced in the query:
                           GROUP BY, HAVING outside an aggregate, or a window frame
 ```
 
-**And a minimum group size, measured after filtering, not before.**
+**Permitted aggregates on aggregate-only elements are SUM, AVG and COUNT.** MIN and MAX are refused with `unsupported_on_aggregate_only` / `unsupported_operation`, naming the operation and column. This deliberately removes extrema analysis: a larger group still returns an actual contributing value through MIN/MAX. No bucketing or alternate-threshold path is provided. MIN/MAX on otherwise permitted clear columns are unaffected.
 
-The naive check validates the group definition: `GROUP BY customer_id` is refused because it yields one row per customer. That check is necessary and **it is not sufficient**. Consider:
+**Minimum group size counts contributors, not rows or distinct protected values.**
+
+The source author declares one contributor entity key per object through the element declarations API (`contributorKey: true`). It identifies the entity the floor protects: for example a policy, cedant or claimant. It need not be a person, a source primary key, or a column the pool may read. The supported single-column key types are text, UUID, integer and temporal identifiers. Composite identity must be exposed upstream as one stable identifier. No identity is inferred.
+
+An aggregate-only treatment cannot be authored or compiled without an active, supported contributor key for its object. The configuration error names the protected column and missing key. Existing configurations need explicit source-author review; there is no automatic backfill from primary keys or amounts. Removing the key while aggregate-only decisions exist is rejected; selecting another replaces it atomically under the source lock. Catalogue generations invalidate compiled plans when it changes.
+
+The Engine reads the key as a private proof input after the governance row filter. Before staging it, the guarded source reader replaces it with an HMAC-SHA256 equality label under a fresh per-scan random key whose buffer is zeroed when the scan ends. Typed PostgreSQL text under UTC/ISO settings supplies the stable identity representation; text identities are neither trimmed nor folded. Null remains null. Only opaque labels from this private proof copy enter DuckDB. A separately entitled visible key column still follows its own treatment; a withheld or tokenized key gains no new readable representation. The opaque proof input is unavailable to original agent SQL, is never made a readable entitlement, and never appears in returned columns, object descriptions, values or receipts.
+
+For every protected aggregate input and relation alias, the Engine adds an exact count to the final query:
 
 ```sql
-SELECT city, SUM(amount) FROM orders
-WHERE transaction_id = 'tx_8f21a3'
-GROUP BY city
+COUNT(DISTINCT CASE WHEN protected_column IS NOT NULL THEN private_entity_key ELSE NULL END)
 ```
 
-`GROUP BY city` passes any group-definition check. The `WHERE` clause reduces the input to one row, so the sum is that row's `amount`, exposed exactly. **The aggregate is the raw value wearing a `SUM()`**, and the grouping column was never the problem.
+The count is computed **after joins and filtering, within each returned group**, alongside SUM/AVG/COUNT. Null keys and rows with no contributing protected value do not count. Join multiplication and repeated claims by one policy cannot inflate it. Multiple protected inputs each require a passing count. Any returned group below `aggregateMinGroupSize` refuses the whole result; proof counts are stripped before delivery. Query rewrites are rendered, reparsed, reinspected and bound in the contained session.
 
-**So the check is on post-filter cardinality per group**, evaluated in two stages:
+Row estimates cannot establish distinct contributors, so **every protected aggregate requires the exact stage-2 proof**. The former statistics-only fast path is retired. Validation may establish that a query is supported, but cannot discharge this data-dependent proof without execution.
 
-```
-STAGE 1, before execution, deterministic
-  estimate rows per group from table statistics, the WHERE predicates
-  and join selectivity
-  if the estimate for any group is below aggregateMinGroupSize:
-      refuse
-  if no supported per-group estimate is available:
-      mark the execution for stage 2
-  if the estimate is within a factor of 2 of the threshold:
-      mark the execution for stage 2
-
-STAGE 2, during execution, only when marked
-  compute COUNT(*) per group alongside the requested aggregates
-  if any returned group has a count below the threshold:
-      refuse the whole result. Do not return the compliant groups
-```
+`COUNT(DISTINCT protected_value)` was deliberately rejected: one policyholder with five different claim amounts would pass a floor of five with one contributor. Different entities with equal amounts also must count as different entities. The configured key, carried through the join and deduplicated at the end, is the identity contract.
 
 **Nested aggregation over an aggregate-only element is refused
 unconditionally.** Stage 2 instruments the outer projection only, so it
@@ -554,8 +545,6 @@ the truth is that the check declined to look.
 reason.** COUNT(DISTINCT e) on a tokenized element is permitted and
 unaffected: the distinct argument to an aggregate is not a distinct
 projection.
-
-**Stage 2 exists because estimates are estimates.** A statistics-based prediction of 40 rows can be 1 in reality, and the product cannot rely on a planner's guess for a disclosure control. It runs when the estimate is close to the line or uncertain. Missing statistics, skew that the statistics cannot describe, and unmodelled joins require stage 2. Estimated input rows divided by estimated group count is only an average and cannot justify the no-count fast path. Only a supported per-group estimate above twice the threshold skips stage 2.
 
 **Refusing the whole result rather than the small groups is deliberate.** Returning the compliant groups and silently dropping the rest leaks by omission: an analyst who knows the city list can see which ones vanished, and that is itself the disclosure.
 
@@ -641,7 +630,7 @@ Compilation is pure and fast, so views are compiled **on demand at session creat
 | VC-22 | No dummy column anywhere | `describe` and `duckdb_columns()` contain no `_opintel_*` artifact |
 | VC-23 | **`GROUP BY city WHERE transaction_id = X`** | **Refused.** The group definition passes, the post-filter cardinality does not |
 | VC-24 | Estimate above the threshold, reality below it | Stage 2 catches it and refuses |
-| VC-25 | Estimate far above the threshold | Stage 2 does not run. No `COUNT(*)` overhead |
+| VC-25 | Estimate far above the threshold | Exact distinct-contributor count still runs; row estimates cannot prove entity cardinality |
 | VC-26 | Result with some groups compliant and some not | **Whole result refused.** Compliant groups are not returned |
 | VC-27 | Predicate on an aggregate-only column | Refused before planning |
 | VC-28 | Threshold changed on the project | Takes effect on the next execution, recorded on the run |

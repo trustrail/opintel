@@ -9,9 +9,9 @@ export const unwrap = <T>(result: Result<T>): T => {
 };
 export type ColumnSpec = {
   name: string; source?: string; treatment: Treatment | null; ordinal?: number;
-  type?: ExposedType; declarations?: Partial<Pick<ElementState,'tokenDomain'|'caseInsensitive'|'canonId'|'sourceTimezone'|'schemaTimezone'|'epochUnit'>>;
+  type?: ExposedType; declarations?: Partial<Pick<ElementState,'contributorKey'|'tokenDomain'|'caseInsensitive'|'canonId'|'sourceTimezone'|'schemaTimezone'|'epochUnit'>>;
 };
-export type ObjectSpec = {name:string; schema?:string; alias?:string; columns:ColumnSpec[]; exposedName?:string; exposedSchema?:string};
+export type ObjectSpec = {name:string; schema?:string; alias?:string; columns:ColumnSpec[]; exposedName?:string; exposedSchema?:string; contributor?:false};
 export function fixture(specs: readonly ObjectSpec[]): CompileInput {
   let next=1;
   const id=()=>`00000000-0000-7000-8000-${String(next++).padStart(12,'0')}`;
@@ -24,7 +24,10 @@ export function fixture(specs: readonly ObjectSpec[]): CompileInput {
     let source=sources.get(alias);
     if(!source){source={id:id() as SourceId,projectId,alias:alias as ExposedName,kind:'postgres'};sources.set(alias,source);}
     const objectId=id() as ObjectId;
-    const columns=spec.columns.map((column,index)=>{
+    // The fixture source explicitly declares a dedicated entity identity. It is
+    // undecided to agents and is not inferred from a protected amount.
+    const declared=spec.contributor===false||!spec.columns.some(c=>c.treatment==='aggregate_only')?spec.columns:[...spec.columns,{name:'__fixture_entity',source:'fixture_entity',treatment:null,type:'VARCHAR',ordinal:1000,declarations:{contributorKey:true}} as ColumnSpec];
+    const columns=declared.map((column,index)=>{
       const element=new CatalogElement({id:id() as ElementId,objectId,projectId,sourceIdentifier:column.source??`native_${index}`,
         stableRef:String(index+1),sourceType:column.type??'VARCHAR',exposedType:column.type??'VARCHAR',exposedName:column.name as ExposedName,
         ordinal:column.ordinal??index+1,nullable:true,isKey:false,description:null,status:'active',discoveredAt:at,removedAt:null,

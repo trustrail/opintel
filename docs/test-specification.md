@@ -1477,3 +1477,9 @@ Four exclusive counts in order: missing, overridden, inherited, unscoped. The no
 ## Gate simplification — 2026-10-16
 
 The broad browser scenarios and pixel comparisons are retired by explicit decision. The 54-route coverage reporter and control/disclosure/mark/navigation assertion implementations are unchanged; a direct sweep supplies route visits. All normal domain and integration tests retain their assertions and selection. One continuous smoke path connects sign-in UI, pool row-decision API, real authenticated MCP/Engine execution and persisted receipt rendering. The mail/session response is a fixture boundary, not a live identity-provider proof. Historical screenshots are archived, not regenerated.
+
+## Aggregate contributor proof — G-08/G-09 (19 October 2026)
+
+VC-24/VC-25 no longer permit a statistics-only discharge: even a high row estimate cannot prove independent entities. Every protected aggregate uses the exact post-join contributor count. `test/sql-treatments.test.ts` covers a single contributor with multiple distinct amounts, join multiplication, null keys and values, distinct entities with repeated values, every protected join input, hidden-key access, and stripping all proof columns. The floor is measured on each returned group; G-10 (HAVING oracle) and G-11 (cross-query differencing) remain separate open findings.
+
+`test/aggregate-contributor.test.ts` covers missing-key authoring and snapshot compilation, a private undecided key, explicit replacement, removal guards and invalid declarations. `test/contributor-key-migration.test.ts` covers forward/down/forward schema behavior. MIN and MAX on aggregate-only columns are specific governance refusals in the application pre-filter and authoritative Engine; MIN/MAX on clear columns remain allowed. Bypass attack assertions are unchanged; their fixture now explicitly declares its source entity key.

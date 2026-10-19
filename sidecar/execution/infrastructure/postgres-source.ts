@@ -1,3 +1,5 @@
+import {createHmac,randomBytes} from 'node:crypto';
+import {stagedColumns} from '../../../src/shared/execution-contract.js';
 import {evaluatePredicate,family} from '../../../src/shared/row-predicate.js';
 import {postgresRowPredicate,postgresPredicateInput} from './postgres-row-predicate.js';
 import { exactDefaultNumeric } from '../application/exact-numeric.js';
@@ -17,9 +19,11 @@ const scopeAlias=(s:Scan,id:string)=>{let alias="__scope_"+id;while(s.object.rea
 const selection=(s:Scan,connector=false)=>s.object.readPlan.columns.map(c=>(c.numericDefault==='array'?'to_json('+quote(c.sourceIdentifier)+'::numeric[]::text[])::text':c.numericDefault==='scalar'?quote(c.sourceIdentifier)+'::numeric::text':c.readAs==='text'?quote(c.sourceIdentifier)+'::text':connector&&stagingType(c.exposedType)!.complex?'to_json('+nativeExpression(c)+')::text':nativeExpression(c))+' AS '+quote(c.exposedName)).join(',');
 const select=(s:Scan,connector=false)=>{
  const scope=s.object.readPlan.rowScope;
+ const contributor=s.object.readPlan.contributor;
+ const proof=contributor?[quote(contributor.sourceIdentifier)+'::text AS '+quote(contributor.internalName)]:[];
  const inputs=scope&&!scope.pushdown?scope.columns.map(c=>postgresPredicateInput(c)+' AS '+quote(scopeAlias(s,c.id))):[];
  const filters=[s.predicate,scope?.predicate&&scope.pushdown?postgresRowPredicate(scope.predicate,scope.columns):undefined].filter(Boolean);
- return `SELECT ${[selection(s,connector),...inputs].join(',')} FROM ${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}${filters.length?' WHERE '+filters.map(p=>'('+p+')').join(' AND '):''}`;
+ return `SELECT ${[selection(s,connector),...inputs,...proof].join(',')} FROM ${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}${filters.length?' WHERE '+filters.map(p=>'('+p+')').join(' AND '):''}`;
 };
 const credential=(s:Scan)=>SecretRef(s.request.sources.find(v=>v.sourceId===s.object.sourceId)!.credentialRef);
 const key=(s:Scan)=>s.object.sourceId;
@@ -67,14 +71,19 @@ export class PostgresStagingSource implements StagingSource {
   },signal),'metadata');
  }
  plain(s:Scan,privileged:EngineSession,table:string,signal:AbortSignal):Promise<Result<void>>{
+  if(s.object.readPlan.contributor)return Promise.resolve(err(new DomainError('validation_failed','A contributor proof must use the guarded source reader.',{cause:'invalid_plan',reason:'read_plan'})));
   if(s.object.readPlan.columns.some(c=>c.numericDefault))return Promise.resolve(err(new DomainError('validation_failed','An exact numeric read must use the guarded source reader.',{cause:'invalid_plan',reason:'read_plan'})));
   return this.safe(()=>this.scope.external(key(s),credential(s),async (connection,sourceSignal)=>{
    if(!privileged.staging)throw new Error('Staging unavailable');
    const abort=()=>privileged.interrupt?.();sourceSignal.addEventListener('abort',abort,{once:true});
-   try{await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,s.object.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));return ok(undefined);}finally{sourceSignal.removeEventListener('abort',abort);}
+   try{await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));return ok(undefined);}finally{sourceSignal.removeEventListener('abort',abort);}
   },signal));
  }
  treated(s:Scan,consume:(rows:unknown[][])=>Promise<Result<void>>,signal:AbortSignal):Promise<Result<void>>{
+  // Private proof labels preserve only equality within this staged relation.
+  // Even a withheld/tokenized entity key must never enter either DuckDB session
+  // in plaintext. A fresh per-scan key is never sent to the Application.
+  const proofKey=s.object.readPlan.contributor?randomBytes(32):undefined;
   const read=async(transforms:((value:unknown)=>Result<unknown>)[]):Promise<Result<void>>=>this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
    await session.query("SELECT set_config('TimeZone','UTC',true),set_config('DateStyle','ISO, YMD',true),set_config('extra_float_digits','3',true)");
         const types = z.array(z.object({ name: z.string(), type: z.string() })).parse(await session.query(`
@@ -86,6 +95,11 @@ export class PostgresStagingSource implements StagingSource {
             FROM types JOIN pg_catalog.pg_type t ON t.oid=types.typbasetype
           ) SELECT name,typname AS type FROM types WHERE typbasetype=0`,
           [`${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}`]));
+        const entity=s.object.readPlan.contributor;
+        if(entity){
+         const allowed:Record<string,string[]>={VARCHAR:['text','varchar','bpchar','name','char'],UUID:['uuid'],TINYINT:['int2'],SMALLINT:['int2'],INTEGER:['int4'],BIGINT:['int8'],HUGEINT:['int8'],DATE:['date'],TIMESTAMP:['timestamp'],TIMESTAMPTZ:['timestamptz']};
+         if(!allowed[entity.exposedType]?.includes(types.find(t=>t.name===entity.sourceIdentifier)?.type??''))return err(new DomainError('validation_failed','The contributor key no longer has its declared source type. Re-introspect and review its declaration.',{cause:'invalid_plan',reason:'contributor_key_type'}));
+        }
         for (const column of s.object.readPlan.columns.filter(c=>c.numericDefault)) {
           const type=types.find(type=>type.name===column.sourceIdentifier)?.type;
           const allowed=column.numericDefault==='array'?['_numeric','_money']:['numeric','money'];
@@ -116,13 +130,21 @@ export class PostgresStagingSource implements StagingSource {
       const output:unknown[]=[];for(const [i,c] of s.object.readPlan.columns.entries()){
       if(c.numericDefault){const exact=exactDefaultNumeric(row[c.exposedName],c.exposedName,c.numericDefault);if(!exact.ok)return exact;}
       const v=transforms[i]!(row[c.exposedName]);if(!v.ok)return v;if(c.treatment==='tokenized'&&v.value!==null)s.onTokenized?.();output.push(v.value);
-     }treated.push(output);for(const k of Object.keys(row))row[k]=null;}
+     }
+     const contributor=s.object.readPlan.contributor;if(contributor){
+      // PostgreSQL's typed ::text representation is stable under the UTC/ISO
+      // settings above (including integer/UUID normalization and bpchar padding).
+      // Do not fold or trim text identities: distinct source entities must remain distinct.
+      const value=z.string().nullable().parse(row[contributor.internalName]);
+      output.push(value===null?null:createHmac('sha256',proofKey!).update(value,'utf8').digest('hex'));
+     }
+     treated.push(output);for(const k of Object.keys(row))row[k]=null;}
      if(signal.aborted)throw new SourceCancelled();const accepted=await consume(treated);if(!accepted.ok)return accepted;
     }finally{for(const row of raw)if(typeof row==='object'&&row!==null)for(const k of Object.keys(row))Reflect.set(row,k,null);for(const row of rows)for(const k of Object.keys(row))row[k]=null;for(const row of treated)row.fill(null);treated.length=0;}
    }return ok(undefined);}finally{await session.query('CLOSE opintel_stage');}
   },signal));
   const base=s.object.readPlan.columns.map(c=>(value:unknown):Result<unknown>=>c.treatment==='masked'?maskValue(c.mask!.kind,value):ok(value));
-  if(!s.object.readPlan.columns.some(c=>c.treatment==='tokenized'))return read(base);
+  if(!s.object.readPlan.columns.some(c=>c.treatment==='tokenized'))return read(base).finally(()=>proofKey?.fill(0));
   return this.tokenizer.run(ProjectId(s.request.projectId),async run=>{
    for(const [i,c] of s.object.readPlan.columns.entries())if(c.treatment==='tokenized'){
     const config=c.token!,registered=canonicalisers.get(config.canonId);
@@ -131,6 +153,6 @@ export class PostgresStagingSource implements StagingSource {
     const transform=run.prepare(config,builtin?undefined:registered);if(!transform.ok)return transform;base[i]=transform.value;
    }
    return read(base);
-  },s.request.tokenKeyVersionSelected,s.request.expectedTokenSentinel);
+  },s.request.tokenKeyVersionSelected,s.request.expectedTokenSentinel).finally(()=>proofKey?.fill(0));
  }
 }

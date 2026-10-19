@@ -82,6 +82,8 @@ async function provision(){
  const zone=(await loadSidecarConfig(serviceFile)).config.landingZones?.find(z=>z.sourceId===sourceId);
  if(!zone?.landing)throw new Error('The demo landing zone disappeared during preparation.');
  unwrap(await new PostgresLanding(new EnvironmentSecretStore()).analyze({projectId,sourceId,...zone.landing}));
+ // This bordereau protects the treaty entity, not each filing row.
+ await withTenant(ctx,async tx=>{await tx.query(`UPDATE catalog_element e SET contributor_key=true FROM catalog_object o WHERE o.id=e.object_id AND o.source_id=$1 AND e.source_identifier='Treaty Ref' AND e.status='active' AND NOT EXISTS(SELECT 1 FROM catalog_element k WHERE k.object_id=o.id AND k.contributor_key AND k.status='active')`,[sourceId]);});
  if(demoOptions.soak){const {seedDemoSoak}=await import('./dev-demo-soak.js');await seedDemoSoak(ctx,developmentRegistry,developmentEngineId,auth,demoOptions['soak-associations'],demoOptions['soak-manifest']);return;}
  const {PoolKeyService,PostgresPoolKeys,PostgresAgentPresence,PoolBindingService,PostgresPoolBindings}=await import('../src/modules/pools/index.js');
  let [pool]=await withTenant(ctx,tx=>tx.query<{id:PoolId}>("SELECT id FROM pool WHERE name='Development Demo'"));
@@ -112,7 +114,7 @@ async function provision(){
  console.info('Treatments: '+counts.map(r=>`${r.treatment}=${r.n}`).join(', '));
  const quote=(name:string)=>`"${name.replaceAll('"','""')}"`;
  const view=compiled.compilation.views[0];if(view){const fields=view.columns.filter(c=>c.state==='emitted'&&c.treatment!=='aggregate_only'&&c.exposedName!==null).map(c=>quote(c.exposedName!));console.info(`Example SQL: SELECT ${fields.join(', ')} FROM ${quote(view.catalog)}.${quote(view.schema)}.${quote(view.name)} LIMIT 5`);}
- console.info('Aggregate example: use COUNT or MIN on an inception-date column; raw reads of aggregate-only columns are refused.');
+ console.info('Aggregate example: use COUNT on an inception-date column; raw reads of aggregate-only columns are refused.');
  console.info('Run npm run dev:api to serve MCP. Send Authorization: Bearer <pool key> and X-Opintel-Agent-Id: dev-demo.');
  }finally{auth.close();}
 }

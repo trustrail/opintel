@@ -61,3 +61,9 @@ it('JOIN-001: MCP names both validated columns and the remedy without forwarding
  expect(response).toMatchObject({_meta:{cause:'unsatisfiable_token_join',columns,retryable:false},content:[{text:'Columns warehouse.public.lefts.id and warehouse.public.rights.id cannot be joined by equality with their current tokenization. Ask an administrator to tokenize both columns under a shared token domain.'}]});
  expect(JSON.stringify(response)).not.toContain('PRIVATE');
 });
+
+it.each(['MIN','MAX'])('G-08: %s refusal reaches the agent with the column and permitted alternatives',operation=>{
+ const response=refusalResponse(new DomainError('unsupported_on_aggregate_only','PRIVATE_DIAGNOSTIC',{cause:'unsupported_operation',name:'amount',operation,aggregateMinGroupSize:938173},true));
+ expect(response).toMatchObject({isError:true,_meta:{code:'unsupported_on_aggregate_only',cause:'unsupported_operation',retryable:false},content:[{text:`${operation} is not permitted on aggregate-only column amount. Use SUM, AVG or COUNT instead.`}]});
+ expect(JSON.stringify(response)).not.toMatch(/PRIVATE|938173|threshold/);
+});

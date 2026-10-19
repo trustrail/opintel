@@ -9,6 +9,7 @@ export type ElementDiscovery = Readonly<{
   nullable: boolean; isKey: boolean; description: string | null;
 }>;
 export type ElementState = ElementDiscovery & Readonly<{
+  contributorKey?: boolean;
   tokenDomain?: string | null; tokenDomainVersion?: number; caseInsensitive?: boolean | null; canonId?: string | null;
   sourceTimezone?: string | null; schemaTimezone?: string | null; epochUnit?: 'seconds' | 'milliseconds' | null;
   id: ElementId; objectId: ObjectId; projectId: ProjectId; exposedName: ExposedName | null; nameRevision?: number;

@@ -4,7 +4,7 @@ import * as syntax from './syntax.js';
 import { foldIdentifier, type PoolNamespace } from './subset.js';
 import { type TreatmentPolicy, type PolicyTable } from './treatment-policy.js';
 
-type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only' | 'custody'; threshold: number; domain?: string };
+type Reference = { elementId: ElementId; name: string; qualifiedName?: string; treatment: 'clear' | 'masked' | 'tokenized' | 'aggregate_only' | 'custody'; threshold: number; contributor?:{key:string[];value:string[]}; domain?: string };
 type Field = { name: string; references: Reference[] };
 type Relation = { qualifiers: string[][]; fields: Field[]; opaque?: boolean };
 type Clause = 'SELECT' | 'WHERE' | 'JOIN' | 'GROUP BY' | 'HAVING' | 'ORDER BY' | 'LIMIT' | 'VALUES';
@@ -14,13 +14,14 @@ const same = (a: readonly string[], b: readonly string[]) => a.length === b.leng
 
 /** Sidecar-owned lineage analysis; PREPARE in the same contained session proves resolution. */
 class Inspection {
+  describePrivate: string | undefined;
   readonly aggregateNodes = new Set<unknown>();
   aggregates: {node: unknown; reference: Reference}[] = [];
   private currentNode: unknown;
   failure: DomainError | undefined;
   private depth = 0;
   private visits = 0;
-  constructor(private readonly views: readonly PolicyTable[], private readonly namespace: PoolNamespace, private readonly policy: TreatmentPolicy) {}
+  constructor(private readonly views: readonly PolicyTable[], private readonly namespace: PoolNamespace, private readonly policy: TreatmentPolicy,private readonly internal=false) {}
 
   refuse(construct: string): void {
     this.failure ??= new DomainError('sql_not_permitted', `The Opintel Engine cannot interpret construct ${construct}; a column was not found or the construct is unavailable or ambiguous. Rewrite the query using a supported construct.`, { cause:'prohibited_construct',construct, proofCategory: 'sql_not_permitted', stage: 'treatment' });
@@ -102,11 +103,34 @@ class Inspection {
             this.expression(e.filter, { ...context, clause: 'WHERE', directAggregate: false });
             this.refuse('aggregate FILTER'); return [];
           }
+          // Only the Engine-generated contributor proof can read its private
+          // key. The original tree has already passed the normal inspector.
+          // Recognise the exact COUNT(DISTINCT CASE ...) shape, not arbitrary
+          // expressions or a general exemption for protected-column access.
+          if(this.internal&&name==='count'&&e.distinct&&e.children.length===1){
+            const proof=syntax.caseExpression.safeParse(e.children[0]);
+            if(proof.success&&proof.data.case_checks.length===1){
+              const branch=proof.data.case_checks[0]!,when=syntax.operator.safeParse(branch.when_expr),key=syntax.column.safeParse(branch.then_expr),otherwise=syntax.constant.safeParse(proof.data.else_expr);
+              const value=when.success&&when.data.type==='OPERATOR_IS_NOT_NULL'&&when.data.children.length===1?syntax.column.safeParse(when.data.children[0]):undefined;
+              if(value?.success&&key.success&&otherwise.success&&otherwise.data.value.is_null===true){
+                const refs=this.lookup(value.data.column_names,context);
+                if(refs.length===1&&refs[0]!.treatment==='aggregate_only'&&refs[0]!.contributor&&same(refs[0]!.contributor!.key,key.data.column_names)&&same(refs[0]!.contributor!.value,value.data.column_names)){
+                  this.aggregates.push({node:this.currentNode,reference:refs[0]!});return [];
+                }
+              }
+            }
+          }
           const direct = aggregate && (context.clause === 'SELECT' || context.clause === 'HAVING');
           const refs = e.children.flatMap(child => {
             const r = this.read(syntax.record, child, 'function argument');
             return this.expression(child, { ...context, aggregateArgument: aggregate || context.aggregateArgument, aggregateContext: aggregate ? direct : context.aggregateContext, directAggregate: direct && r?.class === 'COLUMN_REF' });
           });
+          // MIN/MAX reveal an actual contributing value even in a large group.
+          // Keep them available for other treatments, never aggregate-only.
+          const protectedReference=refs.find(ref=>ref.treatment==='aggregate_only');
+          if((name==='min'||name==='max')&&protectedReference&&(!this.failure||this.failure.code==='unsupported_on_aggregate_only')){
+            this.failure=new DomainError('unsupported_on_aggregate_only',`${name.toUpperCase()} is not permitted on aggregate-only column ${protectedReference.name}. Use SUM, AVG or COUNT instead.`,{cause:'unsupported_operation',name:protectedReference.name,elementId:protectedReference.elementId,operation:name.toUpperCase(),stage:1,proofCategory:'sql_not_permitted'});
+          }
           const tokenOperation = operation ? (name.includes('~~') ? 'LIKE' : name) : name === 'count' || name === 'count_star' ? undefined : name.toUpperCase();
           // Protected aggregate references were checked at their immediate parent.
           if (tokenOperation) this.check(refs.filter(r => r.treatment === 'tokenized'), context, tokenOperation);
@@ -180,8 +204,12 @@ class Inspection {
           const matches=this.views.filter(v=>same([v.catalog,v.schema,v.name],[catalog,schema,t.table_name]));
           if(matches.length!==1){this.refuse(t.table_name);return [];}
           const view=matches[0]!;
+          // Preserve catalog/schema when no alias is present: two bound
+          // sources may expose the same table name in a single query.
+          const qualifier=t.alias?[t.alias]:[catalog,schema,t.table_name];
           const fields:Field[]=view.columns.map(col=>({name:col.name,references:
-            [{elementId:col.elementId,name:col.name,qualifiedName:`${catalog}.${schema}.${view.name}.${col.name}`,treatment:col.treatment,threshold:this.policy.aggregateMinGroupSize,domain:col.tokenDomain}]}));
+            [{elementId:col.elementId,name:col.name,qualifiedName:`${catalog}.${schema}.${view.name}.${col.name}`,treatment:col.treatment,threshold:this.policy.aggregateMinGroupSize,...(view.contributor?{contributor:{key:[...qualifier,view.contributor],value:[...qualifier,col.name]}}:{}),domain:col.tokenDomain}]}));
+          if(this.internal&&view.contributor)fields.push({name:view.contributor,references:[]});
           return [{ qualifiers: t.alias ? [[t.alias]] : [[t.table_name], [schema, t.table_name], [catalog, schema, t.table_name]], fields }];
         }
         case 'JOIN': {
@@ -247,6 +275,7 @@ class Inspection {
           && !node.modifiers.length && !node.cte_map.map.length && node.where_clause === null && node.having === null && !node.group_expressions.length && !node.group_sets.length;
         if (!plain(q) || !plain(inner)) this.refuse('DESCRIBE query');
         this.relation(table, ctes);
+        this.describePrivate=this.views.find(v=>same([v.catalog,v.schema,v.name],[table.catalog_name||this.namespace.catalog,table.schema_name||this.namespace.schema,table.table_name]))?.contributor;
         return [];
       }
       const relations = this.relation(q.from_table, ctes);this.currentNode=value;
@@ -295,10 +324,10 @@ class Inspection {
   }
 }
 
-export type TreatmentInspection={custodyIndices?:number[];aggregate?: {elementId:ElementId;name:string;threshold:number}};
-export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:TreatmentPolicy, tables:PolicyTable[]):Result<TreatmentInspection>{
- if(!tables.some(t=>t.columns.some(c=>c.treatment==='aggregate_only'||c.treatment==='tokenized'||c.treatment==='custody')))return ok({});
- const i=new Inspection(tables,namespace,policy),doc=syntax.document.safeParse(tree);
+export type TreatmentInspection={describePrivate?:string;custodyIndices?:number[];aggregate?: {elementId:ElementId;name:string;threshold:number;contributors:{key:string[];value:string[]}[]}};
+export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:TreatmentPolicy, tables:PolicyTable[],internal=false):Result<TreatmentInspection>{
+ if(!tables.some(t=>t.contributor||t.columns.some(c=>c.treatment==='aggregate_only'||c.treatment==='tokenized'||c.treatment==='custody')))return ok({});
+ const i=new Inspection(tables,namespace,policy,internal),doc=syntax.document.safeParse(tree);
  if(!doc.success)return err(new DomainError('sql_not_permitted','The Opintel Engine cannot interpret the statement.'));
  const root=doc.data.statements[0]!.node;
  const output=i.query(root);
@@ -308,5 +337,5 @@ export function inspectTreatments(tree:unknown, namespace:PoolNamespace, policy:
  if(i.aggregates.some(a=>a.node!==root))return err(new DomainError('unsupported_on_aggregate_only','Construct SELECT_NODE contains nested aggregation over an aggregate-only element. The cardinality check cannot preserve and verify the inner groups’ counts through nesting; it has not determined that those groups are below the threshold. Use a single aggregate query so group sizes can be checked.',{cause:i.aggregateNodes.has(root)?'nested_aggregation':'inner_group_counts_unverifiable',name:i.aggregates.find(a=>a.node!==root)!.reference.name,elementId:i.aggregates.find(a=>a.node!==root)!.reference.elementId,construct:'SELECT_NODE',proofCategory:'sql_not_permitted'}));
  if(i.aggregates.length){const q=syntax.select.parse(root);if(q.modifiers.some(m=>syntax.distinct.safeParse(m).success))return err(new DomainError('sql_not_permitted','Construct DISTINCT_MODIFIER over protected aggregation is not supported.',{cause:'prohibited_construct',construct:'DISTINCT_MODIFIER',proofCategory:'sql_not_permitted'}));}
  const ref=i.aggregates[0]?.reference;
- return ok({...(!tables.some(t=>t.columns.some(c=>c.treatment==='custody'))?{}:{custodyIndices:output.flatMap((f,index)=>f.references.some(r=>r.treatment==='custody')?[index]:[])}),...(ref?{aggregate:{elementId:ref.elementId,name:ref.name,threshold:ref.threshold}}:{})});
+ return ok({...(i.describePrivate?{describePrivate:i.describePrivate}:{}),...(!tables.some(t=>t.columns.some(c=>c.treatment==='custody'))?{}:{custodyIndices:output.flatMap((f,index)=>f.references.some(r=>r.treatment==='custody')?[index]:[])}),...(ref?{aggregate:{elementId:ref.elementId,name:ref.name,threshold:ref.threshold,contributors:[...new Map(i.aggregates.map(a=>[JSON.stringify(a.reference.contributor),a.reference.contributor!])).values()]}}:{})});
 }

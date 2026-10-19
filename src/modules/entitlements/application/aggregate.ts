@@ -112,6 +112,12 @@ class Inspection {
             const r = this.read(syntax.record, child, 'function argument');
             return this.expression(child, { ...context, aggregateArgument: aggregate || context.aggregateArgument, aggregateContext: aggregate ? direct : context.aggregateContext, directAggregate: direct && r?.class === 'COLUMN_REF' });
           });
+          // MIN/MAX reveal an actual contributing value even in a large group.
+          // Keep them available for other treatments, never aggregate-only.
+          const protectedReference=refs.find(ref=>ref.treatment==='aggregate_only');
+          if((name==='min'||name==='max')&&protectedReference&&(!this.failure||this.failure.code==='unsupported_on_aggregate_only')){
+            this.failure=new DomainError('unsupported_on_aggregate_only',`${name.toUpperCase()} is not permitted on aggregate-only column ${protectedReference.name}. Use SUM, AVG or COUNT instead.`,{cause:'unsupported_operation',name:protectedReference.name,elementId:protectedReference.elementId,operation:name.toUpperCase(),stage:'application_pre_filter',proofCategory:'sql_not_permitted'});
+          }
           const tokenOperation = operation ? (name.includes('~~') ? 'LIKE' : name) : name === 'count' || name === 'count_star' ? undefined : name.toUpperCase();
           // Protected aggregate references were checked at their immediate parent.
           if (tokenOperation) this.check(refs.filter(r => r.treatment === 'tokenized'), context, tokenOperation);

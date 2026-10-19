@@ -48,10 +48,11 @@ it('bare numeric SUM and AVG remain exact; money is read through numeric',async(
  }
 },30000);
 it.each(['clear','aggregate_only','masked','tokenized'] as const)('refuses excessive numeric scale before %s treatment or staging',async treatment=>{
- await fixture(`CREATE TABLE ${schema}.numeric_values(amount numeric);INSERT INTO ${schema}.numeric_values VALUES(123.1234567891);ANALYZE ${schema}.numeric_values;`);
+ await fixture(`CREATE TABLE ${schema}.numeric_values(amount numeric,entity integer DEFAULT 1);INSERT INTO ${schema}.numeric_values(amount) VALUES(123.1234567891);ANALYZE ${schema}.numeric_values;`);
  try{
   const r=numericRequest(),c=r.objects[0]!.readPlan.columns[0]!;
   r.aggregateMinGroupSize=1;c.treatment=treatment;r.entitlements[0]!.treatment=treatment;
+  if(treatment==='aggregate_only')r.objects[0]!.readPlan.contributor={sourceIdentifier:'entity',internalName:'__proof',exposedType:'INTEGER'};
   if(treatment==='tokenized'||treatment==='masked'){c.exposedType='VARCHAR';c.readAs='text';r.sql='SELECT amount FROM orders';}
   if(treatment==='masked')c.mask={kind:'all'};
   if(treatment==='tokenized')c.token={domain:'premium',canonId:'stdnum1',mode:'number',caseInsensitive:false};
@@ -85,4 +86,14 @@ it('ROW-003 native clear source path applies the same static row boundary',async
  o.readPlan.rowScope={objectId:randomUUID(),poolId:r.poolId,decisionId:randomUUID(),hash:predicateHash(parsed.value),columns:[column],predicate:parsed.value,pushdown:true};
  const proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]},result=await executor(proof).execute(r);
  expect(result).toMatchObject({ok:true,value:{rows:[[2],[3]],rowScopes:[{entitledRows:2,columns:['id']}]}});expect(proof.attachments).toBe(1);expect(proof.appended).toEqual([]);
+},30000);
+
+it('G-09 private entity inputs are opaque before either DuckDB session; equal entities stay equal, null stays null, and labels change per scan',async()=>{
+ await fixture(`CREATE TABLE ${schema}.proof_keys(id integer,entity text);INSERT INTO ${schema}.proof_keys VALUES(1,'ENTITY_SENTINEL'),(2,'ENTITY_SENTINEL'),(3,NULL);ANALYZE ${schema}.proof_keys;`);
+ const r=request();r.objects[0]!.readPlan.object='proof_keys';const aggregateId=randomUUID();r.objects[0]!.readPlan.columns.push({sourceIdentifier:'id',exposedName:'amount',exposedType:'INTEGER',elementId:aggregateId,treatment:'aggregate_only',readAs:'native'});r.entitlements.push({elementId:aggregateId,treatment:'aggregate_only'});r.objects[0]!.readPlan.contributor={sourceIdentifier:'entity',internalName:'__proof',exposedType:'VARCHAR'};r.limits.rowLimit=10;
+ const first={attachments:0,appended:[] as unknown[][],closed:[] as string[]},second={attachments:0,appended:[] as unknown[][],closed:[] as string[]};
+ const result=await executor(first).execute(r);expect(result).toMatchObject({ok:true,value:{columns:['id'],rows:[[1],[2],[3]]}});
+ expect(first.attachments).toBe(0);expect(first.appended[0]?.[2]).toMatch(/^[0-9a-f]{64}$/);expect(first.appended[0]?.[2]).toBe(first.appended[1]?.[2]);expect(first.appended[2]?.[2]).toBeNull();expect(JSON.stringify(first.appended)).not.toContain('ENTITY_SENTINEL');
+ expect((await executor(second).execute(r)).ok).toBe(true);expect(second.appended[0]?.[2]).not.toBe(first.appended[0]?.[2]);
+ r.sql='SELECT __proof FROM orders';expect(await executor().execute(r)).toMatchObject({ok:false,error:{code:'sql_not_permitted'}});
 },30000);

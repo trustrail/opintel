@@ -19,7 +19,7 @@ const column=z.strictObject({numericDefault:z.enum(['scalar','array']).optional(
  if(c.readAs!==(treated?'text':'native')||treated&&c.exposedType!=='VARCHAR'||(c.treatment==='tokenized')!==(c.token!==undefined)||(c.treatment==='masked')!==(c.mask!==undefined))ctx.addIssue({code:'custom',message:'The treatment declaration and read plan disagree.'});
 });
 export const stagingObject=z.strictObject({catalog:name,schema:name,name:name,sourceId:z.uuid(),
- readPlan:z.strictObject({catalog:name,schema:name,object:name,columns:z.array(column).min(1),rowScope:rowScope.optional()}),
+ readPlan:z.strictObject({catalog:name,schema:name,object:name,columns:z.array(column).min(1),contributor:z.strictObject({sourceIdentifier:name,internalName:name,exposedType:z.string().refine(v=>stagingType(v)!==null)}).optional(),rowScope:rowScope.optional()}),
 });
 export const executionRequest=z.strictObject({requestId:name,tokenKeyVersionSelected:positive.nullable().default(null),expectedTokenSentinel:sentinel.nullable().optional(),projectId:z.uuid(),poolId:z.uuid(),policyVersion:z.number().int().nonnegative(),
  sql:z.string().min(1),namespace:z.strictObject({catalog:name,schema:name}),
@@ -39,3 +39,8 @@ export const engineCustodyShares=z.strictObject({first:z.string().regex(/^[A-Za-
 export const executionResponse=z.strictObject({custodyShares:engineCustodyShares.optional(),rowScopes:z.array(rowScopeReceipt).optional(),custodyIndices:z.array(z.number().int().nonnegative()).optional(),tokenKeyVersionUsed:positive.nullable(),sourceIdsReached:z.array(z.uuid()),columnTypes:z.array(z.string()),columns:z.array(z.string()),rows:z.array(z.array(z.unknown())),truncated:z.boolean(),executionPath:z.literal('staged'),queryEngineVersion:z.string(),policyVersion:z.number(),
  treatmentEvidence:z.strictObject({aggregateMinGroupSize:z.number(),stage2Required:z.boolean(),stage2Ran:z.boolean()})});
 export const validationResponse=z.strictObject({queryEngineVersion:z.string(),treatmentEvidence:executionResponse.shape.treatmentEvidence});
+
+/** Private proof inputs stay in Engine memory, never in the emitted columns. */
+export function stagedColumns(plan:z.infer<typeof stagingObject>['readPlan']){
+ return [...plan.columns.map(c=>({name:c.exposedName,type:c.exposedType})),...(plan.contributor?[{name:plan.contributor.internalName,type:'VARCHAR'}]:[])];
+}

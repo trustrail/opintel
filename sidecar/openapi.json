@@ -1380,6 +1380,28 @@
                                 "additionalProperties": false
                               }
                             },
+                            "contributor": {
+                              "type": "object",
+                              "properties": {
+                                "sourceIdentifier": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "internalName": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "exposedType": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "sourceIdentifier",
+                                "internalName",
+                                "exposedType"
+                              ],
+                              "additionalProperties": false
+                            },
                             "rowScope": {
                               "type": "object",
                               "properties": {
@@ -2314,6 +2336,28 @@
                                 "additionalProperties": false
                               }
                             },
+                            "contributor": {
+                              "type": "object",
+                              "properties": {
+                                "sourceIdentifier": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "internalName": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "exposedType": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "sourceIdentifier",
+                                "internalName",
+                                "exposedType"
+                              ],
+                              "additionalProperties": false
+                            },
                             "rowScope": {
                               "type": "object",
                               "properties": {
@@ -3071,6 +3115,28 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "contributor": {
+                              "type": "object",
+                              "properties": {
+                                "sourceIdentifier": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "internalName": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "exposedType": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "sourceIdentifier",
+                                "internalName",
+                                "exposedType"
+                              ],
+                              "additionalProperties": false
                             },
                             "rowScope": {
                               "type": "object",

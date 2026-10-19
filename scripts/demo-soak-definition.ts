@@ -11,6 +11,7 @@ export const demoTables:Array<{schema:string;name:string;rows:Row[]}>= [
  {schema:'soak_recoveries',name:'unmatched',rows:base.cedants.map((cedant,i)=>({cedant,policy_id:'DISJOINT-'+i,reference_id:'UNMATCHED-'+i}))},
  {schema:'soak_recoveries',name:'open_reference',rows:[{reference_id:'OPEN-1',description:null},{reference_id:'OPEN-2',description:''},{reference_id:'OPEN-3',description:'東京'}]},
 ];
+export function declaredContributorKey(object:string){return object==='claims'?'policy_id':null;}
 export function declaredTreatment(object:string,column:string,pool:number){
  if(column==='undecided_note'||column==='pool_only'&&pool===1)return 'undecided' as const;
  if(column==='policy_id')return 'tokenized' as const;
@@ -27,7 +28,7 @@ export function declaredRows(name:string,pool:number){const rows=demoTables.find
 export function declaredFilter(name:string,pool:number){return name==='open_reference'||name==='treaty_reference'&&pool===1?null:name==='treaty_reference'?"treaty_ref = 'NO_SUCH_TREATY'":`cedant = '${base.cedants[pool]}'`;}
 const q=(s:string)=>'"'+s.replaceAll('"','""')+'"',table=(s:string)=>s.split('.').map(q).join('.');
 export function generateSpecification(names:Record<string,string>,agents:Array<{credentialId:string;poolIndex:number;association?:unknown}>=[]):Specification {
- const objects= [0,1].flatMap(poolIndex=>demoTables.map(t=>({name:names[t.name]!,poolIndex,rowFilter:declaredFilter(t.name,poolIndex),rowMode:t.name==='open_reference'?'unfiltered' as const:t.name==='treaty_reference'&&poolIndex===1?'missing' as const:'filtered' as const,expectedRowCount:declaredRows(t.name,poolIndex).length,rows:declaredRows(t.name,poolIndex),columns:Object.keys(t.rows[0]!).map(name=>{const treatment=declaredTreatment(t.name,name,poolIndex);return {name,type:name==='claim_amount'?'INTEGER':name==='loss_date'?'DATE':'VARCHAR',treatment,outcome:treatment==='undecided'?'entitlement_missing':treatment==='withheld'?'element_withheld':treatment==='aggregate_only'?'unsupported_on_aggregate_only':'success',mask:treatment==='masked'?'last4' as const:null};})})));
+ const objects= [0,1].flatMap(poolIndex=>demoTables.map(t=>({name:names[t.name]!,poolIndex,contributorKey:declaredContributorKey(t.name),rowFilter:declaredFilter(t.name,poolIndex),rowMode:t.name==='open_reference'?'unfiltered' as const:t.name==='treaty_reference'&&poolIndex===1?'missing' as const:'filtered' as const,expectedRowCount:declaredRows(t.name,poolIndex).length,rows:declaredRows(t.name,poolIndex),columns:Object.keys(t.rows[0]!).map(name=>{const treatment=declaredTreatment(t.name,name,poolIndex);return {name,type:name==='claim_amount'?'INTEGER':name==='loss_date'?'DATE':'VARCHAR',treatment,outcome:treatment==='undecided'?'entitlement_missing':treatment==='withheld'?'element_withheld':treatment==='aggregate_only'?'unsupported_on_aggregate_only':'success',mask:treatment==='masked'?'last4' as const:null};})})));
  const scenarios:Scenario[]=[];
  for(const o of objects){
   for(const c of o.columns){const anchor=o.columns.find(c=>c.treatment==='clear'&&['recovery_id','claim_id','treaty_ref','reference_id'].includes(c.name))??o.columns.find(c=>c.treatment==='clear')!;const columns=[...new Set([anchor.name,c.name])].map(name=>({object:o.name,name,alias:name,side:'a'}));

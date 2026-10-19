@@ -42,6 +42,7 @@ below are copied character for character from the approved specification.
 | E | `{name} has no decision recorded for this pool, so it cannot be returned. An administrator decides each element before an agent can read it.` |
 | T | `{name} is tokenized, so it supports equality, grouping and joins, but not {operation}. Tokens preserve which values are the same, not how they order.` |
 | A-row | `{name} can only be read in aggregate. This query reads it row by row. Use an aggregate such as SUM, AVG or COUNT over a group.` |
+| A-operation | `{operation} is not permitted on aggregate-only column {name}. Use SUM, AVG or COUNT instead.` |
 | A-direct | `{name} can only be read in aggregate, and this query does not pass it directly to an aggregate. Use SUM, AVG or COUNT over the element itself.` |
 | A-small | `{name} can only be read in aggregate, and this query would have described too few records. Group more broadly, or use a less restrictive filter.` |
 | A-count-invalid | `{name} can only be read in aggregate, and the group sizes for this query could not be checked. Nothing is established about whether the groups are large enough. Try a simpler grouping, or ask an administrator to look at this query.` |
@@ -76,6 +77,7 @@ expose source names, hostnames, secrets, thresholds or suppressed counts.
 | `element_withheld` | `withheld` | The named element has a withheld decision | W | false |
 | `entitlement_missing` | `undecided` | The named element has no entitlement row for this pool | E | false |
 | `unsupported_on_token` | `unsupported_operation` | The named tokenized element is used with the identified prohibited operation | T | false |
+| `unsupported_on_aggregate_only` | `unsupported_operation` | MIN or MAX references an aggregate-only element; returns a contributing value even above the floor | A-operation | false |
 | `unsupported_on_aggregate_only` | `row_access` | A protected value is requested outside an aggregate, including use as an unaggregated predicate/group/order/join operand | A-row | false |
 | `unsupported_on_aggregate_only` | `not_direct_aggregate_argument` | An aggregate receives an expression containing the element instead of the element itself, e.g. SUM(amount+1) | A-direct | false |
 | `unsupported_on_aggregate_only` | `unsupported_aggregate_context` | A direct aggregate argument is present, but its context is unsupported, e.g. a rejected aggregate ORDER BY expression | Q-fallback | false |

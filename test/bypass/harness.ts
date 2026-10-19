@@ -9,7 +9,7 @@ import { InspectedSessionExecutor } from '../../sidecar/sql/index.js';
 export const literal=(value:string)=>`'${value.replaceAll("'","''")}'`;
 export const secret='WITHHELD_SENTINEL_9b21',unknownSecret='UNDECIDED_SENTINEL_8c31',rawCard='4111111111111234';
 export const allowedSql=`CREATE SCHEMA public;
- CREATE TABLE public.orders AS SELECT i::INTEGER AS id,(100+i)::INTEGER AS amount,CASE WHEN i=1 THEN 'x' ELSE 'noise' END AS transaction_id,
+ CREATE TABLE public.orders AS SELECT i::INTEGER AS id,i::INTEGER AS __entity,(100+i)::INTEGER AS amount,CASE WHEN i=1 THEN 'x' ELSE 'noise' END AS transaction_id,
  'v1_c_'||CASE WHEN i=1 THEN repeat('A',26) ELSE repeat('B',26) END AS customer_id,'************1234' AS card_number,
  CASE WHEN i=1 THEN 42 ELSE 20 END AS age,CASE WHEN i=1 THEN '12345' ELSE '99999' END AS zip,CASE WHEN i=1 THEN 0.1 ELSE 0.9999 END AS random_col
  FROM range(1,7) r(i);
@@ -63,7 +63,7 @@ export async function run(sql:string,options:RunOptions={}):Promise<Outcome>{
       CREATE OR REPLACE VIEW warehouse.public.records AS SELECT * FROM warehouse.public.orders;CREATE OR REPLACE VIEW warehouse.public.t AS SELECT * FROM warehouse.public.orders;`);
     }
     if(options.positiveSetup)await session.execute(options.positiveSetup);
-    if(options.tracker)await session.execute(`CREATE OR REPLACE VIEW public.t AS SELECT id,amount AS salary,age,zip,random_col FROM public.orders`);
+    if(options.tracker)await session.execute(`CREATE OR REPLACE VIEW public.t AS SELECT id,__entity,amount AS salary,age,zip,random_col FROM public.orders`);
    }
   }catch(error){session.close();throw error;}
   // Explicit mutation control only. Ordinary attacks never intercept or alter SQL.
@@ -75,7 +75,7 @@ export async function run(sql:string,options:RunOptions={}):Promise<Outcome>{
   const limits={memoryMb:options.memoryMb??32,threads:1};
   if(raw)result={ok:true,value:await new TwoSessionExecutor(engine).execute(sql,limits)};
   else {
-   const policy=sqlPolicy(['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name,columns:
+   const policy=sqlPolicy(['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name,...(name==='copy_target'?{}:{contributor:'__entity'}),columns:
     name==='copy_target'?[{name:'id'},{name:'payload'}]:name==='t'&&options.tracker?[{name:'id'},{name:'salary',treatment:'aggregate_only'},{name:'age'},{name:'zip'},{name:'random_col'}]:
     [{name:'id'},{name:'amount',treatment:'aggregate_only'},{name:'transaction_id'},{name:'customer_id',treatment:'tokenized'},{name:'card_number',treatment:'masked'},{name:'age'},{name:'zip'},{name:'random_col'}]})));
    const inspected=await new InspectedSessionExecutor(engine,event=>events.push(event)).execute(sql,limits,{catalog:'warehouse',schema:'public',objects:['orders','records','t','copy_target'].map(name=>({catalog:'warehouse',schema:'public',name}))},policy);

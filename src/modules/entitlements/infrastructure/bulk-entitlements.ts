@@ -10,7 +10,7 @@ import type { BulkEntitlementRepository } from '../application/bulk.js';
 import type { EntitlementContext } from '../application/entitlement-repository.js';
 
 type ElementRow = TemporalDeclarations & {
-  qualifiedName:string; id: ElementId; sourceId: SourceId; name: string | null; type: ExposedType | null;
+  hasContributor:boolean; qualifiedName:string; id: ElementId; sourceId: SourceId; name: string | null; type: ExposedType | null;
   elementStatus: string; objectStatus: string; sourceStatus: string;
   tokenDomain: string | null; caseInsensitive: boolean | null; canonId: string | null;
 };
@@ -34,7 +34,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
       if (!pools.length) return err(new DomainError('not_found','The pool was not found in this project.'));
       const bindings = await tx.query<{source_id:SourceId}>('SELECT source_id FROM pool_source_binding WHERE pool_id=$1 ORDER BY source_id FOR SHARE',[pool]);
       const bound = new Set(bindings.map(row=>row.source_id));
-      const elements = await tx.query<ElementRow>(`SELECT concat_ws('.',s.exposed_alias,o.exposed_schema,o.exposed_name,COALESCE(e.exposed_name,'[unnameable element]')) AS "qualifiedName",e.id,o.source_id AS "sourceId",e.exposed_name AS name,e.exposed_type AS type,
+      const elements = await tx.query<ElementRow>(`SELECT concat_ws('.',s.exposed_alias,o.exposed_schema,o.exposed_name,COALESCE(e.exposed_name,'[unnameable element]')) AS "qualifiedName",e.id,o.source_id AS "sourceId",e.exposed_name AS name,e.exposed_type AS type,EXISTS(SELECT 1 FROM catalog_element k WHERE k.object_id=e.object_id AND k.contributor_key AND k.status='active' AND k.exposed_type IN ('VARCHAR','UUID','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','DATE','TIMESTAMP','TIMESTAMPTZ')) AS "hasContributor",
         e.status AS "elementStatus",o.status AS "objectStatus",s.status AS "sourceStatus",e.token_domain AS "tokenDomain",e.case_insensitive AS "caseInsensitive",e.canon_id AS "canonId",
         COALESCE(e.source_timezone,d.source_timezone) AS "sourceTimezone",e.epoch_unit AS "epochUnit"
         FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id
@@ -49,6 +49,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
           if (!bound.has(row.sourceId)) reasons.push('The element source is not bound to this pool.');
           // Unsupported types cannot carry new decisions, including withholding.
           if (row.type === null || (input.treatment !== 'withheld' && row.name === null)) reasons.push('The element has no supported exposed type or name.');
+          if(input.treatment==='aggregate_only'&&!row.hasContributor)reasons.push(`Aggregate-only column ${row.qualifiedName} requires a declared source contributor key identifying the protected entity.`);
           if (input.maskKind !== null) { const valid=validateMaskType(input.maskKind,row.type); if(!valid.ok)reasons.push(valid.error.message); }
           if (input.treatment === 'tokenized') {
             const token=validateTokenDeclarations(row.type,row),temporal=validateTokenizedTemporal(row.type,row);

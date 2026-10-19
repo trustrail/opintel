@@ -1,3 +1,4 @@
+import {stagedColumns} from '../../../src/shared/execution-contract.js';
 import {sealResult} from '../../../src/shared/infrastructure/sealed-result.js';
 import {previewRows} from './preview.js';
 import {hasScope,predicateHash,referencedColumns} from '../../../src/shared/row-predicate.js';
@@ -40,7 +41,7 @@ export class StagedExecutor {
   try{
    const lease=await this.queue.acquire(ProjectId(r.projectId),PoolId(r.poolId),r.limits.concurrency,r.settings.maxQueuedExecutions,signal);
    if(!lease.ok)return lease;release=lease.value;
-   const policy:TreatmentPolicy={aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),
+   const policy:TreatmentPolicy={aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,...(o.readPlan.contributor?{contributor:o.readPlan.contributor.internalName}:{}),columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),
     entitlements:r.entitlements.map(e=>({...e,elementId:ElementId(e.elementId)}))};
    if(r.objects.some(o=>o.readPlan.columns.some(c=>!r.entitlements.some(e=>e.elementId===c.elementId&&e.treatment===c.treatment))))return err(new DomainError('sql_not_permitted','The read plan and authoritative entitlements disagree.',{cause:'inspection_inconsistent',reason:'policy'}));
    // Duplicate references to an element may appear in more than one view, but
@@ -70,13 +71,13 @@ export class StagedExecutor {
      if(!privileged.staging||!agent.staging)return err(new DomainError('dependency_unavailable','The engine cannot stage pool objects.',{cause:'component_configuration',reason:'staging_capability'}));
      let result:Result<void>;
      if(o.readPlan.rowScope?.predicate===null){
-      await privileged.staging.create('memory','__staging',table,o.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));
+      await privileged.staging.create('memory','__staging',table,stagedColumns(o.readPlan));
       rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.entitledRows=0;
       await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);continue;
      }
-     if((!o.readPlan.rowScope||o.readPlan.rowScope.pushdown)&&o.readPlan.columns.every(c=>!c.numericDefault&&(c.treatment==='clear'||c.treatment==='aggregate_only')))result=await this.source.plain(scan,privileged,table,signal);
+     if(!o.readPlan.contributor&&(!o.readPlan.rowScope||o.readPlan.rowScope.pushdown)&&o.readPlan.columns.every(c=>!c.numericDefault&&(c.treatment==='clear'||c.treatment==='aggregate_only')))result=await this.source.plain(scan,privileged,table,signal);
      else{
-      await privileged.staging.create('memory','__staging',table,o.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));
+      await privileged.staging.create('memory','__staging',table,stagedColumns(o.readPlan));
       let count=0;let appending:Promise<void>|undefined;
       try{result=await this.source.treated({...scan,onTokenized:()=>{usage.tokenKeyVersionUsed=r.tokenKeyVersionSelected;}},async rows=>{
        if(signal.aborted)return cancelled();
@@ -111,7 +112,7 @@ export class StagedExecutor {
  private async empty(agent:EngineSession,r:ExecutionRequest){
   if(!agent.staging)throw new Error('Staging capability unavailable.');
   await agent.staging.namespace(r.namespace.catalog,r.namespace.schema);
-  for(const o of r.objects)await agent.staging.create(o.catalog,o.schema,o.name,o.readPlan.columns.map(c=>({name:c.exposedName,type:c.exposedType})));
+  for(const o of r.objects)await agent.staging.create(o.catalog,o.schema,o.name,stagedColumns(o.readPlan));
   await agent.execute("SET search_path='"+(quote(r.namespace.catalog)+'.'+quote(r.namespace.schema)).replaceAll("'","''")+"'");
  }
  private wrap(r:ExecutionRequest,active:Set<EngineSession>,signal:AbortSignal,preflight=false):SessionEngine{

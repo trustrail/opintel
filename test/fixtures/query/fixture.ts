@@ -69,6 +69,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  await withTenant(f.ctx,async tx=>{
   await tx.query('UPDATE catalog_object SET schema_name=$2 WHERE source_id=$1',[f.source,schema]);
   for(const [i,id] of f.ids.entries())await tx.query('UPDATE catalog_element SET ordinal=$2,source_type=$3,exposed_type=$4 WHERE id=$1',[id,i,i<3?'int4':'text',i<3?'INTEGER':'VARCHAR']);
+  await tx.query('UPDATE catalog_element SET contributor_key=true WHERE id=$1',[f.ids[0]]);
   for(const [i,treatment] of ['clear','tokenized','aggregate_only','clear','withheld'].entries())await tx.query("INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref) VALUES($1,$2,$3,$4,'user',$5)",[pool,f.ids[i],f.ctx.projectId,treatment,f.ctx.userId]);
  });
  const addSource=async(alias:string)=>{
@@ -77,8 +78,8 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
    await tx.query("INSERT INTO data_source(id,project_id,name,exposed_alias,kind,credential_ref,status) VALUES($1,$2,$3,$3,'postgres','secret://test/source','connected')",[sourceId,f.ctx.projectId,alias]);
    const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,$3,'records','table','public','records') RETURNING id",[f.ctx.projectId,sourceId,schema]);
    for(const id of f.ids){
-    const [element]=await tx.query<{id:string}>(`INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,ordinal,token_domain)
-     SELECT project_id,$2,source_identifier,source_type,exposed_name,exposed_type,ordinal,token_domain FROM catalog_element WHERE id=$1 RETURNING id`,[id,object!.id]);
+    const [element]=await tx.query<{id:string}>(`INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,ordinal,token_domain,contributor_key)
+     SELECT project_id,$2,source_identifier,source_type,exposed_name,exposed_type,ordinal,token_domain,contributor_key FROM catalog_element WHERE id=$1 RETURNING id`,[id,object!.id]);
     await tx.query(`INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref)
      SELECT pool_id,$2,project_id,treatment,source_kind,source_ref FROM entitlement WHERE element_id=$1 AND pool_id=$3`,[id,element!.id,pool]);
    }

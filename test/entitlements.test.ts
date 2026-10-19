@@ -54,6 +54,7 @@ describe('entitlement domain and persisted decisions',()=>{
   expect(await repository.set(ctx,unwrap(decision()))).toMatchObject({ok:false,error:{code:'not_found'}});
  });
  it('H-009: rejects undecided in the domain and database; accepts exactly the six decided treatments',async()=>{
+  await withTenant(ctx,tx=>tx.query(`INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,contributor_key) SELECT project_id,object_id,'entity_id','integer','entity_id','INTEGER',true FROM catalog_element WHERE id=$1`,[element]));
   await withTenant(ctx,tx=>tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,ctx.projectId]));
   vi.stubEnv('OPINTEL_CUSTODY_MASTER_KEY','11'.repeat(32));
   vi.stubEnv('OPINTEL_API_BASE_URL','http://localhost:3000');

@@ -2,7 +2,7 @@
 import {z} from 'zod';
 export const cell=z.union([z.string(),z.number(),z.boolean(),z.null()]);
 export const treatment=z.enum(['clear','tokenized','masked','aggregate_only','withheld','custody','undecided']);
-export const objectExpectation=z.object({name:z.string(),poolIndex:z.number().int(),rowFilter:z.string().nullable(),rowMode:z.enum(['filtered','unfiltered','missing']),expectedRowCount:z.number().int(),rows:z.array(z.record(z.string(),cell)),columns:z.array(z.object({name:z.string(),type:z.string(),treatment,outcome:z.string(),mask:z.literal('last4').nullable()}))});
+export const objectExpectation=z.object({name:z.string(),poolIndex:z.number().int(),contributorKey:z.string().nullable().optional(),rowFilter:z.string().nullable(),rowMode:z.enum(['filtered','unfiltered','missing']),expectedRowCount:z.number().int(),rows:z.array(z.record(z.string(),cell)),columns:z.array(z.object({name:z.string(),type:z.string(),treatment,outcome:z.string(),mask:z.literal('last4').nullable()}))});
 export const scenario=z.object({id:z.string(),poolIndex:z.number().int(),kind:z.string(),sql:z.string(),objects:z.array(z.string()),columns:z.array(z.object({object:z.string(),name:z.string(),alias:z.string(),side:z.string()})),credentialId:z.string().optional(),expected:z.object({outcome:z.string(),reason:z.string().optional(),rowCount:z.number().int().optional(),rows:z.array(z.record(z.string(),cell)).optional()}),credential:z.enum(['normal','retiring','revoked']).default('normal'),requiresCustody:z.boolean().default(false)});
 export const specification=z.object({version:z.literal(2),objects:z.array(objectExpectation),scenarios:z.array(scenario),literals:z.array(z.string())});
 export type Specification=z.infer<typeof specification>;

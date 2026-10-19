@@ -37,7 +37,7 @@ export const show = z.object({ ...table, type: z.literal('SHOW_REF'), table_name
 }).strict();
 export const column = z.object({ ...expression, class: z.literal('COLUMN_REF'), type: z.literal('COLUMN_REF'), column_names: z.array(z.string().min(1)).min(1).max(4) }).strict();
 export const constant = z.object({ ...expression, class: z.literal('CONSTANT'), type: z.literal('VALUE_CONSTANT'), value: z.object({
-  type: z.object({ id: z.enum(['SQLNULL', 'BOOLEAN', 'INTEGER', 'BIGINT', 'HUGEINT', 'DOUBLE', 'VARCHAR', 'DECIMAL']), type_info: z.unknown() }).strict(),
+  type: z.object({ id: z.enum(['SQLNULL', 'NULL', 'BOOLEAN', 'INTEGER', 'BIGINT', 'HUGEINT', 'DOUBLE', 'VARCHAR', 'DECIMAL']), type_info: z.unknown() }).strict(),
   is_null: z.boolean(), value: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
 }).strict() }).strict();
 export const star = z.object({ ...expression, class: z.literal('STAR'), type: z.literal('STAR'), relation_name: z.string(),
