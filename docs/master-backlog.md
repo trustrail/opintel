@@ -363,24 +363,6 @@ setting must still be present.
 sidecar/session/infrastructure/duckdb.ts:62
 **Status** Open · Small
 
-### E-10 · Readiness proves the process is alive, not that it can serve
-**Customer** Startup opens DuckDB without postgresExtension and /health returns build metadata
-without exercising the scanner, so a replaced Engine reports ready while potentially unable to
-answer any query that needs Postgres. A missing scanner fails at materialisation, an invalid
-configured extension fails when the execution session loads it, and in both cases the operator
-sees a recovered Engine and an agent sees a failure. This is the detection gap that sits
-alongside E-08's configuration defect; supplying the setting does not close it.
-**Fix** Readiness requires the scanner configuration when Postgres scanning is needed, opens
-the privileged session, loads the signed extension, attaches the intended source read-only and
-materialises a constant SELECT 1, then closes everything. It must never read a customer value:
-a probe that reads a real row would be an ungoverned read by the product itself. It runs on
-startup and after a replacement, not on every health poll, since each run costs a connection.
-Proves one source path at one moment; table permissions and other sources still need their own
-checks.
-**Evidence** sidecar/start.ts:37, sidecar/http/server.ts:42,
-sidecar/session/infrastructure/duckdb.ts:32 and :62
-**Status** Open · Small · Next, after this branch lands
-
 ### E-11 · An empty evidence export is indistinguishable from an excluded one
 **Customer** When the cutoff excluded every row, the export succeeded with empty NDJSON and a
 header-only CSV. An auditor cannot tell that from a genuine zero-record export. The export
@@ -458,6 +440,36 @@ set, retained on the same terms as receipts. Alert bodies carry counts and ident
 ---
 
 ## Done
+
+### E-10 · Readiness proves the process is alive, not that it can serve
+**Customer (original finding)** Startup opens DuckDB without postgresExtension and /health returns build metadata
+without exercising the scanner, so a replaced Engine reports ready while potentially unable to
+answer any query that needs Postgres. A missing scanner fails at materialisation, an invalid
+configured extension fails when the execution session loads it, and in both cases the operator
+sees a recovered Engine and an agent sees a failure. This is the detection gap that sits
+alongside E-08's configuration defect; supplying the setting does not close it.
+**Fix** Readiness requires the scanner configuration when Postgres scanning is needed, opens
+the privileged session, loads the signed extension, attaches the intended source read-only and
+materialises a constant SELECT 1, then closes everything. It must never read a customer value:
+a probe that reads a real row would be an ungoverned read by the product itself. It runs on
+startup and after a replacement, not on every health poll, since each run costs a connection.
+Proves one source path at one moment; table permissions and other sources still need their own
+checks.
+**Original evidence** sidecar/start.ts:37, sidecar/http/server.ts:42,
+sidecar/session/infrastructure/duckdb.ts:32 and :62
+**Status** Done · Small
+**Completion evidence** `64f3982`, checked 2026-10-18 · `sidecar/readiness.ts:20`,
+`sidecar/start.ts:38`, `sidecar/http/unavailable.ts:8`. `postgresReadinessSource` is
+mandatory and explicit, with no inferred landing/demo target. The startup/replacement
+probe loads the signed scanner, attaches read-only and verifies only constant SELECT 1.
+Safe failure reasons reach terminal supervisor logs and the console; agent refusal text
+and classification stay unchanged, including requests racing a child exit. Health polls
+open no source connection. Interrupted requests in the departed child remain G-07.
+**Validation** Completed-candidate gate passed: 1,865 domain/integration tests (204 files),
+59 conformance checks with 54/54 routes and zero findings, one smoke path; 24m 10.53s.
+An earlier incomplete attempt was voided to fix the diagnostic response race; the final
+MCP regressions prove identical refusal text and closed refused receipts after either
+health check.
 
 ### V-02 · Custody leg: release and non-recipient refusal
 **Customer** Proves the property custody rests on — an agent can unseal only a packet
