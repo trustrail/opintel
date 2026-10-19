@@ -1,3 +1,4 @@
+import {missingContributorKey} from '../application/contributor-declaration.js';
 import { withTenant } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, Timestamp, type IdFactory, type RuleId, type PoolId, type ElementId, type Result } from '../../../shared/kernel/index.js';
 import type { EntitlementContext } from '../application/entitlement-repository.js';
@@ -49,10 +50,10 @@ export class PostgresPatternRules implements IntrospectionCompletedHandler {
       const sources = await tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1 FOR UPDATE', [event.sourceId]);
       const [receipt] = await tx.query<{processed_at:Date|null}>(`SELECT processed_at FROM pattern_rule_application WHERE run_id=$1 AND pool_id=$2 AND element_id=$3 FOR UPDATE`, [event.runId,poolId,elementId]);
       if (!receipt || receipt.processed_at !== null) return;
-      const [element] = await tx.query<RuleElement>(`SELECT e.id,e.exposed_name AS "exposedName",e.exposed_type AS "exposedType",o.exposed_schema AS "exposedSchema",
+      const [element] = await tx.query<RuleElement & {qualifiedName:string;sourceName:string}>(`SELECT s.name AS "sourceName",concat_ws('.',s.exposed_alias,o.exposed_schema,o.exposed_name,e.exposed_name) AS "qualifiedName",e.id,e.exposed_name AS "exposedName",e.exposed_type AS "exposedType",o.exposed_schema AS "exposedSchema",
         e.token_domain AS "tokenDomain",e.case_insensitive AS "caseInsensitive",e.canon_id AS "canonId",e.epoch_unit AS "epochUnit",
         COALESCE(e.source_timezone,t.source_timezone) AS "sourceTimezone"
-        FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id
+        FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id
         LEFT JOIN catalog_schema_temporal t ON t.source_id=o.source_id AND t.schema_name=o.schema_name
         WHERE e.id=$1 AND o.source_id=$2 AND e.status='active' AND o.status='active' FOR UPDATE OF e`, [elementId,event.sourceId]);
       const finish = async (ruleIds: readonly RuleId[] = [], message: string | null = null) => {
@@ -73,7 +74,7 @@ export class PostgresPatternRules implements IntrospectionCompletedHandler {
       }
       const rule = selected.value;
       if (!rule) { await finish(); return; }
-      if(rule.treatment==='aggregate_only'&&!(await tx.query(`SELECT k.id FROM catalog_element k WHERE k.object_id=(SELECT object_id FROM catalog_element WHERE id=$1) AND k.contributor_key AND k.status='active' AND k.exposed_type IN ('VARCHAR','UUID','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','DATE','TIMESTAMP','TIMESTAMPTZ')`,[elementId])).length){await finish([rule.id],`Aggregate-only column ${element.exposedName} requires a declared source contributor key identifying the protected entity.`);return;}
+      if(rule.treatment==='aggregate_only'&&!(await tx.query(`SELECT k.id FROM catalog_element k WHERE k.object_id=(SELECT object_id FROM catalog_element WHERE id=$1) AND k.contributor_key AND k.status='active' AND k.exposed_type IN ('VARCHAR','UUID','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','DATE','TIMESTAMP','TIMESTAMPTZ')`,[elementId])).length){await finish([rule.id],missingContributorKey(element.qualifiedName,element.sourceName));return;}
       const valid = validateRuleTreatment(rule,element);
       if (!valid.ok) { await finish([rule.id],valid.error.message); return; }
       await tx.query(`INSERT INTO entitlement(pool_id,element_id,project_id,treatment,source_kind,source_ref,mask_kind)

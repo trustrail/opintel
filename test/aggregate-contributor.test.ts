@@ -18,14 +18,14 @@ describe('G-09 source-authored contributor entity contract',()=>{
  resetDatabaseBeforeEach('company');
  beforeEach(async()=>{f=await bulkFixture(3,{contributorKey:false});await withTenant(f.ctx,tx=>tx.query("UPDATE catalog_element SET ordinal=split_part(source_identifier,'_',2)::int,exposed_type=CASE WHEN id=$1 THEN 'INTEGER' ELSE exposed_type END WHERE id=ANY($2::uuid[])",[f.ids[1],f.ids]));});
  it('rejects aggregate-only authoring with the column and missing key, before any batch writes',async()=>{
-  expect(unwrap(await author())).toMatchObject({status:422,body:{error:{code:'validation_failed',details:{invalidElements:[{qualifiedName:'warehouse.public.records.field_2',reasons:[expect.stringContaining('contributor key')]}]}}}});
+  expect(unwrap(await author())).toMatchObject({status:422,body:{error:{code:'validation_failed',details:{invalidElements:[{qualifiedName:'warehouse.public.records.field_2',reasons:[expect.stringMatching(/warehouse\.public\.records\.field_2.*Data sources → Warehouse → Explore schema → Token declarations.*Contributor entity key \(contributorKey=true\)/)]}]}}}});
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT * FROM entitlement'))).toEqual([]);
   const decision=unwrap(Entitlement.decide({projectId:f.ctx.projectId,poolId:f.pool,elementId:f.ids[1]!,treatment:'aggregate_only',maskKind:null,setBy:{kind:'user',id:f.ctx.userId},setAt:Timestamp(new Date()),justification:'Contributor test'}));
-  expect(await new PostgresEntitlements().set(f.ctx,decision)).toMatchObject({ok:false,error:{code:'validation_failed',message:expect.stringContaining('field_2 requires a declared source contributor key')}});
+  expect(await new PostgresEntitlements().set(f.ctx,decision)).toMatchObject({ok:false,error:{code:'validation_failed',message:expect.stringMatching(/warehouse\.public\.records\.field_2.*Data sources → (Warehouse|warehouse) → Explore schema → Token declarations.*contributorKey=true/)}});
  });
  it('rejects compilation of a pre-existing decision with no key; declaration repairs it without making the key readable',async()=>{
   await withTenant(f.ctx,tx=>tx.query("INSERT INTO entitlement(project_id,pool_id,element_id,treatment,source_kind,source_ref) VALUES($1,$2,$3,'aggregate_only','user',$4)",[f.ctx.projectId,f.pool,f.ids[1],f.ctx.userId]));
-  expect(await new PostgresEntitlementReader().compilation(f.ctx,f.pool)).toMatchObject({ok:false,error:{code:'validation_failed',message:expect.stringContaining('field_2 requires a declared source contributor key')}});
+  expect(await new PostgresEntitlementReader().compilation(f.ctx,f.pool)).toMatchObject({ok:false,error:{code:'validation_failed',message:expect.stringMatching(/warehouse\.public\.records\.field_2.*Data sources → (Warehouse|warehouse) → Explore schema → Token declarations.*contributorKey=true/)}});
   unwrap(await declare(0,true));const compilation=unwrap(await new PostgresEntitlementReader().compilation(f.ctx,f.pool));
   const plan=compilation.compilation.views[0]!.readPlan;
   expect(plan.contributor).toMatchObject({sourceIdentifier:'field_1',exposedType:'VARCHAR'});

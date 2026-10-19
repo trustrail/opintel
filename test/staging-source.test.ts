@@ -97,3 +97,32 @@ it('G-09 private entity inputs are opaque before either DuckDB session; equal en
  expect((await executor(second).execute(r)).ok).toBe(true);expect(second.appended[0]?.[2]).not.toBe(first.appended[0]?.[2]);
  r.sql='SELECT __proof FROM orders';expect(await executor().execute(r)).toMatchObject({ok:false,error:{code:'sql_not_permitted'}});
 },30000);
+
+for(const selfJoin of [false,true])it(`G-09 ${selfJoin?'self-join':'cross-source join'} refuses four real contributors despite joined duplicates and scan-local labels`,async()=>{
+ const left='contributors_left',right='contributors_right';
+ await fixture(`CREATE TABLE ${schema}.${left}(entity integer,amount integer);CREATE TABLE ${schema}.${right}(entity integer,amount integer);INSERT INTO ${schema}.${left} SELECT entity,amount FROM generate_series(1,4) e(entity) CROSS JOIN (VALUES(10),(20)) v(amount);INSERT INTO ${schema}.${right} SELECT * FROM ${schema}.${left};ANALYZE ${schema}.${left};ANALYZE ${schema}.${right};`);
+ try{
+  const r=request(),original=r.objects[0]!;r.objects=[];r.sources=[];r.entitlements=[];r.limits.rowLimit=10;
+  for(const [i,table] of (selfJoin?[left]:[left,right]).entries()){
+   const sourceId=randomUUID(),entityId=randomUUID(),amountId=randomUUID(),catalog=i?'rightsource':'warehouse';
+   r.sources.push({sourceId,credentialRef:'secret://test/source'});
+   r.entitlements.push({elementId:entityId,treatment:'tokenized'},{elementId:amountId,treatment:'aggregate_only'});
+   r.objects.push({...original,catalog,name:table,sourceId,readPlan:{catalog,schema,object:table,contributor:{sourceIdentifier:'entity',internalName:'__proof',exposedType:'INTEGER'},columns:[
+    {sourceIdentifier:'entity',exposedName:'entity',exposedType:'VARCHAR',elementId:entityId,treatment:'tokenized',readAs:'text',token:{domain:'entity',canonId:'stdnum1',mode:'number',caseInsensitive:false}},
+    {sourceIdentifier:'amount',exposedName:'amount',exposedType:'INTEGER',elementId:amountId,treatment:'aggregate_only',readAs:'native'},
+   ]}});
+  }
+  r.sql=`SELECT SUM(a.amount) AS left_sum,SUM(b.amount) AS right_sum FROM warehouse.public.${left} a JOIN ${selfJoin?'warehouse.public.'+left:'rightsource.public.'+right} b ON a.entity=b.entity`;
+  const proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]};
+  expect(await executor(proof).execute(r)).toMatchObject({ok:false,error:{code:'unsupported_on_aggregate_only',details:{cause:'cardinality_count_low',stage:2,aggregateMinGroupSize:5}}});
+  // Four entities, two rows each; the join has sixteen rows. Each protected
+  // relation has its OWN DISTINCT proof; labels from relations are never unioned.
+  expect(proof.appended).toHaveLength(selfJoin?8:16);
+  expect(new Set(proof.appended.slice(0,8).map(row=>row[2])).size).toBe(4);
+  if(!selfJoin){expect(new Set(proof.appended.slice(8).map(row=>row[2])).size).toBe(4);expect(proof.appended[0]![2]).not.toBe(proof.appended[8]![2]);}
+  // Positive control proves that refusal came from the contributor floor,
+  // rather than unsupported join syntax, token domains or an empty source.
+  r.aggregateMinGroupSize=4;
+  expect(await executor().execute(r)).toMatchObject({ok:true,value:{columns:['left_sum','right_sum'],rows:[['240','240']]}});
+ }finally{await fixture(`DROP TABLE ${schema}.${left};DROP TABLE ${schema}.${right}`);}
+},30000);

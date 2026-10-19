@@ -1,3 +1,4 @@
+import {missingContributorKey} from './contributor-declaration.js';
 import type {RowScope} from '../../../shared/row-scope-contract.js';
 import { effectiveTokenDomain } from '../../../shared/token-domain.js';
 import type { CatalogElement, CatalogObject, ExposedType } from '../../catalog/index.js';
@@ -168,7 +169,7 @@ export function compileViews(input: CompileInput): Result<CompileResult> {
       }
       readColumns.push(Object.freeze({...column,...(token ? {token} : {}),...(mask ? {mask} : {})}));
       columns.push(Object.freeze({elementId:e.id,tokenDomainVersion:e.tokenDomainVersion,exposedName:e.exposedName,sourceIdentifier:e.sourceIdentifier,declaredType:exposedType,state:'emitted',treatment,expression:quoteIdent(e.exposedName)}));
-      if(treatment==='aggregate_only'&&!contributor)return invalid(`Aggregate-only column ${address.catalog}.${address.schema}.${address.name}.${e.exposedName} requires a declared source contributor key identifying the protected entity.`);
+      if(treatment==='aggregate_only'&&!contributor)return invalid(missingContributorKey(`${address.catalog}.${address.schema}.${address.name}.${e.exposedName}`,address.catalog));
       if (treatment === 'aggregate_only') constraints.push(Object.freeze({elementId:e.id,exposedName:e.exposedName,object:o.exposedName,minGroupSize:input.aggregateMinGroupSize}));
     }
     if (!readColumns.length) {
