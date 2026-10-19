@@ -23,6 +23,7 @@ export type ApiRequest<T> = {
 
 export type ApiResponse = {
   readonly ok: boolean;
+  readonly status?: number;
   readonly headers: { get(name: string): string | null };
   text(): Promise<string>;
 };
@@ -75,10 +76,8 @@ function appError(error: z.infer<typeof errorEnvelopeSchema>['error']): AppError
   };
 }
 
-async function parseBody(response: ApiResponse): Promise<unknown> {
-  const text = await response.text();
-  if (text.length === 0) return undefined;
-  return JSON.parse(text) as unknown;
+function logFailure(kind:'network'|'invalid JSON'|'error envelope'|'schema failure',status:number|null,body:string):void {
+  if(typeof window!=='undefined')console.error({timestamp:new Date().toISOString(),kind,status,body:body.slice(0,500)});
 }
 
 const defaultFetcher: ApiFetcher = (input, init) => globalThis.fetch(input, init);
@@ -97,25 +96,36 @@ export function createApiClient(fetcher: ApiFetcher = defaultFetcher): { request
           ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
         });
       } catch {
+        logFailure('network',null,'');
         return { ok: false, error: transportError(null) };
       }
 
       const requestId = response.headers.get(requestIdHeader);
+      let text:string;
+      try {text=await response.text();}catch{
+        logFailure('network',response.status??null,'');
+        return {ok:false,error:transportError(requestId)};
+      }
       let body: unknown;
       try {
-        body = await parseBody(response);
+        body = text.length===0?undefined:JSON.parse(text) as unknown;
       } catch {
+        logFailure('invalid JSON',response.status??null,text);
         return { ok: false, error: transportError(requestId) };
       }
 
       if (!response.ok) {
+        logFailure('error envelope',response.status??null,text);
         const parsed = errorEnvelopeSchema.safeParse(body);
         if (!parsed.success) return { ok: false, error: transportError(requestId) };
         return { ok: false, error: appError(parsed.data.error) };
       }
 
       const parsed = request.response.safeParse(body);
-      if (!parsed.success) return { ok: false, error: transportError(requestId) };
+      if (!parsed.success) {
+        logFailure('schema failure',response.status??null,text);
+        return { ok: false, error: transportError(requestId) };
+      }
       return { ok: true, value: parsed.data, requestId };
     },
   };

@@ -1,0 +1,22 @@
+[
+  {
+    "certificateId": 223,
+    "deviceName": "opintelprobe",
+    "bundlePath": "~/.xq/v02/223"
+  },
+  {
+    "certificateId": 224,
+    "deviceName": "opintelpoola",
+    "bundlePath": "~/.xq/v02/224"
+  },
+  {
+    "certificateId": 225,
+    "deviceName": "opintelpoolb2",
+    "bundlePath": "~/.xq/v02/225"
+  },
+  {
+    "certificateId": 226,
+    "deviceName": "opintelpoolb",
+    "bundlePath": "~/.xq/v02/226"
+  }
+]

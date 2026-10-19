@@ -1,3 +1,4 @@
+import {parseArgs} from 'node:util';
 import {mkdir,open,unlink,readFile,writeFile,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {loadDevEnvironment} from './dev-environment.js';
@@ -8,6 +9,7 @@ const companyId=CompanyId('de000000-0000-4000-8000-000000000002');
 const projectId=ProjectId('de000000-0000-4000-8000-000000000003');
 const ctx={userId,projectId};
 const unwrap=<T>(result:Result<T>):T=>{if(!result.ok)throw result.error;return result.value;};
+const {values:demoOptions}=parseArgs({options:{soak:{type:'boolean'},'soak-associations':{type:'string'},'soak-manifest':{type:'string'}},strict:true});
 async function main(){
  loadDevEnvironment();assertDevelopmentDemo(process.env);
  await mkdir('tmp',{recursive:true});const lock=await open('tmp/dev-demo.lock','wx',0o600).catch(()=>{throw new Error('dev:demo is locked. Check for another run before removing tmp/dev-demo.lock.');});
@@ -80,6 +82,7 @@ async function provision(){
  const zone=(await loadSidecarConfig(serviceFile)).config.landingZones?.find(z=>z.sourceId===sourceId);
  if(!zone?.landing)throw new Error('The demo landing zone disappeared during preparation.');
  unwrap(await new PostgresLanding(new EnvironmentSecretStore()).analyze({projectId,sourceId,...zone.landing}));
+ if(demoOptions.soak){const {seedDemoSoak}=await import('./dev-demo-soak.js');await seedDemoSoak(ctx,developmentRegistry,developmentEngineId,auth,demoOptions['soak-associations'],demoOptions['soak-manifest']);return;}
  const {PoolKeyService,PostgresPoolKeys,PostgresAgentPresence,PoolBindingService,PostgresPoolBindings}=await import('../src/modules/pools/index.js');
  let [pool]=await withTenant(ctx,tx=>tx.query<{id:PoolId}>("SELECT id FROM pool WHERE name='Development Demo'"));
  if(!pool){

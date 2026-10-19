@@ -1,9 +1,12 @@
 import { Pool, type PoolClient } from 'pg';
+import {performance} from 'node:perf_hooks';
+import {diagnostic,diagnosticsEnabled,registerDiagnosticPool} from '../telemetry/diagnostics.js';
 import type { UserId, ProjectId, ActorRef } from '../../shared/kernel/index.js';
 
 // Private. Never exported. The only way to reach a connection is through
 // one of the three scopes below.
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+registerDiagnosticPool(()=>({total:pool.totalCount,idle:pool.idleCount,waiting:pool.waitingCount}));
 
 export interface Tx {
   query<T = unknown>(sql: string, params?: readonly unknown[]): Promise<T[]>;
@@ -28,7 +31,13 @@ async function run<T>(
   setup: (c: PoolClient) => Promise<void>,
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
-  const client = await pool.connect();
+  const measuring=diagnosticsEnabled(),started=measuring?performance.now():0;
+  let client:PoolClient;
+  try {client=await pool.connect();}catch(error){
+    if(measuring)diagnostic({kind:'db',waitMs:performance.now()-started,holdMs:0,scope:role,outcome:'acquisition_failed'});
+    throw error;
+  }
+  const acquired=measuring?performance.now():0;
   let discardConnection = false;
   try {
     await client.query('BEGIN');
@@ -46,6 +55,7 @@ async function run<T>(
     throw e;
   } finally {
     client.release(discardConnection);
+    if(measuring)diagnostic({kind:'db',waitMs:acquired-started,holdMs:performance.now()-acquired,scope:role});
   }
 }
 

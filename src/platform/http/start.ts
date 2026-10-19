@@ -50,6 +50,7 @@ import { PostgresIntrospectionStore } from '../../modules/sources/infrastructure
 import { catalogRoutes } from '../../modules/catalog/api/tree-routes.js';
 import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/tree.js';
 import dotenv from 'dotenv';
+import {startDiagnostics,instrumentHttp} from '../telemetry/diagnostics.js';
 import {checkDevelopmentMigrations} from './development-migrations.js';
 import { apiStartupExceptionLine } from '../telemetry/exception-log.js';
 
@@ -72,6 +73,7 @@ function requiredEnvironment(name: 'REDIS_URL' | 'SPICEDB_ENDPOINT' | 'SPICEDB_T
 
 async function start(): Promise<void> {
   loadDevelopmentEnvironment();
+  await startDiagnostics();
   await checkDevelopmentMigrations();
 
   const [
@@ -289,6 +291,7 @@ async function start(): Promise<void> {
       },
     },
   });
+  instrumentHttp(server);
   // Dedicated mTLS listener: the receipt route is never mounted on the browser API.
   let receiptServer: import('node:https').Server | undefined;
   if (process.env.LANDING_RECEIPT_PORT || process.env.NODE_ENV !== 'production') {
@@ -296,6 +299,7 @@ async function start(): Promise<void> {
       import('../../modules/ingest/api/landing-receipt-server.js'), import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
     ]);
     receiptServer = createLandingReceiptServer(applicationTls, new AcceptLandingReceipt(new PostgresLandingReceiptRepository(hub)), register, engines.authorizeEngineReceipt);
+    instrumentHttp(receiptServer);
     const receiptPort = Number(process.env.LANDING_RECEIPT_PORT ?? '3101');
     if (!Number.isInteger(receiptPort) || receiptPort < 1 || receiptPort > 65535) throw new Error('Invalid landing receipt port.');
     await new Promise<void>((resolve, reject) => {
