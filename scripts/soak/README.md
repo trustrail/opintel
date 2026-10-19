@@ -134,7 +134,7 @@ The operator supplies:
   ZIP files alone are insufficient. Only the custody agent child reads bundles.
 - The General API key as `OPINTEL_XQ_API_KEY` or in `.env`. The child inherits only
   this key, PATH and HOME; no sender token, dashboard token or observer cookie.
-- Optionally `--observer-cookie`: an outside-repository text file containing only
+- Required in external mode, `--observer-cookie`: an outside-repository text file containing only
   `opintel_session=<value>` from a signed-in console user with project-view
   permission. Keep it mode 600. Do not copy it into the repository or paste it
   into a terminal command. The observer sends it only on receipt-list/detail GETs,
@@ -173,13 +173,50 @@ returned a sealed result with a grant; it is not an extra escrow call. JSONL
 redacts grants, shares, provider tenant identifiers and addresses. No certificate
 key material is logged or copied.
 
-The **observer is separate from agents**. It can only read receipts; it has no
-query, redemption or mutation function. Missing/rejected access disables three
-stored-receipt checks per query: completed receipt existence, caller ownership,
-and absence of literals. A loud startup/mid-run warning and final summary report
-the exact skipped count. The agent-visible evidence ID check remains active.
-There is no database fallback. Default self-contained mode keeps its existing
-direct receipt verification and needs no observer cookie.
+The **observer is separate from agents**. It can only GET receipt lists/details;
+it has no query, redemption, login or mutation function. External mode requires a
+valid observer cookie **before any agent connects**. Any non-2xx (including 401,
+403, redirects and 5xx), network/timeout, JSON or schema failure fails the run
+loudly and stops new agent iterations. There is no retry or database fallback.
+The terminal summary starts with PASSED/FAILED and the skipped receipt-check
+count; JSON starts with status and receipt verification. Any skipped check makes
+the run fail even if no other invariant broke. Missing stored receipts still
+raise invariant breaches. Self-contained mode is unchanged and reads receipts
+directly, with no observer cookie.
+
+To supply a valid cookie, sign in to the running console, open browser developer
+tools → Application/Storage → Cookies for that console origin, and save only
+`opintel_session=<value>` in an outside-repository mode-600 file, for example
+`~/.opintel/observer.cookie`. Do not paste it into a shell command, log or repo.
+The preflight uses the receipt API to verify both authentication and project-read
+access; a syntactically valid cookie is not evidence of a live session.
+
+Receipt GETs already refresh the server-side idle deadline. The observer also
+GETs the one-item receipt list every 30 seconds, keeping the idle session active
+through slow queries or long pauses, and re-reads the cookie file per request so
+an operator can replace it after a fresh sign-in **before** absolute expiry.
+There is no refresh/login call or policy bypass: console sessions have a
+company-defined idle timeout (default eight hours) and a 30-day absolute expiry.
+Revocation, loss of Redis state or reaching absolute expiry still fails the run;
+sign in again, replace the file and begin a new run. Never resume an invalid run
+as if all its receipt checks passed.
+
+### Why the 19 October cookie was rejected
+
+The cookie file was validly shaped and last modified at 17:41 UTC on 18 October,
+but its Redis session was absent (PTTL -2). The earlier fault run at 22:18 UTC
+successfully verified receipts with that cookie. The normal gate runner then
+passed development REDIS_URL to `test/session-store.test.ts`, which deliberately
+calls FLUSHDB before tests and in its session-loss test. The gate completed those
+tests before the 04:28 UTC soak. That destroys the console session independently
+of whether idle expiry also occurred; the deleted record cannot establish its
+former expiry time. This was a startup 401, not a mid-run token expiry.
+
+`scripts/test.ts` now provisions and tears down an owned Redis server, overriding
+REDIS_URL for its tests, just as it owns SpiceDB. Tests selecting database 1 also
+remain within that owned server. The original session-loss assertions stay
+unchanged. This prevents a future normal gate from erasing console/observer
+sessions; it does not recreate the already-lost cookie's session.
 
 Focused checks, separate from the gate and build:
 

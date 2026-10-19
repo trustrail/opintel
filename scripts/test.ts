@@ -6,6 +6,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {loadDevEnvironment,repositoryRoot} from './dev-environment.js';
 import {testPreflight} from './service-readiness.js';
+import {freshNormalRedis} from './testing/normal-redis.js';
 import {freshNormalSpiceDb,seedNormalPostgres} from './testing/normal-environment.js';
 import {sanitiseException} from '../src/platform/telemetry/exception-log.js';
 
@@ -15,19 +16,22 @@ async function main():Promise<void>{
  // warm-up. Never replace it or reset its fixtures in this shared child path.
  const performance=process.env.OPINTEL_PERFORMANCE_FRESH_DATASTORE==='1';
  let spice:Awaited<ReturnType<typeof freshNormalSpiceDb>>|undefined;
+ let redis:Awaited<ReturnType<typeof freshNormalRedis>>|undefined;
  let baseline:Awaited<ReturnType<typeof seedNormalPostgres>>|undefined;
  try{
+  redis=await freshNormalRedis();process.env.REDIS_URL=redis.url;
+  const isolatedEnvironment={...environment,redisUrl:redis.url};
   if(!performance){
    spice=await freshNormalSpiceDb(environment);
    process.env.SPICEDB_ENDPOINT=spice.endpoint;process.env.SPICEDB_TOKEN=spice.token;
   }
   assertTestSpiceDb(spice?.endpoint??environment.spiceDbEndpoint);
-  await testPreflight(spice?{...environment,spiceDbEndpoint:spice.endpoint,spiceDbToken:spice.token}:environment);
+  await testPreflight(spice?{...isolatedEnvironment,spiceDbEndpoint:spice.endpoint,spiceDbToken:spice.token}:isolatedEnvironment);
   if(!performance){
    baseline=await seedNormalPostgres(environment);
    const metadata=join(repositoryRoot,'test-results','normal',randomUUID());await mkdir(metadata,{recursive:true});
    process.env.OPINTEL_NORMAL_RUN_METADATA=metadata;
-   await writeFile(join(metadata,'run.json'),JSON.stringify({startedAt:new Date().toISOString(),args:process.argv.slice(2),spice:spice?.metadata,postgres:{baseline:'two industries, two filing vocabulary terms, one demo template; all other fixture tables empty; migration ledger preserved',counts:baseline.counts}},null,2)+'\n');
+   await writeFile(join(metadata,'run.json'),JSON.stringify({startedAt:new Date().toISOString(),args:process.argv.slice(2),spice:spice?.metadata,redis:redis.metadata,postgres:{baseline:'two industries, two filing vocabulary terms, one demo template; all other fixture tables empty; migration ledger preserved',counts:baseline.counts}},null,2)+'\n');
    console.info(JSON.stringify({normalSuiteBaseline:'verified',initialRelationships:0,postgresRows:baseline.counts,metadata}));
   }
   process.env.REQUIRE_DB_TESTS='1';
@@ -37,6 +41,6 @@ async function main():Promise<void>{
    process.once('SIGINT',interrupt);process.once('SIGTERM',terminate);
    child.once('error',reject);child.once('exit',code=>{process.removeListener('SIGINT',interrupt);process.removeListener('SIGTERM',terminate);resolve(code??1);});
   });
- }finally{try{await baseline?.close();}finally{await spice?.close();}}
+ }finally{try{await baseline?.close();}finally{try{await spice?.close();}finally{await redis?.close();}}}
 }
 void main().catch((error:unknown)=>{console.error(JSON.stringify({event:'test.bootstrap_failed',...sanitiseException(error)}));process.exitCode=1;});

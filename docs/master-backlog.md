@@ -23,7 +23,7 @@ was checked. A status asserted without evidence is not a status.
    document claimed. Plans, positions and deferral logs are inputs; they are not status.
 2. *Nothing is deleted.* Closed rows move to Done with their commit. Dropped rows move to Out
    of scope with the reason. A row that disappears silently is a row that comes back as a
-   surprise.
+   surprise. Identifiers are permanent references; reordering never reassigns them.
 3. *Coverage is stated.* The Coverage section records which parts of the product have been
    audited against this document and when. What has not been audited is named, not assumed
    complete.
@@ -140,6 +140,49 @@ without asserting an outcome we did not observe. Keep that state distinct from a
 refusal in both the receipt and the console.
 **Evidence** tmp/soak/2026-10-18T22-18-38.220Z-81762.jsonl; src/modules/mcp/application/query.ts:51
 **Status** Open · Governance · Ahead of X-06
+
+### G-08 · MIN and MAX return a real individual value from an aggregate-only column
+**Customer** MIN and MAX are permitted aggregates, and their result is an actual contributing
+value, so a single query returns one individual's data from a column the pool was never
+entitled to read. The group-size floor does not help: five rows contribute and one of them is
+returned verbatim. Unlike differencing this needs no intent, no sequence and no skill.
+**Fix** Either exclude MIN and MAX from the permitted aggregate list for aggregate-only
+columns, or permit them only above a separate and higher threshold with the result bucketed.
+Decide which, since excluding them removes real analytical value.
+**Evidence** sidecar/sql/application/treatments.ts:95
+**Status** Open · Governance · Highest in this group
+
+### G-09 · The group-size floor counts rows, not contributors
+**Customer** The floor uses COUNT(*), so join duplication inflates it without adding
+independent contributors, and a group of five rows can be one person counted five times.
+Count distinct non-null contributors instead.
+**Evidence** sidecar/sql/application/cardinality.ts:26
+**Status** Open · Small
+
+### G-10 · HAVING acts as an outcome oracle
+**Customer** For a filtered singleton group, a HAVING clause that removes the group returns
+zero rows and passes validation, while a predicate that retains it is refused. The difference
+between those two outcomes discloses information about the protected value.
+**Evidence** sidecar/sql/application/treatments.ts:105, sidecar/sql/application/execute.ts:98
+**Status** Open · Medium
+
+### G-11 · Decision needed: differencing across queries
+**Decision** Reconstruction by differencing is unprevented and undetectable after the fact,
+documented in docs/algorithm-specifications.md:288 and expected by regression J-055. Receipts
+retain neither predicates nor group sizes, so an auditor cannot reconstruct what a sequence
+revealed. Decide whether Opintel claims only scope reduction, which is the current honest
+position, or invests in bounded differencing control with contributor tracking across a
+stable snapshot.
+**Status** Open · Decision, not work
+
+### H-05 · The soak observer stops verifying and keeps going
+**Customer** On 19 Oct the observer took an HTTP 401 and skipped 3,396 receipt checks while
+the run continued and reported. Every governance claim we make rests on these runs, and a
+harness that silently stops checking makes a clean result meaningless. Fail the run on any
+non-2xx, surface skipped checks at the top of the summary, and fix the underlying auth
+expiry.
+**Evidence** docs/review/x01-duckdb-binding-upgrade.md
+**Status** Open · Small · Before the next soak
 
 ### X-06 · Console fetches every run individually
 **Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,

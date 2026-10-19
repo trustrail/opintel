@@ -9,7 +9,7 @@ import {setTimeout as pause} from 'node:timers/promises';
 import type {freshNormalSpiceDb,seedNormalPostgres} from '../testing/normal-environment.js';
 import {DescribeOutput,QueryOutput} from '../../src/shared/api/mcp.js';
 import type {CertificateAssociation} from '../../src/shared/api/certificate-association.js';
-import type {createObserver} from './observer.js';
+import {createObserver,ObserverFailure} from './observer.js';
 import type {ExchangeState,custodyAgents} from './custody.js';
 import type {externalTarget} from './external.js';
 import {RunId} from '../../src/shared/kernel/index.js';
@@ -74,7 +74,7 @@ try{
  let receiptRead:(id:string,agentId:string)=>Promise<{receipt:{agent_id:string|null;pool_id:string;credential_id:string|null|undefined};detail:unknown}|null|undefined>;
  if(values.target){
   const {externalTarget}=await import('./external.js');external=await externalTarget(values.target,values.manifest);
-  const {createObserver}=await import('./observer.js');observer=await createObserver(external.base,external.manifest.projectId,values['observer-cookie'],terminalError);
+  observer=createObserver(external.base,external.manifest.projectId,values['observer-cookie'],terminalError,halt);await observer.ready();
   const receiptObserver=observer;receiptRead=async(id,agentId)=>{const detail=await receiptObserver.read(id,agentId);return detail?{receipt:{agent_id:detail.agentId,pool_id:detail.poolId,credential_id:detail.credentialId},detail}:detail;};
   available=external.agents;connect=external.connect;spec=external.manifest.specification!;coverage=new Coverage(spec.scenarios);literals=spec.literals;
  }else{
@@ -203,18 +203,21 @@ try{
      }
     }
     terminalLog(`${at} ${agent.agentId} ${pool} ${plan.kind} ${outcome} rows=${output.success?output.data.rows.length:0} ${elapsed.toFixed(0)}ms ${plan.sql}`);
-   }catch(error){errors++;const message=error instanceof Error?error.message:String(error);terminalError(`${at} ${agent.agentId} ${pool} ERROR ${message}`);await record({type:'error',at,agent:agent.agentId,pool,sequence,sql:plan?.sql,message});}
+   }catch(error){if(error instanceof ObserverFailure)halt();errors++;const message=error instanceof Error?error.message:String(error);terminalError(`${at} ${agent.agentId} ${pool} ERROR ${message}`);await record({type:'error',at,agent:agent.agentId,pool,sequence,sql:plan?.sql,message});}
    await pause(rate+Math.floor(rng()*Math.max(1,rate/4)),undefined,{signal:stop.signal}).catch(()=>{});
   }
  }));}finally{if(timer)clearTimeout(timer);}
 }catch(error){errors++;terminalError(error instanceof Error?error.message:String(error));await record({type:'fatal',message:error instanceof Error?error.message:String(error)});}
 finally{
+ await observer?.close();
+ const receiptInvariants=observer?.summary()??{enabled:!values.target,failed:Boolean(values.target),reason:values.target?'Observer preflight did not complete':null,checksSkipped:0};
+ const passed=!breaches&&!errors&&!receiptInvariants.failed&&receiptInvariants.checksSkipped===0;
+ terminalError(`${passed?'SOAK PASSED':'!!! SOAK FAILED'}: receipt checks skipped=${receiptInvariants.checksSkipped}; receipt verification=${receiptInvariants.failed?'FAILED':'active'}${receiptInvariants.reason?'; '+receiptInvariants.reason:''}; invariant breaches=${breaches}; operational errors=${errors}`);
  const sorted=[...latencies].sort((a,b)=>a[0]-b[0]),total=sorted.reduce((n,[,c])=>n+c,0);
  const percentile=(p:number)=>{let n=0;for(const [ms,c] of sorted){n+=c;if(n>=Math.ceil(total*p))return ms;}return null;};
- const summary={type:'summary',...counters,joinsAttempted:joins,joinRowsMatched:matched,latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99)},invariantBreaches:breaches,operationalErrors:errors,custody:{verifiedValues:custodyVerified,refusals:custodyRefused,skipped:custodySkipped,perAgent:Object.fromEntries(Object.entries(custodyByAgent).map(([id,state])=>[id,{...state,exchange:state.certificateId?exchanges.get(state.certificateId)??{ok:false,reason:'not_requested'}:{ok:false,reason:'no_association'}}]))},coverage:coverage?.summary()??{status:'Self-contained V-01; no demo manifest'},receiptInvariants:observer?.summary()??{enabled:true,checksSkipped:0},log:path};
- if(observer&&!observer.summary().enabled)terminalError('!!! RECEIPT INVARIANTS DISABLED: '+observer.summary().reason+'; checks skipped='+observer.summary().checksSkipped);
+ const summary={type:'summary',status:passed?'PASSED':'FAILED',receiptInvariants,...counters,joinsAttempted:joins,joinRowsMatched:matched,latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99)},invariantBreaches:breaches,operationalErrors:errors,custody:{verifiedValues:custodyVerified,refusals:custodyRefused,skipped:custodySkipped,perAgent:Object.fromEntries(Object.entries(custodyByAgent).map(([id,state])=>[id,{...state,exchange:state.certificateId?exchanges.get(state.certificateId)??{ok:false,reason:'not_requested'}:{ok:false,reason:'no_association'}}]))},coverage:coverage?.summary()??{status:'Self-contained V-01; no demo manifest'},log:path};
  if(coverage){const c=coverage.summary();terminalLog(`COVERAGE ${c.exercised}/${c.declared} (${c.percent}%). NOT EXERCISED: ${c.unhit.join(', ')||'none'}`);}
  terminalLog(JSON.stringify(summary,null,2));await record(summary);
  try{await custody?.close();await external?.close();await f?.close();}finally{try{await baseline?.close();}finally{await spice?.close();await writes;await log.close();}}
- process.exit(breaches||errors?1:0);
+ process.exit(passed?0:1);
 }
