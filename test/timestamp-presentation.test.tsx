@@ -75,3 +75,9 @@ it.each(['audw','rwhen','when'] as const)('shares intact timestamp parts in %s p
  expect(timestamp?.children.length).toBe(2);expect(timestamp?.querySelector('[data-part="absolute"]')?.textContent).toBe('2026-10-06 11:43:00 UTC');
  expect(timestamp?.querySelector('[data-part="relative"]')?.textContent).toBe('2 hours ago');
 });
+
+it('X-05: a newly fetched timestamp does not look future-dated between minute ticks',()=>{
+ const view=render(<Timestamp value={new Date(now).toISOString()}/>);
+ act(()=>vi.advanceTimersByTime(5000));view.rerender(<Timestamp value={new Date(now+5000).toISOString()}/>);
+ expect(screen.getByText(/^just now$/)).not.toBeNull();expect(screen.queryByText('in less than a minute')).toBeNull();
+});

@@ -991,3 +991,21 @@ strict production/conformance typechecks, lint/boundaries, production artifact,
 59 conformance checks (54/54 routes, zero findings), 1,905 normal tests in 209
 files and the browser/MCP smoke path. Revocation status stays on the fast
 cadence; the older configuration as-of remains visible. See the X-06 report.
+
+### X-05 first branch — measurement and legibility complete
+
+The reader requested request-correlated application-pool acquisition counts and
+read/write/relation-reference accounting, followed by a five-minute ten-caller
+soak with a Dashboard tab. No pool/connection/cache/evidence batching strategy
+is implemented until the numbers are reviewed. Client failures distinguish
+transport, invalid JSON, unexpected error envelopes and successful-response
+schema mismatches; requests have a 30-second deadline and caller cancellation.
+The shell states the oldest fetch time and refresh-in-flight/failure state,
+including Dashboard's older configuration dependency. See
+[the first-branch report](review/x05-first-branch.md). Focused tests only; no
+full gate or commit before measurement review.
+
+X-05 first-branch landing validation passed once in 1197.83s: 1,923 normal tests
+in 211 files, 59 conformance checks (54/54 routes, zero findings), and one
+browser/MCP smoke path, with strict typechecks, lint and artifact exclusion.
+The reader chose batching only for the follow-up; item 1.4 remains unchanged.

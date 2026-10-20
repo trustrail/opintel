@@ -123,7 +123,7 @@ try{
    const receipt=await receiptRead(out.evidenceId,agentId);if(receipt===null)await alarm('Lifecycle receipt missing',{scenario:scenario.id});else if(receipt&&(receipt.receipt.credential_id!==credential.credentialId||receipt.receipt.pool_id!==credential.pool||receipt.receipt.agent_id!==agentId||literals.some(v=>JSON.stringify(receipt.detail).includes(JSON.stringify(v)))))await alarm('Lifecycle receipt ownership or literals mismatch',{scenario:scenario.id});
   }
  }}
- await record({type:'start',seed,count,rate,duration,pool:values.pool,target:values.target??'self-contained',fixture:'V-01',reproducibility:'Per-agent query choices are seeded; concurrent completion order and wall-clock duration are not deterministic.'});
+ await record({type:'start',startedAt:new Date().toISOString(),seed,count,rate,duration,pool:values.pool,target:values.target??'self-contained',fixture:'V-01',reproducibility:'Per-agent query choices are seeded; concurrent completion order and wall-clock duration are not deterministic.'});
  const timer=duration?setTimeout(halt,duration*1000):undefined;
  try{await Promise.all(agents.map(async agent=>{
   const rng=random(seed+agent.index+1),pool=`Cedant 0${agent.poolIndex+1}`;let sequence=0;

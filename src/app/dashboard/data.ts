@@ -1,3 +1,4 @@
+import {createApiClient} from '../../shared/api/client.js';
 import {readDashboardModel,readDashboardConfiguration} from './read-model.js';
 import {useQuery,useInfiniteQuery,useQueryClient} from '@tanstack/react-query';
 import {dashboardStats,dashboardFeed,dashboardPools} from '../../shared/api/dashboard.js';
@@ -9,7 +10,7 @@ export function useShields(p:string){return useInfiniteQuery({queryKey:dashboard
 
 export function useDashboardModel(p:string,admin:boolean){
  const cache=useQueryClient();
- const query=useQuery({queryKey:dashboardKeys.overview(p,admin),queryFn:()=>readDashboardModel(p,admin,undefined,()=>cache.fetchQuery({queryKey:dashboardKeys.configuration(p),queryFn:()=>readDashboardConfiguration(p),staleTime:300_000,retry:false})),retry:false,staleTime:0,refetchInterval:30000});
+ const query=useQuery({queryKey:dashboardKeys.overview(p,admin),queryFn:({signal})=>readDashboardModel(p,admin,createApiClient(undefined,{signal}),()=>cache.fetchQuery({queryKey:dashboardKeys.configuration(p),queryFn:({signal})=>readDashboardConfiguration(p,createApiClient(undefined,{signal})),staleTime:300_000,retry:false})),retry:false,staleTime:0,refetchInterval:30000});
  return {...query,refetch:async()=>{
   await cache.invalidateQueries({queryKey:dashboardKeys.configuration(p),refetchType:'none'});
   return query.refetch();

@@ -1,3 +1,4 @@
+import {withDiagnosticRequest} from '../../../platform/telemetry/diagnostics.js';
 import { z } from 'zod';
 import { ProjectId,SourceId } from '../../../shared/kernel/index.js';
 import type { FilingRegisterRepository } from '../application/register.js';
@@ -13,6 +14,7 @@ export function createLandingReceiptServer(tls: { ca: string; cert: string; key:
   for (const route of routes) if (route.permission !== 'pinned_sidecar_certificate') throw new Error('Ingest routes must declare their certificate permission.');
   return createServer({ ...tls, minVersion: 'TLSv1.3', requestCert: true, rejectUnauthorized: true }, (req, res) => {
     const requestId = randomUUID();
+    return withDiagnosticRequest(req,res,requestId,()=>{
     const fail = (status: number, code: string, message: string) => {
       const event = { event: status >= 500 ? 'landing.receipt_failed' : 'landing.receipt_refused', code, requestId };
       if (status >= 500) console.warn(event); else console.info(event);
@@ -56,5 +58,6 @@ export function createLandingReceiptServer(tls: { ca: string; cert: string; key:
         res.writeHead(204); res.end();
       } catch { fail(503, 'dependency_unavailable', 'Landing receipt could not be registered.'); }
     })();
+    });
   });
 }

@@ -1,3 +1,4 @@
+import {withDiagnosticRequest} from '../telemetry/diagnostics.js';
 import {publicAssociationOnly} from '../../shared/api/certificate-association.js';
 import { randomUUID } from 'node:crypto';
 import {once} from 'node:events';
@@ -237,6 +238,7 @@ export function createHttpServer(
 
   return createServer(async (request, response) => {
     const requestId = requestIdFactory();
+    return withDiagnosticRequest(request,response,requestId,async()=>{
     try {
       const url = new URL(request.url ?? '/', 'http://localhost');
       const path = url.pathname;
@@ -398,5 +400,6 @@ export function createHttpServer(
         errorEnvelope('internal_error', 'An unexpected error occurred.', requestId, false),
       );
     }
+    });
   });
 }

@@ -1506,3 +1506,22 @@ must report revoked credential/key state, Pools list must update working-key
 counts, and the agent twin must expose the revoked key. Observed presence is a
 separate fact and is not rewritten as proof of disconnection. Dashboard's slow
 configuration must retain only pool identity, never credential or agent status.
+
+### X-05 first branch: client failures and fetch-time display
+
+Separate network/body failure, malformed JSON, malformed error envelope and
+successful-response schema mismatch, retaining available request IDs/status
+without response values. Verify deadline across both hung fetch/body reads,
+AbortSignal propagation, caller and pre-aborted cancellation, completion cleanup
+and preservation of valid API envelopes. Mutation messages must not imply an
+aborted request proves rollback or recommend blind resubmission.
+
+Verify initial fetching with no invented time, refresh-in-flight, failed refresh
+preserving the prior timestamp, successful fetch advancing it, partial stream/
+optimistic patches preserving it, exclusion of inactive/other-project queries,
+and Dashboard's five-minute configuration age surviving fast live refreshes.
+Newly fetched timestamps must not appear future-dated between minute ticks.
+SQL shape tests cover literals/comments, row locks, mixed/upsert scopes, static
+view/function expansion, CTE aliases and honest dynamic-SQL coverage. Measurement
+requires begin/end acquisition reconciliation and separate receipt-observer
+traffic, with no pool/connection strategy implemented before reader review.

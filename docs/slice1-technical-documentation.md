@@ -5789,3 +5789,26 @@ and incomplete coverage independently of persistent-sink failures.
 A pool groups credentials and owns entitlements; each labelled credential is issued to one agent and owns one permanent custody alias, `agent:<project>:<credential>`. Current and retiring key slots are per credential. Rotation changes key material without changing identity or registering another provider alias. Key-version revocation and credential revocation are distinct: the latter ends identity, revokes every usable key and confirms/revokes live custody grants through each grant's original provider and tenant. Later row-scope grants attach to the same revocation lifecycle hook; they are not implemented in this slice.
 
 Existing pools migrate to one credential with unchanged hashes, prefixes, grace, entitlements and caller configuration. Its current key's alias becomes permanent; legacy retiring key aliases and their live grants survive through grace, then outstanding escrows for those aliases are revoked. Receipts snapshot credential id and the actual calling alias at open and preserve them through retention and export, without rewriting old receipts. Self-declared agent ids still serve presence/evidence only. Pool detail shows credentials and their last authenticated use; rotation and credential revocation target a selected credential. The Agents table derives credential provenance from its last authenticated key version and migration 072’s recorded application time: lastSeen before that timestamp displays “pool key (legacy)” without credential metadata; equality or later displays that key’s credential label and actual custody alias. This requires no new presence column. Migration 078 exposes only the timestamp comparison to the tenant application role; the migration ledger remains owner-only. A legacy pool-only rotation request remains unambiguous only for a one-credential pool.
+
+### X-05 first-branch amendment: console request failures and age
+
+The shared frontend client distinguishes network/body transport, invalid JSON,
+unexpected error-envelope and successful-response schema failures, with safe
+`details.failure` discriminators and actionable human messages. Valid API error
+envelopes retain their original message/code/request ID. Response-body excerpts
+are not logged. The application deadline is 30,000 ms per request across fetch
+and body read, overridable by positive timeoutMs; caller AbortSignal is forwarded
+to fetch. Timeout/cancellation differ from network failure; cancellation is not
+retryable. Mutations with an unproven response ask the reader to check whether
+the change completed before resubmitting. No automatic retry or backend refusal
+taxonomy change is introduced.
+
+The shell displays the oldest fetch timestamp among active queries in the
+current scope, automatic/manual refresh-in-flight and failed-refresh state. A
+failed refresh or partial stream/optimistic patch does not advance fetch age.
+Dashboard includes its older configuration as-of; live polls cannot imply those
+collections were reread. Existing hydrated timestamps keep their age. Initial
+loading invents no timestamp. This is a periodic console view, explicitly not
+the timely-detection channel under D-05. No alert-delivery behavior is added.
+The shared minute clock remains; current render time prevents a newly fetched
+timestamp from looking future-dated between clock ticks.

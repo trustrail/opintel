@@ -1,3 +1,4 @@
+import {initializeDatabaseDiagnostics} from '../db/diagnostics.js';
 import {columnTagRoutes} from '../../modules/catalog/api/tag-routes.js';
 import {PostgresColumnTags} from '../../modules/catalog/infrastructure/column-tags.js';
 import {PostgresRowPreview} from '../../modules/entitlements/infrastructure/row-preview.js';
@@ -75,6 +76,7 @@ async function start(): Promise<void> {
   loadDevelopmentEnvironment();
   await startDiagnostics();
   await checkDevelopmentMigrations();
+  await initializeDatabaseDiagnostics();
 
   const [
     { SessionId, SystemClock, UuidV7IdFactory },

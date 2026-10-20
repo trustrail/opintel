@@ -28,7 +28,7 @@ export function createObserver(base:URL,project:string,file:string|undefined,war
  const get=async(path:string):Promise<unknown>=>{
   const value=await cookie();assertAvailable();
   let response:Response;
-  try{response=await fetch(new URL(path,base),{method:'GET',headers:{cookie:value,accept:'application/json'},redirect:'error',signal:AbortSignal.any([stopped.signal,AbortSignal.timeout(15000)])});}
+  try{response=await fetch(new URL(path,base),{method:'GET',headers:{cookie:value,accept:'application/json','x-opintel-diag-client':'soak-observer'},redirect:'error',signal:AbortSignal.any([stopped.signal,AbortSignal.timeout(15000)])});}
   catch{return fail('Observer request failed (network, redirect or timeout).');}
   assertAvailable();
   if(!response.ok){await response.body?.cancel().catch(()=>{});return fail(`Receipt API HTTP ${response.status}. ${response.status===401?'Session expired, revoked or lost; sign in again and replace the cookie file before restarting the run.':'Receipt verification cannot continue.'}`);}
