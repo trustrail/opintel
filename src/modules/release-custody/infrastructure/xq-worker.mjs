@@ -9,6 +9,7 @@ globalThis.window={navigator:{platform:'Node'},crypto:webcrypto};
 // The SDK error handler prints provider bodies. No vendor diagnostics may escape
 // this worker into application logs, including health-check failure bodies.
 globalThis.console.log=globalThis.console.info=globalThis.console.warn=globalThis.console.error=globalThis.console.debug=()=>{};
+let failure;
 try{
  const {XQSDK,GeneratePacket,RevokeKeyAccess,FetchKey,CheckApiKey,GetCurrentBusiness,ServerResponse}=await import('@xqmsg/jssdk-core');
  const {configuration,operation,alias,recipientIdentifier,locator,share,ttlSeconds,receipt}=workerData;
@@ -23,9 +24,11 @@ try{
  sdk.makeRequest=async(url,method,service,headers,payload,requiresApiKey)=>{
   const requestHeaders={...headers};if(requiresApiKey)requestHeaders['api-key']=operation==='dashboard_health'?configuration.dashboardApiKey:configuration.apiKey;
   const plain=requestHeaders['content-type']==='text/plain;charset=UTF-8';if(!plain)requestHeaders['content-type']='application/json';
-  const response=await globalThis.fetch(url,{method,headers:requestHeaders,body:method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),signal:globalThis.AbortSignal.timeout(15000),redirect:'error'});
+  const signal=globalThis.AbortSignal.timeout(15000);let response;
+  try{response=await globalThis.fetch(url,{method,headers:requestHeaders,body:method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),signal,redirect:'error'});}catch(error){failure={kind:signal.aborted?'deadline_exceeded':'unreachable'};throw error;}
+  if(!response.ok)failure={kind:'http_refused',status:response.status};
   if(operation==='health'||operation==='dashboard_health'){healthStatus=response.status;await response.body?.cancel();return new ServerResponse(response.ok?ServerResponse.OK:ServerResponse.ERROR,response.status,null);}
-  const text=await response.text();let value;try{value=JSON.parse(text);}catch{value=text;}
+  let text;try{text=await response.text();}catch(error){failure??={kind:signal.aborted?'deadline_exceeded':'unreachable'};throw error;}let value;try{value=JSON.parse(text);}catch{value=text;}
   return new ServerResponse(response.ok?ServerResponse.OK:ServerResponse.ERROR,response.status,value);
  };
  sdk.getCache().putActiveProfile(operation==='fetch'?alias:configuration.senderAlias);
@@ -46,4 +49,4 @@ try{
  parentPort.postMessage({ok:true,value:operation==='escrow'||operation==='fetch'?response.payload:null});
  sdk.getCache().clearAllProfiles();
  }
-}catch(error){parentPort.postMessage((workerData.operation==='health'||workerData.operation==='dashboard_health')?{ok:true,value:{reachable:false,authenticated:false,failure:error?.name==='TimeoutError'?'deadline_exceeded':'unreachable'}}:{ok:false});}
+}catch(error){parentPort.postMessage((workerData.operation==='health'||workerData.operation==='dashboard_health')?{ok:true,value:{reachable:false,authenticated:false,failure:error?.name==='TimeoutError'?'deadline_exceeded':'unreachable'}}:{ok:false,failure:failure??{kind:'operation_refused'}});}

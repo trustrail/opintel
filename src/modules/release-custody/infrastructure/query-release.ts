@@ -1,3 +1,6 @@
+import {sanitiseException} from '../../../platform/telemetry/exception-log.js';
+import {custodyFailure,custodyFailureCode} from '../../../shared/custody-failure.js';
+import {CustodyProviderError} from './provider-failure.js';
 import {randomUUID} from 'node:crypto';
 import {releaseClaims} from '../../../shared/release-contract.js';
 import {withPlatform} from '../../../platform/db/scope.js';
@@ -17,7 +20,7 @@ export class QueryRelease implements QueryReleasePort {
   const [project]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));
   const parsed=projectSettingSchema('custody.grant_ttl').safeParse(readSetting(project?.settings,'custody.grant_ttl'));if(!parsed.success)return err(new DomainError('validation_failed','Configure a valid custody grant lifetime before releasing custody values.',{cause:'invalid_settings'}));
   const ttl=Number(parsed.data),iat=Math.floor(Date.now()/1000),exp=iat+ttl,id=randomUUID();
-  const sealed={rows,first:Buffer.from(shares!.first,'base64url'),second:Buffer.from(shares!.second,'base64url')};let locator:string|undefined;
+  const sealed={rows,first:Buffer.from(shares!.first,'base64url'),second:Buffer.from(shares!.second,'base64url')};let locator:string|undefined;let phase:'credential_association'|'escrow'|'grant_issue'='credential_association';
   shares!.first='';shares!.second='';
   if(sealed.first.length!==32||sealed.second.length!==32){sealed.first.fill(0);sealed.second.fill(0);return err(new DomainError('dependency_unavailable','Invalid Engine custody shares. No result was released.'));}
   try{
@@ -25,9 +28,9 @@ export class QueryRelease implements QueryReleasePort {
    // uses the separately registered public identity; no certificate keys enter here.
    const recipient=this.provider.id==='xq'?await credentialCustodyRecipient(ctx,alias):alias;
    if(!recipient)return err(new DomainError('dependency_unavailable','This credential has no active XQ certificate association. No result was released.',{cause:'release_prepare_failed',reason:'certificate_association_missing'}));
-   locator=await this.provider.escrow(sealed.first,recipient,ttl,true,receipt);sealed.first.fill(0);
+   phase='escrow';locator=await this.provider.escrow(sealed.first,recipient,ttl,true,receipt);sealed.first.fill(0);
    const names=indices.map(i=>columns[i]!);
-   const issued=await this.service.issue(ctx,{iss:ctx.projectId,sub:alias,aud:this.provider.id,jti:id,iat,exp,rcpt:receipt,cols:names,custody:{provider:this.provider.id,tenant:this.provider.tenant,provider_redeem_at:this.provider.redeemAt,locator,opintel_redeem_at:this.redeemAt}},sealed.second);
+   phase='grant_issue';const issued=await this.service.issue(ctx,{iss:ctx.projectId,sub:alias,aud:this.provider.id,jti:id,iat,exp,rcpt:receipt,cols:names,custody:{provider:this.provider.id,tenant:this.provider.tenant,provider_redeem_at:this.provider.redeemAt,locator,opintel_redeem_at:this.redeemAt}},sealed.second);
    if(!issued.ok){
     // The revoked-credential path persisted a cleanup record. Let the sweeper
     // acknowledge it atomically instead of revoking here without recording ack.
@@ -35,7 +38,13 @@ export class QueryRelease implements QueryReleasePort {
     return issued;
    }
    return ok({rows:sealed.rows,custody:[{columns:names,grant:issued.value}]});
-  }catch{if(locator)await this.provider.revoke(locator).catch(()=>{});return err(new DomainError('dependency_unavailable','Custody release could not be prepared. No result was released.',{cause:'release_prepare_failed'}));}
+  }catch(error){
+   const safe=sanitiseException(error);let code:null|ReturnType<typeof custodyFailureCode.parse>=null;
+   try{if(error instanceof Error&&'code' in error){const parsed=custodyFailureCode.safeParse(error.code);if(parsed.success)code=parsed.data;}}catch{/* Untrusted diagnostic accessors cannot change the refusal. */}
+   const failure=custodyFailure.parse({phase,provider:['local','xq'].includes(this.provider.id)?this.provider.id:'other',exception:{type:error instanceof CustodyProviderError?'CustodyProviderError':safe.type,code,stack:safe.stack},providerFailure:error instanceof CustodyProviderError?error.failure:null});
+   if(locator)await this.provider.revoke(locator).catch(()=>{});
+   return err(new DomainError('dependency_unavailable','Custody release could not be prepared. No result was released.',{cause:'release_prepare_failed',releaseFailure:failure}));
+  }
   finally{sealed.first.fill(0);sealed.second.fill(0);}
  }
 }

@@ -1072,3 +1072,23 @@ of non-pushed IS NOT NULL predicates, with an additional real-source regression.
 This was disclosed as a different candidate. The reader authorized one fresh
 full gate, which passed in 1203.16s: 1,943 tests/216 files, 59 conformance checks
 and one browser/MCP smoke. Engine measurements and item 1.4 remain unchanged.
+
+### E-06 — preserve custody preparation failure causes
+
+Keep the existing fail-closed custody refusal and exact agent-facing response.
+Catch the preparation exception and retain operator evidence: preparation phase,
+provider, allowlisted native code, sanitized application source frames and bounded
+XQ worker failure class/HTTP status. The disposable worker must forward only
+bounded diagnostics, never provider bodies, credentials, values or native messages.
+Persist through existing execute-refusal stage details and expose via authorized
+receipt detail/export; do not add the diagnostic to MCP refusal metadata.
+No tenant-wrapper, source scan, entitlement, custody release or cleanup behavior
+change. E06-001/002 plus E06-COMPAT; focused tests before one full gate, then merge
+and push on green as authorized.
+
+E-06 validation passed once in 1213.80s: 1,947 normal tests in 217 files, all
+59 conformance checks and the browser/MCP smoke, with strict typechecks, lint
+and artifact exclusion. The focused body-deadline expectation failure/correction
+is retained in the review record; production timeout and governance behavior
+were not changed. Historical missing/null/zero and conflicting-key reads are
+covered without altering their existing normalization implementation.

@@ -1565,3 +1565,11 @@ ROW-003 additionally proves a query predicate narrows returnedRows while its
 governance decision identity stays unchanged. ROW-008 verifies legacy counts
 normalize in list/detail after retention, preserving original stored bytes and
 new receipt facts through sampling. Privileged preview entitled counts are unchanged.
+
+### E-06 — attributable custody refusal evidence
+
+| ID | Proof |
+|---|---|
+| E06-001 | Real XQ worker HTTP 412, network, header deadline and body deadline failures retain bounded class/status in execute-refusal evidence and authorized detail reads; exact MCP message/metadata and no released rows/grants remain unchanged |
+| E06-002 | Escrow and grant-issue exceptions retain phase, safe native code and sanitized application frames in durable refusal evidence; raw messages, stack labels, provider bodies and secrets never persist or reach the agent |
+| E06-COMPAT | Historical row-scope count normalization requires an explicit old/new key; preserves null/zero, rejects missing/both keys, and never mutates stored evidence |

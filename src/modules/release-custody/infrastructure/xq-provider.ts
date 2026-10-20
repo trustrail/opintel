@@ -1,3 +1,5 @@
+import {custodyProviderFailure} from '../../../shared/custody-failure.js';
+import {CustodyProviderError} from './provider-failure.js';
 import {Worker} from 'node:worker_threads';
 import {z} from 'zod';
 import type {ReleaseProvider,ProviderHealth} from '../application/ports.js';
@@ -9,9 +11,9 @@ export class XqReleaseProvider implements ReleaseProvider {
  constructor(private readonly configuration:XqConfiguration,readonly tenant:string,readonly redeemAt:string,readonly reportedRegion?:string){}
  private call(operation:'escrow'|'revoke'|'fetch'|'health'|'dashboard_health',args:Record<string,unknown>,configuration=this.configuration):Promise<unknown>{return new Promise((resolve,reject)=>{
   const worker=new Worker(new URL('./xq-worker.mjs',import.meta.url),{workerData:{configuration,operation,...args}});
-  let complete=false;const stop=setTimeout(()=>{void worker.terminate();if((operation==='health'||operation==='dashboard_health'))resolve({reachable:false,authenticated:false,failure:'deadline_exceeded'});else reject(new Error('Custody provider deadline exceeded.'));},20000);
-  worker.once('message',(raw:unknown)=>{complete=true;clearTimeout(stop);const result=z.discriminatedUnion('ok',[z.object({ok:z.literal(true),value:z.unknown()}),z.object({ok:z.literal(false)})]).safeParse(raw);void worker.terminate();if(result.success&&result.data.ok)resolve(result.data.value);else reject(new Error('Custody provider operation refused.'));});
-  worker.once('error',()=>{clearTimeout(stop);reject(new Error('Custody provider worker failed.'));});worker.once('exit',()=>{clearTimeout(stop);if(!complete)reject(new Error('Custody provider worker exited without acknowledgement.'));});
+  let complete=false;const stop=setTimeout(()=>{void worker.terminate();if((operation==='health'||operation==='dashboard_health'))resolve({reachable:false,authenticated:false,failure:'deadline_exceeded'});else reject(new CustodyProviderError({kind:'worker_deadline_exceeded'}));},20000);
+  worker.once('message',(raw:unknown)=>{complete=true;clearTimeout(stop);const result=z.discriminatedUnion('ok',[z.object({ok:z.literal(true),value:z.unknown()}),z.object({ok:z.literal(false),failure:custodyProviderFailure.optional()})]).safeParse(raw);void worker.terminate();if(result.success&&result.data.ok)resolve(result.data.value);else reject(new CustodyProviderError(result.success&&!result.data.ok?result.data.failure??{kind:'operation_refused'}:{kind:'invalid_response'}));});
+  worker.once('error',()=>{clearTimeout(stop);reject(new CustodyProviderError({kind:'worker_failed'}));});worker.once('exit',()=>{clearTimeout(stop);if(!complete)reject(new CustodyProviderError({kind:'worker_exited'}));});
  });}
  async health():Promise<ProviderHealth>{
   let api:ProviderHealth={reachable:false,authenticated:false,failure:'credentials_missing'};

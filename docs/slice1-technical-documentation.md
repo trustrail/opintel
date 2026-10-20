@@ -5847,3 +5847,14 @@ if another request refreshed the principal. Every HTTP method independently
 authenticates current state before dispatch, so the next revoked-key request
 refuses without waiting for a tick. Idle closure is tick-driven, including DB/
 scheduling latency. Item 1.4 and its lifecycle are unchanged.
+
+### E-06 — custody preparation diagnostics
+
+`QueryRelease.seal` retains its preparation phase (credential association, escrow
+or grant issue) on caught failure. The existing execute-refusal stage detail now
+also stores `releaseFailure`: bounded provider identity/class and HTTP status,
+allowlisted native code, exception type and sanitized application source frames.
+The XQ worker forwards no provider body or native exception text. Authorized
+receipt details and CSV/NDJSON exports expose this diagnostic; MCP metadata and
+its existing human refusal are unchanged. Evidence writes still complete before
+the refusal is returned, and failed evidence recording remains fail-closed.
