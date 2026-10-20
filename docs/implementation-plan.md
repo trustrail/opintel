@@ -971,3 +971,23 @@ Sender authentication/renewal, console screens, evidence fields and certificate 
 ### X-01 binding-upgrade hypothesis — 2026-10-18
 
 The current exact runtime pin is `@duckdb/node-api` 1.5.6-r.1 (`v1.5.6/069cc9f9b5`), replacing 1.4.3-r.3. The earlier inspection verification above is historical. The matching signed scanner is provisioned from the validated runtime version/platform; startup refuses a mismatched binary. The 1.5 serializer omits the empty set-operation `children` member: the strict schema permits its absence but still rejects nonempty children and inspects both operands. This upgrade tests the upstream guarded-handle hypothesis; it does not establish the cause of X-01 or close it. See `docs/review/x01-duckdb-binding-upgrade.md`.
+
+### X-06 console request volume — complete (2026-10-19)
+
+Dashboard separates five-minute pool/catalogue/entitlement collection reads from
+30-second presence, findings and Activity reads. Per-day mode counts in the
+existing Activity summary replace two redundant seven-day summary requests.
+Presence and introspection-progress events no longer refetch the entire
+Dashboard; structural changes, reconnect and manual Refresh retain invalidation.
+Main already embedded collapsed-row Activity metadata and deferred individual
+evidence reads until explicit expansion/navigation; cold-load regression tests
+now enforce that contract. See [the review report](review/x06-console-request-volume.md)
+for measured request counts, cadence tradeoffs and focused validation. Reader
+review authorized the revocation/as-of follow-up and full gate, with landing
+conditional on a pass. Credential/key and agent views use the fast cadence.
+
+X-06 landing validation: the authorized full gate passed once in 1123.61s:
+strict production/conformance typechecks, lint/boundaries, production artifact,
+59 conformance checks (54/54 routes, zero findings), 1,905 normal tests in 209
+files and the browser/MCP smoke path. Revocation status stays on the fast
+cadence; the older configuration as-of remains visible. See the X-06 report.

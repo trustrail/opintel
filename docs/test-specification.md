@@ -1483,3 +1483,26 @@ The broad browser scenarios and pixel comparisons are retired by explicit decisi
 VC-24/VC-25 no longer permit a statistics-only discharge: even a high row estimate cannot prove independent entities. Every protected aggregate uses the exact post-join contributor count. `test/sql-treatments.test.ts` covers a single contributor with multiple distinct amounts, join multiplication, null keys and values, distinct entities with repeated values, every protected join input, hidden-key access, and stripping all proof columns. The floor is measured on each returned group; G-10 (HAVING oracle) and G-11 (cross-query differencing) remain separate open findings.
 
 `test/aggregate-contributor.test.ts` covers missing-key authoring and snapshot compilation, a private undecided key, explicit replacement, removal guards and invalid declarations. `test/contributor-key-migration.test.ts` covers forward/down/forward schema behavior. MIN and MAX on aggregate-only columns are specific governance refusals in the application pre-filter and authoritative Engine; MIN/MAX on clear columns remain allowed. Bypass attack assertions are unchanged; their fixture now explicitly declares its source entity key.
+
+### X-06 console request-volume regression
+
+Cold Dashboard and collapsed Activity lists must render their embedded historical
+row metadata without any individual `/api/v1/runs/:id` requests. Explicit
+Activity expansion still fetches the permissioned evidence detail. The summary
+endpoint returns per-day query/prompt counts in the same UTC and filter scope
+as its day totals; verify mode/outcome/pool filtering, empty scope and view
+denial. Dashboard uses one summary per refresh. Verify 30-second live polls
+skip configuration collections, the five-minute fallback reloads them, and
+manual Refresh and project.stats mutation invalidation reload them immediately.
+Presence/progress bursts must not invalidate Dashboard configuration; structural
+changes and reconnect snapshots must. These checks supplement RED-019 and the
+existing historical metadata/redaction endpoint coverage. Acceptance also
+requires a real five-minute single-tab measurement with OPINTEL_DIAG=1, recording
+request totals, requests/second, individual detail calls and the scope measured.
+
+X-06 revocation follow-up: change credential/key state in the remote read fixture
+without a local mutation or stream notification. After a fast poll, Pool detail
+must report revoked credential/key state, Pools list must update working-key
+counts, and the agent twin must expose the revoked key. Observed presence is a
+separate fact and is not rewritten as proof of disconnection. Dashboard's slow
+configuration must retain only pool identity, never credential or agent status.

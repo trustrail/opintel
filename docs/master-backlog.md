@@ -147,7 +147,11 @@ roughly 3.8 per second, including about 440 calls to /api/v1/runs/<id> with each
 exactly once. The console is a large part of what exhausts the pool it then cannot get a
 connection from. Batch or embed the run detail the feed already lists.
 **Evidence** Same capture; src/app/dashboard/read-model.ts:21
-**Status** Open · Small, and the cheapest of the three
+**Status** Closed · X-06 passed the authorized full gate. Measured 113 requests
+in five minutes (0.3767/s versus 3.8/s historically), zero per-run detail calls.
+Credential/key and agent status retain a 30-second cadence; configuration has a
+five-minute fallback with its older as-of displayed. See
+[the review and measurement](review/x06-console-request-volume.md).
 
 ### X-07 · A query held a pooled connection for 19 seconds
 **Customer** Against a p95 hold time of 219 ms, one acquisition held its connection for 19.2

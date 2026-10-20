@@ -42,12 +42,12 @@ export class PostgresEvidenceReader implements EvidenceReader {
  async summary(ctx:EvidenceContext,filters:ActivityFilters){
   // Tabs share pool/agent/search/range scope. Day totals include the selected tab.
   const {params,where}=activityScope(ctx.projectId,{...filters,outcome:undefined,answerTreated:undefined});
-  const rows=await withTenant(ctx,tx=>tx.query<{day:string;status:string;answerTreated:boolean;n:number}>(`SELECT to_char(r.started_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS day,COALESCE(c.outcome->>'kind','incomplete') AS status,COALESCE(${treated},false) AS "answerTreated",count(*)::float8 AS n ${joined} WHERE ${where.join(' AND ')} GROUP BY 1,2,3 ORDER BY 1 DESC`,params));
-  const counts={all:0,refused:0,incomplete:0,answerTreated:0};const days=new Map<string,{day:string;counts:typeof counts;outcomes:Record<string,number>}>();
+  const rows=await withTenant(ctx,tx=>tx.query<{day:string;status:string;mode:'query'|'prompt';answerTreated:boolean;n:number}>(`SELECT to_char(r.started_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS day,COALESCE(c.outcome->>'kind','incomplete') AS status,COALESCE(${treated},false) AS "answerTreated",r.mode,count(*)::float8 AS n ${joined} WHERE ${where.join(' AND ')} GROUP BY 1,2,3,4 ORDER BY 1 DESC`,params));
+  const counts={all:0,refused:0,incomplete:0,answerTreated:0};const days=new Map<string,{day:string;counts:typeof counts;modes:{query:number;prompt:number};outcomes:Record<string,number>}>();
   for(const row of rows){counts.all+=row.n;if(row.status==='refused')counts.refused+=row.n;if(row.status==='incomplete')counts.incomplete+=row.n;if(row.answerTreated)counts.answerTreated+=row.n;
    if(filters.outcome&&filters.outcome!==row.status||filters.answerTreated==='true'&&!row.answerTreated)continue;
-   const day=days.get(row.day)??{day:row.day,counts:{all:0,refused:0,incomplete:0,answerTreated:0},outcomes:{incomplete:0,answered:0,reduced:0,refused:0,clarify:0,failed:0}};
-   day.counts.all+=row.n;if(row.status==='refused')day.counts.refused+=row.n;if(row.status==='incomplete')day.counts.incomplete+=row.n;if(row.answerTreated)day.counts.answerTreated+=row.n;day.outcomes[row.status]=(day.outcomes[row.status]??0)+row.n;days.set(row.day,day);
+   const day=days.get(row.day)??{day:row.day,counts:{all:0,refused:0,incomplete:0,answerTreated:0},modes:{query:0,prompt:0},outcomes:{incomplete:0,answered:0,reduced:0,refused:0,clarify:0,failed:0}};
+   day.modes[row.mode]+=row.n;day.counts.all+=row.n;if(row.status==='refused')day.counts.refused+=row.n;if(row.status==='incomplete')day.counts.incomplete+=row.n;if(row.answerTreated)day.counts.answerTreated+=row.n;day.outcomes[row.status]=(day.outcomes[row.status]??0)+row.n;days.set(row.day,day);
   }
   // Count receipts, not treatment decisions or provider events. Explicit revoke
   // after redemption remains a corroborating event, not a rewritten state.

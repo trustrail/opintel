@@ -119,3 +119,18 @@ it('REL-011: custody rollup counts receipt states and first-hand origins in UTC,
  expect(summary.custody).toEqual([{day:'2026-10-06',state:'expired',origin:null,count:1},{day:'2026-10-06',state:'granted',origin:null,count:3},{day:'2026-10-06',state:'redeemed',origin:'2001:db8::1',count:1,evidenceMeaning:releaseEvidenceMeaning},{day:'2026-10-06',state:'revoked',origin:null,count:1}]);
  const absent=ActivitySummary.parse(await(await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary?poolId=${randomUUID()}`)).json());expect(absent.custody).toEqual([]);
 });
+
+it('X-06: one summary returns query/prompt counts in the same UTC/filter scope, with no per-run detail',async()=>{
+ const at='2026-10-06T00:00:00Z';
+ await header('SELECT 1',at,'query');await header('Question',at,'prompt');
+ const earlier=await header('Earlier','2026-10-05T23:59:59Z','prompt');
+ await withTenant(f.ctx,tx=>tx.query('INSERT INTO run_completion(run_id,started_at,outcome,completed_at) VALUES($1,$2,$3,$2)',[earlier.id,earlier.startedAt,{kind:'refused',code:'sql_not_permitted',element:null,stage:'validate'}]));
+ const url=`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary`;
+ const read=async(query='')=>{const response=await fetch(url+query);expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('no-store');return ActivitySummary.parse(await response.json());};
+ expect((await read()).days).toMatchObject([{day:'2026-10-06',counts:{all:2},modes:{query:1,prompt:1}},{day:'2026-10-05',counts:{all:1,refused:1},modes:{query:0,prompt:1}}]);
+ expect((await read('?mode=query')).days).toMatchObject([{counts:{all:1},modes:{query:1,prompt:0}}]);
+ expect((await read('?outcome=refused')).days).toMatchObject([{day:'2026-10-05',modes:{query:0,prompt:1}}]);
+ expect((await read('?from=2026-10-06T00:00:00Z&to=2026-10-07T00:00:00Z')).days).toHaveLength(1);
+ expect((await read('?poolId='+randomUUID())).days).toEqual([]);
+ view=false;expect((await fetch(url)).status).toBe(404);
+});

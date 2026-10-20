@@ -41,15 +41,15 @@ export async function mockDashboard(page:Page){
  if(path.endsWith('/suggestions/domains'))return route.fulfill({json:{items:[],nextCursor:null}});
  const scoped=state.rows?.filter(r=>(!url.searchParams.has('from')||Date.parse(r.startedAt)>=Date.parse(url.searchParams.get('from')!))&&(!url.searchParams.has('to')||Date.parse(r.startedAt)<Date.parse(url.searchParams.get('to')!))&&(!url.searchParams.has('mode')||r.mode===url.searchParams.get('mode'))&&(!url.searchParams.has('poolId')||r.poolId===url.searchParams.get('poolId')));
  if(path.endsWith('/runs/summary')&&scoped){
-  const zero=()=>({all:0,refused:0,incomplete:0,answerTreated:0}),counts=zero(),days=new Map<string,{day:string;counts:ReturnType<typeof zero>;outcomes:Record<string,number>}>();
+  const zero=()=>({all:0,refused:0,incomplete:0,answerTreated:0}),counts=zero(),days=new Map<string,{day:string;counts:ReturnType<typeof zero>;modes:{query:number;prompt:number};outcomes:Record<string,number>}>();
   for(const r of scoped){const treated=(r.status==='answered'||r.status==='reduced')&&['tokenized','masked','aggregate_only'].some(t=>(r.metadata.delivered[t]??0)>0);counts.all++;if(r.status==='refused')counts.refused++;if(r.status==='incomplete')counts.incomplete++;if(treated)counts.answerTreated++;
    if(url.searchParams.has('outcome')&&r.status!==url.searchParams.get('outcome')||url.searchParams.has('answerTreated')&&!treated)continue;
-   const date=r.startedAt.slice(0,10),day=days.get(date)??{day:date,counts:zero(),outcomes:{answered:0,reduced:0,refused:0,incomplete:0,clarify:0,failed:0}};day.counts.all++;if(r.status==='refused')day.counts.refused++;if(r.status==='incomplete')day.counts.incomplete++;if(treated)day.counts.answerTreated++;day.outcomes[r.status]=(day.outcomes[r.status]??0)+1;days.set(date,day);
+   const date=r.startedAt.slice(0,10),day=days.get(date)??{day:date,counts:zero(),modes:{query:0,prompt:0},outcomes:{answered:0,reduced:0,refused:0,incomplete:0,clarify:0,failed:0}};day.modes[r.mode]++;day.counts.all++;if(r.status==='refused')day.counts.refused++;if(r.status==='incomplete')day.counts.incomplete++;if(treated)day.counts.answerTreated++;day.outcomes[r.status]=(day.outcomes[r.status]??0)+1;days.set(date,day);
   }return route.fulfill({json:{counts,days:[...days.values()]}});
  }
  if(path.endsWith('/runs/summary')){
   const mode=url.searchParams.get('mode'),all=mode==='query'?state.stats.queries:mode==='prompt'?state.stats.prompts:state.stats.requests,counts={all,refused:mode?0:state.stats.refused,incomplete:mode?0:state.stats.incomplete,answerTreated:0};
-  return route.fulfill({json:{counts,days:[{day:state.stats.utcDay,counts,outcomes:{answered:Math.max(0,all-counts.refused-counts.incomplete),reduced:0,refused:counts.refused,incomplete:counts.incomplete,clarify:0,failed:0}}]}});
+  return route.fulfill({json:{counts,days:[{day:state.stats.utcDay,counts,modes:{query:mode==='prompt'?0:state.stats.queries,prompt:mode==='query'?0:state.stats.prompts},outcomes:{answered:Math.max(0,all-counts.refused-counts.incomplete),reduced:0,refused:counts.refused,incomplete:counts.incomplete,clarify:0,failed:0}}]}});
  }
  if(/\/runs\/[^/]+$/.test(path))return route.fulfill({json:{...record,id:path.split('/').at(-1),startedAt:state.recent[0]?.startedAt??record.startedAt}});
  if(path.endsWith('/runs'))return route.fulfill({json:{items:scoped?scoped.filter(r=>!url.searchParams.has('outcome')||r.status===url.searchParams.get('outcome')).slice(0,Number(url.searchParams.get('limit')??50)):state.recent,nextCursor:null}});

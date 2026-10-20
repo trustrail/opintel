@@ -41,7 +41,9 @@ export function projectStreamCache(cache: QueryClient, project: string) {
    if (event.type === 'snapshot') { invalidate(projectKeys.stats(project)); sequence = event.sequence; for (const family of event.invalidate) families[family]?.(); return; }
    if (event.sequence <= sequence) return;
    sequence = event.sequence;
-   invalidate(projectKeys.stats(project));
+   // Presence and progress are high-frequency signals. Dashboard presence has
+   // its own 30-second poll; neither signal changes catalogue/decision totals.
+   if (event.type !== 'agent.presence' && event.type !== 'introspection.progress') invalidate(projectKeys.stats(project));
    if (event.type === 'introspection.progress') {
     const update = (run: RunView): RunView => run.id === event.runId && active(run.state) ? { ...run, state: event.state, progress: { objects: event.objects, total: event.total } } : run;
     cache.setQueryData<RunView>(introspectionKeys.detail(project, event.runId), run => run ? update(run) : undefined);
