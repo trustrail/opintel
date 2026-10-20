@@ -1311,6 +1311,27 @@ customer-owned provisioning pending the separate key-management item 5.21.
 This adds no SQL or statement-shape telemetry and persists no query values.
 
 
+## Evidence diagnostic contract — E-06
+
+Diagnostic detail in evidence is **allowlisted, never sanitized**. No evidence
+field may carry text derived from a provider message, stack, detail, constraint
+or cause, including values parsed out of those strings. Removing a stack header
+or retaining only coordinates does not meet this contract.
+
+Diagnostic classes and codes are drawn only from closed, reviewed enums based
+on structured properties or built-in exception identity. Unknown classes and
+codes become null, never pass-through text. Provider HTTP status is an integer
+from 100 through 599. Human refusal messages are fixed authored text, independent
+of the exception. Native messages, stack frames, names, bodies, details,
+constraints and cause chains are never copied into evidence.
+
+`releaseFailure` stores only the reviewed preparation phase/provider, exception
+class/native code and provider failure class/HTTP status. Its decoder strips
+historical exception text before receipt or export serialization. This is a
+read-time mitigation, not removal from immutable stored evidence: a production
+deployment that wrote exception text would require an explicitly authorized
+purge of the affected stored evidence. Filtering reads alone is insufficient.
+
 ## Released under custody — 5.36
 
 The normative split-key construction, wire encoding and lifecycle are in

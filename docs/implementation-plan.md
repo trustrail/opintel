@@ -1077,7 +1077,7 @@ and one browser/MCP smoke. Engine measurements and item 1.4 remain unchanged.
 
 Keep the existing fail-closed custody refusal and exact agent-facing response.
 Catch the preparation exception and retain operator evidence: preparation phase,
-provider, allowlisted native code, sanitized application source frames and bounded
+provider, closed-enum exception class, allowlisted native code and bounded
 XQ worker failure class/HTTP status. The disposable worker must forward only
 bounded diagnostics, never provider bodies, credentials, values or native messages.
 Persist through existing execute-refusal stage details and expose via authorized
@@ -1092,3 +1092,15 @@ and artifact exclusion. The focused body-deadline expectation failure/correction
 is retained in the review record; production timeout and governance behavior
 were not changed. Historical missing/null/zero and conflicting-key reads are
 covered without altering their existing normalization implementation.
+
+Follow-up evidence text audit: remove exception stacks entirely; no native
+message, stack or name is read for this diagnostic. Historical exception text
+properties are stripped by the evidence decoder, without rewriting stored facts.
+Exception classes and codes are closed enums; unknowns become null. E06-002/003
+assertions updated. Read-time filtering does not purge historical stored text;
+production exposure would require an authorized evidence purge. The initial
+confirmation audit ran no validation; a subsequent instruction authorizes one
+full gate, merge/push on green and restarting the development stack from the merge.
+
+The tightened candidate passed its single full gate in 1215.28s: 1,950 tests in
+217 files, all 59 conformance checks and browser/MCP smoke. No gate retry.

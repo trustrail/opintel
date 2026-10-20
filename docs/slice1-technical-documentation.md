@@ -5853,7 +5853,15 @@ scheduling latency. Item 1.4 and its lifecycle are unchanged.
 `QueryRelease.seal` retains its preparation phase (credential association, escrow
 or grant issue) on caught failure. The existing execute-refusal stage detail now
 also stores `releaseFailure`: bounded provider identity/class and HTTP status,
-allowlisted native code, exception type and sanitized application source frames.
+allowlisted native code and closed-enum exception type. No stack is retained.
+Classification uses built-in exception identity and an exact native-code allowlist;
+it never reads native message, name, stack, detail, constraint or cause text.
+Unknown exception classes and codes become null. Diagnostic detail in evidence
+is allowlisted, never sanitized, including values parsed from native strings.
+The shared decoder strips historical exception stack/message properties before
+authorized detail or export serialization, without changing stored evidence.
+Historical text still exists in storage; production exposure would require an
+explicitly authorized purge, not only filtered reads (algorithm contract E-06).
 The XQ worker forwards no provider body or native exception text. Authorized
 receipt details and CSV/NDJSON exports expose this diagnostic; MCP metadata and
 its existing human refusal are unchanged. Evidence writes still complete before

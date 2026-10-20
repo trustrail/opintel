@@ -1,4 +1,3 @@
-import {sanitiseException} from '../../../platform/telemetry/exception-log.js';
 import {custodyFailure,custodyFailureCode} from '../../../shared/custody-failure.js';
 import {CustodyProviderError} from './provider-failure.js';
 import {randomUUID} from 'node:crypto';
@@ -39,12 +38,28 @@ export class QueryRelease implements QueryReleasePort {
    }
    return ok({rows:sealed.rows,custody:[{columns:names,grant:issued.value}]});
   }catch(error){
-   const safe=sanitiseException(error);let code:null|ReturnType<typeof custodyFailureCode.parse>=null;
+   let code:null|ReturnType<typeof custodyFailureCode.parse>=null;
    try{if(error instanceof Error&&'code' in error){const parsed=custodyFailureCode.safeParse(error.code);if(parsed.success)code=parsed.data;}}catch{/* Untrusted diagnostic accessors cannot change the refusal. */}
-   const failure=custodyFailure.parse({phase,provider:['local','xq'].includes(this.provider.id)?this.provider.id:'other',exception:{type:error instanceof CustodyProviderError?'CustodyProviderError':safe.type,code,stack:safe.stack},providerFailure:error instanceof CustodyProviderError?error.failure:null});
+   const failure=custodyFailure.parse({phase,provider:['local','xq'].includes(this.provider.id)?this.provider.id:'other',exception:{type:exceptionType(error),code},providerFailure:error instanceof CustodyProviderError?error.failure:null});
    if(locator)await this.provider.revoke(locator).catch(()=>{});
    return err(new DomainError('dependency_unavailable','Custody release could not be prepared. No result was released.',{cause:'release_prepare_failed',releaseFailure:failure}));
   }
   finally{sealed.first.fill(0);sealed.second.fill(0);}
  }
+}
+/** Classify by built-in identity, never by native name, message or stack text. */
+function exceptionType(error:unknown):ReturnType<typeof custodyFailure.parse>['exception']['type']{
+ try{
+  if(!(error instanceof Error))return null;
+  const prototype:unknown=Object.getPrototypeOf(error);
+  if(prototype===CustodyProviderError.prototype)return 'CustodyProviderError';
+  if(prototype===TypeError.prototype)return 'TypeError';
+  if(prototype===RangeError.prototype)return 'RangeError';
+  if(prototype===SyntaxError.prototype)return 'SyntaxError';
+  if(prototype===ReferenceError.prototype)return 'ReferenceError';
+  if(prototype===URIError.prototype)return 'URIError';
+  if(prototype===EvalError.prototype)return 'EvalError';
+  if(prototype===Error.prototype)return 'Error';
+ }catch{/* Untrusted prototypes cannot prevent the fail-closed refusal. */}
+ return null;
 }

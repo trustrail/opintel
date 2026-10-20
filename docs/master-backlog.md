@@ -359,7 +359,7 @@ else. In production this is an incident with no evidence.
 **What** Record the cause: in the evidence record, in the server log, or both. The agent's
 message can stay as it is.
 **Evidence** src/modules/release-custody/infrastructure/query-release.ts:37; fourth appearance in the X-05 thirty-minute run: receipt `01a157d5-e001-7be3-83d7-ff4194f3f988`, generic `release_prepare_failed` without missing-association reason. Underlying exception was discarded.
-**Status** Resolved · Structured, sanitized cause retained in refusal-stage evidence and authorized detail/export; exact agent refusal and fail-closed behavior unchanged. Full gate passed once: 1,947 tests/217 files, 59 conformance checks and browser/MCP smoke. See `docs/review/e06-custody-refusal-cause.md`.
+**Status** Resolved · Allowlisted diagnostic classes/codes/status retained in refusal-stage evidence and authorized detail/export; no native text or parsed stack values. Unknown classes/codes become null. Exact agent refusal and fail-closed behavior unchanged. The original gate passed 1,947 tests/217 files, 59 conformance checks and browser/MCP smoke; the tightening has its own validation record in `docs/review/e06-custody-refusal-cause.md`.
 
 ### E-07 · Refusal taxonomy conflates governance with infrastructure
 **Customer** A credential with no certificate association and an unconfigured source scanner

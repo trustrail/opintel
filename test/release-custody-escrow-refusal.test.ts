@@ -7,6 +7,7 @@ import {PostgresEvidenceWriter,PostgresEvidenceReader} from '../src/modules/evid
 import {RunId} from '../src/shared/kernel/index.js';
 import {withTenant} from '../src/platform/db/scope.js';
 import {queryFixture} from './fixtures/query/fixture.js';
+import {custodyFailure} from '../src/shared/custody-failure.js';
 
 const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).reverse())await close();});
@@ -63,19 +64,37 @@ for(const failure of ['http-412','network','timeout','body-timeout'] as const){
  },60000);
 }
 
-for(const phase of ['escrow','grant_issue'] as const)it(`E06-002: ${phase} exception code survives in refusal evidence, not the agent answer`,async()=>{
+for(const phase of ['escrow','grant_issue'] as const)for(const known of [true,false])it(`E06-002: ${phase} ${known?'known':'unknown'} exception class/code is bounded in refusal evidence`,async()=>{
  const f=await queryFixture(new PostgresEvidenceWriter(),{releaseCustody:true});cleanup.push(f.close);
  await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='custody' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[0]]));
- const code=phase==='escrow'?'ECONNRESET':'40001',error=Object.assign(new Error('CUSTOMER_VALUE api-key=SECRET_SHARE provider-body'),{code});
- const path=new URL('../src/modules/release-custody/infrastructure/query-release.ts',import.meta.url).pathname;
- error.stack=`Error: CUSTOMER_VALUE\n    at CUSTOMER_VALUE (${path}:42:7)`;
+ class UnknownProviderError extends Error{}
+ const code=known?(phase==='escrow'?'ECONNRESET':'40001'):null;
+ const error=Object.assign(new (known?Error:UnknownProviderError)('CUSTOMER_VALUE api-key=SECRET_SHARE provider-body'),{code:code??'CUSTOMER_VALUE'});
+ const message=vi.fn(()=>'constraint violation: CUSTOMER_VALUE api-key=SECRET_SHARE provider-body');
+ const stack=vi.fn(()=>'Error: CUSTOMER_VALUE\n    at CUSTOMER_VALUE (src/modules/release-custody/infrastructure/query-release.ts:123456789:7)');
+ const name=vi.fn(()=>'CUSTOMER_VALUE');
+ // V8 can materialize its lazy stack while redefining it; install this first,
+ // before the diagnostic accessors whose use by the query path we are measuring.
+ Object.defineProperty(error,'stack',{get:stack});
+ Object.defineProperties(error,{message:{get:message},name:{get:name}});
  if(phase==='escrow')vi.spyOn(LocalReleaseProvider.prototype,'escrow').mockRejectedValueOnce(error);
  else vi.spyOn(ReleaseService.prototype,'issue').mockRejectedValueOnce(error);
  const result=await f.query('SELECT field_1 FROM warehouse.public.records LIMIT 1');
  const receipt=z.object({_meta:z.object({evidenceId:z.uuid()})}).parse(result)._meta.evidenceId;
  expect(result).toEqual({isError:true,content:[{type:'text',text:'Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.'}],_meta:{code:'dependency_unavailable',cause:'release_prepare_failed',retryable:false,evidenceId:receipt}});
  const stages=await withTenant(f.ctx,tx=>tx.query<{detail:unknown}>("SELECT detail FROM run_stage WHERE run_id=$1 AND stage='execute' AND result='refuse'",[receipt]));
- expect(stages).toEqual([{detail:{code:'dependency_unavailable',message:'Custody release could not be prepared. No result was released.',cause:'release_prepare_failed',releaseFailure:{phase,provider:'local',exception:{type:'Error',code,stack:['at src/modules/release-custody/infrastructure/query-release.ts:42:7']},providerFailure:null}}}]);
+ expect(stages).toEqual([{detail:{code:'dependency_unavailable',message:'Custody release could not be prepared. No result was released.',cause:'release_prepare_failed',releaseFailure:{phase,provider:'local',exception:{type:known?'Error':null,code},providerFailure:null}}}]);
+ expect(message).not.toHaveBeenCalled();expect(stack).not.toHaveBeenCalled();expect(name).not.toHaveBeenCalled();
  expect(JSON.stringify({result,stages})).not.toMatch(/CUSTOMER_VALUE|SECRET_SHARE|provider-body|api-key/);
  expect(await withTenant(f.ctx,tx=>tx.query("SELECT state FROM run_element WHERE run_id=$1 AND state IN ('released','aggregated')",[receipt]))).toEqual([]);
+});
+
+it('E06-003: historical exception text is stripped and unknown classes/codes become null',()=>{
+ const historical={phase:'escrow',provider:'local',exception:{type:'Error',code:'23505',stack:['CUSTOMER_VALUE'],message:'CUSTOMER_VALUE',detail:'CUSTOMER_VALUE',cause:'CUSTOMER_VALUE'},providerFailure:null};
+ const decoded=custodyFailure.parse(historical);
+ expect(decoded.exception).toEqual({type:'Error',code:'23505'});
+ expect(JSON.stringify(decoded)).not.toContain('CUSTOMER_VALUE');
+ expect(historical.exception.stack).toEqual(['CUSTOMER_VALUE']);
+ expect(custodyFailure.parse({...historical,exception:{type:'CUSTOMER_VALUE',code:'CUSTOMER_VALUE'}}).exception).toEqual({type:null,code:null});
+ expect(custodyFailure.safeParse({...historical,providerFailure:{kind:'http_refused',status:412,message:'CUSTOMER_VALUE'}}).success).toBe(false);
 });
