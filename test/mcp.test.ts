@@ -7,7 +7,7 @@ import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/typ
 import { bulkFixture } from './fixtures/bulk-entitlements/fixture.js';
 import { PoolKeyCreationResponse } from '../src/shared/api/pool-keys.js';
 import { withPlatform, withTenant } from '../src/platform/db/scope.js';
-import { PoolId, type Result } from '../src/shared/kernel/index.js';
+import { DomainError,err,PoolId, type Result } from '../src/shared/kernel/index.js';
 import { PoolKeyService, PostgresPoolKeys, PostgresKeyVerifier, AgentPresenceService, PostgresAgentPresence } from '../src/modules/pools/index.js';
 import { McpAccess, McpHttpServer, PostgresMcpConfiguration } from '../src/modules/mcp/index.js';
 import { createHttpServer } from '../src/platform/http/index.js';
@@ -21,7 +21,8 @@ async function fixture(){
  const keys=new PoolKeyService(new PostgresPoolKeys(),presence);
  const created=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name:'MCP pool'},randomUUID())));if(!created.keyShown)throw new Error('No key');
  const pool=PoolId(created.poolId),key=created.key;
- const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),service),new PostgresMcpConfiguration());
+ const configuration=new PostgresMcpConfiguration();
+ const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),service),configuration);
  const server=createHttpServer([],{agentInterface:mcp,requestIdFactory:()=> 'fixed-request'});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');
  cleanups.push(async()=>{await mcp.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
@@ -37,7 +38,7 @@ async function fixture(){
   return {status:response.status,body:await response.json() as unknown};
  };
  const modes=(query:boolean,prompt:boolean)=>withTenant(f.ctx,tx=>tx.query('UPDATE pool SET mode_query=$2,mode_prompt=$3 WHERE id=$1',[pool,query,prompt]));
- return {...f,pool,keys,created,presence,service,events,mcp,url,headers,connect,post,modes,key};
+ return {...f,pool,keys,created,presence,service,events,mcp,configuration,url,headers,connect,post,modes,key};
 }
 describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
  it('I-004 / I-023: an SDK client initializes, lists schemas and gets unavailable results; presence uses the authenticated key',async()=>{
@@ -109,4 +110,57 @@ describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
   expect(ended.status).toBe(200);await ended.text();
   expect(await f.post(body,transport.sessionId)).toMatchObject({status:404});
  });
+ it('X05-SWEEP-004: one batch closes every revoked-key session; request authentication refuses before the sweep',async()=>{
+  const f=await fixture(),a=await f.connect(),b=await f.connect();
+  const spy=vi.spyOn(f.configuration,'readMany');
+  await f.mcp.refresh();expect(spy).toHaveBeenCalledTimes(1);expect(spy.mock.calls[0]?.[0]).toHaveLength(2);
+  const rotated=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'rotate',poolId:f.pool},randomUUID())));if(!rotated.keyShown)throw new Error('No rotated key');
+  await withTenant(f.ctx,tx=>tx.query("UPDATE pool_key SET state='revoked',grace_until=NULL WHERE id=$1",[f.created.keyVersion]));
+  const body={jsonrpc:'2.0',id:71,method:'tools/list'};
+  expect((await f.post(body,a.transport.sessionId)).status).toBe(401);
+  await f.mcp.refresh();expect(spy).toHaveBeenCalledTimes(2);
+  // A usable new key could reuse a live same-credential session. Its 404 proves
+  // the old transport was removed, rather than just failing bearer validation.
+  for(const session of [a,b])expect((await f.post(body,session.transport.sessionId,{...f.headers,authorization:'Bearer '+rotated.key})).status).toBe(404);
+ });
+ it('X05-SWEEP-005: a failed batch closes sessions instead of retaining their previous validity',async()=>{
+  const f=await fixture(),a=await f.connect(),b=await f.connect();
+  await f.mcp.refresh();
+  vi.spyOn(f.configuration,'readMany').mockRejectedValueOnce(new Error('Database unavailable'));
+  await f.mcp.refresh();
+  for(const session of [a,b])expect((await f.post({jsonrpc:'2.0',id:72,method:'tools/list'},session.transport.sessionId)).status).toBe(404);
+ });
+ it('X05-SWEEP-006: an in-flight result for an old principal cannot close a session just authenticated with its rotated key',async()=>{
+  const f=await fixture(),a=await f.connect();
+  let read!:()=>void,release!:()=>void;const readDone=new Promise<void>(r=>{read=r;}),gate=new Promise<void>(r=>{release=r;});
+  const original=f.configuration.readMany.bind(f.configuration);
+  const spy=vi.spyOn(f.configuration,'readMany').mockImplementationOnce(async principals=>{await original(principals);read();await gate;return principals.map(()=>err(new DomainError('unauthenticated','The pool key is not valid.')));});
+  const pending=f.mcp.refresh();await readDone;
+  try{
+   const rotated=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'rotate',poolId:f.pool},randomUUID())));if(!rotated.keyShown)throw new Error('No rotated key');
+   const headers={...f.headers,authorization:'Bearer '+rotated.key},body={jsonrpc:'2.0',id:73,method:'tools/list'};
+   expect((await f.post(body,a.transport.sessionId,headers)).status).toBe(200);
+   release();await pending;
+   expect((await f.post(body,a.transport.sessionId,headers)).status).toBe(200);
+   spy.mockRestore();await f.mcp.refresh();
+   expect((await f.post(body,a.transport.sessionId,headers)).status).toBe(200);
+  }finally{release();await pending;}
+ });
+
+ it('X05-SWEEP-007: another request on the same key cannot suppress an in-flight invalidity result',async()=>{
+  const f=await fixture(),a=await f.connect();
+  let read!:()=>void,release!:()=>void;const readDone=new Promise<void>(r=>{read=r;}),gate=new Promise<void>(r=>{release=r;});
+  const original=f.configuration.readMany.bind(f.configuration);
+  vi.spyOn(f.configuration,'readMany').mockImplementationOnce(async principals=>{await original(principals);read();await gate;return principals.map(()=>err(new DomainError('unauthenticated','The pool key is not valid.')));});
+  const pending=f.mcp.refresh();await readDone;
+  try{
+   const body={jsonrpc:'2.0',id:74,method:'tools/list'};
+   expect((await f.post(body,a.transport.sessionId)).status).toBe(200);
+   const rotated=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'rotate',poolId:f.pool},randomUUID())));if(!rotated.keyShown)throw new Error('No rotated key');
+   await withTenant(f.ctx,tx=>tx.query("UPDATE pool_key SET state='revoked',grace_until=NULL WHERE id=$1",[f.created.keyVersion]));
+   release();await pending;
+   expect((await f.post(body,a.transport.sessionId,{...f.headers,authorization:'Bearer '+rotated.key})).status).toBe(404);
+  }finally{release();await pending;}
+ });
+
 });

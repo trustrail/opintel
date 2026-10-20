@@ -1,4 +1,4 @@
-import {diagnosticMcpOperation,withDiagnosticWork} from '../../../platform/telemetry/diagnostics.js';
+import {diagnostic,diagnosticMcpOperation,withDiagnosticWork} from '../../../platform/telemetry/diagnostics.js';
 import {releaseRedeemOutput} from '../../../shared/release-contract.js';
 import type {ReleaseRuntime} from '../../release-custody/index.js';
 import {releaseRedeemInput} from '../../../shared/release-contract.js';
@@ -43,24 +43,44 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
  async refresh() {
   if (this.refreshing) return;
   this.refreshing = true;
-  try { await Promise.all([...this.sessions.values()].map(async session => {
-   try {
-    const result = await this.configuration.read(session.principal);
-    if (!result.ok) { await session.server.close(); return; }
-    const current = result.value;
-    const updated = {...session.principal,pool:{...session.principal.pool,modes:current.modes}};
-    if (fingerprint(updated) !== session.fingerprint) {
-     session.principal = updated;
-     await session.server.sendToolListChanged();
-     session.fingerprint = fingerprint(updated);
-    }
-    if (!session.pinging && Date.now() >= session.heartbeatAt + current.heartbeatSeconds * 1000) {
-     session.pinging = true; session.heartbeatAt = Date.now();
-     // A ping being sent is not presence. Only an authenticated response is.
-     void session.server.ping().catch(() => session.server.close()).finally(() => { session.pinging = false; });
-    }
-   } catch { await session.server.close(); }
-  })); } finally { this.refreshing = false; }
+  const sessions=[...this.sessions.values()],principals=sessions.map(session=>session.principal);
+  const startedAt=new Date().toISOString(),started=performance.now();let outcome='completed';
+  try {
+   if(!sessions.length)return;
+   let results:Awaited<ReturnType<McpConfiguration['readMany']>>;
+   try{results=await this.configuration.readMany(principals);if(results.length!==sessions.length)throw new Error('Incomplete session configuration batch.');}
+   catch{outcome='failed_closed';await Promise.all(sessions.map(session=>session.server.close()));return;}
+   await Promise.all(sessions.map(async(session,index)=>{
+    try{
+     // Authentication may replace the principal while this read is in flight.
+     // Do not close a rotated key or overwrite freshly authenticated modes with
+     // an older result. An invalid result for the SAME key must still close it.
+     if(this.sessions.get(session.transport.sessionId??'')!==session)return;
+     const result=results[index],principal=principals[index];
+     if(session.principal!==principal){
+      const sameKey=principal&&session.principal.keyVersion===principal.keyVersion&&session.principal.pool.id===principal.pool.id&&session.principal.pool.projectId===principal.pool.projectId&&session.principal.credentialId===principal.credentialId;
+      if(sameKey&&!result?.ok)await session.server.close();
+      return;
+     }
+     if(!result?.ok){await session.server.close();return;}
+     const current=result.value;
+     const updated={...session.principal,pool:{...session.principal.pool,modes:current.modes}};
+     if(fingerprint(updated)!==session.fingerprint){
+      session.principal=updated;
+      await session.server.sendToolListChanged();
+      session.fingerprint=fingerprint(updated);
+     }
+     if(!session.pinging&&Date.now()>=session.heartbeatAt+current.heartbeatSeconds*1000){
+      session.pinging=true;session.heartbeatAt=Date.now();
+      // A ping being sent is not presence. Only an authenticated response is.
+      void session.server.ping().catch(()=>session.server.close()).finally(()=>{session.pinging=false;});
+     }
+    }catch{await session.server.close();}
+   }));
+  }finally{
+   this.refreshing=false;
+   diagnostic({kind:'mcp_sweep',startedAt,sessions:sessions.length,keys:new Set(principals.map(p=>p.keyVersion)).size,projects:new Set(principals.map(p=>p.pool.projectId)).size,outcome,durationMs:performance.now()-started});
+  }
  }
  private failure(response: ServerResponse, requestId: string, status: number, code: string, message: string) {
   console.info({event:'mcp.transport_refused',reason:code,requestId});

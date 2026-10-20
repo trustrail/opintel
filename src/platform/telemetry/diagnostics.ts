@@ -17,7 +17,9 @@ export function withDiagnosticRequest<T>(request:IncomingMessage,response:Server
  contexts.set(response,context);diagnostic({kind:'http_start',requestId,requestKind:context.requestKind,method:request.method??'',path:(request.url??'/').split('?')[0]!});return requests.run(context,run);
 }
 export function diagnosticMcpOperation(body:unknown):void{
- const context=requests.getStore();if(!context||!body||typeof body!=='object'||!('method' in body)||typeof body.method!=='string')return;
+ const context=requests.getStore();if(!context||!body||typeof body!=='object')return;
+ if(!('method' in body)){if('result' in body||'error' in body)context.operation='protocol_response';return;}
+ if(typeof body.method!=='string')return;
  const params='params' in body?body.params:undefined;
  const tool=body.method==='tools/call'&&params&&typeof params==='object'&&'name' in params&&typeof params.name==='string'?params.name:null;
  context.operation=tool&&['opintel.query','opintel.explain','opintel.describe','opintel.redeem'].includes(tool)?tool:['initialize','ping','tools/list','notifications/initialized'].includes(body.method)?body.method:'other';

@@ -4,7 +4,7 @@ import type { KeyVerifier, KeyVerdict, AgentPresenceService } from '../../pools/
 
 export type McpPrincipal = Extract<KeyVerdict, {ok:true}> & { agentId: string };
 export interface McpConfiguration {
- read(principal: McpPrincipal): Promise<Result<{ modes: {query:boolean;prompt:boolean}; heartbeatSeconds:number }>>;
+ readMany(principals: readonly McpPrincipal[]): Promise<readonly Result<{ modes: {query:boolean;prompt:boolean}; heartbeatSeconds:number }>[]>;
 }
 export class McpAccess {
  constructor(private readonly keys: KeyVerifier, private readonly presence: AgentPresenceService) {}

@@ -1537,3 +1537,16 @@ one current-key read, fresh authority on the next invocation, missing assignment
 and foreign-source refusals. Existing ENG-001 retains its concurrent pin/address
 edit refusal; ENG-002 retains cross-engine refusal; existing row-scope, query,
 explain and policy-version suites remain unchanged. Item 1.4 is unchanged.
+
+### X-05 session sweep follow-up
+
+X05-SWEEP-001–003 (`test/mcp-session-batch.test.ts`): twenty sessions across
+projects use one fresh acquisition/query; credential/key revocation, archival,
+grace expiry, future keys, timing changes and tuple mismatches are re-read;
+tenant scopes cannot execute the worker or inherit its cross-project access.
+Empty sweeps acquire nothing. `test/mcp-session-sweep-migration.test.ts` checks
+081 up/down/up, fixed search path, restricted EXECUTE and no broad table grants.
+X05-SWEEP-004–007 (`test/mcp.test.ts`): one batch closes all revoked sessions;
+HTTP authentication refuses before the sweep; failure closes instead of caching
+validity; rotated keys survive stale old-key results, but a new request with the
+same key cannot suppress invalidity. Existing I-004–006/I-014 and J-045 remain.

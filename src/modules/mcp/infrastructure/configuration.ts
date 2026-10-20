@@ -1,16 +1,23 @@
-import { withTenant, withPlatform } from '../../../platform/db/scope.js';
-import { PresenceSettings } from '../../../shared/api/agent-presence.js';
-import { DomainError, err, ok } from '../../../shared/kernel/index.js';
-import type { McpConfiguration, McpPrincipal } from '../application/access.js';
+import {z} from 'zod';
+import {withPlatform} from '../../../platform/db/scope.js';
+import {PresenceSettings} from '../../../shared/api/agent-presence.js';
+import {DomainError,err,ok} from '../../../shared/kernel/index.js';
+import type {McpConfiguration,McpPrincipal} from '../application/access.js';
+const sessionState=z.object({key_version:z.uuid(),pool_id:z.uuid(),project_id:z.uuid(),credential_id:z.uuid(),mode_query:z.boolean(),mode_prompt:z.boolean(),settings:z.unknown()});
+const invalid=()=>err(new DomainError('unauthenticated','The pool key is not valid.'));
 export class PostgresMcpConfiguration implements McpConfiguration {
- async read(principal: McpPrincipal) {
-  const [project] = await withPlatform(tx => tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1 AND archived_at IS NULL',[principal.pool.projectId]));
-  if (!project) return err(new DomainError('unauthenticated','The pool key is not valid.'));
-  const settings = PresenceSettings.safeParse(project.settings);
-  if (!settings.success) return err(new DomainError('validation_failed','The agent presence timing settings are invalid.'));
-  const [row] = await withTenant({projectId:principal.pool.projectId,userId:principal.scopeUserId},tx=>tx.query<{query:boolean;prompt:boolean}>(
-   `SELECT p.mode_query AS query,p.mode_prompt AS prompt FROM pool p JOIN pool_key k ON k.pool_id=p.id AND k.project_id=p.project_id
-    WHERE p.id=$1 AND k.id=$2 AND k.created_at<=now() AND (k.state='current' OR k.state='retiring' AND k.grace_until>now())`,[principal.pool.id,principal.keyVersion]));
-  return row ? ok({modes:row,heartbeatSeconds:settings.data.agentHeartbeatSeconds}) : err(new DomainError('unauthenticated','The pool key is not valid.'));
+ async readMany(principals:readonly McpPrincipal[]){
+  if(!principals.length)return [];
+  // One fresh scoped transaction for the complete set, across projects. The
+  // narrow worker function returns no secret or customer/source metadata.
+  const rows=sessionState.array().parse(await withPlatform(tx=>tx.query('SELECT * FROM public.read_mcp_session_states($1::uuid[])',[[...new Set(principals.map(p=>p.keyVersion))]])));
+  const states=new Map(rows.map(row=>[row.key_version,row]));
+  return principals.map(principal=>{
+   const row=states.get(principal.keyVersion);
+   if(!row||row.pool_id!==principal.pool.id||row.project_id!==principal.pool.projectId||row.credential_id!==principal.credentialId)return invalid();
+   const settings=PresenceSettings.safeParse(row.settings);
+   if(!settings.success)return err(new DomainError('validation_failed','The agent presence timing settings are invalid.'));
+   return ok({modes:{query:row.mode_query,prompt:row.mode_prompt},heartbeatSeconds:settings.data.agentHeartbeatSeconds});
+  });
  }
 }

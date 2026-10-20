@@ -1027,3 +1027,23 @@ commit before the reader sees that measurement.
 X-05 second-branch landing validation passed once in 1176.32s: 1,928 normal
 tests in 213 files, 59 conformance checks (54/54 routes, zero findings), strict
 typechecks, unchanged lint, artifact exclusion and one browser/MCP smoke path.
+
+### X-05 follow-up — batch MCP session sweeps complete
+
+One fresh platform transaction per nonempty global session sweep, through the
+narrow read-only migration 081 worker function. No validity cache, direct tenant
+table grants, change to item 1.4, pool sizing or connection reuse. Keep the
+inherited one-second scheduler and independent current authentication on every
+HTTP request; heartbeat timing remains project-configured. Fail closed on missing
+state or batch failure; preserve rotated-principal races correctly. Account for
+every acquisition class and receipt-observer harness load separately. See
+`docs/review/x05-session-sweeps.md` for the repeated five-minute capture.
+
+X-05 sweep measurement: 294 nonempty sweeps each used one acquisition for all
+20 sessions; query median/p95/worst remains 15/22/25 across 421 calls. All 19,965
+acquisitions reconcile: 3,369 receipt-observer harness checkouts and 16,596
+product checkouts. Pool waiting remains in 29/293 samples, peak 8 and sampled
+occupancy sum 86. The follow-up's 49 distinct focused tests, strict typecheck
+and unchanged lint pass. The full gate passed once in 1361.23s: 1,937 tests
+in 215 files, all 59 conformance checks and one browser/MCP smoke path.
+The thirty-minute ten-agent Dashboard run remains the X-05 closure criterion.

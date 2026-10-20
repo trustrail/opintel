@@ -5828,3 +5828,22 @@ metadata is read once for the batch and every distinct tokenized Engine is
 attested; execution retains its independent current-key check. These batch-local
 results do not survive the call. The tenant scope, transactions, ten-connection
 pool and background cadences are unchanged.
+
+### X-05 session-sweep amendment
+
+The fixed one-second 5.5 scheduler remains; heartbeat defaults to twenty seconds
+and does not require per-session validity reads every second. One `readMany`
+call now reads all known session keys in a single platform transaction through
+081's narrow worker function. The function returns only valid key/pool/project/
+credential identifiers, current modes and heartbeat/grace settings; PUBLIC and
+tenant roles cannot execute it and the platform role gains no direct pool/key/
+credential table read. No settings or validity are cached across sweeps.
+
+Archived projects, revoked credentials/keys, expired grace and future keys are
+excluded. Missing state closes the matching transport; batch infrastructure
+failure closes its session snapshot. Results never close a freshly rotated key
+or overwrite newly authenticated modes; same-key invalidity still closes even
+if another request refreshed the principal. Every HTTP method independently
+authenticates current state before dispatch, so the next revoked-key request
+refuses without waiting for a tick. Idle closure is tick-driven, including DB/
+scheduling latency. Item 1.4 and its lifecycle are unchanged.
