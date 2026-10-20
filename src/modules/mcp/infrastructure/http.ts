@@ -1,4 +1,4 @@
-import {diagnosticMcpOperation} from '../../../platform/telemetry/diagnostics.js';
+import {diagnosticMcpOperation,withDiagnosticWork} from '../../../platform/telemetry/diagnostics.js';
 import {releaseRedeemOutput} from '../../../shared/release-contract.js';
 import type {ReleaseRuntime} from '../../release-custody/index.js';
 import {releaseRedeemInput} from '../../../shared/release-contract.js';
@@ -30,7 +30,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
  private refreshing = false;
  constructor(private readonly access: McpAccess, private readonly configuration: McpConfiguration, private readonly describeTool?: DescribeTool,private readonly queryTool?:QueryTool,private readonly explainTool?:ExplainTool,private readonly custody?:ReleaseRuntime) {}
  start() {
-  this.timer ??= setInterval(() => { void this.refresh().catch(() => { console.warn({event:'mcp.refresh_failed',category:'dependency_unavailable'}); }); }, 1000);
+  this.timer ??= setInterval(() => { void withDiagnosticWork('mcp_refresh',()=>this.refresh()).catch(() => { console.warn({event:'mcp.refresh_failed',category:'dependency_unavailable'}); }); }, 1000);
   this.timer.unref();
  }
  async close() {

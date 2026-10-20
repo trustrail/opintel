@@ -16,7 +16,8 @@ export class RegistryQueryExecution implements QueryExecutionPort,QueryValidatio
   if(!ctx)return err(new DomainError('source_unavailable','Query engine routing requires a project and source context.'));
   if(!ctx.sources.length){const e=await this.registry.forCustody(ctx);return e.ok?new SidecarQueryExecution(e.value).health(signal):e;}
   let firstFailure:DomainError|undefined;let version:string|undefined;
-  for(const id of ctx.sources){const e=await this.registry.forSource(ctx,id);if(!e.ok){if(!ctx.parserOnly)return e;firstFailure??=e.error;continue;}const h=await new SidecarQueryExecution(e.value).health(signal);if(!h.ok){if(!ctx.parserOnly)return h;firstFailure??=h.error;continue;}if(ctx.parserOnly)return h;if(version&&version!==h.value.queryEngineVersion)return err(new DomainError('sql_not_permitted','The engines report different query builds. Align their builds before querying.'));version=h.value.queryEngineVersion;}
+  const routed=await this.registry.forSources(ctx,ctx.sources.map(id=>({id})));
+  for(const e of routed){if(!e.ok){if(!ctx.parserOnly)return e;firstFailure??=e.error;continue;}const h=await new SidecarQueryExecution(e.value).health(signal);if(!h.ok){if(!ctx.parserOnly)return h;firstFailure??=h.error;continue;}if(ctx.parserOnly)return h;if(version&&version!==h.value.queryEngineVersion)return err(new DomainError('sql_not_permitted','The engines report different query builds. Align their builds before querying.'));version=h.value.queryEngineVersion;}
   return version?ok({queryEngineVersion:version}):err(firstFailure??new DomainError('source_unavailable','No verified engine is available for these sources.'));
  }
 
@@ -24,7 +25,8 @@ export class RegistryQueryExecution implements QueryExecutionPort,QueryValidatio
   if(!ctx||ctx.projectId!==input.projectId)return err(new DomainError('forbidden','Query engine project context is missing or inconsistent.'));
   const ids=[...new Set(input.sources.map(s=>s.sourceId as SourceId))];
   let endpoint:import('../application/registry.js').EngineEndpoint|undefined;
-  for(const id of ids){const tokenized=input.objects.some(o=>o.sourceId===id&&o.readPlan.columns.some(c=>c.treatment==='tokenized'));const result=await this.registry.forSource(ctx,id,tokenized);if(!result.ok)return result;if(endpoint&&endpoint.baseUrl!==result.value.baseUrl)return err(new DomainError('sources_cannot_be_joined','This query references sources served by different engines. Run separate queries; cross-engine execution is not supported.'));endpoint=result.value;}
+  const routed=await this.registry.forSources(ctx,ids.map(id=>({id,tokenized:input.objects.some(o=>o.sourceId===id&&o.readPlan.columns.some(c=>c.treatment==='tokenized'))})));
+  for(const result of routed){if(!result.ok)return result;if(endpoint&&endpoint.baseUrl!==result.value.baseUrl)return err(new DomainError('sources_cannot_be_joined','This query references sources served by different engines. Run separate queries; cross-engine execution is not supported.'));endpoint=result.value;}
   if(!endpoint){const result=await this.registry.forCustody(ctx);if(!result.ok)return result;endpoint=result.value;}
   return ok(new SidecarQueryExecution(endpoint));
  }

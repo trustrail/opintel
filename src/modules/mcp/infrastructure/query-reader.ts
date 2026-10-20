@@ -1,6 +1,5 @@
 import {projectSettingSchema,readSetting} from '../../../shared/project-settings.js';
 import {z} from 'zod';
-import {withTenant} from '../../../platform/db/scope.js';
 import {DomainError,err,ok} from '../../../shared/kernel/index.js';
 import {executionRequest,executionSettings} from '../../../shared/execution-contract.js';
 import {PostgresEntitlementReader} from '../../entitlements/index.js';
@@ -14,7 +13,7 @@ export class PostgresQueryReader implements QuerySnapshotReader {
  async read(principal:McpPrincipal){
   const ctx={projectId:principal.pool.projectId,userId:principal.scopeUserId};
   const result=await new PostgresEntitlementReader().compilation(ctx,principal.pool.id);if(!result.ok)return result;
-  const [pool]=await withTenant(ctx,tx=>tx.query<{budgets:unknown;enabled:boolean}>('SELECT budgets,mode_query AS enabled FROM pool WHERE id=$1',[principal.pool.id]));
+  const pool=result.value.pool;
   if(!pool||(this.requireQueryMode&&!pool.enabled))return err(new DomainError('forbidden','Query mode is not enabled for this pool.',{cause:'query_disabled'}));
   const settings=querySettings.safeParse(result.value.projectSettings),budget=budgets.safeParse(pool.budgets);
   if(!this.requireQueryMode){

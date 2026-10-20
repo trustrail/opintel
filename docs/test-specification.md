@@ -1525,3 +1525,15 @@ SQL shape tests cover literals/comments, row locks, mixed/upsert scopes, static
 view/function expansion, CTE aliases and honest dynamic-SQL coverage. Measurement
 requires begin/end acquisition reconciliation and separate receipt-observer
 traffic, with no pool/connection strategy implemented before reader review.
+
+### X-05 second branch: batched query reads
+
+`test/query-batching.test.ts` owns X05-BATCH-001/002: small and 500-column
+pools use one tenant SQL read for catalogue decisions, row scopes and limits;
+query preparation performs no extra pool read; a subsequent call sees changed
+decisions. `test/engine-routing-batch.test.ts` owns X05-BATCH-003/004: one
+source/engine set read, one verification and sentinel per engine within a batch,
+one current-key read, fresh authority on the next invocation, missing assignments
+and foreign-source refusals. Existing ENG-001 retains its concurrent pin/address
+edit refusal; ENG-002 retains cross-engine refusal; existing row-scope, query,
+explain and policy-version suites remain unchanged. Item 1.4 is unchanged.

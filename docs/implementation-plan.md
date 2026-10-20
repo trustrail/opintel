@@ -1009,3 +1009,21 @@ X-05 first-branch landing validation passed once in 1197.83s: 1,923 normal tests
 in 211 files, 59 conformance checks (54/54 routes, zero findings), and one
 browser/MCP smoke path, with strict typechecks, lint and artifact exclusion.
 The reader chose batching only for the follow-up; item 1.4 remains unchanged.
+
+### X-05 second branch — batching-only complete
+
+Off main after first-branch landing. The reader explicitly excludes item 1.4: no
+change to tenant-wrapper acquisition/release, connection reuse, pool size, or
+configuration caching. Compilation reads column decisions, row scopes and pool
+limits in one tenant snapshot; its platform version checks remain separate.
+Source/engine routing reads a set in one query per phase. Guarded Engine health
+updates return their verified record instead of rereading it; key metadata and
+sentinel checks are batched within the same invocation, never retained for the
+next invocation. Background job labels distinguish existing workers without
+changing their cadence. See `docs/review/x05-batch-query-reads.md` for the repeated
+five-minute acquisition, access-split and waiting measurement. No full gate or
+commit before the reader sees that measurement.
+
+X-05 second-branch landing validation passed once in 1176.32s: 1,928 normal
+tests in 213 files, 59 conformance checks (54/54 routes, zero findings), strict
+typechecks, unchanged lint, artifact exclusion and one browser/MCP smoke path.

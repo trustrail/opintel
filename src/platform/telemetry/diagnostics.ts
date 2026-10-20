@@ -7,6 +7,9 @@ import type {Server} from 'node:http';
 
 type RequestContext={requestId:string;requestKind:'console'|'observer'|'agent_control'|'agent_query'|'engine_receipt';operation:string|null};
 const requests=new AsyncLocalStorage<RequestContext>(),contexts=new WeakMap<ServerResponse,RequestContext>();
+type DiagnosticWork='mcp_refresh'|'presence_sweep'|'introspection_completion'|'custody_rehearsal'|'ordinal_repair'|'release_cleanup';
+const background=new AsyncLocalStorage<DiagnosticWork>();
+export function withDiagnosticWork<T>(work:DiagnosticWork,run:()=>T):T{return diagnosticsEnabled()?background.run(work,run):run();}
 export const diagnosticRequest=()=>requests.getStore();
 export function withDiagnosticRequest<T>(request:IncomingMessage,response:ServerResponse,requestId:string,run:()=>T):T{
  if(!diagnosticsEnabled())return run();
@@ -25,7 +28,7 @@ let poolSample:(()=>{total:number;idle:number;waiting:number})|undefined;
 export const diagnosticsEnabled=()=>output!==undefined;
 export function registerDiagnosticPool(sample:()=>{total:number;idle:number;waiting:number}):void{poolSample=sample;}
 export function diagnostic(record:Readonly<Record<string,string|number|boolean|null|readonly string[]>>):void{
- output?.write(JSON.stringify({timestamp:new Date().toISOString(),...record})+'\n');
+ output?.write(JSON.stringify({timestamp:new Date().toISOString(),...record,...(record.kind==='db'||record.kind==='db_acquire'?{backgroundWork:diagnosticRequest()?null:background.getStore()??'unlabelled'}:{})})+'\n');
 }
 /** Local opt-in measurements only: no SQL, query strings, headers or bodies. */
 export async function startDiagnostics():Promise<void>{

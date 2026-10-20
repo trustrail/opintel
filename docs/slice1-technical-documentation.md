@@ -5812,3 +5812,19 @@ loading invents no timestamp. This is a periodic console view, explicitly not
 the timely-detection channel under D-05. No alert-delivery behavior is added.
 The shared minute clock remains; current render time prevents a newly fetched
 timestamp from looking future-dated between clock ticks.
+
+### X-05 batching-only amendment
+
+Pool compilation obtains active bound catalogue objects/elements, explicit column
+decisions, current row-scope decisions and pool query limits in one tenant SQL
+statement. The existing platform version reads before/after compilation remain
+the conflict guard. No compiled decision or configuration is cached.
+
+Each routing phase fetches its source set and assigned Engine metadata in one
+read. Verification probes each distinct Engine; the address/pin/name-guarded
+health update returns the resulting record. A concurrent configuration edit
+therefore refuses instead of approving the stale endpoint. Current token-key
+metadata is read once for the batch and every distinct tokenized Engine is
+attested; execution retains its independent current-key check. These batch-local
+results do not survive the call. The tenant scope, transactions, ten-connection
+pool and background cadences are unchanged.

@@ -5,12 +5,14 @@ export type EngineContext={projectId:ProjectId;userId:UserId};
 export type EngineRecord=Omit<EngineView,'sources'>;
 export type ApplicationTls={ca:string;cert:string;key:string};
 export type EngineEndpoint={baseUrl:string;tls:ApplicationTls&{certificatePin:string};timeoutMs?:number};
+export type EngineRoute={id:SourceId;name:string;engine:EngineRecord|null};
 export interface EngineRepository {
+ routes(ctx:EngineContext,ids:readonly SourceId[]):Promise<EngineRoute[]>;
  update(ctx:EngineContext,id:EngineId,input:EngineRegistration):Promise<Result<void>>;
  register(ctx:EngineContext,input:EngineRegistration):Promise<Result<EngineRecord>>;
  get(ctx:EngineContext,id:EngineId):Promise<Result<EngineRecord>>;
  list(ctx:EngineContext,after:EngineId|null,limit:number):Promise<EngineView[]>;
- health(ctx:EngineContext,id:EngineId,value:{contractVersion:number|null;health:EngineView['health'];message:string|null;verified:boolean;address:string;certificatePin:string;name:string}):Promise<void>;
+ health(ctx:EngineContext,id:EngineId,value:{contractVersion:number|null;health:EngineView['health'];message:string|null;verified:boolean;address:string;certificatePin:string;name:string}):Promise<Result<EngineRecord>>;
  custody(ctx:EngineContext):Promise<Result<EngineRecord>>;
  designate(ctx:EngineContext,id:EngineId):Promise<Result<void>>;
  source(ctx:EngineContext,id:SourceId):Promise<Result<{id:SourceId;name:string;engineId:EngineId|null;tokenized:boolean}>>;
@@ -31,9 +33,13 @@ export class EngineRegistry {
  list(ctx:EngineContext,after:EngineId|null,limit:number){return this.repository.list(ctx,after,limit);}
  async verify(ctx:EngineContext,id:EngineId){
   const record=await this.repository.get(ctx,id);if(!record.ok)return record;
-  const key=JSON.stringify([ctx.projectId,id,record.value.address,record.value.certificatePin,record.value.name]);
+  return this.verifyLoaded(ctx,record.value);
+ }
+ private async verifyLoaded(ctx:EngineContext,value:EngineRecord){
+  const id=value.id;
+  const key=JSON.stringify([ctx.projectId,id,value.address,value.certificatePin,value.name]);
   const existing=this.probes.get(key);if(existing&&(existing.failedUntil===0||existing.failedUntil>Date.now()))return existing.promise;
-  const entry={promise:this.verifyRecord(ctx,id,record.value),failedUntil:0};this.probes.set(key,entry);
+  const entry={promise:this.verifyRecord(ctx,id,value),failedUntil:0};this.probes.set(key,entry);
   try{const result=await entry.promise;if(result.ok)this.probes.delete(key);else{entry.failedUntil=Date.now()+1000;const timer=setTimeout(()=>{if(this.probes.get(key)===entry)this.probes.delete(key);},1000);timer.unref();}return result;}catch(error){this.probes.delete(key);throw error;}
  }
  private async verifyRecord(ctx:EngineContext,id:EngineId,value:EngineRecord):Promise<Result<EngineRecord>>{
@@ -41,29 +47,48 @@ export class EngineRegistry {
   const result=await this.probe.health(this.endpoint(record.value)).catch(()=>engineRefusal('Engine health probe failed.',true));
   if(!result.ok){const reason=readinessFailure.safeParse(result.error.details?.readinessReason);const message=reason.success?readinessMessages[reason.data]:isReadinessMessage(record.value.healthMessage)?record.value.healthMessage:'Verification failed. Check the address, certificate pin and application TLS trust.';await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:null,health:'unavailable',message,verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
   const matches=result.value.contract===3;
-  await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
-  if(matches){const current=await this.repository.get(ctx,id);if(!current.ok)return current;if(current.value.address!==record.value.address||current.value.certificatePin!==record.value.certificatePin||!current.value.verifiedAt)return engineRefusal('Engine configuration changed during verification. Test its connection again.');return current;}
+  const updated=await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
+  if(matches)return updated;
   return engineRefusal(`Engine ${record.value.name} reports contract ${result.value.contract}; this application requires contract 3.`);
  }
- async ready(ctx:EngineContext,id:EngineId){const r=await this.repository.get(ctx,id);if(!r.ok)return r;
+ async ready(ctx:EngineContext,id:EngineId){const r=await this.repository.get(ctx,id);return r.ok?this.readyLoaded(ctx,r.value):r;}
+ private async readyLoaded(ctx:EngineContext,value:EngineRecord){const r={value};
   // Failed probes clear serving authority, not permission to try again. New or
   // edited registrations still require the explicit initial connection check.
   if(!r.value.verifiedAt&&r.value.health==='unverified')return engineRefusal(`Engine ${r.value.name} has not passed verification. Test its connection in Settings before assigning or using sources.`);
-  return this.verify(ctx,id);
+  return this.verifyLoaded(ctx,value);
  }
  async tokenReady(ctx:EngineContext,record:EngineRecord){
-  const expected=await this.repository.key(ctx);if(!expected)return engineRefusal(`Engine ${record.name} cannot serve tokenized data: the project has no recorded token key.`);
+  return this.tokenReadyWithKey(ctx,record,await this.repository.key(ctx));
+ }
+ private async tokenReadyWithKey(ctx:EngineContext,record:EngineRecord,expected:{version:number;sentinel:string}|null){
+  if(!expected)return engineRefusal(`Engine ${record.name} cannot serve tokenized data: the project has no recorded token key.`);
   const actual=await this.probe.sentinel(this.endpoint(record),ctx.projectId);
   if(!actual.ok||actual.value.version!==expected.version||actual.value.sentinel!==expected.sentinel)return engineRefusal(`Engine ${record.name} cannot serve tokenized data: its key version or sentinel does not match the project's recorded key. Ask the operator to provision the matching key and verify again.`);
   return ok(undefined);
  }
- async forSource(ctx:EngineContext,id:SourceId,tokenized=false){
-  const s=await this.repository.source(ctx,id);if(!s.ok)return s;
-  if(!s.value.engineId)return engineRefusal(`Source ${s.value.name} has no assigned engine. Assign a verified engine in Settings before introspecting or querying it.`);
-  const r=await this.ready(ctx,s.value.engineId);if(!r.ok)return r;
-  if(tokenized){const t=await this.tokenReady(ctx,r.value);if(!t.ok)return t;}
-  return ok(this.endpoint(r.value));
+ /** One fresh routing snapshot per batch. Promises below deduplicate work only
+  * within this invocation; no route, key or compiled decision survives it. */
+ async forSources(ctx:EngineContext,inputs:readonly {id:SourceId;tokenized?:boolean}[]){
+  if(!inputs.length)return [];
+  const routes=await this.repository.routes(ctx,[...new Set(inputs.map(s=>s.id))]);
+  const engines=new Map<EngineId,Promise<Result<EngineRecord>>>();
+  for(const route of routes)if(route.engine&&!engines.has(route.engine.id))engines.set(route.engine.id,this.readyLoaded(ctx,route.engine));
+  const verified=new Map<EngineId,Result<EngineRecord>>();
+  await Promise.all([...engines].map(async([id,pending])=>{verified.set(id,await pending);}));
+  const needsKey=inputs.some(input=>input.tokenized&&routes.some(r=>r.id===input.id&&r.engine&&verified.get(r.engine.id)?.ok));
+  const key=needsKey?await this.repository.key(ctx):null;
+  const sentinels=new Map<EngineId,Promise<Result<void>>>();
+  return Promise.all(inputs.map(async input=>{
+   const source=routes.find(r=>r.id===input.id);
+   if(!source)return err(new DomainError('not_found','Source not found in this project.'));
+   if(!source.engine)return engineRefusal(`Source ${source.name} has no assigned engine. Assign a verified engine in Settings before introspecting or querying it.`);
+   const r=verified.get(source.engine.id);if(!r)throw new Error('Missing batch engine verification.');if(!r.ok)return r;
+   if(input.tokenized){let pending=sentinels.get(r.value.id);if(!pending){pending=this.tokenReadyWithKey(ctx,r.value,key);sentinels.set(r.value.id,pending);}const token=await pending;if(!token.ok)return token;}
+   return ok(this.endpoint(r.value));
+  }));
  }
+ async forSource(ctx:EngineContext,id:SourceId,tokenized=false){const [result]=await this.forSources(ctx,[{id,tokenized}]);if(!result)throw new Error('Missing source routing result.');return result;}
  async forEngine(ctx:EngineContext,id:EngineId,checkKey=false){const r=await this.ready(ctx,id);if(!r.ok)return r;if(checkKey){const t=await this.tokenReady(ctx,r.value);if(!t.ok)return t;}return ok(this.endpoint(r.value));}
  async forCustody(ctx:EngineContext){const r=await this.repository.custody(ctx);if(!r.ok)return r;return this.forEngine(ctx,r.value.id);}
  async designate(ctx:EngineContext,id:EngineId){const r=await this.ready(ctx,id);if(!r.ok)return r;const key=await this.repository.key(ctx);if(key){const t=await this.tokenReady(ctx,r.value);if(!t.ok)return t;}return this.repository.designate(ctx,id);}

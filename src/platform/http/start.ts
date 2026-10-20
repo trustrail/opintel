@@ -1,3 +1,4 @@
+import {withDiagnosticWork} from '../telemetry/diagnostics.js';
 import {initializeDatabaseDiagnostics} from '../db/diagnostics.js';
 import {columnTagRoutes} from '../../modules/catalog/api/tag-routes.js';
 import {PostgresColumnTags} from '../../modules/catalog/infrastructure/column-tags.js';
@@ -207,27 +208,27 @@ async function start(): Promise<void> {
   const repair = async () => {
     for (const ctx of await new PostgresOrdinalRepair(new UuidV7IdFactory()).queue()) await sources.resume(ctx);
   };
-  void repair().catch(() => console.warn({event:'catalog.ordinal_repair_failed',category:'dependency_unavailable'}));
+  void withDiagnosticWork('ordinal_repair',repair).catch(() => console.warn({event:'catalog.ordinal_repair_failed',category:'dependency_unavailable'}));
   const completionStore = new PostgresIntrospectionStore(new UuidV7IdFactory(),hub);
   let deliveringCompletions = false;
   const deliverCompletions = () => {
     if (deliveringCompletions) return;
     deliveringCompletions = true;
-    void recoverIntrospectionCompletions(ctx=>completionStore.dispatchCompleted(ctx))
+    void withDiagnosticWork('introspection_completion',()=>recoverIntrospectionCompletions(ctx=>completionStore.dispatchCompleted(ctx)))
       .catch(()=>console.warn({event:'introspection.rules_delivery_pending',category:'dependency_unavailable'}))
       .finally(()=>{deliveringCompletions=false;});
   };
   deliverCompletions();
   const completionTimer = setInterval(deliverCompletions,30000); completionTimer.unref();
   const custody=new KeyCustodyService(new PostgresCustodyRepository(),new engines.RegistryCustodyClient(engineRegistry),authorization);
-  const rehearse=()=>{void custody.daily().catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
+  const rehearse=()=>{void withDiagnosticWork('custody_rehearsal',()=>custody.daily()).catch(()=>console.warn({event:'custody.rehearsal_failed',category:'dependency_unavailable'}));};
   rehearse();const rehearsalTimer=setInterval(rehearse,60*60*1000);rehearsalTimer.unref();
   const presence = new PostgresAgentPresence(hub);
   let sweepingPresence = false;
   const sweepPresence = () => {
     if(sweepingPresence)return;
     sweepingPresence=true;
-    void sweepAgentPresence(presence).catch(()=>console.warn({event:'agent.presence_sweep_failed',category:'dependency_unavailable'})).finally(()=>{sweepingPresence=false;});
+    void withDiagnosticWork('presence_sweep',()=>sweepAgentPresence(presence)).catch(()=>console.warn({event:'agent.presence_sweep_failed',category:'dependency_unavailable'})).finally(()=>{sweepingPresence=false;});
   };
   sweepPresence();
   const presenceTimer=setInterval(sweepPresence,5000);presenceTimer.unref();
