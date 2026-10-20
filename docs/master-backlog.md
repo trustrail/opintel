@@ -358,7 +358,7 @@ failures in a soak run cannot be attributed to XQ, the network, the database or 
 else. In production this is an incident with no evidence.
 **What** Record the cause: in the evidence record, in the server log, or both. The agent's
 message can stay as it is.
-**Evidence** src/modules/release-custody/infrastructure/query-release.ts:23
+**Evidence** src/modules/release-custody/infrastructure/query-release.ts:37; fourth appearance in the X-05 thirty-minute run: receipt `01a157d5-e001-7be3-83d7-ff4194f3f988`, generic `release_prepare_failed` without missing-association reason. Underlying exception was discarded.
 **Status** Open · Small
 
 ### E-07 · Refusal taxonomy conflates governance with infrastructure
@@ -391,15 +391,16 @@ an assertion rather than an absence.
 **Evidence** src/modules/evidence/infrastructure/export.ts:35; the 18 Oct gate failures
 **Status** Open · Small
 
-### E-09 · entitledRows reports rows staged, not rows entitled
-**Customer** The receipt's entitledRows field reports the count after the agent's own filter
+### E-09 · Name receipt scan counts returnedRows
+**Customer** The receipt's former `entitledRows` field reported the count after the agent's own filter
 is combined with the governance predicate, so a query for one record in a pool entitled to
 five records reports 1. An auditor reading the receipt takes that as the entitlement. The
-partner brief describes receipts as carrying entitled-row counts, which is the same reading.
+partner brief was reported to describe receipts as carrying entitled-row counts, which is the same reading. The external brief is outside this repository change by reader instruction.
 Either the field means what its name says, or its name has to change, and the brief with it.
 **Evidence** 110 alarms in the 18 Oct 16:07 soak run, every one this mismatch;
 scripts/soak/reinsurance.ts:154, sidecar/execution/application/execute.ts:89
-**Status** Open · Small, once the semantics are decided
+**Decision** Rename to `returnedRows`, measurement unchanged; compare the soak against the query's own expected count. Immutable decision identifiers continue to identify entitlement scope. All 165 alarms in the X-05 thirty-minute run are this pattern (75 × 5/1, 90 × 7/1), zero other row-count findings.
+**Status** Resolved · `returnedRows`, measurement unchanged; authorized fresh full gate passed (1,943 tests, 59 conformance checks, browser/MCP smoke). See `docs/review/e09-returned-row-receipts.md` for the failed initial gate, additional oracle correction, full file list and final validation.
 
 | # | Row | Why it matters | Size |
 |---|---|---|---|

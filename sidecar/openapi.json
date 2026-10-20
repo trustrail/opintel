@@ -1857,7 +1857,7 @@
                               "type": "string"
                             }
                           },
-                          "entitledRows": {
+                          "returnedRows": {
                             "anyOf": [
                               {
                                 "type": "integer",
@@ -1893,7 +1893,7 @@
                           "decisionId",
                           "hash",
                           "columns",
-                          "entitledRows",
+                          "returnedRows",
                           "provenance",
                           "missingDecision"
                         ],

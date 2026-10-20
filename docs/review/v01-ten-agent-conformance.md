@@ -71,7 +71,7 @@ and operation timeouts remain the harness defaults of 10 and 15 seconds.
 | 5 Concurrency/evidence | 10 concurrent requests and unique receipts per batch; 80 unique receipts overall | 80 unique stored completions, exact agent/credential/pool attribution | Pass |
 | 5 Counts/non-disclosure | Successful receipts carry entitled counts; no fixture literals in scope metadata or complete detail | 55 successful receipts with exact counts; all 80 complete details checked | Pass |
 
-The 25 expected pre-execution refusals do not claim measured entitled-row counts:
+The 25 expected pre-execution refusals do not claim measured `returnedRows` scan counts:
 they record the refusal rather than inventing a source-read count. They return no
 structured result. The final focused run passed 1,006 checks in one test (42.00s;
 Vitest wall time 46.56s). Machine-readable checks are emitted to

@@ -1,4 +1,4 @@
-import type {Specification,Scenario} from './specification.js';
+import type {Specification,Scenario,ObjectExpectation} from './specification.js';
 import type {DescribeOutput} from '../../src/shared/api/mcp.js';
 import type {z} from 'zod';
 type ObjectInfo=z.infer<typeof DescribeOutput>['objects'][number];
@@ -23,4 +23,15 @@ export function scenarioValuesMatch(s:Scenario,spec:Specification,columns:Array<
  const expected=s.expected.rows.map(r=>s.columns.map(c=>{const value=s.kind==='declared join'?r[c.alias]:r[c.name];const t=spec.objects.find(o=>o.name===c.object&&o.poolIndex===s.poolIndex)!.columns.find(v=>v.name===c.name)!.treatment;return value===null?null:t==='masked'?declaredMask(value):t==='tokenized'?{kind:'token'}:t==='custody'?{kind:'sealed'}:value;}));
  const actual=rows.map(r=>r.map((value,i)=>{const c=s.columns[i]!;const t=spec.objects.find(o=>o.name===c.object&&o.poolIndex===s.poolIndex)!.columns.find(v=>v.name===c.name)!.treatment;return t==='tokenized'&&typeof value==='string'&&/^v1_[^_]+_[0-9A-HJKMNP-TV-Z]{26}$/u.test(value)?{kind:'token'}:t==='custody'&&typeof value==='string'&&value.startsWith('opintelsealed:v1:')?{kind:'sealed'}:value;}));
  return canonical(actual)===canonical(expected);
+}
+
+/** Independent fixture oracle for each governed scan, never learned from receipts.
+ * Single-object declared queries supply their own expected result count. Joins
+ * and aggregates retain per-input scan counts, not their final answer count.
+ */
+export function expectedReturnedRows(object:ObjectExpectation,declared?:Scenario):number {
+ if(declared&&declared.objects.length===1&&declared.kind!=='declared aggregate'&&declared.expected.rowCount!==undefined)return declared.expected.rowCount;
+ // Composed IS NOT NULL is evaluated outside staging, not pushed into scans.
+ // Its final-answer count is checked separately by the query-result oracle.
+ return object.rows.length;
 }

@@ -152,7 +152,7 @@ and receipt requirements were neither weakened nor suppressed.
 The row-count mismatches compare the seeder's total entitled-object count with
 receipts for filtered queries: **75 expected 5/actual 1**, **90 expected 7/actual
 1**. For example the recovery query at 05:45:09.136 UTC selects one recovery ID
-and reports entitledRows=1. The Engine currently counts the staged scan after
+and reports the count now named `returnedRows` as 1. The Engine currently counts the staged scan after
 pushdown (`sidecar/execution/application/execute.ts`), whereas the soak compares
 to the unfiltered fixture object count (`scripts/soak/reinsurance.ts`). This
 identifies the discrepancy, not a decision to reinterpret or remove the assertion;

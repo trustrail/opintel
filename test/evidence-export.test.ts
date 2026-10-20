@@ -88,3 +88,17 @@ it.each((['ndjson','csv'] as const).flatMap(format=>['provider changed','credent
   expect(events).toEqual(expect.arrayContaining(['granted','redeemed','expired','revoked','provider_redeemed'].map(kind=>expect.objectContaining({grantId:grant,receipt:run.id,kind,alias,reason:kind==='revoked'?reason:null}))));
   expect(events).toHaveLength(5);
 });
+
+it('E09-005: CSV and NDJSON normalize historical row counts without rewriting recorded evidence',async()=>{
+ const identity={objectId:randomUUID(),objectName:'records',poolId:f.pool,decisionId:randomUUID(),hash:'b'.repeat(64),columns:['id'],provenance:'agent credential',missingDecision:false};
+ const facts=[{...identity,entitledRows:1},{...identity,returnedRows:1}];
+ for(const fact of facts){const run=await f.run(null);await withTenant(f.ctx,tx=>tx.query('INSERT INTO run_completion(run_id,started_at,outcome,synthetic,completed_at,source_plan) VALUES($1,$2,$3,false,$2,$4)',[run.id,run.at,{kind:'answered',rowCount:1,truncated:false},{rowScopes:[fact]}]));}
+ for(const format of ['ndjson','csv'] as const){
+  const link=await f.link({format,filters:{}}),text=await (await fetch(f.base+link.downloadUrl)).text();
+  const scopes=format==='ndjson'?text.trim().split('\n').map(line=>EvidenceExportRecord.parse(JSON.parse(line)).metadata.rowScopes):
+   (parse(text,{columns:true}) as {metadata:string}[]).map(row=>(JSON.parse(row.metadata) as {rowScopes:unknown}).rowScopes);
+  expect(scopes).toEqual([[{...identity,returnedRows:1}],[{...identity,returnedRows:1}]]);expect(text).not.toContain('entitledRows');
+ }
+ const stored=await withTenant(f.ctx,tx=>tx.query<{source_plan:{rowScopes:unknown[]}}>('SELECT source_plan FROM run_completion ORDER BY started_at'));
+ expect(stored.map(r=>r.source_plan.rowScopes)).toEqual(facts.map(fact=>[fact]));
+});

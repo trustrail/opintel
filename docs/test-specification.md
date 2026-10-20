@@ -1550,3 +1550,18 @@ X05-SWEEP-004–007 (`test/mcp.test.ts`): one batch closes all revoked sessions;
 HTTP authentication refuses before the sweep; failure closes instead of caching
 validity; rotated keys survive stale old-key results, but a new request with the
 same key cannot suppress invalidity. Existing I-004–006/I-014 and J-045 remain.
+
+### E-09 — returned-row receipt contract
+
+| ID | Proof |
+|---|---|
+| E09-001 | Current receipt boundaries require returnedRows and reject entitledRows, including conflicting dual fields; retain immutable decision identity |
+| E09-002 | Every seeded single-object equality compares to its query expectation, independently verified against fixture rows, rather than the whole eligible set |
+| E09-003 | Non-pushed IS NOT NULL retains its governed input scan count; final answer filtering is checked separately |
+| E09-004 | Join/aggregate final cardinalities do not replace their per-input scan counts; missing scope remains zero |
+| E09-005 | CSV/NDJSON export legacy and current facts as returnedRows without modifying stored evidence |
+
+ROW-003 additionally proves a query predicate narrows returnedRows while its
+governance decision identity stays unchanged. ROW-008 verifies legacy counts
+normalize in list/detail after retention, preserving original stored bytes and
+new receipt facts through sampling. Privileged preview entitled counts are unchanged.

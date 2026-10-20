@@ -263,3 +263,11 @@ already-decided column declared undecided. It never deletes an entitlement to
 manufacture undecided state. Existing source data must match the generator; new
 tables are inserted only when empty. These changes have not been applied by merely
 editing the harness: run the operator seeder explicitly before an external soak.
+
+Row-scope receipt `returnedRows` is a per-object scan count after pushed query
+predicates, before outer joins, aggregation and final limits. The oracle uses
+the declared single-object query's expected count (including equality predicates),
+while the composer's non-pushed IS NOT NULL predicates retain the eligible input scan count. The final answer count is verified separately.
+Join and aggregate receipts retain each input's scan count, not final answer
+cardinality. Expected counts are never learned from actual receipts. The former
+`entitledRows` field is no longer accepted on current wire contracts.

@@ -84,7 +84,7 @@ it('V-01: ten credentialed agents, two cedants, real MCP and Engine; expectation
        check(`${prefix}: zero rows without error`,output.rows,[]);
        check(`${prefix}: missing decision only in B`,output.rowScopes?.[0]?.missingDecision,index===1);
       }
-      check(`${prefix}: receipt entitled counts`,Object.fromEntries((output.rowScopes??[]).map(s=>[s.objectId,s.entitledRows])),counts);
+      check(`${prefix}: receipt returned counts`,Object.fromEntries((output.rowScopes??[]).map(s=>[s.objectId,s.returnedRows])),counts);
       check(`${prefix}: receipt has this pool only`,output.rowScopes?.every(s=>s.poolId===agent.pool),true);
       check(`${prefix}: scope receipt has no fixture literals`,forbiddenLiterals.some(value=>JSON.stringify(output.rowScopes).includes(value)),false);
      }
@@ -104,7 +104,7 @@ it('V-01: ten credentialed agents, two cedants, real MCP and Engine; expectation
    check(`${receipt.batch}/${receipt.agentId}: complete receipt contains no fixture literals`,forbiddenLiterals.some(value=>JSON.stringify(detail).includes(value)),false);
    if(receipt.success){
     const scopes=QueryOutput.shape.rowScopes.parse(row.source_plan.rowScopes);
-    check(`${receipt.batch}/${receipt.agentId}: persisted entitled counts`,Object.fromEntries((scopes??[]).map(s=>[s.objectId,s.entitledRows])),receipt.counts);
+    check(`${receipt.batch}/${receipt.agentId}: persisted returned counts`,Object.fromEntries((scopes??[]).map(s=>[s.objectId,s.returnedRows])),receipt.counts);
    }else check(`${receipt.batch}/${receipt.agentId}: refused evidence`,row.outcome.kind,'refused');
   }
   const findings=unwrap(await new PostgresDashboardReader().feed(f.ctx,null,100)).filter(finding=>finding.kind==='row_scope_missing');

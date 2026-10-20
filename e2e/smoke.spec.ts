@@ -66,6 +66,6 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
   await page.goto(`/projects/${f.ctx.projectId}/runs/${answer.evidenceId}?startedAt=${encodeURIComponent(stored.startedAt)}`);
   const receipt=page.getByRole('region',{name:'Row scope receipt'});
   await expect(receipt.getByRole('link',{name:`Decision ${decision.id}`})).toBeVisible();
-  await expect(receipt).toContainText('5 entitled rows');await expect(receipt).toContainText('agent credential');
+  await expect(receipt).toContainText('5 returned rows');await expect(receipt).toContainText('agent credential');
  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));await f.close();}
 });

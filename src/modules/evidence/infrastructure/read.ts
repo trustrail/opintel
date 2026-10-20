@@ -29,7 +29,11 @@ const legacyVersions=z.object({policy:z.number(),catalog:z.number(),vocabulary:z
 const storedObjects=z.object({objects:EvidenceDetail.shape.objects.removeDefault()});
 const storedTokens=z.object({tokenDeclarations:EvidenceDetail.shape.tokenDeclarations});
 const storedSources=z.object({sources:EvidenceDetail.shape.sources.default([])});
-const storedScopes=z.object({rowPreview:ActivityMetadata.shape.rowPreview,rowScopes:z.array(rowScopeReceipt).optional()});
+// Historical evidence remains immutable. Normalize its former field name only
+// on read; current Engine/MCP/API boundaries accept returnedRows exclusively.
+const legacyRowScopeReceipt=rowScopeReceipt.omit({returnedRows:true}).extend({entitledRows:rowScopeReceipt.shape.returnedRows}).transform(({entitledRows,...scope})=>({...scope,returnedRows:entitledRows}));
+const storedRowScopeReceipt=z.union([rowScopeReceipt,legacyRowScopeReceipt]);
+const storedScopes=z.object({rowPreview:ActivityMetadata.shape.rowPreview,rowScopes:z.array(storedRowScopeReceipt).optional()});
 function entry(row:Record<string,unknown>){const legacy=typeof row.versions==='object'&&row.versions!==null&&'tokenKey' in row.versions?legacyVersions.safeParse(row.versions):null;const objects=storedObjects.safeParse(row.sourcePlan??{});return ActivityEntry.parse({...row,metadata:ActivityMetadata.parse({rowPreview:storedScopes.parse(row.sourcePlan??{}).rowPreview,rowScopes:storedScopes.parse(row.sourcePlan??{}).rowScopes,objects:objects.success?objects.data.objects:null,delivered:row.delivered??{},omissions:row.omissions??{}}),versions:legacy?.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
 export class PostgresEvidenceReader implements EvidenceReader {
  async settings(ctx:EvidenceContext){const [row]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));return row?.settings;}

@@ -20,5 +20,9 @@ export const predicate:z.ZodType<Predicate>=z.lazy(()=>z.discriminatedUnion('kin
 ]));
 export const rowScope=z.strictObject({objectId:z.uuid(),poolId:z.uuid(),decisionId:z.uuid().nullable(),decisionIds:z.array(z.uuid()).optional(),hash:z.string().nullable(),columns:z.array(predicateColumn),predicate:predicate.nullable(),pushdown:z.boolean()});
 export type RowScope=z.infer<typeof rowScope>;
-export const rowScopeReceipt=z.strictObject({objectId:z.uuid(),objectName:z.string(),poolId:z.uuid(),decisionId:z.uuid().nullable(),decisionIds:z.array(z.uuid()).optional(),hash:z.string().nullable(),columns:z.array(z.string()),entitledRows:z.number().int().nonnegative().nullable(),provenance:z.literal('agent credential'),missingDecision:z.boolean(),scopeRevisions:z.record(z.string(),z.string()).optional()});
+/** Per-object rows returned by the governed scan after pushed query predicates.
+ * Measured before outer joins/aggregation/limits; null means no scan count.
+ * Entitlement scope is resolved through the immutable decision identifiers.
+ */
+export const rowScopeReceipt=z.strictObject({objectId:z.uuid(),objectName:z.string(),poolId:z.uuid(),decisionId:z.uuid().nullable(),decisionIds:z.array(z.uuid()).optional(),hash:z.string().nullable(),columns:z.array(z.string()),returnedRows:z.number().int().nonnegative().nullable(),provenance:z.literal('agent credential'),missingDecision:z.boolean(),scopeRevisions:z.record(z.string(),z.string()).optional()});
 export type RowScopeReceipt=z.infer<typeof rowScopeReceipt>;

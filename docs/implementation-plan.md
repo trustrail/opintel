@@ -1047,3 +1047,28 @@ occupancy sum 86. The follow-up's 49 distinct focused tests, strict typecheck
 and unchanged lint pass. The full gate passed once in 1361.23s: 1,937 tests
 in 215 files, all 59 conformance checks and one browser/MCP smoke path.
 The thirty-minute ten-agent Dashboard run remains the X-05 closure criterion.
+
+### E-09 — name the recorded scan count accurately
+
+Reader decision: rename row-scope receipt `entitledRows` to `returnedRows`, leaving
+the Engine measurement unchanged. The count is per governed source scan after
+pushed query predicates, before outer joins/aggregation/result limits. Keep the
+contributing immutable governance decision identifiers as the link to entitlement
+scope. Read legacy stored evidence through normalization without rewriting it.
+Update Engine/MCP/API/console/export contracts and the soak's independent query
+count oracle; preview entitlement counts retain their distinct meaning. Tests
+E09-001–005 and ROW-003/004/008/009; completed-candidate full gate before merge.
+
+X-05 is closed by reader acceptance of the thirty-minute capture on `979bb24`:
+the Dashboard remained usable under ten agents with no reserved capacity. The
+closure report and all 165 classified E-09 alarms are committed as `f751cbc`.
+The one custody mismatch is E-06 recurring (fourth appearance), not a missing
+credential association; that independent cause-loss finding remains open.
+
+E-09 landing validation: the first gate failed only on an outdated smoke label
+after all 1,942 normal tests and 59 conformance checks passed. The label was
+corrected; historical replay also found and corrected the new oracle's treatment
+of non-pushed IS NOT NULL predicates, with an additional real-source regression.
+This was disclosed as a different candidate. The reader authorized one fresh
+full gate, which passed in 1203.16s: 1,943 tests/216 files, 59 conformance checks
+and one browser/MCP smoke. Engine measurements and item 1.4 remain unchanged.

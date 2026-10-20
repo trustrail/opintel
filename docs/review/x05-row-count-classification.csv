@@ -1,4 +1,4 @@
-alarmLine,queryLine,queryAt,agent,sequence,pool,object,wholeEligibleRows,queryExpectedRows,recordedEntitledRows,classification,sql
+alarmLine,queryLine,queryAt,agent,sequence,pool,object,wholeEligibleRows,queryExpectedRows,recordedReturnedRows,classification,sql
 2792,2790,2026-10-20T05:45:09.136Z,soak-52076-6,61,Cedant 02,reinsurance_recoveries.soak_recoveries.recoveries,5,1,1,E-09,"SELECT ""recovery_id"",""policy_id"",""insured_name"",""shape_value"" FROM ""reinsurance_recoveries"".""soak_recoveries"".""recoveries"" WHERE recovery_id = 'REC-10'"
 2813,2811,2026-10-20T05:45:14.859Z,soak-52076-10,61,Cedant 02,reinsurance_recoveries.soak_recoveries.recoveries,5,1,1,E-09,"SELECT ""recovery_id"",""policy_id"",""insured_name"",""shape_value"" FROM ""reinsurance_recoveries"".""soak_recoveries"".""recoveries"" WHERE recovery_id = 'REC-10'"
 2817,2815,2026-10-20T05:45:14.861Z,soak-52076-2,61,Cedant 02,reinsurance_recoveries.soak_recoveries.recoveries,5,1,1,E-09,"SELECT ""recovery_id"",""policy_id"",""insured_name"",""shape_value"" FROM ""reinsurance_recoveries"".""soak_recoveries"".""recoveries"" WHERE recovery_id = 'REC-10'"

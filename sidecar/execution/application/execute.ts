@@ -55,7 +55,7 @@ export class StagedExecutor {
    if(signal.aborted)return cancelled();if(!preflight.ok)return preflight;
    const referenced=referencedObjects(tree,r.objects,r);
    const scans=referenced.map(object=>({object,request:r,predicate:pushdown(tree,object,r)}));
-   const rowScopes:RowScopeReceipt[]=scans.flatMap(({object:o})=>o.readPlan.rowScope?[{objectId:o.readPlan.rowScope.objectId,objectName:[o.catalog,o.schema,o.name].join('.'),poolId:r.poolId,decisionId:o.readPlan.rowScope.decisionId,...(o.readPlan.rowScope.decisionIds?{decisionIds:o.readPlan.rowScope.decisionIds}:{}),hash:o.readPlan.rowScope.hash,columns:o.readPlan.rowScope.columns.map(c=>c.name),entitledRows:null,provenance:'agent credential',missingDecision:o.readPlan.rowScope.predicate===null}]:[]);
+   const rowScopes:RowScopeReceipt[]=scans.flatMap(({object:o})=>o.readPlan.rowScope?[{objectId:o.readPlan.rowScope.objectId,objectName:[o.catalog,o.schema,o.name].join('.'),poolId:r.poolId,decisionId:o.readPlan.rowScope.decisionId,...(o.readPlan.rowScope.decisionIds?{decisionIds:o.readPlan.rowScope.decisionIds}:{}),hash:o.readPlan.rowScope.hash,columns:o.readPlan.rowScope.columns.map(c=>c.name),returnedRows:null,provenance:'agent credential',missingDecision:o.readPlan.rowScope.predicate===null}]:[]);
    // Admit every source scan before fetching any rows.
    if(r.objects.some(o=>o.readPlan.columns.some(c=>c.treatment==='tokenized'))&&r.tokenKeyVersionSelected===null)return err(new DomainError('dependency_unavailable','A tokenized plan requires a selected token key version.'));
    for(const scan of scans){
@@ -72,7 +72,7 @@ export class StagedExecutor {
      let result:Result<void>;
      if(o.readPlan.rowScope?.predicate===null){
       await privileged.staging.create('memory','__staging',table,stagedColumns(o.readPlan));
-      rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.entitledRows=0;
+      rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.returnedRows=0;
       await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);continue;
      }
      if(!o.readPlan.contributor&&(!o.readPlan.rowScope||o.readPlan.rowScope.pushdown)&&o.readPlan.columns.every(c=>!c.numericDefault&&(c.treatment==='clear'||c.treatment==='aggregate_only')))result=await this.source.plain(scan,privileged,table,signal);
@@ -89,7 +89,7 @@ export class StagedExecutor {
      if(!result.ok)return result;
      const counted=await privileged.execute(`SELECT COUNT(*) FROM __staging.${quote(table)}`);
      if(BigInt(String(counted.rows[0]?.[0]))>BigInt(r.settings.maxStagingRows))return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{object:{catalog:o.catalog,schema:o.schema,name:o.name},cause:'scan_observed_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
-     if(o.readPlan.rowScope)rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.entitledRows=Number(counted.rows[0]?.[0]);
+     if(o.readPlan.rowScope)rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.returnedRows=Number(counted.rows[0]?.[0]);
      await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);
     }
     return ok(undefined);

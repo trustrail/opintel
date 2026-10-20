@@ -1,5 +1,5 @@
 import {Coverage,type Specification,type Scenario} from './specification.js';
-import {scenarioPlan,discoveryMismatches,declaredMask,scenarioValuesMatch} from './scenarios.js';
+import {scenarioPlan,discoveryMismatches,declaredMask,scenarioValuesMatch,expectedReturnedRows} from './scenarios.js';
 import {certificateForAgent} from './manifest.js';
 /** Manual exploration, never a test tier. Composer sees MCP metadata only;
  * the separate oracle reads the synthetic V-01 definition to detect disclosure. */
@@ -151,7 +151,7 @@ try{
     if(!refused&&!output.success)await alarm('Successful response violates query contract',context);
     if(output.success){
      const out=output.data;
-     if(spec){for(const scope of out.rowScopes??[]){const expected=spec.objects.find(o=>o.name===scope.objectName&&o.poolIndex===agent.poolIndex);if(expected&&scope.entitledRows!==expected.expectedRowCount)await alarm('Entitled row count differs from seeder',{object:scope.objectName,expected:expected.expectedRowCount,actual:scope.entitledRows});}
+     if(spec){for(const scope of out.rowScopes??[]){const expected=spec.objects.find(o=>o.name===scope.objectName&&o.poolIndex===agent.poolIndex);if(expected){const count=expectedReturnedRows(expected,declared);if(scope.returnedRows!==count)await alarm('Returned row count differs from query expectation',{object:scope.objectName,expected:count,actual:scope.returnedRows});}}
       if(!declared&&!plan.aggregate){let expected:number;if(plan.join){const a=eligible(plan.objects[0]!,agent.poolIndex),b=eligible(plan.objects[1]!,agent.poolIndex);expected=a.reduce((n,r)=>n+b.filter(s=>s[plan!.join!]===r[plan!.join!]).length,0);}else expected=eligible(plan.objects[0]!,agent.poolIndex).filter(r=>!plan!.filter||r[plan!.filter]!==null).length;if(out.rows.length!==expected)await alarm('Exploratory result count differs from seeder',{expected,actual:out.rows.length,...context});}
      }
      const agentCustody=custodyByAgent[agent.agentId]!;if(!out.custody?.length){agentCustody.ordinaryAnswers++;if(exchanges.get(agent.device.certificateId)?.ok===false)agentCustody.ordinaryAnswersWhileExchangeUnavailable++;}const custodyExpected:Record<string,unknown[]>={};if(plan.join)matched+=out.rows.length;

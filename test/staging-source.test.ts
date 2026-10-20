@@ -85,7 +85,10 @@ it('ROW-003 native clear source path applies the same static row boundary',async
  const r=request(),o=r.objects[0]!,column={id:o.readPlan.columns[0]!.elementId,name:'id',sourceIdentifier:'id',type:'INTEGER'},parsed=parsePredicate('id >= 2',[column]);if(!parsed.ok)throw parsed.error;
  o.readPlan.rowScope={objectId:randomUUID(),poolId:r.poolId,decisionId:randomUUID(),hash:predicateHash(parsed.value),columns:[column],predicate:parsed.value,pushdown:true};
  const proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]},result=await executor(proof).execute(r);
- expect(result).toMatchObject({ok:true,value:{rows:[[2],[3]],rowScopes:[{entitledRows:2,columns:['id']}]}});expect(proof.attachments).toBe(1);expect(proof.appended).toEqual([]);
+ expect(result).toMatchObject({ok:true,value:{rows:[[2],[3]],rowScopes:[{returnedRows:2,columns:['id']}]}});expect(proof.attachments).toBe(1);expect(proof.appended).toEqual([]);
+ r.sql='SELECT id FROM orders WHERE id=3';
+ const filtered=await executor().execute(r);expect(filtered).toMatchObject({ok:true,value:{rows:[[3]],rowScopes:[{returnedRows:1,decisionId:o.readPlan.rowScope.decisionId}]}});
+ expect(JSON.stringify(filtered)).not.toContain('entitledRows');
 },30000);
 
 it('G-09 private entity inputs are opaque before either DuckDB session; equal entities stay equal, null stays null, and labels change per scan',async()=>{
@@ -125,4 +128,14 @@ for(const selfJoin of [false,true])it(`G-09 ${selfJoin?'self-join':'cross-source
   r.aggregateMinGroupSize=4;
   expect(await executor().execute(r)).toMatchObject({ok:true,value:{columns:['left_sum','right_sum'],rows:[['240','240']]}});
  }finally{await fixture(`DROP TABLE ${schema}.${left};DROP TABLE ${schema}.${right}`);}
+},30000);
+
+it('E09-003: a non-pushed null predicate keeps the source scan count distinct from final returned values',async()=>{
+ await fixture(`CREATE TABLE ${schema}.nullable_counts(id integer);INSERT INTO ${schema}.nullable_counts VALUES(1),(2),(NULL);ANALYZE ${schema}.nullable_counts;`);
+ try{
+  const r=request(),o=r.objects[0]!,column={id:o.readPlan.columns[0]!.elementId,name:'id',sourceIdentifier:'id',type:'INTEGER'},parsed=parsePredicate('id >= 1 OR id IS NULL',[column]);if(!parsed.ok)throw parsed.error;
+  o.readPlan.object='nullable_counts';o.readPlan.rowScope={objectId:randomUUID(),poolId:r.poolId,decisionId:randomUUID(),hash:predicateHash(parsed.value),columns:[column],predicate:parsed.value,pushdown:true};
+  r.sql='SELECT id FROM orders WHERE id IS NOT NULL ORDER BY id';
+  const result=await executor().execute(r);expect(result).toMatchObject({ok:true,value:{rows:[[1],[2]],rowScopes:[{returnedRows:3,decisionId:o.readPlan.rowScope.decisionId}]}});
+ }finally{await fixture(`DROP TABLE ${schema}.nullable_counts`);}
 },30000);
