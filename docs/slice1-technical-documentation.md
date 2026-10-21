@@ -2791,6 +2791,24 @@ withPlatformAdmin(fn)      // write industry scope. Distinct role, no customer r
 
 `withPlatformAdmin` is used only by the platform administration surface and the promotion jobs. **No route in the customer-facing API calls it**, and a test asserts that by scanning the call graph.
 
+The reader-authorized statement tuning extension accepts a third argument to
+`tx.query(sql, params, settings)`: only `jit: 'on' | 'off'` and `work_mem` as an
+integer number of KiB from 64 through 65,536. Unknown names and invalid values
+are rejected before changing settings. The wrapper issues `SET LOCAL` before
+that statement and restores the previous values before a following statement;
+queries queued concurrently on the transaction are serialized through that
+restoration. The queue drains before commit or rollback/release, including a
+fail-fast `Promise.all`, so pending work cannot escape the scope. A PostgreSQL statement failure is handled by the existing scope
+rollback, which also removes local settings. The existing raw SQL rejection for
+`SET`, `RESET`, transaction control and `SELECT set_config` remains unchanged.
+There is no option for tenant identity, role, RLS or arbitrary configuration.
+The Activity/Dashboard summary counts statement uses `jit: 'off'` and
+`work_mem: 5879` KiB (a measured 4,703 KiB completion-sort footprint plus 25%
+headroom). Its separate custody statement uses `jit: 'off'` after paired idle
+and loaded measurements showed a benefit. The scoping-events statement and all
+other reads retain their defaults. These settings do not change transaction
+boundaries or the summary's three sequential reads.
+
 ## 3.7 Agent authentication
 
 ```
@@ -3802,6 +3820,8 @@ The pool detail and agent twin are contextual destinations under Pools, reached 
 An issuing response is held only in transient screen-local state, never returned into the query/mutation cache or persisted. The key dialog cannot close through Escape or its backdrop. Successful clipboard copy (or copying the entire selected key) enables explicit dismissal, which clears the credential. Internal navigation is blocked while the dialog is open; unloading warns that the response cannot be recovered. A replay explains that the key was already shown and offers no recovery path. Rotation shows grace and key-specific impact; revocation requires the pool name and separates disconnected, previously seen identities.
 
 Presence events invalidate the affected pool's agent queries, list summary and detail; reconnect snapshots invalidate the project presence family, pool lists and pool details. These identifier-only notifications trigger authorized reads rather than writing event payloads into the cache. X-06 adds a 30-second polling fallback for agent pages/twins, Pool detail credential/key state and Pools list status, so revocations made by another operator or through the API become visible without a local mutation or stream signal. Presence observations remain distinct from credential authorization; agents are not removed on disconnect.
+
+X-06's second part preserves every observation and credential last-use write but publishes only for first observation or a presence state/deadline transition, including an unswept aged-state return. Repeated active requests/heartbeats do not publish. The persisted state and read-time aged state are both compared under the existing per-agent lock; concurrent returns publish one transition. The stream invalidation breadth remains unchanged. Opt-in HTTP diagnostics record per-project stream opens, snapshots accepted for writing, and closes classified as client, event/keepalive backpressure, upstream, or error; a close keeps its first server-initiated reason through unsubscribe.
 
 **A replayed key creation or rotation returns the metadata without the key**. Shown-once wins over §2.4's replay rule: the plaintext exists only in the response to the request that created it, and a retry — whether a network retry or a second tab — must not produce it again. The response carries the key version, prefix and creation time, plus keyShown: false, so a client can tell it replayed rather than created. **A caller that lost the response has lost the key**, and the answer is to rotate, which is a deliberate act with a visible consequence.
 

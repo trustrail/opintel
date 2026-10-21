@@ -1367,6 +1367,8 @@ The five HTML screen specifications use shared master patterns. These tests pres
 | RED-019–RED-020 | F/C | Dashboard integration | Counts agree with scoped destination read models, evidence links resolve, clean state disappears and unique-element/decision units remain distinct |
 
 
+**RED-019 clock independence.** The destination-facts integration fixture shares a fixed injected current-time clock between Dashboard composition and server readers, seeds runs relative to it, and asserts the same UTC range and totals with host Date at 00:10 and 23:50 UTC. Real scheduling timers remain unchanged.
+
 **RED-019/020 Dashboard checks.** Compose real destination readers with more than one pool and enough undecided groups to cross cursor boundaries; compare complete member/group/spectrum counts, open suggestions and observations, and UTC Activity totals. A rejected suggestion or successful filing retry leaves the open count; Not sure remains. Browser checks follow the scoped Decide, filing-only Open, suggestion Open and presence links, and resolve recent evidence permalinks. Measure finding/count/metric/spark/feed geometry at 390/900/1440 with the approved content-width stacking rules. Clean attention is absent, loading/error/setup remain explicit, no SQL appears in recent rows, and custody is not fetched by a viewer. Apply axe and the unchanged control/mark-placement checks. These focused redesign checks do not regenerate snapshots before reader approval.
 
 RED-019 additionally follows Dashboard's request/refusal links into Activity with a fixture whose current UTC day is empty and whose unfiltered history contains 16 requests/4 refusals. It reads each Dashboard count, follows its link and compares it directly to the destination's displayed total, for an empty UTC day (0/0) and a nonempty day (3/1), then clears the range and asserts 16/4; seven-day chart history remains 11/1. RED-020 checks actual metric child boxes for overlap and bounds compact treatment chips at 390/900/1440. Metric links must render inline, and the chart follows supporting text and links. Each labelled seven-day chart has a visible baseline and seven day positions; all bars share its bottom alignment and zero-height days remain empty. Recently has no overlapping redundant Activity button; measure the heading-to-card gap. These assertions catch inline padded-link collisions which typography and page-width checks did not.
@@ -1574,3 +1576,17 @@ new receipt facts through sampling. Privileged preview entitled counts are uncha
 | E06-002 | Escrow and grant-issue exceptions retain phase, allowlisted native code and closed-enum class in durable refusal evidence; message/name/stack accessors are never read, and no native text persists or reaches the agent |
 | E06-003 | Historical exception text properties are stripped without mutating the stored object; unknown exception types/codes become null and free-text provider failures fail boundary validation |
 | E06-COMPAT | Historical row-scope count normalization requires an explicit old/new key; preserves null/zero, rejects missing/both keys, and never mutates stored evidence |
+
+### Statement-local database tuning
+
+`db-scope-session-settings.test.ts` preserves raw SET/RESET, transaction control,
+role changes and SELECT set_config rejection, including an arbitrary setting
+through the runtime options. It rejects invalid JIT values and noninteger or
+out-of-range work_mem; only on/off and integer 64–65,536 KiB are permitted.
+`db-statement-settings.test.ts` exercises real PostgreSQL: selected settings are
+visible only to the selected statement, tenant identity remains bound, queued
+plain statements see their original settings, and commit/SQL-error rollback do
+not leak tuning into the next scope. Existing RLS-01–RLS-10 and Activity summary
+assertions remain unchanged.
+Fail-fast Promise.all cases cover both SQL errors and rejected setting SQL;
+queued statements must finish before rollback and connection release.

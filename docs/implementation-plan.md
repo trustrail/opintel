@@ -974,6 +974,18 @@ The current exact runtime pin is `@duckdb/node-api` 1.5.6-r.1 (`v1.5.6/069cc9f9b
 
 ### X-06 console request volume — complete (2026-10-19)
 
+**Second part, 2026-10-20 — measured, awaiting reader review.** On branch
+`x-06-presence-stream-lifecycle`, presence writes remain unchanged but signals
+publish only for first observation or observable state/deadline transitions,
+including unswept aged returns. Opt-in SSE diagnostics count per-project opens,
+snapshots and closes by reason. Two ten-minute ten-agent Dashboard runs each
+had one uninterrupted stream and one snapshot, zero backpressure closes;
+presence messages fell from 2,348 to 40. Console request rates were 0.2367/s
+and 0.2567/s; the candidate completed one more live refresh cycle. Summary
+latency remains material. No invalidation narrowing, full gate or commit.
+All 44 focused tests, strict typecheck and unchanged lint pass. See
+[the second-part measurement](review/x06-presence-stream-lifecycle.md).
+
 Dashboard separates five-minute pool/catalogue/entitlement collection reads from
 30-second presence, findings and Activity reads. Per-day mode counts in the
 existing Activity summary replace two redundant seven-day summary requests.

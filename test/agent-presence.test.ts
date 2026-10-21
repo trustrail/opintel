@@ -102,6 +102,42 @@ describe('5.4 agent presence',{timeout:30_000},()=>{
   publish.mockRejectedValueOnce(new Error('Redis unavailable'));const warn=vi.spyOn(console,'warn').mockImplementation(()=>{});
   try{f.clock.advance(60000);await f.repository.sweep(f.ctx);expect(await f.state()).toBe('stale');}finally{warn.mockRestore();}
  });
+ it('X-06: repeated active requests and heartbeats still persist observation and credential last-use without publishing',async()=>{
+  const publish=vi.fn(async()=>{}),f=await presenceFixture({publish});
+  unwrap(await f.signal('request'));expect(publish).toHaveBeenCalledTimes(1);
+  f.clock.advance(20000);unwrap(await f.signal('request'));
+  f.clock.advance(20000);const row=unwrap(await f.signal('heartbeat'));
+  expect(publish).toHaveBeenCalledTimes(1);
+  expect(row).toMatchObject({state:'active',lastSeen:'2026-01-01T00:00:40.000Z',lastHeartbeatAt:'2026-01-01T00:00:40.000Z',lastRequestAt:'2026-01-01T00:00:20.000Z'});
+  const saved=await withTenant(f.ctx,tx=>tx.query<{last_seen:Date;last_request_at:Date;last_used_at:Date}>(`SELECT a.last_seen,a.last_request_at,c.last_used_at FROM agent_presence a JOIN pool_key k ON k.id=a.key_version JOIN pool_credential c ON c.id=k.credential_id WHERE a.pool_id=$1`,[f.pool]));
+  expect(saved.map(r=>[r.last_seen.toISOString(),r.last_request_at.toISOString(),r.last_used_at.toISOString()])).toEqual([['2026-01-01T00:00:40.000Z','2026-01-01T00:00:20.000Z','2026-01-01T00:00:40.000Z']]);
+ });
+ it('X-06: heartbeat idleness and one concurrent return to active publish transitions, while unchanged sweeps do not',async()=>{
+  const publish=vi.fn(async()=>{}),f=await presenceFixture({publish});
+  unwrap(await f.signal('connect'));unwrap(await f.signal('request'));expect(publish).toHaveBeenCalledTimes(2);
+  for(let i=0;i<3;i++){f.clock.advance(20000);unwrap(await f.signal('heartbeat'));}
+  expect(await f.state()).toBe('idle');expect(publish).toHaveBeenCalledTimes(3);
+  f.clock.advance(20000);unwrap(await f.signal('heartbeat'));await f.repository.sweep(f.ctx);expect(publish).toHaveBeenCalledTimes(3);
+  const requests=await Promise.all(Array.from({length:10},()=>f.signal('request')));
+  expect(requests.every(r=>r.ok)).toBe(true);expect(await f.state()).toBe('active');expect(publish).toHaveBeenCalledTimes(4);
+  f.clock.advance(60000);await f.repository.sweep(f.ctx);expect(await f.state()).toBe('stale');expect(publish).toHaveBeenCalledTimes(5);
+  await f.repository.sweep(f.ctx);expect(publish).toHaveBeenCalledTimes(5);
+  f.clock.advance(300000);await f.repository.sweep(f.ctx);expect(await f.state()).toBe('disconnected');expect(publish).toHaveBeenCalledTimes(6);
+  unwrap(await f.signal('request'));expect(publish).toHaveBeenCalledTimes(7);
+ });
+ it.each([60000,360000])('X-06: a return after %i ms publishes even before the sweep persisted the aged transition',async elapsed=>{
+  const publish=vi.fn(async()=>{}),f=await presenceFixture({publish});unwrap(await f.signal('request'));
+  f.clock.advance(elapsed);const returned=unwrap(await f.signal('request'));
+  expect(returned).toMatchObject({state:'active',reconnects:1});expect(publish).toHaveBeenCalledTimes(2);
+  unwrap(await f.signal('request'));expect(publish).toHaveBeenCalledTimes(2);
+ });
+ it('X-06: an unswept idle-to-active return publishes without claiming a reconnect',async()=>{
+  const publish=vi.fn(async()=>{}),f=await presenceFixture({publish});unwrap(await f.signal('request'));
+  // Keep liveness current without allowing the 60-second idle transition to
+  // be persisted by a heartbeat or sweep before the next request.
+  f.clock.advance(40000);unwrap(await f.signal('heartbeat'));f.clock.advance(20000);
+  expect(unwrap(await f.signal('request'))).toMatchObject({state:'active',reconnects:0});expect(publish).toHaveBeenCalledTimes(2);
+ });
  it('SSE Redis fan-out isolates projects and includes presence in reconnect snapshots',async()=>{
   const url=process.env.REDIS_URL!;const connection=createRedisConnection({url});await connection.connect();const hub=new RedisProjectHub(connection.client,url);
   const f=await presenceFixture(hub),other=await presenceFixture(hub),events:StreamEvent[]=[];

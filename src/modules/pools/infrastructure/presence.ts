@@ -33,11 +33,17 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
    const [old]=await tx.query<Row>(`SELECT ${columns} FROM agent_presence WHERE pool_id=$1 AND agent_id=$2 FOR UPDATE`,[authenticated.poolId,signal.agentId]);
    if(old&&Date.parse(now)<old.lastSeen.getTime())return err(new DomainError('conflict','Presence time cannot move backwards.'));
    const initial:AgentPresence=old?presence(old):{projectId:ctx.projectId,poolId:authenticated.poolId,agentId:signal.agentId,client:signal.client,verified:false,keyVersion:authenticated.keyVersion,firstSeen:now,lastSeen:now,lastRequestAt:null,lastHeartbeatAt:now,staleAt:null,reconnects:0,state:'connecting'};
+   const aged=agePresence(initial,now,settings.value);
    const updated=observePresence(initial,signal.kind,authenticated.keyVersion,signal.client,now,settings.value);
-   await this.save(tx,updated);await tx.query('UPDATE pool_credential SET last_used_at=$2 WHERE id=(SELECT credential_id FROM pool_key WHERE id=$1)',[authenticated.keyVersion,now]);return ok(updated);
+   // Compare both the persisted state (a sweep may not have run yet) and the
+   // read-time state. An unswept idle/stale caller returning to active is still
+   // a transition even when its persisted state was already active.
+   const changed=!old||initial.state!==updated.state||initial.staleAt!==updated.staleAt||aged.state!==updated.state||aged.staleAt!==updated.staleAt;
+   await this.save(tx,updated);await tx.query('UPDATE pool_credential SET last_used_at=$2 WHERE id=(SELECT credential_id FROM pool_key WHERE id=$1)',[authenticated.keyVersion,now]);return ok({presence:updated,changed});
   });
-  if(result.ok)await this.publish(result.value);
-  return result;
+  if(!result.ok)return result;
+  if(result.value.changed)await this.publish(result.value.presence);
+  return ok(result.value.presence);
  }
  async list(ctx:PoolKeyContext,pool:PoolId,after:string|null,limit:number):Promise<Result<AgentPresenceRead[]>>{
   const settings=await this.settings(ctx);if(!settings.ok)return settings;

@@ -34,9 +34,9 @@ export async function readDashboardConfiguration(project:string,client:Client=cr
  return {asOf:stats.asOf,sources:stats.sources,pools};
 }
 /** Live attempts and presence refresh independently of catalogue/decision collections. */
-export async function readDashboardModel(project:string,admin:boolean,client:Client=createApiClient(),configuration:()=>Promise<DashboardConfiguration>=()=>readDashboardConfiguration(project,client)):Promise<DashboardModel>{
+export async function readDashboardModel(project:string,admin:boolean,client:Client=createApiClient(),configuration:()=>Promise<DashboardConfiguration>=()=>readDashboardConfiguration(project,client),currentTime:()=>Date=()=>new Date()):Promise<DashboardModel>{
  const base=`/api/v1/projects/${project}`,config=await configuration();
- const now=new Date(),utcDay=now.toISOString().slice(0,10),end=new Date(now.getTime()+1).toISOString(),today={from:utcDay+'T00:00:00.000Z',to:end};
+ const now=currentTime(),utcDay=now.toISOString().slice(0,10),end=new Date(now.getTime()+1).toISOString(),today={from:utcDay+'T00:00:00.000Z',to:end};
  const start=new Date(Date.parse(today.from)-6*86400000).toISOString(),range={from:start,to:end};
  const [observations,suggestions,oldFeed,custody,all,recent,pools]=await Promise.all([
   pages(client,base+'/observations?view=open',ObservationPage),pages(client,base+'/suggestions?view=open',SuggestionPage),pages(client,base+'/dashboard/feed',DashboardFeed),

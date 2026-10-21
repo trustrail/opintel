@@ -1,4 +1,4 @@
-import {withDiagnosticRequest} from '../telemetry/diagnostics.js';
+import {diagnostic,withDiagnosticRequest} from '../telemetry/diagnostics.js';
 import {publicAssociationOnly} from '../../shared/api/certificate-association.js';
 import { randomUUID } from 'node:crypto';
 import {once} from 'node:events';
@@ -349,21 +349,34 @@ export function createHttpServer(
       if ('stream' in result) {
         if (response.destroyed) return;
         const controller = new AbortController();
-        response.once('close', () => controller.abort());
-        const heartbeat = setInterval(() => { if (!response.destroyed && !response.writableEnded && response.headersSent && !response.write(': keepalive\n\n')) { controller.abort(); response.end(); } }, 15000);
+        const opened=performance.now(),projectId=matched.params.id??null;
+        let reason:'backpressure_event'|'backpressure_keepalive'|'upstream_close'|'error'|undefined;
+        let events=0,snapshots=0;
+        const close=(cause:NonNullable<typeof reason>)=>{reason??=cause;controller.abort();response.end();};
+        diagnostic({kind:'sse_open',requestId,projectId});
+        response.once('close', () => {
+          diagnostic({kind:'sse_close',requestId,projectId,reason:reason??'client_close',events,snapshots,durationMs:performance.now()-opened});
+          controller.abort();
+        });
+        const heartbeat = setInterval(() => { if (!response.destroyed && !response.writableEnded && response.headersSent && !response.write(': keepalive\n\n')) close('backpressure_keepalive'); }, 15000);
         controller.signal.addEventListener('abort', () => clearInterval(heartbeat), { once: true });
         try {
           await result.stream(event => {
-            if (event === null) { controller.abort(); response.end(); return; }
+            if (event === null) { close('upstream_close');return; }
             if (response.destroyed || response.writableEnded) return;
             const parsed = matched.route.response.parse(event);
             if (!response.headersSent) {
               response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', 'x-accel-buffering': 'no', [requestIdHeader]: requestId });
             }
             // A slow reader reconnects for a fresh snapshot instead of accumulating data.
-            if (!response.write(`data: ${JSON.stringify(parsed)}\n\n`)) { controller.abort(); response.end(); }
+            const writable=response.write(`data: ${JSON.stringify(parsed)}\n\n`);
+            events++;
+            if(parsed!==null&&typeof parsed==='object'&&'type' in parsed&&parsed.type==='snapshot'){
+              snapshots++;diagnostic({kind:'sse_snapshot',requestId,projectId,writable});
+            }
+            if (!writable) close('backpressure_event');
           }, controller.signal);
-        } catch (error) { controller.abort(); throw error; }
+        } catch (error) { reason??='error';controller.abort(); throw error; }
         return;
       }
       const parsedResponse = matched.route.response.safeParse(result.body);

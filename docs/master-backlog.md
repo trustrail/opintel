@@ -141,25 +141,6 @@ refusal in both the receipt and the console.
 **Evidence** tmp/soak/2026-10-18T22-18-38.220Z-81762.jsonl; src/modules/mcp/application/query.ts:51
 **Status** Open · Governance · Ahead of X-06
 
-### X-06 · Console fetches every run individually
-**Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,
-roughly 3.8 per second, including about 440 calls to /api/v1/runs/<id> with each id fetched
-exactly once. The console is a large part of what exhausts the pool it then cannot get a
-connection from. Batch or embed the run detail the feed already lists.
-**Evidence** Same capture; src/app/dashboard/read-model.ts:21
-**Status** Closed · X-06 passed the authorized full gate. Measured 113 requests
-in five minutes (0.3767/s versus 3.8/s historically), zero per-run detail calls.
-Credential/key and agent status retain a 30-second cadence; configuration has a
-five-minute fallback with its older as-of displayed. See
-[the review and measurement](review/x06-console-request-volume.md).
-
-### X-07 · A query held a pooled connection for 19 seconds
-**Customer** Against a p95 hold time of 219 ms, one acquisition held its connection for 19.2
-seconds, which is a tenth of the pool for that whole period. Identify the query. It may be the
-same work behind /runs/summary at p95 20.6s.
-**Evidence** Same capture, db records, scope opintel_app
-**Status** Open · Investigate before sizing
-
 ### Z-03 · Restrict company creation
 **Customer** Any authenticated account can create a company and becomes its administrator.
 For a product whose proposition is governed access, this is the defect class we least survive
@@ -425,6 +406,31 @@ scripts/soak/reinsurance.ts:154, sidecar/execution/application/execute.ts:89
 
 ## Not scheduled
 
+### H-06 · Test-tree wall-clock audit
+**Customer** Date-sensitive fixtures can fail depending on when validation runs.
+RED-019 is corrected with a fixed injected clock and identical 00:10/23:50 UTC
+host-clock cases; other fixtures require separate review.
+**What** Review the remaining wall-clock fixture inputs without weakening real
+expiry/deadline checks or the intentional nondeterministic canonicalizer.
+**List** `activity.test.ts`, `aggregate-contributor.test.ts`, `canonicaliser-assignment.test.ts`, `catalog-tree.test.ts`, `certificate-association.test.ts`, `company-routes.test.ts`, `dashboard-requests.test.tsx`, `dashboard.test.ts`, `engine-registry.test.ts`, `entitlement-read.test.ts`, `entitlements.test.ts`, `evidence-export.test.ts`, `evidence-writer-migration.test.ts`, `evidence.test.ts`, `filing-register.test.ts`, `fixtures/bulk-entitlements/fixture.ts`, `fixtures/evidence-export/fixture.ts`, `industry-migration.test.ts`, `industry-routes.test.ts`, `introspection-job.test.ts`, `introspection-routes.test.ts`, `isolated-tokenization.test.ts`, `key-custody.test.ts`, `observation-groups.test.ts`, `performance/activity.test.ts`, `performance/catalog-tree.test.ts`, `performance/evidence-export.test.ts`, `policy-version.test.ts`, `pools-ui.test.tsx`, `project-routes.test.ts`, `project-update-routes.test.ts`, `relationship-suggestions.test.ts`, `release-custody-availability.test.ts`, `source-registration.test.ts`, `sse-lifecycle.test.ts`, `sse.test.ts`, `temporal-declarations.test.ts`, `tenancy-list-routes.test.ts`, `token-declarations.test.ts`, `type-observation-routes.test.ts`. All paths are under `test/`; the
+[full audit](review/red019-test-clock-audit.md) lists line numbers and separately
+identifies four timing/bounds files and the deliberate negative control.
+**Status** Open · Not scheduled · Audit only; no other fixture fixes authorized.
+
+### X-08 · Rollup coverage for the seven-day summary
+**Customer** Closed days are recomputed on each Dashboard refresh: the measured
+seven-day counts read sends **29,374 raw rows into 14 output groups**, rather than
+serving those days from aggregate rollups. JIT tuning removes compilation cost,
+but the remaining work still scales with request history.
+**What** Assess and implement aggregate rollup coverage for closed days in the
+seven-day summary, preserving authorized filter/grouping semantics, historical
+delivery facts, custody receipt counting and the current day's live read. Existing
+per-run retention rollups are not a precomputed daily summary.
+**Evidence** `src/modules/evidence/infrastructure/read.ts:50`,
+[raw-row plan and endpoint measurement](review/x07-summary-statement-settings.md),
+checked 20 October 2026.
+**Status** Open · Not scheduled · No implementation authorized by this row.
+
 ### F-01 · Threshold alerts
 **Customer** Clients set thresholds on the conditions that matter to them and are notified out
 of band when one is crossed. This is the channel responsible for timely detection, so
@@ -461,6 +467,47 @@ set, retained on the same terms as receipts. Alert bodies carry counts and ident
 ---
 
 ## Done
+
+### X-06 · Console fetches every run individually
+**Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,
+roughly 3.8 per second, including about 440 calls to /api/v1/runs/<id> with each id fetched
+exactly once. The console is a large part of what exhausts the pool it then cannot get a
+connection from. Batch or embed the run detail the feed already lists.
+**Evidence** Same capture; src/app/dashboard/read-model.ts:21
+**Status** Closed · X-06 passed the authorized full gate. Measured 113 requests
+in five minutes (0.3767/s versus 3.8/s historically), zero per-run detail calls.
+Credential/key and agent status retain a 30-second cadence; configuration has a
+five-minute fallback with its older as-of displayed. See
+[the review and measurement](review/x06-console-request-volume.md).
+**Second part · 20 October 2026** Merged: authenticated observations and credential
+last-use writes are unchanged; presence publishes only on observable transitions.
+Opt-in SSE diagnostics count connections, snapshots and closes by reason,
+including event/keepalive backpressure. Presence notifications fell from 2,348 to
+40 in the paired ten-minute runs; no reconnect/snapshot feedback loop was observed.
+Invalidation breadth was not narrowed. The Dashboard-only harness does not
+attribute the 2,759 historical pool-list reads; that number remains unexplained.
+**Evidence** `src/modules/pools/infrastructure/presence.ts`,
+`src/platform/http/server.ts`, [second-part measurement](review/x06-presence-stream-lifecycle.md),
+checked 20 October 2026; final landing validation is recorded with X-07.
+
+### X-07 · A query held a pooled connection for 19 seconds
+**Customer** Against a p95 hold time of 219 ms, one acquisition held its connection for 19.2
+seconds, which is a tenth of the pool for that whole period. Identify the query. It may be the
+same work behind /runs/summary at p95 20.6s.
+**Evidence** Same capture, db records, scope opintel_app
+**Status** Closed · 20 October 2026 · Reader acceptance of the loaded endpoint measurement.
+**Resolution** Counts and custody disable JIT only for their statements; counts
+uses measured work_mem of 5,879 KiB, with no post-load sort spill. A bounded
+jit/work_mem allowlist preserves arbitrary-setting rejection and tenant scope.
+Ten agents, Dashboard open, ten minutes: **summary p95/max 4.37 s**;
+**console p95 3.39 s / max 4.37 s**, from **18.69 s / 22.38 s**.
+The load passed its exercised assertions with no disconnects. This closes the
+measured summary latency problem; the old capture lacks the SQL/request identity
+needed to prove that its exact 19.2-second acquisition was this statement.
+**Evidence** `src/modules/evidence/infrastructure/read.ts:50`,
+`src/platform/db/scope.ts:13`, [measurement and landing validation](review/x07-summary-statement-settings.md),
+checked 20 October 2026.
+
 
 ### G-08 · MIN and MAX return a real individual value from an aggregate-only column
 **Customer** MIN and MAX are permitted aggregates, and their result is an actual contributing
