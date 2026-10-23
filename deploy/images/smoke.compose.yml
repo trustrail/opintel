@@ -1,0 +1,15 @@
+# Disposable synthetic network; the normal engine runtime controls still apply.
+services:
+  postgres:
+    networks:
+      default: {ipv4_address: 172.30.92.10}
+  api:
+    networks:
+      default: {ipv4_address: 172.30.92.20}
+  egress:
+    networks:
+      default: {ipv4_address: 172.30.92.30}
+networks:
+  default:
+    ipam:
+      config: [{subnet: 172.30.92.0/24}]

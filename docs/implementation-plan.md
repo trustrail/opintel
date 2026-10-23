@@ -1116,3 +1116,22 @@ full gate, merge/push on green and restarting the development stack from the mer
 
 The tightened candidate passed its single full gate in 1215.28s: 1,950 tests in
 217 files, all 59 conformance checks and browser/MCP smoke. No gate retry.
+
+### S5 follow-up — target-platform image builds
+
+Reader-authorized packaging follow-up: one `make build PLATFORM=...` entry point
+for Linux amd64/arm64 API, engine, console and egress images, SHA/platform tags
+and a combined multi-architecture manifest. Prepare the scanner inside its target
+runtime and refuse a platform mismatch rather than bypass LOAD verification.
+Centralize upstream manifest digests, exclude secret inputs and scan every final
+image layer, retain the Engine runtime/egress controls and bounded supervisor.
+Prove both builds and one amd64 readiness/governed-query path, then one completed
+candidate gate before commit, merge and push. See `docs/ops/build-images.md`.
+
+Gate bootstrap follow-up: before any validation tier, inspect the existing dev
+Compose services and start stopped PostgreSQL/Redis services without recreating
+containers or pulling images. Authenticate to the test PostgreSQL database and
+PING Redis with bounded workers; name any unavailable service and stop before
+tiers begin. Preserve the earlier offline-PostgreSQL and offline-Redis run
+records. Run one new gate on the completed candidate; commit, merge and push
+only on green, with no retry on failure.

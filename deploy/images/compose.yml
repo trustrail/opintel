@@ -1,0 +1,48 @@
+services:
+  postgres:
+    extends: {file: ../../docker-compose.yml, service: postgres}
+  redis:
+    extends: {file: ../../docker-compose.yml, service: redis}
+  spicedb-postgres:
+    extends: {file: ../../docker-compose.yml, service: spicedb-postgres}
+  spicedb-migrate:
+    extends: {file: ../../docker-compose.yml, service: spicedb-migrate}
+  spicedb:
+    extends: {file: ../../docker-compose.yml, service: spicedb}
+    command: serve --grpc-preshared-key devkey --datastore-engine postgres --datastore-conn-uri postgres://spicedb:spicedb@spicedb-postgres:5432/spicedb?sslmode=disable --grpc-tls-cert-path /config/tls/spicedb.pem --grpc-tls-key-path /config/tls/spicedb.key
+    volumes:
+      - ${APPLICATION_CONFIG_DIRECTORY:?application TLS directory}:/config:ro
+  api:
+    image: ${IMAGE_PREFIX:-opintel}-api:${TAG:?set image revision}
+    platform: ${PLATFORM:-linux/amd64}
+    env_file: ${API_SECRET_ENV_FILE:?operator runtime environment}
+    environment:
+      APPLICATION_TLS_CONFIG: /config/application-tls.json
+      NODE_EXTRA_CA_CERTS: /config/tls/ca.pem
+      MAIL_OUTPUT_DIR: /mail
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:4173}
+    volumes:
+      - ${APPLICATION_CONFIG_DIRECTORY:?application TLS directory}:/config:ro
+      - ${XQ_DIRECTORY:-${HOME}/.xq}:/xq:ro
+      - api-mail:/mail
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      spicedb: {condition: service_started}
+    ports: ["127.0.0.1:${API_PORT:-3000}:3000"]
+    restart: "no"
+  console:
+    image: ${IMAGE_PREFIX:-opintel}-console:${TAG:?set image revision}
+    platform: ${PLATFORM:-linux/amd64}
+    environment:
+      API_UPSTREAM: http://api:3000
+    depends_on: [api]
+    ports: ["127.0.0.1:${CONSOLE_PORT:-4173}:8080"]
+    restart: "no"
+  egress:
+    extends: {file: ../engine/compose.yml, service: egress}
+  engine:
+    extends: {file: ../engine/compose.yml, service: engine}
+volumes:
+  api-mail:
+  spicedb-data:

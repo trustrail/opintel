@@ -9,3 +9,17 @@ test-results
 playwright-report
 .codex
 .agents
+**/.env
+**/.env.*
+**/.xq
+**/.aws
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.jks
+**/id_rsa*
+**/id_ed25519*
+**/__pycache__
+**/*.pyc
+scripts/images

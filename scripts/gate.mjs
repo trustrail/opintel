@@ -4,6 +4,7 @@ import {performance} from 'node:perf_hooks';
 import {spawnSync} from 'node:child_process';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from 'node:net';
+import {gatePreflight} from './gate-preflight.mjs';
 async function isolation(tier){
  const checks=[];
  for(const port of [3000,3100,3101,4173,5173]){
@@ -17,6 +18,19 @@ async function isolation(tier){
 
 const commit=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
 const start=performance.now(),tiers=[];
+let preflight;
+try{
+ const services=await gatePreflight();
+ preflight={...services,seconds:(performance.now()-start)/1000,exitCode:0};
+ console.log('Gate preflight: test PostgreSQL and Redis reachable.');
+}catch(error){
+ const message=error instanceof Error?error.message:'Gate dependency preflight failed.';
+ preflight={seconds:(performance.now()-start)/1000,exitCode:1,message};
+ mkdirSync('test-results',{recursive:true});
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,preflight,tiers,wallSeconds:(performance.now()-start)/1000,complete:false},null,2)+'\n');
+ console.error(`Gate preflight failed: ${message}`);
+ process.exit(1);
+}
 // Sequential; never retry a tier or run domains concurrently with smoke setup.
 const scripts=['typecheck','typecheck:conformance','lint','build:production','test:conformance','test','test:smoke'];
 for(const script of scripts){
@@ -24,7 +38,7 @@ for(const script of scripts){
  const began=performance.now();const result=spawnSync('npm',['run',script],{stdio:'inherit'});
  tiers.push({tier:script,seconds:(performance.now()-began)/1000,exitCode:result.status??1});
  mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,tiers,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===scripts.length},null,2)+'\n');
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,preflight,tiers,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===scripts.length},null,2)+'\n');
  if(result.status!==0){process.exitCode=result.status??1;break;}
 }
 console.log(`Gate wall time: ${((performance.now()-start)/1000).toFixed(2)}s`);

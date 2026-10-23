@@ -1,6 +1,6 @@
 services:
   source:
-    image: pgvector/pgvector:pg16
+    extends: {file: ../../deploy/images/upstream.json, service: postgres}
     environment:
       POSTGRES_USER: opintel
       POSTGRES_PASSWORD: synthetic-only
@@ -14,13 +14,13 @@ services:
       default:
         ipv4_address: 172.30.84.10
   redis:
-    image: redis:7-alpine
+    extends: {file: ../../deploy/images/upstream.json, service: redis}
     command: redis-server --save "" --appendonly no
     networks:
       default:
         ipv4_address: 172.30.84.11
   spicedb:
-    image: authzed/spicedb:latest
+    extends: {file: ../../deploy/images/upstream.json, service: spicedb}
     command: serve --grpc-preshared-key synthetic-only --datastore-engine memory
     networks:
       default:

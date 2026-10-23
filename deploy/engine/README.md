@@ -7,9 +7,11 @@ provided manifest, not an unrestricted `docker run`.
 
 ## Provisioning
 
-1. Build `docker compose -f deploy/engine/compose.yml --env-file OPERATOR_ENV build`.
+1. Build `make build PLATFORM=linux/amd64,linux/arm64` from the repository root.
+   Set TAG to the resulting revision and PLATFORM to one runtime platform when
+   starting Compose. See [image build operations](../../docs/ops/build-images.md).
    The `engine` target of `deploy/engine/Dockerfile` produces
-   `opintel-engine:local`; distribute a reviewed immutable image digest. The
+   `opintel-engine:<revision>`; distribute a reviewed immutable image digest. The
    matching `egress` target supplies the firewall companion. The PostgreSQL
    scanner for pinned DuckDB 1.5.6 is fetched, signature/build checked and baked
    at build time. `sidecar:prepare-scanner` checks the exact engine build, uses its

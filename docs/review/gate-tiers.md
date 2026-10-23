@@ -5,6 +5,7 @@ Version: 1.1 — 2026-10-16
 
 | Tier | Defect class | Existing concrete counterexample / caught defect |
 |---|---|---|
+| Dependency preflight (before tiers) | Expensive validation reaching a stopped development dependency late | The first image-build gate stopped at normal bootstrap because test PostgreSQL was offline; the next passed 1,986 normal tests but stopped at smoke setup because Redis was offline. Preflight starts only stopped dev Compose PostgreSQL/Redis services, then authenticates with SELECT 1/PING. Inspection is bounded to 2 seconds, startup to 5 seconds and parallel probes to 5 seconds; failures name the dependency before any tier. Regression controls cover stopped-service startup, one/both unavailable dependencies and killing a hung command. |
 | Strict typecheck | Invalid typed contracts | The three recorded dashboard-fixture missing-custody errors in the conformance project; normal strict typecheck catches the equivalent production contract mismatch. The production and conformance projects are checked separately. |
 | Conformance typecheck (`typecheck:conformance`) | Invalid TypeScript contracts in conformance checks and their imported fixtures, outside the production tsc project | Three TS2741 assignments in `e2e/dashboard-fixture.ts` omitted the required output custody count. The fixture now explicitly records zero; this tier prevents the omission being invisible to a green gate. |
 | Lint and boundaries | Forbidden dependency direction and unsafe implementation patterns | `test/module-boundary.test.mjs` catches domain→infrastructure and cross-module non-index imports with the real ESLint rule. During this change lint also rejected twelve undeclared Node globals in the new scripts; explicit imports fixed them. |
@@ -20,6 +21,14 @@ The normal `npm run build` uses Vite production mode. The harness uses `browser-
 204 PNGs are preserved byte-for-byte under `archive/browser-baselines/2026-10-16`. There are no screenshot comparisons, tolerances, refresh commands or active snapshot projects. The old baseline investigation is cancelled. The central renderer policy remains; no test may override it.
 
 The smoke uses fixture mail/session responses and pool header data. Row decisions go through the actual HTTP routes and SpiceDB permissions; a real pool credential authenticates the MCP client; the real Engine queries a synthetic Postgres source; the receipt is read back from Postgres and rendered. It is not a live mail-provider or XQ test. Existing identity, custody and provider-failure integration tests remain unchanged.
+
+`make build` also runs an image-layer secret audit, outside the completed-tip gate.
+Its defect class is credentials accidentally packaged in a final image, including
+files deleted by a later layer. Its executable positive controls reject a nested
+`.env`, `.xq` material, a key file, PEM private-key content under an innocent name,
+and synthetic live-key/XQ credential values. The negative control permits ordinary
+key-handling source code. The normal test suite runs these controls too; the build
+audits every exported platform image and fails if layer coverage is incomplete.
 
 ## Change ledger
 | Version | Date | Change | Impact on the product |
