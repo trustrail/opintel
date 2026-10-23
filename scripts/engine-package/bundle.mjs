@@ -1,0 +1,60 @@
+import process from 'node:process';
+import console from 'node:console';
+import {build} from 'esbuild';
+import {createHash} from 'node:crypto';
+import {mkdir,readFile,writeFile,copyFile,readdir,cp} from 'node:fs/promises';
+import {resolve,dirname,relative,join} from 'node:path';
+
+const target=process.argv[2],destination=resolve(process.argv[3]??`tmp/runtime/${target}`);
+const entries={
+ api:{'src/platform/http/start.js':'src/platform/http/start.ts','src/platform/http/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs'},
+ engine:{'sidecar/supervise.js':'sidecar/supervise.ts','sidecar/start.js':'sidecar/start.ts','sidecar/pin-command.js':'sidecar/pin-command.ts','sidecar/ingest/command.js':'sidecar/ingest/command.ts'},
+ console:{'console.mjs':'deploy/images/console.mjs'},
+ egress:{'egress.mjs':'deploy/engine/egress.mjs'},
+};
+if(!Object.hasOwn(entries,target))throw new Error('Bundle target must be api, engine, console or egress.');
+await mkdir(destination,{recursive:true});
+const artifacts={};
+const record=async(name)=>{artifacts[name]=createHash('sha256').update(await readFile(join(destination,name))).digest('hex');};
+for(const [name,source] of Object.entries(entries[target])){
+ const nativePath=relative(dirname(name),'native/duckdb.node').replaceAll('\\','/');
+ const result=await build({entryPoints:[source],outfile:join(destination,name),bundle:true,minify:true,sourcemap:false,
+  platform:'node',format:'esm',target:'node22',legalComments:'eof',metafile:true,logLevel:'warning',
+  define:{'process.env.NODE_ENV':'"production"'},
+  banner:{js:'import {createRequire as __opintelCreateRequire} from "node:module";const require=__opintelCreateRequire(import.meta.url);'},
+  plugins:[{name:'shipping-runtime',setup(builder){
+   builder.onResolve({filter:/^@duckdb\/node-bindings$/},()=>({path:'duckdb-native',namespace:'opintel-runtime'}));
+   builder.onLoad({filter:/.*/,namespace:'opintel-runtime'},()=>({contents:`import {createRequire} from 'node:module';export default createRequire(import.meta.url)(${JSON.stringify((nativePath.startsWith('.')?'':'./')+nativePath)});`,loader:'js'}));
+   // Production already skips the development migration check. Keep its code
+   // and CLI entrypoint out of the API bundle instead of relying on side effects.
+   builder.onLoad({filter:/\/platform\/http\/development-migrations\.ts$/},()=>({contents:'export async function checkDevelopmentMigrations() {}',loader:'js'}));
+  }}],
+ });
+ const forbidden=Object.keys(result.metafile.inputs).filter(file=>/^(?:test|e2e|reference|scripts\/soak|sidecar\/demo)\//u.test(file));
+ if(forbidden.length)throw new Error('Runtime bundle contains excluded build inputs: '+forbidden.join(', '));
+ await record(name);
+}
+await writeFile(join(destination,'package.json'),'{"type":"module","private":true}\n');await record('package.json');
+if(target==='api'||target==='engine'){
+ const platform=process.env.TARGETPLATFORM;
+ const names={'linux/amd64':'linux-x64','linux/arm64':'linux-arm64'};
+ if(platform&&!names[platform])throw new Error('Unsupported native binding target.');
+ const native=names[platform]??`${process.platform}-${process.arch}`;
+ const directory=`node_modules/@duckdb/node-bindings-${native}`;
+ await mkdir(join(destination,'native'),{recursive:true});
+ const files=(await readdir(directory)).filter(name=>name==='duckdb.node'||name==='LICENSE'||/^libduckdb\.(?:so|dylib)$/u.test(name));
+ if(!files.includes('duckdb.node'))throw new Error('Native DuckDB binding is missing.');
+ for(const file of files){await copyFile(join(directory,file),join(destination,'native',file));await record('native/'+file);}
+}
+if(target==='engine'){
+ const scanner='tmp/duckdb-extensions/postgres_scanner.duckdb_extension';
+ await mkdir(dirname(join(destination,scanner)),{recursive:true});
+ await copyFile(scanner,join(destination,scanner));await record(scanner);
+}
+if(target==='console'){
+ await cp('dist',join(destination,'dist'),{recursive:true});
+ const walk=async(directory)=>{for(const entry of await readdir(join(destination,directory),{withFileTypes:true})){const name=directory+'/'+entry.name;if(entry.isDirectory())await walk(name);else{if(!/\.(?:html|js|css|png)$/u.test(name))throw new Error('Unexpected console artifact: '+name);await record(name);}}};
+ await walk('dist');
+}
+await writeFile(join(destination,'runtime-manifest.json'),JSON.stringify({version:1,target,minified:true,sourceMaps:false,artifacts},null,2)+'\n');
+console.log(`Bundled ${target}: ${Object.keys(artifacts).length} explicitly recorded runtime files.`);

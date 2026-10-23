@@ -1161,3 +1161,10 @@ Each stage reports shipped work and findings before the next begins. The stage
 contract records estimates and external prerequisites. Stage 1 records decisions,
 not implementation completion. New admission semantics remain a review boundary;
 packaging must not silently create an administrator or bypass tenant scopes.
+
+Approved stage-3 admission decision: a gateway-host one-shot CLI records an
+email/company claim lasting 24 hours and refuses if any company exists. No role
+is granted until that exact email completes normal login within the window.
+Expired, unredeemed claims require an explicit rerun. Claim creation and
+redemption are audited; the CLI prints/stores no password, token or secret.
+Use an explicit claimant kind for future IdP-group support; implement email only.

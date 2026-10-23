@@ -10,7 +10,7 @@ import {setTimeout} from 'node:timers/promises';
 import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import ts from 'typescript';
+import {build} from 'esbuild';
 function exec(command,args,options={}){
  const r=spawnSync(command,args,{encoding:'utf8',...options});
  if(r.error||r.status!==0)throw new Error(`${command} failed (${r.status}): ${r.stderr??''}`);
@@ -18,7 +18,14 @@ function exec(command,args,options={}){
 }
 mkdirSync('tmp',{recursive:true});
 const directory=resolve(mkdtempSync('tmp/images-smoke-')),tls=resolve(directory,'tls');mkdirSync(tls);
-writeFileSync(resolve(directory,'seed-smoke.js'),ts.transpileModule(readFileSync('scripts/images/seed-smoke.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText);
+// Disposable test provisioning is external to every shipping image. Stage 3
+// supplies the independently packaged production migration job.
+await build({entryPoints:['scripts/images/seed-smoke.ts'],outfile:resolve(directory,'seed-smoke.mjs'),bundle:true,minify:true,sourcemap:false,platform:'node',format:'esm',target:'node22',
+ banner:{js:'import {createRequire} from "node:module";const require=createRequire(import.meta.url);'},
+ plugins:[{name:'smoke-native',setup(builder){
+  builder.onResolve({filter:/^@duckdb\/node-bindings$/},()=>({path:'native',namespace:'smoke'}));
+  builder.onLoad({filter:/.*/,namespace:'smoke'},()=>({contents:'import {createRequire} from "node:module";export default createRequire(import.meta.url)("/work/native/duckdb.node");',loader:'js'}));
+ }}]});
 for(const name of ['audit','custody','xq']){mkdirSync(resolve(directory,name));chmodSync(resolve(directory,name),0o777);}
 exec('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',tls+'/ca.key','-out',tls+'/ca.pem','-subj','/CN=Image smoke CA','-days','2']);
 for(const name of ['server','client','spicedb']){
@@ -46,10 +53,10 @@ try{
  compose('up','-d','--wait','postgres','redis','spicedb');
  compose('exec','-T','postgres','createdb','-U','opintel','opintel_image_smoke');
  compose('exec','-T','postgres','psql','-U','opintel','-d','opintel_image_smoke','-c','CREATE SCHEMA image_smoke; CREATE TABLE image_smoke.records(answer integer); INSERT INTO image_smoke.records VALUES(42); ANALYZE image_smoke.records;');
- compose('run','--rm','--no-deps','api','node','src/platform/db/migrate.js','up');
+ exec(process.execPath,['--import','tsx','src/platform/db/migrate.ts','up'],{env:{...process.env,NODE_ENV:'production',MIGRATION_DATABASE_URL:'postgresql://opintel:opintel@127.0.0.1:15432/opintel_image_smoke'}});
  compose('up','-d','egress','engine');
  const readiness=await wait(health);
- compose('run','--rm','--no-deps','--volume',`${resolve(directory,'seed-smoke.js')}:/work/scripts/images/seed-smoke.js:ro`,'api','node','scripts/images/seed-smoke.js');
+ compose('run','--rm','--no-deps','--volume',`${resolve(directory,'seed-smoke.mjs')}:/smoke/seed-smoke.mjs:ro`,'--volume',`${resolve('docs/opintel-schema.zed')}:/work/docs/opintel-schema.zed:ro`,'api','node','/smoke/seed-smoke.mjs');
  compose('up','-d','api','console');
  await wait(async()=>{const r=await globalThis.fetch('http://127.0.0.1:13873/');if(!r.ok)throw new Error('Console not ready');});
  await wait(async()=>{const r=await globalThis.fetch('http://127.0.0.1:13800/api/v1/me');await r.text();if(r.status>=500)throw new Error('API not ready');});

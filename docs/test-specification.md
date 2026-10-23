@@ -1612,3 +1612,12 @@ Existing governance, bypass and ephemerality assertions remain unchanged.
 | DEP-011 | Soak preflight checks observer access, fixture/source readiness, requested custody and lifecycle coverage before timing; expired/denied prerequisites are explicit, never silently omitted or auto-repaired | 4 |
 | DEP-012 | From empty volumes and fresh operator secrets, deploy gateway/engine on two actual hosts; provision demo separately, prove an allowed query and a refused query with persisted evidence; record digests and active network/trust negative controls | 5 |
 | DEP-013 | Execute the specified 30-minute external soak only after preflight passes; retain complete outcome/coverage/receipt/custody counts and logs, report failures or unexercised scenarios honestly | 5 |
+
+DEP-008 also covers the approved initial-owner claim: the gateway-host CLI
+refuses when any company exists, records a 24-hour email/company claim without
+granting a role or issuing/storing credentials, and requires explicit rerun after
+expiry. Only normal login by the exact claimed email before expiry may redeem it
+and receive the company administrator role. Claim creation and redemption are
+audited; concurrent attempts cannot create multiple initial companies or redeem
+twice. Claimant kind is explicit for later IdP-group support, which is not
+implemented in this change.

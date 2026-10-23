@@ -1,5 +1,6 @@
 PLATFORM ?= linux/amd64,linux/arm64
-export PLATFORM
+IMAGE ?= all
+export PLATFORM IMAGE
 .PHONY: build
 build:
 	node scripts/images/build.mjs

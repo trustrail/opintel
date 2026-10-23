@@ -6,8 +6,6 @@ import { SidecarTokenizer,IanaZoneResolver } from './tokenize/index.js';
 import { FileCustody } from './custody/infrastructure/file-custody.js';
 import { DevelopmentFileKeyStore,DevelopmentFileKeyEscrow } from './custody/infrastructure/development-file-keys.js';
 import { foldingVersion } from './tokenize/unicode/folding.js';
-import { SpreadsheetDemoProvisioner } from './demo/provision.js';
-import { DemoWorkbookWriter } from './demo/infrastructure/workbook-writer.js';
 import { FilingLander } from './ingest/land.js';
 import { PostgresLanding } from './ingest/infrastructure/postgres-landing.js';
 import { HttpsLandingReceipts } from './ingest/infrastructure/receipt-client.js';
@@ -39,7 +37,12 @@ async function main(): Promise<void> {
     try{return await checkQueryReadiness(config,scope);}
     catch(error){if(process.connected)await new Promise<void>(resolve=>process.send?.({event:'engine.readiness_failed',reason:error instanceof QueryReadinessError?error.reason:'engine_process_stopped'},()=>resolve()));throw error;}
   });
-  const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo: config.demo ? new SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new DemoWorkbookWriter()) : undefined,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
+  // Synthetic workbook generation is an operator/development concern, not a
+  // shipping engine payload. Production bundling removes these imports.
+  const demo = config.demo && process.env.NODE_ENV !== 'production'
+    ? new (await import('./demo/provision.js')).SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new (await import('./demo/infrastructure/workbook-writer.js')).DemoWorkbookWriter())
+    : undefined;
+  const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;
   let boundPort=config.port;

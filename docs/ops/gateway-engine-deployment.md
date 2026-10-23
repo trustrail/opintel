@@ -1,9 +1,9 @@
 # Gateway and engine deployment contract
 
-Status: stage 1 contract, approved direction recorded 23 October 2026. This file
-specifies the five-stage implementation; it does not claim that later stages
-have shipped. The current image-build runbook remains historical implementation
-context until the replacement packages pass their acceptance checks.
+Status: approved direction recorded 23 October 2026. Stage 1 is committed;
+stage 2 packaging is implemented with validation recorded below. Stages 3–5
+remain planned. The image-build runbook distinguishes current artifact builds
+from the legacy combined deployment package, which stage 3 replaces.
 
 ## Scope and terminology
 
@@ -127,12 +127,20 @@ source identities, not a rewritten applied ledger or renamed historical version.
 SQL migrations/schema are declared execution assets in the migrations image,
 not undeclared copies in the API image.
 
-Initial-operator tooling must preserve existing identity and company-admission
-semantics. The historical first-deployment review records unresolved admission
-choices; this packaging task does not authorize an unauthenticated admin route,
-public-signup change or database-granted tenant membership. Inventory supported
-onboarding paths before implementing automation. Any required new admission
-behavior needs a concrete review decision before its dependent implementation.
+Initial-operator decision (23 October 2026): stage 3 adds an explicit one-shot
+claim CLI on the gateway host. It refuses if any company exists. The operator
+names the initial owner email and company; the CLI records a claim expiring in
+24 hours. It grants no administrator role. Only that exact email completing the
+existing normal login within the window may redeem the claim, create the company
+and receive its administrator role. An unredeemed claim expires and requires an
+explicit CLI rerun; historical claims and audit records remain intact. Claim
+creation and redemption both enter the audit log. The CLI prints or stores no
+password, token or secret, and does not prove identity or issue a session.
+Model the claimant with an explicit kind so a later IdP-group claimant can be
+added; implement only email claims now. No new public signup, bootstrap login
+endpoint or pre-login role grant is authorized. Other admission behavior remains
+unchanged. The historical first-deployment review is background; this decision
+resolves its initial-operator choice for this package.
 
 Separate commands cover installation/bootstrap, engine local preparation,
 registration/verification, reinsurance governance provisioning, synthetic source
@@ -162,16 +170,18 @@ its target. Preserve failed run records; a later run is a new record.
 |---|---|---|---|
 | 1 | This contract; implementation sequence; deployment acceptance IDs | Reviewed scope recorded; documentation checks and repository gate; separate commit | 0.5–1 day |
 | 2 | Independent targets; minified runtime artifacts; per-image layer allowlists; release manifest | DEP-001–003 and packaging checks; repository gate; separate commit | 2–3 days |
-| 3 | Gateway/engine packages; explicit migrations/bootstrap; offline engine installation and later registration | DEP-004–008; no new admission behavior without review; repository gate; separate commit | 3–5 days |
+| 3 | Gateway/engine packages; explicit migrations and expiring owner claim; offline engine installation and later registration | DEP-004–008; approved claim admission only; repository gate; separate commit | 5–8 days |
 | 4 | Independent provisioning, synthetic generation, soak preparation/execution tools | DEP-009–011; repository gate; separate commit | 3–5 days |
 | 5 | Clean local and actual split-host deployment, governed query and 30-minute soak; final runbooks | DEP-012–013 and preceding checks; repository gate; separate commit with honest external-test status | 2–4 days |
 
-Estimates total 10.5–18 focused working days, including validation, excluding
+Revised estimates total 12.5–21 focused working days, including validation, excluding
 waiting for test hosts, network access or provider credentials. Stages are
 sequential; record the completed stage's artifact, gate outcome, commit and
 findings before moving on. Do not claim a later-stage acceptance test has passed
 because its requirement has been documented. No gate retry on the same tree;
 a changed candidate is a new run. Product-test failure stops progression.
+The original estimate was 10.5–18 days; stage 3 increased from 3–5 to 5–8 days
+after the explicit 24-hour claim/redemption/audit lifecycle was approved.
 
 Stage 5 needs two reachable test hosts and usable external provider credentials.
 Single-host separate Compose projects prove package separation, not actual
@@ -205,3 +215,35 @@ inspection budget is now 5 seconds, still bounded with no retries; a controlled
 2.2-second inspection is a regression case. Source/Redis probe and startup
 deadlines and all product assertions remain unchanged. The stopped record is
 retained under tmp/deployment-stages/stage-1/stopped-preflight/.
+
+## Stage-2 packaging validation
+
+Independent IMAGE selection builds API, engine, console or egress without
+building other product targets. Both linux/amd64 and linux/arm64 images pass
+the secret scan and the explicit runtime layer allowlist. Combined manifests
+select the same eight platform image identities that were audited. Candidate
+release metadata records runtime file hashes, upstream pins, binding/build,
+engine contract and original migration checksums; it is not a migration runner.
+
+The packaged API native binding and XQ worker execute without a checkout or
+node_modules on both platforms. The worker must contact its synthetic loopback
+provider, so an import failure reported as provider-unreachable cannot pass.
+The amd64 image smoke passed signed-scanner source readiness, console serving
+and an entitled MCP query returning one expected row and an evidence id.
+ARM scanner preparation verifies LOAD in the ARM target runtime under emulation.
+The normal E-10 suite retains missing-scanner/source and failed-readiness controls.
+
+Build/audit records and manifest selection are retained under
+tmp/deployment-stages/stage-2/; the governed-query result is
+tmp/images-smoke-pkloUq/result.json. The completed-candidate gate is recorded
+separately in that stage directory before commit. No stage-3 package, fresh
+owner claim, independent demo tooling or actual split-host proof is implied.
+
+Findings: ESM bundles need explicit native-binding and worker paths. OS relative
+symlinks and the POSIX test executable must be classified as pinned runtime
+files, while application links and test payloads remain forbidden. The first
+disposable smoke helper failed to resolve a container-native import on the host
+before services started; the corrected helper passed. Provisioning and migration
+helpers no longer belong in the API image: the stage-2 smoke uses external test
+setup, pending the independently packaged stage-3 jobs. Disk space interrupted
+builds; the completed platform audits required no weakened exclusions.

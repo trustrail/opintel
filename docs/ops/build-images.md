@@ -13,12 +13,14 @@ ample host and Docker-VM space for both architectures; the first attempt on the
 8 GiB development laptop exhausted 3.3 GiB free before completing one image.
 
 ```sh
-make build PLATFORM=linux/amd64
-make build PLATFORM=linux/arm64
-make build PLATFORM=linux/amd64,linux/arm64
+make build IMAGE=api PLATFORM=linux/amd64
+make build IMAGE=engine PLATFORM=linux/arm64
+make build IMAGE=console PLATFORM=linux/amd64,linux/arm64
+make build IMAGE=all PLATFORM=linux/amd64,linux/arm64
 ```
 
-The default builds both architectures. Targets are `api`, `engine`, `console` and
+The default builds all images for both architectures. A selected IMAGE builds
+only that product and its required build/runtime stages. Targets are `api`, `engine`, `console` and
 `egress`. The firewall companion is part of the Engine deployment and is built
 for the same platform. `IMAGE_PREFIX` defaults to `opintel`; `TAG` defaults to the
 first twelve characters of HEAD. Tags look like
@@ -26,15 +28,16 @@ first twelve characters of HEAD. Tags look like
 `<sha>`; a two-platform invocation gives that tag a manifest with both platforms.
 The build uses Buildx for each architecture and assembles the combined index from
 the same cached build targets. Nothing is pushed to an image registry implicitly.
-Build reviewed source: a dirty worktree retains HEAD's tag, so it is not a
-substitute for recording the candidate revision. Rebuild after committing before
-using the new commit's release tags.
+Release builds require a clean checkout. For validation of uncommitted changes,
+set `BUILD_CANDIDATE=1` and use a `candidate-` prefixed tag. These are explicitly
+marked validation artifacts, not release provenance. Successful builds record
+selected image identities, platforms and upstream pins under `tmp/images/releases/`.
 
 ## Dependencies and scanner
 
 `deploy/images/upstream.json` is both a valid Compose file and the image lock.
 Postgres/pgvector, Redis and SpiceDB images are referenced only there by upstream
-multi-platform manifest digest. Both Node build/runtime bases are locked there
+multi-platform manifest digest. Node build/runtime and Debian OS bases are locked there
 for the normal image entry point as well. Update the lock deliberately, verify
 both architectures and repeat the image checks; a tag alone is not a pin.
 The legacy proof/controller Dockerfile targets remain available to S4.
@@ -52,17 +55,33 @@ development preparation still uses `PRAGMA platform`, including macOS.
 
 Operator `.env` files, `.xq`, `.aws`, private-key files and certificate bundles are
 excluded by `.dockerignore`; Dockerfiles use explicit COPY inputs. The console
-contains static production assets plus its HTTP/proxy server. API and Engine
-contain compiled application code and production dependencies. The API retains
-original migration files, including TypeScript executed by pinned Node 22's
-built-in type stripping, so the checksum ledger sees the original applied bytes.
+contains static production assets plus a minified HTTP/proxy bundle. API and
+engine contain minified runtime entrypoints and explicitly selected native
+files. They contain no original TypeScript, source maps, test/fixture trees,
+node_modules, npm, migration runner or demo generator. Migration packaging is
+the separate stage-3 deliverable; API startup is not a migration command.
 No build argument
 accepts a credential or XQ configuration. Certificates, keys, operator service JSON,
 XQ state and environment values belong in runtime mounts or runtime environment
 files. The XQ SDK implementation is code, not XQ account material.
 Image-build/audit/smoke tooling under `scripts/images` is host-only and excluded
-from the build context. The smoke transpiles its synthetic seed on the host and
-mounts that one file read-only into its disposable seed container.
+from the build context. The smoke bundles its synthetic seed on the host and
+mounts it and the authorization schema read-only into a disposable seed
+container. Its migrations run from the host against only its isolated database;
+this test setup is not the production installation procedure.
+
+`deploy/images/runtime-policy.json` is the explicit application-file allowlist.
+`scripts/images/check-runtime.py` audits every exported layer, verifies the
+artifact manifest and hashes, and rejects undeclared files, original source,
+fixtures and embedded source maps even if a later layer deletes them. OS/runtime
+layers are accepted only by exact diff-id from a separately built base with no
+repository COPY. The base includes Node's executable, CA certificates and system
+libraries; only the egress base additionally includes firewall tools. Original
+source and source maps remain forbidden inside trusted bases too. The upstream
+POSIX `/usr/bin/test` executable is classified as coreutils, not a test suite.
+Relative OS symlinks are permitted only in those exact trusted base layers;
+application-layer links are refused. The legacy S4 controller is a test image
+with its own source/instrumentation needs and is not a distributable target.
 
 Every successful `make build` exports each selected platform image to a streaming
 layer checker, which rejects forbidden filenames, private-key PEM blocks, explicit XQ credential assignments and live
@@ -82,6 +101,8 @@ private PEM content under an innocent filename and a live-key-shaped value.
 ```sh
 python3 scripts/images/check-secrets.py --self-test
 python3 scripts/images/check-secrets.py opintel-api:TAG-linux-amd64 linux/amd64
+python3 scripts/images/check-runtime.py --self-test
+node scripts/images/runtime-smoke.mjs opintel-api:TAG-linux-amd64 linux/amd64
 ```
 
 A failed final check means the build is not accepted even if Docker has already
@@ -89,7 +110,8 @@ created local images. Do not distribute those tags.
 
 ## Compose
 
-The dependency-only development stack remains `docker-compose.yml`. The full
+The dependency-only development stack remains `docker-compose.yml`. Until
+stage 3 replaces the package boundary, the legacy full
 image package is `deploy/images/compose.yml`. Select exactly one runtime platform
 and a built revision tag; build's comma-separated PLATFORM is not valid here.
 

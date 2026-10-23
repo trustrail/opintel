@@ -30,6 +30,16 @@ and synthetic live-key/XQ credential values. The negative control permits ordina
 key-handling source code. The normal test suite runs these controls too; the build
 audits every exported platform image and fails if layer coverage is incomplete.
 
+The separate image runtime allowlist catches source/development payloads in
+shipping layers. Positive counterexamples include original TypeScript, fixtures,
+source-map files and embedded sourcesContent, an unknown JavaScript file, and an
+artifact replaced after its manifest was recorded. Every layer is checked, so a
+later whiteout cannot erase a violation. Exact pinned-base layer identity allows
+necessary OS files; application payloads must match the per-image inventory and
+hashes. Packaged-worker smoke additionally catches a missing SDK/native module
+hidden by a worker's normal unreachable-provider response: it requires an actual
+request to its synthetic loopback provider with external networking disabled.
+
 ## Change ledger
 | Version | Date | Change | Impact on the product |
 |---|---|---|---|
