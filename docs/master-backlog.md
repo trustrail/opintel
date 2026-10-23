@@ -90,14 +90,39 @@ duckdb::DBConfigOptions::operator= inside DatabaseInstance::Configure while open
 instance, after 878 queries and roughly eighteen minutes of ten concurrent agents. In a
 customer deployment this is a total outage of governed data access. It is the most serious
 defect found to date and nothing else in this document matters if it recurs.
-**What** Reproduce it, find the root cause, fix it. Likely candidates are instance lifetime
-or concurrent configuration of DuckDB instances opened at
-sidecar/session/infrastructure/duckdb.ts:21, two per execution.
+**What** Investigate the remaining configuration-copy race hypothesis during concurrent
+instance open with extension loading. Construction alone is cleared by the bounded probes
+below; the original mixed workload still needs reproduction before claiming a root-cause
+fix. Each query opens a privileged/agent pair for preflight and another pair for execution
+(four constructions in total); standalone validation opens one instance.
 **Evidence** /Users/rzarita/Library/Logs/DiagnosticReports/node-2026-10-18-140612.ips, PID
 72511, 18:06:04 UTC; tmp/soak/2026-10-18T17-47-21.269Z-72578.jsonl
-**Status** Open · Large
+**Status** Open · Narrowed; not reproducible in the bounded probes on DuckDB 1.5.6
+(binding 1.5.6-r.1)
 **Note** Fail-closed held throughout: 5,685 queries after the crash were refused and none
 returned data.
+**Investigation, 21 October 2026**
+- Construction cleared within the tested profile: parallel 2/4/8 each completed and closed
+  10,000 instances, exit 0. Peak RSS was 70.04/75.50/85.24 MiB respectively.
+- Concurrent open plus signed PostgreSQL scanner LOAD and `duckdb_functions()` also did
+  not reproduce the crash on 1.5.6: parallel 4/8 each completed and closed 5,000 instances,
+  exit 0, with peak RSS 269.93/358.32 MiB.
+- JS vector fixes 447/495 are included in 1.5.6-r.1 and absent from the earlier 1.4.3-r.3,
+  but are not our inspected path: staging transfers DuckDB-owned chunks through an
+  appender or binds scalar INSERT values; it does not use the affected JS list-vector
+  writer or low-level validity-mask accessors.
+- The capture narrows the suspected cause to configuration copying during concurrent
+  open with extension load: the fault is in `DBConfigOptions::operator=` at construction,
+  with scanner and catalogue work in other threads. A configuration-copy race is the
+  working hypothesis, not a proven mechanism or demonstrated upstream fix. The capture
+  cannot identify the exact query/validation caller and contains no RSS/system-pressure
+  sample establishing memory exhaustion.
+
+Full measurements, settings, source paths, version ancestry and limits are retained in
+[x01-construction-and-binding.md](review/x01-construction-and-binding.md) and
+[x01-scanner-load-concurrency.md](review/x01-scanner-load-concurrency.md). These bounded
+results clear the tested construction paths, not the original sustained mixed workload;
+X-01 remains open. Documentation only; no product or runtime-setting change.
 
 ### X-02 · Nothing supervises the Engine
 **Customer** The Engine stayed dead for 38 minutes. No restart, no alert, no notice. A
