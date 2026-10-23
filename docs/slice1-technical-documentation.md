@@ -5886,3 +5886,28 @@ The XQ worker forwards no provider body or native exception text. Authorized
 receipt details and CSV/NDJSON exports expose this diagnostic; MCP metadata and
 its existing human refusal are unchanged. Evidence writes still complete before
 the refusal is returned, and failed evidence recording remains fail-closed.
+
+## Single-tenant packaging contract — gateway and engine (2026-10-23)
+
+The five-stage S5 packaging follow-up is specified in
+[Gateway and engine deployment](ops/gateway-engine-deployment.md), with acceptance
+IDs DEP-001–013 in the test specification. The packages are **gateway** (API,
+console, PostgreSQL, Redis and SpiceDB) and **engine** (engine plus local egress
+companion). The hosted multi-tenant control plane is out of scope for this work.
+This records the approved target; it does not claim all five stages are shipped.
+
+Engine installation, local startup and supervised replacement must not require a
+reachable gateway or a preexisting gateway registration. Offline public trust
+material and local private identities remain required; no TLS bypass is added.
+Preserve signed scanner/source readiness and existing runtime/egress controls.
+Local readiness does not authorize a caller or assign a source. Operators later
+register and verify the engine through 5.20 before assignment/use. Gateway receipt
+unavailability must not weaken optional-ingest delivery/evidence semantics.
+
+Shipping images contain only explicit allowlisted runtime artifacts, including
+minified JavaScript/native dependencies, with no original TypeScript, repository,
+tests, fixtures, source maps, client data or private configuration. Deployment
+initializes empty client state through explicit migration/schema jobs. Reinsurance
+provisioning and synthetic seeding are independent opt-in operator tools, not
+startup behavior or runtime-image payloads. Existing identity/admission and
+migration-checksum invariants remain in force.

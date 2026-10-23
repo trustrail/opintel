@@ -1590,3 +1590,25 @@ not leak tuning into the next scope. Existing RLS-01–RLS-10 and Activity summa
 assertions remain unchanged.
 Fail-fast Promise.all cases cover both SQL errors and rejected setting SQL;
 queued statements must finish before rollback and connection release.
+
+## Independent gateway/engine deployment acceptance (S5 follow-up, 2026-10-23)
+
+These IDs define planned acceptance, not existing passing tests. The governing
+contract is [gateway and engine deployment](ops/gateway-engine-deployment.md).
+Existing governance, bypass and ephemerality assertions remain unchanged.
+
+| ID | Defect class / acceptance requirement | Stage |
+|---|---|---|
+| DEP-001 | Build one named image for each supported platform without building unrelated product targets; validate platform/digest provenance and combined manifest selection | 2 |
+| DEP-002 | Inspect every shipping image layer/config against its explicit allowlist; positive forbidden TS, fixture, source-map/embedded-source, credential and unapproved-payload controls fail, including deleted-layer content | 2 |
+| DEP-003 | Minified runtime entrypoints, child/worker modules, native DuckDB binding and signed target scanner execute without checkout, build tools or host Node; unknown/mismatched scanner refuses | 2 |
+| DEP-004 | Gateway and engine packages install independently in separate projects with explicit endpoints; neither starts or mounts the other package | 3 |
+| DEP-005 | Engine starts, remains locally ready and handles supervised replacement with gateway network access actively blocked and no registry entry; retain valid local/source prerequisites and TLS; record installed firewall controls | 3 |
+| DEP-006 | Later registration verifies reachable address, pin and contract before assignment; wrong pin, unverified and cross-project mappings still refuse; gateway loss does not rewrite registration or reset engine budget | 3 |
+| DEP-007 | Optional ingest with gateway unavailable does not block local engine startup; pending receipt work survives without false acknowledgements, discarded records or weakened evidence semantics | 3 |
+| DEP-008 | Empty-state migrations/schema jobs are explicit, repeatable and version checked; historical checksum identity remains valid without original TS in runtime images; missing configuration fails before serving; no demo/implicit admin admission | 3 |
+| DEP-009 | Independent provisioning targets running remote endpoints, resumes matching state and reports conflicts without policy/identity bypasses or silent credential rotation | 4 |
+| DEP-010 | Separate synthetic seeder requires explicit demo target/version/seed, refuses incompatible data, leaves unrelated data untouched, runs ANALYZE and verifies counts/known estimates | 4 |
+| DEP-011 | Soak preflight checks observer access, fixture/source readiness, requested custody and lifecycle coverage before timing; expired/denied prerequisites are explicit, never silently omitted or auto-repaired | 4 |
+| DEP-012 | From empty volumes and fresh operator secrets, deploy gateway/engine on two actual hosts; provision demo separately, prove an allowed query and a refused query with persisted evidence; record digests and active network/trust negative controls | 5 |
+| DEP-013 | Execute the specified 30-minute external soak only after preflight passes; retain complete outcome/coverage/receipt/custody counts and logs, report failures or unexercised scenarios honestly | 5 |

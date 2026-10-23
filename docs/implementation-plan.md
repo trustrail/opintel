@@ -1135,3 +1135,29 @@ PING Redis with bounded workers; name any unavailable service and stop before
 tiers begin. Preserve the earlier offline-PostgreSQL and offline-Redis run
 records. Run one new gate on the completed candidate; commit, merge and push
 only on green, with no retry on failure.
+
+### S5 follow-up — independent gateway and engine deployment (2026-10-23)
+
+Reader-authorized five-stage replacement for the development-laptop deployment
+approach. Normative packaging contract: [gateway and engine deployment](ops/gateway-engine-deployment.md).
+The gateway comprises API, console, PostgreSQL, Redis and SpiceDB; engine comprises
+engine plus its local egress companion. The hosted multi-tenant control plane is
+out of scope. Original source/repository/test/fixture/source-map payloads are
+forbidden; minified JavaScript runtime bundles are permitted under per-image,
+layer-level allowlists. No executable-only packaging. Clean client installations
+contain no copied development data or identities. Engine installation and runtime
+must work while the gateway is unreachable, with offline trust provisioning and
+later explicit registration; retain source readiness, TLS and governance checks.
+
+| Stage | Depends | Deliverable | Verification |
+|---|---|---|---|
+| 1 | Existing S5/5.20 | Contract, acceptance IDs and stage sequence | Documentation consistency, full gate, commit |
+| 2 | Stage 1 green | Independent image builds, minified bundles and layer allowlists | DEP-001–003, full gate, commit |
+| 3 | Stage 2 green | Independent packages, migration/bootstrap jobs, gateway-independent engine startup | DEP-004–008, full gate, commit |
+| 4 | Stage 3 green | Independent provision/seed/soak tools | DEP-009–011, full gate, commit |
+| 5 | Stage 4 green | Clean installation, actual split-host proof and 30-minute soak; final runbooks | DEP-012–013, full gate, commit |
+
+Each stage reports shipped work and findings before the next begins. The stage
+contract records estimates and external prerequisites. Stage 1 records decisions,
+not implementation completion. New admission semantics remain a review boundary;
+packaging must not silently create an administrator or bypass tenant scopes.

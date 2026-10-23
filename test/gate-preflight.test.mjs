@@ -24,6 +24,20 @@ describe('gate service preflight',()=>{
   expect(error.message).toContain('Redis did not become reachable');
   expect(error.message).not.toContain('private diagnostic');
  });
+ it('allows a bounded cold inspection longer than two seconds',async()=>{
+  const run=vi.fn((_command,_args,timeout)=>runPreflightCommand(process.execPath,['-e','setTimeout(()=>process.stdout.write("postgres\\nredis\\n"),2200)'],timeout));
+  const probe=vi.fn().mockResolvedValue(undefined);
+  await expect(gatePreflight({run,probe})).resolves.toMatchObject({started:[]});
+  expect(run.mock.calls[0][2]).toBe(5000);
+  expect(run).toHaveBeenCalledTimes(1);
+ });
+ it('names both dependencies when Compose inspection fails and never starts tiers',async()=>{
+  const run=vi.fn().mockRejectedValue(new Error('private Docker diagnostic'));
+  const probe=vi.fn();
+  await expect(gatePreflight({run,probe})).rejects.toThrow('Test PostgreSQL and Redis: Docker Compose service inspection failed or exceeded 5 seconds');
+  expect(probe).not.toHaveBeenCalled();
+  expect(run).toHaveBeenCalledTimes(1);
+ });
  it('kills a command that never finishes instead of hanging the gate',async()=>{
   const started=Date.now();
   await expect(runPreflightCommand(process.execPath,['-e','setInterval(()=>{},1000)'],150)).rejects.toMatchObject({killed:true,signal:'SIGKILL'});

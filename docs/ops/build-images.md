@@ -169,7 +169,7 @@ Their records and causes remain in `tmp/platform-images-validation/stopped/` and
 
 The gate now starts stopped dev Compose PostgreSQL/Redis services before any
 tier, without recreating containers or pulling images. It checks authenticated
-test PostgreSQL SELECT 1 and Redis PING. Compose inspection is limited to two
+test PostgreSQL SELECT 1 and Redis PING. Compose inspection is limited to five
 seconds, startup to five seconds and parallel reachability workers to five
 seconds; a failure names the dependency and records zero executed tiers. This
 does not create/migrate databases or reset data; missing initial setup still

@@ -18,8 +18,8 @@ export async function probeGateService(service){
 
 export async function gatePreflight({run=runPreflightCommand,probe=probeGateService}={}){
  let running;
- try{running=new Set((await run('docker',['compose','ps','--status','running','--services'],2000)).trim().split(/\s+/u));}
- catch{throw new Error('Test PostgreSQL and Redis: Docker Compose service inspection failed or exceeded 2 seconds. Start Docker Desktop.');}
+ try{running=new Set((await run('docker',['compose','ps','--status','running','--services'],5000)).trim().split(/\s+/u));}
+ catch{throw new Error('Test PostgreSQL and Redis: Docker Compose service inspection failed or exceeded 5 seconds. Start Docker Desktop.');}
  const missing=services.filter(service=>!running.has(service.name));
  let startupFailed=false;
  if(missing.length){
