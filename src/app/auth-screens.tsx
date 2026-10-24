@@ -168,6 +168,7 @@ export function SignInScreen(): ReactNode {
   const availableProviders = providers.data?.providers ?? [];
   const magicLinkAvailable = providers.data?.magicLink ?? true;
 
+  const providersPending=providers.isFetching || (validEmail(email) && providerEmail!==email);
   const submitting=useRef(false);
   const startingProvider=useAuthUiStore(s=>s.startingProvider);
   useEffect(()=>{const reset=()=>useAuthUiStore.getState().startProvider(null);reset();window.addEventListener('pageshow',reset);return ()=>window.removeEventListener('pageshow',reset);},[]);
@@ -176,7 +177,7 @@ export function SignInScreen(): ReactNode {
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    if (submitting.current||startingProvider||validateEmail() !== null || !magicLinkAvailable || providers.isFetching) return;
+    if (submitting.current||startingProvider||validateEmail() !== null || !magicLinkAvailable || providersPending) return;
     submitting.current=true;
     try {
       await request.mutateAsync();
@@ -192,7 +193,7 @@ export function SignInScreen(): ReactNode {
     </div>
     <div className="enrolopts">
       {enforced ? <p className="note">SSO is enforced. Continue with {enforced.displayName}, or request a recovery link. Only company administrators can receive a recovery link; every use is audited.</p> : null}
-      {magicLinkAvailable ? <Button disabled={request.isPending||startingProvider!==null||!validEmail(email) || emailError !== null || providers.isFetching} style={{ width: '100%' }} type="submit" variant={enforced?'ghost':'go'}>{request.isPending?'Sending link…':enforced ? 'Request administrator recovery link' : 'Continue with email'}</Button> : null}
+      {magicLinkAvailable ? <Button disabled={request.isPending||startingProvider!==null||!validEmail(email) || emailError !== null || providersPending} style={{ width: '100%' }} type="submit" variant={enforced?'ghost':'go'}>{request.isPending?'Sending link…':providersPending?'Checking sign-in options…':enforced ? 'Request administrator recovery link' : 'Continue with email'}</Button> : null}
       {request.isError?<p role="alert">{request.error.message}</p>:null}
       {availableProviders.map((provider) => <Button key={provider.provider} disabled={request.isPending||startingProvider!==null} onClick={() => { if(useAuthUiStore.getState().startingProvider)return;useAuthUiStore.getState().startProvider(provider.provider);globalThis.location.assign(providerStartPath(provider,nonce)); }} style={{ width: '100%' }} variant={enforced?'go':'ghost'}>{startingProvider===provider.provider?'Starting sign-in…':`Continue with ${provider.displayName}`}</Button>)}
       <p className="note">We will never reveal whether an account exists for an email address.</p>

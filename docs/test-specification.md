@@ -56,6 +56,10 @@ empty secrets and secret-store failures omit the affected platform provider.
 Credential additions/removals are rechecked by the same resolver instance; no
 secret or client configuration appears in the response. The sign-in screen has
 no hard-coded provider fallback and retains enabled company providers.
+While the current email is debouncing or its provider lookup is in flight,
+the email submit control is disabled and displays “Checking sign-in options…”.
+It becomes available only after that lookup completes; a race test holds the
+lookup open and verifies that one subsequent submit issues one link request.
 
 ## S1-B · Magic link
 

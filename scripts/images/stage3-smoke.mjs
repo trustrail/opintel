@@ -18,7 +18,7 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 // External synthetic acceptance only. Nothing here is copied into product images.
 const platform=process.env.PLATFORM??'linux/amd64';
 const ingestEnabled=process.env.INGEST==='1',fixtureSourceId=randomUUID();
-if(platform!=='linux/amd64')throw new Error('This host acceptance run is AMD64 only.');
+if(!['linux/amd64','linux/arm64'].includes(platform))throw new Error('PLATFORM must be linux/amd64 or linux/arm64.');
 function exec(command,args,options={}){
  const result=spawnSync(command,args,{encoding:'utf8',timeout:120000,...options});
  if(result.error||result.status!==0)throw new Error(`${command} failed (${result.status}): ${result.stderr??''}`);
@@ -37,7 +37,7 @@ const images={};for(const name of ['api','console','engine','egress','migrations
  if(records&&records.length!==1)throw new Error('Published artifact missing or ambiguous: '+name);
  const ref=records?.[0]?.repoDigests?.[0];
  if(ref){assert.match(ref,new RegExp(`^ghcr.io/trustrail/opintel-${name}@sha256:[a-f0-9]{64}$`,'u'));exec('docker',['pull','--platform',platform,ref]);}
- const info=JSON.parse(exec('docker',['image','inspect','--platform',platform,ref??`opintel-${name}:${tag}-linux-amd64`]))[0];
+ const info=JSON.parse(exec('docker',['image','inspect','--platform',platform,ref??`opintel-${name}:${tag}-${platform.replace('/','-')}`]))[0];
  const digest=ref??info.RepoDigests?.find(value=>value.startsWith(`opintel-${name}@sha256:`));if(!digest)throw new Error('Missing audited image digest: '+name);images[name]=digest;
 }
 const hostAddress=exec('docker',['run','--rm','--platform',platform,images.api,'node','-e',"require('node:dns').lookup('host.docker.internal',{family:4},(error,value)=>{if(error)process.exit(1);console.log(value);})"]);

@@ -46,6 +46,31 @@ describe('auth screens', () => {
     fireEvent.click(screen.getByRole('button',{name:'Request administrator recovery link'}));
     await waitFor(()=>expect(fetcher.mock.calls.some(([input])=>String(input).includes('request-link'))).toBe(true));
   });
+  it('keeps submission visibly disabled through debounce and an in-flight provider lookup', async () => {
+    let finishLookup: (value: Response) => void = () => { throw new Error('Lookup has not started'); };
+    const pending = new Promise<Response>(resolve => { finishLookup = resolve; });
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (String(input).includes('/auth/providers?')) return (await pending).clone();
+      if (String(input).includes('/auth/providers')) return response({magicLink:true,providers:[],enforced:null});
+      return response(undefined, 202);
+    });
+    renderRoute('/sign-in');
+    const email = await screen.findByLabelText('Email address');
+    fireEvent.change(email, {target:{value:'race@example.com'}});
+    const checking = screen.getByRole('button', {name:'Checking sign-in options…'}) as HTMLButtonElement;
+    expect(checking.disabled).toBe(true);
+    fireEvent.click(checking);
+    await waitFor(() => expect(fetcher.mock.calls.some(([input]) => String(input).includes('providers?email=race'))).toBe(true));
+    expect(checking.disabled).toBe(true);
+    fireEvent.click(checking);
+    expect(fetcher.mock.calls.some(([input]) => String(input).includes('request-link'))).toBe(false);
+    finishLookup(response({magicLink:true,providers:[],enforced:null}));
+    const submit = await screen.findByRole('button', {name:'Continue with email'});
+    expect((submit as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(submit);
+    await screen.findByRole('heading', {name:'Check your email'});
+    expect(fetcher.mock.calls.filter(([input]) => String(input).includes('request-link'))).toHaveLength(1);
+  });
   it('creates and preserves the documented 16-byte device nonce', () => {
     const first = getDeviceNonce();
     const second = getDeviceNonce();
@@ -55,7 +80,7 @@ describe('auth screens', () => {
   });
 
   it('A-014 and A-015: exposes a logical keyboard sequence with no axe violations', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response({ magicLink: true, providers: [
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => response({ magicLink: true, providers: [
       { provider: 'oidc:google', displayName: 'Google', startPath: '/auth/oidc/oidc:google/start' },
       { provider: 'oidc:entra', displayName: 'Microsoft', startPath: '/auth/oidc/oidc:entra/start' },
     ], enforced: null }));
@@ -80,7 +105,7 @@ describe('auth screens', () => {
   });
 
   it('shows magic link alone before resolution and when no OIDC providers are configured',async()=>{
-    const fetcher=vi.spyOn(globalThis,'fetch').mockResolvedValue(response({magicLink:true,providers:[],enforced:null}));
+    const fetcher=vi.spyOn(globalThis,'fetch').mockImplementation(async () => response({magicLink:true,providers:[],enforced:null}));
     renderRoute('/sign-in');const email=await screen.findByLabelText('Email address');
     expect(screen.queryByRole('button',{name:'Continue with Google'})).toBeNull();
     expect(screen.queryByRole('button',{name:'Continue with Microsoft'})).toBeNull();
@@ -115,10 +140,10 @@ describe('auth screens', () => {
   });
 
   it('validates the email on blur and submit, then revalidates after it is invalid', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response({ magicLink: true, providers: [], enforced: null }));
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => response({ magicLink: true, providers: [], enforced: null }));
     const view = renderRoute('/sign-in');
     const email = await screen.findByLabelText('Email address');
-    const continueWithEmail = screen.getByRole('button', { name: 'Continue with email' }) as HTMLButtonElement;
+    const continueWithEmail = await screen.findByRole('button', { name: 'Continue with email' }) as HTMLButtonElement;
     const reservedMessage = view.container.querySelector('#sign-in-email-error');
     if (reservedMessage === null) throw new Error('Sign-in error message space is missing.');
     expect(reservedMessage.textContent).toBe('\u00a0');
