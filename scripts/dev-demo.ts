@@ -1,4 +1,5 @@
 import {parseArgs} from 'node:util';
+import {assertDevelopmentApi,settleDevelopmentSource} from './dev-demo-readiness.js';
 import {mkdir,open,unlink,readFile,writeFile,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {loadDevEnvironment} from './dev-environment.js';
@@ -11,7 +12,7 @@ const ctx={userId,projectId};
 const unwrap=<T>(result:Result<T>):T=>{if(!result.ok)throw result.error;return result.value;};
 const {values:demoOptions}=parseArgs({options:{soak:{type:'boolean'},'soak-associations':{type:'string'},'soak-manifest':{type:'string'}},strict:true});
 async function main(){
- loadDevEnvironment();assertDevelopmentDemo(process.env);
+ loadDevEnvironment();assertDevelopmentDemo(process.env);await assertDevelopmentApi();
  await mkdir('tmp',{recursive:true});const lock=await open('tmp/dev-demo.lock','wx',0o600).catch(()=>{throw new Error('dev:demo is locked. Check for another run before removing tmp/dev-demo.lock.');});
  try{await provision();}finally{await lock.close();await unlink('tmp/dev-demo.lock');}
 }
@@ -61,7 +62,7 @@ async function provision(){
  const sourceId=SourceId(deployment.source);
  const {checkDevelopmentLandingZones}=await import('./sidecar-landing-check.js');await checkDevelopmentLandingZones((await loadSidecarConfig(serviceFile)).config.landingZones??[]);
  await startDevelopmentSidecar();
- // Use the real receipt application even when dev:api has not started yet.
+ // The API normally owns receipts; retain the local fallback for a restart.
  const {loadApplicationTls,authorizeEngineReceipt}=await import('../src/modules/engines/index.js');
  const applicationTls=await loadApplicationTls(join(sidecarDevDirectory,'application-tls.json'));
  const {createLandingReceiptServer}=await import('../src/modules/ingest/api/landing-receipt-server.js');
@@ -75,6 +76,7 @@ async function provision(){
   if(source)unwrap(await developmentRegistry.assign(ctx,sourceId,developmentEngineId));
   if(source?.status!=='connected')await demoPack('provision',projectId,userId,sourceId);
  }finally{if(listening)await new Promise<void>((resolve,reject)=>receipts.close(e=>e?reject(e):resolve()));}
+ await settleDevelopmentSource(developmentRegistry,ctx,developmentEngineId,sourceId,serviceFile);
  // New landing tables have no planner statistics until ANALYZE/autovacuum.
  // Bootstrap them explicitly; the query path remains strictly read-only.
  const {PostgresLanding}=await import('../sidecar/ingest/infrastructure/postgres-landing.js');

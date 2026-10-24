@@ -2,7 +2,9 @@
  * existing demo project and opintel_demo database with the V-01 definition. */
 import {randomUUID,createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile,rename,stat} from 'node:fs/promises';
-import {dirname} from 'node:path';
+import {dirname,join} from 'node:path';
+import {sidecarDevDirectory} from './sidecar-dev.js';
+import {settleDevelopmentSource} from './dev-demo-readiness.js';
 import {Client} from 'pg';
 import {withTenant} from '../src/platform/db/scope.js';
 import {EnvironmentSecretStore,SecretRef} from '../src/platform/secrets/index.js';
@@ -57,9 +59,12 @@ export async function seedDemoSoak(ctx:{projectId:ProjectId;userId:UserId},regis
   const sources:Array<{id:SourceId;exposed_alias:string;status:string}>=[];
   for(const [schema,name] of [['soak_policies','Reinsurance Policies'],['soak_claims','Reinsurance Claims'],['soak_recoveries','Reinsurance Recoveries']] as const){
    let [item]=await withTenant(ctx,tx=>tx.query<{id:import('../src/shared/kernel/index.js').SourceId;exposed_alias:string;status:string;credential_ref:string;engine_id:string}>("SELECT id,exposed_alias,status,credential_ref,engine_id FROM data_source WHERE name=$1 AND status<>'archived'",[name]));
-   if(!item){const created=unwrap(await runtime.create(ctx,{name,kind:'postgres',credentialRef:'secret://demo/postgres',engineId,includeSchemas:[schema],samplingConsent:false,receivesLandings:false,landingStrategy:null}));unwrap(await runtime.idle());item={id:created.id,exposed_alias:created.exposedAlias,status:'connected',credential_ref:'secret://demo/postgres',engine_id:engineId};}
+   if(!item){const created=unwrap(await runtime.create(ctx,{name,kind:'postgres',credentialRef:'secret://demo/postgres',engineId,includeSchemas:[schema],samplingConsent:false,receivesLandings:false,landingStrategy:null}));unwrap(await runtime.idle());item={id:created.id,exposed_alias:created.exposedAlias,status:created.status,credential_ref:'secret://demo/postgres',engine_id:engineId};}
    if(item.credential_ref!=='secret://demo/postgres'||item.engine_id!==engineId)throw new Error(name+' is not the expected development source; refusing to modify it');
-   if(item.status!=='connected')throw new Error(name+' is not connected; inspect the source in the console');
+   await settleDevelopmentSource(registry,ctx,engineId,item.id,join(sidecarDevDirectory,'service.json'));
+   const [connected]=await withTenant(ctx,tx=>tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1',[item!.id]));
+   if(connected?.status!=='connected')throw new Error(name+' is not connected; inspect the source in the console');
+   item.status=connected.status;
    sources.push(item);
   }
   for(const poolIndex of [0,1]){

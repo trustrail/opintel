@@ -1,0 +1,68 @@
+{
+  "commit": "88b2430114fcfa51cf0eb134df85bcb511f7b230",
+  "preflight": {
+    "memory": {
+      "availableBytes": 3118379008,
+      "minimumAvailableBytes": 1073741824
+    },
+    "started": [],
+    "postgres": "reachable",
+    "redis": "reachable",
+    "database": "opintel_test_gate_64cadc497d02_e8ec13e8049b",
+    "migratedFromZero": true,
+    "seconds": 5.022997574,
+    "exitCode": 0
+  },
+  "memory": {
+    "startAvailableBytes": 3118379008,
+    "minimumAvailableBytes": 2297585664,
+    "minimumAt": "2026-10-24T22:51:35.826Z",
+    "lastSampleAt": "2026-10-24T23:03:53.025Z",
+    "samples": 274,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [
+    {
+      "tier": "typecheck",
+      "seconds": 29.943541167999996,
+      "exitCode": 0
+    },
+    {
+      "tier": "typecheck:conformance",
+      "seconds": 6.4178536190000015,
+      "exitCode": 0
+    },
+    {
+      "tier": "lint",
+      "seconds": 17.819868331000006,
+      "exitCode": 0
+    },
+    {
+      "tier": "build:production",
+      "seconds": 2.0649028519999995,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:conformance",
+      "seconds": 129.47977680900001,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 1137.645968545,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:smoke",
+      "seconds": 33.93177063799999,
+      "exitCode": 0
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_e8ec13e8049b",
+    "exitCode": 0
+  },
+  "wallSeconds": 1362.7113024169998,
+  "complete": true
+}

@@ -1,3 +1,4 @@
+import {acknowledgeDevelopmentPolicy} from '../scripts/dev-demo-readiness.js';
 import {unwrap} from './fixtures/policy-version/fixture.js';
 import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe,EngineEgress,PostgresEngineEgress} from '../src/modules/engines/index.js';
 import type {EngineId} from '../src/shared/kernel/index.js';
@@ -46,9 +47,7 @@ async function request(path:string,method='GET',payload?:unknown){return fetch(o
 const path=()=>`/api/v1/projects/${projectId}/sources`;
 async function settle(){
  const heartbeat=new EngineEgress(new PostgresEngineEgress(),()=>service.resume({projectId,userId}));
- const input={projectId,engineId:registeredEngineId,appliedVersion:null};
- const policy=unwrap(await heartbeat.heartbeat(options.tls.certificatePin!,input));
- unwrap(await heartbeat.heartbeat(options.tls.certificatePin!,{...input,appliedVersion:policy.version}));
+ await acknowledgeDevelopmentPolicy(heartbeat,options.tls.certificatePin!,{projectId,userId},registeredEngineId);
  return service.idle();
 }
 beforeAll(async()=>{

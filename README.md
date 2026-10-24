@@ -5,9 +5,16 @@
 With Docker running, install dependencies and copy `.env.example` to `.env`, then:
 
 ```sh
-npm run dev:demo
+npm run dev:up
 npm run dev:api
 ```
+
+Leave the API running, then in another terminal run `npm run dev:demo`.
+`dev:demo` refuses before provisioning if the local API is unavailable.
+`dev:api` loads `.env` before importing modules that construct the database pool.
+The local Engine setup reuses the signed scanner if present, otherwise runs
+`sidecar:prepare-scanner` (including DuckDB LOAD verification), and records its
+absolute path in `tmp/sidecar/service.json` when no path is configured.
 
 `dev:demo` starts the local data services and Opintel Engine, applies migrations, and
 creates `demo@opintel.local`, its company, a project on the reinsurance pack,
@@ -47,7 +54,11 @@ The command refuses non-development `NODE_ENV`, non-loopback service URLs,
 and custom Opintel Engine configuration. It uses `tmp/sidecar` and serializes its own
 runs with `tmp/dev-demo.lock`. After an interrupted process, check that no
 `dev:demo` is still running before removing that lock and retrying. The API
-can already be running; otherwise start it with the command above.
+must already be running. The local demo explicitly acknowledges the current
+engine egress policy through `EngineEgress`, then waits for the normal
+introspection worker to finish before deciding treatments. This applies to
+`dev:demo -- --soak` sources too; it does not change deployed engine policy
+acknowledgment or query refusals.
 
 Fresh `dev:demo` provisioning registers the source as **Reinsurance**, giving it the catalog alias `reinsurance`. Its physical landing schema remains the generated `demo_<sourceId>` schema. There is no administrator control for assigning an exposed schema name, so that component remains generated rather than being changed to `public` for presentation.
 

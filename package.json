@@ -14,7 +14,7 @@
     "dev:demo": "tsx scripts/dev-demo.ts",
     "sidecar:openapi": "tsx scripts/sidecar-openapi.ts",
     "dev:sidecar": "tsx sidecar/supervise.ts",
-    "dev:api": "tsx --watch src/platform/http/start.ts",
+    "dev:api": "tsx --watch scripts/dev-api.ts",
     "check": "node scripts/gate.mjs",
     "check:ui": "npm run check",
     "check:data": "npm run test:performance && npm run check && npm run test:tokenization-collision && npm run test:ephemerality",

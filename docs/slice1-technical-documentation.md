@@ -2437,7 +2437,8 @@ configuration omits that platform provider; no discovery probe is performed.
 Only availability is reported: issuer, client id, secret reference and secret
 value do not enter the response. Responses use `Cache-Control: no-store`.
 Secret sourcing remains the secret store adapter’s concern. Development loads
-`.env` at process start; editing it requires restarting `dev:api`. Resolution
+`.env` in the development API entry point before importing the HTTP server
+and database scope; editing it requires restarting `dev:api`. Resolution
 checks availability through the existing adapter each time, without a separate
 file reload or a startup availability cache.
 
