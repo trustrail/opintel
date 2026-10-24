@@ -1,10 +1,12 @@
 import console from 'node:console';
 import process from 'node:process';
 import {performance} from 'node:perf_hooks';
-import {spawnSync} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
+import {setTimeout,clearTimeout} from 'node:timers';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from 'node:net';
 import {gatePreflight} from './gate-preflight.mjs';
+import {gateDatabase} from './gate-database.mjs';
 async function isolation(tier){
  const checks=[];
  for(const port of [3000,3100,3101,4173,5173]){
@@ -18,27 +20,58 @@ async function isolation(tier){
 
 const commit=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
 const start=performance.now(),tiers=[];
-let preflight;
+let preflight,database,cleanup,interrupted,child,killTimer;
+function stop(signal){
+ interrupted=signal;
+ if(child?.pid){
+  const pid=child.pid;
+  try{process.kill(-pid,signal);}catch{/* Child already exited. */}
+  killTimer=setTimeout(()=>{try{process.kill(-pid,'SIGKILL');}catch{/* Child already exited. */}},5000);
+ }
+}
+const interrupt=()=>stop('SIGINT'),terminate=()=>stop('SIGTERM');
+process.on('SIGINT',interrupt);process.on('SIGTERM',terminate);
+function record(){
+ mkdirSync('test-results',{recursive:true});
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,preflight,tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===7&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted},null,2)+'\n');
+}
+async function tier(script){
+ return new Promise(resolve=>{
+  child=spawn('npm',['run',script],{stdio:'inherit',detached:true});
+  child.once('error',()=>resolve(1));
+  child.once('exit',code=>{clearTimeout(killTimer);child=undefined;resolve(code??1);});
+ });
+}
 try{
  const services=await gatePreflight();
- preflight={...services,seconds:(performance.now()-start)/1000,exitCode:0};
- console.log('Gate preflight: test PostgreSQL and Redis reachable.');
+ database=gateDatabase();
+ await database.prepare();
+ process.env.TEST_DATABASE_URL=database.url;
+ preflight={...services,database:database.name,migratedFromZero:true,seconds:(performance.now()-start)/1000,exitCode:0};
+ console.log(`Gate preflight: PostgreSQL and Redis reachable; fresh migrated database ${database.name}.`);
+ record();
+ // Sequential; never retry a tier or run domains concurrently with smoke setup.
+ const scripts=['typecheck','typecheck:conformance','lint','build:production','test:conformance','test','test:smoke'];
+ for(const script of scripts){
+  if(interrupted)break;
+  if(script==='test:conformance'||script==='test:smoke')await isolation(script.replace(':','-'));
+  if(interrupted)break;
+  const began=performance.now(),exitCode=await tier(script);
+  tiers.push({tier:script,seconds:(performance.now()-began)/1000,exitCode});
+  record();
+  if(exitCode!==0){process.exitCode=exitCode;break;}
+ }
 }catch(error){
- const message=error instanceof Error?error.message:'Gate dependency preflight failed.';
- preflight={seconds:(performance.now()-start)/1000,exitCode:1,message};
- mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,preflight,tiers,wallSeconds:(performance.now()-start)/1000,complete:false},null,2)+'\n');
- console.error(`Gate preflight failed: ${message}`);
- process.exit(1);
-}
-// Sequential; never retry a tier or run domains concurrently with smoke setup.
-const scripts=['typecheck','typecheck:conformance','lint','build:production','test:conformance','test','test:smoke'];
-for(const script of scripts){
- if(script==='test:conformance'||script==='test:smoke')await isolation(script.replace(':','-'));
- const began=performance.now();const result=spawnSync('npm',['run',script],{stdio:'inherit'});
- tiers.push({tier:script,seconds:(performance.now()-began)/1000,exitCode:result.status??1});
- mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,preflight,tiers,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===scripts.length},null,2)+'\n');
- if(result.status!==0){process.exitCode=result.status??1;break;}
+ const message=error instanceof Error?error.message:'Gate setup failed.';
+ if(!preflight)preflight={database:database?.name,seconds:(performance.now()-start)/1000,exitCode:1,message};
+ console.error(`Gate failed: ${message}`);
+ process.exitCode=1;
+}finally{
+ try{await database?.close();cleanup={database:database?.name,exitCode:0};}
+ catch(error){cleanup={database:database?.name,exitCode:1,message:error.message};console.error(error.message);process.exitCode=1;}
+ clearTimeout(killTimer);
+ process.removeListener('SIGINT',interrupt);process.removeListener('SIGTERM',terminate);
+ if(interrupted)process.exitCode=interrupted==='SIGINT'?130:143;
+ record();
 }
 console.log(`Gate wall time: ${((performance.now()-start)/1000).toFixed(2)}s`);

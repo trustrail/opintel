@@ -1168,3 +1168,14 @@ is granted until that exact email completes normal login within the window.
 Expired, unredeemed claims require an explicit rerun. Claim creation and
 redemption are audited; the CLI prints/stores no password, token or secret.
 Use an explicit claimant kind for future IdP-group support; implement email only.
+
+
+Gate checkout-isolation follow-up (2026-10-23): reader-authorized tooling repair
+for the smoke-platform worktree. Before any tier, create a fresh PostgreSQL test
+database named from the checkout path plus a unique run suffix, migrate it from
+zero using that checkout, and pass it to every test tier. Tear down only this
+run's owned database after success, failure or handled interruption; record
+cleanup failure. Never reset the shared test/development database or change an
+applied migration/ledger. The concrete regression was Stage-3 migration 082
+contaminating a Stage-2 gate (two checksum failures and one table-grant failure).
+See `docs/review/gate-tiers.md` and `test/gate-database.test.mjs`.

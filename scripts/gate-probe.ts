@@ -1,4 +1,4 @@
-// Gate bootstrap only: authenticate to the configured test database and Redis.
+// Gate bootstrap only: authenticate to the test server maintenance database and Redis.
 // No application rows or migration ledger are changed.
 import {setTimeout} from 'node:timers/promises';
 import {Client} from 'pg';
@@ -12,7 +12,8 @@ async function main():Promise<void>{
  for(;;){
   try{
    if(service==='postgres'){
-    const client=new Client({connectionString:environment.testDatabaseUrl,connectionTimeoutMillis:500,query_timeout:500});
+    const maintenance=new URL(environment.testDatabaseUrl);maintenance.pathname='/postgres';
+    const client=new Client({connectionString:maintenance.toString(),connectionTimeoutMillis:500,query_timeout:500});
     client.on('error',()=>{});
     try{await client.connect();await client.query('SELECT 1');}finally{await client.end();}
    }else{

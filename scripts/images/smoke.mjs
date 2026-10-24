@@ -16,6 +16,8 @@ function exec(command,args,options={}){
  if(r.error||r.status!==0)throw new Error(`${command} failed (${r.status}): ${r.stderr??''}`);
  return r.stdout;
 }
+const platform=process.env.PLATFORM??'linux/amd64';
+if(!['linux/amd64','linux/arm64'].includes(platform))throw new Error('PLATFORM must be linux/amd64 or linux/arm64.');
 mkdirSync('tmp',{recursive:true});
 const directory=resolve(mkdtempSync('tmp/images-smoke-')),tls=resolve(directory,'tls');mkdirSync(tls);
 // Disposable test provisioning is external to every shipping image. Stage 3
@@ -42,7 +44,7 @@ write('egress.json',{sources:[{address:'172.30.92.10',port:5432}]});
 const url='postgresql://opintel:opintel@postgres:5432/opintel_image_smoke';
 writeFileSync(resolve(directory,'runtime.env'),`DATABASE_URL=${url}\nMIGRATION_DATABASE_URL=${url}\nREDIS_URL=redis://redis:6379\nSPICEDB_ENDPOINT=spicedb:50051\nSPICEDB_TOKEN=devkey\nOPINTEL_SECRET_IMAGE_SOURCE=postgresql://opintel:opintel@172.30.92.10:5432/opintel_image_smoke\nOPINTEL_IMAGE_SMOKE=synthetic-only\n`,{mode:0o600});
 const tag=process.env.TAG??exec('git',['rev-parse','--short=12','HEAD']).trim();
-const env={...process.env,TAG:tag,PLATFORM:'linux/amd64',POSTGRES_PORT:'15432',REDIS_PORT:'16379',SPICEDB_PORT:'15051',API_PORT:'13800',CONSOLE_PORT:'13873',ENGINE_PORT:'13810',APPLICATION_CONFIG_DIRECTORY:directory,ENGINE_CONFIG_DIRECTORY:directory,ENGINE_SECRET_ENV_FILE:resolve(directory,'runtime.env'),API_SECRET_ENV_FILE:resolve(directory,'runtime.env'),ENGINE_POLICY_FILE:resolve(directory,'egress.json'),ENGINE_AUDIT_DIRECTORY:resolve(directory,'audit'),ENGINE_CUSTODY_DIRECTORY:resolve(directory,'custody'),XQ_DIRECTORY:resolve(directory,'xq')};
+const env={...process.env,TAG:`${tag}-${platform.replace('/','-')}`,PLATFORM:platform,POSTGRES_PORT:'15432',REDIS_PORT:'16379',SPICEDB_PORT:'15051',API_PORT:'13800',CONSOLE_PORT:'13873',ENGINE_PORT:'13810',APPLICATION_CONFIG_DIRECTORY:directory,ENGINE_CONFIG_DIRECTORY:directory,ENGINE_SECRET_ENV_FILE:resolve(directory,'runtime.env'),API_SECRET_ENV_FILE:resolve(directory,'runtime.env'),ENGINE_POLICY_FILE:resolve(directory,'egress.json'),ENGINE_AUDIT_DIRECTORY:resolve(directory,'audit'),ENGINE_CUSTODY_DIRECTORY:resolve(directory,'custody'),XQ_DIRECTORY:resolve(directory,'xq')};
 const project='opintel-images-'+Date.now(),base=['compose','-p',project,'-f','deploy/images/compose.yml','-f','deploy/images/smoke.compose.yml'];
 const compose=(...args)=>exec('docker',[...base,...args],{env});
 async function wait(check){const until=Date.now()+90000;for(;;){try{return await check();}catch(error){if(Date.now()>until)throw error;await setTimeout(500);}}}
@@ -66,7 +68,7 @@ try{
  const result=await bounded(client.callTool({name:'opintel.query',arguments:{sql:'SELECT answer FROM image_source.public.records'}}),'Governed query');
  if(result.isError||JSON.stringify(result.structuredContent?.rows)!=='[[42]]'||!result.structuredContent?.evidenceId)throw new Error('Governed query did not return the entitled synthetic row and evidence id');
  const pin=new X509Certificate(readFileSync(tls+'/server.pem')).fingerprint256;
- write('result.json',{status:'passed',platform:'linux/amd64',tag,readiness,evidenceId:result.structuredContent.evidenceId,rows:1,enginePin:pin});
+ write('result.json',{status:'passed',platform,tag,readiness,evidenceId:result.structuredContent.evidenceId,rows:1,enginePin:pin});
  console.log('Image smoke passed: readiness, console, governed MCP query and evidence id. Record: '+resolve(directory,'result.json'));
 }catch(error){writeFileSync(resolve(directory,'services.log'),compose('logs','--no-color'));throw error;}
 finally{try{if(client)await bounded(client.close(),'MCP shutdown');}finally{compose('down');}}
