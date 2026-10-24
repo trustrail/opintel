@@ -1,8 +1,8 @@
 # Stage 3 progress
 
-Stage 3 is **in progress, uncommitted and not acceptance-complete**. The working branch is `gateway-engine-deployment`, rebased onto main at `262fa65`. The gate database isolation and platform-aware smoke changes are present. Existing Stage 3 edits were restored; the documentation conflict was resolved by retaining both scopes. The recovery stash remains available. Applied migration 082 was checked against its saved applied bytes and is unchanged.
+**Stage 3’s AMD64 delivery and acceptance on this host are complete.** Source commit `f905ce78180b445cab17bdb61ce22c332d83e031` is merged into main and pushed. The authorised changed-tree gate passed every tier. All six images were then rebuilt from a clean checkout of that committed revision, passed both layer audits, were published by digest to GHCR, and passed final core plus ingest acceptance against those published digests. The final per-deliverable report and reproduction commands are at the end of this file.
 
-Current result: **the authorised changed-tree gate passed**. All 232 normal test files / 2,043 tests, 59 router-conformance tests and the browser/MCP smoke passed; isolated database cleanup succeeded. Both authorised repairs are verified, with claim rules unchanged. The previous failed gate remains preserved. Next, as explicitly ordered: commit, merge and push, then clean-release build from that committed revision, release-digest publication and final acceptance. Earlier published candidate images are not the clean release.
+Release manifest: `docs/review/stage3-release-linux-amd64.json` (`candidate: false`, `dirty: false`). Final proof: `docs/review/stage3-release-acceptance.json`. Green gate: `docs/review/stage3-gate-authorised-repairs.json`. Earlier failed/candidate records below are retained history, not the current result. ARM64 was not built on this Intel host; native ARM64 commands use the same committed revision. No new permission question is pending.
 
 Previous retained result:
 Current result: the authorized abstract-socket repair works in the rebuilt AMD64
@@ -629,3 +629,227 @@ OpenAPI generation initially hit the sandbox restriction on tsx IPC; the approve
 Gate: `/private/tmp/opintel-stage3-authorised-repairs-gate.log`; retained record `docs/review/stage3-gate-authorised-repairs.json`. All seven tiers passed, including 232 files / 2,043 normal tests, 59 conformance tests with zero findings across 54 routes, and the sign-in → pool → row filter → authenticated MCP query → persisted receipt smoke. Fresh isolated database removed successfully. Wall time **1434.3 seconds**. This is one gate on the changed tree; the prior failed tree was not rerun.
 
 Proceeding with the authorised source commit, fast-forward merge and push before the clean-release build. Unrelated backlog/status/cache files will be excluded.
+
+### Source committed, merged and pushed; clean build started
+Source commit `f905ce78180b445cab17bdb61ce22c332d83e031` (`Deploy independent gateway and engine packages`) contains 95 stage-3 files. Main fast-forwarded from `262fa65`; `origin/main` and the pushed `gateway-engine-deployment` branch resolve to f905ce7. The unrelated backlog/status files match their pre-commit SHA-256 hashes; cache remains untouched.
+
+Clean release checkout: `/private/tmp/opintel-stage3-release-f905ce78180b`, detached at the pushed revision, verified empty `git status --porcelain` before building. Command: `TAG=f905ce78180b make build IMAGE=all PLATFORM=linux/amd64`. Log: `/private/tmp/opintel-stage3-clean-release-build.log`. No candidate flag; no ARM64 emulation.
+
+### Clean release build passed
+All six AMD64 images built and passed secret/layer and runtime allowlist audits from committed revision `f905ce78180b445cab17bdb61ce22c332d83e031`. Manifest `/private/tmp/opintel-stage3-release-f905ce78180b/tmp/images/releases/f905ce78180b-api-engine-console-egress-migrations-provisioning.json` explicitly records `candidate: false`, `dirty: false`. Build log `/private/tmp/opintel-stage3-clean-release-build.log`. Publishing via the committed `scripts/images/publish.mjs`, without `--candidate`; log `/private/tmp/opintel-stage3-release-publication.log`.
+
+### Clean-release publication completed
+All six release digests are published and verified at GHCR without a candidate flag. Durable manifest: `docs/review/stage3-release-linux-amd64.json`. Publication log: `/private/tmp/opintel-stage3-release-publication.log` (exit 0).
+
+| Image | Release digest (linux/amd64) |
+|---|---|
+| api | `ghcr.io/trustrail/opintel-api@sha256:6dd293fbc750a7eb254a9f18d069c1c1b425b3bb2b0828a8d3b9fc7927f77709` |
+| engine | `ghcr.io/trustrail/opintel-engine@sha256:1666afef7fa9c939204f4c0287fb28dabadab91f49b6190d1c3ff0cf79d2beab` |
+| console | `ghcr.io/trustrail/opintel-console@sha256:61d3ba2c58f5a31f8a1f318d43a1f0298c03965fcbd0636d49cb6b89a1d8de72` |
+| egress | `ghcr.io/trustrail/opintel-egress@sha256:f19d400b179bf0b12958c966784ab0ef377f87e827dac725eb4c3a3d884b0f85` |
+| migrations | `ghcr.io/trustrail/opintel-migrations@sha256:03e95cebb9b00dbc813b0d90b0d5e9f12275b6953bb35e61325b2ba3f866b050` |
+| provisioning | `ghcr.io/trustrail/opintel-provisioning@sha256:459e56085dbcc11760e37b7308b1a98065f4ba8ec0f2b39fedb46188327b84d4` |
+
+Final acceptance is running **from the detached committed release checkout**, with a symlink to this host’s already-gated dependencies (not copied into images). Command: `RELEASE_MANIFEST=tmp/images/releases/f905ce78180b-published.json INGEST=1 TAG=f905ce78180b PLATFORM=linux/amd64 node scripts/images/stage3-smoke.mjs`. Log `/private/tmp/opintel-stage3-clean-release-acceptance.log`. This pulls immutable GHCR digests and assembles packages from committed release files.
+
+## Stage 3 final delivery report
+
+Source revision: **f905ce78180b445cab17bdb61ce22c332d83e031**. Committed, fast-forwarded
+into main and pushed **before** the clean release build, as requested. Both
+repairs are included: realpath on both entrypoint paths, and the exact egress
+registration contract/security assertions with regenerated OpenAPI. Claim rules
+are unchanged. The green gate was one run on the changed tree; the earlier
+failed gate remains recorded.
+
+### 1. Independent gateway and engine packages — delivered
+
+Gateway and engine are distinct Compose projects with separate host-local
+configuration and storage. Every service is explicitly selectable; external
+PostgreSQL, Redis and SpiceDB endpoints are allowed. Engine + egress share only
+their own local network namespace. There is no gateway/engine shared mount or
+implicit startup dependency.
+
+Handoff directory on this host:
+`/Users/rzarita/opintel/tmp/deployment-stages/stage-3/release-f905ce78180b`.
+It contains independent `gateway/` and `engine/` packages, each with a README,
+wrapper, literal-digest Compose files and release identity, plus separate archives
+and `SHA256SUMS`. No acceptance fixture, database, .env, XQ material or key file
+was copied into these packages. Runtime image layer checks exclude original TS,
+repository/test/fixture files, source maps and private material; allowed minified
+runtime bundles remain explicitly listed.
+
+| Archive | SHA-256 |
+|---|---|
+| `opintel-gateway-f905ce78180b-linux-amd64.tar.gz` | `55ccd2ca86bb56c10860a75351f3d2c06b68d8b364e80bb44e2ff0a1a4aa7201` |
+| `opintel-engine-f905ce78180b-linux-amd64.tar.gz` | `ab847827ef376da376f56ed200ef39307853720926074a103aaf5dd4961a8c48` |
+
+On the corresponding host, extract only its package. Prepare operator-owned
+absolute configuration/environment paths as documented in that package README.
+These commands assume the working directory is the extracted package:
+
+```sh
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway start postgres redis spicedb-postgres
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway status postgres redis spicedb-postgres
+```
+
+Wait for those configured services to be ready. With external dependencies,
+omit their local startup and configure their explicit endpoints instead.
+No application or engine is implicitly started by the commands above.
+
+### 2. Explicit migration and schema jobs — delivered
+
+Fresh empty volumes and repeated application migration execution passed final
+acceptance. The historical migration checksum ledger is preserved; API startup
+checks compatibility and does not migrate silently. SpiceDB datastore and
+application authorization schema have separate one-shot jobs.
+
+```sh
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway migrate up
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway migrate status
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway spicedb-migrate
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway start spicedb
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway schema
+```
+
+Wait for configured SpiceDB readiness before the schema job. Migration/operator
+credentials and the API runtime database identity are configured separately.
+Applied migration 082 still matches its saved applied bytes. No checksum ledger
+was rewritten.
+
+### 3. One-shot initial owner claim — delivered
+
+The CLI refuses when any company exists. It records a 24-hour claim and grants
+nothing until the exact email completes normal login. Expired unclaimed claims
+require explicit re-run. Claim creation and redemption are audited; claimant
+kind is structured for later IdP-group support, which is not implemented.
+No password, authentication token or secret is printed or stored by the CLI.
+
+```sh
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway owner-claim --owner-email owner@example.com --company 'Customer' --region eu-west-1
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway start api console
+```
+
+Use the configured console URL and complete normal login as that email. Final
+acceptance verified zero companies before login, exactly one afterward, and both
+`InstallationOwnerClaimCreated` and `InstallationOwnerClaimRedeemed` audit events.
+The compiled source-free owner-claim runtime test now passes on this Mac too.
+
+### 4. Offline engine installation and later registration — delivered
+
+With the gateway stopped and no registry entry, the release engine became locally
+ready and survived supervised worker replacement (PID 18 → 122). Abstract Unix
+control creates no socket file and uses no socket chmod/state-mount dependency.
+Startup failures have authored phase logs without exception text. Register its
+address and displayed pin in gateway Settings later; wrong-pin verification,
+unknown certificates and cross-project requests refuse.
+
+On the engine host, with its own configuration and customer readiness source:
+
+```sh
+./engine.sh --env-file /etc/opintel/engine.env --project-name customer-engine prepare /var/lib/opintel-engine/state/readiness-egress.json
+./engine.sh --env-file /etc/opintel/engine.env --project-name customer-engine start egress
+./engine.sh --env-file /etc/opintel/engine.env --project-name customer-engine start engine
+./engine.sh --env-file /etc/opintel/engine.env --project-name customer-engine pin
+```
+
+The prepare output must match `ENGINE_STATE_DIRECTORY/readiness-egress.json`.
+Use an engine address reachable from the gateway, with explicit bind/port values.
+There is no `unless-stopped` engine restart policy; its supervisor owns worker
+replacement. Customer XQ configuration is mounted read-only.
+
+### 5. Derived egress, reassignment and pending retest — delivered
+
+There is no operator destination list. The readiness-source rule is permanent;
+the configured receipt endpoint is also derived into the policy. Each registered
+engine heartbeat fetches assigned destinations, applies them in place and reports
+the applied version. Unavailable gateway/receipt DNS does not prevent local
+readiness; resolution is retried without granting unresolved destinations.
+
+Save and assign a source in the console. Creation and assignment of an existing
+source queue normal introspection. Repeated assignment reuses queued work;
+active introspection must finish before reassignment. Only acknowledgment of the
+current policy releases the worker. Success returns the source to connected;
+connection failure leaves it saved and unreachable. Pending egress, pending and
+unreachable query refusals are recorded in evidence before execution. Console
+policy-version display and assignment-conflict reporting remain explicitly out
+of stage 3.
+
+Final acceptance proved positive-controlled denial of an undeclared destination,
+current policy application before querying, and a governed query returning one
+expected row. Evidence ID: **01a16ea5-2dce-7a82-9109-681d26aadeaf**.
+
+Optional ingest also passed: a synthetic CSV committed into the external
+customer-source fixture with the gateway stopped; its same filing and exact
+receipt survived worker replacement, then delivered after registration and
+assignment. Customer row count and persisted receipt count remained one; network delivery may retry idempotently. Filing ID:
+**51aac5ec-32d1-4bc2-9f80-31dd16d64616**.
+These fixtures were created externally by the acceptance harness, never shipped
+in an image or handoff package. Query results are not persisted; ingest writes
+only into the customer's own Postgres.
+
+The full reproducible lifecycle, including the heartbeat/retest and ingest
+assertions, is the release acceptance command under deliverable 6 below.
+
+### 6. Clean release publication and final acceptance — delivered for AMD64
+
+All six release images are available at the exact GHCR digests in
+`docs/review/stage3-release-linux-amd64.json` and the release table above.
+Each published image ID, `org.opencontainers.image.revision` and
+`io.opintel.candidate=false` was checked against the clean manifest.
+Package Compose files reference those digests literally.
+
+Final acceptance was executed from the detached committed checkout and pulled
+those GHCR digests. Result: **passed**, including core, trust negatives and ingest.
+Durable proof: `docs/review/stage3-release-acceptance.json`. Raw fixture/logs:
+`/private/tmp/opintel-stage3-release-f905ce78180b/tmp/stage3-acceptance-bbqlKa` and
+`/private/tmp/opintel-stage3-clean-release-acceptance.log`.
+Its disposable containers/networks were removed after log capture; diagnostic
+volumes and records were retained.
+
+Reproduce a native AMD64 build from the exact committed source (choose unused
+checkout/output paths; output manifests and package directories are exclusive):
+
+```sh
+git worktree add --detach /tmp/opintel-f905ce7 f905ce78180b445cab17bdb61ce22c332d83e031
+cd /tmp/opintel-f905ce7
+npm ci
+TAG=f905ce78180b make build IMAGE=all PLATFORM=linux/amd64
+node scripts/images/publish.mjs tmp/images/releases/f905ce78180b-api-engine-console-egress-migrations-provisioning.json /tmp/opintel-f905ce7-published.json
+PLATFORM=linux/amd64 node scripts/images/package.mjs /tmp/opintel-f905ce7-published.json /tmp/opintel-f905ce7-packages
+RELEASE_MANIFEST=/tmp/opintel-f905ce7-published.json INGEST=1 TAG=f905ce78180b PLATFORM=linux/amd64 node scripts/images/stage3-smoke.mjs
+```
+
+To use the already-published release rather than rebuild it, from the repository
+with the final report files:
+
+```sh
+PLATFORM=linux/amd64 node scripts/images/package.mjs docs/review/stage3-release-linux-amd64.json /absolute/new/release-packages
+RELEASE_MANIFEST=docs/review/stage3-release-linux-amd64.json INGEST=1 TAG=f905ce78180b PLATFORM=linux/amd64 node scripts/images/stage3-smoke.mjs
+```
+
+The acceptance command is an external test tool requiring host dependencies,
+Docker and its documented fixture ports; operators deploying the shipped
+packages need neither the repository nor host Node. Run its synthetic fixture
+only on an acceptance host, not in a client database.
+
+ARM64 was deliberately **not** built or emulated on this Intel host. On the native
+ARM64 machine, check out the same source revision and build/publish/package with
+`PLATFORM=linux/arm64`; use the resulting ARM64 manifest rather than this AMD64
+one. Actual separate-host deployment and the independent reinsurance provisioning,
+synthetic seeding and soak work remain their later planned stages. No client
+simulation data is included in this stage's release.
+
+### Validation and preservation
+
+- Green gate record: `docs/review/stage3-gate-authorised-repairs.json`; 2,043 normal
+  tests in 232 files, all 59 conformance tests and the browser/MCP smoke passed;
+  isolated database cleanup succeeded. Wall time 1,434.30 seconds.
+- Previous failed gate: `docs/review/stage3-gate-20261024.json`, retained unchanged.
+- Release build/audits: `/private/tmp/opintel-stage3-clean-release-build.log`.
+- Release publication: `/private/tmp/opintel-stage3-release-publication.log`.
+- Final release acceptance: `/private/tmp/opintel-stage3-clean-release-acceptance.log`.
+- No new product/source changes after the green source commit. This final report,
+  clean release manifest and acceptance record are documentation-only follow-up.
+- Unrelated backlog, stage-2 status and Python cache were preserved. Existing
+  review records and retained acceptance volumes remain intact; the gate cleaned
+  only its owned isolated test database.

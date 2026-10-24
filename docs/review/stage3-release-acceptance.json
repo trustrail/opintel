@@ -1,0 +1,62 @@
+{
+  "platform": "linux/amd64",
+  "tag": "f905ce78180b",
+  "images": {
+    "api": "ghcr.io/trustrail/opintel-api@sha256:6dd293fbc750a7eb254a9f18d069c1c1b425b3bb2b0828a8d3b9fc7927f77709",
+    "console": "ghcr.io/trustrail/opintel-console@sha256:61d3ba2c58f5a31f8a1f318d43a1f0298c03965fcbd0636d49cb6b89a1d8de72",
+    "engine": "ghcr.io/trustrail/opintel-engine@sha256:1666afef7fa9c939204f4c0287fb28dabadab91f49b6190d1c3ff0cf79d2beab",
+    "egress": "ghcr.io/trustrail/opintel-egress@sha256:f19d400b179bf0b12958c966784ab0ef377f87e827dac725eb4c3a3d884b0f85",
+    "migrations": "ghcr.io/trustrail/opintel-migrations@sha256:03e95cebb9b00dbc813b0d90b0d5e9f12275b6953bb35e61325b2ba3f866b050",
+    "provisioning": "ghcr.io/trustrail/opintel-provisioning@sha256:459e56085dbcc11760e37b7308b1a98065f4ba8ec0f2b39fedb46188327b84d4"
+  },
+  "projects": {
+    "gateway": "opintel-gateway-proof-1792857550715",
+    "engine": "opintel-engine-proof-1792857550715",
+    "source": "opintel-source-proof-1792857550715"
+  },
+  "checks": {
+    "ownerClaim": {
+      "noCompanyBeforeLogin": true,
+      "normalLogin": true,
+      "companyCount": 1,
+      "audits": "InstallationOwnerClaimCreated,InstallationOwnerClaimRedeemed"
+    },
+    "abstractControl": {
+      "noSocketFile": true
+    },
+    "offlineEngine": {
+      "contract": 3,
+      "gatewayStopped": true,
+      "registryEmpty": true,
+      "workerBefore": "18",
+      "workerAfter": "122"
+    },
+    "egressDenial": {
+      "positiveControl": true,
+      "undeclaredDestinationDenied": true
+    },
+    "registration": {
+      "wrongPinRefused": true,
+      "wrongPinClearsVerification": true,
+      "correctPinVerified": true
+    },
+    "heartbeat": {
+      "appliedBeforeQuery": true,
+      "unknownAndCrossProjectRefused": true
+    },
+    "governedQuery": {
+      "rows": 1,
+      "evidenceId": "01a16ea5-2dce-7a82-9109-681d26aadeaf"
+    },
+    "ingest": {
+      "offlineCommit": true,
+      "pendingSurvivedReplacement": true,
+      "sameFilingId": true,
+      "receiptDelivered": true,
+      "customerRowCount": 1,
+      "filingId": "51aac5ec-32d1-4bc2-9f80-31dd16d64616"
+    }
+  },
+  "firewall": "-P OUTPUT DROP\n-A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED --ctdir REPLY -j ACCEPT\n-A OUTPUT -d 127.0.0.11/32 -p udp -m owner --uid-owner 0 -j ACCEPT\n-A OUTPUT -d 127.0.0.11/32 -p tcp -m owner --uid-owner 0 -j ACCEPT\n-A OUTPUT -d 127.0.0.11/32 -j DROP\n-A OUTPUT -d 192.168.65.254/32 -p tcp -m tcp --dport 15435 -j ACCEPT\n-A OUTPUT -d 192.168.65.254/32 -p tcp -m tcp --dport 13811 -j ACCEPT",
+  "status": "passed"
+}
