@@ -73,8 +73,10 @@ const contracts: Record<string, GrantContract> = {
   company_member: platformManaged,
   project_member: platformManaged,
   relationship_outbox: platformManaged,
-  // Migration bookkeeping is owner-only, never accessed by an application scope.
-  schema_migration: { opintel_app: [], opintel_platform: [], opintel_platform_admin: [] },
+  // Compatibility checks can read identities; writes remain migration-owner-only.
+  schema_migration: { opintel_app: [], opintel_platform: ['SELECT'], opintel_platform_admin: [] },
+  // Redemption has column-level UPDATE only, never table-wide UPDATE.
+  installation_owner_claim: {opintel_app:[],opintel_platform:['SELECT'],opintel_platform_admin:['SELECT','INSERT','TRUNCATE']},
 };
 
 type GrantRow = {

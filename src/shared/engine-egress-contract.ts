@@ -1,0 +1,11 @@
+import {z} from 'zod';
+import {EngineId,ProjectId,SourceId} from './kernel/index.js';
+export const egressVersion=z.string().regex(/^[a-f0-9]{64}$/u);
+export const egressBinding=z.strictObject({projectId:z.uuid().transform(ProjectId),engineId:z.uuid().transform(EngineId),gatewayUrl:z.url().refine(value=>{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!url.search&&!url.hash&&url.pathname==='/';})});
+export const egressHeartbeat=z.strictObject({projectId:z.uuid().transform(ProjectId),engineId:z.uuid().transform(EngineId),appliedVersion:egressVersion.nullable(),unreachableSourceIds:z.array(z.uuid().transform(SourceId)).max(10000).optional()});
+export const egressAssignment=z.strictObject({sourceId:z.uuid().transform(SourceId),credentialRef:z.string().startsWith('secret://').min(10)});
+export const egressPolicy=z.strictObject({version:egressVersion,assignments:z.array(egressAssignment).max(10000)});
+export type EgressHeartbeat=z.infer<typeof egressHeartbeat>;
+export type EgressPolicy=z.infer<typeof egressPolicy>;
+export const egressRegistration=egressBinding.extend({requestId:z.uuid()});
+export const egressRegistered=z.strictObject({registered:z.literal(true)});

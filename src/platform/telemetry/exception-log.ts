@@ -13,6 +13,11 @@ const safeMessages = new Set([
   'MIGRATION_DATABASE_URL is required. Set it in the environment.',
   'MIGRATION_DATABASE_URL is required. Copy .env.example to .env, or set it inline.',
   'SPICEDB_ENDPOINT and SPICEDB_TOKEN are required.',
+  'The API release has no database compatibility contract.',
+  'Database migrations are pending. Run the matching gateway migration job before starting the API.',
+  'Database migration checksums do not match this API release.',
+  'Gateway PostgreSQL migration metadata is unavailable. Check DATABASE_URL and run the gateway migration job.',
+  'Gateway dependencies are not ready. Check PostgreSQL, Redis and the installed SpiceDB schema.',
 ]);
 
 const messageWithheld = '[exception message withheld]';
@@ -89,11 +94,11 @@ export function apiStartupExceptionLine(error: unknown): string {
   return JSON.stringify({ event: 'api.startup_failed', ...sanitiseException(error) });
 }
 
-export function cliExceptionLine(operation: 'migration' | 'schema_load', error: unknown): string {
+export function cliExceptionLine(operation: 'migration' | 'schema_load' | 'owner_claim', error: unknown): string {
   return JSON.stringify({
     event: `${operation}.failed`,
     ...sanitiseException(error),
-    diagnosis: operation === 'migration'
+    diagnosis: operation !== 'schema_load'
       ? 'Consult the database log for the native diagnostic; it may contain row data.'
       : 'Consult the SpiceDB server log for the native diagnostic; it may contain schema text.',
   }) + '\n';

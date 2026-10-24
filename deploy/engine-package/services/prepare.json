@@ -1,0 +1,29 @@
+{
+  "services": {
+    "prepare": {
+      "image": "${ENGINE_IMAGE:?set engine image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "node",
+        "sidecar/egress/readiness-policy.js"
+      ],
+      "environment": {
+        "SIDECAR_CONFIG_FILE": "/config/service.json"
+      },
+      "env_file": [
+        "${ENGINE_ENV_FILE:?set engine runtime environment}"
+      ],
+      "volumes": [
+        "${ENGINE_CONFIG_DIRECTORY:?set engine config directory}:/config:ro"
+      ],
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "restart": "no"
+    }
+  }
+}

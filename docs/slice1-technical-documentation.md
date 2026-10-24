@@ -1406,7 +1406,7 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 |---|---|
 | POST | `/projects/:id/sources` |
 | POST | `/projects/:id/sources/from-demo` | `{ demoTemplateId }`. Provisions and introspects. Same downstream path as any source |
-| POST | `/projects/:id/sources/test` (validates before saving) |
+| POST | `/projects/:id/sources/test` (returns assignment-first guidance; no pre-save source contact) |
 | GET / PATCH / DELETE | `/sources/:id` |
 | POST | `/sources/:id/introspect` |
 | GET | `/projects/:id/sources/:sourceId/introspections` |
@@ -5911,3 +5911,24 @@ initializes empty client state through explicit migration/schema jobs. Reinsuran
 provisioning and synthetic seeding are independent opt-in operator tools, not
 startup behavior or runtime-image payloads. Existing identity/admission and
 migration-checksum invariants remain in force.
+
+
+### Stage-3 source admission and egress acknowledgment
+
+The reader-approved assignment-first workflow supersedes pre-save connection
+testing. Save the source and verified engine assignment with pending-egress
+status. The engine package obtains assigned credential references on each
+heartbeat, resolves them locally, and applies its firewall policy in place.
+The readiness source remains permitted. Only acknowledgment of the current
+assignment version releases saved connection-test work. The existing normal
+introspection worker then tests and introspects. Connection failure retains the
+source as unreachable; it does not delete the assignment or recorded history.
+
+Resolution failures are explicit denied destinations in the heartbeat report.
+The gateway retains those sources as unreachable with pending work held, while
+successfully resolved assignments can proceed. A subsequent heartbeat reporting
+resolution recovery releases the held test automatically. The reported applied
+version identifies the installed policy, not a claim that a source is reachable.
+No pre-assignment firewall exception or operator destination list is introduced.
+
+Existing-source engine assignment also queues normal introspection, retaining schema selection and sampling consent. Current-policy acknowledgment releases it; success reconnects the source and failure leaves it unreachable. Repeated assignment reuses queued work; assignment during active introspection refuses until completion. Worker claiming serializes with assignment and refuses pending egress. Query admission still requires connected status.

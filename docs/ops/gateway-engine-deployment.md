@@ -90,6 +90,15 @@ and container swap, resource limits and explicit egress. The companion must
 install policy before the engine starts. It is a local companion, not a gateway
 proxy, and is not deployed on another host from its engine.
 
+Stage-3 egress correction: describe and package this as a firewall installer in
+the engine's shared network namespace, not an HTTP/SOCKS service that containers
+talk to. Only the engine joins its companion's namespace; gateway services do
+not. Published engine ports belong to that namespace. Preserve default-deny
+IPv4/IPv6 output, explicit destination allowances and the policy-ready startup
+dependency. Verify allowed traffic and denied undeclared destinations in the
+independent engine package; do not treat a successful governed query alone as
+proof of egress denial.
+
 Gateway availability and engine-local readiness are different facts. A locally
 ready engine is not yet registered, assigned to a project/source, or authorized
 to serve a caller. Later, an operator supplies its reachable address and public
@@ -247,3 +256,99 @@ before services started; the corrected helper passed. Provisioning and migration
 helpers no longer belong in the API image: the stage-2 smoke uses external test
 setup, pending the independently packaged stage-3 jobs. Disk space interrupted
 builds; the completed platform audits required no weakened exclusions.
+
+
+## Stage-3 scope update (reader decision, 23 October 2026)
+
+The branch continues from main 262fa65 with isolated gate databases and
+platform-aware image smoke. Implement in order: (1) independently selectable
+gateway/engine Compose projects with explicit addresses and external dependency
+support; (2) explicit application/SpiceDB/schema jobs and compatibility-only
+startup; (3) the approved expiring first-owner claim; (4) gateway-offline engine
+installation/replacement and later pinned registration; (5) console-derived
+source egress fetched by the engine from the gateway on every heartbeat after
+registration, applied in place, with the applied version reported in the heartbeat; (6) GHCR publication and digest-only package
+references. No operator-maintained destination list remains in the new package.
+
+The readiness-source rule is **permanent** and derived from the existing
+engine-local readiness credential. Console-derived destinations are added
+alongside it after registration; never remove the readiness rule. Console
+display and assignment-conflict reporting are explicitly outside Stage 3.
+This preserves the mandatory source probe on startup and every supervised
+replacement, without making gateway availability a prerequisite. This decision
+supersedes the proposed temporary bootstrap rule and the earlier operator-list
+packaging model. Existing legacy/S4 fixtures keep their explicit test controls.
+
+Build/acceptance on this Intel host uses AMD64 only. ARM64 is built natively on
+the ARM host from the committed revision. Final acceptance on this host starts
+from empty gateway volumes, redeems the owner through normal login, installs the
+engine in a distinct project while the gateway is stopped, starts the gateway,
+registers/verifies the engine and runs a governed query. Preserve negative trust,
+egress and pending-ingest controls from DEP-004–008. Report commands and actual
+digests per deliverable. Gate, commit, merge and push require a green result.
+
+Target: Wednesday 28 October 2026. Risk identified immediately: live policy
+synchronization/heartbeat and registry publication are new work beyond
+the earlier stage estimate; separate-package and offline acceptance remain.
+GHCR authentication is an external prerequisite. Report the remaining work by
+Monday evening 26 October if the target cannot hold; do not imply background
+execution or a completed acceptance result.
+
+### Source admission after the egress decision
+
+Save the source and its engine assignment before attempting a connection. Its
+initial status is `pending_egress` (displayed as “Pending egress”). The engine's
+heartbeat fetches assigned destinations and reports the version actually applied.
+Only acknowledgment of a version containing that assignment may release its
+connection-test work. A failed connection leaves the saved source marked
+`unreachable`; it must not delete the source or grant a pre-assignment firewall
+exception. Registration, pin, project and source authorization still apply.
+Console policy-version display and assignment-conflict reporting remain outside
+Stage 3; the source's admission status is part of this authorized workflow.
+
+### Package build, publication and operator handoff
+
+On a clean committed checkout, build only the required native platform:
+
+```sh
+TAG=release-name make build IMAGE=all PLATFORM=linux/amd64
+node scripts/images/publish.mjs tmp/images/releases/release-name-api-engine-console-egress-migrations-provisioning.json /absolute/output/published.json
+PLATFORM=linux/amd64 node scripts/images/package.mjs /absolute/output/published.json /absolute/output/packages
+```
+
+Use the committed revision on the native ARM64 machine with `PLATFORM=linux/arm64`.
+Do not emulate ARM64 builds on this Intel host. The publisher verifies the audited
+local image identity, pushes to `ghcr.io/trustrail/opintel-*`, checks each remote
+digest, and writes the published manifest only after all images succeed. It
+requires explicit `--candidate` for dirty validation artifacts and preserves their
+candidate flag. Candidate provenance must never be relabelled as a clean release.
+
+Each standalone package carries its own README, wrapper, Compose files and
+`release.json`; every image reference in its Compose files is a literal digest.
+The gateway includes the pinned upstream dependency definitions. Copy only the
+package to its corresponding host. Supply operator-owned configuration, TLS and
+customer-local storage there. Do not copy the acceptance directories, synthetic
+fixtures, sample files or development databases to a client installation.
+
+External acceptance against published digests (creates disposable projects and
+synthetic data, then removes only its own containers/networks and retains its
+logs/volumes):
+
+```sh
+RELEASE_MANIFEST=/absolute/output/published.json INGEST=1 PLATFORM=linux/amd64 node scripts/images/stage3-smoke.mjs
+```
+
+The gateway exposes separately configured mTLS heartbeat and receipt listeners;
+set their bind addresses and public ports explicitly for remote engines. Its
+receipt listener maps to 3101 internally, heartbeat to 3102. Readiness remains an
+engine-local requirement. Configured receipt destinations join the permanent
+readiness rule; no operator destination list is required. Temporary DNS failure
+for gateway/receipt destinations withholds those destinations without preventing
+local source readiness, and periodic reconciliation retries their resolution.
+
+Existing-source reassignment queues the same normal introspection work as source
+creation, retaining its schema selection. A repeated assignment reuses queued
+work; an executing introspection must finish before reassignment. Only a current
+policy acknowledgment releases work. Successful introspection reconnects it;
+connection failure leaves it saved and unreachable. Query admission remains
+connected-only.

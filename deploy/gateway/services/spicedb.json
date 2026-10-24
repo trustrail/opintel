@@ -1,0 +1,27 @@
+{
+  "services": {
+    "spicedb": {
+      "extends": {
+        "file": "../../images/upstream.json",
+        "service": "spicedb"
+      },
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "serve"
+      ],
+      "env_file": [
+        "${GATEWAY_SPICEDB_ENV_FILE:?set SpiceDB connection and authentication environment}"
+      ],
+      "environment": {
+        "SPICEDB_DATASTORE_ENGINE": "postgres"
+      },
+      "volumes": [
+        "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config:ro"
+      ],
+      "restart": "on-failure:3",
+      "ports": [
+        "${GATEWAY_SPICEDB_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_SPICEDB_PORT:-50051}:50051"
+      ]
+    }
+  }
+}

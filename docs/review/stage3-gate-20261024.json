@@ -1,0 +1,50 @@
+{
+  "commit": "262fa65aece263fd6b14d567a8db398a563555da",
+  "preflight": {
+    "started": [],
+    "postgres": "reachable",
+    "redis": "reachable",
+    "database": "opintel_test_gate_64cadc497d02_c41d54c27462",
+    "migratedFromZero": true,
+    "seconds": 10.122900163,
+    "exitCode": 0
+  },
+  "tiers": [
+    {
+      "tier": "typecheck",
+      "seconds": 35.37897228600001,
+      "exitCode": 0
+    },
+    {
+      "tier": "typecheck:conformance",
+      "seconds": 6.9473031449999985,
+      "exitCode": 0
+    },
+    {
+      "tier": "lint",
+      "seconds": 18.066755833999995,
+      "exitCode": 0
+    },
+    {
+      "tier": "build:production",
+      "seconds": 2.2405619260000096,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:conformance",
+      "seconds": 147.09742038299999,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 1149.064485855,
+      "exitCode": 1
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_c41d54c27462",
+    "exitCode": 0
+  },
+  "wallSeconds": 1369.454626457,
+  "complete": false
+}

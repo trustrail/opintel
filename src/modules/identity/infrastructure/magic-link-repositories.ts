@@ -1,5 +1,5 @@
 import { ErrorReply, TimeoutError } from 'redis';
-import { CompanyId,DomainError, InviteId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
+import { CompanyId,DomainError, InviteId, InstallationClaimId, Timestamp, UserId, type Clock } from '../../../shared/kernel/index.js';
 import { withPlatform, type Tx } from '../../../platform/db/scope.js';
 import { redisKeyPrefix, type RedisClient } from '../../../platform/redis/index.js';
 import type { CurrentUserAccount, CurrentUserRepository } from '../application/current-user.js';
@@ -8,7 +8,7 @@ import type { AccountRepository, InvitationAcceptancePort, InviteRepository, Mag
 type AccountRow = { id: string; email: string };
 type CurrentUserRow = { id: string; email: string; full_name: string | null; timezone: string };
 type InviteRow = { id: string; company_id:string;email: string; role: PendingInvite['role']; expires_at: string };
-type TokenRow = { id: string; email: string; device_nonce: string; invite_id: string | null };
+type TokenRow = { id: string; email: string; device_nonce: string; invite_id: string | null; installation_claim_id:string|null };
 
 export class PostgresIdentityRepository implements AccountRepository, InviteRepository, MagicLinkRepository, CurrentUserRepository {
   constructor(private readonly now: Clock, private readonly acceptance?: InvitationAcceptancePort) {}
@@ -57,10 +57,10 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
     if (!result.ok) throw result.error;
   }
   async issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: import('../../../shared/kernel/index.js').InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<void> { await withPlatform((tx) => tx.query('INSERT INTO magic_link_token (email, token_hash, device_nonce, invite_id, expires_at, requested_ip) VALUES ($1, $2, $3, $4, $5, $6)', [email, tokenHash, deviceNonce, inviteId, expiresAt, ip])); }
-  async issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: import('../../../shared/kernel/index.js').InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<MagicLinkToken> {
+  async issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: import('../../../shared/kernel/index.js').InviteId | null, expiresAt: Timestamp, ip: string | null, installationClaimId?:InstallationClaimId): Promise<MagicLinkToken> {
     return withPlatform(async (tx) => {
       await tx.query('UPDATE magic_link_token SET consumed_at = now() WHERE email = $1 AND consumed_at IS NULL', [email]);
-      const rows = await tx.query<TokenRow>('INSERT INTO magic_link_token (email, token_hash, device_nonce, invite_id, expires_at, requested_ip) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, device_nonce, invite_id', [email, tokenHash, deviceNonce, inviteId, expiresAt, ip]);
+      const rows = await tx.query<TokenRow>('INSERT INTO magic_link_token (email, token_hash, device_nonce, invite_id, expires_at, requested_ip, installation_claim_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, email, device_nonce, invite_id, installation_claim_id', [email, tokenHash, deviceNonce, inviteId, expiresAt, ip, installationClaimId??null]);
       const token = this.token(rows[0]);
       if (token === null) throw new Error('Magic-link issuance returned no token.');
       await tx.query('INSERT INTO mail_outbox (to_email, template, vars, idempotency_key) VALUES ($1, $2, $3::jsonb, $4)', [email, 'magic_link', JSON.stringify({ tokenId: token.id }), `magic_link:${token.id}`]);
@@ -68,9 +68,9 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
     });
   }
   async invalidateOutstanding(email: string): Promise<number> { const rows = await withPlatform((tx) => tx.query<{ count: string }>('WITH updated AS (UPDATE magic_link_token SET consumed_at = now() WHERE email = $1 AND consumed_at IS NULL RETURNING 1) SELECT count(*)::text AS count FROM updated', [email])); return Number(rows[0]?.count ?? '0'); }
-  async consume(tokenHash: Buffer, deviceNonce: string, now: Timestamp): Promise<MagicLinkToken | null> { return this.consumeStatement('UPDATE magic_link_token SET consumed_at = $3 WHERE token_hash = $1 AND device_nonce = $2 AND consumed_at IS NULL AND expires_at > $3 RETURNING id, email, device_nonce, invite_id', [tokenHash, deviceNonce, now]); }
-  async consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null> { return this.consumeStatement('UPDATE magic_link_token SET consumed_at = $2 WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2 RETURNING id, email, device_nonce, invite_id', [tokenHash, now]); }
-  async peek(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null> { const rows = await withPlatform((tx) => tx.query<TokenRow>('SELECT id, email, device_nonce, invite_id FROM magic_link_token WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2', [tokenHash, now])); return this.token(rows[0]); }
+  async consume(tokenHash: Buffer, deviceNonce: string, now: Timestamp): Promise<MagicLinkToken | null> { return this.consumeStatement('UPDATE magic_link_token SET consumed_at = $3 WHERE token_hash = $1 AND device_nonce = $2 AND consumed_at IS NULL AND expires_at > $3 RETURNING id, email, device_nonce, invite_id, installation_claim_id', [tokenHash, deviceNonce, now]); }
+  async consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null> { return this.consumeStatement('UPDATE magic_link_token SET consumed_at = $2 WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2 RETURNING id, email, device_nonce, invite_id, installation_claim_id', [tokenHash, now]); }
+  async peek(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null> { const rows = await withPlatform((tx) => tx.query<TokenRow>('SELECT id, email, device_nonce, invite_id, installation_claim_id FROM magic_link_token WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > $2', [tokenHash, now])); return this.token(rows[0]); }
   async expiredInvitation(tokenHash: Buffer, now: Timestamp): Promise<boolean> {
     return withPlatform(async (tx) => (await tx.query<{ id: string }>(
       `SELECT i.id FROM magic_link_token t JOIN pending_invite i ON i.id = t.invite_id
@@ -78,7 +78,7 @@ export class PostgresIdentityRepository implements AccountRepository, InviteRepo
     )).length > 0);
   }
   private async consumeStatement(sql: string, values: readonly unknown[]): Promise<MagicLinkToken | null> { const rows = await withPlatform((tx: Tx) => tx.query<TokenRow>(sql, values)); return this.token(rows[0]); }
-  private token(row: TokenRow | undefined): MagicLinkToken | null { return row === undefined ? null : { id: row.id, email: row.email, deviceNonce: row.device_nonce, inviteId: row.invite_id === null ? null : InviteId(row.invite_id) }; }
+  private token(row: TokenRow | undefined): MagicLinkToken | null { return row === undefined ? null : { id: row.id, email: row.email, deviceNonce: row.device_nonce, inviteId: row.invite_id === null ? null : InviteId(row.invite_id), ...(row.installation_claim_id?{installationClaimId:InstallationClaimId(row.installation_claim_id)}:{}) }; }
 }
 
 const limiterKeys = redisKeyPrefix('rate-limit');

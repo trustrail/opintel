@@ -8,6 +8,9 @@ import type { UserId, ProjectId, ActorRef } from '../../shared/kernel/index.js';
 // Private. Never exported. The only way to reach a connection is through
 // one of the three scopes below.
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// pg-pool has already removed the failed idle client before emitting this event.
+// Never log the Error or client: either can contain SQL, values or credentials.
+pool.on('error', () => console.warn({event:'db.idle_client_error',message:'An idle database connection closed unexpectedly.'}));
 registerDiagnosticPool(()=>({total:pool.totalCount,idle:pool.idleCount,waiting:pool.waitingCount}));
 
 export type StatementSettings = Readonly<{

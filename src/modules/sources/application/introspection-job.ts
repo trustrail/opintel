@@ -70,7 +70,7 @@ export class IntrospectionJob {
       const connector = this.connector(source.value,id,ctx);
       const connected = await connector.testConnection(source.value.credentialRef,controller.signal);
       if (controller.signal.aborted) return await this.store.cancel(ctx,id);
-      if (!connected.ok) return await this.store.fail(ctx,id,connected.error.details?.cause==='engine_registry'?connected.error.message:safeSourceMessage(connected.error.code,connected.error.message),connected.error.code==='source_unavailable'&&connected.error.details?.cause!=='engine_registry',connected.error.code);
+      if (!connected.ok) return await this.store.fail(ctx,id,connected.error.details?.cause==='engine_registry'?connected.error.message:safeSourceMessage(connected.error.code,connected.error.message),connected.error.details?.cause!=='engine_registry',connected.error.code);
       if (prepare) {
         const prepared = await prepare(controller.signal);
         if (controller.signal.aborted) return await this.store.cancel(ctx,id);

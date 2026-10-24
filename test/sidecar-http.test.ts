@@ -145,6 +145,8 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
   it('rejects missing and CA-trusted but unpinned client certificates',async()=>{
     await expect(json('/health',undefined,{tls:{cert:'',key:''}})).rejects.toThrow();
     await expect(json('/health',undefined,{tls:alternate})).rejects.toThrow();
+    await expect(json('/egress/register',{}, {tls:{cert:'',key:''}})).rejects.toThrow();
+    await expect(json('/egress/register',{}, {tls:alternate})).rejects.toThrow();
     expect(resolveSpy).not.toHaveBeenCalled();
   });
   it('application pinning rejects a different server certificate',async()=>{
@@ -192,7 +194,9 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect(resolveSpy).not.toHaveBeenCalled();
     }finally{await limited.close();}
     const specification=wire.sidecarOpenApiDocument();
-    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/attest','/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/estimate','/execute','/health','/introspect','/preview-rows','/provision-demo','/sample','/test-connection','/validate']);
+    expect(Object.keys(specification.paths).sort()).toEqual(['/custody/attest','/custody/initialize','/custody/rehearse','/custody/restore/commit','/custody/restore/prepare','/custody/rotate/commit','/custody/rotate/prepare','/custody/status','/egress/register','/estimate','/execute','/health','/introspect','/preview-rows','/provision-demo','/sample','/test-connection','/validate']);
+    expect(specification.paths['/egress/register']!.post.security).toEqual([{applicationCertificate:[]}]);
+    expect(specification.components.securitySchemes.applicationCertificate).toEqual({type:'mutualTLS'});
     const preview=specification.paths['/preview-rows']!.post;
     expect(preview.security).toEqual([{applicationCertificate:[]}]);
     expect(preview.description).toContain('Internal Application-only');

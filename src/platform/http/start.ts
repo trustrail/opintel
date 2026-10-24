@@ -23,6 +23,7 @@ import {sessionIdlePolicy} from '../../modules/identity/infrastructure/session-p
 import {settingsRoutes} from '../../modules/tenancy/api/settings-routes.js';
 import {PostgresSettings} from '../../modules/tenancy/index.js';
 import {PostgresDashboardReader} from '../../modules/tenancy/index.js';
+import {InstallationClaimAdmission,PostgresInstallationClaimRepository} from '../../modules/tenancy/index.js';
 import {dashboardRoutes} from '../../modules/tenancy/api/dashboard-routes.js';
 import {PostgresPoolReader} from '../../modules/pools/index.js';
 import {poolReadRoutes} from '../../modules/pools/api/read-routes.js';
@@ -54,7 +55,12 @@ import { PostgresCatalogTreeReader } from '../../modules/catalog/infrastructure/
 import dotenv from 'dotenv';
 import {startDiagnostics,instrumentHttp} from '../telemetry/diagnostics.js';
 import {checkDevelopmentMigrations} from './development-migrations.js';
+import {checkDeploymentDatabase} from '../db/deployment-contract.js';
+import {GatewayReadiness,readinessRoutes} from './readiness.js';
+import {readFile} from 'node:fs/promises';
 import { apiStartupExceptionLine } from '../telemetry/exception-log.js';
+
+declare const OPINTEL_AUTHORIZATION_SCHEMA:string|undefined;
 
 function loadDevelopmentEnvironment(): void {
   if (process.env.NODE_ENV !== 'production') dotenv.config();
@@ -77,10 +83,11 @@ async function start(): Promise<void> {
   loadDevelopmentEnvironment();
   await startDiagnostics();
   await checkDevelopmentMigrations();
+  await checkDeploymentDatabase();
   await initializeDatabaseDiagnostics();
 
   const [
-    { SessionId, SystemClock, UuidV7IdFactory },
+    { SessionId, SystemClock, UuidV7IdFactory, UserId },
     { createHttpServer },
     { createRedisConnection },
     { MagicLinkService },
@@ -185,6 +192,15 @@ async function start(): Promise<void> {
   );
   const redis = createRedisConnection({ url: requiredEnvironment('REDIS_URL') });
   await redis.connect();
+  const expectedSchema=typeof OPINTEL_AUTHORIZATION_SCHEMA==='undefined'
+    ? await readFile(new URL('../../../docs/opintel-schema.zed',import.meta.url),'utf8')
+    : OPINTEL_AUTHORIZATION_SCHEMA;
+  const readiness=new GatewayReadiness({
+    PostgreSQL:checkDeploymentDatabase,
+    Redis:async()=>{await redis.client.withCommandOptions({timeout:2000}).ping();},
+    'SpiceDB schema':()=>authorization.requireSchema(expectedSchema),
+  });
+  await readiness.requireReady();
 
   const hub = new RedisProjectHub(redis.client, requiredEnvironment('REDIS_URL'));
   const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory(),sessionIdlePolicy);
@@ -196,13 +212,24 @@ async function start(): Promise<void> {
   const magicLinkAccess = new PostgresMagicLinkAccess();
   const currentUsers = new CurrentUserService(sessions, identity, magicLinkAccess);
   const oidc=createOidcRuntime(redis.client,identity,identity,sessions,clock);
-  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, magicLinkAccess, delivery);
+  const ownerClaims=new InstallationClaimAdmission(new PostgresInstallationClaimRepository(relationshipOutbox),relationshipOutbox,authorization);
+  let ownerGrantWork:Promise<void>|undefined;
+  const reconcileOwnerGrant=()=>{if(!ownerGrantWork)ownerGrantWork=ownerClaims.reconcile().catch(()=>{console.warn({event:'installation.owner_grant_pending'});}).finally(()=>{ownerGrantWork=undefined;});};
+  reconcileOwnerGrant();
+  const ownerGrantTimer=setInterval(reconcileOwnerGrant,30000);ownerGrantTimer.unref();
+  const magicLinks = new MagicLinkService(identity, identity, identity, new RedisRateLimiter(redis.client), sessions, clock, magicLinkAccess, delivery,ownerClaims);
   const [{ registerRoutes }, { PostgresFilingRegister }] = await Promise.all([import('../../modules/ingest/api/register-routes.js'), import('../../modules/ingest/infrastructure/register.js')]);
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},engines]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/engines/index.js')]);
   const applicationTls=await engines.loadApplicationTls(process.env.APPLICATION_TLS_CONFIG ?? 'tmp/sidecar/application-tls.json');
-  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(),applicationTls);
+  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(process.env.ENGINE_HEARTBEAT_URL),applicationTls);
   const sources=createSourceRuntime(engineRegistry,hub);
+  const heartbeatServer=process.env.ENGINE_HEARTBEAT_URL?engines.createEngineHeartbeatServer(applicationTls,new engines.EngineEgress(new engines.PostgresEngineEgress(),projectId=>sources.resume({projectId,userId:UserId('00000000-0000-4000-8000-000000000001')}))):undefined;
+  if(heartbeatServer){
+   const port=Number(process.env.ENGINE_HEARTBEAT_PORT??3102);
+   if(!Number.isInteger(port)||port<1||port>65535)throw new Error('Invalid engine heartbeat port.');
+   await new Promise<void>((resolve,reject)=>{heartbeatServer.once('error',reject);heartbeatServer.listen(port,process.env.ENGINE_HEARTBEAT_HOST??'127.0.0.1',resolve);});
+  }
   // Durable startup repair runs through the ordinary worker, without waiting
   // for source contact before serving the API. Unknown ordinals still fail closed.
   const repair = async () => {
@@ -260,6 +287,7 @@ async function start(): Promise<void> {
     ...registerRoutes(register),
     ...observationRoutes(new PostgresObservationReader()),
     ...industryMigrationRoutes(new MigrateIndustryService(new PostgresIndustryMigrationRepository(), authorization)),
+    ...readinessRoutes(readiness),
     ...magicLinkRoutes(magicLinks),
     ...oidcRoutes(oidc,process.env.APP_BASE_URL ?? 'http://localhost:5173'),
     ...invitationRoutes(invitations),
@@ -316,6 +344,7 @@ async function start(): Promise<void> {
   const close = (): void => {
     releaseCustody.close();
     stopEvidenceMaintenance();
+    clearInterval(ownerGrantTimer);
     clearInterval(presenceTimer);
     clearInterval(rehearsalTimer);
     clearInterval(completionTimer);
@@ -323,13 +352,17 @@ async function start(): Promise<void> {
     void mcp.close();
     void hub.close();
     receiptServer?.close();
+    heartbeatServer?.close();
     server.close(() => { authorization.close(); void redis.close(); });
   };
   process.once('SIGINT', close);
   process.once('SIGTERM', close);
 }
 
-void start().catch((error: unknown) => {
-  console.error(apiStartupExceptionLine(error));
-  process.exitCode = 1;
+const startupDeadline=setTimeout(()=>{
+  process.stderr.write('Gateway API startup exceeded 30 seconds. Check its configured dependencies.\n',()=>process.exit(1));
+},30000);
+void start().then(()=>clearTimeout(startupDeadline)).catch((error: unknown) => {
+  clearTimeout(startupDeadline);
+  process.stderr.write(apiStartupExceptionLine(error)+'\n',()=>process.exit(1));
 });

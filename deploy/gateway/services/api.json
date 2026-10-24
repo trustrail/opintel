@@ -1,0 +1,42 @@
+{
+  "services": {
+    "api": {
+      "image": "${GATEWAY_API_IMAGE:?set API image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "env_file": [
+        "${GATEWAY_API_ENV_FILE:?set API runtime environment}"
+      ],
+      "environment": {
+        "APPLICATION_TLS_CONFIG": "/config/application-tls.json",
+        "NODE_EXTRA_CA_CERTS": "/config/tls/ca.pem",
+        "MAIL_OUTPUT_DIR": "/mail",
+        "ENGINE_HEARTBEAT_URL": "${GATEWAY_HEARTBEAT_URL:?set explicit gateway HTTPS heartbeat address}",
+        "ENGINE_HEARTBEAT_HOST": "0.0.0.0",
+        "ENGINE_HEARTBEAT_PORT": "3102",
+        "LANDING_RECEIPT_HOST": "0.0.0.0",
+        "LANDING_RECEIPT_PORT": "3101"
+      },
+      "volumes": [
+        "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config:ro",
+        "${GATEWAY_XQ_DIRECTORY:?set gateway XQ directory}:/xq:ro",
+        "mail:/mail"
+      ],
+      "ports": [
+        "${GATEWAY_API_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_API_PORT:-3000}:3000",
+        "${GATEWAY_HEARTBEAT_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_HEARTBEAT_PORT:-3102}:3102",
+        "${GATEWAY_RECEIPT_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_RECEIPT_PORT:-3101}:3101"
+      ],
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "restart": "on-failure:3"
+    }
+  },
+  "volumes": {
+    "mail": {}
+  }
+}

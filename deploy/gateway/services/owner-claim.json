@@ -1,0 +1,31 @@
+{
+  "services": {
+    "owner-claim": {
+      "image": "${GATEWAY_PROVISIONING_IMAGE:?set provisioning image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "node",
+        "src/platform/ops/owner-claim.js",
+        "--help"
+      ],
+      "env_file": [
+        "${GATEWAY_OPERATOR_ENV_FILE:?set operator job environment}"
+      ],
+      "environment": {
+        "OPINTEL_DEPLOYMENT_PACKAGE": "gateway",
+        "NODE_EXTRA_CA_CERTS": "/config/tls/ca.pem"
+      },
+      "volumes": [
+        "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config:ro"
+      ],
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "restart": "no"
+    }
+  }
+}

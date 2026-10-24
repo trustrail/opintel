@@ -73,6 +73,7 @@ const database = vi.hoisted(() => {
   return {
     statements,
     Pool: class {
+      on(): this { return this; }
       async connect(): Promise<ReusableClient> {
         return client;
       }

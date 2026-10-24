@@ -1,7 +1,7 @@
-export const runtimeImages=['api','engine','console','egress'];
+export const runtimeImages=['api','engine','console','egress','migrations','provisioning'];
 export function selectedImages(value='all'){
  if(value==='all')return [...runtimeImages];
- if(!runtimeImages.includes(value))throw new Error('IMAGE must be api, engine, console, egress or all.');
+ if(!runtimeImages.includes(value))throw new Error('IMAGE must be api, engine, console, egress, migrations, provisioning or all.');
  return [value];
 }
 export function targetPlatforms(value='linux/amd64,linux/arm64'){

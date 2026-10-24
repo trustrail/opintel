@@ -1,0 +1,25 @@
+{
+  "services": {
+    "spicedb-migrate": {
+      "extends": {
+        "file": "../../images/upstream.json",
+        "service": "spicedb"
+      },
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "migrate",
+        "head"
+      ],
+      "env_file": [
+        "${GATEWAY_SPICEDB_ENV_FILE:?set SpiceDB connection and authentication environment}"
+      ],
+      "environment": {
+        "SPICEDB_DATASTORE_ENGINE": "postgres"
+      },
+      "volumes": [
+        "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config:ro"
+      ],
+      "restart": "no"
+    }
+  }
+}

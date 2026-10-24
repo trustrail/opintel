@@ -68,6 +68,7 @@ function defaultSecurity(endpoint: string): v1.ClientSecurity {
 
 export class SpiceDbAuthorizationPort implements AuthorizationPort {
   private readonly client: v1.ZedPromiseClientInterface;
+  private readonly probeClient:v1.ZedClientInterface;
   private readonly closeClient: () => void;
   private readonly snapshots = new Map<string, Snapshot>();
 
@@ -79,12 +80,23 @@ export class SpiceDbAuthorizationPort implements AuthorizationPort {
       options.security ?? defaultSecurity(options.endpoint),
     );
     this.client = client.promises;
+    this.probeClient=client;
     this.closeClient = () => client.close();
   }
 
   async loadSchema(schema: string): Promise<void> {
     await this.client.writeSchema(v1.WriteSchemaRequest.create({ schema }));
     this.snapshots.clear();
+  }
+
+  async requireSchema(expected:string):Promise<void>{
+    const actual=await new Promise<v1.ReadSchemaResponse>((resolve,reject)=>{
+      this.probeClient.readSchema(v1.ReadSchemaRequest.create({}),{deadline:Date.now()+2000},(error,response)=>{
+        if(error)reject(error);else if(response)resolve(response);else reject(new Error('SpiceDB returned no schema response.'));
+      });
+    });
+    const normalize=(schema:string)=>schema.replace(/\/\*[\s\S]*?\*\//gu,'').replace(/\/\/[^\n]*/gu,'').split(/(?=\bdefinition\s)/u).map(part=>part.replace(/\s+/gu,'')).sort().join('');
+    if(normalize(actual.schemaText)!==normalize(expected))throw new Error('SpiceDB schema does not match the gateway release.');
   }
 
   async check(request: CheckRequest): Promise<CheckResult> {

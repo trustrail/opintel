@@ -66,6 +66,11 @@ export class PostgresIntrospectionStore implements IntrospectionStore {
     const legal = transitionRun(from,to);
     if (!legal.ok) return Promise.resolve(legal);
     return this.changed(ctx, withTenant(ctx, async (tx): Promise<Result<IntrospectionRun>> => {
+      if(from==='queued'){
+        // Serialize a claim with engine reassignment, including already-dispatched queue reads.
+        const [source]=await tx.query<{egress_pending:boolean;status:string}>('SELECT s.egress_pending,s.status FROM data_source s JOIN introspection_run r ON r.source_id=s.id WHERE r.id=$1 FOR UPDATE OF s',[id]);
+        if(source?.egress_pending||source?.status==='archived')return conflict();
+      }
       const current = await this.readTx(tx,id,true);
       if (!current.ok) return current;
       if (current.value.state !== from) return conflict();

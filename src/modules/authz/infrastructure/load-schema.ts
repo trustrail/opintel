@@ -6,6 +6,10 @@ import { v1 } from '@authzed/authzed-node';
 import { config as loadEnvironmentFile } from 'dotenv';
 import { cliExceptionLine } from '../../../platform/telemetry/exception-log.js';
 
+// Replaced with the reviewed schema by the minified migration-image build.
+// Native development keeps reading the authored schema from the repository.
+declare const OPINTEL_AUTHORIZATION_SCHEMA:string|undefined;
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 if (process.env.NODE_ENV !== 'production') loadEnvironmentFile({ path: path.join(repositoryRoot, '.env') });
 
@@ -20,8 +24,10 @@ async function main(): Promise<void> {
     : v1.ClientSecurity.SECURE;
   const client = v1.NewClient(token, endpoint, security);
   try {
-    const schema = await readFile(path.join(repositoryRoot, 'docs/opintel-schema.zed'), 'utf8');
-    await client.promises.writeSchema(v1.WriteSchemaRequest.create({ schema }));
+    const schema = typeof OPINTEL_AUTHORIZATION_SCHEMA==='undefined'
+      ? await readFile(path.join(repositoryRoot, 'docs/opintel-schema.zed'), 'utf8')
+      : OPINTEL_AUTHORIZATION_SCHEMA;
+    await new Promise<void>((resolve,reject)=>client.writeSchema(v1.WriteSchemaRequest.create({schema}),{deadline:Date.now()+5000},error=>{if(error)reject(error);else resolve();}));
     process.stdout.write('Loaded opintel-schema.zed into SpiceDB.\n');
   } finally {
     client.close();

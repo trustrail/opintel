@@ -4,23 +4,32 @@ import {build} from 'esbuild';
 import {createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile,copyFile,readdir,cp} from 'node:fs/promises';
 import {resolve,dirname,relative,join} from 'node:path';
+import {bundleMigrations} from './migrations.mjs';
 
 const target=process.argv[2],destination=resolve(process.argv[3]??`tmp/runtime/${target}`);
 const entries={
  api:{'src/platform/http/start.js':'src/platform/http/start.ts','src/platform/http/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs'},
- engine:{'sidecar/supervise.js':'sidecar/supervise.ts','sidecar/start.js':'sidecar/start.ts','sidecar/pin-command.js':'sidecar/pin-command.ts','sidecar/ingest/command.js':'sidecar/ingest/command.ts'},
+ engine:{'sidecar/supervise.js':'sidecar/supervise.ts','sidecar/start.js':'sidecar/start.ts','sidecar/pin-command.js':'sidecar/pin-command.ts','sidecar/ingest/command.js':'sidecar/ingest/command.ts','sidecar/egress/readiness-policy.js':'sidecar/egress/infrastructure/readiness-policy.ts'},
  console:{'console.mjs':'deploy/images/console.mjs'},
  egress:{'egress.mjs':'deploy/engine/egress.mjs'},
+ migrations:{'src/platform/db/migrate.js':'src/platform/db/migrate.ts','src/modules/authz/infrastructure/load-schema.js':'src/modules/authz/infrastructure/load-schema.ts'},
+ provisioning:{'src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts'},
 };
-if(!Object.hasOwn(entries,target))throw new Error('Bundle target must be api, engine, console or egress.');
+if(!Object.hasOwn(entries,target))throw new Error('Unknown runtime bundle target.');
 await mkdir(destination,{recursive:true});
 const artifacts={};
 const record=async(name)=>{artifacts[name]=createHash('sha256').update(await readFile(join(destination,name))).digest('hex');};
+const definitions={'process.env.NODE_ENV':'"production"',...(['api','migrations'].includes(target)?{OPINTEL_AUTHORIZATION_SCHEMA:JSON.stringify(await readFile('docs/opintel-schema.zed','utf8'))}:{})};
+if(target==='api'){
+ const identities={};
+ for(const file of (await readdir('migrations')).filter(file=>/\.up\.(?:sql|ts)$/u.test(file)))identities[file]=createHash('sha256').update(await readFile('migrations/'+file)).digest('hex');
+ definitions.OPINTEL_MIGRATION_IDENTITIES=JSON.stringify(identities);
+}
 for(const [name,source] of Object.entries(entries[target])){
  const nativePath=relative(dirname(name),'native/duckdb.node').replaceAll('\\','/');
  const result=await build({entryPoints:[source],outfile:join(destination,name),bundle:true,minify:true,sourcemap:false,
   platform:'node',format:'esm',target:'node22',legalComments:'eof',metafile:true,logLevel:'warning',
-  define:{'process.env.NODE_ENV':'"production"'},
+  define:definitions,
   banner:{js:'import {createRequire as __opintelCreateRequire} from "node:module";const require=__opintelCreateRequire(import.meta.url);'},
   plugins:[{name:'shipping-runtime',setup(builder){
    builder.onResolve({filter:/^@duckdb\/node-bindings$/},()=>({path:'duckdb-native',namespace:'opintel-runtime'}));
@@ -35,6 +44,7 @@ for(const [name,source] of Object.entries(entries[target])){
  await record(name);
 }
 await writeFile(join(destination,'package.json'),'{"type":"module","private":true}\n');await record('package.json');
+if(target==='migrations')for(const file of await bundleMigrations('migrations',join(destination,'migrations')))await record('migrations/'+file);
 if(target==='api'||target==='engine'){
  const platform=process.env.TARGETPLATFORM;
  const names={'linux/amd64':'linux-x64','linux/arm64':'linux-arm64'};

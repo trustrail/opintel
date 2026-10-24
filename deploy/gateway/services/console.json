@@ -1,0 +1,26 @@
+{
+  "services": {
+    "console": {
+      "image": "${GATEWAY_CONSOLE_IMAGE:?set console image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "environment": {
+        "API_UPSTREAM": "${GATEWAY_API_UPSTREAM:?set explicit reachable API URL}",
+        "CONSOLE_TLS_CONFIG_FILE": "/config/console-tls.json"
+      },
+      "volumes": [
+        "${GATEWAY_CONSOLE_CONFIG_DIRECTORY:?set console TLS directory}:/config:ro"
+      ],
+      "ports": [
+        "${GATEWAY_CONSOLE_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_CONSOLE_PORT:-443}:8080"
+      ],
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "restart": "on-failure:3"
+    }
+  }
+}

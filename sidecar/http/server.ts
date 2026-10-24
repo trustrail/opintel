@@ -1,3 +1,4 @@
+import {egressRegistration,egressRegistered} from '../../src/shared/engine-egress-contract.js';
 import {rowPreviewRequest,rowPreviewResponse} from '../../src/shared/row-preview-contract.js';
 import { executionRequest,validationRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
 import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
@@ -26,6 +27,7 @@ const errorMessages: Readonly<Record<string,string>> = {
 };
 
 export function createSidecarServer(options: {
+  registerEgress?: (body:unknown)=>Promise<Result<unknown>>;
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
   execution?: {preview?(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
   demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
@@ -36,6 +38,7 @@ export function createSidecarServer(options: {
   const build = wire.healthResponse.parse({ ...(options.build ?? sidecarBuild), canonicalisers: (options.canonicalisers ?? canonicalisers).ids });
   const pin = new X509Certificate(options.tls.clientPin).fingerprint256;
   const routes: Record<string, Route> = {
+    ...(options.registerEgress?{'/egress/register':{permission:'pinned_application_certificate' as const,response:egressRegistered,invoke:options.registerEgress}}:{}),
     ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
     ...(options.execution?.preview?{'/preview-rows':{permission:'pinned_application_certificate' as const,response:rowPreviewResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.preview!(body,signal)}}:{}),
     ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),
@@ -80,7 +83,7 @@ export function createSidecarServer(options: {
         if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) { fail(res,415,'validation_failed','A JSON request body is required.',requestId); return; }
         try { body = JSON.parse(bytes.toString('utf8')) as unknown; }
         catch { fail(res,400,'validation_failed','The request body is not valid JSON.',requestId); return; }
-        const parsed = (path==='/preview-rows'?rowPreviewRequest:path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
+        const parsed = (path==='/egress/register'?egressRegistration:path==='/preview-rows'?rowPreviewRequest:path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
         if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));

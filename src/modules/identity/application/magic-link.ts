@@ -1,12 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { DomainError, type Clock, type CompanyId, type CompanyIdpId, type InviteId, type Result, type SessionId, type Timestamp, type UserId } from '../../../shared/kernel/index.js';
+import { DomainError, type Clock, type CompanyId, type CompanyIdpId, type InviteId, type InstallationClaimId, type Result, type SessionId, type Timestamp, type UserId } from '../../../shared/kernel/index.js';
 import type { SessionPort } from './session.js';
 import type { MagicLinkAccess } from './magic-link-access.js';
+import type {InitialOwnerAdmission} from './initial-owner.js';
 
 export type PendingInvite = { id: InviteId; companyId:CompanyId; email: string; role: 'admin' | 'operator' | 'viewer'; expiresAt: Timestamp };
 export type InvitationAuthentication = {method:'magic_link';sessionId:SessionId}|{method:'oidc';sessionId:SessionId;companyId:CompanyId|null;idpId:CompanyIdpId|null;configurationVersion:string};
 export type UserAccount = { id: UserId; email: string };
-export type MagicLinkToken = { id: string; email: string; deviceNonce: string; inviteId: InviteId | null };
+export type MagicLinkToken = { id: string; email: string; deviceNonce: string; inviteId: InviteId | null; installationClaimId?:InstallationClaimId };
 
 export interface AccountRepository {
   findByEmail(email: string): Promise<UserAccount | null>;
@@ -26,7 +27,7 @@ export interface InvitationAcceptancePort {
 
 export interface MagicLinkRepository {
   issue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<void>;
-  issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteId | null, expiresAt: Timestamp, ip: string | null): Promise<MagicLinkToken>;
+  issueAndEnqueue(email: string, tokenHash: Buffer, deviceNonce: string, inviteId: InviteId | null, expiresAt: Timestamp, ip: string | null, installationClaimId?:InstallationClaimId): Promise<MagicLinkToken>;
   invalidateOutstanding(email: string): Promise<number>;
   consume(tokenHash: Buffer, deviceNonce: string, now: Timestamp): Promise<MagicLinkToken | null>;
   consumeConfirmed(tokenHash: Buffer, now: Timestamp): Promise<MagicLinkToken | null>;
@@ -57,21 +58,23 @@ export class MagicLinkService {
     private readonly clock: Clock,
     private readonly access: MagicLinkAccess,
     private readonly delivery?: MagicLinkDispatchPort,
+    private readonly initialOwner?:InitialOwnerAdmission,
   ) {}
 
   async requestLink(input: RequestLink): Promise<{ allowed: boolean; retryAfterSeconds: number; token: string | null }> {
-    const [emailLimit, ipLimit, account, invite] = await Promise.all([
+    const [emailLimit, ipLimit, account, invite, claim] = await Promise.all([
       this.rateLimiter.check(`magic-link:email:${input.email}`, 3, rateWindowMs),
       this.rateLimiter.check(`magic-link:ip:${input.ip ?? 'unknown'}`, 10, rateWindowMs),
       this.accounts.findByEmail(input.email),
       this.invites.findPendingFor(input.email),
+      this.initialOwner?.find(input.email)??Promise.resolve(null),
     ]);
     if (!emailLimit.allowed || !ipLimit.allowed) return { allowed: false, retryAfterSeconds: Math.max(emailLimit.retryAfterSeconds, ipLimit.retryAfterSeconds), token: null };
-    if (account === null && invite === null) return { allowed: true, retryAfterSeconds: 0, token: null };
+    if (account === null && invite === null && claim === null) return { allowed: true, retryAfterSeconds: 0, token: null };
     if (!await this.access.check(input.email,{stage:'link_issuance_authorized'})) return { allowed: true, retryAfterSeconds: 0, token: null };
 
     const token = randomBytes(32).toString('base64url');
-    const issued = await this.tokens.issueAndEnqueue(input.email, hash(token), input.deviceNonce, invite?.id ?? null, expiry(this.clock.now()), input.ip);
+    const issued = await this.tokens.issueAndEnqueue(input.email, hash(token), input.deviceNonce, invite?.id ?? null, expiry(this.clock.now()), input.ip,claim??undefined);
     await this.delivery?.dispatch({ tokenId: issued.id, token });
     return { allowed: true, retryAfterSeconds: 0, token };
   }
@@ -93,6 +96,7 @@ export class MagicLinkService {
 
   private async complete(token: MagicLinkToken, input: Callback, deviceConfirmed: boolean): Promise<CallbackResult> {
     if (!await this.access.check(token.email)) return {kind:'invalid'};
+    if(token.installationClaimId)return this.completeInitialOwner(token,input,deviceConfirmed);
     const invite = token.inviteId === null ? null : await this.invites.findInvitationById(token.inviteId);
     if (invite !== null && invite.email.toLowerCase() !== token.email.toLowerCase()) {
       throw new DomainError('forbidden', 'This invitation belongs to another email address.');
@@ -113,6 +117,21 @@ export class MagicLinkService {
       if (invite !== null) await this.invites.markAccepted(invite.id, account.id,{method:'magic_link',sessionId});
     } catch(error) { await this.sessions.revoke(sessionId); throw error; }
     return { kind: 'session', sessionId };
+  }
+
+  private async completeInitialOwner(token:MagicLinkToken,input:Callback,deviceConfirmed:boolean):Promise<CallbackResult>{
+    if(!this.initialOwner||!token.installationClaimId)return {kind:'invalid'};
+    const prepared=await this.initialOwner.prepare(token.installationClaimId,token.email);
+    if(!prepared.ok)return {kind:'invalid'};
+    const sessionId=await this.sessions.create(prepared.value.id,{ip:input.ip,userAgent:input.userAgent,deviceNonce:token.deviceNonce},'magic_link',deviceConfirmed);
+    try{
+      if(!await this.access.check(token.email,{stage:'sign_in_completed',sessionId})){
+        await this.sessions.revoke(sessionId);return {kind:'invalid'};
+      }
+      const redeemed=await this.initialOwner.redeem({claim:token.installationClaimId,email:token.email,userId:prepared.value.id,tokenId:token.id,sessionId});
+      if(!redeemed.ok){await this.sessions.revoke(sessionId);return {kind:'invalid'};}
+    }catch(error){await this.sessions.revoke(sessionId);throw error;}
+    return {kind:'session',sessionId};
   }
 
   private async rejectExpiredInvitation(tokenHash: Buffer): Promise<void> {

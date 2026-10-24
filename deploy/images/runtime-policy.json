@@ -1,11 +1,73 @@
 {
   "version": 1,
-  "common": ["work/package.json", "work/runtime-manifest.json"],
-  "native": ["work/native/duckdb.node", "work/native/libduckdb.so", "work/native/LICENSE"],
+  "common": [
+    "work/package.json",
+    "work/runtime-manifest.json"
+  ],
+  "native": [
+    "work/native/duckdb.node",
+    "work/native/libduckdb.so",
+    "work/native/LICENSE"
+  ],
   "targets": {
-    "api": {"native": true, "files": ["work/src/platform/http/start.js", "work/src/platform/http/xq-worker.mjs"], "patterns": []},
-    "engine": {"native": true, "files": ["work/sidecar/start.js", "work/sidecar/supervise.js", "work/sidecar/pin-command.js", "work/sidecar/ingest/command.js", "work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension"], "patterns": []},
-    "console": {"native": false, "files": ["work/console.mjs", "work/dist/index.html", "work/dist/opintel-logo.png", "work/dist/opintel-logo@2x.png", "work/dist/opintel-logo@3x.png", "work/dist/opintel-favicon.png"], "patterns": ["work/dist/assets/[A-Za-z0-9_-]+\\.(?:js|css)"]},
-    "egress": {"native": false, "files": ["work/egress.mjs"], "patterns": []}
+    "api": {
+      "native": true,
+      "files": [
+        "work/src/platform/http/start.js",
+        "work/src/platform/http/xq-worker.mjs"
+      ],
+      "patterns": []
+    },
+    "engine": {
+      "native": true,
+      "files": [
+        "work/sidecar/start.js",
+        "work/sidecar/supervise.js",
+        "work/sidecar/pin-command.js",
+        "work/sidecar/ingest/command.js",
+        "work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension",
+        "work/sidecar/egress/readiness-policy.js"
+      ],
+      "patterns": []
+    },
+    "console": {
+      "native": false,
+      "files": [
+        "work/console.mjs",
+        "work/dist/index.html",
+        "work/dist/opintel-logo.png",
+        "work/dist/opintel-logo@2x.png",
+        "work/dist/opintel-logo@3x.png",
+        "work/dist/opintel-favicon.png"
+      ],
+      "patterns": [
+        "work/dist/assets/[A-Za-z0-9_-]+\\.(?:js|css)"
+      ]
+    },
+    "egress": {
+      "native": false,
+      "files": [
+        "work/egress.mjs"
+      ],
+      "patterns": []
+    },
+    "migrations": {
+      "native": false,
+      "files": [
+        "work/src/platform/db/migrate.js",
+        "work/src/modules/authz/infrastructure/load-schema.js",
+        "work/migrations/manifest.json"
+      ],
+      "patterns": [
+        "work/migrations/[0-9]+_[a-z0-9_]+\\.(?:up|down)\\.mjs"
+      ]
+    },
+    "provisioning": {
+      "native": false,
+      "files": [
+        "work/src/platform/ops/owner-claim.js"
+      ],
+      "patterns": []
+    }
   }
 }

@@ -175,7 +175,7 @@ no hard-coded provider fallback and retains enabled company providers.
 
 | ID | Type | Case | Expected |
 |---|---|---|---|
-| F-001 | F | Connect Postgres with a valid read-only role *(save and queue need item 3.12)* | Test passes, source saved, introspection queued |
+| F-001 | F | Save and assign Postgres with a valid read-only role | Source is saved as pending egress without contact; current applied heartbeat releases the connection test and introspection; failure retains an unreachable source |
 | F-002 | F | Connect with wrong credentials | Test fails with a message naming the failure, source not saved |
 | F-003 | F | Connect to an unreachable host | Fails with a timeout message inside 10s |
 | F-004 | F | Connect a second Postgres source that receives landed spreadsheets *(needs item 3.12)* | Succeeds; landed tables catalogued like any other |
@@ -1621,3 +1621,5 @@ and receive the company administrator role. Claim creation and redemption are
 audited; concurrent attempts cannot create multiple initial companies or redeem
 twice. Claimant kind is explicit for later IdP-group support, which is not
 implemented in this change.
+
+DEP-006 reassignment regression: an existing source transitions to pending egress, one queued retest survives repeated assignment, stale acknowledgments and stale queue claims cannot contact it, current acknowledgment invokes normal introspection exactly once, and success/failure yields connected/unreachable respectively. Query admission remains connected-only.

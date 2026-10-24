@@ -5,7 +5,7 @@ import { DeploymentRef,SourceListItem, type NewSource } from '../../../shared/ap
 import { schemaSpecSchema,generatorSpecSchema } from '../../../shared/demo-contract.js';
 import { DomainError,DemoSourceId,err,ok,type IndustryId,type SourceId,type RunId } from '../../../shared/kernel/index.js';
 import type { SourceContext,SourceRegistrationRepository,QueuedSource } from '../application/source-registration.js';
-const selection=`SELECT s.id,s.engine_id AS "engineId",s.name,s.exposed_alias AS "exposedAlias",s.kind,s.origin,CASE WHEN s.status='archived' THEN 'archived' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
+const selection=`SELECT s.id,s.engine_id AS "engineId",s.name,s.exposed_alias AS "exposedAlias",s.kind,s.origin,CASE WHEN s.status IN ('archived','pending_egress','unreachable') THEN s.status WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
  (SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS error,
  (SELECT r.id FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS "latestIntrospectionId",
  CASE WHEN s.receives_landings THEN (SELECT count(*)::int FROM arrival_notice a WHERE a.source_id=s.id AND a.payload->>'outcome'='landed') ELSE NULL END AS "filingCount",
@@ -46,6 +46,7 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
  }
  async create(ctx:SourceContext,id:SourceId,runId:RunId,input:NewSource,templateId:DemoSourceId|null){
   try{return await withTenant(ctx,async tx=>{
+   if(input.engineId){const engine=await tx.query('SELECT id FROM engine WHERE id=$1 AND verified_at IS NOT NULL AND contract_version=3',[input.engineId]);if(!engine.length)return err(new DomainError('source_unavailable','Assign a verified engine before saving the source.'));}
    // Serialize alias assignment within a project, including concurrent connects.
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',[ctx.projectId]);
    const occupied=await tx.query<{exposed_alias:string}>('SELECT exposed_alias FROM data_source');
@@ -61,6 +62,7 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
     if(!latest||latest.state==='failed'||latest.state==='cancelled')await this.enqueueRetry(tx,ctx,id,runId);
     const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok({source:item(row!),created:false});
    }
+   if(input.engineId)await tx.query("UPDATE data_source SET egress_pending=true,status='pending_egress' WHERE id=$1",[id]);
    await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,input.includeSchemas,JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:input.samplingConsent})]);
    const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok({source:item(row!),created:true});
   });}catch(error){if(error instanceof Error&&'code'in error&&error.code==='23505')return err(new DomainError('conflict','A source with this name or reserved ID is already connected.'));throw error;}
@@ -79,6 +81,6 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   await this.enqueueRetry(tx,ctx,id,runId);
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}
- queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",CASE WHEN r.progress->>'ordinalRepair'='true' THEN NULL ELSE s.demo_template_id END AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND r.state='queued' AND r.progress ? 'userId'`,[]));}
+ queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",CASE WHEN r.progress->>'ordinalRepair'='true' THEN NULL ELSE s.demo_template_id END AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND NOT s.egress_pending AND r.state='queued' AND r.progress ? 'userId'`,[]));}
  settledFilings(ctx:SourceContext,id:SourceId){return withTenant(ctx,async tx=>{const [row]=await tx.query<{count:number}>(`SELECT count(*)::int AS count FROM arrival_notice WHERE source_id=$1 AND payload->>'outcome' IN ('landed','quarantined','duplicate')`,[id]);return row!.count;});}
 }

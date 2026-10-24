@@ -19,6 +19,7 @@ export type DemoSourceId = Brand<'DemoSourceId'>;
 export type FilingId = Brand<'FilingId'>;
 export type SessionId = Brand<'SessionId'>;
 export type InviteId = Brand<'InviteId'>;
+export type InstallationClaimId = Brand<'InstallationClaimId'>;
 
 export type ExposedName = Brand<'ExposedName'>;
 export type IndustrySlug = Brand<'IndustrySlug'>;
@@ -81,6 +82,7 @@ export const DemoSourceId = uuidFactory('DemoSourceId');
 export const FilingId = uuidFactory('FilingId');
 export const SessionId = uuidFactory('SessionId');
 export const InviteId = uuidFactory('InviteId');
+export const InstallationClaimId = uuidFactory('InstallationClaimId');
 
 export const isReservedExposedName = (raw: string): boolean => reservedExposedNames.has(raw.toLowerCase());
 

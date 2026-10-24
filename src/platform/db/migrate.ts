@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config as loadEnvironmentFile } from 'dotenv';
 import { Client } from 'pg';
 import { cliExceptionLine } from '../telemetry/exception-log.js';
+import {packagedMigrations,type MigrationSource} from './packaged-migrations.js';
 
 type QueryResult<Row> = { rows: Row[] };
 
@@ -24,13 +25,7 @@ export type AppliedMigration = {
   appliedAt: string;
 };
 
-type Migration = {
-  version: string;
-  name: string;
-  upPath: string;
-  downPath: string;
-  checksum: string;
-};
+type Migration = MigrationSource;
 
 export type MigrationReporter = {
   applied(migration: Migration, durationMs: number): void;
@@ -57,6 +52,8 @@ const migrationsDirectory = path.join(repositoryRoot, 'migrations');
 const migrationFilename = /^(?<version>\d+)_(?<name>[a-z0-9_]+)\.(?<direction>up|down)\.(?:sql|ts)$/u;
 
 async function migrationsIn(directory: string): Promise<Migration[]> {
+  const packaged=await packagedMigrations(directory);
+  if(packaged!==null)return packaged;
   const files = await readdir(directory);
   const parts = new Map<string, { name: string; upPath?: string; downPath?: string }>();
 

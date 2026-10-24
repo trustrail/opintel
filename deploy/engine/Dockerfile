@@ -14,6 +14,8 @@ COPY scripts/prepare-duckdb-scanner.ts scripts/check-production-artifact.mjs ./s
 COPY tsconfig.json ./
 
 FROM toolchain AS api-build
+COPY migrations ./migrations
+COPY docs/opintel-schema.zed ./docs/opintel-schema.zed
 RUN node scripts/engine-package/bundle.mjs api /artifacts
 
 FROM toolchain AS engine-build
@@ -30,8 +32,18 @@ RUN npm run build:production
 RUN node scripts/engine-package/bundle.mjs console /artifacts
 
 FROM toolchain AS egress-build
+COPY src ./src
+COPY sidecar ./sidecar
 COPY deploy/engine/egress.mjs ./deploy/engine/egress.mjs
 RUN node scripts/engine-package/bundle.mjs egress /artifacts
+
+FROM toolchain AS migrations-build
+COPY migrations ./migrations
+COPY docs/opintel-schema.zed ./docs/opintel-schema.zed
+RUN node scripts/engine-package/bundle.mjs migrations /artifacts
+
+FROM toolchain AS provisioning-build
+RUN node scripts/engine-package/bundle.mjs provisioning /artifacts
 
 # These bases never COPY a repository input. Final image policy separately
 # verifies their layer identities; npm and the Node development tree never ship.
@@ -99,3 +111,13 @@ USER 65534:65534
 ENV API_UPSTREAM=http://api:3000
 EXPOSE 8080
 CMD ["node","console.mjs"]
+
+FROM runtime-base AS migrations
+COPY --from=migrations-build /artifacts/ ./
+USER 65534:65534
+CMD ["node","src/platform/db/migrate.js","status"]
+
+FROM runtime-base AS provisioning
+COPY --from=provisioning-build /artifacts/ ./
+USER 65534:65534
+CMD ["node","src/platform/ops/owner-claim.js","--help"]

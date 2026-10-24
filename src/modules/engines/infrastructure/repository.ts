@@ -18,6 +18,19 @@ export class PostgresEngineRepository implements EngineRepository {
  custody(ctx:EngineContext){return withTenant(ctx,async tx=>{const [r]=await tx.query(`SELECT ${columns} FROM engine WHERE custody`);return r?ok(record(r)):err(new DomainError('source_unavailable','This project has no designated custody engine. Designate a verified engine in Settings.'));});}
  designate(ctx:EngineContext,id:EngineId){return withTenant(ctx,async tx=>{await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,57))',[ctx.projectId]);const pending=await tx.query('SELECT id FROM token_key_operation WHERE completed_at IS NULL');if(pending.length)return err(new DomainError('conflict','Finish the pending custody operation before changing the custody engine.'));const target=await tx.query('SELECT id FROM engine WHERE id=$1 AND verified_at IS NOT NULL AND contract_version=3 FOR UPDATE',[id]);if(!target.length)return err(new DomainError('conflict','Engine verification changed; verify it again.'));await tx.query('UPDATE engine SET custody=false WHERE custody');await tx.query('UPDATE engine SET custody=true WHERE id=$1',[id]);return ok(undefined);});}
  source(ctx:EngineContext,id:SourceId){return withTenant(ctx,async tx=>{const [r]=await tx.query<{id:SourceId;name:string;engineId:EngineId|null;tokenized:boolean}>(`SELECT s.id,s.name,s.engine_id AS "engineId",EXISTS(SELECT 1 FROM entitlement t JOIN catalog_element e ON e.id=t.element_id JOIN catalog_object o ON o.id=e.object_id WHERE o.source_id=s.id AND t.treatment='tokenized') AS tokenized FROM data_source s WHERE s.id=$1`,[id]);return r?ok(r):err(new DomainError('not_found','Source not found in this project.'));});}
- assign(ctx:EngineContext,source:SourceId,id:EngineId){return withTenant(ctx,async tx=>{const rows=await tx.query('UPDATE data_source SET engine_id=$2 WHERE id=$1 AND EXISTS(SELECT 1 FROM engine WHERE id=$2 AND verified_at IS NOT NULL AND contract_version=3) RETURNING id',[source,id]);return rows.length?ok(undefined):err(new DomainError('conflict','Source or verified engine not found in this project.'));});}
+ assign(ctx:EngineContext,source:SourceId,id:EngineId){return withTenant(ctx,async tx=>{
+  const [current]=await tx.query<{status:string;sampling_consent:boolean;origin:string;name:string}>('SELECT status,sampling_consent,origin,name FROM data_source WHERE id=$1 FOR UPDATE',[source]);
+  if(!current||current.status==='archived')return err(new DomainError('conflict','An active source is required for assignment.'));
+  const active=await tx.query<{id:string;state:string}>("SELECT id,state FROM introspection_run WHERE source_id=$1 AND state IN ('queued','connecting','reading','diffing')",[source]);
+  if(active.some(run=>run.state!=='queued'))return err(new DomainError('conflict','Wait for the active introspection run to finish before assigning this source.'));
+  const rows=await tx.query("UPDATE data_source SET engine_id=$2,egress_pending=true,status='pending_egress' WHERE id=$1 AND EXISTS(SELECT 1 FROM engine WHERE id=$2 AND verified_at IS NOT NULL AND contract_version=3) RETURNING id",[source,id]);
+  if(!rows.length)return err(new DomainError('conflict','Source or verified engine not found in this project.'));
+  // The normal worker consumes this same queued record after the policy acknowledgment.
+  if(!active.length){
+   const [latest]=await tx.query<{include_schemas:string[]}>('SELECT include_schemas FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[source]);
+   await tx.query('INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)',[randomUUID(),source,ctx.projectId,latest?.include_schemas??(current.origin==='demo'?[current.name]:[]),JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:current.sampling_consent})]);
+  }
+  return ok(undefined);
+ });}
  key(ctx:EngineContext){return withTenant(ctx,async tx=>{const [r]=await tx.query<{version:number;sentinel:string}>("SELECT version,sentinel_token AS sentinel FROM token_key_version WHERE state='current'");return r??null;});}
 }

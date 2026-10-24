@@ -2,7 +2,6 @@ import { notify, type ProjectEvents } from '../../../platform/sse/port.js';
 import { safeSourceMessage, sourceMessages } from '../../../shared/source-errors.js';
 import type { z } from 'zod';
 import { DomainError, err, ok, type IndustryId, type DemoSourceId, type IdFactory, type ProjectId, type SourceId, type RunId, type UserId, type Result } from '../../../shared/kernel/index.js';
-import { SecretRef } from '../../../platform/secrets/types.js';
 import type { Deployment, DemoTemplateItem, NewSource, SourceItem } from '../../../shared/api/source-schemas.js';
 import type { GeneratorSpec, SchemaSpec } from '../../../shared/demo-contract.js';
 import type { SourceConnector } from './source-connector.js';
@@ -28,19 +27,12 @@ export class SourceRegistrationService {
  constructor(private readonly repository:SourceRegistrationRepository,private readonly ids:IdFactory,
   private readonly connector:(ctx:SourceContext,id:SourceId,engineId?:import('../../../shared/kernel/index.js').EngineId)=>SourceConnector & DemoProvisioningPort,
   private readonly jobs:IntrospectionJob,private readonly fail:(ctx:SourceContext,id:RunId,message:string)=>Promise<void>,private readonly events?:ProjectEvents,private readonly custody?:{ensure(ctx:SourceContext):Promise<Result<void>>}){}
- async test(ctx:SourceContext,ref:string,engineId?:import('../../../shared/kernel/index.js').EngineId){
-  if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
-  const connector=this.connector(ctx,this.ids.create<SourceId>(),engineId);
-  const tested=await connector.testConnection(SecretRef(ref));
-  if(!tested.ok)return ok({reachable:false,reason:tested.error.message,schemas:[] as string[]});
-  const snapshot=await connector.introspect(SecretRef(ref),[]);
-  return snapshot.ok?ok({reachable:true,reason:null,schemas:[...new Set(snapshot.value.objects.map(o=>o.schema))].sort()}):ok({reachable:false,reason:snapshot.error.message,schemas:[] as string[]});
+ async test(_ctx:SourceContext,_ref:string,_engineId?:import('../../../shared/kernel/index.js').EngineId){
+  return ok({reachable:false,reason:'Save and assign the source first. Connection testing runs automatically after the engine applies its network policy.',schemas:[] as string[]});
  }
  async create(ctx:SourceContext,input:NewSource){
   if(!this.custody)return err(new DomainError('dependency_unavailable','Token key custody is not configured. Configure custody before connecting a source.'));const secured=await this.custody.ensure(ctx);if(!secured.ok)return secured;
   const id=this.ids.create<SourceId>();
-  const tested=await this.connector(ctx,id,input.engineId).testConnection(SecretRef(input.credentialRef));
-  if(!tested.ok)return tested;
   const created=await this.repository.create(ctx,id,this.ids.create<RunId>(),input,null);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created.ok?ok(created.value.source):created;
@@ -51,7 +43,6 @@ export class SourceRegistrationService {
   const deployment=template.value.deployment;
   if(!deployment)return err(new DomainError('dependency_unavailable','The industry pack is not provisioned for this project. Ask the deployment operator to prepare it.'));
   if(!deployment.engineId)return err(new DomainError('source_unavailable','This demo source has no assigned engine. Ask the operator to prepare it with a verified engine.'));
-  const tested=await this.connector(ctx,deployment.sourceId,deployment.engineId).testConnection(deployment.credentialRef);if(!tested.ok)return tested;
   const created=await this.repository.create(ctx,deployment.sourceId,this.ids.create<RunId>(),{engineId:deployment.engineId,name:deployment.registrationName??deployment.sourceName,kind:'postgres',credentialRef:deployment.credentialRef,includeSchemas:[deployment.sourceName],samplingConsent:false,receivesLandings:true,landingStrategy:'append_as_at'},id);
   if(created.ok){await notify(this.events,ctx.projectId,{type:'source.changed',sourceId:created.value.source.id});await this.resume(ctx);}
   return created;

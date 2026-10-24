@@ -20,6 +20,7 @@ export interface EngineRepository {
  key(ctx:EngineContext):Promise<{version:number;sentinel:string}|null>;
 }
 export interface EngineProbe {
+ registerEgress?(endpoint:EngineEndpoint,projectId:ProjectId,engineId:EngineId):Promise<Result<void>>;
  health(endpoint:EngineEndpoint):Promise<Result<{contract:number;queryEngineVersion:string;canonicalisers:string[]}>>;
  sentinel(endpoint:EngineEndpoint,project:ProjectId):Promise<Result<{version:number|null;sentinel:string|null}>>;
 }
@@ -46,6 +47,7 @@ export class EngineRegistry {
   const record={value};
   const result=await this.probe.health(this.endpoint(record.value)).catch(()=>engineRefusal('Engine health probe failed.',true));
   if(!result.ok){const reason=readinessFailure.safeParse(result.error.details?.readinessReason);const message=reason.success?readinessMessages[reason.data]:isReadinessMessage(record.value.healthMessage)?record.value.healthMessage:'Verification failed. Check the address, certificate pin and application TLS trust.';await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:null,health:'unavailable',message,verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
+  if(result.value.contract===3&&this.probe.registerEgress){const registered=await this.probe.registerEgress(this.endpoint(value),ctx.projectId,id);if(!registered.ok){await this.repository.health(ctx,id,{address:value.address,certificatePin:value.certificatePin,name:value.name,contractVersion:null,health:'unavailable',message:'Engine egress registration failed.',verified:false});return registered;}}
   const matches=result.value.contract===3;
   const updated=await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
   if(matches)return updated;

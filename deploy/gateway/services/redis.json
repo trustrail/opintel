@@ -1,0 +1,22 @@
+{
+  "services": {
+    "redis": {
+      "extends": {
+        "file": "../../images/upstream.json",
+        "service": "redis"
+      },
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "redis-server",
+        "/config/redis.conf"
+      ],
+      "volumes": [
+        "${GATEWAY_REDIS_CONFIG_FILE:?set redis.conf with authentication}:/config/redis.conf:ro"
+      ],
+      "ports": [
+        "${GATEWAY_REDIS_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_REDIS_PORT:-6379}:6379"
+      ],
+      "restart": "on-failure:3"
+    }
+  }
+}

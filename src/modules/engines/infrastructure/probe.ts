@@ -5,9 +5,15 @@ import {readinessFailure,readinessMessages} from '../../../shared/engine-readine
 import {z} from 'zod';
 import {healthResponse,healthContract} from '../../../shared/sidecar-contract.js';
 import {sentinel} from '../../../shared/custody-contract.js';
-import {DomainError,err,ok,type ProjectId,type Result} from '../../../shared/kernel/index.js';
+import {DomainError,err,ok,type ProjectId,type EngineId,type Result} from '../../../shared/kernel/index.js';
 import type {EngineEndpoint,EngineProbe} from '../application/registry.js';
 export class HttpsEngineProbe implements EngineProbe {
+ constructor(private readonly heartbeatUrl?:string){}
+ async registerEgress(endpoint:EngineEndpoint,projectId:ProjectId,engineId:EngineId){
+  if(!this.heartbeatUrl)return ok(undefined);
+  const result=await this.post(endpoint,'/egress/register',{requestId:randomUUID(),projectId,engineId,gatewayUrl:this.heartbeatUrl});
+  return result.ok&&z.strictObject({registered:z.literal(true)}).safeParse(result.value).success?ok(undefined):err(new DomainError('source_unavailable','Engine egress registration failed.',{cause:'engine_registry'},true));
+ }
  async health(e:EngineEndpoint){const r=await this.post(e,'/health',undefined);if(!r.ok)return r;const version=healthContract.safeParse(r.value);if(!version.success)return err(new DomainError('source_unavailable','Engine health response is invalid.'));if(version.data.contract!==3)return ok({contract:version.data.contract,queryEngineVersion:'',canonicalisers:[]});const p=healthResponse.safeParse(r.value);return p.success?ok(p.data):err(new DomainError('source_unavailable','Engine health response is invalid.'));}
  async sentinel(e:EngineEndpoint,projectId:ProjectId){const r=await this.post(e,'/custody/attest',{requestId:randomUUID(),projectId,payload:{}});if(!r.ok)return r;const p=z.strictObject({keyVersion:z.number().int().positive(),sentinelToken:sentinel}).safeParse(r.value);return p.success?ok({version:p.data.keyVersion,sentinel:p.data.sentinelToken}):err(new DomainError('source_unavailable','Engine key attestation failed.'));}
  private post(e:EngineEndpoint,path:string,body:unknown):Promise<Result<unknown>>{return new Promise(resolve=>{

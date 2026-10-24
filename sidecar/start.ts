@@ -1,3 +1,4 @@
+import {registerEgress} from './egress/infrastructure/control-client.js';
 import { startupCheck, StartupCheckError } from './startup-check.js';
 import { StagedExecutor,PostgresStagingSource } from './execution/index.js';
 import { PostgresSourceScope } from './infrastructure/postgres-source-scope.js';
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
   const demo = config.demo && process.env.NODE_ENV !== 'production'
     ? new (await import('./demo/provision.js')).SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new (await import('./demo/infrastructure/workbook-writer.js')).DemoWorkbookWriter())
     : undefined;
-  const host = createSidecarServer({config,tls,custody,execution,build:{...sidecarBuild,queryEngineVersion},demo,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
+  const host = createSidecarServer({config,tls,custody,execution,...(process.env.ENGINE_EGRESS_CONTROL==='1'?{registerEgress}:{}),build:{...sidecarBuild,queryEngineVersion},demo,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
   const watchers: LandingWatcher[] = [];
   let stopping = false;
   let boundPort=config.port;

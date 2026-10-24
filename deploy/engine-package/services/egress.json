@@ -1,0 +1,43 @@
+{
+  "services": {
+    "egress": {
+      "image": "${ENGINE_EGRESS_IMAGE:?set egress image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "cap_drop": [
+        "ALL"
+      ],
+      "cap_add": [
+        "NET_ADMIN"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "volumes": [
+        "${ENGINE_STATE_DIRECTORY:?set engine-local state directory}/readiness-egress.json:/policy/egress.json:ro",
+        "${ENGINE_CONFIG_DIRECTORY:?set engine config directory}:/config:ro",
+        "${ENGINE_STATE_DIRECTORY:?set engine-local state directory}/control:/egress"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "require('node:fs').accessSync('/run/egress-ready')"
+        ],
+        "interval": "1s",
+        "timeout": "2s",
+        "retries": 20
+      },
+      "ports": [
+        "${ENGINE_BIND_ADDRESS:-127.0.0.1}:${ENGINE_PORT:-3100}:3100"
+      ],
+      "restart": "no",
+      "environment": {
+        "EGRESS_DYNAMIC_CONFIG": "/config/service.json"
+      },
+      "env_file": [
+        "${ENGINE_ENV_FILE:?set engine runtime environment}"
+      ]
+    }
+  }
+}

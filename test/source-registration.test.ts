@@ -1,5 +1,5 @@
 import {unwrap} from './fixtures/policy-version/fixture.js';
-import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe} from '../src/modules/engines/index.js';
+import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe,EngineEgress,PostgresEngineEgress} from '../src/modules/engines/index.js';
 import type {EngineId} from '../src/shared/kernel/index.js';
 import {developmentEngineOptions} from '../scripts/development-engine.js';
 import { FileCustody } from '../sidecar/custody/infrastructure/file-custody.js';
@@ -44,6 +44,13 @@ let registeredEngineId:EngineId;
 const body=(name='Warehouse',receivesLandings=false)=>({engineId:registeredEngineId,name,kind:'postgres',credentialRef:'secret://test/readonly',includeSchemas:[receivesLandings?landed:schema],samplingConsent:false,receivesLandings,landingStrategy:receivesLandings?'append_as_at':null});
 async function request(path:string,method='GET',payload?:unknown){return fetch(origin+path,{method,headers:payload?{'content-type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});}
 const path=()=>`/api/v1/projects/${projectId}/sources`;
+async function settle(){
+ const heartbeat=new EngineEgress(new PostgresEngineEgress(),()=>service.resume({projectId,userId}));
+ const input={projectId,engineId:registeredEngineId,appliedVersion:null};
+ const policy=unwrap(await heartbeat.heartbeat(options.tls.certificatePin!,input));
+ unwrap(await heartbeat.heartbeat(options.tls.certificatePin!,{...input,appliedVersion:policy.version}));
+ return service.idle();
+}
 beforeAll(async()=>{
  directory=await mkdtemp(join(tmpdir(),'source-registration-'));await prepareSidecarDevelopment(directory);
  await customer(async db=>{await db.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${password}';CREATE SCHEMA "${schema}";CREATE SCHEMA "${landed}";CREATE TABLE "${schema}".records(id int,label text);CREATE TABLE "${landed}".filings(amount numeric,_opintel_filing_id uuid,_opintel_as_at date);GRANT USAGE ON SCHEMA "${schema}","${landed}" TO "${role}";GRANT SELECT ON ALL TABLES IN SCHEMA "${schema}","${landed}" TO "${role}"`);});
@@ -74,22 +81,22 @@ describe('source registration against real Postgres and the sidecar',()=>{
    const demo=await service.demo({projectId,userId},'018f8f9d-7f83-7abc-8def-000000000123' as import('../src/shared/kernel/index.js').DemoSourceId);expect(demo.ok).toBe(false);expect(connectors).toHaveLength(0);
   }finally{custody.mockRestore();}
  });
- it('F-001: tests without saving, then saves and queues the selected schemas through the real connector port',async()=>{
-  const tested=await request(path()+'/test','POST',{engineId:registeredEngineId,kind:'postgres',credentialRef:body().credentialRef});expect(tested.status).toBe(200);expect(await tested.json()).toMatchObject({reachable:true,schemas:expect.arrayContaining([schema,landed])});
+ it('F-001: saves and assigns before contact, then tests and introspects after applied heartbeat',async()=>{
+  const tested=await request(path()+'/test','POST',{engineId:registeredEngineId,kind:'postgres',credentialRef:body().credentialRef});expect(tested.status).toBe(200);expect(await tested.json()).toMatchObject({reachable:false,schemas:[]});expect(connectors).toHaveLength(0);
   expect((await (await request(path())).json()).items).toEqual([]);
-  const created=await request(path(),'POST',body());expect(created.status).toBe(201);const source=await created.json();expect(source).toMatchObject({origin:'customer',elementCount:0,filingCount:null});expect(source).not.toHaveProperty('credentialRef');
-  await service.idle();const rows=await withTenant({projectId,userId},tx=>tx.query<{state:string;include_schemas:string[]}>('SELECT state,include_schemas FROM introspection_run'));expect(rows).toEqual([{state:'complete',include_schemas:[schema]}]);
+  const created=await request(path(),'POST',body());expect(created.status).toBe(201);const source=await created.json();expect(source).toMatchObject({origin:'customer',elementCount:0,filingCount:null,status:'pending_egress'});expect(connectors).toHaveLength(0);expect(source).not.toHaveProperty('credentialRef');
+  await settle();const rows=await withTenant({projectId,userId},tx=>tx.query<{state:string;include_schemas:string[]}>('SELECT state,include_schemas FROM introspection_run'));expect(rows).toEqual([{state:'complete',include_schemas:[schema]}]);
   const listed=await (await request(path())).json();expect(listed.items).toEqual([expect.objectContaining({id:source.id,elementCount:2,undecidedCount:2,status:'connected'})]);
   expect(connectors.some(port=>vi.mocked(port.introspect).mock.calls.some(call=>call[1][0]===schema))).toBe(true);
   expect((await request(path(),'POST',body())).status).toBe(409);
  });
  it('F-004: connects ordinary and landed Postgres sources and catalogues them independently',async()=>{
-  expect((await request(path(),'POST',body())).status).toBe(201);expect((await request(path(),'POST',body('Returns',true))).status).toBe(201);await service.idle();
+  expect((await request(path(),'POST',body())).status).toBe(201);expect((await request(path(),'POST',body('Returns',true))).status).toBe(201);await settle();
   const listed=await (await request(path())).json();expect(listed.items).toEqual(expect.arrayContaining([expect.objectContaining({name:'Warehouse',elementCount:2,landingStrategy:null}),expect.objectContaining({name:'Returns',elementCount:3,landingStrategy:'append_as_at',filingCount:0})]));
   const first=await (await request(path()+'?limit=1')).json();expect(first.nextCursor).toBeTruthy();const second=await(await request(path()+'?cursor='+first.nextCursor)).json();expect(second.items).toHaveLength(1);expect(second.items[0].id).not.toBe(first.items[0].id);
  });
  it('F-008: archive names dependent pools, requires exact confirmation and retains all evidence references',async()=>{
-  const source=await(await request(path(),'POST',body())).json();await service.idle();
+  const source=await(await request(path(),'POST',body())).json();await settle();
   const pool=randomUUID();const ctx={projectId,userId};
   await withTenant(ctx,async tx=>{
    await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Reporting')",[pool,projectId]);
@@ -128,7 +135,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   vi.spyOn(repository,'settledFilings').mockResolvedValue(13);
   expect((await(await request(path())).json()).items).toEqual([]);
   const response=await request(path()+'/from-demo','POST',{demoTemplateId:templateId});expect(response.status).toBe(201);expect(await response.json()).toMatchObject({id:reserved,origin:'demo',name:'Reinsurance',exposedAlias:'reinsurance'});
-  await service.idle();expect((await(await request(path())).json()).items).toEqual([expect.objectContaining({id:reserved,origin:'demo',elementCount:2,status:'connected'})]);
+  await settle();expect((await(await request(path())).json()).items).toEqual([expect.objectContaining({id:reserved,origin:'demo',elementCount:2,status:'connected'})]);
   expect(connectors.some(port=>vi.isMockFunction(port.provisionDemo)&&vi.mocked(port.provisionDemo).mock.calls.length===1)).toBe(true);
   expect(connectors.some(port=>vi.mocked(port.introspect).mock.calls.some(call=>call[1][0]===schema))).toBe(true);
  });
@@ -137,7 +144,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   provisionFailure=unexpected?new Error('SELECT password FROM credentials: SECRET'):new DomainError('conflict',sourceMessages.templateConflict);
   await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);
-  const result=await service.idle();expect(result).toMatchObject({ok:false,error:{code:unexpected?'dependency_unavailable':'conflict'}});
+  const result=await settle();expect(result).toMatchObject({ok:false,error:{code:unexpected?'dependency_unavailable':'conflict'}});
   const listed=await(await request(path())).json();
   const expected=unexpected?'A source dependency is unavailable. Check the Opintel Engine, secret-store configuration and receipt listener, then retry.':sourceMessages.templateConflict;
   expect(listed.items[0]).toMatchObject({id:reserved,status:'introspection_failed',error:expected});
@@ -147,7 +154,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   expect(JSON.stringify(listed)).not.toMatch(/SELECT|password|SECRET/);
  });
  it('G-017 recovery: re-runs an existing source with its schema selection and preserves run history',async()=>{
-  const source=await(await request(path(),'POST',body())).json();await service.idle();
+  const source=await(await request(path(),'POST',body())).json();await settle();
   const retryPath=`/api/v1/sources/${source.id}/introspect`;
   denied=true;expect((await request(retryPath,'POST',{projectId})).status).toBe(403);denied=false;
   expect((await request(retryPath,'POST',{projectId:randomUUID()})).status).toBe(404);
@@ -156,7 +163,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
   const responses=await Promise.all([request(retryPath,'POST',{projectId}),request(retryPath,'POST',{projectId})]);
   expect(responses.map(r=>r.status).sort()).toEqual([202,409]);
   const queued=await responses.find(r=>r.status===202)!.json();expect(queued).toMatchObject({id:source.id,status:'pending',error:null});
-  pause.mockRestore();await service.resume({projectId,userId});await service.idle();
+  pause.mockRestore();await service.resume({projectId,userId});await settle();
   const runs=await withTenant({projectId,userId},tx=>tx.query('SELECT state,include_schemas,diff FROM introspection_run ORDER BY created_at,id'));
   expect(runs).toHaveLength(2);expect(runs[1]).toMatchObject({state:'complete',include_schemas:[schema],diff:[]});
   expect((await(await request(path())).json()).items).toHaveLength(1);
@@ -164,7 +171,7 @@ describe('source registration against real Postgres and the sidecar',()=>{
  it.each(['connect','retry'] as const)('resumes failed demo provisioning through %s without replacing identity or history',async(entry)=>{
   const reserved=randomUUID();provisionFailure=new DomainError('conflict',sourceMessages.templateConflict);
   await withPlatformAdmin({actor:{kind:'system',name:'demo-deployment-fixture'}},tx=>tx.query('UPDATE demo_source_template SET deployment_ref=$2 WHERE id=$1',[templateId,JSON.stringify({[projectId]:{engineId:registeredEngineId,sourceId:reserved,credentialRef:'secret://test/readonly',landingZone:'/operator/zone',sourceName:schema}})]));
-  expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);expect((await service.idle()).ok).toBe(false);
+  expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(201);expect((await settle()).ok).toBe(false);
   const before=await withTenant({projectId,userId},tx=>tx.query('SELECT id,state,error FROM introspection_run'));
   const filingId=randomUUID();const payload={filingId,sourceId:reserved,projectId,revision:1,outcome:'quarantined',quarantineCategory:'merged_header',receivedAt:new Date().toISOString(),fileSha256:'0'.repeat(64),partyCode:null,period:null,kind:null};
   await withTenant({projectId,userId},tx=>tx.query('INSERT INTO arrival_notice(filing_id,project_id,source_id,revision,payload) VALUES($1,$2,$3,1,$4)',[filingId,projectId,reserved,JSON.stringify(payload)]));
@@ -173,14 +180,14 @@ describe('source registration against real Postgres and the sidecar',()=>{
   const response=await request(entry==='connect'?path()+'/from-demo':`/api/v1/sources/${reserved}/introspect`,'POST',entry==='connect'?{demoTemplateId:templateId}:{projectId});
   expect(response.status).toBe(202);expect(await response.json()).toMatchObject({id:reserved,status:'pending',error:null});
   expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(202);
-  pause.mockRestore();await service.resume({projectId,userId});expect(await service.idle()).toEqual({ok:true,value:undefined});
+  pause.mockRestore();await service.resume({projectId,userId});expect(await settle()).toEqual({ok:true,value:undefined});
   const rows=await withTenant({projectId,userId},async tx=>({sources:await tx.query('SELECT id FROM data_source'),runs:await tx.query('SELECT id,state,error FROM introspection_run ORDER BY created_at,id'),arrivals:await tx.query('SELECT payload FROM arrival_notice')}));
   expect(rows.sources).toEqual([{id:reserved}]);expect(rows.runs).toHaveLength(2);expect(rows.runs[0]).toEqual(before[0]);expect(rows.runs[1]).toMatchObject({state:'complete',error:null});expect(rows.arrivals).toEqual([{payload}]);
-  expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(200);expect(await service.idle()).toEqual({ok:true,value:undefined});
+  expect((await request(path()+'/from-demo','POST',{demoTemplateId:templateId})).status).toBe(200);expect(await settle()).toEqual({ok:true,value:undefined});
   expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM introspection_run'))).toHaveLength(2);
  });
  it('ING-27/29: source filing counts include landed arrivals only',async()=>{
-  const source=await(await request(path(),'POST',body('Landing',true))).json();await service.idle();
+  const source=await(await request(path(),'POST',body('Landing',true))).json();await settle();
   await withTenant({projectId,userId},async tx=>{
    for(const outcome of ['landed','quarantined','pending','duplicate']){
     const filingId=randomUUID();const payload={filingId,sourceId:source.id,projectId,revision:1,outcome,quarantineCategory:outcome==='quarantined'?'no_rule_matched':null,receivedAt:new Date().toISOString(),fileSha256:'0'.repeat(64),partyCode:null,period:null,kind:null};

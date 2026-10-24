@@ -1153,7 +1153,7 @@ later explicit registration; retain source readiness, TLS and governance checks.
 |---|---|---|---|
 | 1 | Existing S5/5.20 | Contract, acceptance IDs and stage sequence | Documentation consistency, full gate, commit |
 | 2 | Stage 1 green | Independent image builds, minified bundles and layer allowlists | DEP-001–003, full gate, commit |
-| 3 | Stage 2 green | Independent packages, migration/bootstrap jobs, gateway-independent engine startup | DEP-004–008, full gate, commit |
+| 3 | Stage 2 green | Independent packages, migration jobs, constrained first-operator claim, engine-local egress namespace correction, gateway-independent engine startup | DEP-004–008, full gate, commit |
 | 4 | Stage 3 green | Independent provision/seed/soak tools | DEP-009–011, full gate, commit |
 | 5 | Stage 4 green | Clean installation, actual split-host proof and 30-minute soak; final runbooks | DEP-012–013, full gate, commit |
 
@@ -1179,3 +1179,26 @@ cleanup failure. Never reset the shared test/development database or change an
 applied migration/ledger. The concrete regression was Stage-3 migration 082
 contaminating a Stage-2 gate (two checksum failures and one table-grant failure).
 See `docs/review/gate-tiers.md` and `test/gate-database.test.mjs`.
+
+Stage-3 egress scope: the companion installs firewall policy in the namespace
+shared only with its engine; it is not a proxy endpoint for gateway containers.
+Preserve policy-before-engine startup and default-deny IPv4/IPv6 egress. Verify
+both declared destination access and undeclared destination denial in the
+independent package. The full first-operator constraints and egress correction
+are normative in `docs/ops/gateway-engine-deployment.md`; neither authorizes a
+pre-login administrator grant or a new public bootstrap route.
+
+Reader clarification for Stage 3 deliverable 5: the readiness-source rule remains
+permanent. After registration, the engine fetches its assigned destinations from
+the gateway on every heartbeat, applies them in place, and reports the actually
+applied version. There is no operator destination list. Console display and
+assignment-conflict reporting are outside Stage 3.
+
+Stage-3 continuation decision: delegate only an idle-client error listener on
+`src/platform/db/scope.ts`'s private pool, with fixed safe logging and a real
+shutdown-drain regression. Pool configuration, acquisition and tenant scoping
+remain unchanged. Source creation saves and assigns first with status pending
+egress; automatic connection testing follows an applied heartbeat. Failure
+retains the source with status unreachable. No pre-assignment network exception.
+
+Existing-source engine assignment also queues normal introspection, retaining schema selection and sampling consent. Current-policy acknowledgment releases it; success reconnects the source and failure leaves it unreachable. Repeated assignment reuses queued work; assignment during active introspection refuses until completion. Worker claiming serializes with assignment and refuses pending egress. Query admission still requires connected status.

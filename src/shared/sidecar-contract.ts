@@ -1,3 +1,4 @@
+import {egressRegistration,egressRegistered} from './engine-egress-contract.js';
 import {numericProjectSetting} from './project-settings.js';
 import { executionRequest,validationRequest,executionResponse,validationResponse } from './execution-contract.js';
 import { custodyEnvelope,custodyOperations } from './custody-contract.js';
@@ -48,6 +49,7 @@ export function sidecarOpenApiDocument() {
     ['/validate',validationRequest,validationResponse],
     ['/preview-rows',rowPreviewRequest,rowPreviewResponse],
     ['/health', null, healthResponse],
+    ['/egress/register',egressRegistration,egressRegistered],
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
     ['/sample', envelope.extend({payload:samplePayload}), sampleResponse],

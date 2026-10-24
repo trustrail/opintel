@@ -92,6 +92,14 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
    const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'unsupported_on_aggregate_only'}});expect(response.structuredContent).toBeUndefined();
   }
  });
+ it.each(['pending_egress','pending','unreachable'])('reassignment admission refuses %s before execution and records the refusal',async status=>{
+  const f=await fixture(),execute=vi.spyOn(f.execution,'execute');
+  await withTenant(f.ctx,tx=>tx.query('UPDATE data_source SET status=$2 WHERE id=$1',[f.source,status]));
+  const response=await f.query('SELECT field_1 FROM warehouse.public.records');
+  expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'source_not_ready'}});
+  expect(response.structuredContent).toBeUndefined();expect(execute).not.toHaveBeenCalled();
+  expect([...f.writer.records.values()].at(-1)).toMatchObject({outcome:{kind:'refused',code:'source_unavailable',details:{cause:'source_not_ready'}}});
+ });
  it('F-010/K-009: after success, an unreachable source refuses with no cached or partial answer',async()=>{
   const f=await fixture();await f.addSource('second');const sql='SELECT a.field_1 FROM warehouse.public.records a JOIN second.public.records b ON a.field_2=b.field_2';expect((await f.query(sql)).isError).not.toBe(true);
   // Both estimates succeed and the first source is fully staged. Then the
