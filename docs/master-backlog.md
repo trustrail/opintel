@@ -84,6 +84,17 @@ identifiers only, never personal data, with detail behind the console.
 
 ## Now
 
+### S5-stage-4 · Independent provision, seed and soak tools
+**Status** Next · Stage 3 prerequisite delivered at `f905ce7`; checked 24 October 2026.
+**What** Deliver independently runnable provisioning tools against deployed endpoints,
+opt-in synthetic seeding with explicit target/version/seed and ANALYZE, and external
+soak preflight for observer access, fixture/source readiness and lifecycle coverage.
+No demo data or identities are copied with deployment images or installed implicitly.
+**Verification** DEP-009–011, completed-candidate gate and stage commit, following the
+[five-stage plan](implementation-plan.md#s5-follow-up--independent-gateway-and-engine-deployment-2026-10-23).
+Stage 5 (actual split-host installation and the 30-minute soak, DEP-012–013) follows
+stage 4; it is not included in the delivered stage-3 result.
+
 ### X-01 · Engine segfaults under sustained concurrency
 **Customer** The Engine is the data plane. On 18 October it crashed with EXC_BAD_ACCESS in
 duckdb::DBConfigOptions::operator= inside DatabaseInstance::Configure while opening a DuckDB
@@ -492,6 +503,21 @@ set, retained on the same terms as receipts. Alert bodies carry counts and ident
 ---
 
 ## Done
+
+### S5-stage-3 · Independent gateway and engine deployment
+**Status** Delivered · `f905ce7`, merged into main and pushed; checked 24 October 2026.
+**What shipped** Separate gateway/engine packages, explicit migration and authorization
+schema jobs, the constrained 24-hour first-owner claim, gateway-independent engine
+startup/replacement, derived heartbeat egress and automatic source retest. All six AMD64
+images were built from the clean committed revision, audited, published to GHCR by
+digest and accepted using those published digests, including offline ingest delivery.
+**Evidence** Green gate: 2,043 normal tests, 59 conformance tests and browser/MCP smoke;
+[gate record](review/stage3-gate-authorised-repairs.json). Documentation follow-up
+`b5d5423` is on main: [release manifest](review/stage3-release-linux-amd64.json),
+[final acceptance](review/stage3-release-acceptance.json), and
+[per-deliverable report and reproduction commands](review/stage3-progress.md).
+**Coverage** AMD64 on this host. ARM64 is built natively from the same committed
+revision; no ARM64 build or actual split-host proof is claimed here. Stage 4 is next.
 
 ### X-06 · Console fetches every run individually
 **Customer** A single open browser tab generated about 4,500 API requests in twenty minutes,
