@@ -77,3 +77,13 @@ owner-claim independence. Source cancellation drains the PostgreSQL error with
 a one-second cap before closing; the SQLSTATE and original timing assertions
 remain unchanged. The failed full-gate record is retained separately from the
 focused repair checks and the subsequently executed browser/MCP tier.
+
+Bounded-health admission adds ENG-H01–H10 to the normal tier. Defect class:
+control-transport uncertainty promoted to loss of previously verified serving
+health, or stale/untrusted health reused as authority. Concrete regressions inject
+a pre-TLS stall while age and heartbeat remain valid, then advance beyond expiry;
+wrong pins, explicit unhealthy responses, policy changes and concurrent edits must
+still refuse. ENG-H08 detects the redundant query-client health socket that could
+independently turn a healthy registry observation into a query refusal. The arm64
+retained logs show nine-second refusals but lack per-request transport metadata;
+that attribution remains a hypothesis, not a proven execution-path diagnosis.

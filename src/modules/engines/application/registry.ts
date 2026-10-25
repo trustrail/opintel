@@ -1,18 +1,20 @@
+import {engineHealthPolicySchema,type EngineHealthPolicy} from './health-policy.js';
 import {readinessFailure,readinessMessages,isReadinessMessage} from '../../../shared/engine-readiness.js';
 import {DomainError,err,ok,type EngineId,type ProjectId,type UserId,type SourceId,type Result} from '../../../shared/kernel/index.js';
 import type {EngineRegistration,EngineView} from '../../../shared/api/engines.js';
 export type EngineContext={projectId:ProjectId;userId:UserId};
-export type EngineRecord=Omit<EngineView,'sources'>;
+export type EngineRecord=Omit<EngineView,'sources'>&{registrationVersion:number};
 export type ApplicationTls={ca:string;cert:string;key:string};
-export type EngineEndpoint={baseUrl:string;tls:ApplicationTls&{certificatePin:string};timeoutMs?:number};
+export type EngineEndpoint={baseUrl:string;tls:ApplicationTls&{certificatePin:string};timeoutMs?:number;queryEngineVersion?:string};
 export type EngineRoute={id:SourceId;name:string;engine:EngineRecord|null};
 export interface EngineRepository {
+ heartbeat(ctx:EngineContext,value:EngineRecord):Promise<{at:string|null;policyCurrent:boolean;record:EngineRecord|null}>;
  routes(ctx:EngineContext,ids:readonly SourceId[]):Promise<EngineRoute[]>;
  update(ctx:EngineContext,id:EngineId,input:EngineRegistration):Promise<Result<void>>;
  register(ctx:EngineContext,input:EngineRegistration):Promise<Result<EngineRecord>>;
  get(ctx:EngineContext,id:EngineId):Promise<Result<EngineRecord>>;
  list(ctx:EngineContext,after:EngineId|null,limit:number):Promise<EngineView[]>;
- health(ctx:EngineContext,id:EngineId,value:{contractVersion:number|null;health:EngineView['health'];message:string|null;verified:boolean;address:string;certificatePin:string;name:string}):Promise<Result<EngineRecord>>;
+ health(ctx:EngineContext,id:EngineId,value:{contractVersion:number|null;health:EngineView['health'];message:string|null;verified:boolean;address:string;certificatePin:string;name:string;registrationVersion:number}):Promise<Result<EngineRecord>>;
  custody(ctx:EngineContext):Promise<Result<EngineRecord>>;
  designate(ctx:EngineContext,id:EngineId):Promise<Result<void>>;
  source(ctx:EngineContext,id:SourceId):Promise<Result<{id:SourceId;name:string;engineId:EngineId|null;tokenized:boolean}>>;
@@ -27,9 +29,63 @@ export interface EngineProbe {
 export const engineRefusal=(message:string,retryable=false)=>err(new DomainError('source_unavailable',message,{cause:'engine_registry'},retryable));
 export class EngineRegistry {
  private readonly probes=new Map<string,{promise:Promise<Result<EngineRecord>>;failedUntil:number}>();
- constructor(private readonly repository:EngineRepository,private readonly probe:EngineProbe,private readonly tls:ApplicationTls){}
+ private readonly observations=new Map<string,{record:EngineRecord;queryEngineVersion:string;observedAt:number;ctx:EngineContext}>();
+ private readonly tracked=new Map<string,{ctx:EngineContext;record:EngineRecord;lastUsed:number}>();
+ private readonly policy:EngineHealthPolicy;
+ private refreshTimer:ReturnType<typeof setInterval>|undefined;
+ constructor(private readonly repository:EngineRepository,private readonly probe:EngineProbe,private readonly tls:ApplicationTls,policy:Partial<EngineHealthPolicy>={},private readonly now:()=>number=Date.now){this.policy=engineHealthPolicySchema.parse(policy);this.tls={...tls};}
+ private identity(ctx:EngineContext,value:EngineRecord){return JSON.stringify([ctx.projectId,value.id,value.address,value.certificatePin,value.name,value.registrationVersion]);}
+ startHealthRefresh(){
+  if(this.refreshTimer||!this.policy.reuseEnabled)return;
+  let pending=false;
+  this.refreshTimer=setInterval(()=>{if(pending)return;pending=true;void this.refreshHealth().catch(()=>{console.warn({event:'engine.health_refresh_failed',timestamp:new Date(this.now()).toISOString()});}).finally(()=>{pending=false;});},this.policy.refreshMs);this.refreshTimer.unref();
+ }
+ close(){if(this.refreshTimer)clearInterval(this.refreshTimer);this.refreshTimer=undefined;this.observations.clear();this.tracked.clear();}
+ async refreshHealth(){
+  for(const [identity,observation] of this.observations)if(!this.tracked.has(identity)&&this.now()-observation.observedAt>=this.policy.maxAgeMs)this.observations.delete(identity);
+  const results=await Promise.allSettled([...this.tracked].map(async([identity,observation])=>{
+   if(this.now()-observation.lastUsed>=this.policy.maxAgeMs){this.observations.delete(identity);this.tracked.delete(identity);return;}
+   const current=await this.repository.get(observation.ctx,observation.record.id);
+   if(!current.ok||this.identity(observation.ctx,current.value)!==identity||current.value.health==='unverified'){this.observations.delete(identity);this.tracked.delete(identity);return;}
+   await this.verifyLoaded(observation.ctx,current.value);
+  }));
+  if(results.some(result=>result.status==='rejected'))console.warn({event:'engine.health_refresh_failed',timestamp:new Date(this.now()).toISOString()});
+ }
+ private async queryReadyLoaded(ctx:EngineContext,value:EngineRecord):Promise<Result<EngineRecord>>{
+  if(!value.verifiedAt&&value.health==='unverified')return this.readyLoaded(ctx,value);
+  const identity=this.identity(ctx,value);
+  this.tracked.set(identity,{ctx,record:value,lastUsed:this.now()});
+  let current=value;
+  // A known explicit unhealthy observation is never eligible for reuse.
+  if(current.health!=='healthy'||!current.verifiedAt){const checked=await this.readyLoaded(ctx,current);if(!checked.ok)return checked;current=checked.value;}
+  if(this.policy.reuseEnabled){
+   const heartbeat=await this.repository.heartbeat(ctx,current),age=heartbeat.at===null?Infinity:this.now()-Date.parse(heartbeat.at);
+   if(!heartbeat.policyCurrent||!Number.isFinite(age)||age<0||age>=this.policy.heartbeatMaxAgeMs)return engineRefusal(`Engine ${value.name} has no current acknowledged heartbeat.`,true);
+   if(!heartbeat.record)return engineRefusal(`Engine ${value.name} verification changed.`,true);
+   current=heartbeat.record;
+   const observation=this.observations.get(identity);
+   if(observation&&current.verifiedAt===observation.record.verifiedAt&&this.now()-observation.observedAt>=0&&this.now()-observation.observedAt<this.policy.maxAgeMs){return ok(current);}
+  }
+  const checked=await this.readyLoaded(ctx,current);
+  if(checked.ok&&this.policy.reuseEnabled){
+   const heartbeat=await this.repository.heartbeat(ctx,checked.value),age=heartbeat.at===null?Infinity:this.now()-Date.parse(heartbeat.at);
+   if(!heartbeat.policyCurrent||!heartbeat.record||!Number.isFinite(age)||age<0||age>=this.policy.heartbeatMaxAgeMs)return engineRefusal(`Engine ${value.name} has no current acknowledged heartbeat.`,true);
+  }
+  return checked;
+ }
+ private async queryEndpoint(ctx:EngineContext,record:EngineRecord):Promise<Result<EngineEndpoint>>{
+  // Token attestation may have consumed time since admission. Recheck at dispatch.
+  if(this.policy.reuseEnabled){
+   const heartbeat=await this.repository.heartbeat(ctx,record),age=heartbeat.at===null?Infinity:this.now()-Date.parse(heartbeat.at);
+   if(!heartbeat.policyCurrent||!heartbeat.record||!Number.isFinite(age)||age<0||age>=this.policy.heartbeatMaxAgeMs)return engineRefusal(`Engine ${record.name} has no current acknowledged heartbeat.`,true);
+  }
+  const observation=this.observations.get(this.identity(ctx,record));
+  return observation&&this.now()-observation.observedAt>=0&&this.now()-observation.observedAt<this.policy.maxAgeMs?ok({...this.endpoint(record),queryEngineVersion:observation.queryEngineVersion}):engineRefusal('Engine health changed while preparing the query.',true);
+ }
+ async forQueryCustody(ctx:EngineContext){const record=await this.repository.custody(ctx);if(!record.ok)return record;const ready=await this.queryReadyLoaded(ctx,record.value);return ready.ok?this.queryEndpoint(ctx,ready.value):ready;}
+ forQuerySources(ctx:EngineContext,inputs:readonly {id:SourceId;tokenized?:boolean}[]){return this.routeSources(ctx,inputs,true);}
  endpoint(record:EngineRecord):EngineEndpoint{return {baseUrl:record.address,tls:{...this.tls,certificatePin:record.certificatePin}};}
- update(ctx:EngineContext,id:EngineId,input:EngineRegistration){return this.repository.update(ctx,id,input);}
+ async update(ctx:EngineContext,id:EngineId,input:EngineRegistration){const result=await this.repository.update(ctx,id,input);if(result.ok)for(const [key,value] of this.observations)if(value.ctx.projectId===ctx.projectId&&value.record.id===id){this.observations.delete(key);this.tracked.delete(key);}return result;}
  register(ctx:EngineContext,input:EngineRegistration){return this.repository.register(ctx,input);}
  list(ctx:EngineContext,after:EngineId|null,limit:number){return this.repository.list(ctx,after,limit);}
  async verify(ctx:EngineContext,id:EngineId){
@@ -38,18 +94,22 @@ export class EngineRegistry {
  }
  private async verifyLoaded(ctx:EngineContext,value:EngineRecord){
   const id=value.id;
-  const key=JSON.stringify([ctx.projectId,id,value.address,value.certificatePin,value.name]);
-  const existing=this.probes.get(key);if(existing&&(existing.failedUntil===0||existing.failedUntil>Date.now()))return existing.promise;
+  const key=this.identity(ctx,value);
+  const existing=this.probes.get(key);if(existing&&(existing.failedUntil===0||existing.failedUntil>this.now()))return existing.promise;
   const entry={promise:this.verifyRecord(ctx,id,value),failedUntil:0};this.probes.set(key,entry);
-  try{const result=await entry.promise;if(result.ok)this.probes.delete(key);else{entry.failedUntil=Date.now()+1000;const timer=setTimeout(()=>{if(this.probes.get(key)===entry)this.probes.delete(key);},1000);timer.unref();}return result;}catch(error){this.probes.delete(key);throw error;}
+  try{const result=await entry.promise;if(result.ok)this.probes.delete(key);else{entry.failedUntil=this.now()+1000;const timer=setTimeout(()=>{if(this.probes.get(key)===entry)this.probes.delete(key);},1000);timer.unref();}return result;}catch(error){this.probes.delete(key);throw error;}
  }
  private async verifyRecord(ctx:EngineContext,id:EngineId,value:EngineRecord):Promise<Result<EngineRecord>>{
-  const record={value};
+  const record={value},identity=this.identity(ctx,value);
   const result=await this.probe.health(this.endpoint(record.value)).catch(()=>engineRefusal('Engine health probe failed.',true));
-  if(!result.ok){console.info({event:'engine.verification_refused',stage:'health'});const reason=readinessFailure.safeParse(result.error.details?.readinessReason);const message=reason.success?readinessMessages[reason.data]:isReadinessMessage(record.value.healthMessage)?record.value.healthMessage:'Verification failed. Check the address, certificate pin and application TLS trust.';await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:null,health:'unavailable',message,verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
-  if(result.value.contract===3&&this.probe.registerEgress){const registered=await this.probe.registerEgress(this.endpoint(value),ctx.projectId,id);if(!registered.ok){console.info({event:'engine.verification_refused',stage:'egress_registration'});await this.repository.health(ctx,id,{address:value.address,certificatePin:value.certificatePin,name:value.name,contractVersion:null,health:'unavailable',message:'Engine egress registration failed.',verified:false});return registered;}}
+  if(!result.ok&&result.error.details?.reason==='control_connect_timeout'){console.info({event:'engine.health_observation_missed',timestamp:new Date(this.now()).toISOString(),engineId:id,stage:'health'});return engineRefusal(`Engine ${value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
+  if(!result.ok){this.observations.delete(identity);console.info({event:'engine.verification_refused',timestamp:new Date(this.now()).toISOString(),stage:'health'});const reason=readinessFailure.safeParse(result.error.details?.readinessReason);const message=reason.success?readinessMessages[reason.data]:isReadinessMessage(record.value.healthMessage)?record.value.healthMessage:'Verification failed. Check the address, certificate pin and application TLS trust.';await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,registrationVersion:record.value.registrationVersion,contractVersion:null,health:'unavailable',message,verified:false});return engineRefusal(`Engine ${record.value.name} could not be verified. Check its address, certificate pin and application TLS trust.`,true);}
+  const observedAt=this.now();
+  if(result.value.contract===3&&this.probe.registerEgress){const registered=await this.probe.registerEgress(this.endpoint(value),ctx.projectId,id);if(!registered.ok){if(registered.error.details?.reason==='control_connect_timeout'){console.info({event:'engine.health_observation_missed',timestamp:new Date(this.now()).toISOString(),engineId:id,stage:'egress_registration'});return registered;}this.observations.delete(identity);console.info({event:'engine.verification_refused',timestamp:new Date(this.now()).toISOString(),stage:'egress_registration'});await this.repository.health(ctx,id,{address:value.address,certificatePin:value.certificatePin,name:value.name,registrationVersion:value.registrationVersion,contractVersion:null,health:'unavailable',message:'Engine egress registration failed.',verified:false});return registered;}}
   const matches=result.value.contract===3;
-  const updated=await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
+  const updated=await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,registrationVersion:record.value.registrationVersion,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
+  if(matches&&updated.ok){this.observations.set(identity,{record:updated.value,queryEngineVersion:result.value.queryEngineVersion,observedAt,ctx});console.info({event:'engine.health_observed',timestamp:new Date(observedAt).toISOString(),engineId:id});return updated;}
+  this.observations.delete(identity);
   if(matches)return updated;
   return engineRefusal(`Engine ${record.value.name} reports contract ${result.value.contract}; this application requires contract 3.`);
  }
@@ -66,16 +126,17 @@ export class EngineRegistry {
  private async tokenReadyWithKey(ctx:EngineContext,record:EngineRecord,expected:{version:number;sentinel:string}|null){
   if(!expected)return engineRefusal(`Engine ${record.name} cannot serve tokenized data: the project has no recorded token key.`);
   const actual=await this.probe.sentinel(this.endpoint(record),ctx.projectId);
-  if(!actual.ok||actual.value.version!==expected.version||actual.value.sentinel!==expected.sentinel){console.info({event:'engine.verification_refused',stage:'token_attestation',reason:actual.ok?'mismatch':'unavailable'});return engineRefusal(`Engine ${record.name} cannot serve tokenized data: its key version or sentinel does not match the project's recorded key. Ask the operator to provision the matching key and verify again.`);}
+  if(!actual.ok||actual.value.version!==expected.version||actual.value.sentinel!==expected.sentinel){console.info({event:'engine.verification_refused',timestamp:new Date(this.now()).toISOString(),stage:'token_attestation',reason:actual.ok?'mismatch':'unavailable'});return engineRefusal(`Engine ${record.name} cannot serve tokenized data: its key version or sentinel does not match the project's recorded key. Ask the operator to provision the matching key and verify again.`);}
   return ok(undefined);
  }
  /** One fresh routing snapshot per batch. Promises below deduplicate work only
   * within this invocation; no route, key or compiled decision survives it. */
- async forSources(ctx:EngineContext,inputs:readonly {id:SourceId;tokenized?:boolean}[]){
+ forSources(ctx:EngineContext,inputs:readonly {id:SourceId;tokenized?:boolean}[]){return this.routeSources(ctx,inputs,false);}
+ private async routeSources(ctx:EngineContext,inputs:readonly {id:SourceId;tokenized?:boolean}[],query:boolean){
   if(!inputs.length)return [];
   const routes=await this.repository.routes(ctx,[...new Set(inputs.map(s=>s.id))]);
   const engines=new Map<EngineId,Promise<Result<EngineRecord>>>();
-  for(const route of routes)if(route.engine&&!engines.has(route.engine.id))engines.set(route.engine.id,this.readyLoaded(ctx,route.engine));
+  for(const route of routes)if(route.engine&&!engines.has(route.engine.id))engines.set(route.engine.id,query?this.queryReadyLoaded(ctx,route.engine):this.readyLoaded(ctx,route.engine));
   const verified=new Map<EngineId,Result<EngineRecord>>();
   await Promise.all([...engines].map(async([id,pending])=>{verified.set(id,await pending);}));
   const needsKey=inputs.some(input=>input.tokenized&&routes.some(r=>r.id===input.id&&r.engine&&verified.get(r.engine.id)?.ok));
@@ -87,7 +148,7 @@ export class EngineRegistry {
    if(!source.engine)return engineRefusal(`Source ${source.name} has no assigned engine. Assign a verified engine in Settings before introspecting or querying it.`);
    const r=verified.get(source.engine.id);if(!r)throw new Error('Missing batch engine verification.');if(!r.ok)return r;
    if(input.tokenized){let pending=sentinels.get(r.value.id);if(!pending){pending=this.tokenReadyWithKey(ctx,r.value,key);sentinels.set(r.value.id,pending);}const token=await pending;if(!token.ok)return token;}
-   return ok(this.endpoint(r.value));
+   return query?this.queryEndpoint(ctx,r.value):ok(this.endpoint(r.value));
   }));
  }
  async forSource(ctx:EngineContext,id:SourceId,tokenized=false){const [result]=await this.forSources(ctx,[{id,tokenized}]);if(!result)throw new Error('Missing source routing result.');return result;}

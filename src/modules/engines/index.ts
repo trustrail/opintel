@@ -9,3 +9,5 @@ export {authorizeEngineReceipt} from './infrastructure/receipt-auth.js';
 export {EngineEgress} from './application/egress.js';
 export {PostgresEngineEgress} from './infrastructure/egress.js';
 export {createEngineHeartbeatServer} from './api/heartbeat-server.js';
+
+export {engineHealthPolicy} from './infrastructure/health-policy.js';

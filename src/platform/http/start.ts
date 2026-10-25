@@ -222,7 +222,8 @@ async function start(): Promise<void> {
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},engines]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/engines/index.js')]);
   const applicationTls=await engines.loadApplicationTls(process.env.APPLICATION_TLS_CONFIG ?? 'tmp/sidecar/application-tls.json');
-  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(process.env.ENGINE_HEARTBEAT_URL),applicationTls);
+  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(process.env.ENGINE_HEARTBEAT_URL),applicationTls,engines.engineHealthPolicy(process.env));
+  engineRegistry.startHealthRefresh();
   const sources=createSourceRuntime(engineRegistry,hub);
   const heartbeatServer=process.env.ENGINE_HEARTBEAT_URL?engines.createEngineHeartbeatServer(applicationTls,new engines.EngineEgress(new engines.PostgresEngineEgress(),projectId=>sources.resume({projectId,userId:UserId('00000000-0000-4000-8000-000000000001')}))):undefined;
   if(heartbeatServer){
@@ -342,6 +343,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
+    engineRegistry.close();
     releaseCustody.close();
     stopEvidenceMaintenance();
     clearInterval(ownerGrantTimer);

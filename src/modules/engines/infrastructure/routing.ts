@@ -13,11 +13,13 @@ export type QueryEngineContext=EngineContext&{sources:SourceId[];parserOnly?:boo
 export class RegistryQueryExecution implements QueryExecutionPort,QueryValidationPort {
  constructor(private readonly registry:EngineRegistry,private readonly repository?:import('../application/registry.js').EngineRepository){}
  async health(signal?:AbortSignal,ctx?:QueryEngineContext){
+  if(signal?.aborted)return err(new DomainError('source_unavailable','The query was cancelled. No result was returned.',{cause:'interruption_unclassified'},true));
   if(!ctx)return err(new DomainError('source_unavailable','Query engine routing requires a project and source context.'));
-  if(!ctx.sources.length){const e=await this.registry.forCustody(ctx);return e.ok?new SidecarQueryExecution(e.value).health(signal):e;}
+  if(!ctx.sources.length){const e=await this.registry.forQueryCustody(ctx);return e.ok&&e.value.queryEngineVersion?ok({queryEngineVersion:e.value.queryEngineVersion}):e.ok?err(new DomainError('source_unavailable','Engine health is unavailable.')):e;}
   let firstFailure:DomainError|undefined;let version:string|undefined;
-  const routed=await this.registry.forSources(ctx,ctx.sources.map(id=>({id})));
-  for(const e of routed){if(!e.ok){if(!ctx.parserOnly)return e;firstFailure??=e.error;continue;}const h=await new SidecarQueryExecution(e.value).health(signal);if(!h.ok){if(!ctx.parserOnly)return h;firstFailure??=h.error;continue;}if(ctx.parserOnly)return h;if(version&&version!==h.value.queryEngineVersion)return err(new DomainError('sql_not_permitted','The engines report different query builds. Align their builds before querying.'));version=h.value.queryEngineVersion;}
+  const routed=await this.registry.forQuerySources(ctx,ctx.sources.map(id=>({id})));
+  if(signal?.aborted)return err(new DomainError('source_unavailable','The query was cancelled. No result was returned.',{cause:'interruption_unclassified'},true));
+  for(const e of routed){if(!e.ok){if(!ctx.parserOnly)return e;firstFailure??=e.error;continue;}const h=e.value.queryEngineVersion?ok({queryEngineVersion:e.value.queryEngineVersion}):err(new DomainError('source_unavailable','Engine health is unavailable.'));if(!h.ok){if(!ctx.parserOnly)return h;firstFailure??=h.error;continue;}if(ctx.parserOnly)return h;if(version&&version!==h.value.queryEngineVersion)return err(new DomainError('sql_not_permitted','The engines report different query builds. Align their builds before querying.'));version=h.value.queryEngineVersion;}
   return version?ok({queryEngineVersion:version}):err(firstFailure??new DomainError('source_unavailable','No verified engine is available for these sources.'));
  }
 
@@ -25,9 +27,9 @@ export class RegistryQueryExecution implements QueryExecutionPort,QueryValidatio
   if(!ctx||ctx.projectId!==input.projectId)return err(new DomainError('forbidden','Query engine project context is missing or inconsistent.'));
   const ids=[...new Set(input.sources.map(s=>s.sourceId as SourceId))];
   let endpoint:import('../application/registry.js').EngineEndpoint|undefined;
-  const routed=await this.registry.forSources(ctx,ids.map(id=>({id,tokenized:input.objects.some(o=>o.sourceId===id&&o.readPlan.columns.some(c=>c.treatment==='tokenized'))})));
+  const routed=await this.registry.forQuerySources(ctx,ids.map(id=>({id,tokenized:input.objects.some(o=>o.sourceId===id&&o.readPlan.columns.some(c=>c.treatment==='tokenized'))})));
   for(const result of routed){if(!result.ok)return result;if(endpoint&&endpoint.baseUrl!==result.value.baseUrl)return err(new DomainError('sources_cannot_be_joined','This query references sources served by different engines. Run separate queries; cross-engine execution is not supported.'));endpoint=result.value;}
-  if(!endpoint){const result=await this.registry.forCustody(ctx);if(!result.ok)return result;endpoint=result.value;}
+  if(!endpoint){const result=await this.registry.forQueryCustody(ctx);if(!result.ok)return result;endpoint=result.value;}
   return ok(new SidecarQueryExecution(endpoint));
  }
  async execute(input:ExecutionRequest,signal?:AbortSignal,ctx?:EngineContext):Promise<Result<z.infer<typeof executionResponse>>>{const c=await this.client(input,ctx);if(!c.ok)return c;const tokenized=input.objects.some(o=>o.readPlan.columns.some(c=>c.treatment==='tokenized'));if(tokenized){if(!ctx||!this.repository)return err(new DomainError('source_unavailable','Tokenized execution requires registered key metadata.'));const key=await this.repository.key(ctx);if(!key||key.version!==input.tokenKeyVersionSelected)return err(new DomainError('source_unavailable','The project token key changed while preparing this query. Prepare the query again.'));return c.value.execute({...input,expectedTokenSentinel:key.sentinel},signal);}return c.value.execute(input,signal);}

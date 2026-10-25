@@ -2,11 +2,12 @@
 
 Status: implementation merged/pushed at `35610ad`; seven amd64 images published;
 fresh published-digest DEP-009–011 acceptance PASSED on 25 October 2026.
-The single full gate FAILED in two tests. Both defects were repaired and all 11
-focused tests plus strict typecheck/lint passed; the previously unrun browser/MCP
-tier then passed. There is no green full-gate claim or Stage 5 completion claim.
-Release: `stage4-release-amd64.json`; acceptance: `stage4-release-acceptance.json`;
-original gate: `stage4-gate-first.json`.
+The explicitly requested full gate on clean `35610ad` PASSED all seven tiers,
+including 2,073 tests in 238 files and browser/MCP smoke, in 1,579.33 seconds.
+Authoritative Stage 4 gate: `stage4-gate.json`. The earlier failed gate is retained
+unchanged as `stage4-gate-first.json`; focused checks are not substituted for the
+new full gate. Stage 5 remains pending.
+Release: `stage4-release-amd64.json`; acceptance: `stage4-release-acceptance.json`.
 
 Scope: DEP-009–011, independent package operator jobs for provisioning,
 reinsurance governance, explicit synthetic seeding, preparation and soak.
@@ -346,3 +347,55 @@ external. Native ARM64 reproduction uses the exact image-source revision
 same acceptance harness with that manifest and the existing licensed provider
 configuration. Build/acceptance-host dependencies are separate from the shipped
 operator jobs, which run entirely inside the gateway Compose project.
+
+
+## Authorized full gate on the published source revision
+
+At the user's explicit request, `npm run check` ran in a clean detached checkout
+of main's image-source commit `35610ad4dac409abb83cb7c4048546573ad777f7`.
+Locked dependencies and the signed pinned scanner were prepared first; the gate
+used existing test services and created/dropped its own fresh migrated database.
+No source changes were made during the run. All seven sequential tiers passed:
+strict typecheck, conformance typecheck, unchanged lint, production exclusion,
+router conformance (54/54 routes, zero findings), 2,073 normal tests in 238 files,
+and browser/MCP smoke. The two previously failing files both passed within this
+full run. Total gate wall time: 1,579.33 seconds; cleanup succeeded.
+
+Exact machine record: `stage4-gate.json`. Raw log:
+`/private/tmp/opintel-stage4-35610ad-full-gate.log`. The previous failed gate and
+repair chronology remain intact. This request caused no image publication.
+The governing rule is restated: each changed tree receives a full gate before
+commit; focused checks or separately executed tiers cannot substitute for it.
+These evidence-file updates are recorded locally and are not committed.
+
+## Approved bounded-health follow-up
+
+The user approved bounded health admission after reviewing the retained native
+arm64 failure. Work is on `fix/stage4-engine-health-admission`; no image
+publication is authorized by this follow-up. Initial bounds are 30-second health
+age, five-second independent refresh and 15-second authenticated heartbeat age,
+configurable in the gateway API environment. Heartbeat does not renew health.
+Preparation consumes the verified build without its redundant health socket.
+Explicit trust/readiness/contract failures and all token/source/governance checks
+remain refusals. The current-policy heartbeat check reads scoped state afresh.
+Forward migration 084 versions registrations to reject in-flight observations
+across edits, including edit/revert races. No applied migration is modified.
+
+The regression set ENG-H01–H10 covers bounded transport-stall reuse, health and
+heartbeat expiry, wrong pin/explicit failure, unknown/edited registrations,
+independent/concurrent refresh, current-policy acknowledgment, no duplicate
+health socket, configuration validation and migration round trip. Validation is
+sequential and requires a full `npm run check` on the completed changed tree
+before commit. Its machine record is `test-results/gate.json`; its raw log is
+`/private/tmp/opintel-health-admission-full-gate.log`. Focused runs do not replace
+that gate. The 33-second arm64 execution failure remains a separate open item;
+its cause will be reported from the retained soak JSONL when supplied.
+
+The final focused admission/registry suite passed 39 tests in three files,
+including heartbeat expiry during token attestation, edit/revert protection and
+migration down/up preservation. The full candidate gate runs in the isolated
+checkout `/private/tmp/opintel-health-admission-candidate`, containing exactly
+the staged change and no unrelated backlog/status/cache files. The commit must
+match that tested tree; the machine gate record remains in that checkout's
+`test-results/gate.json`. No post-gate source change may be committed without a
+new full gate.

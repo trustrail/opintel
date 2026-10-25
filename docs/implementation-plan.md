@@ -1223,3 +1223,17 @@ passed. The single full gate failed in two tests, with focused repairs and the
 remaining browser/MCP tier passing afterward; the failed record is retained,
 not replaced. See `docs/review/stage4-progress.md` for the validation qualification
 and exact release/acceptance records. Stage 5 remains pending.
+
+### Stage 4 follow-up — bounded engine health admission
+
+Approved 25 October 2026: reuse verified engine health for at most 30 seconds,
+refresh independently every 5 seconds, and require a current policy acknowledgment
+and heartbeat younger than 15 seconds; all three durations are configurable.
+Heartbeat does not renew health. Remove the redundant synchronous query-client
+health request from preparation, preserving initial verification, wrong-pin,
+unknown-engine, explicit-unhealthy, token-key and source-governance refusals.
+Regression IDs ENG-H01–H10 cover age/heartbeat bounds, transport-only refresh
+failure, hard failures, registration identity, concurrency, preparation and
+configuration. The completed changed tree requires a full gate before commit;
+focused checks cannot replace it. No image publication is part of this change.
+The 33-second arm64 execution-path failure remains open pending retained JSONL.

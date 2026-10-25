@@ -2225,6 +2225,23 @@ The built wire contract is 2 and the independently reported sidecar version
 starts at 0.1.0. Local bootstrap creates expiring development certificates and
 starts the host; it does not build the S5 deployment package.
 
+**Bounded engine health admission (Stage 4 follow-up).** The heartbeat-enabled
+gateway retains a successful pinned health observation for at most 30 seconds,
+refreshing independently every 5 seconds while it serves queries. Admission also
+requires an authenticated heartbeat younger than 15 seconds acknowledging the
+current assignment policy. These initial durations are configurable in the API
+runtime environment (deployment contract). Heartbeats do not refresh health age;
+the companion is not proof that the query child remains ready. Query preparation
+uses the observed build instead of opening another synchronous query-client
+health socket. A pre-TLS control-connect timeout preserves, but cannot renew,
+valid prior health. Explicit unhealthy/trust/contract failures invalidate it.
+Unknown, edited and never-verified registrations have no reusable authority.
+Fresh routing, source/entitlement authorization and token checks still apply;
+every actual query request retains pinned TLS and independent engine validation.
+Gateway restart requires a fresh observation. Legacy tooling without a heartbeat
+channel cannot reuse health and retains fresh verification. This caches no
+customer result or governance decision. See ENG-H01–H10.
+
 **A contract mismatch fails loudly.** The client calls `/health` on first use and refuses if `contract` differs from the version it was built against. A sidecar upgraded ahead of the application, or behind it, stops rather than guessing.
 
 **`consentGiven` is always `true` when present.** The application never sends `false`; it simply does not call `/sample`. The field exists so a sidecar operator auditing their own logs can see that consent was asserted for every sampling request.

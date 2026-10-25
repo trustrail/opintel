@@ -10,7 +10,7 @@ export function createEngineHeartbeatServer(tls:ApplicationTls,service:EngineEgr
   const socket=req.socket as TLSSocket;
   if(!socket.authorized){socket.destroy();return;}
   const requestId=randomUUID();
-  const fail=(status:number,code:string,message:string)=>{console[status>=500?'warn':'info']({event:'engine.heartbeat_refused',reason:code,requestId});res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({error:{code,message,requestId,retryable:status>=500}}));};
+  const fail=(status:number,code:string,message:string)=>{console[status>=500?'warn':'info']({event:'engine.heartbeat_refused',timestamp:new Date().toISOString(),reason:code,requestId});res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({error:{code,message,requestId,retryable:status>=500}}));};
   if(route.permission!=='verified_engine_certificate')throw new Error('Heartbeat permission is missing.');
   if(req.url!==route.path||req.method!=='POST'){req.resume();fail(404,'not_found','The endpoint does not exist.');return;}
   if(!/^application\/json(?:;|$)/iu.test(req.headers['content-type']??'')){req.resume();fail(415,'validation_failed','A JSON heartbeat is required.');return;}
@@ -22,6 +22,7 @@ export function createEngineHeartbeatServer(tls:ApplicationTls,service:EngineEgr
     const parsed=egressHeartbeat.safeParse(body);if(!parsed.success){fail(400,'validation_failed','The heartbeat did not pass validation.');return;}
     const result=await service.heartbeat(socket.getPeerCertificate().fingerprint256,parsed.data);
     if(!result.ok){fail(result.error.code==='forbidden'?403:result.error.code==='validation_failed'?400:503,result.error.code,result.error.message);return;}
+    console.info({event:'engine.heartbeat_accepted',timestamp:new Date().toISOString(),engineId:parsed.data.engineId,projectId:parsed.data.projectId,appliedVersion:parsed.data.appliedVersion,policyVersion:result.value.version});
     res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(egressPolicy.parse(result.value)));
    }catch{if(!res.headersSent)fail(503,'dependency_unavailable','The engine heartbeat could not be processed.');else res.destroy();}
   })();

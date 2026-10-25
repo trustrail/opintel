@@ -1638,3 +1638,22 @@ OpenSSL agent boundary without live provider credentials. Actual packaged API
 XQ authentication, certificate exchange and escrow/redemption are exclusively
 external acceptance requirements in `scripts/images/stage4-smoke.mjs`, recorded
 against exact image digests; these normal tests cannot substitute for them.
+
+Engine health admission follow-up (Stage 4):
+
+| ID | Assertion |
+|---|---|
+| ENG-H01 | A control TCP-connect stall preserves a still-valid observation; heartbeats cannot extend its 30-second age |
+| ENG-H02 | Successful pinned health refresh renews age; a registration-connect stall does not erase or renew the old observation |
+| ENG-H03 | Missing/stale heartbeat and unacknowledged current policy refuse reuse/admission in the heartbeat-enabled gateway |
+| ENG-H04 | Wrong pin/trust, explicit unhealthy readiness and contract mismatch invalidate serving authority immediately |
+| ENG-H05 | Unknown, never-verified, changed and changed-back registrations cannot inherit cached health |
+| ENG-H06 | Five-second refresh is independent of queries, deduplicated, bounded, and stopped on shutdown; pending refresh cannot block fresh admission |
+| ENG-H07 | Concurrent configuration edits cannot publish or reuse an old successful observation |
+| ENG-H08 | Preparation uses the observed query build without an extra query-client health socket |
+| ENG-H09 | Admission reads scoped heartbeat, registration identity and exact current source-policy acknowledgment |
+| ENG-H10 | Duration settings validate; heartbeat-free tooling receives no health reuse |
+
+The existing real pinned-TLS wrong-pin tests, source/token-key refusals and all
+normal behavioral timing assertions remain required. The full gate runs on every
+completed changed tree before commit; separate tier results are not a substitute.

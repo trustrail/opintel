@@ -776,6 +776,16 @@ Checked twice: in the API before dispatch, and in the sidecar before execution. 
 
 **A parser and engine version mismatch is a refusal**. The sidecar records its queryEngineVersion on every run, and an inspection performed under a different build is not evidence about this one.
 
+**Health observations are not query authority.** The heartbeat-enabled gateway
+may obtain the preparation build from a bounded, previously pinned engine-health
+observation (30-second default maximum age, independent 5-second refresh and a
+15-second current-policy heartbeat bound). Heartbeats cannot renew that age.
+A control-connect stall does not erase a still-valid observation; explicit
+unhealthy/trust/contract failures do. Registration/trust identity changes and
+expiry prevent reuse. Routing and governance are read afresh and the executing
+sidecar still parses, binds and enforces the request independently. No entitlement,
+compiled policy, row or result is cached by this mechanism.
+
 **Binding is established by containment and proved by preparation**. The agent session contains only the pool's staged tables under their three-part names, and nothing else: no attachment, no internal alias, no extension catalog. So an identifier that resolves at all can only have resolved to one of the pool's own objects.
 
 **PREPARE proves resolution**. The sidecar prepares the statement before executing it; preparation fails if any identifier does not resolve, and succeeds only if every one does. A statement that prepares in a session containing only the pool's objects has bound only to the pool's objects.

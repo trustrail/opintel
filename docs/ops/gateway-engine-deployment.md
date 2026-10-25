@@ -398,3 +398,41 @@ require normal pinned TLS and response validation. TLS/pin/HTTP failures and
 query execution are never retried by this mechanism. Safe diagnostics report
 fixed failure stages, transport phases and elapsed time, never exception text or
 key/sentinel material.
+
+### Bounded health admission (approved 25 October 2026)
+
+Query admission reuses only a successful pinned health observation for the same
+project, engine registration and gateway trust instance. The observation includes
+the contract and query build; its age starts at the successful health response,
+not at heartbeat receipt or query use. The gateway refreshes active observations
+independently of queries. Configure its API runtime env with
+`ENGINE_HEALTH_MAX_AGE_MS=30000`, `ENGINE_HEALTH_REFRESH_MS=5000` and
+`ENGINE_HEARTBEAT_MAX_AGE_MS=15000`. Values are positive bounded integer
+milliseconds; refresh must be shorter than maximum health age.
+
+Reuse requires a fresh authenticated heartbeat acknowledging the current source
+assignment policy. Missing/stale heartbeat or policy mismatch refuses admission.
+The heartbeat belongs to the egress companion and never renews query-engine
+health. A gateway without the configured heartbeat channel (legacy development
+and standalone tooling) gets no health reuse: it retains fresh pinned verification.
+The packaged gateway already requires that channel.
+
+A pre-TLS control-connect timeout cannot erase the prior healthy observation or
+extend its expiry. Once expired, a new successful verification is required.
+Wrong-pin/TLS, explicit readiness, malformed-response and contract failures still
+invalidate verification. Unknown/never-verified or edited registrations cannot
+inherit an observation; cold gateway instances must verify before using one.
+Configuration updates and concurrent verification retain their existing guarded
+writes. Every actual request retains pinned TLS. Token-sentinel checks, source
+status/authorization, execution budgets, refusal evidence and result validation
+remain in place. Query preparation reads the observed build and no longer opens
+its redundant query-client `/health` socket. Actual validation/execution transport
+failures still refuse; they are not retried or satisfied from cached results.
+
+The native-arm64 33-second execution-path refusal remains a separate open item.
+Its cause awaits the retained soak JSONL; this change is not an execution-path fix.
+
+Forward migration 084 adds an internal registration version. Every registration
+edit advances it; health writes and reuse are bound to that version. An edit
+followed by a revert cannot let a probe begun before the edits publish health.
+The version is not an API setting, a source policy, or retained evidence.

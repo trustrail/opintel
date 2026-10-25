@@ -123,7 +123,7 @@ it('verification diagnostics name the failed step without provider exception tex
  try{
   const registry=new EngineRegistry(f.repo,{health:async()=>err(new DomainError('source_unavailable','PRIVATE_EXCEPTION_SENTINEL')),sentinel:async()=>ok({version:null,sentinel:'PRIVATE_TOKEN_SENTINEL'})},options.tls);
   expect((await registry.verify(f.ctx,f.registered.id)).ok).toBe(false);
-  expect(log).toHaveBeenCalledWith({event:'engine.verification_refused',stage:'health'});
+  expect(log).toHaveBeenCalledWith({event:'engine.verification_refused',stage:'health',timestamp:expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/u)});
   expect(JSON.stringify(log.mock.calls)).not.toContain('PRIVATE_');
  }finally{log.mockRestore();}
 });
