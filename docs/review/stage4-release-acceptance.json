@@ -1,0 +1,115 @@
+{
+  "platform": "linux/amd64",
+  "tag": "candidate-stage4-core",
+  "revision": "35610ad4dac409abb83cb7c4048546573ad777f7",
+  "published": true,
+  "candidate": false,
+  "images": {
+    "api": "ghcr.io/trustrail/opintel-api@sha256:6eaee1eaa90d372dc2dfe2fdd4868b5477a76bd595853389bb5c21a62abca5f2",
+    "console": "ghcr.io/trustrail/opintel-console@sha256:23a267dd404450de1fe23285fb9e73e42d416d25e2c710d1c3617846bfbdb0a8",
+    "engine": "ghcr.io/trustrail/opintel-engine@sha256:164e5cff67ce329d2b0eb40a46d75f10068f355f460a05ca6f8ea854c1bce59a",
+    "egress": "ghcr.io/trustrail/opintel-egress@sha256:90b15d55261471be4d4da1efc3e2a87b1a12e28d284b0afdb10217ac276c3861",
+    "migrations": "ghcr.io/trustrail/opintel-migrations@sha256:1a4e438846051fb9df673c084ad2a2fb68c097964f16ad9c8c5201675be4c944",
+    "provisioning": "ghcr.io/trustrail/opintel-provisioning@sha256:b7f471699ee6cb76dc1457b8e59d20cd9d27339beed1d31222512c8e6d9f7d6d",
+    "demo-tools": "ghcr.io/trustrail/opintel-demo-tools@sha256:24dc86a77064f694405122bf0f4828ba1e3de43d4c2b00d3f68482f5c0b1710e"
+  },
+  "hostAddress": "192.168.65.254",
+  "workload": {
+    "agents": 10,
+    "rateMs": 10000,
+    "sourceLimits": {
+      "maxConnectionsPerSource": 8,
+      "statementTimeoutMs": 30000,
+      "operationTimeoutMs": 35000
+    },
+    "engineWorkers": 16
+  },
+  "projects": {
+    "gateway": "opintel-gateway-proof-1792959855482",
+    "engine": "opintel-engine-proof-1792959855482",
+    "source": "opintel-source-proof-1792959855482"
+  },
+  "checks": {
+    "ownerClaim": {
+      "normalLogin": true,
+      "noCompanyBeforeLogin": true,
+      "companyCount": 1
+    },
+    "provision": true,
+    "seed": true,
+    "packagedApiXqConnection": {
+      "dashboard": {
+        "status": "failed",
+        "failure": "credentials_missing"
+      },
+      "reachable": true,
+      "authenticated": true,
+      "failure": null
+    },
+    "governance": true,
+    "egressDenial": {
+      "positiveControl": true,
+      "undeclaredDestinationDenied": true
+    },
+    "unchangedRerun": {
+      "stateHash": "cc25c8e3f15e6ff8b3e866cbe9b8ce4d659950656bd2b2bd9892b68489b8f92e",
+      "privateManifestHash": "24f164a731c558b654460f2a2ca3ffe2209ea9eef09f38d28bf74791fa63f1f6",
+      "identical": true
+    },
+    "certificateExchangeAndEscrowRedeem": {
+      "certificates": [
+        {
+          "certificateId": 223,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 224,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 225,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 226,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        }
+      ],
+      "verifiedValues": 11,
+      "receiptIds": [
+        "01a174bf-a384-703a-803f-97810fed48a2",
+        "01a174bf-b5fe-7c62-a19d-d252dca1e787"
+      ]
+    },
+    "prepare": true,
+    "engineProbeRecovery": {
+      "connectRetries": 9,
+      "verificationRefusals": 0
+    },
+    "twoMinuteSoak": {
+      "outcomes": {
+        "success": 70
+      },
+      "refusals": {},
+      "durationSeconds": 120,
+      "status": "PASSED",
+      "invariantBreaches": 0,
+      "operationalErrors": 0,
+      "receiptChecksSkipped": 0,
+      "custodyVerifiedValues": 10,
+      "coverage": {
+        "declared": 85,
+        "exercised": 10
+      }
+    }
+  },
+  "status": "passed"
+}

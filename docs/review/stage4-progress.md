@@ -1,9 +1,12 @@
 # Stage 4 progress
 
-Status: implementation complete; clean release and published-digest acceptance
-pending. The single full gate failed in two tests; focused repairs and the
-remaining browser/MCP tier passed. See the retained gate record and chronology
-below. No published Stage 4 acceptance is claimed yet.
+Status: implementation merged/pushed at `35610ad`; seven amd64 images published;
+fresh published-digest DEP-009–011 acceptance PASSED on 25 October 2026.
+The single full gate FAILED in two tests. Both defects were repaired and all 11
+focused tests plus strict typecheck/lint passed; the previously unrun browser/MCP
+tier then passed. There is no green full-gate claim or Stage 5 completion claim.
+Release: `stage4-release-amd64.json`; acceptance: `stage4-release-acceptance.json`;
+original gate: `stage4-gate-first.json`.
 
 Scope: DEP-009–011, independent package operator jobs for provisioning,
 reinsurance governance, explicit synthetic seeding, preparation and soak.
@@ -297,3 +300,49 @@ Validation status is deliberately not a green full gate: one full gate failed,
 the two defects were fixed and passed their 11 focused tests, typecheck/lint
 passed on the fixes, and the remaining smoke passed. Release build/publication
 and fresh published-digest acceptance are next.
+
+Implementation commit `35610ad` was fast-forward merged and pushed to main.
+All seven clean amd64 images built at that commit and passed layer-secret and
+runtime allowlist audits. Build record:
+`/private/tmp/opintel-stage4-release-35610ad/tmp/images/releases/35610ad-api-engine-console-egress-migrations-provisioning-demo-tools.json`.
+Publication to GHCR is in progress, followed by a fresh package installation
+against those exact published digests. Initial unrelated workspace files remain
+untouched.
+
+
+## Published amd64 exit acceptance
+
+Fresh installation `/private/tmp/opintel-stage4-release-35610ad/tmp/stage4-acceptance-yq1vOf`
+PASSED against the exact seven GHCR digests in the acceptance result. Normal
+owner claim/login, independent provisioning, synthetic seeding, reinsurance
+governance, egress-denial positive control and byte-identical rerun state/private
+manifest checks all passed. Ordinary keys and existing decisions were unchanged.
+
+The packaged API XQ check was reachable/authenticated with no provider failure.
+Its optional dashboard result was `credentials_missing`, retained verbatim.
+Certificates 223, 224, 225 and 226 each exchanged with HTTP 200. Preparation
+verified 11 redeemed values and persisted receipts across both pools. The
+120-second soak used ten callers at 10,000 ms pacing: 70/70 queries succeeded,
+zero refusals, zero invariant breaches, zero operational errors, zero skipped
+receipt checks, and ten custody values verified. Nine initial TCP stalls recovered
+within the bounded probe deadline; there were zero engine-verification refusals.
+Only 10/85 distinct declared scenarios were exercised during this short run;
+this is not exhaustive scenario coverage or the Stage 5 thirty-minute proof.
+
+The raw result's legacy `tag` field is the unused local-image fallback label
+`candidate-stage4-core`; `published: true`, `candidate: false`, the source revision
+and every exact GHCR digest identify the actual clean release. The release
+manifest's authoritative tag is `35610ad`. The raw acceptance record is preserved
+unchanged. Disposable acceptance containers/networks were removed; private
+outputs, logs and volumes remain available locally. No credentials are committed.
+
+Generated package archive:
+`/private/tmp/opintel-stage4-packages-35610ad-amd64.tar.gz`.
+The package contains pinned Compose definitions, wrappers and runbooks only;
+operator settings, source credentials, certificates and private manifests are
+external. Native ARM64 reproduction uses the exact image-source revision
+`35610ad4dac409abb83cb7c4048546573ad777f7`, builds all seven targets with
+`PLATFORM=linux/arm64`, publishes that architecture's manifest, then runs the
+same acceptance harness with that manifest and the existing licensed provider
+configuration. Build/acceptance-host dependencies are separate from the shipped
+operator jobs, which run entirely inside the gateway Compose project.

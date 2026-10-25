@@ -1215,3 +1215,11 @@ caller credentials. Preparation requires all requested certificate exchanges and
 actual receipt/escrow-redemption access before the timer. The user requires final
 AMD64 published-digest installation and a passing two-minute XQ soak before done.
 Status and retained evidence: `docs/review/stage4-progress.md`.
+
+
+Stage 4 release checkpoint (25 October 2026): implementation `35610ad` is merged
+and published for amd64; fresh package/XQ/certificate/escrow/120-second acceptance
+passed. The single full gate failed in two tests, with focused repairs and the
+remaining browser/MCP tier passing afterward; the failed record is retained,
+not replaced. See `docs/review/stage4-progress.md` for the validation qualification
+and exact release/acceptance records. Stage 5 remains pending.
