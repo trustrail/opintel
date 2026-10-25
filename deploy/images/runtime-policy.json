@@ -63,9 +63,18 @@
       ]
     },
     "provisioning": {
-      "native": false,
+      "native": true,
       "files": [
-        "work/src/platform/ops/owner-claim.js"
+        "work/src/platform/ops/owner-claim.js",
+        "work/scripts/operator/provision.js"
+      ],
+      "patterns": []
+    },
+    "demo-tools": {
+      "native": true,
+      "files": [
+        "work/scripts/operator/demo.js",
+        "work/scripts/operator/custody-agent.mjs"
       ],
       "patterns": []
     }

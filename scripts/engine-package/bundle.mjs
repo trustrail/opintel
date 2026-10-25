@@ -13,7 +13,8 @@ const entries={
  console:{'console.mjs':'deploy/images/console.mjs'},
  egress:{'egress.mjs':'deploy/engine/egress.mjs'},
  migrations:{'src/platform/db/migrate.js':'src/platform/db/migrate.ts','src/modules/authz/infrastructure/load-schema.js':'src/modules/authz/infrastructure/load-schema.ts'},
- provisioning:{'src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts'},
+ provisioning:{'src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts','scripts/operator/provision.js':'scripts/operator/provision.ts'},
+ 'demo-tools':{'scripts/operator/demo.js':'scripts/operator/demo.ts','scripts/operator/custody-agent.mjs':'scripts/soak/custody-agent.mjs'},
 };
 if(!Object.hasOwn(entries,target))throw new Error('Unknown runtime bundle target.');
 await mkdir(destination,{recursive:true});
@@ -32,6 +33,7 @@ for(const [name,source] of Object.entries(entries[target])){
   define:definitions,
   banner:{js:'import {createRequire as __opintelCreateRequire} from "node:module";const require=__opintelCreateRequire(import.meta.url);'},
   plugins:[{name:'shipping-runtime',setup(builder){
+   if(target==='demo-tools')builder.onLoad({filter:/\/soak\/reinsurance\.ts$/},async()=>{let contents=await readFile('scripts/soak/reinsurance.ts','utf8');const start=contents.indexOf(' }else{\n  const {loadDevEnvironment}');const end=contents.indexOf('\n const ordered=',start);if(start<0||end<0)throw new Error('External soak boundary changed');contents=contents.slice(0,start)+' }else{throw new Error("Packaged soak requires an explicit target");}'+contents.slice(end);return {contents,loader:'ts'};});
    builder.onResolve({filter:/^@duckdb\/node-bindings$/},()=>({path:'duckdb-native',namespace:'opintel-runtime'}));
    builder.onLoad({filter:/.*/,namespace:'opintel-runtime'},()=>({contents:`import {createRequire} from 'node:module';export default createRequire(import.meta.url)(${JSON.stringify((nativePath.startsWith('.')?'':'./')+nativePath)});`,loader:'js'}));
    // Production already skips the development migration check. Keep its code
@@ -39,13 +41,13 @@ for(const [name,source] of Object.entries(entries[target])){
    builder.onLoad({filter:/\/platform\/http\/development-migrations\.ts$/},()=>({contents:'export async function checkDevelopmentMigrations() {}',loader:'js'}));
   }}],
  });
- const forbidden=Object.keys(result.metafile.inputs).filter(file=>/^(?:test|e2e|reference|scripts\/soak|sidecar\/demo)\//u.test(file));
+ const forbidden=Object.keys(result.metafile.inputs).filter(file=>/^(?:test|e2e|reference|sidecar\/demo)\//u.test(file)||(target!=='demo-tools'&&/^scripts\/soak\//u.test(file)));
  if(forbidden.length)throw new Error('Runtime bundle contains excluded build inputs: '+forbidden.join(', '));
  await record(name);
 }
 await writeFile(join(destination,'package.json'),'{"type":"module","private":true}\n');await record('package.json');
 if(target==='migrations')for(const file of await bundleMigrations('migrations',join(destination,'migrations')))await record('migrations/'+file);
-if(target==='api'||target==='engine'){
+if(['api','engine','provisioning','demo-tools'].includes(target)){
  const platform=process.env.TARGETPLATFORM;
  const names={'linux/amd64':'linux-x64','linux/arm64':'linux-arm64'};
  if(platform&&!names[platform])throw new Error('Unsupported native binding target.');

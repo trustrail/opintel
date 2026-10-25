@@ -16,6 +16,7 @@ type ElementRow = TemporalDeclarations & {
   tokenDomain: string | null; caseInsensitive: boolean | null; canonId: string | null;
 };
 export class PostgresBulkEntitlements implements BulkEntitlementRepository {
+  constructor(private readonly requireUndecided=false) {}
   async set(ctx: EntitlementContext, pool: PoolId, input: BulkEntitlementBody, key: string, requestId: string): Promise<Result<BulkStoredResponse>> {
     const route = `/api/v1/pools/${pool}/entitlements/bulk`;
     // Fixed property order hashes the validated command, independent of JSON key order.
@@ -31,6 +32,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
       // Sorted locks also serialize overlapping batches without reversing lock order.
       await tx.query(`SELECT s.id FROM data_source s WHERE s.id IN
         (SELECT o.source_id FROM catalog_object o JOIN catalog_element e ON e.object_id=o.id WHERE e.id=ANY($1::uuid[])) ORDER BY s.id FOR UPDATE`,[ids]);
+      if(this.requireUndecided&&(await tx.query('SELECT 1 FROM entitlement WHERE pool_id=$1 AND element_id=ANY($2::uuid[]) LIMIT 1',[pool,ids])).length)return err(new DomainError('conflict','An entitlement was decided during provisioning; no decision was overwritten.'));
       const pools = await tx.query('SELECT id FROM pool WHERE id=$1 FOR SHARE',[pool]);
       if (!pools.length) return err(new DomainError('not_found','The pool was not found in this project.'));
       const bindings = await tx.query<{source_id:SourceId}>('SELECT source_id FROM pool_source_binding WHERE pool_id=$1 ORDER BY source_id FOR SHARE',[pool]);

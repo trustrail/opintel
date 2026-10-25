@@ -1,11 +1,11 @@
 import {describe,it,expect} from 'vitest';
 import {selectedImages,targetPlatforms,runtimeBase} from '../scripts/images/build-plan.mjs';
 describe('independent image selection',()=>{
- it.each(['api','engine','console','egress','migrations','provisioning'])('builds only the selected %s product',target=>{
+ it.each(['api','engine','console','egress','migrations','provisioning','demo-tools'])('builds only the selected %s product',target=>{
   expect(selectedImages(target)).toEqual([target]);
  });
  it('selects all products only when requested/defaulted',()=>{
-  expect(selectedImages()).toEqual(['api','engine','console','egress','migrations','provisioning']);
+  expect(selectedImages()).toEqual(['api','engine','console','egress','migrations','provisioning','demo-tools']);
  });
  it('rejects unknown products and invalid or duplicate architectures',()=>{
   expect(()=>selectedImages('api,engine')).toThrow('IMAGE');

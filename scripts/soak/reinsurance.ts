@@ -51,8 +51,9 @@ const counters:Record<string,Record<string,number>>={agents:{},pools:{},outcomes
 const bump=(group:string,key:string,n=1)=>{const map=counters[group]!;map[key]=(map[key]??0)+n;};
 let breaches=0,joins=0,matched=0,errors=0;const latencies=new Map<number,number>();
 const seenTreatments=new Map<string,string>(),tokens=new Map<string,unknown>();
-const path=`tmp/soak/${new Date().toISOString().replaceAll(':','-')}-${process.pid}.jsonl`;
-await mkdir('tmp/soak',{recursive:true});const log=await open(path,'wx',0o600);
+const outputDirectory=process.env.OPINTEL_SOAK_OUTPUT_DIRECTORY??'tmp/soak';
+const path=`${outputDirectory}/${new Date().toISOString().replaceAll(':','-')}-${process.pid}.jsonl`;
+await mkdir(outputDirectory,{recursive:true,mode:0o700});const log=await open(path,'wx',0o600);
 const safe=(value:unknown):unknown=>{if(Array.isArray(value))return value.map(safe);if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,v])=>[key,/^(grant|share|access_token|tenant|recipientIdentifier|cookie)$/iu.test(key)?'[redacted]':safe(v)]));if(typeof value==='string')return value.replace(/"(tenant|recipientIdentifier|grant|share|access_token)"\s*:\s*"[^"]*"/gu,'"$1":"[redacted]"').replace(/[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+/gu,'[address redacted]').replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu,'[token redacted]');return value;};
 let writes=Promise.resolve();const record=(entry:unknown)=>{writes=writes.then(async()=>{await log.write(JSON.stringify(safe(entry))+'\n');});return writes;};
 // Keep the terminal readable; retain Engine/Application diagnostics in JSONL.
@@ -211,7 +212,8 @@ try{
 finally{
  await observer?.close();
  const receiptInvariants=observer?.summary()??{enabled:!values.target,failed:Boolean(values.target),reason:values.target?'Observer preflight did not complete':null,checksSkipped:0};
- const passed=!breaches&&!errors&&!receiptInvariants.failed&&receiptInvariants.checksSkipped===0;
+ const requiredCustody=process.env.OPINTEL_PACKAGED_SOAK==='1';
+ const passed=!breaches&&!errors&&!receiptInvariants.failed&&receiptInvariants.checksSkipped===0&&(!requiredCustody||(custodyVerified>0&&custodyRefused===0&&custodySkipped===0&&exchanges.size===4&&[...exchanges.values()].every(s=>s.ok)));
  terminalError(`${passed?'SOAK PASSED':'!!! SOAK FAILED'}: receipt checks skipped=${receiptInvariants.checksSkipped}; receipt verification=${receiptInvariants.failed?'FAILED':'active'}${receiptInvariants.reason?'; '+receiptInvariants.reason:''}; invariant breaches=${breaches}; operational errors=${errors}`);
  const sorted=[...latencies].sort((a,b)=>a[0]-b[0]),total=sorted.reduce((n,[,c])=>n+c,0);
  const percentile=(p:number)=>{let n=0;for(const [ms,c] of sorted){n+=c;if(n>=Math.ceil(total*p))return ms;}return null;};

@@ -43,7 +43,15 @@ COPY docs/opintel-schema.zed ./docs/opintel-schema.zed
 RUN node scripts/engine-package/bundle.mjs migrations /artifacts
 
 FROM toolchain AS provisioning-build
+COPY scripts/operator ./scripts/operator
 RUN node scripts/engine-package/bundle.mjs provisioning /artifacts
+
+FROM toolchain AS demo-tools-build
+COPY scripts/operator ./scripts/operator
+COPY scripts/soak ./scripts/soak
+COPY scripts/infrastructure ./scripts/infrastructure
+COPY scripts/demo-soak-definition.ts ./scripts/
+RUN node scripts/engine-package/bundle.mjs demo-tools /artifacts
 
 # These bases never COPY a repository input. Final image policy separately
 # verifies their layer identities; npm and the Node development tree never ship.
@@ -121,3 +129,8 @@ FROM runtime-base AS provisioning
 COPY --from=provisioning-build /artifacts/ ./
 USER 65534:65534
 CMD ["node","src/platform/ops/owner-claim.js","--help"]
+
+FROM runtime-base AS demo-tools
+COPY --from=demo-tools-build /artifacts/ ./
+USER 65534:65534
+CMD ["node","scripts/operator/demo.js","--help"]

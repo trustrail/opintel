@@ -25,6 +25,11 @@ describe('5.22 declarations end to end',()=>{
  beforeEach(async()=>{f=await bulkFixture(1);repository=new PostgresElementDeclarations(discovery);discovery.canonicalisers.mockClear();permitted='all';});
  afterEach(async()=>{if(server){await new Promise<void>((resolve,reject)=>server!.close(e=>e?reject(e):resolve()));server=undefined;}});
  async function listen(){server=createHttpServer([...declarationRoutes(repository,new PostgresTemporalRepository()),...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements()))],{authorization:{currentUser:async()=>f.actor,port:{...allowBulk,check:async request=>{expect(['view','administer','set_entitlement']).toContain(request.permission);return {...await allowBulk.check(request),allowed:permitted==='all'||(permitted==='view'&&request.permission==='view')};}}},logger:{error:()=>{}}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');origin=`http://127.0.0.1:${address.port}`;}
+ it('DEP-009: stale operator declarations cannot overwrite a newer manual declaration',async()=>{
+  const before=unwrap(await read()).stored;unwrap(await save({tokenDomain:'manual'}));
+  expect(await repository.save(f.ctx,f.ids[0]!,{...before,tokenDomain:'operator'},before)).toMatchObject({ok:false,error:{code:'conflict'}});
+  expect(unwrap(await read()).stored.tokenDomain).toBe('manual');
+ });
  it('ISO-001/DECL-001/006: mounted bulk routes apply isolated tokenization and declarations deliberately enable sharing',async()=>{
   await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL WHERE id=$1',[f.ids[0]]));await listen();
   const url=origin+declarationsPath(f.ctx.projectId,f.ids[0]!);

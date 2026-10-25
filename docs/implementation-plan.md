@@ -1202,3 +1202,16 @@ egress; automatic connection testing follows an applied heartbeat. Failure
 retains the source with status unreachable. No pre-assignment network exception.
 
 Existing-source engine assignment also queues normal introspection, retaining schema selection and sampling consent. Current-policy acknowledgment releases it; success reconnects the source and failure leaves it unreachable. Repeated assignment reuses queued work; assignment during active introspection refuses until completion. Worker claiming serializes with assignment and refuses pending egress. Query admission still requires connected status.
+
+### Stage 4 — packaged operator tools (2026-10-24)
+
+Implement DEP-009–011 as one-shot jobs in the gateway Compose project, using
+the package operator environment and migration-job connectivity. Separate core
+provisioning, explicit V-01 synthetic seeding, reinsurance governance, explicit
+lifecycle creation/renewal, packaged API XQ check, read-only preparation and soak.
+Keep private manifests and failed reports outside image/package contents.
+Resuming must compare decisions and credential inventories, never rotate ordinary
+caller credentials. Preparation requires all requested certificate exchanges and
+actual receipt/escrow-redemption access before the timer. The user requires final
+AMD64 published-digest installation and a passing two-minute XQ soak before done.
+Status and retained evidence: `docs/review/stage4-progress.md`.

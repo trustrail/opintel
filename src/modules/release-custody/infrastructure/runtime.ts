@@ -1,3 +1,4 @@
+import {isDeepStrictEqual} from 'node:util';
 import {withDiagnosticWork} from '../../../platform/telemetry/diagnostics.js';
 import {requireEngineShares} from '../application/query-release.js';
 import {z} from 'zod';
@@ -64,12 +65,13 @@ export class ReleaseRuntime {
   const environment=custodyEnvironment();return new XqReleaseProvider({apiKey:environment.apiKey,dashboardApiKey:environment.dashboardApiKey,dashboardAccessToken:environment.dashboardAccessToken,senderAlias:environment.senderAlias,senderAccessToken:environment.senderAccessToken},claims.custody.tenant,claims.custody.provider_redeem_at);
  }
  private originalService(project:string,claims:z.infer<typeof releaseClaims>){const provider=this.originalProvider(project,claims);return new ReleaseService(new PostgresReleaseRepository(project),new PostgresGrantSignatures(provider,this.master),provider);}
- async saveProjectSettings(ctx:ReleaseContext,settings:z.infer<typeof ProjectSettings>,confirmedLiveGrants?:number){
+ async saveProjectSettings(ctx:ReleaseContext,settings:z.infer<typeof ProjectSettings>,confirmedLiveGrants?:number,expectedSettings?:Record<string,unknown>){
   return withTenant(ctx,async tx=>{
    // Exclusive against every grant creation/redemption transaction. A confirmed
    // count cannot become stale between this check and the configuration save.
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,538))',[ctx.projectId]);
    const [before]=await withPlatform(scope=>scope.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));
+   if(expectedSettings&&!isDeepStrictEqual(before?.settings,expectedSettings))return err(new DomainError('conflict','Project settings changed during provisioning; they were not overwritten.'));
    const changed=settings.custody!==undefined&&['custody.provider','custody.tenant'].some(path=>readSetting(before?.settings,path)!==readSetting(settings,path));
    if(changed){
     const rows=await tx.query<{id:string;receipt_id:string;claims:unknown}>("SELECT id,receipt_id,claims FROM release_grant WHERE expires_at>clock_timestamp() AND state IN ('granted','redeemed') AND NOT EXISTS(SELECT 1 FROM release_event e WHERE e.grant_id=release_grant.id AND e.kind='revoked') ORDER BY id FOR UPDATE");

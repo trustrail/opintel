@@ -1,4 +1,4 @@
-export const runtimeImages=['api','engine','console','egress','migrations','provisioning'];
+export const runtimeImages=['api','engine','console','egress','migrations','provisioning','demo-tools'];
 export function selectedImages(value='all'){
  if(value==='all')return [...runtimeImages];
  if(!runtimeImages.includes(value))throw new Error('IMAGE must be api, engine, console, egress, migrations, provisioning or all.');

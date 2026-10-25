@@ -8,7 +8,7 @@ import {homedir} from 'node:os';
 import {exchangeDue,exchangeRetryMs} from './exchange-policy.ts';
 import {deviceAssociation} from './device-subject.ts';
 import {certificateMapping} from './manifest.ts';
-import {spawn} from 'node:child_process';
+import {unwrapDeviceToken} from '../infrastructure/xq-token-unwrap.mjs';
 import {webcrypto} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -64,14 +64,8 @@ async function exchange(certificateId,deviceName){
  if(!r.ok)return {ok:false,status:r.status,body:redact(r.body),reason:'certificate_exchange_refused'};
  exchangePhase='response_decryption';
  const decoded=decryptCertificateResponse(r.body,transport),response=JSON.parse(decoded.toString());decoded.fill(0);
- // OpenSSL reads the private key from a pipe, not a temporary file. No key is
- // put in argv or inherited by the Application. Ciphertext goes through stdin.
  exchangePhase='token_unwrap';
- const unwrapped=await new Promise((resolve,reject)=>{
-  const child=spawn('openssl',['pkeyutl','-decrypt','-inkey','/dev/fd/3','-keyform',privateBytes.toString('ascii',0,20).includes('-----BEGIN')?'PEM':'DER','-pkeyopt','rsa_padding_mode:pkcs1'],{stdio:['pipe','pipe','ignore','pipe'],timeout:15000});
-  const chunks=[];child.stdout.on('data',chunk=>chunks.push(chunk));child.on('error',()=>reject(new Error('Device token unwrap failed')));child.on('exit',code=>code===0?resolve(Buffer.concat(chunks)):reject(new Error('Device token unwrap failed')));
-  child.stdio[3].end(privateBytes);child.stdin.end(Buffer.from(response.access_token,'base64'));
- });privateBytes.fill(0);
+ const unwrapped=await unwrapDeviceToken(privateBytes,Buffer.from(response.access_token,'base64'));
  if(!unwrapped.length)throw new Error('Empty device token');
  const token=unwrapped.toString().trim();unwrapped.fill(0);// Token never crosses IPC or enters the log.
 sensitive.push(token);

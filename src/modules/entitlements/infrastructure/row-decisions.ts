@@ -8,6 +8,7 @@ import {ok,err,DomainError} from '../../../shared/kernel/index.js';
 import type {RowDecisionRepository} from '../application/row-decisions.js';
 const projection=`id,expression,predicate_hash AS hash,actor_id AS "actorId",decided_at::text AS "decidedAt",first_scoping AS "firstScoping",level`;
 export class PostgresRowDecisions implements RowDecisionRepository{
+ constructor(private readonly requireUndecided=false){}
  decision(...[ctx,id]:Parameters<RowDecisionRepository['decision']>){return withTenant(ctx,async tx=>{const [row]=await tx.query(`SELECT ${projection} FROM row_entitlement WHERE id=$1`,[id]);return row?ok(RowDecision.parse(row)):err(new DomainError('not_found','The historical row decision was not found.'));});}
  async objects(...[ctx,pool,filter]:Parameters<RowDecisionRepository['objects']>){const result=await withTenant(ctx,async tx=>{
   const base=`WITH objects AS (
@@ -53,6 +54,7 @@ export class PostgresRowDecisions implements RowDecisionRepository{
  save(...[ctx,pool,object,expression,level='pool_override']:Parameters<RowDecisionRepository['save']>){return withTenant(ctx,async tx=>{
   const source=await tx.query(`SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN pool_source_binding b ON b.source_id=s.id AND b.pool_id=$2 WHERE o.id=$1 AND o.status='active' AND s.status<>'archived' FOR UPDATE OF s`,[object,pool]);
   if(!source.length)return err(new DomainError('not_found','The object is not bound to this pool.'));
+  if(this.requireUndecided&&(await tx.query("SELECT 1 FROM row_entitlement WHERE object_id=$1 AND (pool_id=$2 OR level='object_default') LIMIT 1",[object,pool])).length)return err(new DomainError('conflict','A row decision was recorded during provisioning; it was not replaced.'));
   const columns=await tx.query<PredicateColumn>(`SELECT id,exposed_name AS name,source_identifier AS "sourceIdentifier",exposed_type AS type FROM catalog_element WHERE object_id=$1 AND status='active' AND exposed_name IS NOT NULL AND exposed_type IS NOT NULL ORDER BY ordinal FOR SHARE`,[object]);
   const parsed=parsePredicate(expression,columns);if(!parsed.ok)return parsed;
   if(hasScope(parsed.value))return err(new DomainError('validation_failed','scope references arrive in step 3'));

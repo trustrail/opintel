@@ -1,3 +1,4 @@
+import {isDeepStrictEqual} from 'node:util';
 import {domainMigrationConfirmation} from '../../../shared/token-domain.js';
 import { withTenant, withPlatform } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, type ElementId, type SourceId } from '../../../shared/kernel/index.js';
@@ -28,7 +29,7 @@ export class PostgresElementDeclarations implements DeclarationRepository {
   const available=await this.canonicalisers.canonicalisers(ctx,element);
   return ok({elementId:row.elementId,sourceId:row.sourceId,schemaName:row.schemaName,qualifiedName:row.qualifiedName,exposedType:row.exposedType,projectName:await projectName(ctx),stored:stored(row),schemaTimezone:row.schemaTimezone,effective:effectiveDeclarations(row.exposedType,row,row.schemaTimezone,{projectId:ctx.projectId,elementId:element}),tokenizedEntitlements:row.tokenizedEntitlements,canonicalisers:available.ok?[...available.value]:[],discoveryError:available.ok?null:available.error.message});
  }
- async save(ctx:TemporalContext,element:ElementId,input:unknown){
+ async save(ctx:TemporalContext,element:ElementId,input:unknown,expected?:DeclarationValues){
   const parsed=DeclarationCommand.safeParse(input);
   if(!parsed.success)return err(new DomainError('validation_failed',parsed.error.issues[0]?.message??'Invalid element declarations.',{fields:parsed.error.issues.map(issue=>String(issue.path[0]??'declarations'))}));
   const next=stored(parsed.data);
@@ -36,6 +37,8 @@ export class PostgresElementDeclarations implements DeclarationRepository {
   const result=await withTenant(ctx,async tx=>{
    const locked=await tx.query('SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 FOR UPDATE OF s',[element]);if(!locked.length)return missing();
    const [row]=await tx.query<Row>(select+' FOR UPDATE OF e',[element]);if(!row)return missing();
+   if(expected&&!isDeepStrictEqual(stored(row),expected))return err(new DomainError('conflict','Declarations changed during provisioning; they were not overwritten.'));
+   if(expected&&next.contributorKey&&(await tx.query('SELECT 1 FROM catalog_element WHERE object_id=(SELECT object_id FROM catalog_element WHERE id=$1) AND id<>$1 AND contributor_key LIMIT 1',[element])).length)return err(new DomainError('conflict','Another contributor key was declared during provisioning; it was not replaced.'));
    // Source lock serializes entity-key changes with entitlement authoring.
    // A missing key is an authoring error, never an agent governance decision.
    if(next.contributorKey!==undefined&&next.contributorKey!==row.contributorKey){

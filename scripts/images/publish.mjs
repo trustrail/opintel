@@ -7,7 +7,7 @@ if(!input||!output||flags.some(flag=>flag!=='--candidate'))throw new Error('Usag
 const manifest=JSON.parse(readFileSync(input,'utf8'));
 if((manifest.candidate||manifest.dirty)&&!flags.includes('--candidate'))throw new Error('Candidate publication requires --candidate; it remains marked as a candidate.');
 if(!/^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,100}$/u.test(manifest.tag))throw new Error('Invalid release tag');
-const targets=['api','engine','console','egress','migrations','provisioning'];
+const targets=['api','engine','console','egress','migrations','provisioning','demo-tools'];
 function exec(args){const result=spawnSync('docker',args,{encoding:'utf8',timeout:600000,maxBuffer:8*1024*1024});if(result.error||result.status!==0)throw new Error(`Docker ${args[0]} failed (${result.status}); no release manifest written. ${result.stderr?.trim()??''}`);return result.stdout;}
 const artifacts=[];
 for(const artifact of manifest.artifacts){

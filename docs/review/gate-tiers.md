@@ -47,3 +47,33 @@ request to its synthetic loopback provider with external networking disabled.
 |---|---|---|---|
 | 1.0 | 2026-10-16 | Retire pixel/scenario tiers; retain conformance and governance tests; add connected smoke. | No custody or query behavior changes. Review routes remain development/browser-test only and are excluded from normal production artifacts. |
 | 1.1 | 2026-10-16 | Add conformance typecheck immediately after production typecheck as a separately timed, fail-fast gate tier. | No product behavior change; the gate now covers the conformance TypeScript project. |
+
+Stage 4 adds DEP-009–011 regressions within the existing normal-test tier:
+private manifest/lock boundaries, refusing conflicting settings, preserving
+changed or pre-existing empty synthetic tables, and rejecting missing/expired
+lifecycle prerequisites. These address the development workflow's concrete
+failure modes: an empty existing table was previously repopulated, and expired
+retiring credentials could be reported as unexercised while the soak passed.
+External published-image acceptance separately requires the real packaged API
+XQ check and certificate/escrow/redemption; normal tests cannot establish them.
+
+The normal egress regression also rejects a refresh that exposes an empty OUTPUT
+chain between commands, and checks that failed commits clear old destination
+authority under DROP. Stage 4 load acceptance exposed repeated engine-registry
+refusals while the old live installer flushed/rebuilt active rules. The package
+acceptance adds a reachable positive control and proves an undeclared destination
+is still denied alongside the real source-query workload.
+
+Registry transport tests retain the original operation deadline across bounded
+initial-connect recovery, reject invalid pins and HTTP refusals without retry,
+and require a real pinned-TLS response after an intentionally stalled lookup.
+The concrete live defect was a nine-second TCP-connect stall on the Docker
+Desktop host route; direct host health remained responsive during failing load.
+
+Stage 4's normal tier caught the stale provisioning runtime inventory after the
+operator entrypoint was added, and G-018 exposed a cancellation response/close
+race. The inventory check now also removes the added runtime before testing
+owner-claim independence. Source cancellation drains the PostgreSQL error with
+a one-second cap before closing; the SQLSTATE and original timing assertions
+remain unchanged. The failed full-gate record is retained separately from the
+focused repair checks and the subsequently executed browser/MCP tier.

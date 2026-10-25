@@ -1,3 +1,4 @@
+import {BulkEntitlementService,PostgresBulkEntitlements} from '../src/modules/entitlements/index.js';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
@@ -14,6 +15,11 @@ describe('4.7 atomic bulk entitlement API',()=>{
  resetDatabaseBeforeEach('company');
  beforeEach(async()=>{f=await bulkFixture();host=await bulkServer(f);});
  afterEach(async()=>{await host.close();});
+ it('DEP-009: operator mode refuses an intervening decision and preserves its audit history',async()=>{
+  expect((await host.post({...f.body,treatment:'withheld'})).status).toBe(200);const before=await decisions(),audit=await history();
+  const result=await new BulkEntitlementService(new PostgresBulkEntitlements(true)).execute(f.ctx,f.pool,{...f.body,treatment:'clear',justification:'Operator declaration'},randomUUID(),'operator');
+  expect(result).toMatchObject({ok:false,error:{code:'conflict'}});expect(await decisions()).toEqual(before);expect(await history()).toEqual(audit);
+ });
  it.each(['clear','aggregate_only','withheld'] as const)('rejects bulk %s on an unsupported element without any partial decision',async treatment=>{
   await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET exposed_type=NULL WHERE id=$1',[f.ids[0]]));
   const response=await host.post({...f.body,treatment,justification:'Reviewed'});

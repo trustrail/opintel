@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd "$(dirname "$0")" && pwd)"
-usage(){ echo 'gateway.sh --env-file FILE [--project-name NAME] start|stop|status SERVICE...'; echo 'gateway.sh --env-file FILE [--project-name NAME] migrate up|down|status'; echo 'gateway.sh --env-file FILE [--project-name NAME] schema|spicedb-migrate|owner-claim [ARGS...]'; }
+usage(){ echo 'gateway.sh --env-file FILE [--project-name NAME] start|stop|status SERVICE...'; echo 'gateway.sh --env-file FILE [--project-name NAME] migrate up|down|status'; echo 'gateway.sh --env-file FILE [--project-name NAME] schema|spicedb-migrate|owner-claim|provision|demo-tools [ARGS...]'; }
 if [[ ${1:-} == --help ]]; then usage; exit 0; fi
 [[ ${1:-} == --env-file && -n ${2:-} ]] || { usage >&2; exit 2; }
 env_file="$2"; shift 2
@@ -11,12 +11,12 @@ if [[ ${1:-} == --project-name ]]; then project="${2:?set project name}"; shift 
 command="${1:?set command}"; shift
 compose=(docker compose --project-name "$project" --env-file "$env_file")
 add_service(){
- case "$1" in api|console|postgres|redis|spicedb-postgres|spicedb|spicedb-migrate|migrations|schema|owner-claim) compose+=(-f "$root/services/$1.json");; *) echo "Unknown gateway service: $1" >&2; exit 2;; esac
+ case "$1" in api|console|postgres|redis|spicedb-postgres|spicedb|spicedb-migrate|migrations|schema|owner-claim|provision|demo-tools) compose+=(-f "$root/services/$1.json");; *) echo "Unknown gateway service: $1" >&2; exit 2;; esac
 }
 case "$command" in
  start|stop|status) [[ $# -gt 0 ]] || { usage >&2; exit 2; }; for service in "$@"; do add_service "$service"; done;;
  migrate) add_service migrations; [[ $# == 1 && "$1" =~ ^(up|down|status)$ ]] || { usage >&2; exit 2; };;
- schema|spicedb-migrate|owner-claim) add_service "$command";;
+ schema|spicedb-migrate|owner-claim|provision|demo-tools) add_service "$command";;
  *) usage >&2; exit 2;;
 esac
 # Compose reads operator files itself. Never execute/source environment contents.
@@ -30,6 +30,7 @@ case "$command" in
  stop) exec "${compose[@]}" stop "$@";;
  status) exec "${compose[@]}" ps "$@";;
  migrate) exec "${compose[@]}" run --rm --no-deps migrations node src/platform/db/migrate.js "$1";;
+ provision|demo-tools) entry=demo; [[ "$command" == provision ]] && entry=provision; exec "${compose[@]}" run --rm --no-deps "$command" node "scripts/operator/$entry.js" "$@";;
  owner-claim) exec "${compose[@]}" run --rm --no-deps owner-claim node src/platform/ops/owner-claim.js "$@";;
  schema|spicedb-migrate) [[ $# == 0 ]] || { usage >&2; exit 2; }; exec "${compose[@]}" run --rm --no-deps "$command";;
 esac

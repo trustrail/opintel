@@ -32,7 +32,7 @@ for(const name of ['audit','custody','ingest'])chmodSync(join(engineDirectory,na
 const write=(file,value,mode=0o600)=>writeFileSync(file,typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode});
 const envFile=(file,values)=>write(file,Object.entries(values).map(([name,value])=>`${name}=${value}`).join('\n')+'\n');
 const published=process.env.RELEASE_MANIFEST?JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8')):undefined;
-const images={};for(const name of ['api','console','engine','egress','migrations','provisioning']){
+const images={};for(const name of ['api','console','engine','egress','migrations','provisioning','demo-tools']){
  const records=published?.artifacts.filter(value=>value.target===name&&value.platform===platform);
  if(records&&records.length!==1)throw new Error('Published artifact missing or ambiguous: '+name);
  const ref=records?.[0]?.repoDigests?.[0];

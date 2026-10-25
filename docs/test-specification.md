@@ -1627,3 +1627,14 @@ twice. Claimant kind is explicit for later IdP-group support, which is not
 implemented in this change.
 
 DEP-006 reassignment regression: an existing source transitions to pending egress, one queued retest survives repeated assignment, stale acknowledgments and stale queue claims cannot contact it, current acknowledgment invokes normal introspection exactly once, and success/failure yields connected/unreachable respectively. Query admission remains connected-only.
+
+Stage-4 implementation coverage: `test/deployment-stage4.test.ts` exercises
+DEP-009 private manifests/locks and conflict preservation, DEP-010 explicit
+synthetic targets/counts/estimates and refusal of changed or empty existing tables,
+and DEP-011 missing/expired lifecycle prerequisites. The ordinary bulk, row,
+declaration and release-settings suites also exercise operator-only stale-state
+conflicts under the existing locks. `test/xq-token-unwrap.test.mjs` verifies the
+OpenSSL agent boundary without live provider credentials. Actual packaged API
+XQ authentication, certificate exchange and escrow/redemption are exclusively
+external acceptance requirements in `scripts/images/stage4-smoke.mjs`, recorded
+against exact image digests; these normal tests cannot substitute for them.

@@ -1,0 +1,40 @@
+{
+  "services": {
+    "provision": {
+      "image": "${GATEWAY_PROVISIONING_IMAGE:?set image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "node",
+        "scripts/operator/provision.js",
+        "--help"
+      ],
+      "env_file": [
+        "${GATEWAY_OPERATOR_ENV_FILE:?set operator job environment}"
+      ],
+      "environment": {
+        "OPINTEL_DEPLOYMENT_PACKAGE": "gateway",
+        "NODE_EXTRA_CA_CERTS": "/config/tls/ca.pem",
+        "HOME": "/home/operator",
+        "OPINTEL_OUTPUT_DIRECTORY": "/output",
+        "OPINTEL_SOAK_OUTPUT_DIRECTORY": "/output/soak",
+        "ENGINE_HEARTBEAT_URL": "${GATEWAY_HEARTBEAT_URL:?set explicit gateway HTTPS heartbeat address}"
+      },
+      "volumes": [
+        "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config:ro",
+        "${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output"
+      ],
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "restart": "no",
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777"
+      ],
+      "user": "${GATEWAY_OPERATOR_UID:-65534}:${GATEWAY_OPERATOR_GID:-65534}"
+    }
+  }
+}

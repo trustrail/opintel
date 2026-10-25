@@ -1,259 +1,164 @@
-# Run the 30-minute development soak
+# Run a packaged reinsurance soak
 
-Run from the repository root on `main`. This is the **external** soak against
-synthetic development data, not the self-contained test-database harness. Do not
-run the gate or another database-resetting test alongside it. Keep the API and
-Engine running for the whole soak. XQ custody verification makes real provider
-calls and consumes packets.
+Use the digest-pinned gateway and engine packages. Operator commands run as
+one-shot containers in the **same gateway Compose project** as migrations.
+The operator machine needs Docker Compose and Bash; it needs neither a checkout
+nor host Node. A separate build machine produces the packages and images.
 
-## 1. Install and configure the dev machine
+Provision the gateway dependencies, migrate, load the authorization schema, make
+an expiring owner claim and complete normal login using the gateway package
+README. Install the engine independently using its README. Engine source
+readiness, pinned TLS and acknowledged source egress remain mandatory.
 
-With Docker Desktop running:
-
-```sh
-git switch main
-git pull --ff-only
-npm ci
-umask 077
-test -f .env || cp .env.example .env
-chmod 600 .env
-nano .env
-```
-
-Fill in the normal local PostgreSQL, Redis, SpiceDB and demo-source settings
-from `.env.example`. For this local run use `MAIL_PROVIDER=file`,
-`MAIL_OUTPUT_DIR=./tmp/mail` and the normal console origin
-`APP_BASE_URL=http://localhost:5173`. The API is `http://127.0.0.1:3000`.
-
-The operator must supply these existing custody settings in `.env`; placeholders
-are not usable credentials:
+Set the following in the operator environment referenced by the gateway package's
+`GATEWAY_OPERATOR_ENV_FILE`. It uses the migration job's database connectivity;
+`DATABASE_URL` must have the ordinary scoped application roles. Keep that file
+mode 600. The API and engine retain their separately configured runtime envs.
 
 ```dotenv
-OPINTEL_XQ_API_KEY=<XQ General API key>
-OPINTEL_XQ_DASHBOARD_API_KEY=<XQ dashboard API key>
-OPINTEL_XQ_SENDER_ALIAS=<configured sender identity>
-OPINTEL_XQ_SENDER_ACCESS_TOKEN=<valid sender access token>
-OPINTEL_CUSTODY_MASTER_KEY=<installation master key: 64 hex characters>
-OPINTEL_XQ_REDEEM_URL=<operator-provided XQ redemption endpoint>
-OPINTEL_API_BASE_URL=http://127.0.0.1:3000
+APPLICATION_TLS_CONFIG=/config/application-tls.json
+OPINTEL_API_BASE_URL=https://gateway.customer.example
+OPINTEL_OPERATOR_CONFIG=/output/operator.json
+OPINTEL_PROVISION_MANIFEST=/output/provision.json
+OPINTEL_SEED_MANIFEST=/output/seed.json
+OPINTEL_SOAK_MANIFEST=/output/soak.json
+OPINTEL_OBSERVER_COOKIE=/output/observer.cookie
+OPINTEL_CERTIFICATES=/output/certificates.json
+OPINTEL_DEMO_DATABASE_URL=postgresql://demo-writer:REPLACE@source.customer.example/demo
+OPINTEL_SECRET_DEMO_POSTGRES=postgresql://demo-writer:REPLACE@source.customer.example/demo
+OPINTEL_DEMO_FIXTURE=V-01
+OPINTEL_DEMO_SEED=1
+OPINTEL_DEMO_SCHEMAS=soak_policies,soak_claims,soak_recoveries
+OPINTEL_SOAK_DURATION=120
+OPINTEL_SOAK_RATE=10000
 ```
 
-Preserve an existing master key; do not regenerate it for a rerun. The API and
-seeder load the same `.env`. The soak reads `OPINTEL_XQ_API_KEY` from the shell
-or `.env`; its isolated certificate child receives that General API key, PATH
-and HOME, not the sender token or observer cookie. Provider configuration belongs
-to the project's custody Settings; an environment key alone does not enable it.
+The three schema names and V-01/seed 1 are the supported versioned synthetic
+scenario. The source credential must resolve to this explicit database target in
+the operator and engine environments; a separate read-only login may be used. Use a dedicated demo database. Seeding
+refuses the application's database, incompatible schemas, changed rows and
+pre-existing empty tables. It never drops tables; it ANALYZEs its generated
+tables and verifies counts and planner estimates. Unrelated tables are untouched.
 
-## 2. Install the four certificate bundles and public mapping
+Size the engine's explicit source limits for the ten callers before starting.
+The Stage 4 acceptance configuration uses eight connections per source,
+30-second statement and 35-second source-operation deadlines, and the
+ten-second per-agent pacing above. A source-connection refusal or an engine
+verification failure still fails any scenario that requires success; preparation
+checks prerequisites, not sustained-load capacity.
 
-Obtain the **existing, location-authorized** certificate bundles from the XQ
-operator/provider console. This repository does not issue them. For this fixed
-fixture the identities are 223/opintelprobe, 224/opintelpoola,
-225/opintelpoolb2 and 226/opintelpoolb. Do not rename devices or create replacement
-licensed identities. Save the downloaded ZIPs as `223.zip` through `226.zip` in
-`~/Downloads`, then extract each into its own directory:
+Set `GATEWAY_OPERATOR_OUTPUT_DIRECTORY` to an absolute, private host directory;
+it is mounted as `/output`. Set `GATEWAY_OPERATOR_UID` and
+`GATEWAY_OPERATOR_GID` to its owner, and use mode 700 on the directory and 600 on
+files. Both jobs default to UID/GID 65534. Set `GATEWAY_AGENT_CERTIFICATES_DIRECTORY` to the
+existing private agent certificate directory; only the demo-tools job mounts it read-only at
+`/home/operator/.xq`. Keep the API’s separate `GATEWAY_XQ_DIRECTORY` free of
+agent private keys. Do not put credentials in package/image artifacts.
 
-```sh
-mkdir -p "$HOME/.xq/v02" "$HOME/.opintel"
-chmod 700 "$HOME/.xq" "$HOME/.xq/v02" "$HOME/.opintel"
-for id in 223 224 225 226; do
-  mkdir -p "$HOME/.xq/v02/$id"
-  unzip -n "$HOME/Downloads/$id.zip" -d "$HOME/.xq/v02/$id"
-done
-find "$HOME/.xq/v02" -type d -exec chmod 700 {} \;
-find "$HOME/.xq/v02" -type f -exec chmod 600 {} \;
-test -f "$HOME/.xq/soak-certificates.json" ||
-  cp scripts/soak/certificates.example.json "$HOME/.xq/soak-certificates.json"
-chmod 600 "$HOME/.xq/soak-certificates.json"
+Create `/output/operator.json` in that host directory with the existing owner
+email and company ID, an explicit project declaration and the engine's public
+address/pin. Obtain the company ID from the signed-in console and the pin from
+`engine.sh ... pin`. These are examples to fill with your installation's values:
+
+```json
+{
+  "ownerEmail": "owner@example.com",
+  "companyId": "REPLACE_WITH_EXISTING_COMPANY_UUID",
+  "projectName": "Reinsurance",
+  "region": "eu-west-1",
+  "engine": {
+    "name": "Reinsurance engine",
+    "address": "https://engine.customer.example:3100",
+    "certificatePin": "REPLACE_WITH_ENGINE_CERTIFICATE_PIN"
+  },
+  "sourceCredentialRef": "secret://demo/postgres",
+  "settings": {
+    "query": {"rowLimit": 1000, "timeoutSeconds": 30, "memoryLimitMb": 256,
+      "concurrencyPerPool": 2, "aggregateMinGroupSize": 5},
+    "custody": {"provider": "xq", "tenant": "REPLACE_WITH_XQ_TENANT", "region": "eu-west-1"},
+    "poolKeyGraceSeconds": 3600
+  }
+}
 ```
 
-Skip extraction when the correct bundles are already installed. Each directory
-must contain `client.crt`, `client.key` and `transport.key`; nested extracted
-directories are supported. ZIPs alone are insufficient. Keep the bundles outside
-the repository. Only the custody child reads their key material.
+Provide the existing `OPINTEL_CUSTODY_MASTER_KEY`, `OPINTEL_XQ_API_KEY`,
+`OPINTEL_XQ_DASHBOARD_API_KEY`, `OPINTEL_XQ_SENDER_ALIAS`,
+`OPINTEL_XQ_SENDER_ACCESS_TOKEN` and `OPINTEL_XQ_REDEEM_URL` to both API and
+operator runtime environments. `OPINTEL_API_BASE_URL` must be identical there
+because it participates in the saved custody connection-check binding. Preserve
+the existing master key and sender identity. Configure the gateway CA trust;
+never disable certificate or hostname verification.
 
-`--soak-associations` and `--certs` take the same **public mapping file**, copied
-from `scripts/soak/certificates.example.json`:
+Save the normal signed-in `opintel_session` cookie in `observer.cookie` as
+`opintel_session=VALUE`, with mode 600. It is used for the existing authenticated
+operator identity verification, XQ connection check and receipt reads. The job creates no login and has no observer
+SQL fallback. Sign in again explicitly if the session expires.
+
+Install the existing location-authorized bundles for 223/opintelprobe,
+224/opintelpoola, 225/opintelpoolb2 and 226/opintelpoolb. Each private directory
+must have mode 700 and contain `client.crt`, `client.key` and `transport.key`,
+with mode 600. Do not create replacement licensed identities. Save this public
+mapping as `certificates.json` in the output directory:
 
 ```json
 [
-  {"certificateId":223,"deviceName":"opintelprobe","bundlePath":"~/.xq/v02/223"},
-  {"certificateId":224,"deviceName":"opintelpoola","bundlePath":"~/.xq/v02/224"},
-  {"certificateId":225,"deviceName":"opintelpoolb2","bundlePath":"~/.xq/v02/225"},
-  {"certificateId":226,"deviceName":"opintelpoolb","bundlePath":"~/.xq/v02/226"}
+  {"certificateId":223,"deviceName":"opintelprobe","bundlePath":"/home/operator/.xq/v02/223"},
+  {"certificateId":224,"deviceName":"opintelpoola","bundlePath":"/home/operator/.xq/v02/224"},
+  {"certificateId":225,"deviceName":"opintelpoolb2","bundlePath":"/home/operator/.xq/v02/225"},
+  {"certificateId":226,"deviceName":"opintelpoolb","bundlePath":"/home/operator/.xq/v02/226"}
 ]
 ```
 
-Edit only `bundlePath` if the extracted locations differ. Do not put PEMs, keys,
-tokens, or a guessed recipient address in this JSON. The seeder exchanges each
-certificate and obtains the recipient association from the returned `sub` claim.
-HTTP 403 “not authorized for your current location” requires the XQ operator to
-correct location authorization; changing the device name is not a remedy.
-
-## 3. Start services, API diagnostics and the console
-
-```sh
-npm run dev:up
-mkdir -p tmp/soak
-umask 077
-OPINTEL_DIAG=1 npm run dev:api > tmp/soak/runbook-api.log 2>&1
-```
-
-Leave that terminal running. `dev:up` prepares and verifies a missing signed
-scanner and records its path in `tmp/sidecar/service.json`. `dev:api` loads
-`.env` before importing the database pool. `OPINTEL_DIAG=1` must be on the **API
-process**, not just the soak command; restart the API to change it.
-
-In a second terminal:
-
-```sh
-npm run dev
-```
-
-In a third terminal, prepare the base demo:
-
-```sh
-npm run dev:demo
-```
-
-Sign in to the console at `http://localhost:5173` as `demo@opintel.local` using
-the normal file-mail link, then select **Reinsurance Demo → Settings → Project**,
-configure the XQ provider/tenant/region supplied by the operator and pass its
-connection check. Do this before `--soak`; the seeder refuses unavailable XQ
-custody. The API log/local mail files contain the development login link, so keep
-those files private. Do not paste login links into shared logs or chat.
-
-## 4. Prepare the soak fixture
+From the extracted gateway package, run:
 
 ```sh
 umask 077
-npm run dev:demo -- --soak \
-  --soak-associations "$HOME/.xq/soak-certificates.json"
+GATEWAY_ENV=/etc/opintel/gateway.env
+GATEWAY_PROJECT=customer-gateway
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" provision
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools seed
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools xq-check
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools governance
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" provision
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools governance
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools lifecycle
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools prepare
+./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools soak
 ```
 
-Wait for `Demo soak ready`. This creates the synthetic policies, claims and
-recoveries sources, six objects, two cedant pools, ten caller credentials and
-lifecycle probes. Local policy acknowledgment releases normal introspection;
-treatments are decided only after introspection completes. Existing differing
-fixture data or decisions are refused, not overwritten.
+Provisioning checks existing company/project administrator authorization. It
+creates no user or role, initializes token custody through the existing service,
+resumes matching state and refuses differing settings, engine pins, source
+assignments, decisions or saved credential associations. Keep the private
+manifests: plaintext keys cannot be recovered. An interrupted issuance whose
+key was not saved is a conflict, never permission to mint a replacement silently.
+Source setup waits for the real engine's egress acknowledgment and normal
+introspection; the operator cannot manufacture that acknowledgment.
 
-Keep `tmp/dev-demo/soak.json` (mode 600). It contains issued pool credentials and
-the expected scenario specification; it is **not** the public association file.
-Do not delete it to rerun: issued keys cannot be recovered from the database.
-The seeder runs `ANALYZE` for the synthetic source tables.
+`lifecycle` explicitly creates dedicated retiring/revoked probes. It never rotates
+the ten ordinary callers. To replace expired probes, explicitly run
+`demo-tools lifecycle-renew`; prior probe records remain in the private manifest.
+`prepare` and `soak` never provision, renew, seed or repair their target.
+Preparation checks source counts/estimates, scenario/discovery compatibility,
+actual receipt list/detail access, the API's XQ status, all requested certificate
+exchanges, escrow/redemption in both pools and enough remaining grace for the
+requested duration. Provider-location refusals and expired windows fail before
+timing. A two-minute run is a wiring/soak check, not the Stage 5 thirty-minute proof.
 
-## 5. Save and verify the observer cookie
+Preparation records use unique `prepare-*.json` filenames in the private output
+directory. API connection checks use `xq-check-*.json`. Soak JSONL reports live
+under `soak/` with unique names; failed reports are retained. Require exit 0,
+`SOAK PASSED`, zero invariant breaches, zero operational errors and zero skipped
+receipt checks. Inspect custody verified values and declared scenario coverage;
+a timed run is not a claim that every scenario completed. For thirty minutes,
+set `OPINTEL_SOAK_DURATION=1800`, then run `prepare` and `soak` again. Never run
+the repository gate or another database-resetting harness against this target.
 
-The observer needs a current normal console session with project-view permission.
-In browser developer tools, copy only the `opintel_session` cookie value. Save it
-without putting it in shell history or printing it:
+Stage 4 acceptance status and exact published image digests are recorded in
+`docs/review/stage4-progress.md`. Do not infer acceptance from these instructions.
 
-```sh
-python3 - <<'PY'
-from getpass import getpass
-from pathlib import Path
-import os
-p = Path.home() / '.opintel' / 'observer.cookie'
-p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-value = getpass('Paste only the opintel_session cookie value: ').strip()
-if not value or any(c.isspace() or c == ';' for c in value):
-    raise SystemExit('Invalid cookie value')
-fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-with os.fdopen(fd, 'w') as f:
-    f.write('opintel_session=' + value + '\n')
-p.chmod(0o600)
-PY
-node --input-type=module - <<'JS'
-import {readFile} from 'node:fs/promises';
-const m=JSON.parse(await readFile('tmp/dev-demo/soak.json','utf8'));
-const cookie=(await readFile(process.env.HOME+'/.opintel/observer.cookie','utf8')).trim();
-const r=await fetch(`http://127.0.0.1:3000/api/v1/projects/${m.projectId}/runs?limit=1`,
-  {headers:{cookie},redirect:'error'});
-console.log('Observer receipt preflight HTTP',r.status);
-await r.body?.cancel();
-if(!r.ok)process.exitCode=1;
-JS
-```
-
-Require HTTP 200. For 401, sign in again and replace the file; for 403, use a user
-with access to this project. The cookie must be outside the repository and mode
-600. The observer only reads receipts; it does not authenticate agents, issue
-queries, or obtain a database fallback. Its failures stop the soak.
-
-## 6. Run 30 minutes
-
-```sh
-umask 077
-set -o pipefail
-node --import tsx scripts/soak/reinsurance.ts \
-  --target http://127.0.0.1:3000 \
-  --manifest tmp/dev-demo/soak.json \
-  --custody --certs "$HOME/.xq/soak-certificates.json" \
-  --observer-cookie "$HOME/.opintel/observer.cookie" \
-  --agents 10 --rate 750 --seed 1 --duration 1800 \
-  2>&1 | tee tmp/soak/runbook-30m.log
-```
-
-`--duration` is in **seconds** and starts after startup/preflight. `--rate 750`
-is the per-caller pause in milliseconds (with jitter), not requests per second.
-For the two-minute verification use the identical command with `--duration 120`
-and `runbook-2m.log`. Ctrl-C stops new iterations and drains in-flight requests.
-Keep the API/Engine running until the summary is printed.
-
-## 7. Read the results
-
-- `tmp/soak/<UTC timestamp>-<pid>.jsonl`: the report, including responses,
-  certificate exchange status, invariant breaches and the final `type: summary`.
-  The exact filename is printed at startup and in the summary's `log` field.
-- `tmp/soak/runbook-30m.log` (or `runbook-2m.log`): terminal transcript and summary.
-- `tmp/soak/runbook-api.log`: API startup/runtime log. Its `API diagnostics:` line
-  names `tmp/diag/<API-start UTC timestamp>.jsonl`, the diagnostic measurements.
-- `tmp/sidecar/service.log` and `tmp/sidecar/sampling-audit.jsonl`: local Engine
-  operational log and sampling audit. These are not the soak's result report.
-
-```sh
-grep '^API diagnostics:' tmp/soak/runbook-api.log
-# Substitute the report filename printed by the soak:
-# tail -n 1 tmp/soak/<timestamp>-<pid>.jsonl
-```
-
-Require exit 0 / `SOAK PASSED`, zero invariant breaches, zero operational errors
-and zero skipped receipt checks. Also inspect `coverage`, `NOT EXERCISED`,
-certificate exchange statuses and `custody.verifiedValues`: PASSED alone does not
-prove full scenario or custody coverage. An expired retiring probe is reported
-as not exercised. Existing manifests retain its original grace window; rerunning
-preparation currently does not refresh an already-completed retiring probe.
-Do not delete the credential manifest or weaken the expected outcomes to hide it.
-
-If startup reports a landing `.lock`, confirm the recorded PID is absent, no
-Engine/supervisor remains and no process holds its listener or lock before moving
-that specific stale lock aside. Never remove a live lock or the landing data.
-
-## Verification on this host
-
-Verified on `main` at `180db05`, 24 October 2026 local time (25 October UTC),
-with `--duration 120`, ten callers, rate 750 and seed 1. This host already had
-the demo, project custody configuration and certificate bundles; it was not a
-clean installation. Preparation was rerun against those existing fixtures.
-The expired observer session was replaced through the normal local file-mail
-request-link/callback flow and the receipt preflight returned HTTP 200.
-
-- Exit code: **0**, `SOAK PASSED`.
-- Query attempts: **133**; 113 success, 7 `dependency_unavailable`,
-  12 `element_withheld`, 1 `unsupported_on_aggregate_only`.
-- Invariant breaches: **0**; operational errors: **0**; skipped receipt checks:
-  **0**; receipt verification active.
-- Custody values verified: **15**. Certificate 226 exchanged successfully;
-  223, 224 and 225 were refused with HTTP 403 by XQ's location policy.
-- Declared scenario coverage: **19/85 (22%)**. The existing retiring probe's
-  grace window had expired. This verifies the two-minute procedure with partial
-  coverage, not a complete 30-minute or full-custody acceptance result.
-- Report: `tmp/soak/2026-10-25T00-04-13.158Z-37222.jsonl`.
-- Transcript: `tmp/soak/runbook-2m.log`.
-- API diagnostics: `tmp/diag/2026-10-25T00-01-54.623Z.jsonl`; verified nonempty.
-
-The first `dev:up` stopped on an existing stale landing lock. Its PID was absent,
-no Engine or supervisor remained and no process held its port or lock; the lock
-was moved aside before services were started successfully. No script change was
-needed. The report, cookie, manifest, bundles and diagnostics remain local and
-are not committed with this runbook.
+For the recorded ten-caller acceptance installation, the engine runtime env
+also declares `UV_THREADPOOL_SIZE=16`. This is an explicit capacity setting,
+not a relaxation of query budgets. `STAGE4_HOST_ADDRESS` optionally selects the
+published endpoint address in the maintainer acceptance harness; it does not
+change operator jobs, which read their targets from the package env/config.

@@ -7,7 +7,7 @@ import {readFile,writeFile,rename} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
 import {lookup} from 'node:dns/promises';
 import {isIP} from 'node:net';
-import {execFileSync} from 'node:child_process';
+import {firewall} from './firewall.js';
 import {z} from 'zod';
 import {egressBinding,egressRegistration,egressPolicy,type EgressPolicy} from '../../../src/shared/engine-egress-contract.js';
 import {EnvironmentSecretStore} from '../../../src/platform/secrets/environment-secret-store.js';
@@ -30,18 +30,6 @@ async function source(ref:string){
  if(!['postgres:','postgresql:'].includes(uri.protocol))throw new Error('Unsupported source protocol');
  for(const key of ['host','hostaddr','port','service','connectionString'])if(uri.searchParams.has(key))throw new Error('Routing overrides are unsupported');
  return resolveEndpoint(uri);
-}
-function firewall(endpoints:Endpoint[]){
- for(const [command,family] of [['iptables',4],['ip6tables',6]] as const){
-  const apply=(...args:string[])=>execFileSync(command,['-w',...args],{stdio:'ignore',timeout:5000});
-  apply('-P','OUTPUT','DROP');apply('-F','OUTPUT');
-  // Replies to inbound pinned TLS remain possible. Outbound established source
-  // connections still need an explicit current destination rule after removal.
-  apply('-A','OUTPUT','-m','conntrack','--ctstate','ESTABLISHED,RELATED','--ctdir','REPLY','-j','ACCEPT');
-  if(family===4)for(const protocol of ['udp','tcp'])apply('-A','OUTPUT','-m','owner','--uid-owner','0','-p',protocol,'-d','127.0.0.11','-j','ACCEPT');
-  apply('-A','OUTPUT','-d',family===4?'127.0.0.11':'::ffff:127.0.0.11','-j','DROP');
-  for(const value of endpoints.filter(value=>isIP(value.address)===family))apply('-A','OUTPUT','-p','tcp','-d',value.address,'--dport',String(value.port),'-j','ACCEPT');
- }
 }
 export type ControllerPhase='configuration'|'tls'|'stored_state'|'bootstrap_policy'|'bootstrap_firewall'|'readiness_resolution'|'receipt_resolution'|'assigned_destination_resolution'|'hosts_update'|'firewall_apply'|'state_persist'|'control_listener'|'readiness_marker';
 export async function startController(file:string,phase:(value:ControllerPhase)=>void=()=>{}){

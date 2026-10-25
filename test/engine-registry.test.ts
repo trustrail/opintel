@@ -117,3 +117,29 @@ it.each(['scanner_configuration_missing','source_connection_refused'] as const)(
   expect(unwrap(await f.repo.get(f.ctx,e.id))).toMatchObject({health:'healthy',healthMessage:null});
  }finally{await diagnostic.close();await replacement?.close();}
 });
+
+it('verification diagnostics name the failed step without provider exception text or sentinel material',async()=>{
+ const f=await fixture();const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ try{
+  const registry=new EngineRegistry(f.repo,{health:async()=>err(new DomainError('source_unavailable','PRIVATE_EXCEPTION_SENTINEL')),sentinel:async()=>ok({version:null,sentinel:'PRIVATE_TOKEN_SENTINEL'})},options.tls);
+  expect((await registry.verify(f.ctx,f.registered.id)).ok).toBe(false);
+  expect(log).toHaveBeenCalledWith({event:'engine.verification_refused',stage:'health'});
+  expect(JSON.stringify(log.mock.calls)).not.toContain('PRIVATE_');
+ }finally{log.mockRestore();}
+});
+
+it('bounded stalled initial connections retry with fresh pinned TLS inside the original probe deadline',async()=>{
+ let lookups=0;const probe=new HttpsEngineProbe(undefined,{connectTimeoutMs:25,lookup:(_host,lookupOptions,callback)=>{lookups++;if(lookups<4)return;callback(null,lookupOptions.all?[{address:'127.0.0.1',family:4}]:'127.0.0.1',4);}});
+ const result=await probe.health({...options,baseUrl:options.baseUrl.replace('127.0.0.1','localhost'),timeoutMs:1000});
+ expect(result.ok).toBe(true);expect(lookups).toBe(4);
+});
+it('persistent connection stalls retain the total deadline; pin and HTTP failures never retry',async()=>{
+ let lookups=0;const endpoint={...options,baseUrl:options.baseUrl.replace('127.0.0.1','localhost'),timeoutMs:300};
+ const stalled=new HttpsEngineProbe(undefined,{connectTimeoutMs:20,lookup:()=>{lookups++;}});const started=performance.now();
+ expect((await stalled.health(endpoint)).ok).toBe(false);expect(lookups).toBe(4);expect(performance.now()-started).toBeLessThan(1000);
+ const lookup:import('node:net').LookupFunction=(_host,lookupOptions,callback)=>{lookups++;callback(null,lookupOptions.all?[{address:'127.0.0.1',family:4}]:'127.0.0.1',4);};
+ lookups=0;const probe=new HttpsEngineProbe('https://gateway.example',{connectTimeoutMs:1000,lookup});
+ expect((await probe.health({...endpoint,timeoutMs:1000,tls:{...options.tls,certificatePin:'00'.repeat(32)}})).ok).toBe(false);expect(lookups).toBe(1);
+ lookups=0;const {ProjectId,EngineId}=await import('../src/shared/kernel/index.js');
+ expect((await probe.registerEgress({...endpoint,timeoutMs:1000},ProjectId(randomUUID()),EngineId(randomUUID()))).ok).toBe(false);expect(lookups).toBe(1);
+});

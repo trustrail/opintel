@@ -127,6 +127,13 @@ export class PostgresSourceScope {
         try {
           await control.connect();
           await control.query('SELECT pg_cancel_backend($1)', [backendPid]);
+          // PostgreSQL acknowledges the cancel signal before the source socket
+          // necessarily receives its SQLSTATE. Drain that response before end()
+          // destroys an active query; retain a bounded close fallback.
+          let drainTimer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([running.catch(() => {}),new Promise<void>(resolve=>{drainTimer=setTimeout(resolve,1000);})]);
+          } finally { if(drainTimer!==undefined)clearTimeout(drainTimer); }
         } catch { /* Closing the source connection and its statement timeout remain the fallback. */ }
         finally { await control.end().catch(() => {}); }
       }

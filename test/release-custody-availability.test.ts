@@ -44,3 +44,10 @@ it('REL-016: provider changes confirm live grants and revoke their original escr
  const [event]=await withTenant(f.ctx,tx=>tx.query('SELECT reason,actor FROM release_event WHERE grant_id=$1 AND kind=\'revoked\'',[claims.jti]));expect(event).toEqual({reason:'provider changed',actor:f.ctx.userId});
  expect(await f.client.callTool({name:'opintel.redeem',arguments:{grant}})).toMatchObject({isError:true,_meta:{cause:'release_refused'}});
 },60000);
+it('DEP-009: an operator settings snapshot cannot overwrite an intervening administrator decision',async()=>{
+ const f=await queryFixture(undefined,{releaseCustody:true});cleanup.push(f.close);
+ const [before]=await withPlatform(tx=>tx.query<{settings:Record<string,unknown>}>('SELECT settings FROM project WHERE id=$1',[f.ctx.projectId]));
+ expect(await f.release!.saveProjectSettings(f.ctx,{query:{rowLimit:101}})).toMatchObject({ok:true});
+ expect(await f.release!.saveProjectSettings(f.ctx,{query:{rowLimit:102}},undefined,before!.settings)).toMatchObject({ok:false,error:{code:'conflict'}});
+ const [after]=await withPlatform(tx=>tx.query<{limit:number}>("SELECT (settings->'query'->>'rowLimit')::int AS limit FROM project WHERE id=$1",[f.ctx.projectId]));expect(after?.limit).toBe(101);
+});

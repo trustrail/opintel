@@ -9,7 +9,11 @@ it('DEP-008: compiled owner-claim starts without DuckDB, source files or node_mo
  try{
   execFileSync(process.execPath,['scripts/engine-package/bundle.mjs','provisioning',directory],{encoding:'utf8'});
   const manifest=JSON.parse(readFileSync(join(directory,'runtime-manifest.json'),'utf8'));
-  expect(Object.keys(manifest.artifacts).sort()).toEqual(['package.json','src/platform/ops/owner-claim.js']);
+  expect(Object.keys(manifest.artifacts).sort()).toEqual(['native/LICENSE','native/duckdb.node',process.platform==='darwin'?'native/libduckdb.dylib':'native/libduckdb.so','package.json','scripts/operator/provision.js','src/platform/ops/owner-claim.js'].sort());
+  // Stage 4 shares the image with provisioning. Owner claim itself must still
+  // start without the native runtime or another operator entrypoint present.
+  rmSync(join(directory,'native'),{recursive:true});
+  rmSync(join(directory,'scripts'),{recursive:true});
   const result=execFileSync(process.execPath,[join(directory,'src/platform/ops/owner-claim.js'),'--help'],{cwd:directory,env:{PATH:process.env.PATH,NODE_ENV:'production'},encoding:'utf8'});
   expect(result).toContain('claim expires after 24 hours');
  }finally{rmSync(directory,{recursive:true,force:true});}

@@ -56,3 +56,11 @@ it('ROW-009 unscoped receipt JSON and full evidence omit rowScopes entirely',asy
   expect(JSON.stringify(reply)).not.toContain('rowScopes');
  }finally{await f.close();}
 });
+
+it('DEP-009: operator row provisioning preserves an intervening immutable decision',async()=>{
+ const f=await queryFixture();try{const o=await object(f),repo=new PostgresRowDecisions();const first=unwrap(await repo.save(f.ctx,f.pool,o,'field_1 > 3'));
+ expect(await new PostgresRowDecisions(true).save(f.ctx,f.pool,o,'field_1 > 0')).toMatchObject({ok:false,error:{code:'conflict'}});
+ expect(unwrap(await repo.read(f.ctx,f.pool,o)).current?.id).toBe(first.id);
+ expect(unwrap(await repo.history(f.ctx,f.pool,o,null)).items).toHaveLength(1);
+ }finally{await f.close();}
+});

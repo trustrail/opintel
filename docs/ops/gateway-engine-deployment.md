@@ -1,9 +1,9 @@
 # Gateway and engine deployment contract
 
-Status: approved direction recorded 23 October 2026. Stage 1 is committed;
-stage 2 packaging is implemented with validation recorded below. Stages 3–5
-remain planned. The image-build runbook distinguishes current artifact builds
-from the legacy combined deployment package, which stage 3 replaces.
+Status: approved direction recorded 23 October 2026. Stages 1–3 are committed;
+Stage 3 published-image acceptance is recorded in `../review/stage3-progress.md`.
+Stage 4 implementation and acceptance progress are recorded in
+`../review/stage4-progress.md`. Stage 5 remains planned.
 
 ## Scope and terminology
 
@@ -312,7 +312,7 @@ On a clean committed checkout, build only the required native platform:
 
 ```sh
 TAG=release-name make build IMAGE=all PLATFORM=linux/amd64
-node scripts/images/publish.mjs tmp/images/releases/release-name-api-engine-console-egress-migrations-provisioning.json /absolute/output/published.json
+node scripts/images/publish.mjs tmp/images/releases/release-name-api-engine-console-egress-migrations-provisioning-demo-tools.json /absolute/output/published.json
 PLATFORM=linux/amd64 node scripts/images/package.mjs /absolute/output/published.json /absolute/output/packages
 ```
 
@@ -352,3 +352,49 @@ work; an executing introspection must finish before reassignment. Only a current
 policy acknowledgment releases work. Successful introspection reconnects it;
 connection failure leaves it saved and unreachable. Query admission remains
 connected-only.
+
+## Stage-4 operator implementation
+
+Operator jobs run inside the gateway Compose project, with the same scoped
+application database connectivity as its migration/claim jobs. `provision`
+compares project/engine declarations and initializes token custody without
+rotating it. The independently built `demo-tools` image separates `seed`,
+`governance`, `lifecycle`, `lifecycle-renew`, `xq-check`, `prepare` and `soak`.
+Settings come from the package operator environment and its referenced private
+configuration. V-01 seed 1 declares three schemas and six synthetic tables.
+The versioned governance declares two pools, ten callers and threads=1 per pool;
+existing differing resource/field/row/token decisions are conflicts.
+
+Matching reruns retain credential material and decisions. Operator-only guards
+recheck prior state under existing aggregate locks; ordinary console update
+semantics are unchanged. Interrupted issuance without a saved plaintext key
+requires explicit operator recovery, never implicit replacement. Lifecycle
+renewal is separate and preserves prior probe records. The package-only runbook
+is included in generated gateway packages.
+
+Linux certificate agents unwrap device tokens using OpenSSL and private files
+only on verified tmpfs, with mode 600, private directories and cleanup. This
+avoids Linux's inability to reopen Node's socket-backed `/dev/fd/3`; private keys
+never cross into the API or IPC. Non-Linux agents retain the pipe path. Source
+and API secrets, certificate bundles and private outputs remain external inputs.
+
+Acceptance remains conditional on the published-digest installation and real XQ
+checks in `docs/review/stage4-progress.md`; this section is implementation detail,
+not an acceptance claim.
+
+Sustained Stage 4 traffic exposed the live egress installer's repeated OUTPUT
+flush/rebuild interval. Each address family now commits the replacement OUTPUT
+rules atomically through `iptables-restore`, preserving unrelated chains and the
+existing reply-only, root-only resolver, readiness and assigned-destination rules.
+A failed install removes old destination authority under DROP and cannot be
+acknowledged. Policy retrieval, DNS re-resolution, serialization and heartbeat
+version checks remain unchanged. The legacy static S4 installer is unchanged.
+
+Stage-4 transport recovery: an initial TCP-connect stall may make up to three fresh
+connection attempts for health, key attestation or idempotent egress registration.
+The first three connect attempts are capped at one second each; the final
+attempt uses only the remaining original deadline (normally nine seconds). All attempts
+require normal pinned TLS and response validation. TLS/pin/HTTP failures and
+query execution are never retried by this mechanism. Safe diagnostics report
+fixed failure stages, transport phases and elapsed time, never exception text or
+key/sentinel material.

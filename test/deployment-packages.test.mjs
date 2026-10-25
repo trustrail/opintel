@@ -21,7 +21,7 @@ it('DEP-004: console resolves independently without database, engine or other-se
  expect(result.services.console.image).toBe(image);
 });
 it('DEP-004: every gateway service is independently selectable with no implicit startup graph',()=>{
- for(const name of ['api','console','postgres','redis','spicedb','spicedb-postgres','spicedb-migrate','migrations','schema','owner-claim']){
+ for(const name of ['api','console','postgres','redis','spicedb','spicedb-postgres','spicedb-migrate','migrations','schema','owner-claim','provision','demo-tools']){
   const config=JSON.parse(readFileSync(`deploy/gateway/services/${name}.json`,'utf8'));
   expect(Object.keys(config.services)).toEqual([name]);
   expect(config.services[name].depends_on).toBeUndefined();
@@ -31,6 +31,7 @@ it('DEP-004: every gateway service is independently selectable with no implicit 
    expect(config.services.api.environment.ENGINE_HEARTBEAT_PORT).toBe('3102');
    for(const key of ['ENGINE_HEARTBEAT_URL','ENGINE_HEARTBEAT_HOST','ENGINE_HEARTBEAT_PORT'])delete config.services.api.environment[key];
   }
+  if(name==='provision'||name==='demo-tools'){expect(config.services[name].environment.ENGINE_HEARTBEAT_URL).toBe('${GATEWAY_HEARTBEAT_URL:?set explicit gateway HTTPS heartbeat address}');delete config.services[name].environment.ENGINE_HEARTBEAT_URL;}
   expect(JSON.stringify(config)).not.toMatch(/ENGINE_|service:egress|external.*true/u);
  }
 });
@@ -48,7 +49,7 @@ it('DEP-004: package wrapper refuses a mutable tag before starting a container',
 it('DEP-004: assembled packages resolve without their original checkout and contain literal digests',()=>{
  const directory=mkdtempSync(join(tmpdir(),'opintel-assembled-'));cleanup.push(directory);
  const destination=join(directory,'release');
- const manifest={revision:'a'.repeat(40),upstream:JSON.parse(readFileSync('deploy/images/upstream.json','utf8')),artifacts:['api','console','engine','egress','migrations','provisioning'].map(target=>({target,platform:'linux/arm64',repoDigests:[`ghcr.io/trustrail/opintel-${target}@sha256:${'b'.repeat(64)}`]}))};
+ const manifest={revision:'a'.repeat(40),upstream:JSON.parse(readFileSync('deploy/images/upstream.json','utf8')),artifacts:['api','console','engine','egress','migrations','provisioning','demo-tools'].map(target=>({target,platform:'linux/arm64',repoDigests:[`ghcr.io/trustrail/opintel-${target}@sha256:${'b'.repeat(64)}`]}))};
  packageDeployment(manifest,destination,'linux/arm64');
  const file=environment({GATEWAY_POSTGRES_PASSWORD_FILE:'/operator/password'});
  const result=JSON.parse(execFileSync('docker',['compose','--env-file',file,'-p','assembled-test','-f',join(destination,'gateway/services/postgres.json'),'config','--format','json'],{cwd:directory,encoding:'utf8'}));
@@ -58,4 +59,13 @@ it('DEP-004: assembled packages resolve without their original checkout and cont
  expect(engine.services.engine.image).toBe(`ghcr.io/trustrail/opintel-engine@sha256:${'b'.repeat(64)}`);
  expect(()=>packageDeployment({...manifest,dirty:true},join(directory,'dirty'),'linux/arm64')).toThrow('Dirty candidate');
  expect(()=>packageDeployment({...manifest,artifacts:[]},join(directory,'missing'),'linux/arm64')).toThrow('Missing or ambiguous');
+});
+
+it('DEP-009/011: operator jobs use private output and only demo-tools receives agent bundles',()=>{
+ const provision=JSON.parse(readFileSync('deploy/gateway/services/provision.json','utf8')).services.provision;
+ const demo=JSON.parse(readFileSync('deploy/gateway/services/demo-tools.json','utf8')).services['demo-tools'];
+ expect(provision.volumes.some(v=>v.includes('.xq'))).toBe(false);
+ expect(demo.volumes).toContain('${GATEWAY_AGENT_CERTIFICATES_DIRECTORY:?set agent certificate directory}:/home/operator/.xq:ro');
+ for(const job of [provision,demo]){expect(job.env_file).toEqual(['${GATEWAY_OPERATOR_ENV_FILE:?set operator job environment}']);expect(job.read_only).toBe(true);expect(job.restart).toBe('no');expect(job.volumes).toContain('${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output');}
+ expect(demo.tmpfs[0]).toMatch(/^\/tmp:rw,noexec,nosuid,nodev,/u);
 });
