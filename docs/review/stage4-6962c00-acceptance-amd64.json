@@ -1,0 +1,100 @@
+{
+  "platform": "linux/amd64",
+  "tag": "6962c00",
+  "revision": "6962c00f06c72fdba8c6fa435e14131f122908f0",
+  "published": true,
+  "candidate": false,
+  "images": {
+    "api": "ghcr.io/trustrail/opintel-api@sha256:949649b8dc5ca1dc7632a9fa6ba5ae3e52d452b1d76383ff43d81f2eb0ea83bb",
+    "console": "ghcr.io/trustrail/opintel-console@sha256:1ce42aebbcad7f2515527ff9e30855a0226325e5fee4e09d025c93f13413d1ed",
+    "engine": "ghcr.io/trustrail/opintel-engine@sha256:a3e82fed5f934a91337cebd40854509d05a8405778aaaf7377e055d5bef2db02",
+    "egress": "ghcr.io/trustrail/opintel-egress@sha256:5c68983be83b7cb3dfdf3171ff14008b4ddd3dfd2248b9a5fdd5fe7aa0cc815d",
+    "migrations": "ghcr.io/trustrail/opintel-migrations@sha256:f66d402e5187e72290a716ecc7e49e94838ded285da01c885ecffa6e089ced32",
+    "provisioning": "ghcr.io/trustrail/opintel-provisioning@sha256:29f2aa085c274703bc85ab9521a19ff90292711e8541f15f4f51812f8139e456",
+    "demo-tools": "ghcr.io/trustrail/opintel-demo-tools@sha256:79f376ddc34f80b33d02f355c578b2647c2610805477d8e83883b25036f3cf95"
+  },
+  "hostAddress": "192.168.65.254",
+  "workload": {
+    "agents": 10,
+    "rateMs": 10000,
+    "sourceLimits": {
+      "maxConnectionsPerSource": 8,
+      "statementTimeoutMs": 30000,
+      "operationTimeoutMs": 35000
+    },
+    "engineWorkers": 16
+  },
+  "projects": {
+    "gateway": "opintel-gateway-proof-1792967755328",
+    "engine": "opintel-engine-proof-1792967755328",
+    "source": "opintel-source-proof-1792967755328"
+  },
+  "checks": {
+    "ownerClaim": {
+      "normalLogin": true,
+      "noCompanyBeforeLogin": true,
+      "companyCount": 1
+    },
+    "provision": true,
+    "seed": true,
+    "packagedApiXqConnection": {
+      "dashboard": {
+        "status": "failed",
+        "failure": "credentials_missing"
+      },
+      "reachable": true,
+      "authenticated": true,
+      "failure": null
+    },
+    "governance": true,
+    "egressDenial": {
+      "positiveControl": true,
+      "undeclaredDestinationDenied": true
+    },
+    "unchangedRerun": {
+      "stateHash": "199ca55fe773bc996e9b44a2e80e6d1cb2ae991ee7aedcff664d8855539b4ae4",
+      "privateManifestHash": "792c6f9fc69dbc92888c52dd483a7582a751f7a1c2c052ce09eb30fafdbb3517",
+      "identical": true
+    },
+    "certificateExchangeAndEscrowRedeem": {
+      "certificates": [
+        {
+          "certificateId": 223,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 224,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 225,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 226,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        }
+      ],
+      "verifiedValues": 11,
+      "receiptIds": [
+        "01a17538-87f8-796c-932c-d930831abc36",
+        "01a17538-a1bc-7c6c-bbfc-cee2d373c3bc"
+      ]
+    },
+    "prepare": true
+  },
+  "status": "failed",
+  "failure": "bash failed (1): timed soak failed with one declared scenario mismatch, three source_unavailable outcomes, zero operational errors, and active receipt verification. Full operator output retained privately; see stage4-6962c00-release-result.json for the raw result path and SHA-256.",
+  "reviewRedaction": {
+    "field": "failure",
+    "reason": "Raw operator stderr includes synthetic expected result rows; retained privately."
+  }
+}

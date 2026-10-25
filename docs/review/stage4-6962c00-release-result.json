@@ -1,0 +1,153 @@
+{
+  "revision": "6962c00f06c72fdba8c6fa435e14131f122908f0",
+  "releaseStatus": "published_acceptance_failed",
+  "platform": "linux/amd64",
+  "cleanBuild": true,
+  "auditedTargets": [
+    "api",
+    "engine",
+    "console",
+    "egress",
+    "migrations",
+    "provisioning",
+    "demo-tools"
+  ],
+  "audits": [
+    "image-layer secret scan",
+    "runtime allowlist"
+  ],
+  "packageArchive": "/private/tmp/opintel-stage4-packages-6962c00-amd64.tar.gz",
+  "packageSha256": "c724d0038f8bf3a3bda3e8272d7fdd243fca1e5479c68ffd93103ed266a8bdaf",
+  "soak": {
+    "status": "FAILED",
+    "outcomes": {
+      "success": 64,
+      "source_unavailable": 3,
+      "element_withheld": 2,
+      "unsupported_on_aggregate_only": 1
+    },
+    "refusals": {
+      "source_unavailable": 3,
+      "element_withheld": 2,
+      "unsupported_on_aggregate_only": 1
+    },
+    "invariantBreaches": 1,
+    "operationalErrors": 0,
+    "receiptInvariants": {
+      "enabled": true,
+      "failed": false,
+      "reason": null,
+      "checksSkipped": 0
+    }
+  },
+  "durationSeconds": 120,
+  "custodyVerifiedValues": 10,
+  "coverage": {
+    "declared": 85,
+    "exercised": 10
+  },
+  "failures": [
+    {
+      "iterationStartedAt": "2026-10-25T22:41:39.765Z",
+      "agent": "soak-1-3",
+      "sequence": 4,
+      "latencyMs": 32357.046449,
+      "responseMetadata": {
+        "evidenceId": "01a1753a-0e65-7b17-ba8f-aea8c8098cd9",
+        "code": "source_unavailable",
+        "cause": "interruption_unclassified",
+        "retryable": false
+      },
+      "receipt": {
+        "id": "01a1753a-0e65-7b17-ba8f-aea8c8098cd9",
+        "startedAt": "2026-10-25T22:41:41.496406Z",
+        "status": "incomplete",
+        "completedAt": null,
+        "refusalCode": null
+      },
+      "engineLogRequestMatches": 0
+    },
+    {
+      "iterationStartedAt": "2026-10-25T22:41:40.299Z",
+      "agent": "soak-1-10",
+      "sequence": 4,
+      "latencyMs": 32454.694640999995,
+      "responseMetadata": {
+        "evidenceId": "01a1753a-0f09-7f81-9476-53c87e2a97ac",
+        "code": "source_unavailable",
+        "cause": "interruption_unclassified",
+        "retryable": false
+      },
+      "receipt": {
+        "id": "01a1753a-0f09-7f81-9476-53c87e2a97ac",
+        "startedAt": "2026-10-25T22:41:41.651663Z",
+        "status": "incomplete",
+        "completedAt": null,
+        "refusalCode": null
+      },
+      "engineLogRequestMatches": 0
+    },
+    {
+      "iterationStartedAt": "2026-10-25T22:41:49.419Z",
+      "agent": "soak-1-2",
+      "sequence": 5,
+      "latencyMs": 32306.648396999997,
+      "responseMetadata": {
+        "evidenceId": "01a1753a-2f5f-7d51-a792-19b354639a8f",
+        "code": "source_unavailable",
+        "cause": "interruption_unclassified",
+        "retryable": false
+      },
+      "receipt": {
+        "id": "01a1753a-2f5f-7d51-a792-19b354639a8f",
+        "startedAt": "2026-10-25T22:41:49.933343Z",
+        "status": "incomplete",
+        "completedAt": null,
+        "refusalCode": null
+      },
+      "engineLogRequestMatches": 0
+    }
+  ],
+  "gatewayEvents": {
+    "engine.health_observed": 50,
+    "engine.heartbeat_accepted": 56,
+    "engine.probe_connect_retry": 1,
+    "engine.verification_refused": 0,
+    "engine.probe_refused": 0
+  },
+  "engineRefusals": 0,
+  "evidence": [
+    {
+      "path": "/private/tmp/opintel-stage4-release-6962c00/tmp/images/releases/6962c00-published-amd64.json",
+      "sha256": "372c1022514609122f511043fd932b858cc1724d1d3d47f8b721168aa40961ce"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-release-6962c00/tmp/stage4-acceptance-bBlcB9/result.json",
+      "sha256": "50c15b7dfeed2cd90996460b4252701fb6fb3148996418f804f15b986e8bd127"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-release-6962c00/tmp/stage4-acceptance-bBlcB9/output/soak/2026-10-25T22-40-29.204Z-1.jsonl",
+      "sha256": "47e670443d4990eaefc27b29982a5ee21abea7f6d92995040302b3b8e52af545"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-release-6962c00/tmp/stage4-acceptance-bBlcB9/opintel-gateway-proof-1792967755328.log",
+      "sha256": "15eabcb2fc02797b39a04d5ea5fecd100d5b6d098ad54308f9b5f8599c791a96"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-release-6962c00/tmp/stage4-acceptance-bBlcB9/opintel-engine-proof-1792967755328.log",
+      "sha256": "9cf973e531a915343ffd5eb2c63b65b57b799c417c009a3802241038cc52e8a2"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-packages-6962c00-amd64.tar.gz",
+      "sha256": "c724d0038f8bf3a3bda3e8272d7fdd243fca1e5479c68ffd93103ed266a8bdaf"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-6962c00-build.log",
+      "sha256": "c48d87a6fd8d44f6cce4d9737da5093a0fef8f9506cbdb88e796f0d819eb2288"
+    },
+    {
+      "path": "/private/tmp/opintel-stage4-6962c00-publish.log",
+      "sha256": "12a0327e814dbe9972bc1e885c1d2a20559dd2149c9759b6c64862a64b61e52a"
+    }
+  ]
+}

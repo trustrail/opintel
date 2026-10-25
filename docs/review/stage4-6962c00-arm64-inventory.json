@@ -1,0 +1,73 @@
+{
+  "directory": "/Volumes/JZ OS/opintel-stage4",
+  "files": [
+    {
+      "name": "arm64-6962c00-logs/arm64-6962c00-logs.tar",
+      "bytes": 67072,
+      "sha256": "16407cb775ddb73490e002930b4216d9826c327c0755e19b0f5efdeffa7f1b5e"
+    },
+    {
+      "name": "arm64-6962c00-logs/demo-tools-governance-1792967488270.log",
+      "bytes": 2934,
+      "sha256": "12b9e76cbab21ab9fc8f4d465bce8b8410c5f6936affc77c96e47a32349af9eb"
+    },
+    {
+      "name": "arm64-6962c00-logs/demo-tools-governance-1792967493455.log",
+      "bytes": 1362,
+      "sha256": "b87f093a04bda4271584f7cac5c7dbe188fe175bb72d060eea25bb776066ae84"
+    },
+    {
+      "name": "arm64-6962c00-logs/demo-tools-prepare-1792967552187.log",
+      "bytes": 99,
+      "sha256": "19303ca00e04e6493b5735a286d8d2c79873fbd304497ff5728d4632d19ad855"
+    },
+    {
+      "name": "arm64-6962c00-logs/opintel-engine-proof-1792967436513.log",
+      "bytes": 1121,
+      "sha256": "2046ec4900c90f9cfdba1078aef33b536005d7351c4fdeac31258a5accfff2dc"
+    },
+    {
+      "name": "arm64-6962c00-logs/opintel-gateway-proof-1792967436513.log",
+      "bytes": 50968,
+      "sha256": "50e2db344f1db9166d9d732f73e9692a8fd187ba4b264d8504042ee09f715991"
+    },
+    {
+      "name": "arm64-6962c00-logs/result.json",
+      "bytes": 3764,
+      "sha256": "bcd8d553a2d0249c3bde4da21fbf7d37db74b1d6e267071ff90bbd4e0e2522f8"
+    },
+    {
+      "name": "arm64-6962c00-logs/transport.jsonl",
+      "bytes": 108,
+      "sha256": "30c4929cb1b47752a2fb4c4c955207317187319d6aa76e323c537c3481e6fef7"
+    },
+    {
+      "name": "stage4-arm64-7w4MRp-logs/failed-operator-1792962708984.log",
+      "bytes": 339862,
+      "sha256": "1b2a28a8dbc12659a3cea1bbc24643ef82e0ada4c1a958a58ee7327096fa7829"
+    },
+    {
+      "name": "stage4-arm64-7w4MRp-logs/opintel-engine-proof-1792962509311.log",
+      "bytes": 56309,
+      "sha256": "73f31683d73ed4978e2f805dee1f210524669213ea81382741be674e97cd3aca"
+    },
+    {
+      "name": "stage4-arm64-7w4MRp-logs/opintel-gateway-proof-1792962509311.log",
+      "bytes": 321594,
+      "sha256": "6a533826613f9c725523afa54722d5251c90bd6b98aefe636403254a6643eca1"
+    },
+    {
+      "name": "stage4-arm64-7w4MRp-logs/result.json",
+      "bytes": 10479,
+      "sha256": "854a2bfcd1eb7ed5905400e390972989db0be0e0257aa39255117facfa681964"
+    },
+    {
+      "name": "stage4-arm64-7w4MRp-logs/transport.jsonl",
+      "bytes": 108,
+      "sha256": "9dc68cac06ab3e48ab9d0d31788807ab24caad2471cdfcfcabd64e38941e03f9"
+    }
+  ],
+  "soakJsonlPresent": false,
+  "original35610adOperatorLogsPresent": true,
+  "missingOriginalSoakJsonl": "/output/soak/2026-10-25T21-09-37.456Z-1.jsonl"
+}

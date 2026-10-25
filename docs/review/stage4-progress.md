@@ -1,13 +1,19 @@
 # Stage 4 progress
 
-Status: implementation merged/pushed at `35610ad`; seven amd64 images published;
-fresh published-digest DEP-009–011 acceptance PASSED on 25 October 2026.
-The explicitly requested full gate on clean `35610ad` PASSED all seven tiers,
-including 2,073 tests in 238 files and browser/MCP smoke, in 1,579.33 seconds.
-Authoritative Stage 4 gate: `stage4-gate.json`. The earlier failed gate is retained
-unchanged as `stage4-gate-first.json`; focused checks are not substituted for the
-new full gate. Stage 5 remains pending.
-Release: `stage4-release-amd64.json`; acceptance: `stage4-release-acceptance.json`.
+Status: bounded-health implementation `6962c00` is merged/pushed and its seven
+amd64 images are audited, published and packaged. Fresh published-digest
+acceptance FAILED on 25 October 2026: one declared-scenario mismatch, three
+source_unavailable outcomes at approximately 32 seconds, zero operational errors,
+and receipt verification active. All preceding XQ/certificate/escrow/rerun checks
+passed. Do not treat this release as accepted. Exact evidence and execution-path
+findings: `stage4-6962c00-release.md` and its linked JSON records.
+
+The source tree passed all seven gate tiers before commit (2,090 tests/239 files,
+1,434.65 seconds); `stage4-6962c00-source-gate.json` retains that record. This
+new evidence tree receives its own full gate before commit. The earlier 35610ad
+published acceptance and subsequent green full gate remain historical records,
+not claims about the new release. The original 33-second arm64 failure remains
+open pending its missing soak JSONL. Stage 5 remains pending.
 
 Scope: DEP-009–011, independent package operator jobs for provisioning,
 reinsurance governance, explicit synthetic seeding, preparation and soak.
@@ -399,3 +405,25 @@ the staged change and no unrelated backlog/status/cache files. The commit must
 match that tested tree; the machine gate record remains in that checkout's
 `test-results/gate.json`. No post-gate source change may be committed without a
 new full gate.
+
+
+## Clean bounded-health release at 6962c00
+
+On explicit authorization, all seven linux/amd64 targets were built from a clean
+checkout, passed both image-layer secret and runtime-allowlist audits, published
+to GHCR with exact digest verification, and packaged. The single fresh published
+acceptance ran all required XQ and provisioning checks, then failed its timed
+soak. No rerun or product modification was used to replace that result.
+
+The retained three failures carry interruption_unclassified and incomplete
+receipts; health observations/current-policy heartbeats continued with zero
+verification refusals. Their approximately 32-second durations support an
+execution HTTP deadline, with TCP/TLS/response phase unproven. The supplied
+arm64 subfolders contain the original operator logs and a newer preparation
+failure, but no original soak JSONL. Full evidence, limits and timestamps are in `stage4-6962c00-release.md`.
+
+The evidence-only branch is `docs/stage4-6962c00-release-evidence`. Its full gate
+runs in `/private/tmp/opintel-stage4-release-6962c00`; result `test-results/gate.json`,
+raw log `/private/tmp/opintel-stage4-6962c00-evidence-gate.log`. The exact tested
+tree must be committed unchanged; the final gate outcome belongs in the commit
+message and retained machine record, without a post-gate evidence-file edit.

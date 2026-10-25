@@ -1,0 +1,96 @@
+{
+  "platform": "linux/arm64",
+  "tag": "6962c00",
+  "revision": "6962c00f06c72fdba8c6fa435e14131f122908f0",
+  "published": true,
+  "candidate": false,
+  "images": {
+    "api": "ghcr.io/trustrail/opintel-api@sha256:373ae17f60bc2e7e4ec5760248537b64ed6323297f75d120a2c5b469ff230a7a",
+    "console": "ghcr.io/trustrail/opintel-console@sha256:e7b2e4bc04d64e715f6001511143e2d11b69506d2e66e61fbe5d0e8f3c35af83",
+    "engine": "ghcr.io/trustrail/opintel-engine@sha256:b1230456599631d9c5983984b917907633906ab028e04680a803bc7ccc81639e",
+    "egress": "ghcr.io/trustrail/opintel-egress@sha256:0a7c4bca94a023399918c27245c6d0a594afced7014ba31cf92ef52c9f0d63d0",
+    "migrations": "ghcr.io/trustrail/opintel-migrations@sha256:8142f61469badc6dda35cdf11157308f46f9244afc3eec52f08b5103ccab3101",
+    "provisioning": "ghcr.io/trustrail/opintel-provisioning@sha256:f44990d13e246ecdd32ca857b44ebe1bbc7fec2cc34cb0fe3937ff7bca1a2060",
+    "demo-tools": "ghcr.io/trustrail/opintel-demo-tools@sha256:84ccf378befab3f241536ba14f3d4ab0ea382e0341b76f8d20fa25e22541234c"
+  },
+  "hostAddress": "192.168.65.254",
+  "workload": {
+    "agents": 10,
+    "rateMs": 10000,
+    "sourceLimits": {
+      "maxConnectionsPerSource": 8,
+      "statementTimeoutMs": 30000,
+      "operationTimeoutMs": 35000
+    },
+    "engineWorkers": 16
+  },
+  "projects": {
+    "gateway": "opintel-gateway-proof-1792967436513",
+    "engine": "opintel-engine-proof-1792967436513",
+    "source": "opintel-source-proof-1792967436513"
+  },
+  "checks": {
+    "ownerClaim": {
+      "normalLogin": true,
+      "noCompanyBeforeLogin": true,
+      "companyCount": 1
+    },
+    "provision": true,
+    "seed": true,
+    "packagedApiXqConnection": {
+      "dashboard": {
+        "status": "failed",
+        "failure": "authentication_refused"
+      },
+      "reachable": true,
+      "authenticated": true,
+      "failure": null
+    },
+    "governance": true,
+    "egressDenial": {
+      "positiveControl": true,
+      "undeclaredDestinationDenied": true
+    },
+    "unchangedRerun": {
+      "stateHash": "41fba55ef870fd8d468f42e520e74a2bbae4d53465f0592aae07227a91ad9aa5",
+      "privateManifestHash": "f3ec89419175b292c5ff43fa4e05e06aa8fa008815913f6b34d560b4a1be2427",
+      "identical": true
+    },
+    "certificateExchangeAndEscrowRedeem": {
+      "certificates": [
+        {
+          "certificateId": 223,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 224,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 225,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        },
+        {
+          "certificateId": 226,
+          "ok": true,
+          "status": 200,
+          "reason": null
+        }
+      ],
+      "verifiedValues": 11,
+      "receiptIds": [
+        "01a17530-e26b-7bfd-99c5-22636c842ed4",
+        "01a17530-e670-749a-8078-5266c88b47f8"
+      ]
+    },
+    "prepare": true
+  },
+  "status": "failed",
+  "failure": "bash failed (1): time=\"2026-10-25T18:32:32-04:00\" level=warning msg=\"Found orphan containers (opintel-gateway-proof-1792967436513-api-1, opintel-gateway-proof-1792967436513-console-1, opintel-gateway-proof-1792967436513-spicedb-1, opintel-gateway-proof-1792967436513-postgres-1, opintel-gateway-proof-1792967436513-spicedb-postgres-1, opintel-gateway-proof-1792967436513-redis-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container opintel-gateway-proof-1792967436513-demo-tools-run-5b89ea05084a Creating \n Container opintel-gateway-proof-1792967436513-demo-tools-run-5b89ea05084a Created \nEscrow query refused\n\n"
+}
