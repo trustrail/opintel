@@ -144,3 +144,13 @@ passes its persisted project name; regression tests supply a conflicting name
 and retain the original warning-free/isolation assertions. No gate tier or
 assertion was weakened. The failed log and gate record are retained; a new full
 gate is required on the corrected tree before commit or publication.
+
+Release-runner follow-up: the pasted arm64 command could exit silently during
+preflight because its exit summary was installed too late. The repository now
+ships `scripts/release/native.sh REVISION [--provider-env PATH]` (provider default:
+repository `.env`). Exit/error handlers precede every check; architecture, Docker,
+provider file and every licensed certificate file have named failures. Phases
+announce their start; private logs, archives and acceptance result locations are
+reported at exit, including explicit “not produced” for early failures. The
+runner uses an isolated checkout and never reads terminal input or enrolls devices.
+It is a developer release tool, not a customer installation prerequisite.

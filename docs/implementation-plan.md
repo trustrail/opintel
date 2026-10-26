@@ -1278,3 +1278,8 @@ Record readiness, timings and deviations in `review/stage5-install.md`.
 Approved clarification: OWNER_EMAIL is an install input; install runs the existing
 24-hour email-bound claim and prints the sign-in address. Explicit owner-claim
 EMAIL remains available. No new bootstrap route or pre-login administrator grant.
+
+Native arm64 release execution is shipped as `scripts/release/native.sh`, taking
+a revision and optional `--provider-env PATH` (default repository `.env`). It
+names failed prerequisites and always reports phase/log/output locations, even
+on preflight failure; no pasted release program or terminal input is required.
