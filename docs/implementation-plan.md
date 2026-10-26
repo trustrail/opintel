@@ -1237,3 +1237,15 @@ failure, hard failures, registration identity, concurrency, preparation and
 configuration. The completed changed tree requires a full gate before commit;
 focused checks cannot replace it. No image publication is part of this change.
 The 33-second arm64 execution-path failure remains open pending retained JSONL.
+
+
+### Stage 4 — stale-heartbeat verification and connect-only recovery
+
+Approved: stale heartbeat triggers synchronous pinned health verification and
+admits on success, preserving current policy, registration and explicit bad-health
+refusals. Apply bounded pre-TCP recovery to every gateway-to-engine request,
+including execution, with no write before pinned TLS and no retry after connection
+or request write. Add bounded timestamped request phases and egress sync events.
+Regression IDs: updated ENG-H03/H04, CONNECT-01–04, TRACE-01–02. Full gate before
+commit, report before publishing, then fresh amd64 published-digest acceptance.
+No resource limit, governance check, execution deadline or result retry changes.

@@ -1,3 +1,4 @@
+import {enginePhase} from '../../../src/shared/engine-phase.js';
 import {stagedColumns} from '../../../src/shared/execution-contract.js';
 import {sealResult} from '../../../src/shared/infrastructure/sealed-result.js';
 import {previewRows} from './preview.js';
@@ -39,7 +40,9 @@ export class StagedExecutor {
   let release:(()=>void)|undefined;
   const active=new Set<EngineSession>();const interrupt=()=>{for(const s of active)s.interrupt?.();};signal.addEventListener('abort',interrupt);
   try{
+   enginePhase(r.requestId,'queue','start');
    const lease=await this.queue.acquire(ProjectId(r.projectId),PoolId(r.poolId),r.limits.concurrency,r.settings.maxQueuedExecutions,signal);
+   enginePhase(r.requestId,'queue','end');
    if(!lease.ok)return lease;release=lease.value;
    const policy:TreatmentPolicy={aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,...(o.readPlan.contributor?{contributor:o.readPlan.contributor.internalName}:{}),columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),
     entitlements:r.entitlements.map(e=>({...e,elementId:ElementId(e.elementId)}))};
@@ -51,7 +54,9 @@ export class StagedExecutor {
    const ns={...r.namespace,objects:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name}))},limits={memoryMb:r.limits.memoryMb,threads:r.limits.threads};
    let tree:unknown;
    const preflightEngine=this.wrap(r,active,signal,true);
+   enginePhase(r.requestId,'validate','start');
    const preflight=await new InspectedSessionExecutor(preflightEngine,(e:InspectionEvent)=>{if(e.stage==='inspected'&&tree===undefined)tree=e.tree;}).validate(r.sql,limits,ns,policy);
+   enginePhase(r.requestId,'validate','end');
    if(signal.aborted)return cancelled();if(!preflight.ok)return preflight;
    const referenced=referencedObjects(tree,r.objects,r);
    const scans=referenced.map(object=>({object,request:r,predicate:pushdown(tree,object,r)}));
@@ -61,19 +66,21 @@ export class StagedExecutor {
    for(const scan of scans){
     if(scan.object.readPlan.rowScope?.predicate===null)continue;
     if(!usage.sourceIdsReached.includes(scan.object.sourceId))usage.sourceIdsReached.push(scan.object.sourceId);
-    const estimate=await this.source.estimate(scan,signal);if(signal.aborted)return cancelled();if(!estimate.ok)return estimate;
+    enginePhase(r.requestId,'scan','start');
+    const estimate=await this.source.estimate(scan,signal);enginePhase(r.requestId,'scan','end');if(signal.aborted)return cancelled();if(!estimate.ok)return estimate;
     if(estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0||estimate.value>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${scan.object.catalog}.${scan.object.schema}.${scan.object.name} cannot be staged within maxStagingRows=${r.settings.maxStagingRows}: its post-pushdown size is ${estimate.value===null?'unknown':'above the limit'}. Narrow the query or review this setting.`,{object:{catalog:scan.object.catalog,schema:scan.object.schema,name:scan.object.name},cause:estimate.value===null||!Number.isFinite(estimate.value)||estimate.value<0?'scan_size_unknown':'scan_estimate_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
    }
    const stage=async(privileged:EngineSession,agent:EngineSession):Promise<Result<void>>=>{
     for(const scan of scans){
      if(signal.aborted)return cancelled();
      const o=scan.object,table=stagingRef(o);
+     enginePhase(r.requestId,'stage','start');
      if(!privileged.staging||!agent.staging)return err(new DomainError('dependency_unavailable','The engine cannot stage pool objects.',{cause:'component_configuration',reason:'staging_capability'}));
      let result:Result<void>;
      if(o.readPlan.rowScope?.predicate===null){
       await privileged.staging.create('memory','__staging',table,stagedColumns(o.readPlan));
       rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.returnedRows=0;
-      await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);continue;
+      await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);enginePhase(r.requestId,'stage','end');continue;
      }
      if(!o.readPlan.contributor&&(!o.readPlan.rowScope||o.readPlan.rowScope.pushdown)&&o.readPlan.columns.every(c=>!c.numericDefault&&(c.treatment==='clear'||c.treatment==='aggregate_only')))result=await this.source.plain(scan,privileged,table,signal);
      else{
@@ -83,27 +90,31 @@ export class StagedExecutor {
        if(signal.aborted)return cancelled();
        count+=rows.length;
        if(count>r.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{object:{catalog:o.catalog,schema:o.schema,name:o.name},cause:'scan_observed_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
-       appending=privileged.staging!.append('memory','__staging',table,rows);try{await appending;}catch(error){if(error instanceof DomainError||error instanceof Error&&error.message.startsWith('Out of Memory Error:'))throw error;throw new DomainError('source_unavailable','Local staging could not append source rows.',{cause:'staging_failed'});}return ok(undefined);
+       enginePhase(r.requestId,'stage','start');
+       appending=privileged.staging!.append('memory','__staging',table,rows);try{await appending;enginePhase(r.requestId,'stage','end');}catch(error){if(error instanceof DomainError||error instanceof Error&&error.message.startsWith('Out of Memory Error:'))throw error;throw new DomainError('source_unavailable','Local staging could not append source rows.',{cause:'staging_failed'});}return ok(undefined);
       },signal);}finally{await appending?.catch(()=>{});}
      }
      if(!result.ok)return result;
      const counted=await privileged.execute(`SELECT COUNT(*) FROM __staging.${quote(table)}`);
      if(BigInt(String(counted.rows[0]?.[0]))>BigInt(r.settings.maxStagingRows))return err(new DomainError('unsupported_pushdown',`Object ${o.name} exceeded maxStagingRows=${r.settings.maxStagingRows} during staging. Narrow the query or review this setting.`,{object:{catalog:o.catalog,schema:o.schema,name:o.name},cause:'scan_observed_large',setting:'maxStagingRows',value:r.settings.maxStagingRows}));
      if(o.readPlan.rowScope)rowScopes.find(s=>s.objectId===o.readPlan.rowScope!.objectId)!.returnedRows=Number(counted.rows[0]?.[0]);
-     await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);
+     await privileged.staging.transfer(table,{catalog:o.catalog,schema:o.schema,name:o.name},agent);enginePhase(r.requestId,'stage','end');
     }
     return ok(undefined);
    };
+   enginePhase(r.requestId,'execute','start');
    const result=await new InspectedSessionExecutor(this.wrap(r,active,signal)).execute(r.sql,limits,ns,policy,{rowLimit:r.limits.rowLimit,signal,stage});
+   enginePhase(r.requestId,'execute','end');
    if(signal.aborted)return cancelled();
    // Seal only the final bounded result, after SQL and disclosure enforcement.
    // K is generated/split here and never crosses the Engine transport.
    let custodyShares:{first:string;second:string}|undefined;
    if(result.ok&&result.value.custodyIndices?.length){
+    enginePhase(r.requestId,'seal','start');
     const sealed=this.sealer(result.value.rows,result.value.columns,result.value.custodyIndices,r.requestId);
     try{result.value.rows=sealed.rows;custodyShares={first:sealed.first.toString('base64url'),second:sealed.second.toString('base64url')};
      for(const i of result.value.custodyIndices)if(result.value.columnTypes)result.value.columnTypes[i]='VARCHAR';
-    }finally{sealed.first.fill(0);sealed.second.fill(0);}
+    }finally{sealed.first.fill(0);sealed.second.fill(0);enginePhase(r.requestId,'seal','end');}
    }
    return result.ok?ok({...result.value,...(custodyShares?{custodyShares}:{}),...(rowScopes.length?{rowScopes}:{}),...(rowScopes.some(s=>s.missingDecision)?{rows:[]}:{}),truncated:result.value.truncated??false,executionPath:'staged',policyVersion:r.policyVersion}):result;
   }catch(error){if(signal.aborted)return cancelled();if(error instanceof DomainError)return err(error);return err(new DomainError('dependency_unavailable','Staged execution could not complete. No partial result was returned.'));}

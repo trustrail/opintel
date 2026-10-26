@@ -427,3 +427,45 @@ runs in `/private/tmp/opintel-stage4-release-6962c00`; result `test-results/gate
 raw log `/private/tmp/opintel-stage4-6962c00-evidence-gate.log`. The exact tested
 tree must be committed unchanged; the final gate outcome belongs in the commit
 message and retained machine record, without a post-gate evidence-file edit.
+
+
+## Authorized admission/transport recovery follow-up
+
+Work is on `fix/stage4-admission-connect-recovery`. Stale authenticated heartbeats
+with a current policy acknowledgment now require synchronous pinned health
+verification; a successful response admits without updating heartbeat age.
+Missing/future heartbeat, policy mismatch, unknown/edited registration and
+explicit bad health still refuse. Dispatch rechecks identity/policy after fallback
+and re-verifies if the heartbeat expires during token attestation.
+
+All gateway-to-engine HTTP clients share bounded pre-TCP recovery: at most four
+attempts inside the original deadline, first three connect windows one second.
+HTTP headers/body wait until pinned TLS succeeds; no retry follows TCP connection,
+TLS/pin failure, request write, response failure or cancellation. No resource
+budget or execution deadline is increased.
+
+Engine telemetry now records bounded timestamped request phases (arrival, queue,
+validate, execute, scan, stage, treat, seal, respond), and companion synchronization
+events carry timestamps. Phase records contain no SQL, data values, keys or
+exception text. The focused admission/transport/staged suite passed 67 tests;
+strict typecheck and unchanged lint passed. Final real custody/HTTP phase and
+response-abort verification passed 20 tests in two files. The completed-tree
+full gate is required before commit.
+
+The full gate runs on the exact staged tree in an isolated worktree. Its raw log
+is `/private/tmp/opintel-connect-recovery-full-gate.log`; the machine result is
+`/private/tmp/opintel-connect-recovery-candidate/test-results/gate.json`. No
+post-gate tree change may be committed without another full gate. Report the
+completed result before publication; fresh amd64 published-digest acceptance
+must exercise XQ, certificates, escrow/redemption and the two-minute soak.
+
+The first full gate on tree `062cf3da25d35a99b1ecd2ba0913a66a879535b5`
+failed J-024: its legacy telemetry allowlist rejected the authorized timestamped
+phase event. The other 2,104 tests passed; browser/MCP smoke did not run. The
+failed log remains at the path above and the machine record is preserved at
+`/private/tmp/opintel-connect-recovery-first-gate.json`. The correction recognizes
+only the exact phase-event schema (bounded request id, timestamp and closed phase
+and state enums); the legacy allowlist and SQL/value sentinel assertion remain.
+A new full gate is required on the corrected tree, with raw log
+`/private/tmp/opintel-connect-recovery-corrected-full-gate.log` and machine result
+in the same isolated worktree. Neither candidate has been published.

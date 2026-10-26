@@ -1,5 +1,6 @@
 import {parsePredicate,predicateHash} from '../src/shared/row-predicate.js';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { resolve } from 'node:path';
 import { Client } from 'pg';
 import { beforeAll,afterAll,it,expect,vi } from 'vitest';
@@ -25,7 +26,8 @@ for(const treated of [false,true])it(`C.1 preserves exact clear arrays on the ${
 },30000);
 it('J-024 execution telemetry contains only the allowlist, never source values or SQL',async()=>{
  const logs=vi.spyOn(console,'info').mockImplementation(()=>{});try{const r=request();r.sql="SELECT 'ROW_VALUE_SENTINEL' FROM orders";expect((await executor().execute(r)).ok).toBe(true);
- for(const [event] of logs.mock.calls){expect(Object.keys(event as object).every(k=>['event','requestId','projectId','poolId','operation','reason'].includes(k))).toBe(true);}
+ const phase=z.strictObject({event:z.literal('engine.request_phase'),timestamp:z.iso.datetime(),requestId:z.string().regex(/^[a-zA-Z0-9:_-]{1,128}$/u),phase:z.enum(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']),state:z.enum(['start','end','aborted'])});
+ for(const [event] of logs.mock.calls){if(phase.safeParse(event).success)continue;expect(Object.keys(event as object).every(k=>['event','requestId','projectId','poolId','operation','reason'].includes(k))).toBe(true);}
  expect(JSON.stringify(logs.mock.calls)).not.toContain('ROW_VALUE_SENTINEL');expect(logs).toHaveBeenCalled();}finally{logs.mockRestore();}
 },30000);
 

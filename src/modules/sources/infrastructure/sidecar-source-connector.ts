@@ -3,7 +3,7 @@ import { safeSourceMessage } from '../../../shared/source-errors.js';
 import { provisionDemoPayload, provisionDemoResponse, type ProvisionDemoPayload } from '../../../shared/demo-contract.js';
 import type { DemoProvisioningPort } from '../application/demo-provisioning.js';
 import { X509Certificate } from 'node:crypto';
-import { request } from 'node:https';
+import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
 import { checkServerIdentity } from 'node:tls';
 import { z } from 'zod';
 import { DomainError, err, ok, type ElementId, type Result } from '../../../shared/kernel/index.js';
@@ -118,9 +118,8 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
   }
 
   private post(path: string, body: unknown, signal: AbortSignal): Promise<unknown> {
-    return new Promise((resolve, reject) => {
       const encoded = body === undefined ? undefined : JSON.stringify(body);
-      const req = request(new URL(path, this.url), {
+      return engineConnect(new URL(path, this.url), {
         method: 'POST', agent: false, signal,
         ca: this.options.tls.ca, cert: this.options.tls.cert, key: this.options.tls.key,
         minVersion: 'TLSv1.3', rejectUnauthorized: true,
@@ -130,7 +129,7 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
           return cert.fingerprint256 === this.fingerprint ? undefined : new Error('Sidecar certificate pin mismatch.');
         },
         headers: encoded === undefined ? {} : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(encoded) },
-      }, (res) => {
+      }, encoded, (res) => new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
         let size = 0;
         res.on('error', reject);
@@ -152,9 +151,6 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
             resolve(body);
           } catch { reject(new Error('Invalid Opintel Engine JSON.')); }
         });
-      });
-      req.on('error', reject);
-      req.end(encoded);
-    });
+      }));
   }
 }

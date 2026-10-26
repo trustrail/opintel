@@ -1,5 +1,5 @@
 import { X509Certificate,randomUUID } from 'node:crypto';
-import { request } from 'node:https';
+import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
 import { checkServerIdentity } from 'node:tls';
 import { z } from 'zod';
 import { DomainError,err,ok,type ProjectId,type Result } from '../../../shared/kernel/index.js';
@@ -30,13 +30,13 @@ export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
    return ok(value as CustodyResponse<K>);
   }catch(error){return err(error instanceof DomainError?error:new DomainError('dependency_unavailable','The Opintel Engine custody service could not be reached or returned an invalid response. Check its connection and retry.',undefined,true));}
  }
- private post(path:string,body:unknown,signal:AbortSignal):Promise<unknown>{return new Promise((resolve,reject)=>{
+ private post(path:string,body:unknown,signal:AbortSignal):Promise<unknown>{
   const encoded=body===undefined?undefined:JSON.stringify(body);
-  const req=request(new URL(path,this.url),{method:'POST',agent:false,signal,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,minVersion:'TLSv1.3',rejectUnauthorized:true,
+  return engineConnect(new URL(path,this.url),{method:'POST',agent:false,signal,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,minVersion:'TLSv1.3',rejectUnauthorized:true,
    checkServerIdentity:(host,cert)=>checkServerIdentity(host,cert)??(cert.fingerprint256===this.pin?undefined:new Error('Custody certificate pin mismatch.')),
-   headers:encoded?{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}:{}},res=>{
+   headers:encoded?{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}:{}},encoded,res=>new Promise((resolve,reject)=>{
     const chunks:Buffer[]=[];let length=0;res.on('error',reject);res.on('data',(chunk:Buffer)=>{length+=chunk.length;if(length>1024*1024){res.destroy(new Error('Custody response too large.'));return;}chunks.push(chunk);});
     res.on('end',()=>{try{const value:unknown=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(res.statusCode!==200){const error=serviceErrorEnvelope.parse(value).error;reject(new DomainError(error.code,safeCustodyMessage(error.message),undefined,error.retryable));}else resolve(value);}catch{reject(new Error('Invalid custody response.'));}});
-   });req.on('error',reject);req.end(encoded);
- });}
+   }));
+ }
 }

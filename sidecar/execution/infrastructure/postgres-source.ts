@@ -1,3 +1,4 @@
+import {enginePhase} from '../../../src/shared/engine-phase.js';
 import {createHmac,randomBytes} from 'node:crypto';
 import {stagedColumns} from '../../../src/shared/execution-contract.js';
 import {evaluatePredicate,family} from '../../../src/shared/row-predicate.js';
@@ -76,7 +77,7 @@ export class PostgresStagingSource implements StagingSource {
   return this.safe(()=>this.scope.external(key(s),credential(s),async (connection,sourceSignal)=>{
    if(!privileged.staging)throw new Error('Staging unavailable');
    const abort=()=>privileged.interrupt?.();sourceSignal.addEventListener('abort',abort,{once:true});
-   try{await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));return ok(undefined);}finally{sourceSignal.removeEventListener('abort',abort);}
+   try{enginePhase(s.request.requestId,'scan','start');await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));enginePhase(s.request.requestId,'scan','end');return ok(undefined);}finally{sourceSignal.removeEventListener('abort',abort);}
   },signal));
  }
  treated(s:Scan,consume:(rows:unknown[][])=>Promise<Result<void>>,signal:AbortSignal):Promise<Result<void>>{
@@ -84,7 +85,7 @@ export class PostgresStagingSource implements StagingSource {
   // Even a withheld/tokenized entity key must never enter either DuckDB session
   // in plaintext. A fresh per-scan key is never sent to the Application.
   const proofKey=s.object.readPlan.contributor?randomBytes(32):undefined;
-  const read=async(transforms:((value:unknown)=>Result<unknown>)[]):Promise<Result<void>>=>this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
+  const read=async(transforms:((value:unknown)=>Result<unknown>)[]):Promise<Result<void>>=>{enginePhase(s.request.requestId,'scan','start');return this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
    await session.query("SELECT set_config('TimeZone','UTC',true),set_config('DateStyle','ISO, YMD',true),set_config('extra_float_digits','3',true)");
         const types = z.array(z.object({ name: z.string(), type: z.string() })).parse(await session.query(`
           WITH RECURSIVE types AS (
@@ -117,11 +118,13 @@ export class PostgresStagingSource implements StagingSource {
    let scanned=0;
    try{for(;;){
     if(signal.aborted)throw new SourceCancelled();
-    const raw=await session.query('FETCH FORWARD 256 FROM opintel_stage');
+    enginePhase(s.request.requestId,'scan','start');
+    const raw=await session.query('FETCH FORWARD 256 FROM opintel_stage');enginePhase(s.request.requestId,'scan','end');
     const rows=z.array(z.record(z.string(),z.unknown())).parse(raw);
     if(!rows.length)break;
     const treated:unknown[][]=[];
     try{
+     enginePhase(s.request.requestId,'treat','start');
      for(const row of rows){
       if(++scanned>s.request.settings.maxStagingRows)return err(new DomainError('unsupported_pushdown','The source scan exceeded maxStagingRows before row filtering. Narrow the query or review the setting.',{cause:'scan_observed_large'}));
       s.preview?.scanned();
@@ -139,10 +142,11 @@ export class PostgresStagingSource implements StagingSource {
       output.push(value===null?null:createHmac('sha256',proofKey!).update(value,'utf8').digest('hex'));
      }
      treated.push(output);for(const k of Object.keys(row))row[k]=null;}
+     enginePhase(s.request.requestId,'treat','end');
      if(signal.aborted)throw new SourceCancelled();const accepted=await consume(treated);if(!accepted.ok)return accepted;
     }finally{for(const row of raw)if(typeof row==='object'&&row!==null)for(const k of Object.keys(row))Reflect.set(row,k,null);for(const row of rows)for(const k of Object.keys(row))row[k]=null;for(const row of treated)row.fill(null);treated.length=0;}
    }return ok(undefined);}finally{await session.query('CLOSE opintel_stage');}
-  },signal));
+  },signal));};
   const base=s.object.readPlan.columns.map(c=>(value:unknown):Result<unknown>=>c.treatment==='masked'?maskValue(c.mask!.kind,value):ok(value));
   if(!s.object.readPlan.columns.some(c=>c.treatment==='tokenized'))return read(base).finally(()=>proofKey?.fill(0));
   return this.tokenizer.run(ProjectId(s.request.projectId),async run=>{

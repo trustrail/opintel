@@ -1645,7 +1645,7 @@ Engine health admission follow-up (Stage 4):
 |---|---|
 | ENG-H01 | A control TCP-connect stall preserves a still-valid observation; heartbeats cannot extend its 30-second age |
 | ENG-H02 | Successful pinned health refresh renews age; a registration-connect stall does not erase or renew the old observation |
-| ENG-H03 | Missing/stale heartbeat and unacknowledged current policy refuse reuse/admission in the heartbeat-enabled gateway |
+| ENG-H03 | Stale heartbeat synchronously verifies health and admits only on success, including expiry during token attestation; missing/future heartbeat, policy mismatch and explicit bad health still refuse |
 | ENG-H04 | Wrong pin/trust, explicit unhealthy readiness and contract mismatch invalidate serving authority immediately |
 | ENG-H05 | Unknown, never-verified, changed and changed-back registrations cannot inherit cached health |
 | ENG-H06 | Five-second refresh is independent of queries, deduplicated, bounded, and stopped on shutdown; pending refresh cannot block fresh admission |
@@ -1657,3 +1657,15 @@ Engine health admission follow-up (Stage 4):
 The existing real pinned-TLS wrong-pin tests, source/token-key refusals and all
 normal behavioral timing assertions remain required. The full gate runs on every
 completed changed tree before commit; separate tier results are not a substitute.
+
+
+### Stage 4 connect-only recovery and phase evidence
+
+| ID | Required behavior |
+|---|---|
+| CONNECT-01 | Health, execution, custody and source requests recover three pre-TCP stalls; exactly one body reaches a pinned TLS server |
+| CONNECT-02 | HTTP refusal, reset or timeout after request write never retries, including mutating execution |
+| CONNECT-03 | Wrong pin sends no HTTP body and never retries |
+| CONNECT-04 | TLS stall never retries; persistent TCP stalls share the original deadline; cancellation stops attempts |
+| TRACE-01 | Engine phase records contain only bounded request ID, timestamp and fixed phase/state; no SQL, rows, keys or exceptions |
+| TRACE-02 | Real staged execution and HTTP request boundaries emit correlated phase records, including response abort |

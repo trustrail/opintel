@@ -107,8 +107,8 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
  await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(egressControlAddress,resolve);});
  let busy=false;
  const timer=setInterval(()=>{if(busy)return;busy=true;void queue(async()=>{
-  try{await install();}catch{console.warn({event:'engine.egress_sync_failed'});return;}
-  for(const entry of state){try{const policy=await fetchPolicy(entry);entry.policy=policy;await install();await persist();}catch{console.warn({event:'engine.egress_sync_failed'});}}
+  try{await install();}catch{console.warn({event:'engine.egress_sync_failed',timestamp:new Date().toISOString()});return;}
+  for(const entry of state){try{console.info({event:'engine.egress_sync_started',timestamp:new Date().toISOString(),engineId:entry.binding.engineId});const policy=await fetchPolicy(entry);entry.policy=policy;await install();await persist();console.info({event:'engine.egress_sync_completed',timestamp:new Date().toISOString(),engineId:entry.binding.engineId});}catch{console.warn({event:'engine.egress_sync_failed',timestamp:new Date().toISOString()});}}
  }).finally(()=>{busy=false;});},5000);timer.unref();
  phase('readiness_marker');
  await writeFile('/run/egress-ready','ready\n');

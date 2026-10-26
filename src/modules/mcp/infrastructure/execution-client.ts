@@ -1,5 +1,5 @@
 import {rowPreviewRequest,rowPreviewResponse,type RowPreviewRequest} from '../../../shared/row-preview-contract.js';
-import {request} from 'node:https';
+import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
 import {X509Certificate} from 'node:crypto';
 import {checkServerIdentity} from 'node:tls';
 import {z} from 'zod';
@@ -21,17 +21,15 @@ export class SidecarQueryExecution implements QueryExecutionPort,QueryValidation
   const timeout=AbortSignal.timeout(timeoutMs),signal=parent?AbortSignal.any([timeout,parent]):timeout;
   let responseStarted=false;let responseReason:string|undefined;
   try{
-   const response=await new Promise<{status:number;body:unknown}>((resolve,reject)=>{
-    const encoded=body===undefined?undefined:JSON.stringify(body);
-    const req=request(new URL(path,this.base),{method:'POST',agent:false,signal,minVersion:'TLSv1.3',rejectUnauthorized:true,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,
+   const encoded=body===undefined?undefined:JSON.stringify(body);
+   const response=await engineConnect(new URL(path,this.base),{method:'POST',agent:false,signal,minVersion:'TLSv1.3',rejectUnauthorized:true,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,
      checkServerIdentity:(host,cert)=>checkServerIdentity(host,cert)??(cert.fingerprint256===this.pin?undefined:new Error('Opintel Engine pin mismatch.')),
-     headers:encoded===undefined?{}:{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}},res=>{
+     headers:encoded===undefined?{}:{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}},encoded,res=>new Promise<{status:number;body:unknown}>((resolve,reject)=>{
       responseStarted=true;
       const chunks:Buffer[]=[];let size=0;res.on('error',reject);res.on('aborted',()=>{responseReason??='response_incomplete';reject(new Error('Incomplete Opintel Engine response.'));});
       res.on('data',(b:Buffer)=>{size+=b.length;if(size>16*1024*1024){responseReason='response_oversized';res.destroy(new Error('Query response is too large.'));return;}chunks.push(b);});
       res.on('end',()=>{try{responseReason=!res.complete?'response_incomplete':!/^application\/json(?:;|$)/iu.test(res.headers['content-type']??'')?'response_content_type':undefined;if(responseReason)throw new Error('Invalid response');responseReason='response_json';const decoded:unknown=JSON.parse(Buffer.concat(chunks).toString('utf8'));responseReason=undefined;resolve({status:res.statusCode??0,body:decoded});}catch{reject(new Error('Invalid Opintel Engine response.'));}});
-     });req.on('error',reject);req.end(encoded);
-   });
+     }));
    if(response.status!==200){const parsed=serviceErrorEnvelope.extend({error:serviceErrorEnvelope.shape.error.extend({details:z.record(z.string(),z.json()).optional()})}).safeParse(response.body);if(!parsed.success){responseReason='response_error_envelope';throw new Error('Invalid error envelope.');}return err(new DomainError(parsed.data.error.code,parsed.data.error.message,parsed.data.error.details,parsed.data.error.retryable));}
    const parsed=schema.safeParse(response.body);return parsed.success?ok(parsed.data):err(new DomainError('dependency_unavailable','The Opintel Engine returned an invalid query result.',{cause:path==='/health'?'sidecar_contract_mismatch':'unclassified',...(path==='/health'?{reason:'health_contract'}:{reason:'result_contract'})}));
   }catch{return err(new DomainError('source_unavailable',signal.aborted?'The query was cancelled or exceeded its deadline. No partial result was returned.':'The Opintel Engine is unreachable or its response was incomplete. No cached or partial result was returned.',{cause:signal.aborted?'interruption_unclassified':responseStarted?'sidecar_response_unusable':'sidecar_transport_failed',...(responseReason?{reason:responseReason}:{})},true));}

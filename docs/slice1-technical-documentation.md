@@ -2228,8 +2228,11 @@ starts the host; it does not build the S5 deployment package.
 **Bounded engine health admission (Stage 4 follow-up).** The heartbeat-enabled
 gateway retains a successful pinned health observation for at most 30 seconds,
 refreshing independently every 5 seconds while it serves queries. Admission also
-requires an authenticated heartbeat younger than 15 seconds acknowledging the
-current assignment policy. These initial durations are configurable in the API
+requires the current assignment policy acknowledgment. A heartbeat older than
+15 seconds triggers synchronous pinned health verification instead of refusal;
+success admits, without renewing heartbeat age. Missing/future heartbeat or a
+policy mismatch still refuses. Known explicitly bad health refuses immediately,
+and recovery requires a successful independent/operator verification. These initial durations are configurable in the API
 runtime environment (deployment contract). Heartbeats do not refresh health age;
 the companion is not proof that the query child remains ready. Query preparation
 uses the observed build instead of opening another synchronous query-client

@@ -87,3 +87,12 @@ still refuse. ENG-H08 detects the redundant query-client health socket that coul
 independently turn a healthy registry observation into a query refusal. The arm64
 retained logs show nine-second refusals but lack per-request transport metadata;
 that attribution remains a hypothesis, not a proven execution-path diagnosis.
+
+
+Connect-only recovery adds CONNECT-01–04 to the normal tier. Defect class:
+duplicate mutations caused by replay after an uncertain response. The real TLS
+regressions reset or stall the server after it receives a mutation and require
+exactly one request; three pre-connect stalls must deliver exactly once. Wrong
+pins and TLS stalls never write or retry. TRACE-01–02 checks bounded phase
+allowlists and correlated execution/response evidence. Updated ENG-H03 catches
+refusing a healthy engine solely because its companion heartbeat is stale.

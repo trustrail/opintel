@@ -411,7 +411,11 @@ independently of queries. Configure its API runtime env with
 milliseconds; refresh must be shorter than maximum health age.
 
 Reuse requires a fresh authenticated heartbeat acknowledging the current source
-assignment policy. Missing/stale heartbeat or policy mismatch refuses admission.
+assignment policy. A stale heartbeat triggers synchronous pinned health verification;
+success admits without renewing the heartbeat. Missing/future heartbeat, policy
+mismatch, unknown registration and explicitly bad health still refuse. The fallback
+rechecks registration/policy after verification and skips redundant egress
+registration because the existing applied policy must already match.
 The heartbeat belongs to the egress companion and never renews query-engine
 health. A gateway without the configured heartbeat channel (legacy development
 and standalone tooling) gets no health reuse: it retains fresh pinned verification.
@@ -427,10 +431,20 @@ writes. Every actual request retains pinned TLS. Token-sentinel checks, source
 status/authorization, execution budgets, refusal evidence and result validation
 remain in place. Query preparation reads the observed build and no longer opens
 its redundant query-client `/health` socket. Actual validation/execution transport
-failures still refuse; they are not retried or satisfied from cached results.
+failures after TCP connection still refuse. All gateway-to-engine requests, including
+`/execute`, share at most four TCP attempts within the original operation deadline:
+three one-second connect windows, then the remaining time. Headers and body are
+withheld until pinned TLS succeeds. Only a pre-TCP timeout retries; TLS failures,
+HTTP refusals, partial responses, cancellation and any request write never retry.
+No result is supplied from a cache.
 
-The native-arm64 33-second execution-path refusal remains a separate open item.
-Its cause awaits the retained soak JSONL; this change is not an execution-path fix.
+The retained arm64 and amd64 JSONL establish execution transport interruptions
+with incomplete receipts, but cannot identify TCP/TLS/engine phase. Approved
+follow-up telemetry records request arrival, queue, validation, scan, stage,
+treatment, sealing and response boundaries with request IDs and timestamps,
+fixed phase/state labels and no SQL, values, keys or exception text. Stale
+heartbeat and egress-companion synchronization events are timestamped too.
+The next published-digest acceptance must retain those records.
 
 Forward migration 084 adds an internal registration version. Every registration
 edit advances it; health writes and reuse are bound to that version. An edit

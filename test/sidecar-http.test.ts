@@ -1,4 +1,6 @@
 import {X509Certificate} from 'node:crypto';
+import {engineConnect} from '../src/shared/infrastructure/engine-transport.js';
+import {enginePhase} from '../src/shared/engine-phase.js';
 import {developmentEngineOptions} from '../scripts/development-engine.js';
 import {StagedValidator} from '../sidecar/execution/application/validate.js';
 import {DuckDBValidationSessions,type InspectionEvent,type SessionStatement} from '../sidecar/session/index.js';
@@ -50,6 +52,25 @@ const queryFailures:unknown[]=[];
 const validationEvents:InspectionEvent[]=[];
 const validationStatements:SessionStatement[]=[];
 const executionReached=vi.fn();
+
+it('TRACE-01: phase fields reject oversized or free-form request identifiers',()=>{
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ try{enginePhase('x'.repeat(129),'scan','start');enginePhase('SELECT secret FROM source','scan','start');expect(log).not.toHaveBeenCalled();enginePhase('trace-test','scan','start');expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/u),requestId:'trace-test',phase:'scan',state:'start'});}finally{log.mockRestore();}
+});
+
+it('TRACE-02: an interrupted HTTP execution retains arrival and response-abort evidence with its request id',async()=>{
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});let arrived!:()=>void;const arrival=new Promise<void>(resolve=>{arrived=resolve;});
+ const blocked=createSidecarServer({config:{...config,port:0},tls,connector,execution:{validate:async()=>ok({}),execute:async(_body,signal)=>{arrived();await new Promise<void>(resolve=>{if(signal?.aborted)resolve();else signal?.addEventListener('abort',()=>resolve(),{once:true});});return ok({});}}});
+ const port=await blocked.listen(),controller=new AbortController();
+ const payload=executionRequest.parse({requestId:'trace-abort',entitlements:[],projectId,poolId:randomUUID(),policyVersion:1,sql:'SELECT 1',namespace:{catalog:'memory',schema:'main'},sources:[],objects:[],aggregateMinGroupSize:5,limits:{memoryMb:32,threads:1,timeoutMs:10000,rowLimit:1,concurrency:1},entitlementContext:null});
+ const encoded=JSON.stringify(payload);
+ try{
+  const pending=engineConnect(new URL(`https://127.0.0.1:${port}/execute`),{method:'POST',...options.tls,signal:controller.signal,headers:{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}},encoded,async response=>{for await(const _chunk of response){/* drain */}});
+  const rejected=expect(pending).rejects.toBeDefined();await arrival;controller.abort();await rejected;
+  await vi.waitFor(()=>expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.any(String),requestId:'trace-abort',phase:'respond',state:'aborted'}));
+  expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.any(String),requestId:'trace-abort',phase:'arrival',state:'end'});
+ }finally{controller.abort();await blocked.close();log.mockRestore();}
+},10000);
 
 class ObservedScope extends PostgresSourceScope {
   override run<T>(key:string,credential:SecretRef,work:(session:SourceSession)=>Promise<T>,signal?:AbortSignal):Promise<T>{

@@ -1,3 +1,4 @@
+import {enginePhase} from '../../src/shared/engine-phase.js';
 import {egressRegistration,egressRegistered} from '../../src/shared/engine-egress-contract.js';
 import {rowPreviewRequest,rowPreviewResponse} from '../../src/shared/row-preview-contract.js';
 import { executionRequest,validationRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
@@ -64,6 +65,7 @@ export function createSidecarServer(options: {
   }
   async function handle(req: IncomingMessage,res: ServerResponse,controller: AbortController): Promise<void> {
     let requestId: string = randomUUID();
+    const arrivedAt=new Date().toISOString();
     const socket = req.socket as TLSSocket;
     if (!socket.authorized || socket.getPeerCertificate()?.fingerprint256 !== pin) { socket.destroy(); return; }
     if (shuttingDown) { fail(res,503,'dependency_unavailable','Opintel Engine is shutting down.',requestId,true); return; }
@@ -88,8 +90,12 @@ export function createSidecarServer(options: {
         requestId = parsed.data.requestId;
         if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));
       }
+      enginePhase(requestId,'arrival','end',arrivedAt);
+      res.once('finish',()=>enginePhase(requestId,'respond','end'));
+      res.once('close',()=>{if(!res.writableFinished)enginePhase(requestId,'respond','aborted');});
       const result = await route.invoke(body,controller.signal);
       if (controller.signal.aborted) return;
+      enginePhase(requestId,'respond','start');
       if (!result.ok) {
         const code = result.error.code;
         fail(res,execution&&['sql_not_permitted','unsupported_on_token','unsupported_on_aggregate_only','unsupported_pushdown'].includes(code)?422:statusFor(code),code,execution?result.error.message:path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The Opintel Engine operation failed.',requestId,result.error.retryable,execution?result.error.details:undefined);

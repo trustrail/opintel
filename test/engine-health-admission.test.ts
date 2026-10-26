@@ -42,17 +42,44 @@ it('ENG-H02: fresh authenticated health renews age; registration stalls alone do
  f.advance(15000);f.beat();expect((await f.admit())[0]?.ok).toBe(false);
 });
 
-it('ENG-H03: stale or unacknowledged heartbeat refuses despite fresh health',async()=>{
- const f=await fixture();f.advance(15000);expect((await f.admit())[0]?.ok).toBe(false);
- f.beat();expect((await f.admit())[0]?.ok).toBe(true);
- f.denyPolicy();expect((await f.admit())[0]?.ok).toBe(false);
+it('ENG-H03: stale heartbeat requires synchronous health, does not renew heartbeat, and preserves policy refusal',async()=>{
+ const f=await fixture();const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ f.advance(15000);const calls=f.probe.health.mock.calls.length;
+ expect((await f.admit())[0]?.ok).toBe(true);expect(f.probe.health).toHaveBeenCalledTimes(calls+1);
+ expect(log).toHaveBeenCalledWith({event:'engine.heartbeat_stale',timestamp:expect.any(String),engineId:f.engine.id,ageMs:15000});
+ expect((await f.admit())[0]?.ok).toBe(true);expect(f.probe.health).toHaveBeenCalledTimes(calls+2);
+ f.denyPolicy();expect((await f.admit())[0]?.ok).toBe(false);expect(f.probe.health).toHaveBeenCalledTimes(calls+2);
 });
 
-it('ENG-H03: a heartbeat expiring during token attestation cannot authorize dispatch',async()=>{
+it('ENG-H03: stale heartbeat cannot reuse health when synchronous verification stalls',async()=>{
+ const f=await fixture();f.advance(15000);f.probe.health.mockImplementation(async()=>stall());
+ expect((await f.admit())[0]?.ok).toBe(false);
+});
+
+it('ENG-H03: stale-heartbeat health success does not depend on redundant egress registration transport',async()=>{
+ const f=await fixture();f.advance(15000);f.probe.registerEgress.mockImplementation(async()=>stall());
+ const calls=f.probe.registerEgress.mock.calls.length;expect((await f.admit())[0]?.ok).toBe(true);expect(f.probe.registerEgress).toHaveBeenCalledTimes(calls);
+});
+
+it('ENG-H03: heartbeat expiring during token attestation requires fresh pinned health at dispatch',async()=>{
  const f=await fixture();
  await withTenant(f.ctx,tx=>tx.query("INSERT INTO token_key_version(project_id,version,sentinel_token,state) VALUES($1,1,'fixture-sentinel','current')",[f.ctx.projectId]));
  f.probe.sentinel.mockImplementation(async()=>{f.advance(16000);return ok({version:1,sentinel:'fixture-sentinel'});});
+ const calls=f.probe.health.mock.calls.length;
+ expect((await f.registry.forQuerySources(f.ctx,[{id:f.source,tokenized:true}]))[0]?.ok).toBe(true);expect(f.probe.health).toHaveBeenCalledTimes(calls+1);
+ f.probe.health.mockImplementation(async()=>stall());
  expect((await f.registry.forQuerySources(f.ctx,[{id:f.source,tokenized:true}]))[0]?.ok).toBe(false);
+});
+
+it('ENG-H03: policy change during fallback verification still refuses',async()=>{
+ const f=await fixture();f.advance(15000);f.probe.health.mockImplementation(async()=>{f.denyPolicy();return ok({contract:3,queryEngineVersion:'fixture-build',canonicalisers:[]});});
+ expect((await f.admit())[0]?.ok).toBe(false);
+});
+
+it('ENG-H04: explicit bad health refuses immediately even if a new query probe would succeed',async()=>{
+ const f=await fixture();f.probe.health.mockImplementation(async()=>err(new DomainError('source_unavailable','Readiness failed.',{readinessReason:'source_connection_refused'})));
+ await f.registry.verify(f.ctx,f.engine.id);f.probe.health.mockResolvedValue(ok({contract:3,queryEngineVersion:'fixture-build',canonicalisers:[]}));
+ const calls=f.probe.health.mock.calls.length;expect((await f.admit())[0]?.ok).toBe(false);expect(f.probe.health).toHaveBeenCalledTimes(calls);
 });
 
 it.each(['wrong_pin','explicit_unhealthy','contract_mismatch'] as const)('ENG-H04: %s immediately invalidates reuse',async failure=>{

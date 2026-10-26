@@ -779,7 +779,10 @@ Checked twice: in the API before dispatch, and in the sidecar before execution. 
 **Health observations are not query authority.** The heartbeat-enabled gateway
 may obtain the preparation build from a bounded, previously pinned engine-health
 observation (30-second default maximum age, independent 5-second refresh and a
-15-second current-policy heartbeat bound). Heartbeats cannot renew that age.
+15-second current-policy heartbeat bound). A stale heartbeat requires fresh
+synchronous pinned health verification before admission; it is not itself a
+refusal. Policy acknowledgment and registration identity remain mandatory.
+Heartbeats cannot renew health age. Known explicitly bad health refuses immediately.
 A control-connect stall does not erase a still-valid observation; explicit
 unhealthy/trust/contract failures do. Registration/trust identity changes and
 expiry prevent reuse. Routing and governance are read afresh and the executing
