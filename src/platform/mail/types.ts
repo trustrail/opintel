@@ -15,6 +15,7 @@ export type OutboundMail = {
 export type MailReceipt = {
   providerId: string;
   acceptedAt: Timestamp;
+  smtpResponse?: string;
 };
 
 export interface MailPort {

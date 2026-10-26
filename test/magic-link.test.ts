@@ -151,13 +151,22 @@ integration('magic links', () => {
     expect(known.retryAfterSeconds).toBe(unknown.retryAfterSeconds);
   });
 
+  it('DEP-021: retryAfter is the remaining Redis window, not a synthetic backoff',async()=>{
+    const limiter=new RedisRateLimiter(redisConnection().client),key='remaining-window';
+    await limiter.check(key,1,60000);await redisConnection().client.pExpire('rate-limit:'+key,31000);
+    const first=await limiter.check(key,1,60000);expect(first.allowed).toBe(false);expect(first.retryAfterSeconds).toBeGreaterThanOrEqual(30);expect(first.retryAfterSeconds).toBeLessThanOrEqual(31);
+    await redisConnection().client.pExpire('rate-limit:'+key,1500);const next=await limiter.check(key,1,60000);expect(next.retryAfterSeconds).toBeGreaterThanOrEqual(1);expect(next.retryAfterSeconds).toBeLessThanOrEqual(2);
+  });
+
   it('B-011: rejects the eleventh request from one IP across different addresses', async () => {
     for (let index = 0; index < 10; index += 1) {
       const result = await service.requestLink({ ...request, email: `unknown-${index}@example.com` });
       expect(result.allowed).toBe(true);
     }
     const result = await service.requestLink({ ...request, email: 'unknown-11@example.com' });
-    expect(result).toEqual({ allowed: false, retryAfterSeconds: 1, token: null });
+    expect(result).toMatchObject({ allowed: false, token: null });
+    expect(result.retryAfterSeconds).toBeGreaterThan(890);
+    expect(result.retryAfterSeconds).toBeLessThanOrEqual(900);
   });
 
   it.each(['unavailable', 'command error'] as const)('allows request-link and warns when the limiter store has %s', async (failure) => {

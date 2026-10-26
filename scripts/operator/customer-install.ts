@@ -1,0 +1,211 @@
+import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync,chmodSync,appendFileSync,openSync,readSync,closeSync,lstatSync} from 'node:fs';
+import {join} from 'node:path';
+import {randomBytes,X509Certificate,createHash} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import {parse} from 'dotenv';
+import {z} from 'zod';
+import {smtpSettings} from '../../src/platform/mail/infrastructure/smtp-adapter.js';
+class InstallError extends Error {}
+const root=process.env.OPINTEL_INSTALL_ROOT??'/package',state=join(root,'state');
+const host=z.string().startsWith('/').parse(process.env.PACKAGE_HOST_DIRECTORY);
+const kind=z.enum(['gateway','engine']).parse(process.argv[3]);
+const serviceSchema=z.object({image:z.string().optional(),extends:z.object({file:z.string(),service:z.string()}).optional(),environment:z.record(z.string(),z.string()).optional(),volumes:z.array(z.string()).optional(),ports:z.array(z.string()).optional(),profiles:z.array(z.string()).optional(),network_mode:z.string().optional()}).passthrough();
+type Service=z.infer<typeof serviceSchema>;
+const json=(file:string):unknown=>JSON.parse(readFileSync(file,'utf8')) as unknown;
+const write=(file:string,value:string|object,mode=0o600)=>{writeFileSync(join(root,file),typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode,flag:'wx'});chmodSync(join(root,file),mode);};
+function env(file:string,values:Record<string,string>){write(file,Object.entries(values).map(([k,v])=>{if(/[\r\n\0]/u.test(v))throw new InstallError('Environment values must be single line.');return `${k}='${v.replaceAll("'","\\'")}'`;}).join('\n')+'\n');}
+const secret=()=>randomBytes(32).toString('hex');
+function openssl(args:string[]){const r=spawnSync('openssl',args,{cwd:state,stdio:'ignore'});if(r.status!==0)throw new InstallError('Certificate generation failed.');}
+function certificate(name:string,sans:string){
+ openssl(['req','-newkey','rsa:2048','-nodes','-keyout',name+'.key','-out',name+'.csr','-subj','/CN=Opintel '+name]);
+ write('state/'+name+'.ext',`subjectAltName=${sans}\nextendedKeyUsage=serverAuth,clientAuth\n`);
+ openssl(['x509','-req','-in',name+'.csr','-CA','ca.pem','-CAkey','ca.key','-CAcreateserial','-out',name+'.pem','-days','365','-extfile',name+'.ext']);
+ // The enclosing host state directory is private; mounted public configuration
+ // is readable by the isolated runtime UID without making host state public.
+ chmodSync(join(state,name+'.pem'),0o644);chmodSync(join(state,name+'.key'),0o644);
+}
+function initialize(){
+ if(existsSync(join(state,'installed.json'))){console.info('Existing installation retained; secrets and decisions are unchanged.');return;}
+ if(existsSync(state))throw new InstallError('Incomplete installation state exists. Preserve it and use ./restore; install will not overwrite secrets.');
+ const settings=existsSync(join(root,'package.env'))?parse(readFileSync(join(root,'package.env'))):{};
+ const address=z.ipv4().parse(process.env.PACKAGE_HOST_ADDRESS);
+ const platform=z.enum(['linux/amd64','linux/arm64']).parse(readFileSync(join(root,'platform'),'utf8').trim());
+ const localImages=z.record(z.string(),z.string()).parse(json(join(root,'local-images.json')));
+ let app:URL|undefined;
+ if(kind==='gateway'){
+  app=new URL(z.url().parse(settings.APP_BASE_URL));if(app.protocol!=='https:'||app.username||app.password||app.pathname!=='/')throw new InstallError('APP_BASE_URL must be an HTTPS origin.');
+  z.email().parse(settings.OWNER_EMAIL);smtpSettings(settings);
+  for(const name of ['OPINTEL_XQ_API_KEY','OPINTEL_XQ_DASHBOARD_API_KEY','OPINTEL_XQ_SENDER_ALIAS','OPINTEL_XQ_SENDER_ACCESS_TOKEN','OPINTEL_XQ_TEAM_ID','SMTP_HOST','SMTP_PORT','SMTP_SENDER','SMTP_TLS_MODE'])z.string().min(1).parse(settings[name]);
+  if(Boolean(settings.GATEWAY_INGRESS_CERT_FILE)!==Boolean(settings.GATEWAY_INGRESS_KEY_FILE))throw new InstallError('Supply both ingress certificate paths or neither.');
+ }
+ for(const name of ['PAL_PROVIDER','PAL_MODEL','EMBEDDING_MODEL'])if(settings[name]&&settings[name]!=='disabled')throw new InstallError('Hosted models are disabled in this on-premises package. No model egress is enabled.');
+ mkdirSync(state,{mode:0o700});for(const name of ['xq','output','audit','custody','ingest','control']){mkdirSync(join(state,name),{mode:name==='output'?0o700:0o755});chmodSync(join(state,name),name==='output'?0o700:0o755);}
+ for(const name of ['audit','custody','ingest','control'])chmodSync(join(state,name),0o777);
+ write('state/control/hosts','',0o666);
+ openssl(['req','-x509','-newkey','rsa:3072','-nodes','-keyout','ca.key','-out','ca.pem','-days','3650','-subj','/CN=Opintel installation CA','-addext','basicConstraints=critical,CA:TRUE']);chmodSync(join(state,'ca.pem'),0o644);
+ const tlsHost=app?.hostname??address;
+ const sans=`DNS:localhost,DNS:host.docker.internal,DNS:ingress,IP:127.0.0.1,IP:${address},${z.ipv4().safeParse(tlsHost).success?'IP':'DNS'}:${tlsHost}`;
+ certificate(kind==='gateway'?'application':'engine',sans);
+ const installId='opintel-'+kind+'-'+randomBytes(5).toString('hex');
+ const vars:Record<string,string>={PLATFORM:platform};
+ const operator:Record<string,string>={};
+ const runtime:Record<string,string>={PAL_PROVIDER:'disabled',PAL_MODEL:'disabled',EMBEDDING_MODEL:'disabled'};
+ const services:Record<string,Service>={},volumes:Record<string,object>={};
+ for(const file of readdirSync(join(root,'services'))){
+  const config=z.object({services:z.record(z.string(),serviceSchema),volumes:z.record(z.string(),z.object({}).passthrough()).optional()}).parse(json(join(root,'services',file)));
+  Object.assign(services,config.services);Object.assign(volumes,config.volumes);
+ }
+ const defaults=z.object({services:z.record(z.string(),z.object({image:z.string()}))}).parse(json(join(root,'upstream.json')));
+ for(const [name,service] of Object.entries(services)){
+  const ref=service.extends?defaults.services[service.extends.service]?.image:service.image;
+  if(!ref||!localImages[ref])throw new InstallError('Offline image mapping missing: '+name);
+  service.image=localImages[ref];delete service.extends;
+  service.platform=platform;service.pull_policy='never';service.stdin_open=false;service.tty=false;
+  if(service.restart==='no')service.profiles=['jobs'];
+ }
+ if(kind==='gateway'&&app){
+  const database=secret(),redis=secret(),spice=secret(),runtimePassword=secret(),master=secret();
+  certificate('spicedb','DNS:spicedb,DNS:localhost,IP:127.0.0.1');certificate('ingress',sans);
+  write('state/application-tls.json',{caFile:'ca.pem',certFile:'application.pem',keyFile:'application.key'},0o644);
+  write('state/postgres-password',database+'\n',0o644);write('state/redis.conf',`bind 0.0.0.0\nprotected-mode yes\nsave ""\nappendonly no\nrequirepass ${redis}\n`,0o644);
+  write('state/runtime-role.sql',`DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='opintel_gateway') THEN CREATE ROLE opintel_gateway LOGIN PASSWORD '${runtimePassword}'; END IF; END $$; GRANT opintel_app,opintel_platform,opintel_platform_admin TO opintel_gateway;\n`,0o644);
+  Object.assign(runtime,Object.fromEntries(Object.entries(settings).filter(([k])=>['OPINTEL_XQ_API_KEY','OPINTEL_XQ_DASHBOARD_API_KEY','OPINTEL_XQ_SENDER_ALIAS','OPINTEL_XQ_SENDER_ACCESS_TOKEN','OPINTEL_XQ_TEAM_ID'].includes(k)||k.startsWith('SMTP_'))),{APP_BASE_URL:app.origin,OPINTEL_API_BASE_URL:app.origin,OWNER_EMAIL:settings.OWNER_EMAIL!,DATABASE_URL:`postgresql://opintel_gateway:${runtimePassword}@postgres:5432/opintel`,REDIS_URL:`redis://:${redis}@redis:6379`,SPICEDB_ENDPOINT:'spicedb:50051',SPICEDB_TOKEN:spice,SESSION_SECRET:secret(),OPINTEL_CUSTODY_MASTER_KEY:master,OPINTEL_XQ_REDEEM_URL:'https://validation.xqmsg.net/v2/key',APPLICATION_TLS_CONFIG:'/config/application-tls.json'});
+  operator.OPINTEL_OPERATOR_API_TARGET='https://ingress:8444';
+  operator.MIGRATION_DATABASE_URL=`postgresql://opintel:${database}@postgres:5432/opintel`;
+  env('state/spicedb.env',{SPICEDB_GRPC_PRESHARED_KEY:spice,SPICEDB_DATASTORE_CONN_URI:`postgres://spicedb:${database}@spicedb-postgres:5432/spicedb?sslmode=disable`,SPICEDB_GRPC_TLS_CERT_PATH:'/config/spicedb.pem',SPICEDB_GRPC_TLS_KEY_PATH:'/config/spicedb.key'});
+  Object.assign(vars,{GATEWAY_CONFIG_DIRECTORY:host+'/state',GATEWAY_API_ENV_FILE:host+'/state/runtime.env',GATEWAY_OPERATOR_ENV_FILE:host+'/state/operator.env',GATEWAY_SPICEDB_ENV_FILE:host+'/state/spicedb.env',GATEWAY_POSTGRES_PASSWORD_FILE:host+'/state/postgres-password',GATEWAY_SPICEDB_POSTGRES_PASSWORD_FILE:host+'/state/postgres-password',GATEWAY_REDIS_CONFIG_FILE:host+'/state/redis.conf',GATEWAY_XQ_DIRECTORY:host+'/state/xq',GATEWAY_AGENT_CERTIFICATES_DIRECTORY:host+'/identities',GATEWAY_OPERATOR_OUTPUT_DIRECTORY:host+'/state/output',GATEWAY_OPERATOR_UID:String(process.getuid?.()??65534),GATEWAY_OPERATOR_GID:String(process.getgid?.()??65534),GATEWAY_HEARTBEAT_URL:`https://${app.hostname}:3102`,GATEWAY_HEARTBEAT_BIND_ADDRESS:'0.0.0.0',GATEWAY_RECEIPT_BIND_ADDRESS:'0.0.0.0',GATEWAY_INGRESS_CONFIG_FILE:host+'/ingress/nginx.conf',GATEWAY_INGRESS_CERT_FILE:settings.GATEWAY_INGRESS_CERT_FILE??host+'/state/ingress.pem',GATEWAY_INGRESS_KEY_FILE:settings.GATEWAY_INGRESS_KEY_FILE??host+'/state/ingress.key',GATEWAY_CONSOLE_BIND_ADDRESS:'0.0.0.0',GATEWAY_CONSOLE_PORT:app.port||'443',...Object.fromEntries(Object.entries(settings).filter(([k])=>k.startsWith('SMTP_')))});
+  const internalIngress=`
+  server {
+    listen 8444 ssl;
+    ssl_certificate /tls/operator.pem;
+    ssl_certificate_key /tls/operator.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    set $api http://api:3000;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto https;
+    client_max_body_size 0;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 90s;
+    location = /healthz { proxy_pass $api; }
+    location ~ ^/(api|mcp)(/|$) { proxy_pass $api; }
+    location / { return 404; }
+  }
+}
+`;
+  write('state/nginx.conf',readFileSync(join(root,'ingress/nginx.conf'),'utf8').replace(/\n\}\s*$/u,internalIngress),0o644);
+  vars.GATEWAY_INGRESS_CONFIG_FILE=host+'/state/nginx.conf';
+  services.ingress!.volumes!.push(host+'/state/application.pem:/tls/operator.pem:ro',host+'/state/application.key:/tls/operator.key:ro');
+  services.console!.environment={CONSOLE_EXTERNAL_TLS:settings.GATEWAY_INGRESS_CERT_FILE?'supplied':''};
+  for(const name of ['postgres','redis','spicedb-postgres','spicedb','api'])services[name]!.ports=[];
+  services.api!.ports=['0.0.0.0:3102:3102','0.0.0.0:3101:3101'];
+  services.api!.environment!.NODE_EXTRA_CA_CERTS='/config/ca.pem';services.api!.environment!.APPLICATION_TLS_CONFIG='/config/application-tls.json';
+  services.postgres!.volumes!.push(host+'/state/runtime-role.sql:/config/runtime-role.sql:ro');
+  for(const service of Object.values(services))if(service.environment?.NODE_EXTRA_CA_CERTS)service.environment.NODE_EXTRA_CA_CERTS='/config/ca.pem';
+  services.spicedb!.healthcheck={test:['CMD','/usr/local/bin/grpc_health_probe','-addr=localhost:50051','-tls','-tls-ca-cert=/config/ca.pem','-tls-server-name=spicedb'],interval:'10s',timeout:'5s',retries:6};
+  services.operator={...services.provision!,command:['node','scripts/operator/customer-operator.js','--help'],profiles:['jobs']};
+  write('state/custody-backup.key',master+'\n');
+ }else{
+  const database=secret();runtime.OPINTEL_SECRET_INSTALL_READINESS=`postgresql://readiness:${database}@readiness:5432/readiness`;
+  runtime.UV_THREADPOOL_SIZE='16';
+  write('state/gateway-registration.json',{version:1,kind:'engine',address:`https://${address}:3100`,certificate:readFileSync(join(state,'engine.pem'),'utf8'),ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(readFileSync(join(state,'engine.pem'))).fingerprint256,demoSourceUrl:`postgresql://readiness:${database}@${address}:5434/readiness`});
+  write('state/application.pem',readFileSync(join(state,'engine.pem'),'utf8'),0o644);
+  write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'ca.pem',certFile:'engine.pem',keyFile:'engine.key',clientPinFile:'engine.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000}},0o644);
+  Object.assign(vars,{ENGINE_CONFIG_DIRECTORY:host+'/state',ENGINE_STATE_DIRECTORY:host+'/state',ENGINE_ENV_FILE:host+'/state/runtime.env',ENGINE_AUDIT_DIRECTORY:host+'/state/audit',ENGINE_CUSTODY_DIRECTORY:host+'/state/custody',ENGINE_INGEST_DIRECTORY:host+'/state/ingest',ENGINE_XQ_DIRECTORY:host+'/state/xq',ENGINE_BIND_ADDRESS:'0.0.0.0',ENGINE_PORT:'3100'});
+  services.engine!.network_mode='service:egress';
+  services.readiness={image:localImages[defaults.services.postgres!.image],platform,pull_policy:'never',environment:{POSTGRES_USER:'readiness',POSTGRES_PASSWORD:database,POSTGRES_DB:'readiness'},volumes:['readiness-data:/var/lib/postgresql/data'],ports:['0.0.0.0:5434:5432'],restart:'unless-stopped',healthcheck:{test:['CMD','pg_isready','-U','readiness'],interval:'2s',timeout:'3s',retries:30}};
+  volumes['readiness-data']={};
+ }
+ // Bind only the runtime files, preserving a mode-700 host state directory.
+ for(const [name,service] of Object.entries(services)){
+  if(!service.volumes)continue;
+  const configFiles=kind==='engine'?['ca.pem','engine.pem','engine.key','application.pem','service.json']:name.startsWith('spicedb')?['ca.pem','spicedb.pem','spicedb.key']:['api','operator','provision','demo-tools'].includes(name)?['ca.pem','application.pem','application.key','application-tls.json']:['ca.pem'];
+  service.volumes=service.volumes.flatMap(volume=>volume.endsWith(':/config:ro')?configFiles.map(file=>host+'/state/'+file+':/config/'+file+':ro'): [volume]);
+ }
+ env('state/runtime.env',runtime);env('state/operator.env',{...runtime,...operator,OPINTEL_DEPLOYMENT_PACKAGE:'gateway',OPINTEL_CUSTOMER_JOB:'1',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_SOAK_OUTPUT_DIRECTORY:'/output/soak',OPINTEL_DEMO_FIXTURE:'V-01',OPINTEL_DEMO_SEED:'1',OPINTEL_DEMO_SCHEMAS:'soak_policies,soak_claims,soak_recoveries',OPINTEL_SOAK_DURATION:'1800',OPINTEL_SOAK_RATE:'10000'});env('state/package.env',vars);
+ for(const name of Object.keys(volumes))volumes[name]={name:installId+'-'+name};
+ write('state/project-name',installId+'\n');
+ write('state/volumes.list',Object.keys(volumes).map(n=>installId+'-'+n).join('\n')+'\n');
+ write('state/compose.json',{name:installId,services,volumes});
+ const pem=readFileSync(join(state,kind==='gateway'?'application.pem':'engine.pem'),'utf8');
+ write('trust.json',{version:1,kind,address:kind==='gateway'?`https://${app!.hostname}:3102`:`https://${address}:3100`,certificate:pem,ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(pem).fingerprint256},0o644);
+ write('state/installed.json',{configurationVersion:1,hostDirectory:host,kind,installId,platform,address,baseUrl:app?.origin,ownerEmail:settings.OWNER_EMAIL??null,settingsHash:createHash('sha256').update(JSON.stringify(settings)).digest('hex')});
+}
+function status(){const value=z.object({kind:z.string(),installId:z.string(),baseUrl:z.string().optional()}).parse(json(join(state,'installed.json')));console.info('Install: '+value.installId);if(value.baseUrl)console.info('Console and owner sign-in: '+value.baseUrl+'/sign-in');console.info('Public identity: trust.json');const identity=z.object({pin:z.string(),address:z.string()}).parse(json(join(root,'trust.json')));console.info('Pinned service address: '+identity.address);console.info('Certificate pin: '+identity.pin);}
+function pair(){
+ const peer=z.object({version:z.literal(1),kind:z.enum(['gateway','engine']),address:z.url(),certificate:z.string().max(32768),ca:z.string().max(32768),pin:z.string(),demoSourceUrl:z.string().optional()}).parse(json(join(state,'incoming.json')));
+ if(peer.kind===kind)throw new InstallError('Supply the other package identity.');
+ const certificate=new X509Certificate(peer.certificate),ca=new X509Certificate(peer.ca);
+ if(certificate.fingerprint256!==process.argv[4]||peer.pin!==certificate.fingerprint256||!certificate.verify(ca.publicKey)||!ca.ca)throw new InstallError('Peer certificate or pin verification failed.');
+ if(Date.parse(certificate.validTo)<=Date.now()||Date.parse(certificate.validFrom)>Date.now())throw new InstallError('Peer certificate is outside its validity period.');
+ const endpoint=new URL(peer.address);if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password)throw new InstallError('Peer address must be HTTPS.');
+ if(existsSync(join(state,'peer.json'))){const existing=z.object({pin:z.string(),address:z.string()}).parse(json(join(state,'peer.json')));if(existing.pin!==peer.pin||existing.address!==peer.address)throw new InstallError('Peer conflict; existing trust is unchanged.');console.info('Matching peer trust retained.');return;}
+ const installed=z.object({address:z.string()}).parse(json(join(state,'installed.json')));
+ const localPeer=kind==='gateway'&&endpoint.hostname===installed.address;
+ if(kind==='gateway'){const source=new URL(z.string().parse(peer.demoSourceUrl));if(source.protocol!=='postgresql:'||source.hostname!==endpoint.hostname)throw new InstallError('Demo source identity differs from the paired engine.');}
+ appendFileSync(join(state,'ca.pem'),'\n'+peer.ca);
+ if(kind==='engine'){
+  writeFileSync(join(state,'application.pem'),peer.certificate,{mode:0o644});
+  const config=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));
+  config.tls={caFile:'ca.pem',certFile:'engine.pem',keyFile:'engine.key',clientPinFile:'application.pem'};
+  writeFileSync(join(state,'service.json'),JSON.stringify(config,null,2)+'\n');
+ }else{
+  const url=new URL(z.string().parse(peer.demoSourceUrl));if(url.protocol!=='postgresql:'||url.hostname!==endpoint.hostname)throw new InstallError('Demo source identity differs from the paired engine.');
+  if(localPeer){url.hostname='host.docker.internal';const vars=parse(readFileSync(join(state,'package.env'))),heartbeat=new URL(z.string().parse(vars.GATEWAY_HEARTBEAT_URL));heartbeat.hostname='host.docker.internal';writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replace("GATEWAY_HEARTBEAT_URL='"+vars.GATEWAY_HEARTBEAT_URL+"'","GATEWAY_HEARTBEAT_URL='"+heartbeat.href+"'"));}
+  appendFileSync(join(state,'operator.env'),`OPINTEL_SECRET_INSTALL_READINESS='${url.href}'\nOPINTEL_DEMO_DATABASE_URL='${url.href}'\n`);
+ }
+ write('state/peer.json',peer);if(kind==='gateway')write('state/output/peer.json',{...peer,address:localPeer?'https://host.docker.internal:'+endpoint.port:peer.address});console.info('Peer identity paired by certificate pin.');
+}
+function fileHash(file:string){const hash=createHash('sha256'),fd=openSync(file,'r'),buffer=Buffer.alloc(1024*1024);try{for(;;){const size=readSync(fd,buffer);if(!size)break;hash.update(buffer.subarray(0,size));}return hash.digest('hex');}finally{closeSync(fd);}}
+function stateHashes(directory:string,prefix=''):Record<string,string>{
+ const hashes:Record<string,string>={};
+ for(const name of readdirSync(join(directory,prefix)).sort()){
+  const relative=prefix?prefix+'/'+name:name,file=join(directory,relative),stat=lstatSync(file);
+  if(stat.isSymbolicLink())throw new InstallError('Backup state must not contain symbolic links.');
+  if(stat.isDirectory())Object.assign(hashes,stateHashes(directory,relative));
+  else if(stat.isFile())hashes[relative]=fileHash(file);
+  else throw new InstallError('Backup state contains an unsupported file.');
+ }
+ return hashes;
+}
+function backupRecord(){
+ const destination=z.string().startsWith(host+'/backups/').parse(process.argv[4]),local=root+destination.slice(host.length);
+ const volumes=readFileSync(join(state,'volumes.list'),'utf8').trim().split('\n');
+ const hashes=Object.fromEntries(volumes.map(volume=>[volume,fileHash(join(local,volume+'.tar.gz'))]));
+ writeFileSync(join(local,'backup.json'),JSON.stringify({version:1,kind,revision:z.object({revision:z.string()}).parse(json(join(root,'release.json'))).revision,volumes:hashes,state:stateHashes(join(local,'state')),trust:fileHash(join(local,'trust.json'))},null,2)+'\n',{mode:0o600,flag:'wx'});
+}
+function validateRestore(){
+ const backup=z.object({version:z.literal(1),kind:z.enum(['gateway','engine']),revision:z.string(),state:z.record(z.string(),z.string()),trust:z.string(),volumes:z.record(z.string().regex(/^opintel-(?:gateway|engine)-[a-f0-9]{10}-[a-z-]+$/u),z.string().regex(/^[a-f0-9]{64}$/u))}).parse(json('/restore/backup.json'));
+ if(backup.kind!==kind||backup.revision!==z.object({revision:z.string()}).parse(json(join(root,'release.json'))).revision)throw new InstallError('Restore requires the matching original package revision and kind.');
+ if(JSON.stringify(stateHashes('/restore/state'))!==JSON.stringify(backup.state)||fileHash('/restore/trust.json')!==backup.trust)throw new InstallError('Backup state checksum mismatch.');
+ const names=readFileSync('/restore/state/volumes.list','utf8').trim().split('\n');
+ if(JSON.stringify(names.slice().sort())!==JSON.stringify(Object.keys(backup.volumes).sort()))throw new InstallError('Backup volume inventory mismatch.');
+ for(const [volume,hash] of Object.entries(backup.volumes))if(fileHash('/restore/'+volume+'.tar.gz')!==hash)throw new InstallError('Backup data checksum mismatch.');
+ console.info('Backup identity and data checksums verified.');
+}
+function rebase(){
+ const saved=z.object({configurationVersion:z.literal(1),hostDirectory:z.string()}).passthrough().parse(json(join(state,'installed.json')));
+ const replace=(value:unknown):unknown=>typeof value==='string'?value.replaceAll(saved.hostDirectory+'/',host+'/'):Array.isArray(value)?value.map(replace):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([k,v])=>[k,replace(v)])):value;
+ writeFileSync(join(state,'compose.json'),JSON.stringify(replace(json(join(state,'compose.json'))),null,2)+'\n');
+ writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replaceAll(saved.hostDirectory+'/',host+'/'));
+ writeFileSync(join(state,'installed.json'),JSON.stringify({...saved,hostDirectory:host},null,2)+'\n');
+}
+function upgrade(){
+ z.object({configurationVersion:z.literal(1)}).parse(json(join(state,'installed.json')));
+ const config=z.object({services:z.record(z.string(),serviceSchema)}).passthrough().parse(json(join(state,'compose.json')));
+ const images=z.record(z.string(),z.string()).parse(json(join(root,'local-images.json')));
+ const upstream=z.object({services:z.record(z.string(),z.object({image:z.string()}))}).parse(json(join(root,'upstream.json')));
+ for(const [name,service] of Object.entries(config.services)){
+  let ref:string|undefined;
+  if(name==='readiness')ref=upstream.services.postgres?.image;
+  else{const file=name==='operator'?'provision':name;const definition=z.object({services:z.record(z.string(),serviceSchema)}).parse(json(join(root,'services',file+'.json'))).services[file];ref=definition?.extends?upstream.services[definition.extends.service]?.image:definition?.image;}
+  if(!ref||!images[ref])throw new InstallError('Upgrade service inventory is incompatible. Restore the backup using its original package.');service.image=images[ref];
+ }
+ writeFileSync(join(state,'compose.json'),JSON.stringify(config,null,2)+'\n');console.info('Audited image identities updated; configuration and credentials retained.');
+}
+try{
+ if(process.argv[2]==='initialize')initialize();
+ else if(process.argv[2]==='installed'){
+  status();if(kind==='gateway'&&!existsSync(join(state,'backup-instruction-shown'))){console.info('Back up this custody master key offline now. Losing it prevents redemption of existing grants.');console.info(readFileSync(join(state,'custody-backup.key'),'utf8').trim());write('state/backup-instruction-shown','shown\n');}
+ }else if(process.argv[2]==='status')status();else if(process.argv[2]==='pair')pair();else if(process.argv[2]==='backup-record')backupRecord();else if(process.argv[2]==='validate-restore')validateRestore();else if(process.argv[2]==='rebase')rebase();else if(process.argv[2]==='upgrade')upgrade();else throw new InstallError('Unknown installer operation.');
+}catch(error:unknown){console.error(error instanceof z.ZodError?'Invalid package settings. Check the README and package.env.':error instanceof InstallError?error.message:'Installation failed; preserve private state and inspect service diagnostics.');process.exitCode=1;}

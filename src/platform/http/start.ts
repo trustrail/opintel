@@ -1,3 +1,4 @@
+import {operatorObserverReader} from '../ops/observer.js';
 import {withDiagnosticWork} from '../telemetry/diagnostics.js';
 import {initializeDatabaseDiagnostics} from '../db/diagnostics.js';
 import {columnTagRoutes} from '../../modules/catalog/api/tag-routes.js';
@@ -308,10 +309,14 @@ async function start(): Promise<void> {
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),new PostgresExplainJoinCandidates());
   const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization,releaseCustody),query,explain,releaseCustody);
   mcp.start();
+  const operatorObserver=operatorObserverReader(redis.client);
+  let observerSweepPending=false;
+  const observerSweep=setInterval(()=>{if(observerSweepPending)return;observerSweepPending=true;void operatorObserver.sweep().catch(()=>{console.warn({event:'auth.operator_observer_sweep_failed',timestamp:new Date().toISOString()});}).finally(()=>{observerSweepPending=false;});},1000);observerSweep.unref();
   const server = createHttpServer(routes, {
     agentInterface: mcp,
     authorization: {
       port: authorization,
+      operatorObserver: operatorObserver.read,
       currentUser: async (headers) => {
         const rawSessionId = cookieValue(headers.cookie, sessionCookieName);
         if (rawSessionId === null) return null;
@@ -343,6 +348,7 @@ async function start(): Promise<void> {
 
   server.listen(port, () => { console.info(`API server listening on port ${port}.`); });
   const close = (): void => {
+    clearInterval(observerSweep);
     engineRegistry.close();
     releaseCustody.close();
     stopEvidenceMaintenance();

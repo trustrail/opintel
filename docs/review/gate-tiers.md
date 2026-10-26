@@ -103,3 +103,19 @@ certificates and plaintext SMTP mode. Published-digest acceptance (separate from
 source smoke) catches missing built-index assets, broken delivered-link browser
 login, and receipt verification coupled to console uptime. All existing gate
 assertions remain active; a package browser does not substitute for the full gate.
+
+Stage 5 extends the existing normal and image/package audit tiers. Concrete
+regressions: retryAfter=1 while Redis still blocked requests for nearly 15 minutes;
+an optional failed dashboard probe inside a passing acceptance; operator observer
+credentials remaining usable after issuer death; and historical projectless
+invitations accidentally becoming company grants. The tests kill the live issuer,
+exercise actual database-lock loss and receipt scope, and require normal verified
+login before new company membership. The package/layer audit has positive controls
+for embedded demo-source and XQ test-rig variable names. Full gate remains required
+before every changed-tree commit; person-driven installs are additional evidence.
+
+The Stage 5 installer test also reproduces the packaged refusal caused by using
+an internal transport URL as the canonical custody-check URL. It compares actual
+checkBinding values from generated API/operator environments while requiring the
+separate internal TLS target. Matching transport reachability alone is not a
+substitute for the unchanged provider configuration binding.

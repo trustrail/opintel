@@ -5965,3 +5965,39 @@ fails startup and failed delivery never silently falls back. Links and credentia
 are not logged. Explicit ingress certificate/key paths override the generated local
 CA fallback; a public boolean deployment status drives a visible existing-pattern
 warning on sign-in and authenticated screens.
+
+### Stage 5 customer installation and host operator authority
+
+Customer packages add noninteractive offline install/lifecycle commands over one
+complete Compose project. The operator supplies APP_BASE_URL, OWNER_EMAIL, five
+XQ team values and SMTP settings; runtime secrets are generated privately and
+retained. Install invokes the existing expiring email-bound claim. It prints the
+sign-in address, not an admission token; normal login still grants the first role.
+No public bootstrap route is introduced. On-premises model defaults are disabled;
+the current placeholder PAL/model variables do not enable a hosted adapter.
+
+Company invitations issued on the gateway host carry an explicit company_role
+marker. The existing pending_invite project role does not imply a company grant.
+Historical projectless invitations remain refused. Acceptance retains the existing
+email/SSO identity proof, domain restrictions, and authoritative relationship write
+before committing membership. Host commands do not create pre-login memberships.
+
+The approved soak observer is a distinct credential, not a console session. Only a
+gateway-host job with private operator database/Redis access can mint it after
+normal owner login. Its API admission is limited to one project's receipt list
+and details (health remains public); all ordinary route permission checks still
+apply. An advisory lock held by the issuer's database connection represents live
+job ownership. Every use checks that lock and a hard duration-plus-five-minute
+expiry; the API revocation monitor records lost owners as auth events. Graceful
+completion revokes and removes the private job file. The network has no mint route.
+No use for governance, provider checks, auth/me, general API reads or writes is
+permitted. Future xq-check/mail-test reuse needs an explicitly scoped extension.
+
+Team-issued XQ exports are supplied out of band. Demo tooling maps the four issued
+identities to the existing two-cedant scenario roles without creating licensed
+identities. Local host provisioning retains administrator authorization and normal
+owner-login prerequisites, compares existing decisions and keys, and reports
+conflicts rather than overwriting them. Customer source data is durable and never
+removed by stop or acceptance cleanup. Cold backups exclude ephemeral observer
+credentials and release-custody escrow shares; recovery cannot resurrect those
+capabilities or grants, and a caller may need a fresh governed query.

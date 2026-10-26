@@ -28,14 +28,14 @@ import type {Result} from '../../src/shared/kernel/index.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
 export async function provisionReinsurance(ctx:{projectId:ProjectId;userId:UserId},registry:EngineRegistry,engineId:EngineId,auth:SpiceDbAuthorizationPort,associationFile:string|undefined,file:string,credentialRef:string,lifecycle=false,renew=false){
  if(!associationFile)throw new OperatorConflict('Set OPINTEL_CERTIFICATES to the four-device public mapping (no certificate keys)');
- certificateMapping.parse(JSON.parse(await readFile(associationFile,'utf8')));
+ const mapping=certificateMapping.parse(JSON.parse(await readFile(associationFile,'utf8')));
  const {custodyAgents}=await import('../soak/custody.js');
  const device=custodyAgents(associationFile,process.env.OPINTEL_XQ_API_KEY??'',()=>{},state=>{console.log('Certificate',state.certificateId,state.ok?'exchanged':'unavailable',state.reason??'',state.status??'');});
  const associations=await device.associations().finally(()=>device.close());
  if(associations.length!==4)throw new OperatorConflict('Certificate exchange incomplete; all declared devices must be authorized before provisioning');
  const availability=await custodyAvailability(ctx.projectId);
  if(!availability.available||availability.configuration?.provider!=='xq')throw new OperatorConflict('Run demo-tools xq-check for the declared XQ provider before governance');
- const associationFor=(pool:number,index:number)=>{const slot=certificateForAgent(pool,index);return associations.find(v=>v.certificateId===slot.certificateId);};
+ const associationFor=(pool:number,index:number)=>{const slot=certificateForAgent(pool,index,mapping);return associations.find(v=>v.certificateId===slot.certificateId);};
  const hash=createHash('sha256').update(JSON.stringify(demoTables)).digest('hex');
  let manifest:DemoManifest={version:1,projectId:ctx.projectId,definitionHash:hash,agents:[],objects:{}};
  try{manifest=demoManifest.parse(JSON.parse(await privateRead(file)));if(manifest.projectId!==ctx.projectId||manifest.definitionHash!==hash)throw new OperatorConflict('Existing soak manifest is for another project or fixture version');}catch(error){if(!(error instanceof Error&&'code' in error&&error.code==='ENOENT'))throw error;}

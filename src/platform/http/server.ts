@@ -96,6 +96,7 @@ export interface HttpServerOptions {
   readonly logger?: HttpLogger;
   readonly authorization?: {
     readonly currentUser: (headers: IncomingHttpHeaders) => Promise<CurrentUser | null>;
+    readonly operatorObserver?: (credential: string, method: string, path: string, query: URLSearchParams) => Promise<CurrentUser | null>;
     readonly port?: AuthorizationPort;
   };
 }
@@ -272,7 +273,8 @@ export function createHttpServer(
       let actor: CurrentUser | undefined;
       if (matched.route.permission !== 'public') {
         const authorization = options.authorization;
-        const user = authorization === undefined ? null : await authorization.currentUser(request.headers);
+        const observer = request.headers.cookie?.split(';').map(part=>part.trim()).find(part=>part.startsWith('opintel_observer='));
+        const user = authorization === undefined ? null : observer ? await authorization.operatorObserver?.(observer,request.method??'GET',path,url.searchParams)??null : await authorization.currentUser(request.headers);
         if (user === null) {
           writeJson(response, 401, requestId, unauthorized(requestId));
           return;

@@ -14,7 +14,12 @@ import {setTimeout} from 'node:timers/promises';
 import {URL} from 'node:url';
 import {packageDeployment} from './package.mjs';
 
-for(const port of [14873,14800,14811,14812,14810,14899,14825,16432,16433,16435,17379,16051])await new Promise((resolve,reject)=>{const server=createServer();server.once('error',reject);server.listen(port,'0.0.0.0',()=>server.close(resolve));});
+for(const port of [14873,14800,14811,14812,14810,14899,14825,16432,16433,16435,17379,16051])await new Promise((resolve,reject)=>{
+ const server=createServer();server.once('error',()=>{
+  const owner=spawnSync('docker',['ps','--filter',`publish=${port}`,'--format','{{.Names}} (install {{.Label "com.docker.compose.project"}}; directory {{.Label "com.docker.compose.project.working_dir"}})'],{encoding:'utf8',timeout:10000});
+  reject(new Error(`Acceptance port ${port} is occupied by ${owner.stdout?.trim()||'a non-Docker listener (inspect with lsof -nP -iTCP:'+port+')'}. Stop that install explicitly before acceptance.`));
+ });server.listen(port,'0.0.0.0',()=>server.close(resolve));
+});
 
 // External synthetic acceptance only. Nothing here is copied into product images.
 const platform=process.env.PLATFORM??'linux/amd64';

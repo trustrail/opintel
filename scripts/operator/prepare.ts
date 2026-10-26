@@ -1,3 +1,6 @@
+import {ReleaseRuntime} from '../../src/modules/release-custody/index.js';
+import {context,operatorApiTarget} from './common.js';
+import {ProjectId} from '../../src/shared/kernel/index.js';
 import {lifecycleReady} from './preconditions.js';
 import {OperatorConflict} from './common.js';
 import {createHash} from 'node:crypto';
@@ -22,8 +25,8 @@ export async function prepare(){
  if(JSON.stringify(m.specification)!==JSON.stringify(generateSpecification(Object.fromEntries(Object.entries(m.objects).map(([full,name])=>[name,full])),m.agents)))throw new OperatorConflict('Scenario declaration differs from the versioned generator');
  lifecycleReady(m,duration);
  record.checks.push('scenario-and-lifecycle');await syntheticSource(false);record.checks.push('source-counts-and-estimates');
- const provider=CustodyProviderStatus.parse(await api(`/api/v1/projects/${m.projectId}/custody-provider`));if(provider.provider!=='xq'||!provider.available)throw new OperatorConflict('XQ provider unavailable; run the explicit packaged API connection check');record.checks.push('packaged-api-provider');
- external=await externalTarget(required('OPINTEL_API_BASE_URL'),required('OPINTEL_SOAK_MANIFEST'));
+ const provider=CustodyProviderStatus.parse(await (async()=>{if(process.env.OPINTEL_CUSTOMER_JOB!=='1')return api(`/api/v1/projects/${m.projectId}/custody-provider`);const c=await context(),runtime=new ReleaseRuntime();try{return await runtime.status({projectId:ProjectId(m.projectId),userId:c.userId});}finally{runtime.close();c.auth.close();}})());if(provider.provider!=='xq'||!provider.available)throw new OperatorConflict('XQ provider unavailable; run the explicit packaged API connection check');record.checks.push('packaged-api-provider');
+ external=await externalTarget(operatorApiTarget(),required('OPINTEL_SOAK_MANIFEST'));
  observer=createObserver(external.base,m.projectId,required('OPINTEL_OBSERVER_COOKIE'),()=>{});await observer.ready();record.checks.push('receipt-list');
  devices=custodyAgents(required('OPINTEL_CERTIFICATES'),required('OPINTEL_XQ_API_KEY'),()=>{},s=>{record.certificates??=[];record.certificates.push({certificateId:s.certificateId,ok:s.ok,status:s.status,reason:s.reason});});
  const associations=await devices.associations();if(associations.length!==4)throw new OperatorConflict('Certificate exchange incomplete or denied by provider location policy');

@@ -97,7 +97,11 @@ export class RedisRateLimiter implements RateLimiter {
         operation = 'PEXPIRE';
         await client.pExpire(redisKey, windowMs);
       }
-      const retryAfterSeconds = count <= limit ? 0 : Math.min(2 ** (count - limit - 1), 16);
+      operation = 'PTTL';
+      const remaining = count > limit ? await client.pTTL(redisKey) : 0;
+      // A legacy counter without expiry must not produce an endless refusal.
+      if (remaining === -1) { operation = 'PEXPIRE'; await client.pExpire(redisKey, windowMs); }
+      const retryAfterSeconds = count <= limit ? 0 : Math.max(0, Math.ceil((remaining === -1 ? windowMs : remaining) / 1000));
       return { allowed: count <= limit, retryAfterSeconds };
     } catch (error: unknown) {
       // Redis errors may contain keys (email/IP); never log their raw contents.

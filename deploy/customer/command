@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec </dev/null
+umask 077
+export LC_ALL=C
+root="$(cd "$(dirname "$0")" && pwd)"
+command="$(basename "$0")"
+[[ "$command" != command ]] || { command="${1:?command required}"; shift; }
+cd "$root"
+fail(){ echo "$*" >&2; exit 1; }
+[[ -f release.json && -f images.list && -f bootstrap.image ]] || fail 'This is not a complete Opintel package.'
+type docker >/dev/null || fail 'Install and start Docker Desktop, then run this command again.'
+docker info >/dev/null 2>&1 || fail 'Start Docker Desktop and wait until it is ready.'
+platform="$(cat platform)"
+case "$(uname -m):$platform" in arm64:linux/arm64|aarch64:linux/arm64|x86_64:linux/amd64) ;; *) fail 'This archive is for a different CPU. Use the matching package archive.';; esac
+bootstrap="$(cat bootstrap.image)"
+job(){ docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -e PACKAGE_HOST_ADDRESS="${host_address:-}" -v "$root:/package" "$bootstrap" node scripts/operator/customer-install.js "$@"; }
+compose(){ docker compose --ansi never --project-name "$(cat "$root/state/project-name")" --project-directory "$root" --env-file "$root/state/package.env" -f "$root/state/compose.json" "$@"; }
+run(){ compose run --rm --no-deps --interactive=false -T "$@"; }
+load_images(){
+ [[ -f images.tar ]] || fail 'The offline image archive is missing.'
+ echo 'Loading packaged images...'
+ docker load --input images.tar > "$root/image-load.log" 2>&1 || fail 'Image loading failed; see image-load.log.'
+ while IFS=' ' read -r image expected; do
+  [[ -n "$image" ]] || continue
+  actual="$(docker image inspect --platform "$platform" --format '{{.Id}}' "$image")"
+  [[ "$actual" == "$expected" ]] || fail "Image identity mismatch: $image"
+ done < images.list
+}
+start_services_internal(){
+ if [[ "$(cat package-kind)" == gateway ]]; then
+  compose up --detach --no-deps --pull never --wait postgres redis spicedb-postgres || return
+  run migrations node src/platform/db/migrate.js up || return
+  run spicedb-migrate || return
+  compose up --detach --no-deps --pull never --wait spicedb || return
+  run schema || return
+  compose exec --interactive=false -T postgres psql -U opintel -d opintel -v ON_ERROR_STOP=1 -f /config/runtime-role.sql || return
+  compose up --detach --no-deps --pull never --wait api console ingress || return
+ else
+  compose up --detach --no-deps --pull never --wait readiness || return
+  run prepare > state/readiness-egress.json.next || return
+  mv state/readiness-egress.json.next state/readiness-egress.json || return
+  compose up --detach --no-deps --pull never --wait egress engine || return
+ fi
+}
+start_services(){
+ echo 'Starting services and waiting for health...'
+ mkdir -p state/operations; chmod 700 state/operations
+ startup_log="state/operations/start-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
+ touch "$startup_log"; chmod 600 "$startup_log"
+ if ! start_services_internal > "$startup_log" 2>&1; then fail "Service startup failed. Details are retained in $startup_log."; fi
+ if grep -Eq 'WARN\[|level=warning' "$startup_log"; then fail "Startup reported a Compose warning. See $startup_log."; fi
+ echo 'Services are healthy.'
+}
+backup_install(){
+ active_jobs="$(docker ps -q --filter "label=com.docker.compose.project=$(cat state/project-name)" --filter label=com.docker.compose.oneoff=True)"
+ [[ -z "$active_jobs" ]] || fail 'Wait for the active operator job to finish before backup, restore or upgrade.'
+ backup_directory="$root/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+ mkdir -p "$backup_directory"; chmod 700 "$root/backups" "$backup_directory"
+ compose ps --services --status running > "$backup_directory/running-services"
+ compose stop
+ tar -cf "$backup_directory/state.tar" --exclude='state/custody/escrow' --exclude='*/observer.credential' --exclude='state/incoming.json' state
+ tar -xpf "$backup_directory/state.tar" -C "$backup_directory"
+ rm "$backup_directory/state.tar"
+ cp release.json "$backup_directory/release.json"
+ cp trust.json "$backup_directory/trust.json"
+ while IFS= read -r volume; do
+  [[ -n "$volume" ]] || continue
+  docker run --rm --pull never --network none --read-only --user 0:0 --platform "$platform" -v "$volume:/volume:ro" -v "$backup_directory:/backup" "$bootstrap" tar -czf "/backup/$volume.tar.gz" -C /volume .
+ done < state/volumes.list
+ job backup-record "$(cat package-kind)" "$backup_directory"
+ echo "Private backup: $backup_directory"
+}
+resume_backup(){
+ services=(); while IFS= read -r service; do [[ -z "$service" ]] || services+=("$service"); done < "$backup_directory/running-services"
+ if [[ ${#services[@]} -gt 0 ]]; then compose up --detach --no-deps --pull never --wait "${services[@]}"; fi
+}
+case "$command" in
+ backup) backup_install; resume_backup;;
+ restore)
+  [[ $# == 1 && -d "$1" ]] || fail 'Usage: ./restore BACKUP_DIRECTORY'
+  restore_directory="$(cd "$1" && pwd)"
+  load_images
+  docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -v "$root:/package" -v "$restore_directory:/restore:ro" "$bootstrap" node scripts/operator/customer-install.js validate-restore "$(cat package-kind)"
+  if [[ -f state/project-name ]]; then
+   [[ "$(cat state/project-name)" == "$(cat "$restore_directory/state/project-name")" ]] || fail 'This backup belongs to another install. Use its matching package directory.'
+  else
+   while IFS= read -r volume; do
+    if docker volume inspect "$volume" >/dev/null 2>&1; then fail 'Backup volumes already exist. Run restore from their original installation directory.'; fi
+   done < "$restore_directory/state/volumes.list"
+  fi
+  if [[ -f state/compose.json ]]; then backup_install; fi
+  while IFS= read -r volume; do
+   [[ -z "$(docker ps -q --filter "volume=$volume")" ]] || fail 'A running install uses a backup volume. Stop that install explicitly before restoring.'
+  done < "$restore_directory/state/volumes.list"
+  if [[ -d state ]]; then mv state "state.before-restore-$(date -u +%Y%m%dT%H%M%SZ)-$$"; fi
+  cp -pR "$restore_directory/state" state
+  cp -p "$restore_directory/trust.json" trust.json
+  mkdir -p state/custody/escrow; chmod 777 state/custody/escrow
+  job rebase "$(cat package-kind)"
+  while IFS= read -r volume; do
+   [[ -n "$volume" ]] || continue
+   docker volume create "$volume" >/dev/null
+   docker run --rm --pull never --network none --read-only --user 0:0 --platform "$platform" -v "$volume:/volume" -v "$restore_directory:/restore:ro" "$bootstrap" sh -c 'find /volume -mindepth 1 -delete && tar -xpzf "$1" -C /volume' sh "/restore/$volume.tar.gz"
+  done < state/volumes.list
+  start_services; job status "$(cat package-kind)";;
+ upgrade)
+  [[ $# == 1 && -d "$1" ]] || fail 'Usage: ./upgrade NEW_PACKAGE_DIRECTORY'
+  next_directory="$(cd "$1" && pwd)"
+  [[ "$next_directory" != "$root" && "$(cat "$next_directory/package-kind")" == "$(cat package-kind)" && "$(cat "$next_directory/platform")" == "$platform" ]] || fail 'Upgrade needs a separate matching package.'
+  backup_install
+  for file in "$next_directory"/*; do
+   case "$(basename "$file")" in state|backups|package.env|identities|trust.json|*.log) continue;; esac
+   cp -pR "$file" "$root/"
+  done
+  bootstrap="$(cat bootstrap.image)"; load_images; job upgrade "$(cat package-kind)"; start_services; job status "$(cat package-kind)";;
+ install)
+  load_images
+  if command -v ipconfig >/dev/null 2>&1; then
+   host_interface="$(route -n get default 2>/dev/null | awk '/interface:/{print $2}' || true)"
+   host_address="$(ipconfig getifaddr "$host_interface" 2>/dev/null || true)"
+  else host_address="$(hostname -I 2>/dev/null | awk '{print $1}')"; fi
+  [[ -n "$host_address" ]] || fail 'Connect this Mac to the LAN, then run ./install again.'
+  job initialize "$(cat package-kind)"
+  start_services
+  if [[ "$(cat package-kind)" == gateway ]]; then run operator node scripts/operator/customer-operator.js initial-owner; fi
+  job installed "$(cat package-kind)";;
+ start) [[ -f state/compose.json ]] || fail 'Run ./install first.'; start_services; job status "$(cat package-kind)";;
+ stop) compose stop;;
+ status) job status "$(cat package-kind)"; compose ps --all;;
+ register|register-engine)
+  [[ $# == 2 && -f "$1" ]] || fail 'Usage: ./register[-engine] IDENTITY_FILE CERTIFICATE_PIN'
+  cp "$1" state/incoming.json; chmod 600 state/incoming.json
+  job pair "$(cat package-kind)" "$2"
+  rm state/incoming.json
+  if [[ "$(cat package-kind)" == gateway ]]; then compose up --detach --no-deps --pull never --force-recreate --wait api; else compose up --detach --no-deps --pull never --force-recreate --wait egress engine; fi;;
+ owner-claim|invite|users|xq-check|mail-test) run operator node scripts/operator/customer-operator.js "$command" "$@";;
+ demo) if [[ ${1:-} == soak ]]; then shift; run demo-tools node scripts/operator/demo.js customer-soak "$@"; else run demo-tools node scripts/operator/demo.js "$@"; fi;;
+ *) fail 'Unknown package command.';;
+esac

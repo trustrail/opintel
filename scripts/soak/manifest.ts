@@ -8,7 +8,7 @@ export const certificateSlots=[{certificateId:223,deviceName:'opintelprobe',pool
 export const deviceMapping=CertificateAssociation.omit({recipientIdentifier:true}).extend({bundlePath:z.string().min(1)});
 export type DeviceMapping=z.infer<typeof deviceMapping>;
 export const certificateMapping=z.array(deviceMapping).length(4).superRefine((items,ctx)=>{
- for(const slot of certificateSlots){const matches=items.filter(item=>item.certificateId===slot.certificateId);if(matches.length!==1||matches[0]?.deviceName!==slot.deviceName)ctx.addIssue({code:'custom',message:'Mapping must contain each of 223/opintelprobe, 224/opintelpoola, 225/opintelpoolb2 and 226/opintelpoolb exactly once; names are fixed to avoid new licence seats.'});}
+ if(new Set(items.map(item=>item.certificateId)).size!==4||new Set(items.map(item=>item.deviceName)).size!==4)ctx.addIssue({code:'custom',message:'Supply four distinct team-issued certificate/device identities in cedant order; the installer never creates them.'});
 });
-export function certificateForAgent(poolIndex:number,index:number){const slots=certificateSlots.filter(s=>s.poolIndex===poolIndex);return slots[index%slots.length]!;}
+export function certificateForAgent(poolIndex:number,index:number,mapping:readonly {certificateId:number;deviceName:string}[]=certificateSlots){const slots=mapping.slice(poolIndex*2,poolIndex*2+2);return slots[index%slots.length]!;}
 

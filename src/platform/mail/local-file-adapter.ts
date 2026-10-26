@@ -48,8 +48,10 @@ export class LocalFileMailAdapter implements MailPort {
       await mkdir(this.directory, { recursive: true });
       await writeFile(filePath, contents, { encoding: 'utf8', flag: 'w' });
       this.logger(magicLink ?? url);
+      console.info({event:'mail.sent',timestamp:acceptedAt,transport:'local',template:message.template});
       return ok({ providerId: url.toString(), acceptedAt });
     } catch {
+      console.info({event:'mail.failed',timestamp:acceptedAt,transport:'local',error:'local_delivery_failed'});
       return err(new DomainError(
         'dependency_unavailable',
         'Local mail delivery is unavailable.',

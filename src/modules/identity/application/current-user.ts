@@ -7,7 +7,7 @@ export type CurrentUser = {
   readonly email: string;
   readonly fullName: string | null;
   readonly timezone: string;
-  readonly method: AuthMethod;
+  readonly method: AuthMethod | 'operator_observer';
   readonly sessionCreatedAt: Timestamp;
   readonly deviceConfirmed: boolean;
 };

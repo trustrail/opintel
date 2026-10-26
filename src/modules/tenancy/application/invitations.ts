@@ -31,6 +31,7 @@ export class InvitationService {
     const expiresAt = Timestamp(new Date(new Date(now).getTime() + 7 * 24 * 60 * 60 * 1000));
     const created = await this.repository.create(input, project, creator, createHash('sha256').update(token).digest(), randomBytes(32).toString('base64url'), now, expiresAt);
     if (!created.ok) return created;
+    console.info({event:'auth.invitation_created',timestamp:now,invitationId:created.value.invitation.id,companyId:input.companyId,projectId:project,role:input.role});
     try { await this.delivery.dispatch(created.value.delivery.kind==='magic_link'?{...created.value.delivery,token}:created.value.delivery); }
     catch { return err(new DomainError('dependency_unavailable', 'The invitation was saved, but its email could not be sent.', undefined, true)); }
     return ok(created.value.invitation);

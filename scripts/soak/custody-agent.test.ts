@@ -7,10 +7,13 @@ import {tmpdir} from 'node:os';
 import {custodyAgents,type ExchangeState} from './custody.js';
 import {certificateSlots,certificateMapping,certificateForAgent} from './manifest.js';
 import {exchangeDue,exchangeRetryMs} from './exchange-policy.js';
-test('four fixed names and ten-agent distribution; never invent or vary a device name',()=>{
+test('four team-issued mappings preserve exact names and ten-agent distribution',()=>{
  const mapping=certificateSlots.map(s=>({...s,bundlePath:'/missing'})).map(({poolIndex:_,...s})=>s);
  assert.equal(certificateMapping.safeParse(mapping).success,true);
- assert.equal(certificateMapping.safeParse(mapping.map((s,i)=>i===0?{...s,deviceName:'new-seat'}:s)).success,false);
+ assert.equal(certificateMapping.safeParse(mapping.map((s,i)=>i===0?{...s,deviceName:mapping[1]!.deviceName}:s)).success,false);
+ const issued=mapping.map((s,i)=>({...s,certificateId:1000+i,deviceName:'issued-device-'+i}));
+ assert.equal(certificateMapping.safeParse(issued).success,true);
+ assert.deepEqual([0,1].map(pool=>Array.from({length:5},(_,i)=>certificateForAgent(pool,i,issued).certificateId)),[[1000,1001,1000,1001,1000],[1002,1003,1002,1003,1002]]);
  assert.deepEqual([0,1].map(pool=>Array.from({length:5},(_,i)=>certificateForAgent(pool,i).certificateId)),[[223,224,223,224,223],[225,226,225,226,225]]);
 });
 test('failed exchanges retry after five minutes, not on every query; valid tokens wait for renewal',()=>{

@@ -4,7 +4,7 @@ import {setTimeout} from 'node:timers';
 const {fetch}=globalThis;
 // Acceptance driver only: no routes, API mocks, source server or fixture login.
 import {chromium} from 'playwright';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,chmodSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const config=JSON.parse(readFileSync('/acceptance/browser.json','utf8'));
 const restore=process.argv[2]==='restore';
@@ -36,9 +36,9 @@ try{
   await page.waitForURL(url=>!url.pathname.startsWith('/auth/')&&!url.pathname.startsWith('/sign-in'));
  }
  phase='dashboard';await page.goto(config.base+'/projects/'+config.projectId+'/dashboard');
- await page.getByRole('heading',{name:'Stage4 reinsurance',exact:true}).waitFor();
+ await page.getByRole('heading',{name:config.projectName??'Stage4 reinsurance',exact:true}).waitFor();
  assert.equal((await context.request.get(config.base+'/api/v1/auth/me')).status(),200);assert.equal(pageErrors,0);
  await page.screenshot({path:'/acceptance/dashboard-'+(restore?'restored':'initial')+'.png'});
- await context.storageState({path:'/acceptance/browser-state.json'});
+ await context.storageState({path:'/acceptance/browser-state.json'});chmodSync('/acceptance/browser-state.json',0o600);
  writeFileSync('/acceptance/browser-'+(restore?'restored':'initial')+'.json',JSON.stringify({status:'passed',builtIndexAssets:assets.length,authenticatedDashboard:true,pageErrors,smtpCallback:!restore}),{mode:0o600});
 }catch{process.stderr.write('Packaged browser acceptance failed at '+phase+'; no authentication material logged.\n');process.exitCode=1;}finally{await browser.close();}

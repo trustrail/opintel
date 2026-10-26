@@ -10,6 +10,7 @@ import sys
 import tarfile
 
 POLICY = pathlib.Path(__file__).resolve().parents[2] / 'deploy/images/runtime-policy.json'
+TEST_CONFIGURATION = re.compile(rb'OPINTEL_(?:SECRET_DEMO_POSTGRES|SECRET_ACCEPTANCE_[A-Z_]+|[A-Z_]*TEST_[A-Z_]+|STAGE[0-9]_[A-Z_]+)|STAGE[0-9]_[A-Z_]+|TEST_DATABASE_URL|REQUIRE_DB_TESTS')
 SOURCE_MAP = re.compile(rb'(?:[#@]\s*sourceMappingURL\s*=|"sourcesContent"\s*:)')
 
 
@@ -107,6 +108,8 @@ class RuntimePolicy:
                     digest.update(chunk)
                     if name.endswith(('.js', '.mjs', '.cjs', '.json', '.html', '.css')) and SOURCE_MAP.search(tail + chunk):
                         raise ValueError('Source map embedded in runtime path: ' + name)
+                    if TEST_CONFIGURATION.search(tail + chunk):
+                        raise ValueError('Test-rig configuration in shipping layer: ' + name)
                     tail = chunk[-256:]
                     if name == 'work/runtime-manifest.json':
                         capture.extend(chunk)
@@ -209,6 +212,13 @@ def self_test():
             pass
         else:
             raise AssertionError('Unreadable umask-dependent asset accepted')
+    for variable in (b'OPINTEL_SECRET_DEMO_POSTGRES', b'OPINTEL_XQ_TEST_POOL_KEY', b'TEST_DATABASE_URL'):
+        try:
+            RuntimePolicy('egress').layer(io.BytesIO(layer_bytes('work/egress.mjs', b'process.env.' + variable)))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Test-rig configuration accepted in shipping layer')
     policy = RuntimePolicy('egress')
     artifacts = {'egress.mjs': b'console.log(1);', 'package.json': b'{"type":"module"}'}
     manifest = {'target': 'egress', 'minified': True, 'sourceMaps': False,

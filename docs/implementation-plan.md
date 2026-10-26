@@ -1261,3 +1261,20 @@ and reusing a local CA only when absent, with a visible console warning.
 DEP-014–017 cover these changes, packaged browser/mail/console-outage acceptance,
 and the noninteractive seed→renew→prepare→soak command. Full gate before commit;
 publish audited amd64 digests and run fresh package acceptance afterward.
+
+### Stage 5 — customer installation (2026-10-26)
+
+Authorized scope: two self-contained offline image archives, one-page package
+READMEs and noninteractive install/lifecycle/operator wrappers; generated private
+configuration and durable backups; independent offline engine startup and later
+pinned registration; explicit hosted-model opt-in; package test-input exclusion;
+bounded operator-facing auth/mail logs and accurate limiter remaining time.
+Demo seed/renew/prepare/soak remains explicit through the gateway wrapper.
+Stage-4 preflight names port owners; all provider probes affect acceptance.
+Full gate precedes every commit, followed by both-platform digest publication and
+final-revision acceptance. Human clean-Mac and actual split-host installs plus
+30-minute packaged soak are separate exit evidence, never simulated as completed.
+Record readiness, timings and deviations in `review/stage5-install.md`.
+Approved clarification: OWNER_EMAIL is an install input; install runs the existing
+24-hour email-bound claim and prints the sign-in address. Explicit owner-claim
+EMAIL remains available. No new bootstrap route or pre-login administrator grant.

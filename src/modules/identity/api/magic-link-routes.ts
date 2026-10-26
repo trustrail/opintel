@@ -25,7 +25,9 @@ export function magicLinkRoutes(service: MagicLinkService) {
       permission: 'public',
       request: requestLinkBody, response: z.union([z.undefined(), errorEnvelopeSchema]),
       handle: async (request: PublicMagicLinkRequest<z.infer<typeof requestLinkBody>>) => {
+        console.info({event:'auth.link_requested',timestamp:new Date().toISOString(),requestId:request.requestId});
         const result = await service.requestLink({ ...request.body, ip: requestMetadata(request.headers).ip });
+        if(!result.allowed)console.info({ event:'auth.rate_limited', timestamp:new Date().toISOString(), requestId:request.requestId, retryAfterSeconds:result.retryAfterSeconds });
         if (result.allowed) return { status: 202, body: undefined };
         return { status: 429, headers: { 'retry-after': String(result.retryAfterSeconds) }, body: { error: { code: 'rate_limited', message: 'Too many requests. Try again later.', details: { retryAfter: result.retryAfterSeconds }, requestId: request.requestId, retryable: true } } };
       },
@@ -37,6 +39,7 @@ export function magicLinkRoutes(service: MagicLinkService) {
       handle: async (request: PublicMagicLinkRequest<z.infer<typeof callbackBody>>) => {
         const meta = requestMetadata(request.headers);
         const result = await service.callback({ ...request.body, ip: meta.ip ?? 'unknown', userAgent: meta.userAgent });
+        if (result.kind === 'session') console.info({ event: 'auth.link_accepted', timestamp: new Date().toISOString(), requestId: request.requestId });
         if (result.kind === 'session') return { headers: { 'set-cookie': sessionCookie(result.sessionId) }, body: { deviceMismatch: false } };
         return { body: { deviceMismatch: result.kind === 'device_mismatch' } };
       },
@@ -48,6 +51,7 @@ export function magicLinkRoutes(service: MagicLinkService) {
       handle: async (request: PublicMagicLinkRequest<z.infer<typeof confirmBody>>) => {
         const meta = requestMetadata(request.headers);
         const result = await service.confirm({ ...request.body, ip: meta.ip ?? 'unknown', userAgent: meta.userAgent });
+        if (result.kind === 'session') console.info({ event: 'auth.link_accepted', timestamp: new Date().toISOString(), requestId: request.requestId });
         if (result.kind === 'session') return { headers: { 'set-cookie': sessionCookie(result.sessionId) }, body: { deviceMismatch: false } };
         return { body: { deviceMismatch: false } };
       },

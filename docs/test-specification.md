@@ -1676,3 +1676,20 @@ completed changed tree before commit; separate tier results are not a substitute
 | DEP-015 | SMTP implicit TLS and required STARTTLS deliver magic links with verified certificates; untrusted certificates/partial configuration refuse; no secrets logged; unset config keeps local delivery |
 | DEP-016 | Published HTTPS sign-in and built-index assets; SMTP invitation and normal browser magic-link callback; authenticated dashboard; console stopped mid-soak while API/query/receipt verification continues, then UI returns; paired external TLS paths and fallback warning |
 | DEP-017 | Packaged run-soak duration runs seed, lifecycle-renew, prepare, soak in order with stdin ignored, preserves ordinary callers/decisions and writes private result; source data survives acceptance teardown in a named volume |
+
+### Stage 5 customer package acceptance
+
+| ID | Required proof |
+|---|---|
+| DEP-018 | Offline image identity verification; private generated secrets retained on rerun; one complete warning-free project; independent engine readiness; wrong pin refuses before trust mutation |
+| DEP-019 | Customer package and every shipping layer reject test-rig configuration names, including positive controls for demo source secrets and XQ test project/pool keys |
+| DEP-020 | Gateway-host-only observer minting after normal owner login; one project's receipt GETs only; no write/auth/provider access; duration + five-minute hard cap; job death revokes authority independently of expiry; private credential file; bounded creation/revocation logs |
+| DEP-021 | Magic-link retryAfter follows real remaining Redis TTL; auth/mail events contain bounded identifiers/protocol codes, never tokens, links, credentials or provider response text; routine heartbeats are debug-only |
+| DEP-022 | Host-issued company admin/member invitations grant only after normal verified login, retain SSO/domain checks and authoritative relationship write; historical projectless invitations do not acquire authority |
+| DEP-023 | Cold backup/restore preserves install identities and durable data, validates inventory/checksums, retains pre-restore backup; upgrade preserves configuration/secrets; transient observer credentials and release shares are excluded from backups |
+
+DEP-012/013 additionally require the actual person-driven clean-Mac and split-host
+README runs. No source smoke or emulated host substitutes for those records. Device
+bundles are out-of-band, team-issued XQ exports, in a documented protected layout;
+no installer enrollment or replacement licensed identity is permitted. Record all
+README timings and deviations in `docs/review/stage5-install.md`.

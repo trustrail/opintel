@@ -23,8 +23,17 @@ export class SmtpMailAdapter implements MailPort{
   try{
    const id=createHash('sha256').update(message.idempotencyKey).digest('hex');
    const result=await this.transport.sendMail({from:this.config.sender,to:message.to,messageId:`<${id}@opintel.local>`,subject:message.template==='magic_link'?'Sign in to Opintel':message.template==='invitation'?'Your Opintel invitation':'Opintel notification',text:link?`Open this link to continue:\n${link.toString()}\n`:JSON.stringify(message.vars)});
-   if(result.rejected.length)return err(new DomainError('dependency_unavailable','Mail delivery was refused.',undefined,true));
-   return ok({providerId:id,acceptedAt:this.clock.now()});
-  }catch{return err(new DomainError('dependency_unavailable','SMTP delivery is unavailable.',undefined,true));}
+   const responseCode=/^[245][0-9]{2}/u.exec(result.response)?.[0]??'unknown';
+   if(result.rejected.length){console.info({event:'mail.failed',timestamp:this.clock.now(),transport:'smtp',error:'recipient_rejected',responseCode});return err(new DomainError('dependency_unavailable','Mail delivery was refused.',{responseCode},true));}
+   console.info({event:'mail.sent',timestamp:this.clock.now(),transport:'smtp',template:message.template,responseCode});
+   return ok({providerId:id,acceptedAt:this.clock.now(),smtpResponse:responseCode});
+  }catch(error:unknown){
+   // Server text may echo addresses, authentication or message content. Keep only
+   // protocol codes and a closed vocabulary of transport failure categories.
+   const parsed=z.object({code:z.enum(['EAUTH','ECONNECTION','ETIMEDOUT','ESOCKET','ETLS','EENVELOPE','EMESSAGE','EDNS']).optional(),responseCode:z.number().int().min(100).max(599).optional()}).safeParse(error);
+   const details={error:parsed.success?parsed.data.code??'smtp_error':'smtp_error',responseCode:parsed.success?parsed.data.responseCode??null:null};
+   console.info({event:'mail.failed',timestamp:this.clock.now(),transport:'smtp',...details});
+   return err(new DomainError('dependency_unavailable','SMTP delivery is unavailable.',details,true));
+  }
  }
 }

@@ -20,7 +20,8 @@ it.each(['implicit','starttls'] as const)('DEP-015: %s delivers mail over verifi
   const config={host:'127.0.0.1',port:address.port,user:'',password:'',sender:'sender@example.invalid',tlsMode};
   const adapter=new SmtpMailAdapter(config,new SystemClock(),'https://gateway.example.invalid',tls.ca);
   expect(await adapter.send({to:'person@example.invalid',template:'magic_link',vars:{token:'synthetic-only-token'},idempotencyKey:'synthetic-mail'})).toMatchObject({ok:true});
-  expect(encrypted).toBe(true);expect(delivered).toContain('synthetic-only-token');expect(delivered).toContain('/auth/callback');expect(log).not.toHaveBeenCalled();
+  expect(encrypted).toBe(true);expect(delivered).toContain('synthetic-only-token');expect(delivered).toContain('/auth/callback');expect(log).toHaveBeenCalledWith(expect.objectContaining({event:'mail.sent',responseCode:'250'}));
+  expect(JSON.stringify(log.mock.calls)).not.toContain('synthetic-only-token');expect(JSON.stringify(log.mock.calls)).not.toContain('/auth/callback');
   const untrusted=new SmtpMailAdapter(config,new SystemClock(),'https://gateway.example.invalid');
   expect(await untrusted.send({to:'person@example.invalid',template:'magic_link',vars:{token:'synthetic-only-token'},idempotencyKey:'untrusted'})).toMatchObject({ok:false,error:{code:'dependency_unavailable'}});
  }finally{log.mockRestore();await new Promise<void>(r=>server.close(()=>r()));}

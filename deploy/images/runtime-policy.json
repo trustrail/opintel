@@ -67,7 +67,10 @@
       "files": [
         "work/src/platform/ops/owner-claim.js",
         "work/scripts/operator/provision.js",
-        "work/scripts/operator/ingress-tls.js"
+        "work/scripts/operator/ingress-tls.js",
+        "work/scripts/operator/customer-install.js",
+        "work/scripts/operator/customer-operator.js",
+        "work/scripts/operator/xq-worker.mjs"
       ],
       "patterns": []
     },
@@ -75,7 +78,8 @@
       "native": true,
       "files": [
         "work/scripts/operator/demo.js",
-        "work/scripts/operator/custody-agent.mjs"
+        "work/scripts/operator/custody-agent.mjs",
+        "work/scripts/operator/xq-worker.mjs"
       ],
       "patterns": []
     }

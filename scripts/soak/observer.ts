@@ -22,7 +22,7 @@ export function createObserver(base:URL,project:string,file:string|undefined,war
    // Re-read for every request so an operator can replace a session before its
    // absolute expiry. Never mint, extend past policy, or resurrect a session.
    const actual=await realpath(file);if(!outsideRepository(actual)||(await stat(actual)).mode&0o077)throw new Error();
-   const input=(await readFile(actual,'utf8')).trim();if(!/^opintel_session=[^;\s\r\n]+$/u.test(input))throw new Error();return input;
+   const input=(await readFile(actual,'utf8')).trim();if(!/^(?:opintel_session=[^;\s\r\n]+|opintel_observer=[A-Za-z0-9_-]{43})$/u.test(input))throw new Error();return input;
   }catch{return fail('Cookie file missing, inside repository, unreadable, insecure or invalid. Sign in again and replace the outside-repository mode-600 file.');}
  };
  const get=async(path:string):Promise<unknown>=>{

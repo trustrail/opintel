@@ -67,8 +67,8 @@ export class PostgresInvitationRepository implements InvitationRepository {
 
   async accept(...[id, user, now,authentication,writeRelationship]: Parameters<InvitationRepository['accept']>): ReturnType<InvitationRepository['accept']> {
     return withPlatform(async (tx) => {
-      const rows = await tx.query<{ email: string;company_id:string; project_id: string | null; role: Invitation['role']; created_by: string; expires_at: Date; accepted_at: Date | null }>(
-        'SELECT email,company_id, project_id, role, created_by, expires_at, accepted_at FROM pending_invite WHERE id = $1 FOR UPDATE', [id]);
+      const rows = await tx.query<{ email: string;company_id:string; project_id: string | null; role: Invitation['role']; company_role:'admin'|'member'|null; created_by: string; expires_at: Date; accepted_at: Date | null }>(
+        'SELECT email,company_id, project_id, role, company_role, created_by, expires_at, accepted_at FROM pending_invite WHERE id = $1 FOR UPDATE', [id]);
       const invite = rows[0];
       if (invite === undefined) return ok(undefined);
       const [company]=await tx.query<{sso_enforced:boolean}>('SELECT sso_enforced FROM company WHERE id=$1 FOR SHARE',[invite.company_id]);
@@ -85,7 +85,16 @@ export class PostgresInvitationRepository implements InvitationRepository {
       if (accounts.length === 0) return err(new DomainError('forbidden', 'This invitation belongs to another email address.'));
       if (invite.accepted_at !== null) return ok(undefined);
       if (invite.expires_at.getTime() <= new Date(now).getTime()) return err(new DomainError('validation_failed', 'This invitation has expired. Ask an administrator for a new invitation.', { action: 'request_invitation' }));
-      if (invite.project_id === null) return err(new DomainError('validation_failed', 'This invitation does not name a project.'));
+      if (invite.project_id === null) {
+        if(invite.company_role===null)return err(new DomainError('validation_failed','This invitation has no valid company role.'));
+        const members=await tx.query('INSERT INTO company_member(company_id,user_id,role,granted_by,granted_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(company_id,user_id) DO NOTHING RETURNING user_id',[invite.company_id,user,invite.company_role,invite.created_by,now]);
+        if(!members.length)return err(new DomainError('conflict','This person is already a company member.'));
+        const relationship={operation:'touch' as const,resource:{type:'company' as const,id:invite.company_id},relation:invite.company_role,subject:{type:'user' as const,id:user}};
+        const outboxId=await this.outbox.enqueue(tx,relationship),revision=await writeRelationship(relationship);await this.outbox.markWritten(tx,outboxId,revision);
+        await tx.query('UPDATE pending_invite SET accepted_at=$2 WHERE id=$1',[id,now]);
+        await tx.query("INSERT INTO audit_entry(company_id,actor_id,actor_kind,action,target,after) VALUES($1,$2,'user','CompanyInvitationAccepted',$3,$4)",[invite.company_id,user,{invitationId:id},{role:invite.company_role}]);
+        return ok(undefined);
+      }
       const members = await tx.query<{ user_id: string }>(`INSERT INTO project_member (project_id, user_id, role, granted_by, granted_at)
         VALUES ($1,$2,$3,$4,$5) ON CONFLICT (project_id, user_id) DO NOTHING RETURNING user_id`, [invite.project_id, user, invite.role, invite.created_by, now]);
       if (members.length === 0) return err(new DomainError('conflict', 'This person is already a member of the project.'));

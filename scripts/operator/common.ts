@@ -16,7 +16,8 @@ export async function context(){
  const config=operatorConfig.parse(JSON.parse(await privateRead(required('OPINTEL_OPERATOR_CONFIG'))));
  const users=await withPlatform(tx=>tx.query<{id:string}>('SELECT u.id FROM user_account u JOIN company_member m ON m.user_id=u.id WHERE u.email=$1 AND m.company_id=$2 AND m.role=\'admin\'',[config.ownerEmail,config.companyId]));
  if(users.length!==1)throw new OperatorConflict('Existing company administrator required; complete normal owner login first');
- const actor=z.object({id:z.uuid(),email:z.email()}).parse(await api('/api/v1/auth/me'));
+ const actor=process.env.OPINTEL_CUSTOMER_JOB==='1'?{id:users[0]!.id,email:config.ownerEmail}:z.object({id:z.uuid(),email:z.email()}).parse(await api('/api/v1/auth/me'));
+ if(process.env.OPINTEL_CUSTOMER_JOB==='1'&&!(await withPlatform(tx=>tx.query('SELECT 1 FROM user_account WHERE id=$1 AND last_login_at IS NOT NULL',[actor.id]))).length)throw new OperatorConflict('Complete normal owner login before operating the demo');
  if(actor.id!==users[0]!.id||actor.email!==config.ownerEmail)throw new OperatorConflict('The normal login session must belong to the declared company administrator');
  const userId=UserId(actor.id),companyId=CompanyId(config.companyId);
  const auth=new SpiceDbAuthorizationPort({endpoint:required('SPICEDB_ENDPOINT'),token:required('SPICEDB_TOKEN'),clock:new SystemClock(),stalenessCeilingMs:0});
@@ -25,7 +26,8 @@ export async function context(){
  return {config,userId,companyId,auth,authorize};
 }
 export const provisionManifest=z.strictObject({version:z.literal(1),projectId:z.uuid().transform(ProjectId),engineId:z.uuid(),configHash:z.string()});
-export async function api(path:string,method='GET',body?:unknown){const base=new URL(required('OPINTEL_API_BASE_URL'));if(base.protocol!=='https:')throw new OperatorConflict('Packaged API target requires HTTPS');const cookie=(await privateRead(required('OPINTEL_OBSERVER_COOKIE'))).trim();if(!/^opintel_session=[^;\s]+$/u.test(cookie))throw new OperatorConflict('Normal login cookie required');const r=await fetch(new URL(path,base),{method,headers:{cookie,'content-type':'application/json',origin:base.origin},body:body===undefined?undefined:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(30000)});if(!r.ok){await r.body?.cancel();throw new OperatorConflict('Packaged API request refused: HTTP '+r.status);}return r.json() as Promise<unknown>;}
+export const operatorApiTarget=()=>process.env.OPINTEL_OPERATOR_API_TARGET??required('OPINTEL_API_BASE_URL');
+export async function api(path:string,method='GET',body?:unknown){const base=new URL(operatorApiTarget());if(base.protocol!=='https:')throw new OperatorConflict('Packaged API target requires HTTPS');const cookie=(await privateRead(required('OPINTEL_OBSERVER_COOKIE'))).trim();if(!/^opintel_session=[^;\s]+$/u.test(cookie))throw new OperatorConflict('Normal login cookie required');const r=await fetch(new URL(path,base),{method,headers:{cookie,'content-type':'application/json',origin:base.origin},body:body===undefined?undefined:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(30000)});if(!r.ok){await r.body?.cancel();throw new OperatorConflict('Packaged API request refused: HTTP '+r.status);}return r.json() as Promise<unknown>;}
 
 export class OperatorConflict extends Error {}
 export function operatorFailure(e:unknown){console.error(e instanceof OperatorConflict||e instanceof DomainError?e.message:'Operator operation failed; inspect private prerequisite records and service diagnostics.');}
