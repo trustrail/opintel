@@ -469,3 +469,78 @@ and state enums); the legacy allowlist and SQL/value sentinel assertion remain.
 A new full gate is required on the corrected tree, with raw log
 `/private/tmp/opintel-connect-recovery-corrected-full-gate.log` and machine result
 in the same isolated worktree. Neither candidate has been published.
+
+## Package isolation, permissions and SMTP follow-up
+
+Branch `fix/stage4-package-isolation-mail` addresses the arm64 umask-077 asset
+failure and console-mediated receipt outage. Work adds explicit COPY modes,
+readability auditing, bounded static read failures, pinned ingress, daemon health
+and restart policy, SMTP, external/fallback TLS configuration and visible fallback
+warning. Acceptance must use the packaged browser and mail catcher and stop the
+console during timed receipt verification. Synthetic source storage is named;
+`demo-tools run-soak DURATION` seeds, renews probes, prepares and soaks without
+stdin. Validation and publication are pending; no green result is claimed here.
+
+Pre-gate validation: all seven local candidate images passed secret-layer,
+runtime-allowlist and runtime-user readability audits. Twenty focused tests
+passed (static server, package resolution, image policy, real SMTP TLS, workflow
+ordering and warning UI); strict typecheck and unchanged lint passed. Candidate
+acceptance attempts retained host HTTP orchestration exit 13, nginx read-only
+temp-directory failure, and an unsuitable engine loopback liveness probe. The
+harness now bounds mail HTTP requests; nginx temp paths use tmpfs; SpiceDB uses
+its actual TLS-verified grpc_health_probe. Engine liveness checks its configured
+listening socket through /proc, without adding an egress exception; readiness
+still requires the independent pinned health request. No failed attempt was
+published or described as a pass. Final full gate and published acceptance remain
+required. Supplied ingress certificate/key paths are paired; missing paths trigger
+reusable fallback TLS with visible warning, and incomplete fallback identities
+refuse rather than silently rotate.
+
+Local candidate `tmp/stage4-acceptance-4MzbQN` proved SMTP invitation/login,
+packaged browser dashboard and restoration, and healthy ingress/API during the
+console outage (03:45:20.167Z–03:45:44.546Z, 26 October UTC). Receipt verification
+stayed active with zero skipped checks and zero operational errors. The timed
+soak nevertheless FAILED: two unexpected source_unavailable outcomes, one budget
+refusal, no completed timed custody values. This is not a passing acceptance.
+
+Retained phase logs classify this recurrence beyond the previous transport-only
+uncertainty: request 01a17650-3f8e-78f0-835b-7b5d5f886731 arrived at
+03:45:33.177Z, entered source-estimate scan at 03:45:33.900Z, and remained there
+until 03:46:08.994Z, after the response deadline/abort. Request
+01a17650-672e-7627-9368-042bf21bfd36 arrived at 03:45:43.389Z, queued until
+03:45:51.193Z, validated until 03:46:00.404Z, then scanned/staged/treated and
+finished execution at 03:46:15.649Z near the HTTP deadline. Both were the Cedant
+02 policy_id tokenized scenario. The third request queued 23.6 seconds then spent
+8.1 seconds validating before a budget refusal. Transport logs say response phase,
+written=true; no retry after write occurred. These are execution/source-estimate
+and queue delays, not console or admission loss. The exact operation inside the
+first estimate and resource-pressure contribution remain unproven. No engine
+budget or governance assertion is changed to hide them. Acceptance reporting now
+retains soak outcome and outage-receipt counts even when the final soak assertion
+fails. A fresh published-digest run remains required after the full gate.
+
+The completed candidate full gate runs in the isolated checkout
+`/private/tmp/opintel-package-isolation-gate`; raw log
+`/private/tmp/opintel-package-isolation-full-gate.log`, machine record
+`test-results/gate.json`. Commit only the exact tested tree, with the final gate
+outcome in its commit message. A failed published soak remains a failed result,
+even when console isolation and the browser/mail checks pass.
+
+The first full gate on tree 17758806b8dbeda96783ec23f45cd287f6795d90 was
+explicitly interrupted during final review to declare the standalone console
+health/deployment-status routes public. Its incomplete machine record is retained
+at `/private/tmp/opintel-package-isolation-interrupted-gate.json`; it is not a
+passing gate. The corrected tree requires a new full gate, logged at
+`/private/tmp/opintel-package-isolation-corrected-full-gate.log`.
+
+The corrected gate on tree 99c007fbe667c62cf8d05be81a0b165ddc9b6dda
+failed its exact provisioning artifact inventory: the expected list omitted the
+new TLS setup entrypoint. All other 2,113 tests passed (242 other files); earlier
+typecheck, lint, production-artifact exclusion and route conformance passed.
+The failed machine record is retained at
+`/private/tmp/opintel-package-isolation-inventory-failed-gate.json`. The inventory
+now includes the entrypoint without relaxing its exact-match assertion. The
+acceptance outage check also requires a new successful query and matching receipt
+to be observed before restarting the console. The corrected completed tree
+requires a new full gate, recorded at
+`/private/tmp/opintel-package-isolation-final-full-gate.log`.

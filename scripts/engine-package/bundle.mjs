@@ -13,7 +13,7 @@ const entries={
  console:{'console.mjs':'deploy/images/console.mjs'},
  egress:{'egress.mjs':'deploy/engine/egress.mjs'},
  migrations:{'src/platform/db/migrate.js':'src/platform/db/migrate.ts','src/modules/authz/infrastructure/load-schema.js':'src/modules/authz/infrastructure/load-schema.ts'},
- provisioning:{'src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts','scripts/operator/provision.js':'scripts/operator/provision.ts'},
+ provisioning:{'scripts/operator/ingress-tls.js':'scripts/operator/ingress-tls.ts','src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts','scripts/operator/provision.js':'scripts/operator/provision.ts'},
  'demo-tools':{'scripts/operator/demo.js':'scripts/operator/demo.ts','scripts/operator/custody-agent.mjs':'scripts/soak/custody-agent.mjs'},
 };
 if(!Object.hasOwn(entries,target))throw new Error('Unknown runtime bundle target.');

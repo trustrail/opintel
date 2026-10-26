@@ -1,30 +1,25 @@
-import {createServer} from 'node:http';
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {createReadStream} from 'node:fs';
+import {Readable} from 'node:stream';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {afterEach,expect,it} from 'vitest';
+import {afterEach,expect,it,vi} from 'vitest';
 import {createConsoleServer} from '../deploy/images/console.mjs';
-
 const cleanup=[];
 afterEach(async()=>{for(const close of cleanup.splice(0).reverse())await close();});
-async function serve(server){
- await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- cleanup.push(()=>new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())));
- return `http://127.0.0.1:${server.address().port}`;
-}
-it('DEP-004/008: console keeps normal login pages in the SPA and proxies only API/OIDC transport and readiness',async()=>{
- const root=await mkdtemp(join(tmpdir(),'opintel-console-'));cleanup.push(()=>rm(root,{recursive:true,force:true}));
- await writeFile(join(root,'index.html'),'<html>Console application</html>');
- const calls=[];
- const upstream=await serve(createServer((request,response)=>{calls.push(request.url);response.end('upstream');}));
- const consoleUrl=await serve(createConsoleServer({root,upstream:new URL(upstream)}));
- for(const path of ['/sign-in','/auth/callback?token=synthetic','/auth/confirm-device?token=synthetic']){
-  expect(await (await fetch(consoleUrl+path)).text()).toContain('Console application');
- }
- expect(calls).toEqual([]);
- for(const path of ['/api/v1/me','/auth/oidc/oidc:example/start','/mcp/v1/p/project','/healthz'])expect(await (await fetch(consoleUrl+path)).text()).toBe('upstream');
- expect(calls).toHaveLength(4);
+async function serve(server){await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));cleanup.push(()=>new Promise(resolve=>server.close(resolve)));return `http://127.0.0.1:${server.address().port}`;}
+async function fixture(){const root=await mkdtemp(join(tmpdir(),'opintel-console-'));cleanup.push(()=>rm(root,{recursive:true,force:true}));await writeFile(join(root,'index.html'),'<html>Console application</html>');await writeFile(join(root,'logo.png'),'image');return root;}
+it('DEP-014: static console serves SPA/assets without an API proxy or TLS role',async()=>{
+ const root=await fixture(),url=await serve(createConsoleServer({root}));
+ for(const path of ['/sign-in','/auth/callback?token=synthetic','/auth/confirm-device'])expect(await (await fetch(url+path)).text()).toContain('Console application');
+ expect(await (await fetch(url+'/logo.png')).text()).toBe('image');expect((await fetch(url+'/absent.png')).status).toBe(404);expect(await (await fetch(url+'/healthz')).text()).toBe('ok');
 });
-it('DEP-004: console refuses unsupported or credential-bearing upstream URLs',()=>{
- for(const url of ['file:///tmp/api','http://operator:secret@localhost'])expect(()=>createConsoleServer({upstream:new URL(url)})).toThrow('without credentials');
+it('DEP-014: EACCES is a bounded request failure; later requests survive',async()=>{
+ const root=await fixture(),log=vi.spyOn(console,'error').mockImplementation(()=>{});
+ try{
+  const url=await serve(createConsoleServer({root,read:file=>{if(!file.endsWith('logo.png'))return createReadStream(file);const stream=new Readable({read(){this.destroy(Object.assign(new Error('secret path sentinel'),{code:'EACCES'}));}});queueMicrotask(()=>stream.destroy(new Error('secret path sentinel')));return stream;}}));
+  expect((await fetch(url+'/logo.png')).status).toBe(500);
+  expect(await (await fetch(url+'/sign-in')).text()).toContain('Console application');
+  expect(log).toHaveBeenCalledWith({event:'console.static_read_failed',timestamp:expect.any(String)});expect(JSON.stringify(log.mock.calls)).not.toContain('sentinel');
+ }finally{log.mockRestore();}
 });

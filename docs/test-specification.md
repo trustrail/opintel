@@ -1669,3 +1669,10 @@ completed changed tree before commit; separate tier results are not a substitute
 | CONNECT-04 | TLS stall never retries; persistent TCP stalls share the original deadline; cancellation stops attempts |
 | TRACE-01 | Engine phase records contain only bounded request ID, timestamp and fixed phase/state; no SQL, rows, keys or exceptions |
 | TRACE-02 | Real staged execution and HTTP request boundaries emit correlated phase records, including response abort |
+
+| ID | Follow-up regression |
+|---|---|
+| DEP-014 | Explicit COPY modes; image layer and runtime-user unreadable-asset rejection; static EACCES returns 500 with bounded log and later requests survive; console has no proxy/TLS role |
+| DEP-015 | SMTP implicit TLS and required STARTTLS deliver magic links with verified certificates; untrusted certificates/partial configuration refuse; no secrets logged; unset config keeps local delivery |
+| DEP-016 | Published HTTPS sign-in and built-index assets; SMTP invitation and normal browser magic-link callback; authenticated dashboard; console stopped mid-soak while API/query/receipt verification continues, then UI returns; paired external TLS paths and fallback warning |
+| DEP-017 | Packaged run-soak duration runs seed, lifecycle-renew, prepare, soak in order with stdin ignored, preserves ordinary callers/decisions and writes private result; source data survives acceptance teardown in a named volume |

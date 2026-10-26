@@ -9,7 +9,7 @@ it('DEP-008: compiled owner-claim starts without DuckDB, source files or node_mo
  try{
   execFileSync(process.execPath,['scripts/engine-package/bundle.mjs','provisioning',directory],{encoding:'utf8'});
   const manifest=JSON.parse(readFileSync(join(directory,'runtime-manifest.json'),'utf8'));
-  expect(Object.keys(manifest.artifacts).sort()).toEqual(['native/LICENSE','native/duckdb.node',process.platform==='darwin'?'native/libduckdb.dylib':'native/libduckdb.so','package.json','scripts/operator/provision.js','src/platform/ops/owner-claim.js'].sort());
+  expect(Object.keys(manifest.artifacts).sort()).toEqual(['native/LICENSE','native/duckdb.node',process.platform==='darwin'?'native/libduckdb.dylib':'native/libduckdb.so','package.json','scripts/operator/provision.js','scripts/operator/ingress-tls.js','src/platform/ops/owner-claim.js'].sort());
   // Stage 4 shares the image with provisioning. Owner claim itself must still
   // start without the native runtime or another operator entrypoint present.
   rmSync(join(directory,'native'),{recursive:true});

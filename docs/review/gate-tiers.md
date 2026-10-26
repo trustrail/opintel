@@ -96,3 +96,10 @@ exactly one request; three pre-connect stalls must deliver exactly once. Wrong
 pins and TLS stalls never write or retry. TRACE-01–02 checks bounded phase
 allowlists and correlated execution/response evidence. Updated ENG-H03 catches
 refusing a healthy engine solely because its companion heartbeat is stale.
+
+Stage 4 package follow-up defect examples: normal tests reject an unhandled
+static-file EACCES, unreadable image-layer assets from umask 077, untrusted SMTP
+certificates and plaintext SMTP mode. Published-digest acceptance (separate from
+source smoke) catches missing built-index assets, broken delivered-link browser
+login, and receipt verification coupled to console uptime. All existing gate
+assertions remain active; a package browser does not substitute for the full gate.

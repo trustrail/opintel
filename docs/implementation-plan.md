@@ -1249,3 +1249,15 @@ or request write. Add bounded timestamped request phases and egress sync events.
 Regression IDs: updated ENG-H03/H04, CONNECT-01–04, TRACE-01–02. Full gate before
 commit, report before publishing, then fresh amd64 published-digest acceptance.
 No resource limit, governance check, execution deadline or result retry changes.
+
+### Stage 4 — package permissions, ingress isolation and SMTP
+
+Authorized follow-up: explicit Docker COPY modes and runtime-readability audits;
+request-scoped static read failures; digest-pinned nginx ingress owning TLS and
+API routing independently of the console; restart and health checks for service
+daemons (one-shot jobs remain non-restarting); SMTP implicit TLS/required STARTTLS
+with local mail fallback. Ingress accepts paired certificate/key paths, generating
+and reusing a local CA only when absent, with a visible console warning.
+DEP-014–017 cover these changes, packaged browser/mail/console-outage acceptance,
+and the noninteractive seed→renew→prepare→soak command. Full gate before commit;
+publish audited amd64 digests and run fresh package acceptance afterward.

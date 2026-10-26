@@ -1,3 +1,4 @@
+import {DeploymentWarning} from './deployment-warning.js';
 import {DataFreshness} from './freshness.js';
 import {Mark,type MarkName} from '../shared/ui/index.js';
 import {DisplayPreferences} from './settings/preferences.js';
@@ -98,5 +99,5 @@ export function AppShell(): ReactNode {
   const pathname = useRouterState({ select: state => state.location.pathname });
   useProjectStream(projectIdFromPath(pathname));
   const collapsed = useShellUi((state) => state.collapsed);
-  return <AppRoot><DisplayPreferences><ToastHost><div className={collapsed ? 'shell collapsed' : 'shell'}><Drawer /><div className="main"><TopBar /><main className="body"><DataFreshness projectId={projectIdFromPath(pathname)}/><Outlet /></main></div></div></ToastHost></DisplayPreferences></AppRoot>;
+  return <AppRoot><DisplayPreferences><ToastHost><div className={collapsed ? 'shell collapsed' : 'shell'}><Drawer /><div className="main"><TopBar /><main className="body"><DeploymentWarning/><DataFreshness projectId={projectIdFromPath(pathname)}/><Outlet /></main></div></div></ToastHost></DisplayPreferences></AppRoot>;
 }

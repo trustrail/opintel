@@ -1,3 +1,4 @@
+import {runSoak} from './run-soak.js';
 import {OperatorConflict,operatorFailure} from './common.js';
 import {EngineId} from '../../src/shared/kernel/index.js';
 import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe,loadApplicationTls} from '../../src/modules/engines/index.js';
@@ -7,7 +8,7 @@ import {syntheticSource} from './infrastructure/synthetic-source.js';
 import {provisionReinsurance} from './reinsurance.js';
 import {prepare} from './prepare.js';
 async function main(){
- const command=process.argv[2];if(command==='--help'){console.info('demo-tools seed | governance | lifecycle | lifecycle-renew | xq-check | prepare | soak; settings come from the package env file');return;}
+ const command=process.argv[2];if(command==='run-soak'){await runSoak(process.argv[3]);return;}if(command==='--help'){console.info('demo-tools run-soak DURATION_SECONDS | seed | governance | lifecycle | lifecycle-renew | xq-check | prepare | soak; settings come from the package env file');return;}
  if(command==='seed'){const report=await syntheticSource(true);await privateWrite(required('OPINTEL_SEED_MANIFEST'),report);console.info('Synthetic V-01 seeded and analyzed; compatible tables preserved');return;}
  const provision=provisionManifest.parse(JSON.parse(await privateRead(required('OPINTEL_PROVISION_MANIFEST'))));
  if(command==='xq-check'){const result=CustodyCheckResult.parse(await api(`/api/v1/projects/${provision.projectId}/custody-provider/check`,'POST',{}));await privateWrite(required('OPINTEL_OUTPUT_DIRECTORY')+'/xq-check-'+Date.now()+'.json',result);if(!result.reachable||!result.authenticated)throw new OperatorConflict('Packaged API XQ connection check failed: '+result.failure);console.info('Packaged API XQ connection check passed');return;}

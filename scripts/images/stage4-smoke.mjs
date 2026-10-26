@@ -4,16 +4,17 @@ import {homedir} from 'node:os';
 import process from 'node:process';
 import console from 'node:console';
 import assert from 'node:assert/strict';
-import {spawnSync} from 'node:child_process';
+import {spawnSync,spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,chmodSync,appendFileSync,readdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {randomBytes,X509Certificate,createHash} from 'node:crypto';
 import {request} from 'node:https';
+import {request as httpRequest} from 'node:http';
 import {setTimeout} from 'node:timers/promises';
 import {URL} from 'node:url';
 import {packageDeployment} from './package.mjs';
 
-for(const port of [14873,14800,14811,14812,14810,14899,16432,16433,16435,17379,16051])await new Promise((resolve,reject)=>{const server=createServer();server.once('error',reject);server.listen(port,'0.0.0.0',()=>server.close(resolve));});
+for(const port of [14873,14800,14811,14812,14810,14899,14825,16432,16433,16435,17379,16051])await new Promise((resolve,reject)=>{const server=createServer();server.once('error',reject);server.listen(port,'0.0.0.0',()=>server.close(resolve));});
 
 // External synthetic acceptance only. Nothing here is copied into product images.
 const platform=process.env.PLATFORM??'linux/amd64';
@@ -31,6 +32,7 @@ const tag=process.env.TAG??'candidate-stage4-core',directory=resolve(mkdtempSync
 const gatewayProject='opintel-gateway-proof-'+Date.now(),engineProject='opintel-engine-proof-'+Date.now(),sourceProject='opintel-source-proof-'+Date.now();
 const gatewayDirectory=join(directory,'gateway'),engineDirectory=join(directory,'engine'),consoleDirectory=join(directory,'console');
 for(const path of [gatewayDirectory,engineDirectory,consoleDirectory,...[gatewayDirectory,engineDirectory].map(d=>join(d,'tls')),join(engineDirectory,'audit'),join(engineDirectory,'custody'),join(engineDirectory,'ingest'),join(engineDirectory,'state'),join(engineDirectory,'xq'),join(gatewayDirectory,'xq')])mkdirSync(path,{recursive:true});
+for(const path of [gatewayDirectory,engineDirectory,consoleDirectory,join(gatewayDirectory,'tls'),join(engineDirectory,'tls')])chmodSync(path,0o755);
 for(const name of ['audit','custody','ingest'])chmodSync(join(engineDirectory,name),0o777);
 const write=(file,value,mode=0o600)=>writeFileSync(file,typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode});
 const envFile=(file,values)=>write(file,Object.entries(values).map(([name,value])=>`${name}=${value}`).join('\n')+'\n');
@@ -60,6 +62,7 @@ function certificate(name,output,sans){
 certificate('application',join(gatewayDirectory,'tls'),`DNS:localhost,IP:127.0.0.1,IP:${hostAddress}`);
 certificate('spicedb',join(gatewayDirectory,'tls'),'DNS:spicedb,DNS:localhost,IP:127.0.0.1');
 certificate('engine',join(engineDirectory,'tls'),`DNS:localhost,IP:127.0.0.1,IP:${hostAddress}`);
+certificate('mailpit',join(gatewayDirectory,'tls'),'DNS:mailpit,DNS:localhost,IP:127.0.0.1');
 certificate('console',consoleDirectory,`DNS:localhost,IP:127.0.0.1,IP:${hostAddress}`);
 for(const output of [join(gatewayDirectory,'tls'),join(engineDirectory,'tls')])write(join(output,'ca.pem'),readFileSync(join(directory,'ca.pem'),'utf8'),0o644);
 write(join(engineDirectory,'tls','application.pem'),readFileSync(join(gatewayDirectory,'tls','application.pem'),'utf8'),0o644);
@@ -76,33 +79,44 @@ envFile(runtimeEnv,common);envFile(operatorEnv,{...common,MIGRATION_DATABASE_URL
 envFile(spiceEnv,{SPICEDB_GRPC_PRESHARED_KEY:spiceToken,SPICEDB_DATASTORE_CONN_URI:`postgres://spicedb:${password}@spicedb-postgres:5432/spicedb?sslmode=disable`,SPICEDB_GRPC_TLS_CERT_PATH:'/config/tls/spicedb.pem',SPICEDB_GRPC_TLS_KEY_PATH:'/config/tls/spicedb.key'});
 envFile(engineEnv,{OPINTEL_SECRET_ACCEPTANCE_SOURCE:sourceUrl,UV_THREADPOOL_SIZE:String(engineWorkers)});
 const gatewayFile=join(gatewayDirectory,'package.env'),engineFile=join(engineDirectory,'package.env');
-envFile(gatewayFile,{PLATFORM:platform,GATEWAY_API_IMAGE:images.api,GATEWAY_CONSOLE_IMAGE:images.console,GATEWAY_MIGRATIONS_IMAGE:images.migrations,GATEWAY_PROVISIONING_IMAGE:images.provisioning,GATEWAY_CONFIG_DIRECTORY:gatewayDirectory,GATEWAY_CONSOLE_CONFIG_DIRECTORY:consoleDirectory,GATEWAY_XQ_DIRECTORY:join(gatewayDirectory,'xq'),GATEWAY_AGENT_CERTIFICATES_DIRECTORY:join(homedir(),'.xq'),GATEWAY_OPERATOR_UID:process.getuid(),GATEWAY_OPERATOR_GID:process.getgid(),GATEWAY_OPERATOR_OUTPUT_DIRECTORY:outputDirectory,GATEWAY_DEMO_TOOLS_IMAGE:images['demo-tools'],GATEWAY_POSTGRES_PASSWORD_FILE:join(gatewayDirectory,'postgres-password'),GATEWAY_SPICEDB_POSTGRES_PASSWORD_FILE:join(gatewayDirectory,'postgres-password'),GATEWAY_REDIS_CONFIG_FILE:join(gatewayDirectory,'redis.conf'),GATEWAY_API_ENV_FILE:runtimeEnv,GATEWAY_OPERATOR_ENV_FILE:operatorEnv,GATEWAY_SPICEDB_ENV_FILE:spiceEnv,GATEWAY_API_UPSTREAM:'http://api:3000',GATEWAY_POSTGRES_PORT:16432,GATEWAY_SPICEDB_POSTGRES_PORT:16433,GATEWAY_REDIS_PORT:17379,GATEWAY_SPICEDB_PORT:16051,GATEWAY_API_PORT:14800,GATEWAY_CONSOLE_PORT:14873,GATEWAY_CONSOLE_BIND_ADDRESS:'0.0.0.0',GATEWAY_RECEIPT_PORT:14811,GATEWAY_RECEIPT_BIND_ADDRESS:'0.0.0.0',GATEWAY_HEARTBEAT_PORT:14812,GATEWAY_HEARTBEAT_BIND_ADDRESS:'0.0.0.0',GATEWAY_HEARTBEAT_URL:`https://${hostAddress}:14812`});
+envFile(gatewayFile,{PLATFORM:platform,GATEWAY_API_IMAGE:images.api,GATEWAY_CONSOLE_IMAGE:images.console,GATEWAY_MIGRATIONS_IMAGE:images.migrations,GATEWAY_PROVISIONING_IMAGE:images.provisioning,GATEWAY_CONFIG_DIRECTORY:gatewayDirectory,GATEWAY_CONSOLE_CONFIG_DIRECTORY:consoleDirectory,GATEWAY_XQ_DIRECTORY:join(gatewayDirectory,'xq'),GATEWAY_AGENT_CERTIFICATES_DIRECTORY:join(homedir(),'.xq'),GATEWAY_OPERATOR_UID:process.getuid(),GATEWAY_OPERATOR_GID:process.getgid(),GATEWAY_OPERATOR_OUTPUT_DIRECTORY:outputDirectory,GATEWAY_DEMO_TOOLS_IMAGE:images['demo-tools'],GATEWAY_POSTGRES_PASSWORD_FILE:join(gatewayDirectory,'postgres-password'),GATEWAY_SPICEDB_POSTGRES_PASSWORD_FILE:join(gatewayDirectory,'postgres-password'),GATEWAY_REDIS_CONFIG_FILE:join(gatewayDirectory,'redis.conf'),GATEWAY_API_ENV_FILE:runtimeEnv,GATEWAY_OPERATOR_ENV_FILE:operatorEnv,GATEWAY_SPICEDB_ENV_FILE:spiceEnv,GATEWAY_INGRESS_CERT_FILE:join(consoleDirectory,'console.pem'),GATEWAY_INGRESS_KEY_FILE:join(consoleDirectory,'console.key'),GATEWAY_INGRESS_CONFIG_FILE:join(packages,'gateway','ingress','nginx.conf'),SMTP_HOST:'mailpit',SMTP_PORT:'1025',SMTP_USER:'',SMTP_PASSWORD:'',SMTP_SENDER:'acceptance@example.invalid',SMTP_TLS_MODE:'starttls',GATEWAY_POSTGRES_PORT:16432,GATEWAY_SPICEDB_POSTGRES_PORT:16433,GATEWAY_REDIS_PORT:17379,GATEWAY_SPICEDB_PORT:16051,GATEWAY_API_PORT:14800,GATEWAY_CONSOLE_PORT:14873,GATEWAY_CONSOLE_BIND_ADDRESS:'0.0.0.0',GATEWAY_RECEIPT_PORT:14811,GATEWAY_RECEIPT_BIND_ADDRESS:'0.0.0.0',GATEWAY_HEARTBEAT_PORT:14812,GATEWAY_HEARTBEAT_BIND_ADDRESS:'0.0.0.0',GATEWAY_HEARTBEAT_URL:`https://${hostAddress}:14812`});
 envFile(engineFile,{PLATFORM:platform,ENGINE_IMAGE:images.engine,ENGINE_EGRESS_IMAGE:images.egress,ENGINE_CONFIG_DIRECTORY:engineDirectory,ENGINE_STATE_DIRECTORY:join(engineDirectory,'state'),ENGINE_ENV_FILE:engineEnv,ENGINE_AUDIT_DIRECTORY:join(engineDirectory,'audit'),ENGINE_CUSTODY_DIRECTORY:join(engineDirectory,'custody'),ENGINE_INGEST_DIRECTORY:join(engineDirectory,'ingest'),ENGINE_XQ_DIRECTORY:join(engineDirectory,'xq'),ENGINE_PORT:14810,ENGINE_BIND_ADDRESS:'0.0.0.0'});
-const sourceFile=join(directory,'source.json');write(sourceFile,{services:{source:{image:upstream.services.postgres.image,platform,environment:{POSTGRES_USER:'source',POSTGRES_PASSWORD:password,POSTGRES_DB:'source'},ports:['0.0.0.0:16435:5432'],healthcheck:{test:['CMD','pg_isready','-U','source'],interval:'1s',timeout:'2s',retries:30}}}});
+const mailFile=join(directory,'mailpit.json');write(mailFile,{services:{mailpit:{image:upstream['x-acceptance-images'].mailpit,platform,environment:{MP_SMTP_TLS_CERT:'/tls/mailpit.pem',MP_SMTP_TLS_KEY:'/tls/mailpit.key',MP_SMTP_REQUIRE_STARTTLS:'true'},volumes:[join(gatewayDirectory,'tls')+':/tls:ro'],ports:['0.0.0.0:14825:8025']}}});
+const sourceFile=join(directory,'source.json');write(sourceFile,{services:{source:{image:upstream.services.postgres.image,platform,environment:{POSTGRES_USER:'source',POSTGRES_PASSWORD:password,POSTGRES_DB:'source'},volumes:['source-data:/var/lib/postgresql/data'],ports:['0.0.0.0:16435:5432'],healthcheck:{test:['CMD','pg_isready','-U','source'],interval:'1s',timeout:'2s',retries:30}}},volumes:{'source-data':{}}});
 const gateway=(...args)=>exec('bash',[join(packages,'gateway','gateway.sh'),'--env-file',gatewayFile,'--project-name',gatewayProject,...args]);
 const engine=(...args)=>exec('bash',[join(packages,'engine','engine.sh'),'--env-file',engineFile,'--project-name',engineProject,...args]);
 const source=(...args)=>exec('docker',['compose','-p',sourceProject,'-f',sourceFile,...args]);
 const gatewayCompose=(service,...args)=>exec('docker',['compose','-p',gatewayProject,'--env-file',gatewayFile,'-f',join(packages,'gateway','services',service+'.json'),...args]);
-async function wait(check,label){const until=Date.now()+90000;for(;;){try{return await check();}catch{if(Date.now()>until)throw new Error(label+' did not become ready');await setTimeout(500);}}}
+async function wait(check,label,timeout=90000){const until=Date.now()+timeout;for(;;){try{return await check();}catch{if(Date.now()>until)throw new Error(label+' did not become ready');await setTimeout(500);}}}
 const ca=readFileSync(join(directory,'ca.pem'));
 let cookie='';
 function https(url,method='GET',body,tls={}){return new Promise((resolve,reject)=>{
- const parsed=new URL(url),call=request(parsed,{method,agent:false,ca,...tls,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{})},timeout:5000},response=>{let text='';response.on('data',chunk=>{text+=chunk;});response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,text}));});
+ const parsed=new URL(url),call=request(parsed,{method,agent:false,signal:globalThis.AbortSignal.timeout(5000),ca,...tls,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{})},timeout:5000},response=>{let text='';response.on('data',chunk=>{text+=chunk;});response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,text}));});
  call.on('error',error=>{appendFileSync(join(directory,'transport.jsonl'),JSON.stringify({method,path:parsed.pathname,code:error.code,reusedSocket:call.reusedSocket,at:new Date().toISOString()})+'\n');reject(error);});call.on('timeout',()=>call.destroy(new Error('HTTPS deadline')));call.end(body?JSON.stringify(body):undefined);
 });}
 async function api(path,method='GET',body){const response=await https('https://127.0.0.1:14873'+path,method,body);if(response.status<200||response.status>=300)throw new Error(`API ${method} ${path} refused (${response.status})`);return response.text?JSON.parse(response.text):undefined;}
 const health=async()=>{const response=await https('https://127.0.0.1:14810/health','POST',undefined,{cert:readFileSync(join(gatewayDirectory,'tls','application.pem')),key:readFileSync(join(gatewayDirectory,'tls','application.key'))});assert.equal(response.status,200);return JSON.parse(response.text);};
+function mailJson(path){return new Promise((resolve,reject)=>{const call=httpRequest('http://127.0.0.1:14825'+path,{agent:false,timeout:5000},response=>{let text='';response.on('data',chunk=>{text+=chunk;});response.on('error',()=>reject(new Error('Mail catcher response failed')));response.on('end',()=>{try{assert.equal(response.statusCode,200);resolve(JSON.parse(text));}catch{reject(new Error('Mail catcher response invalid'));}});});call.on('error',()=>reject(new Error('Mail catcher unavailable')));call.on('timeout',()=>call.destroy(new Error('Mail catcher deadline')));call.end();});}
+async function mailMessages(){return (await mailJson('/api/v1/messages')).messages;}
+async function receivedMail(email,before){return wait(async()=>{const found=(await mailMessages()).find(m=>!before.has(m.ID)&&m.To.some(to=>to.Address===email));assert.ok(found);return mailJson('/api/v1/message/'+found.ID);},'SMTP delivery');}
+
 async function login(){
- cookie='';
- const previous=JSON.parse(gatewayCompose('api','exec','-T','api','node','-e',"console.log(JSON.stringify(require('node:fs').readdirSync('/mail')))"));
+ cookie='';const before=new Set((await mailMessages()).map(m=>m.ID));
  await api('/api/v1/auth/request-link','POST',{email:'stage4-owner@example.invalid',deviceNonce:'stage4-browser'});
- const mail=JSON.parse(gatewayCompose('api','exec','-T','api','node','-e',`const fs=require('node:fs');const previous=${JSON.stringify(previous)};const messages=fs.readdirSync('/mail').filter(name=>!previous.includes(name)).map(name=>JSON.parse(fs.readFileSync('/mail/'+name)));process.stdout.write(JSON.stringify(messages.find(value=>value.template==='magic_link')));`));
- const callback=await https('https://127.0.0.1:14873/api/v1/auth/callback','POST',{token:new URL(mail.vars.url).searchParams.get('token'),deviceNonce:'stage4-browser'});
+ const mail=await receivedMail('stage4-owner@example.invalid',before),link=mail.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);
+ const callback=await https('https://127.0.0.1:14873/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage4-browser'});
  assert.equal(callback.status,200);assert.ok(callback.headers['set-cookie']?.[0]);cookie=callback.headers['set-cookie'][0].split(';')[0];
 }
-const result={platform,tag,revision:published?.revision??exec('git',['rev-parse','HEAD']),published:!!published,candidate:published?.candidate??true,images,hostAddress,workload:{agents:10,rateMs:soakRateMs,sourceLimits,engineWorkers},projects:{gateway:gatewayProject,engine:engineProject,source:sourceProject},checks:{}};
+function browserCheck(restore=false){
+ const version=JSON.parse(readFileSync('package-lock.json','utf8')).packages['node_modules/@playwright/test'].version;
+ exec('docker',['run','--rm','--init','--ipc=host','--platform',platform,'-v',resolve('node_modules')+':/work/node_modules:ro','-v',resolve('scripts/images/package-browser.mjs')+':/work/browser.mjs:ro','-v',directory+':/acceptance','-w','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs',...(restore?['restore']:[])]);
+ return JSON.parse(readFileSync(join(directory,'browser-'+(restore?'restored':'initial')+'.json'),'utf8'));
+}
+
+const result={platform,tag,revision:published?.revision??exec('git',['rev-parse','HEAD']),published:!!published,candidate:published?.candidate??true,images,upstreamImages:{ingress:upstream.services.ingress.image,mailpit:upstream['x-acceptance-images'].mailpit},hostAddress,workload:{agents:10,rateMs:soakRateMs,sourceLimits,engineWorkers},projects:{gateway:gatewayProject,engine:engineProject,source:sourceProject},checks:{}};
 try{
  source('up','-d','--wait');
+ exec('docker',['compose','-p',gatewayProject,'-f',mailFile,'up','-d']);await wait(mailMessages,'Mail catcher');
  gateway('start','postgres','redis','spicedb-postgres');
  await wait(()=>gatewayCompose('postgres','exec','-T','postgres','pg_isready','-U','opintel'),'Gateway PostgreSQL');
  await wait(()=>gatewayCompose('spicedb-postgres','exec','-T','spicedb-postgres','pg_isready','-U','spicedb'),'SpiceDB PostgreSQL');
@@ -110,14 +124,27 @@ try{
  gatewayCompose('postgres','exec','-T','postgres','psql','-U','opintel','-d','opintel','-c',`CREATE ROLE opintel_gateway LOGIN PASSWORD '${runtimePassword}'; GRANT opintel_app,opintel_platform,opintel_platform_admin TO opintel_gateway;`);
  gateway('owner-claim','--owner-email','stage4-owner@example.invalid','--company','Stage4 synthetic acceptance','--region','eu-west-1');
  assert.equal(gatewayCompose('postgres','exec','-T','postgres','psql','-U','opintel','-d','opintel','-Atc','SELECT count(*) FROM company'),'0');
- gateway('start','api','console');await wait(()=>api('/healthz'),'Gateway API');await login();
+ gateway('start','api','console','ingress');await wait(()=>api('/healthz'),'Gateway API');await login();
  const companies=await api('/api/v1/companies');assert.equal(companies.items.length,1);write(join(outputDirectory,'observer.cookie'),cookie+'\n');
+ result.checks.daemonHealth={};
+ for(const service of ['api','console','ingress','postgres','redis','spicedb-postgres','spicedb']){
+  const container=exec('docker',['ps','-q','--filter',`label=com.docker.compose.project=${gatewayProject}`,'--filter',`label=com.docker.compose.service=${service}`]);assert.ok(container);
+  await wait(()=>assert.equal(exec('docker',['inspect','--format','{{.State.Health.Status}}',container]),'healthy'),'Gateway health '+service);
+  result.checks.daemonHealth[service]='healthy';
+ }
  result.checks.ownerClaim={normalLogin:true,noCompanyBeforeLogin:true,companyCount:1};
+ result.checks.ingressTls={suppliedCertificate:true,pairedPaths:true,fallbackWarning:(await https('https://127.0.0.1:14873/deployment.json')).text};
  engine('prepare',join(engineDirectory,'state','readiness-egress.json'));engine('start','egress');engine('start','engine');await wait(health,'Packaged engine');
  write(join(outputDirectory,'operator.json'),{ownerEmail:'stage4-owner@example.invalid',companyId:companies.items[0].id,projectName:'Stage4 reinsurance',region:'eu-west-1',engine:{name:'Acceptance engine',address:`https://${hostAddress}:14810`,certificatePin:new X509Certificate(readFileSync(join(engineDirectory,'tls','engine.pem'))).fingerprint256.replaceAll(':','')},sourceCredentialRef:'secret://acceptance/source',settings:{query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5},custody:{provider:'xq',tenant:xq.OPINTEL_XQ_TEAM_ID,region:'eu-west-1'},poolKeyGraceSeconds:3600}});
  write(join(outputDirectory,'certificates.json'),[{certificateId:223,deviceName:'opintelprobe'},{certificateId:224,deviceName:'opintelpoola'},{certificateId:225,deviceName:'opintelpoolb2'},{certificateId:226,deviceName:'opintelpoolb'}].map(v=>({...v,bundlePath:'/home/operator/.xq/v02/'+v.certificateId})));
  const job=(command,...args)=>{const text=gateway(command,...args);write(join(directory,command+'-'+args.join('-')+'-'+Date.now()+'.log'),text);return text;};
  job('provision');result.checks.provision=true;
+ const provision=JSON.parse(readFileSync(join(outputDirectory,'provision.json'),'utf8')),email='browser-acceptance@example.invalid';
+ const beforeInvitation=new Set((await mailMessages()).map(m=>m.ID));
+ await api('/api/v1/projects/'+provision.projectId+'/invitations','POST',{email,companyId:companies.items[0].id,projectId:provision.projectId,role:'viewer'});
+ await receivedMail(email,beforeInvitation);result.checks.smtpInvitation={delivered:true};
+ write(join(directory,'browser.json'),{base:`https://${hostAddress}:14873`,mail:`http://${hostAddress}:14825`,email,projectId:provision.projectId});
+ result.checks.packagedBrowser=browserCheck();
  job('demo-tools','seed');result.checks.seed=true;
  job('demo-tools','xq-check');result.checks.packagedApiXqConnection=JSON.parse(readFileSync(join(outputDirectory,readdirSync(outputDirectory).find(name=>name.startsWith('xq-check-'))),'utf8'));
  job('demo-tools','governance');result.checks.governance=true;
@@ -133,10 +160,40 @@ try{
  const before=snapshot(),keysBefore=readFileSync(join(outputDirectory,'soak.json'),'utf8');
  job('provision');job('demo-tools','seed');job('demo-tools','governance');assert.equal(snapshot(),before);assert.equal(readFileSync(join(outputDirectory,'soak.json'),'utf8'),keysBefore);result.checks.unchangedRerun={stateHash:createHash('sha256').update(before).digest('hex'),privateManifestHash:createHash('sha256').update(keysBefore).digest('hex'),identical:true};
  job('demo-tools','lifecycle');job('demo-tools','prepare');const preparation=JSON.parse(readFileSync(join(outputDirectory,readdirSync(outputDirectory).find(name=>name.startsWith('prepare-'))),'utf8'));assert.equal(preparation.status,'passed');result.checks.certificateExchangeAndEscrowRedeem={certificates:preparation.certificates,verifiedValues:preparation.verifiedValues,receiptIds:preparation.receiptIds};result.checks.prepare=true;
- job('demo-tools','soak');
- const logs=readdirSync(join(outputDirectory,'soak')).filter(n=>n.endsWith('.jsonl'));assert.equal(logs.length,1);const events=readFileSync(join(outputDirectory,'soak',logs[0]),'utf8').trim().split('\n').map(v=>JSON.parse(v));const start=events.find(v=>v.type==='start'),summary=events.at(-1);assert.equal(start.duration,120);assert.ok(Date.now()-Date.parse(start.startedAt)>=120000);assert.equal(summary.status,'PASSED');assert.equal(summary.invariantBreaches,0);assert.equal(summary.operationalErrors,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
+ // Keep the timer and verification live while the static console is stopped.
+ const soakLog=join(directory,'demo-tools-soak.log');
+ const soakDirectory=()=>join(outputDirectory,readdirSync(outputDirectory).find(n=>n.startsWith('soak-run-'))??'not-started','soak');
+ const child=spawn('bash',[join(packages,'gateway','gateway.sh'),'--env-file',gatewayFile,'--project-name',gatewayProject,'demo-tools','run-soak','120'],{stdio:['ignore','pipe','pipe']});
+ child.stdout.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));child.stderr.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));
+ let soakExitCode=null;
+ const finished=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',code=>resolve(code));});
+ try{
+  await wait(()=>{const paths=readdirSync(soakDirectory()).filter(n=>n.endsWith('.jsonl'));assert.equal(paths.length,1);assert.ok(readFileSync(join(soakDirectory(),paths[0]),'utf8').includes('"type":"start"'));},'Timed soak start',300000);
+  await setTimeout(15000);gateway('stop','console');const stoppedAt=new Date().toISOString();
+  assert.equal((await https('https://127.0.0.1:14873/sign-in')).status,502);
+  const readEvents=()=>{const name=readdirSync(soakDirectory()).find(n=>n.endsWith('.jsonl'));const text=readFileSync(join(soakDirectory(),name),'utf8');return text.slice(0,text.lastIndexOf('\n')).split('\n').filter(Boolean).map(line=>JSON.parse(line));};
+  const baseline=readEvents(),oldQueries=new Set(baseline.filter(e=>e.type==='query').map(e=>e.response?.structuredContent?.evidenceId)),oldReceipts=new Set(baseline.filter(e=>e.type==='receipt').map(e=>e.id)),verifiedDuringOutage=new Set();
+  const probes=[];for(let n=0;n<4;n++){
+   await api('/healthz');await api('/api/v1/projects/'+provision.projectId+'/runs?limit=1');
+   const events=readEvents(),newQueries=new Set(events.filter(e=>e.type==='query'&&e.outcome==='success'&&!oldQueries.has(e.response?.structuredContent?.evidenceId)).map(e=>e.response?.structuredContent?.evidenceId));
+   for(const event of events)if(event.type==='receipt'&&!oldReceipts.has(event.id)&&newQueries.has(event.id))verifiedDuringOutage.add(event.id);
+   probes.push({at:new Date().toISOString(),newVerifiedQueries:verifiedDuringOutage.size});await setTimeout(5000);
+  }
+  const resumedAt=new Date().toISOString();gateway('start','console');await wait(async()=>assert.equal((await https('https://127.0.0.1:14873/sign-in')).status,200),'Console recovery');
+  result.checks.consoleIsolation={stoppedAt,resumedAt,apiAndReceiptProbes:probes,queryAndReceiptDuringOutage:verifiedDuringOutage.size,uiUnavailableOnly:true};
+  result.checks.packagedBrowserRestored=browserCheck(true);
+  soakExitCode=await finished;
+ }finally{if(child.exitCode===null){child.kill('SIGTERM');await finished;}}
+
+ const logs=readdirSync(soakDirectory()).filter(n=>n.endsWith('.jsonl'));assert.equal(logs.length,1);const events=readFileSync(join(soakDirectory(),logs[0]),'utf8').trim().split('\n').map(v=>JSON.parse(v));const start=events.find(v=>v.type==='start'),summary=events.at(-1);
  const apiLog=gatewayCompose('api','logs','--no-color','api');result.checks.engineProbeRecovery={connectRetries:[...apiLog.matchAll(/engine\.probe_connect_retry/gu)].length,verificationRefusals:[...apiLog.matchAll(/engine\.verification_refused/gu)].length};
  result.checks.twoMinuteSoak={outcomes:summary.outcomes,refusals:summary.refusals,durationSeconds:start.duration,status:summary.status,invariantBreaches:summary.invariantBreaches,operationalErrors:summary.operationalErrors,receiptChecksSkipped:summary.receiptInvariants.checksSkipped,custodyVerifiedValues:summary.custody.verifiedValues,coverage:{declared:summary.coverage.declared,exercised:summary.coverage.exercised}};
+ result.checks.packagedSoakWorkflow=JSON.parse(readFileSync(join(soakDirectory(),'..','result.json'),'utf8')).steps;
+ const outage=result.checks.consoleIsolation;
+ const receipts=events.filter(e=>e.type==='receipt'&&e.detail&&Date.parse(e.detail.startedAt)>=Date.parse(outage.stoppedAt)&&Date.parse(e.detail.startedAt)<Date.parse(outage.resumedAt));
+ assert.ok(receipts.length,'No verified query receipts during console outage');outage.verifiedQueryReceipts=receipts.length;
+ assert.ok(outage.queryAndReceiptDuringOutage>0,'No new successful query and receipt verified while console was stopped');
+ assert.equal(soakExitCode,0,'Packaged soak failed');assert.equal(start.duration,120);assert.ok(Date.now()-Date.parse(start.startedAt)>=120000);assert.equal(summary.status,'PASSED');assert.equal(summary.invariantBreaches,0);assert.equal(summary.operationalErrors,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
  result.status='passed';write(join(directory,'result.json'),result);console.log('Stage4 package acceptance passed: '+join(directory,'result.json'));
 }catch(error){result.status='failed';result.failure=error instanceof Error?error.message:'Acceptance failed';write(join(directory,'result.json'),result);throw error;}
 finally{

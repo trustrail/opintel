@@ -11,7 +11,7 @@ if [[ ${1:-} == --project-name ]]; then project="${2:?set project name}"; shift 
 command="${1:?set command}"; shift
 compose=(docker compose --project-name "$project" --env-file "$env_file")
 add_service(){
- case "$1" in api|console|postgres|redis|spicedb-postgres|spicedb|spicedb-migrate|migrations|schema|owner-claim|provision|demo-tools) compose+=(-f "$root/services/$1.json");; *) echo "Unknown gateway service: $1" >&2; exit 2;; esac
+ case "$1" in api|console|ingress|ingress-setup|postgres|redis|spicedb-postgres|spicedb|spicedb-migrate|migrations|schema|owner-claim|provision|demo-tools) compose+=(-f "$root/services/$1.json");; *) echo "Unknown gateway service: $1" >&2; exit 2;; esac
 }
 case "$command" in
  start|stop|status) [[ $# -gt 0 ]] || { usage >&2; exit 2; }; for service in "$@"; do add_service "$service"; done;;
@@ -26,7 +26,10 @@ while IFS= read -r image; do
  [[ ${#digest} == 64 && "$digest" != *[!0-9a-f]* ]] || { echo 'Invalid image digest.' >&2; exit 2; }
 done <<< "$images"
 case "$command" in
- start) exec "${compose[@]}" up --detach --no-deps --pull missing "$@";;
+ start) if [[ " $* " == *" ingress "* ]]; then
+  docker compose --project-name "$project" --env-file "$env_file" -f "$root/services/ingress-setup.json" run --rm --no-deps ingress-setup
+ fi
+ exec "${compose[@]}" up --detach --no-deps --pull missing "$@";;
  stop) exec "${compose[@]}" stop "$@";;
  status) exec "${compose[@]}" ps "$@";;
  migrate) exec "${compose[@]}" run --rm --no-deps migrations node src/platform/db/migrate.js "$1";;

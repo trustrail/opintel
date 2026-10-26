@@ -450,3 +450,17 @@ Forward migration 084 adds an internal registration version. Every registration
 edit advances it; health writes and reuse are bound to that version. An edit
 followed by a revert cannot let a probe begun before the edits publish health.
 The version is not an API setting, a source policy, or retained evidence.
+
+### Package isolation amendment
+
+Ingress is the pinned upstream nginx service. It owns published HTTPS and routes
+/api, /mcp, /healthz and /auth/oidc to the API; all other paths reach the static
+console. Console loss must not interrupt observer/receipt or agent traffic.
+Daemon services use unless-stopped and health checks; migrations and operator
+jobs remain one-shot with restart:no. The supervisor still bounds child recovery.
+All copied image content has explicit permissions and both layer and actual
+runtime-user readability audits. No host umask may change product readability.
+SMTP configuration lives in package.env; implicit and required STARTTLS verify
+certificates. Ingress paired certificate/key paths take precedence over a generated
+fallback CA. The fallback is reusable, never silently regenerated, and visibly
+identified in the console. See the gateway README for configuration.

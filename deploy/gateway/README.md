@@ -11,8 +11,7 @@ file. API runtime environment needs `DATABASE_URL`, `REDIS_URL`, `SPICEDB_ENDPOI
 `MIGRATION_DATABASE_URL` with migration authority. Use a separate runtime database
 login with the existing application roles. Configure TLS at
 `GATEWAY_CONFIG_DIRECTORY/application-tls.json`, with CA/cert/key paths relative
-to that directory, and the CA at `tls/ca.pem`. Set console TLS in its separate
-configuration directory. Customer `~/.xq` may be supplied as
+to that directory, and the CA at `tls/ca.pem`. Set the ingress certificate and key paths as described below. Customer `~/.xq` may be supplied as
 `GATEWAY_XQ_DIRECTORY`; it is mounted read-only.
 
 Set `GATEWAY_HEARTBEAT_URL` to this gateway's HTTPS address reachable from engines.
@@ -32,7 +31,7 @@ Example lifecycle (substitute the absolute operator environment path):
 ./gateway.sh --env-file /etc/opintel/gateway.env start spicedb
 ./gateway.sh --env-file /etc/opintel/gateway.env schema
 ./gateway.sh --env-file /etc/opintel/gateway.env owner-claim --owner-email owner@example.com --company 'Customer' --region eu-west-1
-./gateway.sh --env-file /etc/opintel/gateway.env start api console
+./gateway.sh --env-file /etc/opintel/gateway.env start api console ingress
 ```
 
 Wait for each configured dependency to be reachable before its job. External
@@ -70,3 +69,51 @@ directory. Set `GATEWAY_OPERATOR_OUTPUT_DIRECTORY` (mode 700) and its owner in
 The package-only provisioning, certificate, observer and soak procedure is in
 `run-soak.md`, included in the generated gateway package. No checkout or host Node
 is required. Installation does not automatically seed data or configure governance.
+
+## HTTPS ingress and service isolation
+
+Start `ingress` alongside `api` and `console`; nginx owns the published HTTPS port
+(`GATEWAY_CONSOLE_PORT`, default 443). Console serves static files only. API,
+MCP, health and OIDC routes bypass it. Stopping console affects only the UI.
+Set `GATEWAY_INGRESS_CONFIG_FILE` to the absolute path of this package's
+`ingress/nginx.conf`. Use these absolute host paths in package.env:
+
+```dotenv
+GATEWAY_INGRESS_CERT_FILE=/etc/opintel/tls/fullchain.pem
+GATEWAY_INGRESS_KEY_FILE=/etc/opintel/tls/private.key
+```
+
+Supply both or neither. Missing/unreadable supplied files fail startup; they never
+trigger fallback. When neither is supplied, starting ingress runs its one-shot
+setup image and reuses a local CA/server identity under
+`GATEWAY_CONFIG_DIRECTORY/ingress-tls`. Set `GATEWAY_INGRESS_HOSTS` to comma-separated
+DNS names/IPs before first generation (default localhost,127.0.0.1). Do not delete
+this identity to rotate it implicitly. The console visibly warns about fallback
+TLS. Trust the fallback ca.pem explicitly in browsers and operator HTTPS trust;
+merge it into the configured gateway tls/ca.pem trust bundle for packaged Node
+clients. Use a trusted certificate for production. Service daemons restart unless
+stopped and have health checks; completed migration/operator jobs do not restart.
+
+## Outbound SMTP
+
+Set all relevant fields in the private package.env consumed by Compose:
+
+```dotenv
+SMTP_HOST=smtp.mail.us-east-1.awsapps.com
+SMTP_PORT=465
+SMTP_USER=noreply@trustrail.io
+SMTP_PASSWORD=REPLACE_IN_PRIVATE_ENV_ONLY
+SMTP_SENDER=noreply@trustrail.io
+SMTP_TLS_MODE=implicit
+```
+
+AWS WorkMail's us-east-1 SMTP endpoint uses port 465 with implicit TLS
+(https://docs.aws.amazon.com/general/latest/gr/workmail.html).
+For a STARTTLS service use its configured port (commonly 587) and
+`SMTP_TLS_MODE=starttls`; TLS upgrade is mandatory and certificates are verified.
+User/password must be paired; both may be empty for a TLS-protected internal mail
+relay. Partial configuration fails startup. With every SMTP field unset, local
+mail under the API's /mail volume remains the fallback. A configured SMTP failure
+never falls back to local files. Production logs contain no magic links or tokens.
+Magic links and invitations keep the existing authentication and authorization
+checks. Restart/recreate API after changing package.env. Keep this file mode 600.

@@ -95,7 +95,7 @@ async function start(): Promise<void> {
     { PostgresIdentityRepository, RedisRateLimiter },
     { OutboxMagicLinkDispatcher },
     { RedisSessionStore },
-    { LocalFileMailAdapter, MailOutbox },
+    { configuredMail, MailOutbox },
     { magicLinkRoutes },
     { providerRoutes },
     { currentUserRoutes, cookieValue },
@@ -205,7 +205,7 @@ async function start(): Promise<void> {
   const hub = new RedisProjectHub(redis.client, requiredEnvironment('REDIS_URL'));
   const sessions = new RedisSessionStore(redis.client, clock, new UuidV7IdFactory(),sessionIdlePolicy);
 
-  const mail = new LocalFileMailAdapter(process.env.MAIL_OUTPUT_DIR ?? './tmp/mail', clock, undefined, process.env.APP_BASE_URL ?? 'http://localhost:5173');
+  const mail = configuredMail(clock);
   const delivery = new OutboxMagicLinkDispatcher(new MailOutbox(), mail);
   const invitations = new InvitationService(new PostgresInvitationRepository(relationshipOutbox), authorization, clock, new OutboxInvitationDelivery(new MailOutbox(),mail));
   const identity = new PostgresIdentityRepository(clock, invitations);

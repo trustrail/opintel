@@ -38,7 +38,19 @@
         "${ENGINE_INGEST_DIRECTORY:?set local ingest directory}:/ingest",
         "${ENGINE_STATE_DIRECTORY:?set engine-local state directory}/control/hosts:/etc/hosts:ro"
       ],
-      "restart": "no"
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "const f=require('node:fs'),c=JSON.parse(f.readFileSync('/config/service.json','utf8')),port=Number(c.port??3100).toString(16).toUpperCase().padStart(4,'0');const rows=['/proc/net/tcp','/proc/net/tcp6'].flatMap(p=>f.readFileSync(p,'utf8').trim().split('\\n').slice(1));process.exit(rows.some(r=>{const v=r.trim().split(/\\s+/);return v[1].endsWith(':'+port)&&v[3]==='0A';})?0:1);"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "30s"
+      }
     }
   }
 }

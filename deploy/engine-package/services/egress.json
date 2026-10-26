@@ -31,7 +31,7 @@
       "ports": [
         "${ENGINE_BIND_ADDRESS:-127.0.0.1}:${ENGINE_PORT:-3100}:3100"
       ],
-      "restart": "no",
+      "restart": "unless-stopped",
       "environment": {
         "EGRESS_DYNAMIC_CONFIG": "/config/service.json"
       },

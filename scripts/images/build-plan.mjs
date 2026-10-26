@@ -9,4 +9,4 @@ export function targetPlatforms(value='linux/amd64,linux/arm64'){
  if(!platforms.length||new Set(platforms).size!==platforms.length||platforms.some(p=>!['linux/amd64','linux/arm64'].includes(p)))throw new Error('PLATFORM must be linux/amd64, linux/arm64, or their comma-separated pair.');
  return platforms;
 }
-export function runtimeBase(target){return target==='egress'?'firewall-runtime':'runtime-base';}
+export function runtimeBase(target){return target==='egress'?'firewall-runtime':target==='provisioning'?'tls-runtime':'runtime-base';}

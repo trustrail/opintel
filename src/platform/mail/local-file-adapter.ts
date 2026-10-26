@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import {z} from 'zod';
+import {mailLink} from './render.js';
 import {
   DomainError,
   err,
@@ -59,21 +59,6 @@ export class LocalFileMailAdapter implements MailPort {
     }
   }
 
-  private magicLink(message: OutboundMail): URL | null {
-    if (message.template !== 'magic_link') return null;
-    const token = message.vars.token;
-    if (typeof token !== 'string' || token.length === 0) return null;
-    const url = new URL('/auth/callback', this.appBaseUrl);
-    url.searchParams.set('token', token);
-    return url;
-  }
-
-  private invitationLink(message:OutboundMail):URL|null {
-    if(message.template!=='invitation')return null;
-    const parsed=z.object({provider:z.string().regex(/^oidc:[a-zA-Z0-9_-]+$/u),companyId:z.uuid(),inviteId:z.uuid()}).safeParse(message.vars);
-    if(!parsed.success)return null;
-    const url=new URL(`/auth/oidc/${parsed.data.provider}/start`,this.appBaseUrl);
-    url.searchParams.set('companyId',parsed.data.companyId);url.searchParams.set('inviteId',parsed.data.inviteId);
-    return url;
-  }
+  private magicLink(message:OutboundMail):URL|null {return message.template==='magic_link'?mailLink(message,this.appBaseUrl):null;}
+  private invitationLink(message:OutboundMail):URL|null {return message.template==='invitation'?mailLink(message,this.appBaseUrl):null;}
 }

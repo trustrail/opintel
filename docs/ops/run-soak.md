@@ -109,22 +109,30 @@ mapping as `certificates.json` in the output directory:
 ]
 ```
 
-From the extracted gateway package, run:
+From the extracted gateway package, use the single packaged workflow. Set the
+absolute package env path and existing gateway Compose project; all targets,
+provider settings, private manifests and observer session come from that env.
+The source service and gateway/engine daemons must already be running. Acceptance
+now retains its synthetic source database in a named volume when containers stop.
+Restart that same source project before using its target again.
 
 ```sh
-umask 077
-GATEWAY_ENV=/etc/opintel/gateway.env
-GATEWAY_PROJECT=customer-gateway
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" provision
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools seed
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools xq-check
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools governance
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" provision
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools governance
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools lifecycle
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools prepare
-./gateway.sh --env-file "$GATEWAY_ENV" --project-name "$GATEWAY_PROJECT" demo-tools soak
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway demo-tools run-soak 1800
 ```
+
+`run-soak DURATION_SECONDS` is shipped inside demo-tools. It reads nothing from
+stdin and runs seed → lifecycle-renew → prepare → soak, stopping on failure.
+Seeding restores a compatible empty synthetic source before grace-window renewal.
+Renewal replaces only the explicit retiring/revoked probes and preserves their
+history, ordinary caller credentials and governance decisions. The scenario set,
+seed and pacing remain those of the existing manifest/env. Keep the normal
+observer login current; the workflow does not manufacture or bypass login.
+
+Each invocation creates a private `soak-run-<UTC timestamp>` directory under
+GATEWAY_OPERATOR_OUTPUT_DIRECTORY: `result.json` records steps and the final
+summary; `soak/*.jsonl` contains the timed events. Preparation records remain
+`prepare-*.json` in the private output root. Failures are retained. Duration is
+an argument, not a host Node script or a stdin prompt.
 
 Provisioning checks existing company/project administrator authorization. It
 creates no user or role, initializes token custody through the existing service,
@@ -151,7 +159,7 @@ under `soak/` with unique names; failed reports are retained. Require exit 0,
 `SOAK PASSED`, zero invariant breaches, zero operational errors and zero skipped
 receipt checks. Inspect custody verified values and declared scenario coverage;
 a timed run is not a claim that every scenario completed. For thirty minutes,
-set `OPINTEL_SOAK_DURATION=1800`, then run `prepare` and `soak` again. Never run
+run `demo-tools run-soak 1800`. Never run
 the repository gate or another database-resetting harness against this target.
 
 Stage 4 acceptance status and exact published image digests are recorded in

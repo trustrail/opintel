@@ -13,6 +13,12 @@
     },
     "spicedb": {
       "image": "authzed/spicedb:latest@sha256:a170d372c9f6b921bb6849064df6ca3566dd5b174882c1a2c4300c2ae1d60efd"
+    },
+    "ingress": {
+      "image": "nginx:stable-alpine@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951"
     }
+  },
+  "x-acceptance-images": {
+    "mailpit": "axllent/mailpit@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498"
   }
 }

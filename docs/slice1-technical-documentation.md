@@ -5953,3 +5953,15 @@ version identifies the installed policy, not a claim that a source is reachable.
 No pre-assignment firewall exception or operator destination list is introduced.
 
 Existing-source engine assignment also queues normal introspection, retaining schema selection and sampling consent. Current-policy acknowledgment releases it; success reconnects the source and failure leaves it unreachable. Repeated assignment reuses queued work; assignment during active introspection refuses until completion. Worker claiming serializes with assignment and refuses pending egress. Query admission still requires connected status.
+
+### Stage 4 package durability and mail amendment
+
+The static console handles stream errors per request with bounded timestamped
+logging. nginx owns TLS and routes the existing API, MCP, health and OIDC paths
+without the console. SMTP implements the existing MailPort behind infrastructure;
+implicit TLS and mandatory STARTTLS preserve authentication and normal invitation
+semantics. No SMTP configuration retains local-file delivery; partial configuration
+fails startup and failed delivery never silently falls back. Links and credentials
+are not logged. Explicit ingress certificate/key paths override the generated local
+CA fallback; a public boolean deployment status drives a visible existing-pattern
+warning on sign-in and authenticated screens.

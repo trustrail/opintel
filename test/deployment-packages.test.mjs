@@ -15,13 +15,13 @@ it('DEP-004: console resolves independently without database, engine or other-se
  const file=environment({GATEWAY_CONSOLE_IMAGE:image,GATEWAY_API_UPSTREAM:'https://api.customer.example:8443',GATEWAY_CONSOLE_CONFIG_DIRECTORY:'/operator/console'});
  const result=JSON.parse(execFileSync('docker',['compose','--env-file',file,'-p','package-test-gateway','-f','deploy/gateway/services/console.json','config','--format','json'],{encoding:'utf8'}));
  expect(Object.keys(result.services)).toEqual(['console']);
- expect(result.services.console.environment.API_UPSTREAM).toBe('https://api.customer.example:8443');
+ expect(result.services.console.environment.CONSOLE_EXTERNAL_TLS).toBe('');expect(result.services.console.ports).toBeUndefined();
  expect(result.services.console.depends_on).toBeUndefined();
  expect(result.services.console.platform).toBe('linux/amd64');
  expect(result.services.console.image).toBe(image);
 });
 it('DEP-004: every gateway service is independently selectable with no implicit startup graph',()=>{
- for(const name of ['api','console','postgres','redis','spicedb','spicedb-postgres','spicedb-migrate','migrations','schema','owner-claim','provision','demo-tools']){
+ for(const name of ['api','console','ingress','postgres','redis','spicedb','spicedb-postgres','spicedb-migrate','migrations','schema','owner-claim','provision','demo-tools']){
   const config=JSON.parse(readFileSync(`deploy/gateway/services/${name}.json`,'utf8'));
   expect(Object.keys(config.services)).toEqual([name]);
   expect(config.services[name].depends_on).toBeUndefined();
@@ -38,7 +38,7 @@ it('DEP-004: every gateway service is independently selectable with no implicit 
 it('DEP-004/005: engine namespace and storage stay local; restart ownership remains supervised',()=>{
  const config=JSON.parse(readFileSync('deploy/engine-package/services/engine.json','utf8')).services.engine;
  expect(config.network_mode).toBe('container:${ENGINE_NETWORK_CONTAINER:?start local egress companion first}');
- expect(config.restart).toBe('no');expect(config.read_only).toBe(true);expect(config.cap_drop).toEqual(['ALL']);
+ expect(config.restart).toBe('unless-stopped');expect(config.healthcheck).toBeDefined();expect(config.read_only).toBe(true);expect(config.cap_drop).toEqual(['ALL']);
  expect(config.mem_limit).toBe(config.memswap_limit);
  expect(JSON.stringify(config)).not.toMatch(/GATEWAY_|external.*true/u);
 });
@@ -68,4 +68,15 @@ it('DEP-009/011: operator jobs use private output and only demo-tools receives a
  expect(demo.volumes).toContain('${GATEWAY_AGENT_CERTIFICATES_DIRECTORY:?set agent certificate directory}:/home/operator/.xq:ro');
  for(const job of [provision,demo]){expect(job.env_file).toEqual(['${GATEWAY_OPERATOR_ENV_FILE:?set operator job environment}']);expect(job.read_only).toBe(true);expect(job.restart).toBe('no');expect(job.volumes).toContain('${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output');}
  expect(demo.tmpfs[0]).toMatch(/^\/tmp:rw,noexec,nosuid,nodev,/u);
+});
+
+it('DEP-016: ingress certificate paths take precedence and fallback is isolated',()=>{
+ const file=environment({GATEWAY_CONFIG_DIRECTORY:'/operator/config',GATEWAY_INGRESS_CONFIG_FILE:'/package/ingress/nginx.conf',GATEWAY_INGRESS_CERT_FILE:'/operator/external/fullchain.pem',GATEWAY_INGRESS_KEY_FILE:'/operator/external/key.pem'});
+ const config=JSON.parse(execFileSync('docker',['compose','--env-file',file,'-p','tls-package-test','-f','deploy/gateway/services/ingress.json','config','--format','json'],{encoding:'utf8'}));
+ expect(config.services.ingress.volumes.map(v=>v.source)).toContain('/operator/external/fullchain.pem');
+ expect(config.services.ingress.volumes.map(v=>v.source)).toContain('/operator/external/key.pem');
+ const fallback=environment({GATEWAY_CONFIG_DIRECTORY:'/operator/config',GATEWAY_INGRESS_CONFIG_FILE:'/package/ingress/nginx.conf'});
+ const other=JSON.parse(execFileSync('docker',['compose','--env-file',fallback,'-p','tls-fallback-test','-f','deploy/gateway/services/ingress.json','config','--format','json'],{encoding:'utf8'}));
+ expect(other.services.ingress.volumes.map(v=>v.source)).toContain('/operator/config/ingress-tls/server.pem');
+ expect(other.services.ingress.restart).toBe('unless-stopped');expect(other.services.ingress.healthcheck).toBeDefined();
 });

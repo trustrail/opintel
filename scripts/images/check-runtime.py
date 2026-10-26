@@ -80,6 +80,10 @@ class RuntimePolicy:
                 # These are forbidden even inside a pinned OS base.
                 if forbidden(name):
                     raise ValueError('Forbidden runtime path: ' + name)
+                if name == 'work' or name.startswith('work/'):
+                    required = 0o5 if entry.isdir() else 0o4
+                    if entry.mode & required != required:
+                        raise ValueError('Runtime user cannot read/traverse image content: ' + name)
                 if entry.isdir():
                     continue
                 if entry.issym() or entry.islnk():
@@ -167,14 +171,19 @@ def scan(image, platform, target, base):
     finally:
         process.stdout.close()
         process.wait()
-    print('Runtime allowlist verified: ' + image + ' ' + platform)
+    # Exercise the visible filesystem as the image's actual configured user too.
+    subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--read-only',
+                    '--platform', platform, image, 'node', '-e',
+                    "const f=require('node:fs');function walk(p){const s=f.statSync(p);f.accessSync(p,f.constants.R_OK|(s.isDirectory()?f.constants.X_OK:0));if(s.isDirectory())for(const n of f.readdirSync(p))walk(p+'/'+n)}walk('/work');walk('/etc/ssl/certs');f.accessSync('/usr/local/bin/node',f.constants.X_OK);"], check=True)
+    print('Runtime allowlist and runtime-user readability verified: ' + image + ' ' + platform)
 
 
-def layer_bytes(name, content):
+def layer_bytes(name, content, mode=0o644):
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode='w') as archive:
         entry = tarfile.TarInfo(name)
         entry.size = len(content)
+        entry.mode = mode
         archive.addfile(entry, io.BytesIO(content))
     return buffer.getvalue()
 
@@ -193,6 +202,13 @@ def self_test():
         except ValueError:
             continue
         raise AssertionError('Accepted forbidden/deleted payload: ' + name)
+    for mode in [0o600, 0o000]:
+        try:
+            RuntimePolicy('console').layer(io.BytesIO(layer_bytes('work/dist/opintel-logo@2x.png', b'png', mode)))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Unreadable umask-dependent asset accepted')
     policy = RuntimePolicy('egress')
     artifacts = {'egress.mjs': b'console.log(1);', 'package.json': b'{"type":"module"}'}
     manifest = {'target': 'egress', 'minified': True, 'sourceMaps': False,

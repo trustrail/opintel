@@ -14,3 +14,8 @@ describe('image build boundary',()=>{
   expect(lock).toMatchObject({services:{postgres:{image:expect.stringMatching(/@sha256:[a-f0-9]{64}$/u)},redis:{image:expect.stringMatching(/@sha256:[a-f0-9]{64}$/u)},spicedb:{image:expect.stringMatching(/@sha256:[a-f0-9]{64}$/u)}}});
  });
 });
+
+it('DEP-014: every Docker COPY explicitly declares modes, including build stages',()=>{
+ const copies=readFileSync('deploy/engine/Dockerfile','utf8').split('\n').filter(line=>line.startsWith('COPY '));
+ expect(copies.length).toBeGreaterThan(0);for(const line of copies)expect(line).toContain('--chmod=');
+});

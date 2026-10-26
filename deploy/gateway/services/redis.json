@@ -16,7 +16,17 @@
       "ports": [
         "${GATEWAY_REDIS_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_REDIS_PORT:-6379}:6379"
       ],
-      "restart": "on-failure:3"
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "redis-cli -a \"$$(sed -n 's/^requirepass //p' /config/redis.conf)\" ping | grep -q PONG"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 6,
+        "start_period": "20s"
+      }
     }
   }
 }

@@ -1,0 +1,24 @@
+{
+  "services": {
+    "ingress-setup": {
+      "image": "${GATEWAY_PROVISIONING_IMAGE:?set image digest}",
+      "platform": "${PLATFORM:?set platform}",
+      "command": [
+        "node",
+        "scripts/operator/ingress-tls.js"
+      ],
+      "user": "0:0",
+      "environment": {
+        "INGRESS_CERT_FILE": "${GATEWAY_INGRESS_CERT_FILE:-}",
+        "INGRESS_KEY_FILE": "${GATEWAY_INGRESS_KEY_FILE:-}",
+        "INGRESS_HOSTS": "${GATEWAY_INGRESS_HOSTS:-localhost,127.0.0.1}"
+      },
+      "volumes": [
+        "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config"
+      ],
+      "restart": "no",
+      "read_only": true,
+      "network_mode": "none"
+    }
+  }
+}

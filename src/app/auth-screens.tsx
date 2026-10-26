@@ -1,3 +1,4 @@
+import {DeploymentWarning} from './deployment-warning.js';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, useRef, type FormEvent, type ReactNode } from 'react';
@@ -108,7 +109,7 @@ function completeCallback(path: '/api/v1/auth/callback' | '/api/v1/auth/confirm-
 }
 
 function AuthLayout({ children }: { readonly children: ReactNode }): ReactNode {
-  return <AppRoot><main className="authpage"><div className="authcard"><img className="authmark" src="/opintel-logo.png" srcSet="/opintel-logo@2x.png 2x, /opintel-logo@3x.png 3x" alt="Opintel" />{children}</div></main></AppRoot>;
+  return <AppRoot><main className="authpage"><div className="authcard"><DeploymentWarning/><img className="authmark" src="/opintel-logo.png" srcSet="/opintel-logo@2x.png 2x, /opintel-logo@3x.png 3x" alt="Opintel" />{children}</div></main></AppRoot>;
 }
 
 function AuthCard({ children }: { readonly children: ReactNode }): ReactNode {
