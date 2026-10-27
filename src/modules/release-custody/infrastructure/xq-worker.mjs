@@ -1,4 +1,6 @@
 import {xqRequest} from './xq-transport.mjs';
+import {redactedXqBody,xqRequestShape} from './xq-diagnostics.mjs';
+import {Buffer} from 'node:buffer';
 import {parentPort,workerData} from 'node:worker_threads';
 import {webcrypto} from 'node:crypto';
 // XQ's Gateway/Transfer licence guidance recommends database (8) for our key packets.
@@ -26,15 +28,19 @@ try{
   const requestHeaders={...headers};if(requiresApiKey)requestHeaders['api-key']=configuration.apiKey;
   const plain=requestHeaders['content-type']==='text/plain;charset=UTF-8';if(!plain)requestHeaders['content-type']='application/json';
   const subcall=url.startsWith(sdk.SUBSCRIPTION_SERVER_URL+'/')?'subscription':url.startsWith(sdk.VALIDATION_SERVER_URL+'/')?'validation':'other';
+  const body=method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),requestBytes=body===undefined?0:Buffer.byteLength(body),requestShape=xqRequestShape(payload,plain),startedAt=new Date().toISOString();
+  const requestDiagnostic=(status,attempt,written)=>{if(operation==='escrow')parentPort.postMessage({type:'escrow-request',startedAt,completedAt:new Date().toISOString(),evidenceId:receipt??null,subcall,requestBytes,requestShape,status,attempt,written});};
   let response;
-  try{response=await xqRequest(url,{method,headers:requestHeaders},method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload));}
-  catch(error){failure={kind:error.kind??'unreachable',subcall,providerCode:null,attempt:error.attempt??1};throw error;}
+  try{response=await xqRequest(url,{method,headers:requestHeaders},body);}
+  catch(error){requestDiagnostic(null,error.attempt??1,error.written??false);failure={kind:error.kind??'unreachable',subcall,providerCode:null,attempt:error.attempt??1,requestBytes,requestShape};throw error;}
+  requestDiagnostic(response.status,response.attempt,true);
   const ok=response.status>=200&&response.status<300;
   let value;try{value=JSON.parse(response.text);}catch{value=response.text;}
   if(!ok){
    const raw=value&&typeof value==='object'?(value.code??value.errorCode??value.error?.code):undefined;
    const code=typeof raw==='number'&&Number.isSafeInteger(raw)?String(raw):raw;
-   failure={kind:'http_refused',status:response.status,subcall,providerCode:typeof code==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u.test(code)?code:null,attempt:response.attempt};
+   const secrets=[...Object.values(configuration),alias,recipientIdentifier,locator,share,receipt,typeof payload?.data==='string'?payload.data:undefined];
+   failure={kind:'http_refused',status:response.status,subcall,providerCode:typeof code==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u.test(code)&&redactedXqBody(code,secrets).text===code?code:null,attempt:response.attempt,requestBytes,requestShape,...(response.status>=400&&response.status<500?{responseBody:redactedXqBody(response.text,secrets)}:{})};
   }
   if(operation==='health'){healthStatus=response.status;return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,null);}
   return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,value);

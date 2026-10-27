@@ -1,12 +1,14 @@
 import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {randomUUID} from 'node:crypto';
-import {expect,it} from 'vitest';
+import {expect,it,vi} from 'vitest';
+import {custodyEscrowRequest} from '../src/shared/custody-failure.js';
 import {XqReleaseProvider} from '../src/modules/release-custody/index.js';
 
 it('XQ SDK service contract: stored recipient without alias authorization, joined recipients, split packet requests, receipt metadata, fetch and locator-list revocation',async()=>{
  const calls:Array<{path:string;method:string|undefined;body:string;key:string|undefined;authorization:string|undefined}>=[];
- const share=Buffer.alloc(32,7),encoded=share.toString('base64url'),alias='opaque-device-recipient',receipt=randomUUID(),locator='locator/opaque';
+ const share=Buffer.alloc(32,7),encoded=share.toString('base64url'),alias='opaque-device-récipient',receipt=randomUUID(),locator='locator/opaque';
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
  const server=createServer(async(request,response)=>{
   const chunks:Buffer[]=[];for await(const chunk of request)chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk as Uint8Array));
   const path=request.url??'',body=Buffer.concat(chunks).toString();
@@ -31,22 +33,30 @@ it('XQ SDK service contract: stored recipient without alias authorization, joine
   expect(new URL(calls[3]!.path,base).pathname).toBe('/validation/key');
   expect(new URL(calls[3]!.path,base).searchParams.get('tokens')).toBe(locator);
   expect(JSON.parse(calls[3]!.body)).toEqual({tokens:[locator]});
- }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+  expect(log).toHaveBeenCalledTimes(2);
+  const diagnostics=log.mock.calls.map(([value])=>{const {event,...fields}=value as Record<string,unknown>;expect(event).toBe('custody.xq_escrow_request');return custodyEscrowRequest.parse({type:'escrow-request',...fields});});
+  expect(diagnostics.map(d=>d.requestBytes)).toEqual(calls.slice(0,2).map(c=>Buffer.byteLength(c.body)));
+  expect(diagnostics[0]).toMatchObject({evidenceId:receipt,subcall:'subscription',status:200,attempt:1,written:true,requestShape:{encoding:'json',fieldCount:6,keyCharacters:43,recipientCharacters:alias.length,expiresHours:2,singleUse:true,storageType:8,receiptCharacters:36}});
+  expect(diagnostics[1]).toMatchObject({subcall:'validation',requestShape:{encoding:'text'}});
+  for(const d of diagnostics)expect(Date.parse(d.completedAt)).toBeGreaterThanOrEqual(Date.parse(d.startedAt));
+  for(const secret of [encoded,alias,locator,'sender-token','recipient-token','opaque-packet'])expect(JSON.stringify(diagnostics)).not.toContain(secret);
+ }finally{log.mockRestore();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
 
 it.each(['subscription','validation'])('XQ escrow %s HTTP 400 records its code and does not retry either subcall',async subcall=>{
- const calls:string[]=[];
+ const calls:string[]=[],bytes:number[]=[];
  const server=createServer(async(req,res)=>{
-  for await(const _chunk of req){/* Drain the synthetic request. */}
+  let size=0;for await(const chunk of req){size+=Buffer.byteLength(chunk as Uint8Array);}bytes.push(size);
   calls.push(req.url??'');
-  if(req.url===`/${subcall}/packet`){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({code:'PACKET_REFUSED',message:'PRIVATE_PROVIDER_DIAGNOSTIC'}));}
+  if(req.url===`/${subcall}/packet`){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({code:'PACKET_REFUSED',message:'Alias is not active',access_token:'PRIVATE_PROVIDER_DIAGNOSTIC',detail:'synthetic-recipient'}));}
   else res.end('opaque-synthetic-packet');
  });
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
  const base=`http://127.0.0.1:${address.port}`;
  const provider=new XqReleaseProvider({apiKey:'synthetic',dashboardApiKey:'synthetic',senderAlias:'synthetic',senderAccessToken:'synthetic',subscriptionUrl:base+'/subscription',validationUrl:base+'/validation'},'tenant','https://provider.invalid/redeem');
  try{
-  await expect(provider.escrow(Buffer.alloc(32,7),'synthetic-recipient',3600,true,randomUUID())).rejects.toMatchObject({failure:{kind:'http_refused',status:400,subcall,providerCode:'PACKET_REFUSED',attempt:1}});
+  let failure:unknown;try{await provider.escrow(Buffer.alloc(32,7),'synthetic-recipient',3600,true,randomUUID());}catch(error){failure=error;}
+  expect(failure).toMatchObject({failure:{kind:'http_refused',status:400,subcall,providerCode:'PACKET_REFUSED',attempt:1,requestBytes:bytes.at(-1),responseBody:{text:JSON.stringify({code:'PACKET_REFUSED',message:'Alias is not active',maskedField2:'[masked]',detail:'[masked]'}),truncated:false}}});
   expect(calls).toEqual(subcall==='subscription'?['/subscription/packet']:['/subscription/packet','/validation/packet']);
  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

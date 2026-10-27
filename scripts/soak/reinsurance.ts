@@ -1,3 +1,4 @@
+import {queryOutcomeBreach} from './query-breach.js';
 import {Coverage,type Specification,type Scenario} from './specification.js';
 import {scenarioPlan,discoveryMismatches,declaredMask,scenarioValuesMatch,expectedReturnedRows} from './scenarios.js';
 import {certificateForAgent} from './manifest.js';
@@ -116,7 +117,7 @@ try{
    if(!coverage.observe(scenario,actual))await alarm('Revoked credential accepted or wrong refusal',{scenario:scenario.id,expected:scenario.expected,actual});await record({type:'scenario',scenario:scenario.id,expected:scenario.expected,actual,status:response.status});continue;
   }
   const client=await external.connect(credential.key,agentId);const response=await client.query(scenario.sql);const output=QueryOutput.safeParse(response.structuredContent);const actual={outcome:response.isError?String(response._meta?.code):'success',rowCount:output.success?output.data.rows.length:undefined};
-  if(!coverage.observe(scenario,actual))await alarm('Retiring credential outcome mismatch',{scenario:scenario.id,expected:scenario.expected,actual});
+  const breach=queryOutcomeBreach(response,coverage.observe(scenario,actual)?undefined:'Retiring credential outcome mismatch');if(breach)await alarm(breach,{scenario:scenario.id,expected:scenario.expected,actual,response});
   await record({type:'scenario',scenario:scenario.id,expected:scenario.expected,actual,response});
   if(output.success){const out=output.data;const column=scenario.columns.find(c=>spec!.objects.find(o=>o.name===c.object&&o.poolIndex===0)?.columns.find(v=>v.name===c.name)?.treatment==='custody')!;const i=out.columns.findIndex(c=>c.name===column.alias);
    if(!out.custody?.length||out.rows.some(r=>typeof r[i]!=='string'||!String(r[i]).startsWith('opintelsealed:v1:')))await alarm('Retiring credential custody was not sealed',{scenario:scenario.id});
@@ -147,7 +148,9 @@ try{
     const outcome=refused?String(response._meta?.code??'refused'):'success';bump('outcomes',outcome);if(refused)bump('refusals',outcome);
     latencies.set(Math.round(elapsed),(latencies.get(Math.round(elapsed))??0)+1);
     const context={agent:agent.agentId,pool,sequence,sql:plan.sql,response};await record({type:'query',at,...context,latencyMs:elapsed,outcome});
-    if(declared&&coverage){const valuesMatch=!output.success||!spec||scenarioValuesMatch(declared,spec,output.data.columns,output.data.rows);const actual={outcome:valuesMatch?outcome:'value_mismatch',reason:typeof response._meta?.reason==='string'?response._meta.reason:undefined,rowCount:output.success?output.data.rows.length:undefined};if(!coverage.observe(declared,actual))await alarm('Declared scenario outcome mismatch',{scenario:declared.id,expected:declared.expected,actual});await record({type:'scenario',scenario:declared.id,expected:declared.expected,actual});}
+    let mismatch:'Declared scenario outcome mismatch'|undefined;
+    if(declared&&coverage){const valuesMatch=!output.success||!spec||scenarioValuesMatch(declared,spec,output.data.columns,output.data.rows);const actual={outcome:valuesMatch?outcome:'value_mismatch',reason:typeof response._meta?.reason==='string'?response._meta.reason:undefined,rowCount:output.success?output.data.rows.length:undefined};if(!coverage.observe(declared,actual))mismatch='Declared scenario outcome mismatch';await record({type:'scenario',scenario:declared.id,expected:declared.expected,actual});}
+    const breach=queryOutcomeBreach(response,mismatch);if(breach)await alarm(breach,{...context,scenario:declared?.id});
     if(refused&&response.structuredContent!==undefined)await alarm('Refusal delivered structured values',context);
     if(!refused&&!output.success)await alarm('Successful response violates query contract',context);
     if(output.success){

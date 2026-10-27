@@ -1705,3 +1705,15 @@ DEP-018 also covers same-host Docker routing and split-host LAN routing.
 Acceptance preflight rejects and names non-Docker loopback listeners
 as well as Docker installs; a real loopback socket is a positive failure control.
 Operator diagnostics must display DomainError.message without serializing details.
+
+E06-XQ-4XX: worker subscription/validation HTTP 400 retains the human provider
+reason after masking token-like fields and request/configuration secrets; one
+attempt only. Plain text, nested objects, opaque values, URLs, escaped secrets,
+multibyte truncation and over-depth/over-width bodies remain bounded and redacted.
+
+E06-XQ-BYTES: actual SDK subscription and validation request bytes match the
+server-observed UTF-8 body sizes, with bounded correlation/shape fields and no
+packet, locator, alias or credential contents. Failure evidence retains bytes.
+DEP-SOAK-ESCROW: replay the retiring and exploratory refusal shapes from the
+arm64 report as two breaches; declared failures count once, expected governance
+refusals retain existing semantics, and scenario coverage is not weakened.

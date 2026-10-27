@@ -5898,12 +5898,16 @@ allowlisted native code and closed-enum exception type. No stack is retained.
 Classification uses built-in exception identity and an exact native-code allowlist;
 it never reads native message, name, stack, detail, constraint or cause text.
 Unknown exception classes and codes become null. Diagnostic detail in evidence
-is allowlisted, never sanitized, including values parsed from native strings.
+is allowlisted, never sanitized, including values parsed from native strings,
+except for the explicitly authorized XQ 4xx diagnostic below.
 The shared decoder strips historical exception stack/message properties before
 authorized detail or export serialization, without changing stored evidence.
 Historical text still exists in storage; production exposure would require an
 explicitly authorized purge, not only filtered reads (algorithm contract E-06).
-The XQ worker forwards no provider body or native exception text. Authorized
+The XQ worker forwards no raw provider body or native exception text. The
+2026-10-27 authorized E-06 exception retains bounded, redacted HTTP 4xx body
+diagnostics (`responseBody.text`, `responseBody.truncated`); see the algorithm
+contract for field, secret and size bounds. No retry behaviour changes. Authorized
 receipt details and CSV/NDJSON exports expose this diagnostic; MCP metadata and
 its existing human refusal are unchanged. Evidence writes still complete before
 the refusal is returned, and failed evidence recording remains fail-closed.
@@ -6017,3 +6021,10 @@ address. Split-host pairing retains registered LAN addresses. Release acceptance
 refuses competing host listeners, including loopback-only services, before any
 installation. Explicit peer-CA trust, hostname validation and certificate pin
 checks remain mandatory on every engine request.
+
+Stage 5 escrow accounting (2026-10-27): every failed escrow is a soak breach,
+including exploratory queries with no declared scenario. Declared/retiring
+coverage still records its mismatch, but a single failed escrow counts once.
+The provider worker reports serialized request byte counts and bounded shapes
+for successful and failed subscription/validation calls, correlated by evidence
+ID and timestamps. Raw packets, recipients and credentials are never logged.

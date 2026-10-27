@@ -1292,3 +1292,14 @@ Stage 5 endpoint correction: retain the Docker host route for same-host peers
 and the registered LAN route for split-host peers. Native release and customer-archive
 acceptance preflight name host listeners as well as Docker installs, including
 loopback-only bindings; they never stop unrelated processes automatically.
+
+Stage 5 XQ refusal follow-up (2026-10-27): retain bounded, redacted 4xx response
+diagnostics under the authorized E-06 exception. Compare retiring-credential
+alias history, packet size and concurrent escrow timing from retained evidence
+before proposing behavioural changes. HTTP 400 remains a single-attempt refusal.
+
+Approved follow-up: count every failed escrow as a soak breach regardless of
+query role, without double-counting a declared mismatch. Record escrow request
+bytes and bounded request shape on success/failure. Full gate before commit;
+then published amd64 customer-archive soak to retain an actual redacted 400 body.
+Provider behaviour remains unchanged; any recovery proposal follows that body.

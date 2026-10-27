@@ -1326,7 +1326,8 @@ This adds no SQL or statement-shape telemetry and persists no query values.
 
 ## Evidence diagnostic contract — E-06
 
-Diagnostic detail in evidence is **allowlisted, never sanitized**. No evidence
+Except for the explicitly authorized XQ 4xx exception below, diagnostic detail
+in evidence is **allowlisted, never sanitized**. No evidence
 field may carry text derived from a provider message, stack, detail, constraint
 or cause, including values parsed out of those strings. Removing a stack header
 or retaining only coordinates does not meet this contract.
@@ -1344,6 +1345,25 @@ historical exception text before receipt or export serialization. This is a
 read-time mitigation, not removal from immutable stored evidence: a production
 deployment that wrote exception text would require an explicitly authorized
 purge of the affected stored evidence. Filtering reads alone is insufficient.
+
+Authorized Stage 5 exception (2026-10-27): XQ HTTP 4xx failures may retain a
+redacted response-body diagnostic, capped at 2,048 UTF-8 bytes with an explicit
+truncation flag. Only conventional error/message/code fields survive structured
+responses; other fields are masked. Known request/configuration secrets, opaque
+token-like text, URLs, email addresses and credential assignments are masked
+before truncation. Nested collections, depth and individual strings are bounded.
+This exception does not permit native exception text, raw provider bodies,
+request bodies, SQL, key shares or credentials. HTTP 4xx is never retried, and
+no engine query is replayed. The diagnostic follows existing authorized refusal
+evidence/log/MCP paths; historical evidence is not rewritten.
+Every escrow subcall now records its exact serialized HTTP-body byte count
+(excluding headers), start/completion timestamps, status, attempt and whether
+request writing began. These events correlate by evidence ID. A bounded shape
+records encoding, field count, key/recipient/receipt character counts, expiry
+hours, storage type and single-use flag, never field contents or identities.
+Failure evidence retains the byte count and shape too. None of these diagnostics
+changes connection recovery, retries, admission or the refusal decision.
+
 
 ## Released under custody — 5.36
 

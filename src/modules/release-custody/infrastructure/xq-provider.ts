@@ -1,4 +1,4 @@
-import {custodyProviderFailure} from '../../../shared/custody-failure.js';
+import {custodyProviderFailure,custodyEscrowRequest} from '../../../shared/custody-failure.js';
 import {CustodyProviderError} from './provider-failure.js';
 import {Worker} from 'node:worker_threads';
 import {z} from 'zod';
@@ -12,7 +12,7 @@ export class XqReleaseProvider implements ReleaseProvider {
  private call(operation:'escrow'|'revoke'|'fetch'|'health',args:Record<string,unknown>,configuration=this.configuration):Promise<unknown>{return new Promise((resolve,reject)=>{
   const worker=new Worker(new URL('./xq-worker.mjs',import.meta.url),{workerData:{configuration,operation,...args}});
   let complete=false;const stop=setTimeout(()=>{void worker.terminate();if(operation==='health')resolve({reachable:false,authenticated:false,failure:'deadline_exceeded'});else reject(new CustodyProviderError({kind:'worker_deadline_exceeded'}));},20000);
-  worker.once('message',(raw:unknown)=>{complete=true;clearTimeout(stop);const result=z.discriminatedUnion('ok',[z.object({ok:z.literal(true),value:z.unknown()}),z.object({ok:z.literal(false),failure:custodyProviderFailure.optional()})]).safeParse(raw);void worker.terminate();if(result.success&&result.data.ok)resolve(result.data.value);else reject(new CustodyProviderError(result.success&&!result.data.ok?result.data.failure??{kind:'operation_refused'}:{kind:'invalid_response'}));});
+  worker.on('message',(raw:unknown)=>{if(complete)return;const diagnostic=custodyEscrowRequest.safeParse(raw);if(diagnostic.success){if(operation==='escrow'){console.info({event:'custody.xq_escrow_request',...diagnostic.data});}return;}complete=true;clearTimeout(stop);const result=z.discriminatedUnion('ok',[z.object({ok:z.literal(true),value:z.unknown()}),z.object({ok:z.literal(false),failure:custodyProviderFailure.optional()})]).safeParse(raw);void worker.terminate();if(result.success&&result.data.ok)resolve(result.data.value);else reject(new CustodyProviderError(result.success&&!result.data.ok?result.data.failure??{kind:'operation_refused'}:{kind:'invalid_response'}));});
   worker.once('error',()=>{clearTimeout(stop);reject(new CustodyProviderError({kind:'worker_failed'}));});worker.once('exit',()=>{clearTimeout(stop);if(!complete)reject(new CustodyProviderError({kind:'worker_exited'}));});
  });}
  async health():Promise<ProviderHealth>{

@@ -369,3 +369,40 @@ records cleanup causes and attempts each stop independently of log capture. A
 regression writes over 16 MiB and checks complete capture plus mode 0600. This
 requires another full gate before commit and a new final-revision acceptance.
 No main merge is authorized by the passing soak alone; native arm64 is pending.
+
+### XQ subscription 400 follow-up (2026-10-27, evidence pending)
+
+Operator reports arm64 `bde5a0b` passed all pre-soak checks, then failed
+`credential/retiring/custody` at 14:00:43Z, evidence
+`01a17da9-d2dc-75bb-ad8e-bbf556352a7c`: subscription HTTP 400, no provider
+code, attempt 1. New evidence folder is pending; the prior evidence volume
+disconnected during inspection. This is not a green arm64 acceptance.
+
+Code findings pending incident verification: subscription sends a fixed 32-byte
+share plus recipient/expiry/flags/receipt, never SQL or result rows. The dedicated
+retiring credential inherits an ordinary agent's certificate association; XQ
+receives that recipient identifier, not the Opintel custody alias. Normal key
+rotation retains the alias and makes no XQ identity-registration call. The
+retiring probe is awaited before the concurrent load starts, so same-run load
+concurrency does not explain it. Another job or provider-side state remains
+unverified. The reported Cedant 02 label also needs reconciliation against the
+manifest: the generator assigns this probe to poolIndex 0.
+
+Authorized diagnostic-only change retains a bounded, redacted 4xx body in the
+existing failure path. Retry rules, refusals and query execution are unchanged.
+No commit/publication until the completed candidate passes the full gate; no
+main merge before both-platform Stage 5 acceptance is green.
+
+Evidence-5 was subsequently read: the reported ordinary-agent failure
+`01a17da9-d2dc-75bb-ad8e-bbf556352a7c` is distinct from retiring probe
+`01a17da5-a688-7a68-824c-162ee2608c32`. Both are subscription HTTP 400.
+The retiring probe precedes timed load; the second failure is agent 8/certificate
+226 during load. Last night's ordinary failure used agent 6/certificate 225.
+Both ordinary credentials also escrowed successfully; no same-certificate
+custody-query interval overlaps either failure. Packet bytes and provider
+reasons were absent, so no retry or alias-state conclusion was justified.
+The single breach counter excluded the exploratory refusal, despite recording
+it in query refusal totals. The approved correction now counts every failed
+escrow once and preserves scenario coverage. Request bytes and safe shapes are
+recorded for all escrow subcalls, and failure evidence includes the redacted
+4xx body. Full gate and a new published amd64 soak are required for this candidate.

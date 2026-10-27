@@ -1,8 +1,11 @@
 import {z} from 'zod';
-/** Operator evidence only. No provider body, URL, credential or native message. */
-const callDiagnostic={subcall:z.enum(['subscription','validation','other']).optional(),providerCode:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u).nullable().optional(),attempt:z.number().int().min(1).max(2).optional()};
+/** Bounded provider diagnostics. No raw body, URL, credential or native message. */
+const count=z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+export const custodyRequestShape=z.strictObject({encoding:z.enum(['json','text']),fieldCount:count.optional(),keyCharacters:count.nullable().optional(),recipientCharacters:count.nullable().optional(),expiresHours:z.number().int().min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER).nullable().optional(),singleUse:z.boolean().nullable().optional(),storageType:z.number().int().min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER).nullable().optional(),receiptCharacters:count.nullable().optional()});
+export const custodyEscrowRequest=z.strictObject({type:z.literal('escrow-request'),startedAt:z.iso.datetime(),completedAt:z.iso.datetime(),evidenceId:z.uuid().nullable(),subcall:z.enum(['subscription','validation','other']),requestBytes:count,requestShape:custodyRequestShape,attempt:z.number().int().min(1).max(2),status:z.number().int().min(100).max(599).nullable(),written:z.boolean()});
+const callDiagnostic={subcall:z.enum(['subscription','validation','other']).optional(),providerCode:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u).nullable().optional(),attempt:z.number().int().min(1).max(2).optional(),requestBytes:count.optional(),requestShape:custodyRequestShape.optional()};
 export const custodyProviderFailure=z.discriminatedUnion('kind',[
- z.strictObject({...callDiagnostic,kind:z.literal('http_refused'),status:z.number().int().min(100).max(599)}),
+ z.strictObject({...callDiagnostic,kind:z.literal('http_refused'),status:z.number().int().min(100).max(599),responseBody:z.strictObject({text:z.string().max(2048),truncated:z.boolean()}).optional()}),
  z.strictObject({...callDiagnostic,kind:z.enum(['unreachable','deadline_exceeded','operation_refused','invalid_response','worker_failed','worker_exited','worker_deadline_exceeded'])}),
 ]);
 export const custodyFailureCode=z.enum(['ECONNRESET','ECONNREFUSED','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','EPIPE','08003','08006','23503','23505','40001','40P01','53300','57P01','57014']);
