@@ -1,3 +1,4 @@
+import {getSourceFailure} from '../src/shared/source-failure.js';
 import { beforeEach,expect,it,vi } from 'vitest';
 import { SecretRef } from '../src/platform/secrets/types.js';
 import { PostgresSourceScope,SourceTimeout,SourceBusy,SourceCancelled,type SourceDeadlineClock } from '../sidecar/infrastructure/postgres-source-scope.js';
@@ -9,13 +10,13 @@ import { executionRequest } from '../src/shared/execution-contract.js';
 import type { EngineSession } from '../sidecar/session/index.js';
 
 type FakeConnection={ended:boolean;statements:string[]};
-const driver=vi.hoisted(()=>({clients:[] as FakeConnection[]}));
+const driver=vi.hoisted(()=>({clients:[] as FakeConnection[],connectFailures:[] as Error[],statementFailure:undefined as Error|undefined}));
 vi.mock('pg',async importOriginal=>({...await importOriginal<typeof import('pg')>(),Client:class {
  ended=false;statements:string[]=[];
  constructor(){driver.clients.push(this);}
  on(){return this;}
- async connect(){}
- async query(sql:string){this.statements.push(sql);return {rows:sql.includes('pg_backend_pid')?[{pid:123}]:sql==='SELECT 1 AS ok'?[{ok:1}]:[]};}
+ async connect(){const failure=driver.connectFailures.shift();if(failure)throw failure;}
+ async query(sql:string){this.statements.push(sql);if(driver.statementFailure)throw driver.statementFailure;return {rows:sql.includes('pg_backend_pid')?[{pid:123}]:sql==='SELECT 1 AS ok'?[{ok:1}]:[]};}
  async end(){this.ended=true;}
 }}));
 class ManualDeadlineClock implements SourceDeadlineClock {
@@ -28,7 +29,7 @@ class ManualDeadlineClock implements SourceDeadlineClock {
 function deferred<T>(){let resolve!:(value:T)=>void,reject!:(reason:unknown)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const ref=SecretRef('secret://test/source');
 const limits={maxConnectionsPerSource:1,statementTimeoutMs:5000,operationTimeoutMs:100};
-beforeEach(()=>{driver.clients.length=0;});
+beforeEach(()=>{driver.clients.length=0;driver.connectFailures=[];driver.statementFailure=undefined;});
 
 for(const first of ['connector','staging'] as const)it(`S3: introspection and staged queries share one source ceiling with ${first} admitted first`,async()=>{
  const projectId=randomUUID(),sourceId=randomUUID(),elementId=randomUUID();
@@ -113,8 +114,10 @@ it('the connector maps the timeout response without logging the raw error',async
   const response=connector.testConnection({requestId:'deadline',projectId:randomUUID(),sourceId:randomUUID(),credentialRef:ref,payload:{}});
   clock.advance(100);
   expect(await response).toEqual({ok:true,value:{reachable:false,reason:'Source operation timed out.'}});
-  for(const log of logs)expect(log).not.toHaveBeenCalled();
+  for(const index of [0,2,3])expect(logs[index]).not.toHaveBeenCalled();
+  expect(logs[1]!.mock.calls).toEqual([[{event:'engine.source_operation',timestamp:expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u),requestId:'deadline',operation:'credentials',state:'start',attempt:1}]]);
   credential.resolve('must-not-be-opened');await new Promise<void>(resolve=>setImmediate(resolve));
+  expect(driver.clients).toHaveLength(0);expect(JSON.stringify(logs.map(log=>log.mock.calls))).not.toMatch(/must-not-be-opened|secret:\/\/|Source operation exceeded/u);
  }finally{for(const log of logs)log.mockRestore();}
 });
 
@@ -130,4 +133,33 @@ it('C.4 native scanner credential lookup expires without starting late work',asy
  const clock=new ManualDeadlineClock(),credential=deferred<string>(),work=vi.fn(async()=>{});
  const scope=new PostgresSourceScope({resolve:()=>credential.promise},limits,clock);
  const pending=expect(scope.external('source',ref,work,new AbortController().signal)).rejects.toBeInstanceOf(SourceTimeout);clock.advance(100);await pending;credential.resolve('postgresql://fixture/db');await Promise.resolve();expect(work).not.toHaveBeenCalled();
+});
+
+it('source recovery retries connection setup once before SQL and retains the shared lease',async()=>{
+ driver.connectFailures=[Object.assign(new Error('private diagnostic'),{code:'ECONNRESET'})];
+ const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},limits);
+ expect(await scope.run('source',ref,session=>session.query('SELECT 1 AS ok'))).toEqual([{ok:1}]);
+ expect(driver.clients).toHaveLength(2);expect(driver.clients[0]!.statements).toEqual([]);
+ expect(driver.clients.every(client=>client.ended)).toBe(true);
+});
+it('source recovery stops after two pre-statement failures with bounded diagnostics',async()=>{
+ driver.connectFailures=[1,2,3].map(()=>Object.assign(new Error('private diagnostic'),{code:'ECONNRESET'}));
+ const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},limits);
+ const error=await scope.run('source',ref,async()=>{}).catch((error:unknown)=>error);
+ expect(driver.clients).toHaveLength(2);expect(driver.clients.every(client=>client.statements.length===0&&client.ended)).toBe(true);
+ expect(getSourceFailure(error)).toEqual({operation:'connect',attempt:2,nativeCode:'ECONNRESET',sqlState:null});
+});
+it('source recovery never retries a failure after even the backend identity statement was sent',async()=>{
+ driver.statementFailure=Object.assign(new Error('private diagnostic'),{code:'ECONNRESET'});
+ const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},limits);
+ const error=await scope.run('source',ref,async()=>{}).catch((error:unknown)=>error);
+ expect(driver.clients).toHaveLength(1);expect(driver.clients[0]!.statements).toEqual(['SELECT pg_backend_pid() AS pid']);
+ expect(getSourceFailure(error)).toEqual({operation:'backend_identity',attempt:1,nativeCode:'ECONNRESET',sqlState:null});
+});
+it('source authentication refusals are never retried and retain SQLSTATE without message text',async()=>{
+ driver.connectFailures=[Object.assign(new Error('private diagnostic'),{code:'28P01'})];
+ const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},limits);
+ const error=await scope.run('source',ref,async()=>{}).catch((error:unknown)=>error);
+ expect(driver.clients).toHaveLength(1);
+ expect(getSourceFailure(error)).toEqual({operation:'connect',attempt:1,nativeCode:null,sqlState:'28P01'});
 });

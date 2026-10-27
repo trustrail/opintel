@@ -39,7 +39,8 @@ for(const failure of ['http-412','network','timeout','body-timeout'] as const){
   const escrow=vi.spyOn(LocalReleaseProvider.prototype,'escrow').mockImplementation((key,alias,ttl,singleUse)=>provider.escrow(key,alias,ttl,singleUse));
   const result=await f.query("SELECT field_1, field_4, 'CLEAR_RESULT_SENTINEL' AS marker FROM warehouse.public.records LIMIT 2");
   const receipt=z.object({_meta:z.object({evidenceId:z.uuid()})}).parse(result)._meta.evidenceId;
-  expect(result).toEqual({isError:true,content:[{type:'text',text:'Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.'}],_meta:{code:'dependency_unavailable',cause:'release_prepare_failed',retryable:false,evidenceId:receipt}});
+  const providerFailure=expect.objectContaining(failure==='body-timeout'?{kind:expect.stringMatching(/^(?:deadline_exceeded|worker_deadline_exceeded)$/u)}:{...(failure==='http-412'?{kind:'http_refused',status:412}:{kind:failure==='network'?'unreachable':'deadline_exceeded'}),subcall:'subscription',providerCode:null,attempt:1});
+  expect(result).toEqual({isError:true,content:[{type:'text',text:'Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.'}],_meta:{code:'dependency_unavailable',cause:'release_prepare_failed',retryable:false,evidenceId:receipt,releaseFailure:{phase:'escrow',provider:'local',exception:{type:'CustodyProviderError',code:null},providerFailure}}});
   expect(result).not.toHaveProperty('structuredContent');
   expect(JSON.stringify(result)).not.toMatch(/CLEAR_RESULT_SENTINEL|large|opintelsealed:|transfer\/data|test-access-token/);
   expect(escrow).toHaveBeenCalledTimes(1);
@@ -54,7 +55,7 @@ for(const failure of ['http-412','network','timeout','body-timeout'] as const){
   }));
   expect(evidence.completions).toEqual([{outcome:{kind:'refused',code:'dependency_unavailable',element:null,stage:'execute'}}]);
   expect(evidence.released).toEqual([]);
-  const providerFailure=failure==='body-timeout'?{kind:expect.stringMatching(/^(?:deadline_exceeded|worker_deadline_exceeded)$/u)}:failure==='http-412'?{kind:'http_refused',status:412}:{kind:failure==='network'?'unreachable':'deadline_exceeded'};
+
   expect(evidence.stages).toContainEqual({result:'refuse',detail:expect.objectContaining({code:'dependency_unavailable',message:'Custody release could not be prepared. No result was released.',cause:'release_prepare_failed',releaseFailure:expect.objectContaining({phase:'escrow',provider:'local',providerFailure})})});
   const [header]=await withTenant(f.ctx,tx=>tx.query<{at:string}>('SELECT started_at::text AS at FROM query_run WHERE id=$1',[receipt]));
   const detail=await new PostgresEvidenceReader().detail(f.ctx,RunId(receipt),header!.at);if(!detail.ok)throw detail.error;
@@ -81,7 +82,7 @@ for(const phase of ['escrow','grant_issue'] as const)for(const known of [true,fa
  else vi.spyOn(ReleaseService.prototype,'issue').mockRejectedValueOnce(error);
  const result=await f.query('SELECT field_1 FROM warehouse.public.records LIMIT 1');
  const receipt=z.object({_meta:z.object({evidenceId:z.uuid()})}).parse(result)._meta.evidenceId;
- expect(result).toEqual({isError:true,content:[{type:'text',text:'Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.'}],_meta:{code:'dependency_unavailable',cause:'release_prepare_failed',retryable:false,evidenceId:receipt}});
+ expect(result).toEqual({isError:true,content:[{type:'text',text:'Release custody could not prepare this answer. No result was released. Ask an administrator to check the custody provider.'}],_meta:{code:'dependency_unavailable',cause:'release_prepare_failed',retryable:false,evidenceId:receipt,releaseFailure:{phase,provider:'local',exception:{type:known?'Error':null,code},providerFailure:null}}});
  const stages=await withTenant(f.ctx,tx=>tx.query<{detail:unknown}>("SELECT detail FROM run_stage WHERE run_id=$1 AND stage='execute' AND result='refuse'",[receipt]));
  expect(stages).toEqual([{detail:{code:'dependency_unavailable',message:'Custody release could not be prepared. No result was released.',cause:'release_prepare_failed',releaseFailure:{phase,provider:'local',exception:{type:known?'Error':null,code},providerFailure:null}}}]);
  expect(message).not.toHaveBeenCalled();expect(stack).not.toHaveBeenCalled();expect(name).not.toHaveBeenCalled();

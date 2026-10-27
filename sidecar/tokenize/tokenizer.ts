@@ -76,7 +76,7 @@ export class SidecarTokenizer {
             const run=new TokenizationRun(key,this.zones);
             if(expectedSentinel){const actual=run.sentinel();if(!actual.ok||actual.value!==expectedSentinel){this.audit.record({event:'tokenization.refused',projectId,category:'key_resolution'});return err(new DomainError('source_unavailable',"This engine's token key does not match the project's recorded sentinel. Ask the operator to provision the matching key before querying."));}}
             const result = await work(run);
-            this.audit.record(result.ok ? { event: 'tokenization.complete', projectId } : { event: 'tokenization.refused', projectId, category: 'declaration' });
+            this.audit.record(result.ok ? { event: 'tokenization.complete', projectId } : { event: 'tokenization.refused', projectId, category: result.error.code==='source_unavailable'?'source_read':result.error.details?.cause==='invalid_token_declaration'?'declaration':'execution' });
             return result;
         }
         catch (error) {

@@ -1,10 +1,11 @@
 import { Client,types } from 'pg';
+import {retainSourceFailure,sourceOperationEvent,type SourceOperation} from '../../src/shared/source-failure.js';
 import { randomUUID } from 'node:crypto';
 import type { SourceCredentialResolver } from '../application/source-connector.js';
 import type { SecretRef } from '../../src/platform/secrets/types.js';
 
 export interface SourceSession {
-  query(sql: string, values?: unknown[]): Promise<unknown[]>;
+  query(sql: string, values?: unknown[], operation?: SourceOperation): Promise<unknown[]>;
 }
 export interface SourceLimits {
   maxConnectionsPerSource: number;
@@ -69,13 +70,20 @@ export class PostgresSourceScope {
     }finally{stop();parent.removeEventListener('abort',abort);if(cancel)signal.removeEventListener('abort',cancel);await cancellation;const left=(this.active.get(sourceKey)??1)-1;if(left)this.active.set(sourceKey,left);else this.active.delete(sourceKey);}
   }
 
-  async run<T>(sourceKey: string, ref: SecretRef, work: (session: SourceSession) => Promise<T>, signal?: AbortSignal): Promise<T> {
+  async run<T>(sourceKey: string, ref: SecretRef, work: (session: SourceSession) => Promise<T>, signal?: AbortSignal, requestId?: string): Promise<T> {
     if (signal?.aborted) throw new SourceCancelled();
     const count = this.active.get(sourceKey) ?? 0;
     if (count >= this.limits.maxConnectionsPerSource) throw new SourceBusy();
     this.active.set(sourceKey, count + 1);
     let client: Client | undefined;
     let expired = false;
+    let operation:SourceOperation='credentials';
+    let attempt=1;
+    const perform=async<R>(phase:SourceOperation,work:()=>Promise<R>):Promise<R>=>{
+      operation=phase;sourceOperationEvent(requestId,phase,'start',attempt);
+      try{const result=await work();sourceOperationEvent(requestId,phase,'end',attempt);return result;}
+      catch(error){sourceOperationEvent(requestId,phase,'failed',attempt,retainSourceFailure(error,phase,attempt));throw error;}
+    };
     let backendPid: number | undefined;
     let credential: string | undefined;
     let abortOperation: (() => void) | undefined;
@@ -88,33 +96,53 @@ export class PostgresSourceScope {
       clearDeadline = this.deadlineClock.after(this.limits.operationTimeoutMs, () => { expired = true; reject(new SourceTimeout()); });
     });
     const execute = async (): Promise<T> => {
-      const connectionString = await this.credentials.resolve(ref);
+      const connectionString = await perform('credentials',()=>this.credentials.resolve(ref));
       if (expired) throw new SourceTimeout();
       credential = connectionString;
+      // Only connect is retried. No SQL (including backend identity and BEGIN)
+      // is sent until this loop has completed; the overall deadline is shared.
+      for(;;){
       client = new Client({ connectionString, connectionTimeoutMillis: this.limits.operationTimeoutMs,
         statement_timeout: this.limits.statementTimeoutMs, query_timeout: this.limits.operationTimeoutMs,
         types:{getTypeParser:(oid,format)=>[1082,1114,1184].includes(oid)?(value:string)=>value:types.getTypeParser(oid,format)},
         application_name: 'opintel-sidecar-connector' });
       // Socket errors are consumed here and are reported safely by the operation.
-      client.on('error', () => { expired = true; });
-      await client.connect();
+      const connecting=client;
+      let connected=false;
+      client.on('error', () => { if(connected)expired = true; });
+      let connectTimer:ReturnType<typeof setTimeout>|undefined;
+      try{
+        await perform('connect',()=>Promise.race([connecting.connect(),new Promise<never>((_resolve,reject)=>{
+          connectTimer=setTimeout(()=>reject(Object.assign(new Error('Source connection setup timed out.'),{code:'ETIMEDOUT'})),Math.max(1,Math.min(1000,Math.floor(this.limits.operationTimeoutMs/2))));
+        })]));connected=true;break;
+      }
+      catch(error){
+        await connecting.end().catch(()=>{});
+        const code=typeof error==='object'&&error!==null&&'code' in error?error.code:undefined;
+        const retryable=typeof code==='string'&&['ECONNREFUSED','ECONNRESET','ETIMEDOUT','EHOSTUNREACH','ENETUNREACH','EAI_AGAIN'].includes(code);
+        if(expired||signal?.aborted||attempt===2||!retryable)throw error;
+        attempt=2;
+      }finally{if(connectTimer)clearTimeout(connectTimer);}
+      }
       if (expired) throw new SourceTimeout();
-      const identity = await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      const connectedClient=client;
+      const identity = await perform('backend_identity',()=>connectedClient.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'));
       backendPid = identity.rows[0]?.pid;
       if (expired) throw new SourceCancelled();
-      await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
-      await client.query("SELECT set_config('statement_timeout', $1, true), set_config('search_path', 'pg_catalog', true)", [String(this.limits.statementTimeoutMs)]);
-      const session: SourceSession = { query: async (sql, values) => {
+      await perform('begin',()=>connectedClient.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY'));
+      await perform('settings',()=>connectedClient.query("SELECT set_config('statement_timeout', $1, true), set_config('search_path', 'pg_catalog', true)", [String(this.limits.statementTimeoutMs)]));
+      const session: SourceSession = { query: async (sql, values, phase='statement') => {
         if (expired || client === undefined) throw new SourceTimeout();
-        return (await client.query(sql, values)).rows as unknown[];
+        return (await perform(phase,()=>connectedClient.query(sql, values))).rows as unknown[];
       } };
       const result = await work(session);
       if (expired) throw new SourceTimeout();
-      await client.query('COMMIT');
+      await perform('commit',()=>connectedClient.query('COMMIT'));
       return result;
     };
     const running=execute();
     try { return await Promise.race([running, deadline, cancelled]); }
+    catch(error){if(error instanceof SourceTimeout||error instanceof SourceCancelled)retainSourceFailure(error,operation,attempt);throw error;}
     finally {
       const needsCancel = expired || signal?.aborted;
       expired = true;

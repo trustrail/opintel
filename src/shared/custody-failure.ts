@@ -1,8 +1,9 @@
 import {z} from 'zod';
 /** Operator evidence only. No provider body, URL, credential or native message. */
+const callDiagnostic={subcall:z.enum(['subscription','validation','other']).optional(),providerCode:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u).nullable().optional(),attempt:z.number().int().min(1).max(2).optional()};
 export const custodyProviderFailure=z.discriminatedUnion('kind',[
- z.strictObject({kind:z.literal('http_refused'),status:z.number().int().min(100).max(599)}),
- z.strictObject({kind:z.enum(['unreachable','deadline_exceeded','operation_refused','invalid_response','worker_failed','worker_exited','worker_deadline_exceeded'])}),
+ z.strictObject({...callDiagnostic,kind:z.literal('http_refused'),status:z.number().int().min(100).max(599)}),
+ z.strictObject({...callDiagnostic,kind:z.enum(['unreachable','deadline_exceeded','operation_refused','invalid_response','worker_failed','worker_exited','worker_deadline_exceeded'])}),
 ]);
 export const custodyFailureCode=z.enum(['ECONNRESET','ECONNREFUSED','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','EPIPE','08003','08006','23503','23505','40001','40P01','53300','57P01','57014']);
 export const custodyFailureType=z.enum(['Error','TypeError','RangeError','SyntaxError','ReferenceError','URIError','EvalError','CustodyProviderError']);

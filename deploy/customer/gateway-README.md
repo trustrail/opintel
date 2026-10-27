@@ -1,53 +1,38 @@
 # Opintel gateway — customer install
 
 Use the archive matching your Mac (arm64 for Apple silicon). Docker Desktop must
-be installed, running, and allowed at least 8 GB memory. Extract this archive to
-`~/Opintel/gateway`; do not run it on the USB stick. All commands below run there.
+be running with at least 8 GB memory. Extract to `~/Opintel/gateway`, not the USB
+stick. Run the commands below from that directory.
 
-1. In `package.env`, fill APP_BASE_URL (an HTTPS address reachable from both laptops,
-   for example your gateway's LAN IP), OWNER_EMAIL, the five XQ team values and
-   the SMTP block. WorkMail uses `smtp.mail.us-east-1.awsapps.com`, port `465`,
-   `implicit`, and a sender such as `noreply@trustrail.io`; STARTTLS uses `starttls`.
-   Optional certificate/key paths must both be supplied. All other secrets are generated.
-2. Copy the XQ team owner's exported `identities` directory alongside `install`.
-   The team owner supplies `identities/certificates.json`, a JSON array of four
-   objects with numeric `certificateId`, exact `deviceName` and relative
-   `bundlePath` (for example `device-1`). Entries 1–2 serve cedant A; 3–4 serve B.
-   Each `identities/device-N/` contains that identity's exported `client.crt`,
-   `client.key` and `transport.key`. Keep directories mode 700 and files mode 600;
-   apply `chmod -R u+rwX,go-rwx identities` before installing.
-   These are team-issued licensed identities, never created by this installer.
-3. Run `./install`. It loads offline images, initializes empty state, starts and
-   checks services, creates the expiring owner claim, and prints the sign-in address.
-   It prints the custody master key **once**: save it offline before closing the
-   terminal, then run `./backup`. Keep backups and `package.env` private; retain
-   the team exports and any supplied TLS files with your offline backups.
-4. Open the printed address, request your email link and complete sign-in from
-   your real inbox. Without supplied TLS, the browser warns about the generated
-   local CA; inspect/trust `state/ca.pem` in Keychain Access. The console also
-   displays a visible fallback warning. Use trusted TLS for production.
-5. Follow the engine README to install and pair it. Transfer this gateway's
-   `trust.json` and the pin from `./status` to that laptop. Receive its private
-   `gateway-registration.json` and its pin, then run
-   `./register-engine /path/to/gateway-registration.json ENGINE_PIN`.
-6. Run `./demo soak 1800`. It provisions the demo explicitly, seeds, renews,
-   prepares and runs the same scenario set for 30 minutes. The command prints the
-   private result/JSONL directory under `state/output`. Require result `passed`.
+1. Fill `package.env`: APP_BASE_URL (HTTPS, reachable from both laptops), OWNER_EMAIL,
+   the five XQ team values and SMTP settings. WorkMail: host
+   `smtp.mail.us-east-1.awsapps.com`, port `465`, TLS mode `implicit`, sender
+   `noreply@trustrail.io`. STARTTLS uses `starttls`. Optional TLS certificate and key
+   paths must both be supplied. Other settings and secrets are generated.
+2. Run `./install`. It loads the offline images, starts and checks services, claims
+   the owner email and prints the sign-in address. Save the custody master key
+   printed **once** in an offline backup, then run `./backup`. Protect `package.env`,
+   backups and supplied TLS files; do not send them in support reports.
+3. Open the printed address, request a login link and sign in from your real inbox.
+   Without supplied TLS, inspect/trust `state/ca.pem` in Keychain Access; the browser
+   and console warn about the local fallback. Use trusted TLS for production.
+4. Install the engine using its README. Take its printed address and pairing code
+   and run `./register-engine ENGINE_ADDRESS CODE` here. Then run `./xq-check`.
+5. For the shipped 30-minute demonstration, follow [DEMO.md](DEMO.md). Device imports,
+   cedant assignment and synthetic data belong to that optional demonstration.
 
 Lifecycle: `./start`, `./stop`, `./status`, `./upgrade /path/to/new/gateway`,
-`./backup`, `./restore /path/to/backup`. Backup/restore stop services. Stop preserves data. Restore retains a
-pre-restore backup; transient observer credentials and escrow shares are excluded.
-Never delete `state` or Docker volumes to repair an install.
-Replace EMAIL with an email address. Operator commands: `./owner-claim EMAIL` (explicit claim renewal),
-`./invite EMAIL --role member` (or `--role admin`), `./users`, `./xq-check`, `./mail-test EMAIL`.
-Mail-test and xq-check need no browser session. Invitations grant no access before
-normal email or company SSO login. No hosted model is enabled: PAL_PROVIDER,
-PAL_MODEL and EMBEDDING_MODEL are disabled; hosted-model egress requires future
-explicit opt-in. XQ and configured SMTP are the required external destinations.
+`./backup`, `./restore /path/to/backup`. Backup/restore stop services. Restore keeps
+pre-restore state; observer credentials and escrow shares are excluded from backup.
+Never delete state or volumes to repair an install. Stop preserves customer data.
 
-LAN firewall: browser → gateway TCP 443 (or APP_BASE_URL port); engine → gateway
-TCP 3102 for pinned heartbeat and 3101 for optional ingest receipts; gateway →
-engine TCP 3100 and 5434 (demo source only). No database/Redis/SpiceDB gateway
-ports are published. Customer sources are customer-owned durable state and are
-never torn down by lifecycle commands. No checkout, host Node or Compose command
-is required. If a command fails, retain its result and logs; do not claim the soak passed.
+Operator commands: `./owner-claim EMAIL`, `./invite EMAIL --role admin` (or `member`),
+`./users`, `./xq-check`, `./mail-test EMAIL`. No browser session is needed for these
+commands. Invitations require normal email or company SSO login before access.
+
+LAN: browsers → gateway TCP 443 (or APP_BASE_URL port); engine → gateway TCP 3102
+for heartbeat and 3101 for optional ingest receipts; gateway → engine TCP 3100 and
+3103 for pairing/recovery, and 5434 for the demo source. Gateway database, Redis and SpiceDB ports are private.
+XQ and configured SMTP are required external destinations. PAL_PROVIDER, PAL_MODEL
+and EMBEDDING_MODEL are disabled: hosted models require future explicit opt-in.
+No checkout, host Node or Compose command is needed. Retain failure logs/results.

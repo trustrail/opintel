@@ -2,8 +2,11 @@
 
 Start with installed gateway and engine customer packages, paired using their
 READMEs. Complete the owner's normal email login. The customer's XQ team owner
-must supply the four licensed device exports in the gateway's protected
-`identities` directory; the installer never enrolls or replaces devices.
+must supply four licensed device export ZIPs. Import each with the gateway's
+`./identities add EXPORT.zip --device NAME` command, following its `DEMO.md`.
+The command maintains the protected `identities` directory and manifest; it never
+enrolls or replaces devices. Import the two cedant A identities first, then the
+two cedant B identities.
 
 From the gateway package directory, run:
 

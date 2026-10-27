@@ -38,8 +38,8 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
  const config=configSchema.parse(JSON.parse(await readFile(file,'utf8')));
  phase('tls');
  const read=(name:keyof typeof config.tls)=>readFile(resolve(dirname(file),config.tls[name]),'utf8');
- const [ca,cert,key,peer]=await Promise.all([read('caFile'),read('certFile'),read('keyFile'),read('clientPinFile')]);
- const pin=new X509Certificate(peer).fingerprint256;
+ let [ca,cert,key,peer]=await Promise.all([read('caFile'),read('certFile'),read('keyFile'),read('clientPinFile')]);
+ let pin=new X509Certificate(peer).fingerprint256;
  phase('stored_state');
  let state:Stored[]=[];
  try{state=z.array(stored).max(32).parse(JSON.parse(await readFile('/egress/state.json','utf8')));}catch(error){if(!(error instanceof Error&&'code'in error&&error.code==='ENOENT'))throw error;}
@@ -73,7 +73,12 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
   failures=denied;
   applied=new Map(state.filter(value=>value.policy).map(value=>[value.binding.projectId,value.policy!.version]));
  }
- async function fetchPolicy(entry:Stored):Promise<EgressPolicy>{return new Promise((resolve,reject)=>{
+ async function fetchPolicy(entry:Stored):Promise<EgressPolicy>{
+  const [nextCa,nextPeer]=await Promise.all([read('caFile'),read('clientPinFile')]);
+  const certificate=new X509Certificate(nextPeer),authority=new X509Certificate(nextCa);
+  if(!authority.ca||!certificate.verify(authority.publicKey)||Date.parse(certificate.validTo)<=Date.now())throw new Error('Gateway trust invalid.');
+  ca=nextCa;peer=nextPeer;pin=certificate.fingerprint256;
+  return new Promise((resolve,reject)=>{
   const data=JSON.stringify({projectId:entry.binding.projectId,engineId:entry.binding.engineId,appliedVersion:applied.get(entry.binding.projectId)??null,unreachableSourceIds:failures.get(entry.binding.projectId)??[]});
   const req=request(new URL('/engine-heartbeat',entry.binding.gatewayUrl),{method:'POST',agent:false,ca,cert,key,minVersion:'TLSv1.3',rejectUnauthorized:true,checkServerIdentity:(host,value)=>checkServerIdentity(host,value)??(value.fingerprint256===pin?undefined:new Error('Gateway pin mismatch')),signal:AbortSignal.timeout(5000),headers:{'content-type':'application/json','content-length':Buffer.byteLength(data)}},res=>{
    const chunks:Buffer[]=[];let size=0;res.on('error',reject);res.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>2*1024*1024)res.destroy(new Error('Policy too large'));else chunks.push(chunk);});res.on('end',()=>{try{if(res.statusCode!==200||!res.complete)throw new Error('Heartbeat refused');resolve(egressPolicy.parse(JSON.parse(Buffer.concat(chunks).toString('utf8'))));}catch(error){reject(error);}});

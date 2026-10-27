@@ -29,11 +29,11 @@ for(const kind of ['gateway','engine']){
  writeFileSync(join(directory,'images.list'),inventory.map(i=>i.image+' '+i.id).join('\n')+'\n');
  writeFileSync(join(directory,'image-provenance.json'),JSON.stringify({platform,revision:manifest.revision,images:inventory},null,2)+'\n');
  writeFileSync(join(directory,'bootstrap.image'),map[provisioning]+'\n');writeFileSync(join(directory,'platform'),platform+'\n');writeFileSync(join(directory,'package-kind'),kind+'\n');
- for(const command of ['install','start','stop','status','upgrade','backup','restore',...(kind==='gateway'?['owner-claim','invite','users','xq-check','mail-test','demo','register-engine']:['register'])]){
+ for(const command of ['install','start','stop','status','upgrade','backup','restore',...(kind==='gateway'?['owner-claim','invite','users','xq-check','mail-test','demo','identities','register-engine']:['pairing-code'])]){
   copyFileSync('deploy/customer/command',join(directory,command));chmodSync(join(directory,command),0o755);
  }
  copyFileSync('deploy/customer/'+kind+'-README.md',join(directory,'README.md'));
- if(kind==='gateway'){copyFileSync('deploy/customer/package.env.example',join(directory,'package.env'));chmodSync(join(directory,'package.env'),0o600);}
+ if(kind==='gateway'){copyFileSync('deploy/customer/gateway-DEMO.md',join(directory,'DEMO.md'));copyFileSync('deploy/customer/package.env.example',join(directory,'package.env'));chmodSync(join(directory,'package.env'),0o600);}
  auditPackage(directory);
  docker(['image','save','--platform',platform,'--output',join(directory,'images.tar'),...inventory.map(i=>i.image)]);
  auditPackage(directory);

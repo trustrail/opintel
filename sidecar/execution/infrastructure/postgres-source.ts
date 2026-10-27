@@ -1,3 +1,4 @@
+import {getSourceFailure,retainSourceFailure,sourceOperationEvent} from '../../../src/shared/source-failure.js';
 import {enginePhase} from '../../../src/shared/engine-phase.js';
 import {createHmac,randomBytes} from 'node:crypto';
 import {stagedColumns} from '../../../src/shared/execution-contract.js';
@@ -41,11 +42,11 @@ const refused = () => err(new DomainError('validation_failed',
 // not evidence of reachability and is never searched for a cause.
 function sourceFailureCause(error:unknown):string {
  const parsed=z.object({code:z.string()}).safeParse(error);
- if(!parsed.success)return 'unclassified';
+ if(!parsed.success)return getSourceFailure(error)?'source_read_failed':'unclassified';
  if(['ECONNREFUSED','ENOTFOUND','EHOSTUNREACH','ENETUNREACH'].includes(parsed.data.code))return 'source_unreachable';
  if(parsed.data.code==='57014')return 'interruption_unclassified';
  if(/^[0-9A-Z]{5}$/u.test(parsed.data.code))return 'source_read_failed';
- return 'unclassified';
+ return getSourceFailure(error)?'source_read_failed':'unclassified';
 }
 export class PostgresStagingSource implements StagingSource {
  constructor(private readonly scope:PostgresSourceScope,private readonly tokenizer:SidecarTokenizer){}
@@ -53,23 +54,23 @@ export class PostgresStagingSource implements StagingSource {
   try{return await work();}catch(e){if(e instanceof DomainError)return err(e);
    if(e instanceof Error&&e.message.startsWith('Out of Memory Error:'))return err(new DomainError('budget_exceeded','The pool memory limit was exceeded while staging. Narrow the query or review the pool limit.',{cause:'memory_exhausted',resource:'memory'}));
    if(e instanceof SourceBusy)return err(new DomainError('budget_exceeded','Source connection limit reached.',{cause:'source_connections_saturated'},true));
-   return err(new DomainError('source_unavailable',e instanceof SourceTimeout?'The source operation exceeded its deadline.':e instanceof SourceCancelled?'The source operation was cancelled.':'The source read could not complete. No partial result was returned.',{...(e instanceof z.ZodError?{reason:responseKind}:{}),cause:e instanceof SourceTimeout||e instanceof SourceCancelled?'interruption_unclassified':e instanceof z.ZodError?'source_response_unusable':sourceFailureCause(e)}));
+   return err(new DomainError('source_unavailable',e instanceof SourceTimeout?'The source operation exceeded its deadline.':e instanceof SourceCancelled?'The source operation was cancelled.':'The source read could not complete. No partial result was returned.',{...(getSourceFailure(e)?{sourceFailure:getSourceFailure(e)}:{}),...(e instanceof z.ZodError?{reason:responseKind}:{}),cause:e instanceof SourceTimeout||e instanceof SourceCancelled?'interruption_unclassified':e instanceof z.ZodError?'source_response_unusable':sourceFailureCause(e)}));
   }
  }
  estimate(s:Scan,signal:AbortSignal):Promise<Result<number|null>>{
   return this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
    if(s.object.readPlan.rowScope?.predicate){
-    const actual=z.array(z.object({name:z.string(),type:z.string()})).parse(await session.query(`SELECT a.attname AS name,t.typname AS type FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid WHERE a.attrelid=to_regclass($1) AND a.attnum>0 AND NOT a.attisdropped`,[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)]));
+    const actual=z.array(z.object({name:z.string(),type:z.string()})).parse(await session.query(`SELECT a.attname AS name,t.typname AS type FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid WHERE a.attrelid=to_regclass($1) AND a.attnum>0 AND NOT a.attisdropped`,[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)],'metadata'));
     const allowed:Record<string,string[]>={number:['int2','int4','int8','numeric','money'],text:['text','varchar','bpchar','name','char'],uuid:['uuid'],boolean:['bool'],FLOAT:['float4'],DOUBLE:['float8'],DATE:['date'],TIME:['time'],TIMESTAMP:['timestamp'],TIMESTAMPTZ:['timestamptz']};
     if(s.object.readPlan.rowScope.columns.some(c=>!(allowed[c.type]??allowed[family(c.type)]??[]).includes(actual.find(a=>a.name===c.sourceIdentifier)?.type??'')))return err(new DomainError('validation_failed','A row-scope input no longer has its catalogued source type. Re-introspect and review its row decision.',{cause:'invalid_plan',reason:'row_scope_type'}));
    }
-   const known=await session.query('SELECT reltuples::double precision AS rows FROM pg_class WHERE oid=to_regclass($1)',[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)]);
+   const known=await session.query('SELECT reltuples::double precision AS rows FROM pg_class WHERE oid=to_regclass($1)',[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)],'metadata');
    const metadata=z.array(z.object({rows:z.number()})).parse(known);
    if(!metadata.length||metadata[0]!.rows<0)return ok(null);
-   const rows=await session.query('EXPLAIN (FORMAT JSON) '+select(s));
+   const rows=await session.query('EXPLAIN (FORMAT JSON) '+select(s),undefined,'estimate');
    const explained=z.array(z.object({'QUERY PLAN':z.array(z.object({Plan:z.object({'Plan Rows':z.number().nonnegative()})})).min(1)})).min(1).parse(rows);
    return ok(explained[0]!['QUERY PLAN'][0]!.Plan['Plan Rows']);
-  },signal),'metadata');
+  },signal,s.request.requestId),'metadata');
  }
  plain(s:Scan,privileged:EngineSession,table:string,signal:AbortSignal):Promise<Result<void>>{
   if(s.object.readPlan.contributor)return Promise.resolve(err(new DomainError('validation_failed','A contributor proof must use the guarded source reader.',{cause:'invalid_plan',reason:'read_plan'})));
@@ -77,7 +78,7 @@ export class PostgresStagingSource implements StagingSource {
   return this.safe(()=>this.scope.external(key(s),credential(s),async (connection,sourceSignal)=>{
    if(!privileged.staging)throw new Error('Staging unavailable');
    const abort=()=>privileged.interrupt?.();sourceSignal.addEventListener('abort',abort,{once:true});
-   try{enginePhase(s.request.requestId,'scan','start');await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));enginePhase(s.request.requestId,'scan','end');return ok(undefined);}finally{sourceSignal.removeEventListener('abort',abort);}
+   try{sourceOperationEvent(s.request.requestId,'scanner','start',1);enginePhase(s.request.requestId,'scan','start');await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));enginePhase(s.request.requestId,'scan','end');sourceOperationEvent(s.request.requestId,'scanner','end',1);return ok(undefined);}catch(error){sourceOperationEvent(s.request.requestId,'scanner','failed',1,retainSourceFailure(error,'scanner',1));throw error;}finally{sourceSignal.removeEventListener('abort',abort);}
   },signal));
  }
  treated(s:Scan,consume:(rows:unknown[][])=>Promise<Result<void>>,signal:AbortSignal):Promise<Result<void>>{
@@ -86,7 +87,7 @@ export class PostgresStagingSource implements StagingSource {
   // in plaintext. A fresh per-scan key is never sent to the Application.
   const proofKey=s.object.readPlan.contributor?randomBytes(32):undefined;
   const read=async(transforms:((value:unknown)=>Result<unknown>)[]):Promise<Result<void>>=>{enginePhase(s.request.requestId,'scan','start');return this.safe(()=>this.scope.run(key(s),credential(s),async session=>{
-   await session.query("SELECT set_config('TimeZone','UTC',true),set_config('DateStyle','ISO, YMD',true),set_config('extra_float_digits','3',true)");
+   await session.query("SELECT set_config('TimeZone','UTC',true),set_config('DateStyle','ISO, YMD',true),set_config('extra_float_digits','3',true)",undefined,'settings');
         const types = z.array(z.object({ name: z.string(), type: z.string() })).parse(await session.query(`
           WITH RECURSIVE types AS (
             SELECT a.attname AS name, t.oid, t.typname, t.typbasetype
@@ -95,7 +96,7 @@ export class PostgresStagingSource implements StagingSource {
             UNION ALL SELECT types.name,t.oid,t.typname,t.typbasetype
             FROM types JOIN pg_catalog.pg_type t ON t.oid=types.typbasetype
           ) SELECT name,typname AS type FROM types WHERE typbasetype=0`,
-          [`${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}`]));
+          [`${quote(s.object.readPlan.schema)}.${quote(s.object.readPlan.object)}`],'metadata'));
         const entity=s.object.readPlan.contributor;
         if(entity){
          const allowed:Record<string,string[]>={VARCHAR:['text','varchar','bpchar','name','char'],UUID:['uuid'],TINYINT:['int2'],SMALLINT:['int2'],INTEGER:['int4'],BIGINT:['int8'],HUGEINT:['int8'],DATE:['date'],TIMESTAMP:['timestamp'],TIMESTAMPTZ:['timestamptz']};
@@ -113,13 +114,13 @@ export class PostgresStagingSource implements StagingSource {
         }
 
    let previewOrder=s.preview?.orderBy??[];
-   if(s.preview){const primary=z.array(z.object({name:z.string()})).parse(await session.query(`SELECT a.attname AS name FROM pg_constraint k JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attnum=ANY(k.conkey) WHERE k.contype='p' AND k.conrelid=to_regclass($1) ORDER BY array_position(k.conkey,a.attnum)`,[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)]));if(primary.length)previewOrder=primary.map(c=>c.name);}
-   await session.query('DECLARE opintel_stage NO SCROLL CURSOR FOR '+select(s,true)+(s.preview?' ORDER BY '+previewOrder.map(quote).join(','):'')+` LIMIT ${s.request.settings.maxStagingRows+1}`);
-   let scanned=0;
+   if(s.preview){const primary=z.array(z.object({name:z.string()})).parse(await session.query(`SELECT a.attname AS name FROM pg_constraint k JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attnum=ANY(k.conkey) WHERE k.contype='p' AND k.conrelid=to_regclass($1) ORDER BY array_position(k.conkey,a.attnum)`,[quote(s.object.readPlan.schema)+'.'+quote(s.object.readPlan.object)],'metadata'));if(primary.length)previewOrder=primary.map(c=>c.name);}
+   await session.query('DECLARE opintel_stage NO SCROLL CURSOR FOR '+select(s,true)+(s.preview?' ORDER BY '+previewOrder.map(quote).join(','):'')+` LIMIT ${s.request.settings.maxStagingRows+1}`,undefined,'declare');
+   let scanned=0;let readFailed=false;
    try{for(;;){
     if(signal.aborted)throw new SourceCancelled();
     enginePhase(s.request.requestId,'scan','start');
-    const raw=await session.query('FETCH FORWARD 256 FROM opintel_stage');enginePhase(s.request.requestId,'scan','end');
+    const raw=await session.query('FETCH FORWARD 256 FROM opintel_stage',undefined,'fetch');enginePhase(s.request.requestId,'scan','end');
     const rows=z.array(z.record(z.string(),z.unknown())).parse(raw);
     if(!rows.length)break;
     const treated:unknown[][]=[];
@@ -145,8 +146,8 @@ export class PostgresStagingSource implements StagingSource {
      enginePhase(s.request.requestId,'treat','end');
      if(signal.aborted)throw new SourceCancelled();const accepted=await consume(treated);if(!accepted.ok)return accepted;
     }finally{for(const row of raw)if(typeof row==='object'&&row!==null)for(const k of Object.keys(row))Reflect.set(row,k,null);for(const row of rows)for(const k of Object.keys(row))row[k]=null;for(const row of treated)row.fill(null);treated.length=0;}
-   }return ok(undefined);}finally{await session.query('CLOSE opintel_stage');}
-  },signal));};
+   }return ok(undefined);}catch(error){readFailed=true;throw error;}finally{const closing=session.query('CLOSE opintel_stage',undefined,'close');await (readFailed?closing.catch(()=>{}):closing);}
+  },signal,s.request.requestId));};
   const base=s.object.readPlan.columns.map(c=>(value:unknown):Result<unknown>=>c.treatment==='masked'?maskValue(c.mask!.kind,value):ok(value));
   if(!s.object.readPlan.columns.some(c=>c.treatment==='tokenized'))return read(base).finally(()=>proofKey?.fill(0));
   return this.tokenizer.run(ProjectId(s.request.projectId),async run=>{

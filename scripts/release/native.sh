@@ -70,17 +70,29 @@ docker_architecture="$(docker info --format '{{.Architecture}}')"
 [[ "$docker_architecture" == arm64 || "$docker_architecture" == aarch64 ]] || fail "Docker architecture: arm64 required; found $docker_architecture"
 [[ -f "$provider_file" && -r "$provider_file" ]] || fail "provider file is not a readable file: $provider_file"
 provider_file="$(cd "$(dirname "$provider_file")" && pwd)/$(basename "$provider_file")"
-for port in 443 3100 3101 3102 5434 11465 11825 12375; do
+for port in 443 3100 3101 3102 3103 5434 11465 11825 12375; do
   holder="$(docker ps --filter "publish=$port" --format '{{.Names}} (install {{.Label "com.docker.compose.project"}})')"
   [[ -z "$holder" ]] || fail "acceptance port $port is held by $holder; stop that installation explicitly before release acceptance"
   listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
   [[ -z "$listeners" ]] || fail "acceptance port $port has a host listener: $listeners; stop it explicitly before release acceptance"
 done
 for certificate in 223 224 225 226; do
-  for name in client.crt client.key transport.key; do
-    certificate_file="$HOME/.xq/v02/$certificate/$name"
-    [[ -f "$certificate_file" && -r "$certificate_file" ]] || fail "certificate file is not readable: $certificate_file"
-  done
+  export_directory="$HOME/.xq/v02/$certificate"
+  python3 - "$export_directory" "$certificate" <<'PYZIP'
+import pathlib, sys, zipfile
+root, certificate = pathlib.Path(sys.argv[1]), sys.argv[2]
+archives = list(root.glob('*-' + certificate + '.zip'))
+if len(archives) != 1:
+    raise SystemExit('XQ export precondition: expected one original *-' + certificate + '.zip in ' + str(root))
+try:
+    with zipfile.ZipFile(archives[0]) as archive:
+        names = archive.namelist()
+        for required in ('client.crt', 'client.key', 'transport.key'):
+            if names.count(required) != 1:
+                raise SystemExit('XQ export precondition: missing or duplicate ' + required + ' in ' + str(archives[0]))
+except (OSError, zipfile.BadZipFile):
+    raise SystemExit('XQ export precondition: unreadable ZIP ' + str(archives[0]))
+PYZIP
 done
 
 cd "$root"
@@ -121,7 +133,7 @@ printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/package.log"
 node scripts/images/customer-package.mjs "$run_directory/published-arm64.json" "$run_directory/packages" >"$phase_log" 2>&1
 
-phase='published-digest acceptance including XQ and two-minute soak'
+phase='published-digest acceptance including XQ and 30-minute soak'
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/acceptance.log"
 RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 node scripts/images/stage5-smoke.mjs "$run_directory/packages" >"$phase_log" 2>&1

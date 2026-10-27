@@ -41,6 +41,7 @@ export class QueryRelease implements QueryReleasePort {
    let code:null|ReturnType<typeof custodyFailureCode.parse>=null;
    try{if(error instanceof Error&&'code' in error){const parsed=custodyFailureCode.safeParse(error.code);if(parsed.success)code=parsed.data;}}catch{/* Untrusted diagnostic accessors cannot change the refusal. */}
    const failure=custodyFailure.parse({phase,provider:['local','xq'].includes(this.provider.id)?this.provider.id:'other',exception:{type:exceptionType(error),code},providerFailure:error instanceof CustodyProviderError?error.failure:null});
+   console.info({event:'custody.release_refused',timestamp:new Date().toISOString(),evidenceId:receipt,releaseFailure:failure});
    if(locator)await this.provider.revoke(locator).catch(()=>{});
    return err(new DomainError('dependency_unavailable','Custody release could not be prepared. No result was released.',{cause:'release_prepare_failed',releaseFailure:failure}));
   }

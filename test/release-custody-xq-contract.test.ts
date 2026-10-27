@@ -33,3 +33,20 @@ it('XQ SDK service contract: stored recipient without alias authorization, joine
   expect(JSON.parse(calls[3]!.body)).toEqual({tokens:[locator]});
  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
+
+it.each(['subscription','validation'])('XQ escrow %s HTTP 400 records its code and does not retry either subcall',async subcall=>{
+ const calls:string[]=[];
+ const server=createServer(async(req,res)=>{
+  for await(const _chunk of req){/* Drain the synthetic request. */}
+  calls.push(req.url??'');
+  if(req.url===`/${subcall}/packet`){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({code:'PACKET_REFUSED',message:'PRIVATE_PROVIDER_DIAGNOSTIC'}));}
+  else res.end('opaque-synthetic-packet');
+ });
+ server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
+ const base=`http://127.0.0.1:${address.port}`;
+ const provider=new XqReleaseProvider({apiKey:'synthetic',dashboardApiKey:'synthetic',senderAlias:'synthetic',senderAccessToken:'synthetic',subscriptionUrl:base+'/subscription',validationUrl:base+'/validation'},'tenant','https://provider.invalid/redeem');
+ try{
+  await expect(provider.escrow(Buffer.alloc(32,7),'synthetic-recipient',3600,true,randomUUID())).rejects.toMatchObject({failure:{kind:'http_refused',status:400,subcall,providerCode:'PACKET_REFUSED',attempt:1}});
+  expect(calls).toEqual(subcall==='subscription'?['/subscription/packet']:['/subscription/packet','/validation/packet']);
+ }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});

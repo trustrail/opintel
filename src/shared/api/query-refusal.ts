@@ -1,6 +1,10 @@
+import {custodyFailure} from '../custody-failure.js';
+import {sourceFailure} from '../source-failure.js';
 import {z} from 'zod';
 const name=z.string().min(1).refine(v=>!v.includes('\0'));
 export const queryRefusalDetails = z.object({
+ sourceFailure:sourceFailure.optional(),
+ releaseFailure:custodyFailure.optional(),
  name:name.optional(), operation:name.optional(), construct:name.optional(),
  columns:z.tuple([z.object({elementId:z.uuid(),name}),z.object({elementId:z.uuid(),name})]).optional(),
  elementId:z.uuid().optional(), object:z.object({catalog:name,schema:name,name}).optional(),

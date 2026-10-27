@@ -67,3 +67,13 @@ it.each(['MIN','MAX'])('G-08: %s refusal reaches the agent with the column and p
  expect(response).toMatchObject({isError:true,_meta:{code:'unsupported_on_aggregate_only',cause:'unsupported_operation',retryable:false},content:[{text:`${operation} is not permitted on aggregate-only column amount. Use SUM, AVG or COUNT instead.`}]});
  expect(JSON.stringify(response)).not.toMatch(/PRIVATE|938173|threshold/);
 });
+
+it('source failure exposes bounded operation diagnostics and evidence without native text',()=>{
+ const sourceFailure={operation:'fetch',nativeCode:'ECONNRESET',sqlState:null,attempt:1};
+ const response=refusalResponse(new DomainError('source_unavailable','PRIVATE MESSAGE',{cause:'source_read_failed',sourceFailure,evidenceId:'record-1',statement:'PRIVATE SQL'}));
+ expect(response._meta).toMatchObject({cause:'source_read_failed',sourceFailure,evidenceId:'record-1',retryable:false});
+ expect(JSON.stringify(response)).not.toContain('PRIVATE');
+ const malformed=refusalResponse(new DomainError('source_unavailable','PRIVATE',{cause:'source_read_failed',sourceFailure:{...sourceFailure,message:'PRIVATE'}}));
+ expect(malformed._meta.sourceFailure).toBeUndefined();
+ expect(malformed._meta.cause).toBe('source_read_failed');
+});

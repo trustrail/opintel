@@ -133,7 +133,7 @@ export class PostgresConnector implements SidecarConnector {
     if (!parsed.success) return invalid();
     try {
       const value = await this.scope.run(parsed.data.sourceId, SecretRef(parsed.data.credentialRef),
-        (session) => work(session, parsed.data.payload), signal);
+        (session) => work(session, parsed.data.payload), signal, parsed.data.requestId);
       return ok(value);
     } catch (error: unknown) {
       if (error instanceof SourceCancelled) return err(new DomainError('source_unavailable', 'Source request cancelled.'));

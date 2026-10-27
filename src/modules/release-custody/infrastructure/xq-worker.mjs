@@ -1,3 +1,4 @@
+import {xqRequest} from './xq-transport.mjs';
 import {parentPort,workerData} from 'node:worker_threads';
 import {webcrypto} from 'node:crypto';
 // XQ's Gateway/Transfer licence guidance recommends database (8) for our key packets.
@@ -20,16 +21,23 @@ try{
  if(configuration.subscriptionUrl)sdk.SUBSCRIPTION_SERVER_URL=configuration.subscriptionUrl;
  if(configuration.validationUrl)sdk.VALIDATION_SERVER_URL=configuration.validationUrl;
  let healthStatus;
- // Native fetch transport avoids XMLHttpRequest and shares no response cache.
+ // Explicit connect-before-write transport; no SDK cache or request replay.
  sdk.makeRequest=async(url,method,service,headers,payload,requiresApiKey)=>{
   const requestHeaders={...headers};if(requiresApiKey)requestHeaders['api-key']=configuration.apiKey;
   const plain=requestHeaders['content-type']==='text/plain;charset=UTF-8';if(!plain)requestHeaders['content-type']='application/json';
-  const signal=globalThis.AbortSignal.timeout(15000);let response;
-  try{response=await globalThis.fetch(url,{method,headers:requestHeaders,body:method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),signal,redirect:'error'});}catch(error){failure={kind:signal.aborted?'deadline_exceeded':'unreachable'};throw error;}
-  if(!response.ok)failure={kind:'http_refused',status:response.status};
-  if(operation==='health'){healthStatus=response.status;await response.body?.cancel();return new ServerResponse(response.ok?ServerResponse.OK:ServerResponse.ERROR,response.status,null);}
-  let text;try{text=await response.text();}catch(error){failure??={kind:signal.aborted?'deadline_exceeded':'unreachable'};throw error;}let value;try{value=JSON.parse(text);}catch{value=text;}
-  return new ServerResponse(response.ok?ServerResponse.OK:ServerResponse.ERROR,response.status,value);
+  const subcall=url.startsWith(sdk.SUBSCRIPTION_SERVER_URL+'/')?'subscription':url.startsWith(sdk.VALIDATION_SERVER_URL+'/')?'validation':'other';
+  let response;
+  try{response=await xqRequest(url,{method,headers:requestHeaders},method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload));}
+  catch(error){failure={kind:error.kind??'unreachable',subcall,providerCode:null,attempt:error.attempt??1};throw error;}
+  const ok=response.status>=200&&response.status<300;
+  let value;try{value=JSON.parse(response.text);}catch{value=response.text;}
+  if(!ok){
+   const raw=value&&typeof value==='object'?(value.code??value.errorCode??value.error?.code):undefined;
+   const code=typeof raw==='number'&&Number.isSafeInteger(raw)?String(raw):raw;
+   failure={kind:'http_refused',status:response.status,subcall,providerCode:typeof code==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u.test(code)?code:null,attempt:response.attempt};
+  }
+  if(operation==='health'){healthStatus=response.status;return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,null);}
+  return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,value);
  };
  sdk.getCache().putActiveProfile(operation==='fetch'?alias:configuration.senderAlias);
  sdk.getCache().putXQAccess(operation==='fetch'?alias:configuration.senderAlias,operation==='fetch'?configuration.accessToken:configuration.senderAccessToken);

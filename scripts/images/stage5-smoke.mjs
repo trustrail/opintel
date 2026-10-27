@@ -53,7 +53,7 @@ function https(path,method='GET',body,cookie){return bounded(new Promise((resolv
  }),35000);}
 let base,ownerCookie;
 async function api(path,method='GET',body){const response=await https(path,method,body,ownerCookie);assert.ok(response.status>=200&&response.status<300,'API refused '+path+' ('+response.status+')');return response.text?JSON.parse(response.text):undefined;}
-function protect(path){const st=statSync(path);chmodSync(path,st.isDirectory()?0o700:0o600);if(st.isDirectory())for(const name of readdirSync(path))protect(join(path,name));}
+
 function browserCheck(restore=false){
  const version=JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version;
  run('docker',['run','--rm','--init','--ipc=host','--platform',platform,'-v',resolve('node_modules')+':/work/node_modules:ro','-v',resolve('scripts/images/package-browser.mjs')+':/work/browser.mjs:ro','-v',directory+':/acceptance','-w','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs',...(restore?['restore']:[])]);
@@ -61,13 +61,13 @@ function browserCheck(restore=false){
 }
 try{
  console.log('Stage 5 acceptance directory: '+directory);
- await acceptancePortPreflight([443,3100,3101,3102,5434,11465,11825,12375],{env:outer});
+ await acceptancePortPreflight([443,3100,3101,3102,3103,5434,11465,11825,12375],{env:outer});
  advance('extract-and-audit-archives');
  for(const kind of ['gateway','engine']){run('tar',['-xpf',join(archives,kind+'-'+prefix+'-'+platform.split('/')[1]+'.tar.gz'),'-C',directory]);auditPackage(join(directory,kind));const release=JSON.parse(readFileSync(join(directory,kind,'release.json')));assert.equal(release.revision,manifest.revision);assert.equal(release.customerPackageVersion,1,'Customer archive marker absent');for(const [target,digest] of Object.entries(release.images))assert.equal(digest,manifest.artifacts.find(a=>a.platform===platform&&a.target===target)?.repoDigests[0],'Archive image provenance mismatch: '+target);}
  const archiveHashes={};for(const kind of ['gateway','engine']){const file=join(archives,kind+'-'+prefix+'-'+platform.split('/')[1]+'.tar.gz'),hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk);archiveHashes[kind]={file,sha256:hash.digest('hex')};}
  result.checks.archives={revision:manifest.revision,customerPackageVersion:1,audited:true,archives:archiveHashes,packageEnvironmentKeys:Object.keys(parse(readFileSync(join(gateway,'package.env')))).sort()};
  advance('empty-docker-daemon');write(join(directory,'daemon.json'),{features:{'containerd-snapshotter':true}});
- run('docker',['run','--detach','--privileged','--name',daemon,'--platform',platform,'--env','DOCKER_TLS_CERTDIR=','--publish','127.0.0.1:12375:2375',...['443','3100','3101','3102','5434'].flatMap(port=>['--publish','0.0.0.0:'+port+':'+port]),'--volume',daemonVolume+':/var/lib/docker','--volume',directory+':'+directory,'--volume',join(directory,'daemon.json')+':/etc/docker/daemon.json:ro',upstream['x-acceptance-images'].dockerDaemon,'--tls=false']);
+ run('docker',['run','--detach','--privileged','--name',daemon,'--platform',platform,'--env','DOCKER_TLS_CERTDIR=','--publish','127.0.0.1:12375:2375',...['443','3100','3101','3102','3103','5434'].flatMap(port=>['--publish','0.0.0.0:'+port+':'+port]),'--volume',daemonVolume+':/var/lib/docker','--volume',directory+':'+directory,'--volume',join(directory,'daemon.json')+':/etc/docker/daemon.json:ro',upstream['x-acceptance-images'].dockerDaemon,'--tls=false']);
  await wait(()=>run('docker',['info'],{env:nested,log:false}),'Empty daemon startup');
  assert.equal(run('docker',['image','ls','-q'],{env:nested}),'');assert.equal(run('docker',['ps','-aq'],{env:nested}),'');
  result.checks.emptyDocker={imageCount:0,containerCount:0,daemon,volume:daemonVolume};
@@ -77,18 +77,16 @@ try{
  base='https://'+hostAddress;
  const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'',SMTP_PASSWORD:'',SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
  write(join(gateway,'package.env'),Object.entries(settings).map(([name,value])=>name+"='"+value.replaceAll("'","\\'")+"'").join('\n')+'\n');
- const identities=join(gateway,'identities');mkdirSync(identities,{mode:0o700});
  const mapping=JSON.parse(readFileSync('scripts/soak/certificates.example.json'));
- for(const entry of mapping){cpSync(join(homedir(),'.xq/v02',String(entry.certificateId)),join(identities,String(entry.certificateId)),{recursive:true});entry.bundlePath=String(entry.certificateId);}
- write(join(identities,'certificates.json'),mapping);protect(identities);
  advance('gateway-install');command('gateway','install');result.checks.gatewayInstall=true;
- advance('engine-install');command('engine','install');result.checks.engineInstall=true;
+ advance('engine-install');const engineInstallOutput=command('engine','install');result.checks.engineInstall=true;
+ advance('identity-import');for(const entry of mapping){const exports=join(homedir(),'.xq/v02',String(entry.certificateId));const zip=readdirSync(exports).find(name=>name.endsWith('-'+entry.certificateId+'.zip'));assert.ok(zip,'Missing original XQ export for certificate '+entry.certificateId);const imported=join(directory,zip);cpSync(join(exports,zip),imported);chmodSync(imported,0o600);command('gateway','identities','add',imported,'--device',entry.deviceName);}result.checks.identityImports={count:mapping.length,command:'./identities add EXPORT.zip --device NAME'};
  for(const [root,keys] of [[gateway,['application','ingress','spicedb','ca']],[engine,['engine','ca']]]){for(const name of keys)assert.equal(statSync(join(root,'state',name+'.key')).mode&0o777,0o600);for(const name of ['audit','control','custody','ingest'])assert.equal(statSync(join(root,'state',name)).mode&0o777,0o700);}
  result.checks.privatePermissions=true;
  const rendered=JSON.parse(compose('gateway','--profile','jobs','config','--format','json'));assert.equal(rendered.services.ingress.ports[0].published,'443');assert.equal(rendered.services['demo-tools'].environment.APPLICATION_TLS_CONFIG,'/config/application-tls.json');result.checks.defaultHttpsPort=443;
  advance('mutual-pairing');
- const gatewayIdentity=JSON.parse(readFileSync(join(gateway,'trust.json'))),engineIdentity=JSON.parse(readFileSync(join(engine,'state/gateway-registration.json')));
- command('engine','register',join(gateway,'trust.json'),gatewayIdentity.pin);command('gateway','register-engine',join(engine,'state/gateway-registration.json'),engineIdentity.pin);result.checks.paired=true;
+ const engineAddress=/Engine address: (\S+)/u.exec(engineInstallOutput)?.[1];assert.ok(engineAddress,'Engine install did not print its address');
+ const pairingCode=/Pairing code \(expires in 15 minutes\): (\S+)/u.exec(engineInstallOutput)?.[1];assert.ok(pairingCode,'Engine install did not print a pairing code');command('gateway','register-engine',engineAddress,pairingCode);result.checks.paired={singleCode:true,noFileTransfer:true};
  advance('smtp-fixture');
  const mailDirectory=join(directory,'mail');mkdirSync(mailDirectory,{mode:0o700});
  run('openssl',['req','-newkey','rsa:2048','-nodes','-keyout',join(mailDirectory,'mail.key'),'-out',join(mailDirectory,'mail.csr'),'-subj','/CN=host.docker.internal']);
@@ -103,7 +101,7 @@ try{
  const response=await https('/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage5-customer-acceptance'});assert.equal(response.status,200);ownerCookie=response.headers['set-cookie'].find(value=>value.startsWith('opintel_session=')).split(';')[0];result.checks.normalOwnerSmtpLogin=true;
  advance('host-xq-check');command('gateway','xq-check');result.checks.xqCheck=true;
  advance('customer-demo-soak');
- const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak','120'],{env:nested,stdio:['ignore','pipe','pipe']});
+ const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak','1800'],{env:nested,stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));child.stderr.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));childDone=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve);});
  const output=join(gateway,'state/output');let runDirectory,jsonl;
  await wait(()=>{if(child.exitCode!==null)throw new Error('Demo exited '+child.exitCode+'; '+soakLog);runDirectory=join(output,readdirSync(output).find(name=>name.startsWith('soak-run-'))??'not-started');const soak=join(runDirectory,'soak');jsonl=join(soak,readdirSync(soak).find(name=>name.endsWith('.jsonl'))??'not-started');assert.ok(readFileSync(jsonl,'utf8').includes('"type":"start"'));},'Packaged soak start',300000);
@@ -117,7 +115,7 @@ try{
  compose('gateway','start','console');await wait(async()=>assert.equal((await https('/sign-in')).status,200),'Console return');result.checks.consoleIsolation={stoppedAt,resumedAt:new Date().toISOString(),verifiedQueriesDuringOutage:verified.length};result.checks.browserRestored=browserCheck(true);
  advance('soak-result');assert.equal(await childDone,0,'Customer demo soak failed');child=undefined;
  const soakResult=JSON.parse(readFileSync(join(runDirectory,'result.json'))),summary=events().at(-1);assert.equal(soakResult.status,'passed');assert.equal(summary.status,'PASSED');assert.equal(summary.operationalErrors,0);assert.equal(summary.invariantBreaches,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
- result.checks.packagedSoak={result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
+ result.checks.packagedSoak={durationSeconds:1800,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
  result.status='passed';result.finishedAt=new Date().toISOString();
 }catch(error){result.status='failed';result.failure={phase,message:error instanceof Error?error.message:'Acceptance failed'};process.exitCode=1;}
 finally{

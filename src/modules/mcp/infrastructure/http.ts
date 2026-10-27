@@ -118,8 +118,9 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    if(input.success&&tool.name==='opintel.query'&&this.queryTool){
     try{const result=await this.queryTool.query(caller,input.data,AbortSignal.any([extra.signal,this.context.getStore()!.signal]));
      if(result.ok)return queryResponse(result.value);
-     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:result.error.code});
-     return refusalResponse(result.error);
+     const response=refusalResponse(result.error);
+     console.info({event:'mcp.refused',timestamp:new Date().toISOString(),poolId:caller.pool.id,reason:result.error.code,cause:response._meta.cause,evidenceId:response._meta.evidenceId,sourceFailure:response._meta.sourceFailure,releaseFailure:response._meta.releaseFailure});
+     return response;
     }catch{return refusalResponse(new DomainError('dependency_unavailable','The query could not complete.',{cause:'unclassified'}));}
    }
    if (input.success && tool.name==='opintel.explain' && this.explainTool) {
@@ -138,8 +139,9 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
     try {
      const result = await this.describeTool.describe(caller,input.data);
      if (result.ok) return {content:[{type:'text' as const,text:JSON.stringify(result.value)}],structuredContent:result.value};
-     console.info({event:'mcp.refused',poolId:caller.pool.id,reason:result.error.code});
-     return refusalResponse(result.error);
+     const response=refusalResponse(result.error);
+     console.info({event:'mcp.refused',timestamp:new Date().toISOString(),poolId:caller.pool.id,reason:result.error.code,cause:response._meta.cause,evidenceId:response._meta.evidenceId,sourceFailure:response._meta.sourceFailure,releaseFailure:response._meta.releaseFailure});
+     return response;
     } catch {
      console.info({event:'mcp.refused',poolId:caller.pool.id,reason:'dependency_unavailable'});
      return {isError:true,content:[{type:'text' as const,text:'The pool description is unavailable.'}],_meta:{code:'dependency_unavailable'}};

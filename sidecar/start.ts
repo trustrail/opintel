@@ -44,12 +44,18 @@ async function main(): Promise<void> {
     ? new (await import('./demo/provision.js')).SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new (await import('./demo/infrastructure/workbook-writer.js')).DemoWorkbookWriter())
     : undefined;
   const host = createSidecarServer({config,tls,custody,execution,...(process.env.ENGINE_EGRESS_CONTROL==='1'?{registerEgress}:{}),build:{...sidecarBuild,queryEngineVersion},demo,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
+  let reloadingTrust=false;
+  const pairingTrustTimer=process.env.ENGINE_PAIRING_TRUST_RELOAD==='1'?setInterval(()=>{
+    if(reloadingTrust)return;reloadingTrust=true;
+    void loadSidecarConfig(file).then(next=>host.replaceTrustedClient(next.tls)).catch(()=>console.info({event:'engine.pairing_trust_reload_refused',timestamp:new Date().toISOString()})).finally(()=>{reloadingTrust=false;});
+  },1000):undefined;
+  pairingTrustTimer?.unref();
   const watchers: LandingWatcher[] = [];
   let stopping = false;
   let boundPort=config.port;
   const stop = () => {
     if (stopping) return;
-    stopping = true;clearInterval(custodyTimer);
+    stopping = true;clearInterval(custodyTimer);if(pairingTrustTimer)clearInterval(pairingTrustTimer);
     // This deadline covers the entire process, including watcher I/O and audit
     // flushing. exitCode alone cannot terminate a process with live handles.
     const deadline = setTimeout(() => {

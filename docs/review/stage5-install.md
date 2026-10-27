@@ -280,3 +280,42 @@ that catch the arm64 evidence's competing loopback Node process. Split-host
 routing and every trust/pin refusal stay unchanged. No further publication until
 a new full gate passes on this correction. The exact certificate returned during
 the original arm64 failure remains unavailable; no claim of captured-peer proof.
+
+## 2026-10-27: person-driven 391f3da soak and approved recovery candidate
+
+The arm64 person-driven archive install and real WorkMail sign-in succeeded. The
+30-minute soak ran 1,544 queries, p95 688 ms, verified 549 custody values and all
+85 scenarios with receipt verification active and zero operational errors. It
+**failed** two invariants: source read refusal at 04:53:55Z and XQ escrow refusal
+at 04:56:40Z. Retained evidence: `/Volumes/JZ OS/stage5-evidence-4`.
+The first reached the engine's source-read path; native operation/code were lost
+and tokenization mislabelled the failure as a declaration. The second followed a
+completed engine query and received HTTP 400 from XQ; old evidence cannot say
+whether subscription or validation refused. Neither is a proven resource limit.
+
+The approved candidate adds request-correlated source operation/code/SQLSTATE
+and MCP/API evidence diagnostics; at most one source connect retry before the
+first statement; bounded XQ subcall/code/attempt diagnostics and one pre-write
+connect recovery; no HTTP 400 or post-write replay. Questions for XQ are drafted
+in `docs/partners/xq-questions.md`, not sent. Identity import accepts original
+team-issued ZIPs, rejects conflicts and unsafe archive entries, and writes private
+bundles/manifests. Installation and demo instructions are split. Engine pairing
+uses the expiring single-use code protocol in `docs/design/engine-pairing.md`.
+Existing wrong-pin, unknown-engine and readiness refusals remain required.
+
+Acceptance now imports ZIPs with the shipped command, pairs with the engine's
+printed code, and runs `./demo soak 1800` from archives on an initially empty
+Docker daemon. TCP 3103 is included in preflight. The native runner verifies each
+required entry in the original ZIP without extracting it. This candidate is not
+yet a release or a passing Stage 5 result: a full completed-candidate gate and
+published-digest amd64 acceptance remain required, followed by the operator's
+native arm64 release/acceptance. Both 30-minute soaks must pass before merge.
+
+The first completed gate for tree `fe41e819d80bacb0c1f90a56042c8d07c2daa1bb`
+failed: 2,160 tests passed and two telemetry assertions failed (1,614.44 seconds;
+smoke was not reached). One required complete console silence, the other omitted
+the newly approved source-operation event from its allowlist. Both are corrected
+to assert bounded fields while retaining the no-source-values/no-SQL requirement.
+The failed record remains `/private/tmp/stage5-recovery-failed-gate.json`; this is
+not a green gate and cannot authorize publication. The changed candidate requires
+a new full gate before commit. Earlier interrupted runs are also retained.

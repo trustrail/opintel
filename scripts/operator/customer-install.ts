@@ -1,3 +1,5 @@
+import {issuePairingCode,servePairing,claimEngine} from './engine-pairing.js';
+import {importIdentity} from './identity-import.js';
 import {operatorDiagnostic} from './diagnostics.js';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync,chmodSync,appendFileSync,openSync,readSync,closeSync,lstatSync} from 'node:fs';
 import {join} from 'node:path';
@@ -26,6 +28,7 @@ function certificate(name:string,sans:string){
  // is readable by the isolated runtime UID without making host state public.
  chmodSync(join(state,name+'.pem'),0o600);chmodSync(join(state,name+'.key'),0o600);
 }
+function pairingService(uid:number,gid:number,platform:string):Service{return {image:readFileSync(join(root,'bootstrap.image'),'utf8').trim(),platform,pull_policy:'never',user:`${uid}:${gid}`,read_only:true,cap_drop:['ALL'],security_opt:['no-new-privileges:true'],stdin_open:false,tty:false,environment:{PACKAGE_HOST_DIRECTORY:host},volumes:[host+':/package'],ports:['0.0.0.0:3103:3103'],command:['node','scripts/operator/customer-install.js','pairing-server','engine'],restart:'unless-stopped',healthcheck:{test:['CMD','node','-e',"require('node:https').get('https://127.0.0.1:3103/health',{rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"],interval:'2s',timeout:'3s',retries:30}};}
 function initialize(){
  if(existsSync(join(state,'installed.json'))){console.info('Existing installation retained; secrets and decisions are unchanged.');return;}
  if(existsSync(state))throw new InstallError('Incomplete installation state exists. Preserve it and use ./restore; install will not overwrite secrets.');
@@ -117,11 +120,14 @@ function initialize(){
   runtime.UV_THREADPOOL_SIZE='16';
   write('state/gateway-registration.json',{version:1,kind:'engine',address:`https://${address}:3100`,certificate:readFileSync(join(state,'engine.pem'),'utf8'),ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(readFileSync(join(state,'engine.pem'))).fingerprint256,demoSourceUrl:`postgresql://readiness:${database}@${address}:5434/readiness`});
   write('state/application.pem',readFileSync(join(state,'engine.pem'),'utf8'),0o600);
-  write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/engine.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000}},0o600);
+  write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000}},0o600);
   Object.assign(vars,{ENGINE_CONFIG_DIRECTORY:host+'/state',ENGINE_STATE_DIRECTORY:host+'/state',ENGINE_ENV_FILE:host+'/state/runtime.env',ENGINE_AUDIT_DIRECTORY:host+'/state/audit',ENGINE_CUSTODY_DIRECTORY:host+'/state/custody',ENGINE_INGEST_DIRECTORY:host+'/state/ingest',ENGINE_XQ_DIRECTORY:host+'/state/xq',ENGINE_BIND_ADDRESS:'0.0.0.0',ENGINE_PORT:'3100'});
+  services.engine!.environment={...services.engine!.environment,ENGINE_PAIRING_TRUST_RELOAD:'1'};
   services.engine!.network_mode='service:egress';services.engine!.user=`${uid}:${gid}`;services.prepare!.user=`${uid}:${gid}`;services.egress!.cap_add=['NET_ADMIN','DAC_OVERRIDE','CHOWN'];services.egress!.environment={...services.egress!.environment,EGRESS_STATE_UID:String(uid),EGRESS_STATE_GID:String(gid)};
   services.readiness={image:localImages[defaults.services.postgres!.image],platform,pull_policy:'never',environment:{POSTGRES_USER:'readiness',POSTGRES_PASSWORD:database,POSTGRES_DB:'readiness'},volumes:['readiness-data:/var/lib/postgresql/data'],ports:['0.0.0.0:5434:5432'],restart:'unless-stopped',healthcheck:{test:['CMD','pg_isready','-U','readiness'],interval:'2s',timeout:'3s',retries:30}};
   volumes['readiness-data']={};
+  services.pairing=pairingService(uid,gid,platform);
+
  }
  // Bind only the runtime files, preserving a mode-700 host state directory.
  for(const [name,service] of Object.entries(services)){
@@ -144,11 +150,11 @@ function auditPermissions(){
  if((lstatSync(state).mode&0o077)!==0)throw new InstallError('Permission audit failed: state directory must be mode 700.');walk(state);
 }
 function status(){const value=z.object({kind:z.string(),installId:z.string(),baseUrl:z.string().optional()}).parse(json(join(state,'installed.json')));console.info('Install: '+value.installId);if(value.baseUrl)console.info('Console and owner sign-in: '+value.baseUrl+'/sign-in');console.info('Public identity: trust.json');const identity=z.object({pin:z.string(),address:z.string()}).parse(json(join(root,'trust.json')));console.info('Pinned service address: '+identity.address);console.info('Certificate pin: '+identity.pin);}
-function pair(){
+function pair(expectedPin=process.argv[4]){
  const peer=z.object({version:z.literal(1),kind:z.enum(['gateway','engine']),address:z.url(),certificate:z.string().max(32768),ca:z.string().max(32768),pin:z.string(),demoSourceUrl:z.string().optional()}).parse(json(join(state,'incoming.json')));
  if(peer.kind===kind)throw new InstallError('Supply the other package identity.');
  const certificate=new X509Certificate(peer.certificate),ca=new X509Certificate(peer.ca);
- if(certificate.fingerprint256!==process.argv[4]||peer.pin!==certificate.fingerprint256||!certificate.verify(ca.publicKey)||!ca.ca)throw new InstallError('Peer certificate or pin verification failed.');
+ if(certificate.fingerprint256!==expectedPin||peer.pin!==certificate.fingerprint256||!certificate.verify(ca.publicKey)||!ca.ca)throw new InstallError('Peer certificate or pin verification failed.');
  if(Date.parse(certificate.validTo)<=Date.now()||Date.parse(certificate.validFrom)>Date.now())throw new InstallError('Peer certificate is outside its validity period.');
  const endpoint=new URL(peer.address);if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password)throw new InstallError('Peer address must be HTTPS.');
  if(existsSync(join(state,'peer.json'))){const existing=z.object({pin:z.string(),address:z.string()}).parse(json(join(state,'peer.json')));if(existing.pin!==peer.pin||existing.address!==peer.address)throw new InstallError('Peer conflict; existing trust is unchanged.');console.info('Matching peer trust retained.');return;}
@@ -220,8 +226,10 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   writeFileSync(join(state,'application-tls.json'),JSON.stringify({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'})+'\n');
   writeFileSync(join(state,'nginx.conf'),readFileSync(join(state,'nginx.conf'),'utf8').replace(/^user nginx;\n/u,''));
  }else{
-  const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:paired?'/config/application.pem':'/config/engine.pem'};
+  const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
   writeFileSync(join(state,'service.json'),JSON.stringify(service,null,2)+'\n');
+  config.services.pairing=pairingService(uid,gid,readFileSync(join(root,'platform'),'utf8').trim());
+  config.services.engine!.environment={...config.services.engine!.environment,ENGINE_PAIRING_TRUST_RELOAD:'1'};
   config.services.egress!.cap_add=['NET_ADMIN','DAC_OVERRIDE','CHOWN'];config.services.egress!.environment={...config.services.egress!.environment,EGRESS_STATE_UID:String(uid),EGRESS_STATE_GID:String(gid)};
  }
  const protect=(file:string)=>{const stat=lstatSync(file);if(stat.isSymbolicLink())throw new InstallError('Upgrade refuses a symlink in private state: '+file);chmodSync(file,stat.isDirectory()?0o700:0o600);if(stat.isDirectory())for(const name of readdirSync(file))protect(join(file,name));};protect(state);auditPermissions();
@@ -233,6 +241,7 @@ function upgrade(){
  const upstream=z.object({services:z.record(z.string(),z.object({image:z.string()}))}).parse(json(join(root,'upstream.json')));
  for(const [name,service] of Object.entries(config.services)){
   let ref:string|undefined;
+  if(name==='pairing'){const image=readFileSync(join(root,'bootstrap.image'),'utf8').trim();if(!Object.values(images).includes(image))throw new InstallError('Pairing image is absent from audited inventory.');service.image=image;continue;}
   if(name==='readiness')ref=upstream.services.postgres?.image;
   else{const file=name==='operator'?'provision':name;const definition=z.object({services:z.record(z.string(),serviceSchema)}).parse(json(join(root,'services',file+'.json'))).services[file];ref=definition?.extends?upstream.services[definition.extends.service]?.image:definition?.image;}
   if(!ref||!images[ref])throw new InstallError('Upgrade service inventory is incompatible. Restore the backup using its original package.');service.image=images[ref];
@@ -240,8 +249,19 @@ function upgrade(){
  hardenConfiguration(config);writeFileSync(join(state,'compose.json'),JSON.stringify(config,null,2)+'\n');console.info('Audited image identities updated; configuration and credentials retained.');
 }
 try{
- if(process.argv[2]==='initialize')initialize();
+ if(process.argv[2]==='pairing-server'){
+  if(kind!=='engine')throw new InstallError('Pairing listener requires an engine package.');
+  const server=await servePairing(root);process.once('SIGTERM',()=>server.close(()=>process.exit(0)));
+ }else if(process.argv[2]==='pairing-code'){
+  if(kind!=='engine')throw new InstallError('Pairing codes are issued on the engine host.');
+  console.info('Pairing code (expires in 15 minutes): '+issuePairingCode(root,true));
+ }else if(process.argv[2]==='claim-engine'){
+  if(kind!=='gateway')throw new InstallError('Register engines from the gateway host.');
+  const peer=await claimEngine(root,z.string().parse(process.argv[4]),z.string().parse(process.argv[5]));
+  writeFileSync(join(state,'incoming.json'),JSON.stringify(peer),{mode:0o600});pair(peer.pin);
+ }else if(process.argv[2]==='identities')await importIdentity(root,'/import/export.zip',z.string().parse(process.argv[4]),process.argv[5]);
+ else if(process.argv[2]==='initialize')initialize();
  else if(process.argv[2]==='installed'){
-  auditPermissions();const identity=z.object({pin:z.string()}).parse(json(join(root,'trust.json')));const installed=z.object({baseUrl:z.string().optional()}).parse(json(join(state,'installed.json')));if(installed.baseUrl)console.info('Sign in: '+installed.baseUrl+'/sign-in');console.info('Certificate pin: '+identity.pin);if(kind==='gateway'&&!existsSync(join(state,'backup-instruction-shown'))){console.info('Back up this custody master key offline now. Losing it prevents redemption of existing grants.');console.info(readFileSync(join(state,'custody-backup.key'),'utf8').trim());write('state/backup-instruction-shown','shown\n');}
+  auditPermissions();if(kind==='engine'&&!existsSync(join(state,'peer.json')))console.info('Pairing code (expires in 15 minutes): '+issuePairingCode(root));const identity=z.object({pin:z.string(),address:z.string()}).parse(json(join(root,'trust.json')));if(kind==='engine')console.info('Engine address: '+identity.address);const installed=z.object({baseUrl:z.string().optional()}).parse(json(join(state,'installed.json')));if(installed.baseUrl)console.info('Sign in: '+installed.baseUrl+'/sign-in');console.info('Certificate pin: '+identity.pin);if(kind==='gateway'&&!existsSync(join(state,'backup-instruction-shown'))){console.info('Back up this custody master key offline now. Losing it prevents redemption of existing grants.');console.info(readFileSync(join(state,'custody-backup.key'),'utf8').trim());write('state/backup-instruction-shown','shown\n');}
  }else if(process.argv[2]==='audit-permissions')auditPermissions();else if(process.argv[2]==='status')status();else if(process.argv[2]==='pair')pair();else if(process.argv[2]==='backup-record')backupRecord();else if(process.argv[2]==='validate-restore')validateRestore();else if(process.argv[2]==='rebase')rebase();else if(process.argv[2]==='upgrade')upgrade();else throw new InstallError('Unknown installer operation.');
 }catch(error:unknown){operatorDiagnostic(error,join(root,'diagnostics'),join(host,'diagnostics'));process.exitCode=1;}

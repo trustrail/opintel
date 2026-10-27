@@ -27,7 +27,9 @@ for(const treated of [false,true])it(`C.1 preserves exact clear arrays on the ${
 it('J-024 execution telemetry contains only the allowlist, never source values or SQL',async()=>{
  const logs=vi.spyOn(console,'info').mockImplementation(()=>{});try{const r=request();r.sql="SELECT 'ROW_VALUE_SENTINEL' FROM orders";expect((await executor().execute(r)).ok).toBe(true);
  const phase=z.strictObject({event:z.literal('engine.request_phase'),timestamp:z.iso.datetime(),requestId:z.string().regex(/^[a-zA-Z0-9:_-]{1,128}$/u),phase:z.enum(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']),state:z.enum(['start','end','aborted'])});
- for(const [event] of logs.mock.calls){if(phase.safeParse(event).success)continue;expect(Object.keys(event as object).every(k=>['event','requestId','projectId','poolId','operation','reason'].includes(k))).toBe(true);}
+ const operation=z.enum(['credentials','connect','backend_identity','begin','settings','metadata','estimate','declare','fetch','close','commit','statement','scanner']);
+ const sourcePhase=z.strictObject({event:z.literal('engine.source_operation'),timestamp:z.iso.datetime(),requestId:z.string().regex(/^[a-zA-Z0-9:_-]{1,128}$/u),operation,state:z.enum(['start','end','failed']),attempt:z.number().int().min(1).max(2),failure:z.strictObject({operation,nativeCode:z.string().regex(/^[A-Z][A-Z0-9_]{1,47}$/u).nullable(),sqlState:z.string().regex(/^[0-9A-Z]{5}$/u).nullable(),attempt:z.number().int().min(1).max(2)}).optional()});
+ for(const [event] of logs.mock.calls){if(phase.safeParse(event).success||sourcePhase.safeParse(event).success)continue;expect(Object.keys(event as object).every(k=>['event','requestId','projectId','poolId','operation','reason'].includes(k))).toBe(true);}
  expect(JSON.stringify(logs.mock.calls)).not.toContain('ROW_VALUE_SENTINEL');expect(logs).toHaveBeenCalled();}finally{logs.mockRestore();}
 },30000);
 

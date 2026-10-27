@@ -38,7 +38,7 @@ export function createSidecarServer(options: {
   build?: typeof sidecarBuild | { version: string; contract: number; queryEngineVersion: string };
 }) {
   const build = wire.healthResponse.parse({ ...(options.build ?? sidecarBuild), canonicalisers: (options.canonicalisers ?? canonicalisers).ids });
-  const pin = new X509Certificate(options.tls.clientPin).fingerprint256;
+  let pin = new X509Certificate(options.tls.clientPin).fingerprint256;
   const routes: Record<string, Route> = {
     ...(options.registerEgress?{'/egress/register':{permission:'pinned_application_certificate' as const,response:egressRegistered,invoke:options.registerEgress}}:{}),
     ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
@@ -143,6 +143,15 @@ export function createSidecarServer(options: {
   server.setTimeout(options.config.limits.operationTimeoutMs + 10000,(socket)=>socket.destroy());
   return {
     server,
+    replaceTrustedClient(tls:SidecarTls):void{
+      const next=new X509Certificate(tls.clientPin),ca=new X509Certificate(tls.ca);
+      if(!ca.ca||!next.verify(ca.publicKey)||Date.parse(next.validTo)<=Date.now())throw new Error('Invalid replacement client trust.');
+      if(next.fingerprint256===pin)return;
+      server.setSecureContext({...tls,minVersion:'TLSv1.3'});
+      pin=next.fingerprint256;
+      for(const socket of sockets)socket.destroy();
+      console.info({event:'engine.paired_trust_loaded',timestamp:new Date().toISOString()});
+    },
     async listen(): Promise<number> {
       await new Promise<void>((resolve,reject)=>{
         server.once('error',reject);

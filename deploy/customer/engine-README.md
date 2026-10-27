@@ -8,20 +8,16 @@ be installed, running, and allowed at least 8 GB memory. Extract this archive to
    offline images, generates its private TLS identity and readiness database
    credentials, starts the local readiness database, egress companion and engine,
    then waits for health. No source data is copied from the developer's machine.
-2. Run `./status`. Save the engine certificate pin and keep its generated
-   `state/gateway-registration.json` private. Transfer that file and pin to the
-   gateway operator by USB. It contains the generated demo-source credential;
-   do not paste its contents, put it in email, or include it in a support report.
-3. Receive the gateway's public `trust.json` and pin by USB. Run
-   `./register /path/to/trust.json GATEWAY_PIN`. A mismatched pin refuses before
-   changing trust. Registration restarts the engine with pinned mutual TLS;
-   it never turns off verification. The gateway README completes project
-   registration, source assignment and the explicit demonstration soak.
-4. For a single laptop the transfer paths can be `../gateway/trust.json` and
-   `../engine/state/gateway-registration.json`. For two laptops copy only the
-   named files by USB and use the LAN addresses printed by `./status`.
-5. After the gateway's `./demo soak 1800`, require a passed result with receipt
-   verification active. Data remains on the engine laptop if either package stops.
+2. Install prints the engine address and a pairing code valid for 15 minutes.
+   Give those two values to the gateway operator through your trusted channel.
+   On the gateway, run `./register-engine ENGINE_ADDRESS CODE`. No files or second
+   pin need transferring. Keep the code private; it authorizes one gateway claim.
+3. If the code expires before pairing, run `./pairing-code` here. This changes only
+   the unclaimed pairing code, never the engine identity or credentials. Once
+   paired, no code can replace its gateway. `./status` shows service information.
+4. Complete the gateway's optional demonstration using its `DEMO.md`. Require a
+   passed 30-minute result with receipt verification. Source data remains on this
+   laptop if either package stops.
 
 Lifecycle: `./start`, `./stop`, `./status`, `./upgrade /path/to/new/engine`,
 `./backup`, `./restore /path/to/backup`. Backup/restore stop services. Back up before moving.
@@ -31,7 +27,7 @@ state or volumes to repair an installation. Restart does not rotate credentials.
 The engine remains locally ready while the gateway is unreachable; it serves no
 unverified caller and gets assignments only after explicit gateway registration.
 
-LAN firewall: gateway → engine TCP 3100 (pinned engine API) and 5434 (demo source);
+LAN firewall: gateway → engine TCP 3100 (pinned engine API), 3103 (pairing/recovery), and 5434 (demo source);
 engine → gateway TCP 3102 (pinned heartbeat) and 3101 (optional ingest receipt).
 No shared Docker network, filesystem or source checkout connects the hosts. Open
 these ports only between the two laptops. External customer databases need their

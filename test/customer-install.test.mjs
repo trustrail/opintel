@@ -1,3 +1,4 @@
+import {issuePairingCode,servePairing,claimEngine} from '../scripts/operator/engine-pairing.js';
 import {createServer} from 'node:https';
 import {X509Certificate} from 'node:crypto';
 import {HttpsEngineProbe,loadApplicationTls} from '../src/modules/engines/index.js';
@@ -17,6 +18,7 @@ function packageRoot(kind){
  const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
  const manifest={revision:'a'.repeat(40),upstream,artifacts:['api','console','engine','egress','migrations','provisioning','demo-tools'].map(target=>({target,platform:'linux/amd64',repoDigests:[`ghcr.io/trustrail/opintel-${target}@sha256:${'b'.repeat(64)}`]}))};
  packageDeployment(manifest,join(root,'packages'),'linux/amd64');const directory=join(root,'packages',kind);
+ writeFileSync(join(directory,'bootstrap.image'),'opintel-package/test:5');
  writeFileSync(join(directory,'platform'),'linux/amd64');writeFileSync(join(directory,'upstream.json'),JSON.stringify({services:upstream.services}));
  writeFileSync(join(directory,'local-images.json'),JSON.stringify(Object.fromEntries([...manifest.artifacts.map(a=>a.repoDigests[0]),...Object.values(upstream.services).map(s=>s.image)].map((image,i)=>[image,'opintel-package/test:'+i]))));
  writeFileSync(join(directory,'package.env'),['APP_BASE_URL=https://192.0.2.10','OWNER_EMAIL=owner@example.invalid','OPINTEL_XQ_API_KEY=synthetic','OPINTEL_XQ_DASHBOARD_API_KEY=synthetic','OPINTEL_XQ_SENDER_ALIAS=synthetic','OPINTEL_XQ_SENDER_ACCESS_TOKEN=synthetic','OPINTEL_XQ_TEAM_ID=synthetic','SMTP_HOST=smtp.example.invalid','SMTP_PORT=465','SMTP_USER=synthetic','SMTP_PASSWORD=synthetic','SMTP_SENDER=sender@example.invalid','SMTP_TLS_MODE=implicit'].join('\n'),{mode:0o600});
@@ -96,3 +98,25 @@ it('DEP-018: missing TLS material names the field and filesystem cause',async()=
  writeFileSync(file,JSON.stringify({caFile:'ca.pem',certFile:'application.pem',keyFile:'absent.key'}));writeFileSync(join(root,'ca.pem'),'synthetic');writeFileSync(join(root,'application.pem'),'synthetic');
  await expect(loadApplicationTls(file)).rejects.toThrow('Application TLS keyFile could not be read (ENOENT).');
 });
+
+it('DEP-018: one-use engine pairing refuses wrong pins/codes, records trust, and recovers only for the recorded gateway',async()=>{
+ const engine=packageRoot('engine'),gateway=packageRoot('gateway'),other=packageRoot('gateway');
+ engine.run('initialize');gateway.run('initialize');other.run('initialize');
+ const registration=JSON.parse(readFileSync(join(engine.directory,'state/gateway-registration.json')));
+ registration.address='https://127.0.0.1:3100';const source=new URL(registration.demoSourceUrl);source.hostname='127.0.0.1';registration.demoSourceUrl=source.href;
+ writeFileSync(join(engine.directory,'state/gateway-registration.json'),JSON.stringify(registration));
+ let code=issuePairingCode(engine.directory);const server=await servePairing(engine.directory,0),port=server.address().port;let arrivals=0;server.on('request',()=>{arrivals++;});
+ try{
+  await expect(claimEngine(gateway.directory,registration.address,'v1.'+'00'.repeat(32)+'.'+code.split('.')[2],port)).rejects.toThrow('before sending');expect(arrivals).toBe(0);
+  await expect(claimEngine(gateway.directory,registration.address,code.slice(0,-1)+(code.endsWith('A')?'B':'A'),port)).rejects.toThrow('refused');
+  const codeFile=join(engine.directory,'state/pairing-code.json'),expired=JSON.parse(readFileSync(codeFile));expired.expiresAt=0;writeFileSync(codeFile,JSON.stringify(expired));
+  await expect(claimEngine(gateway.directory,registration.address,code,port)).rejects.toThrow('refused');
+  code=issuePairingCode(engine.directory,true);
+  expect(await claimEngine(gateway.directory,registration.address,code,port)).toEqual(registration);
+  const saved=readFileSync(join(engine.directory,'state/peer.json'),'utf8');
+  expect(await claimEngine(gateway.directory,registration.address,code,port)).toEqual(registration);
+  await expect(claimEngine(other.directory,registration.address,code,port)).rejects.toThrow('refused');
+  expect(readFileSync(join(engine.directory,'state/peer.json'),'utf8')).toBe(saved);
+  expect(()=>issuePairingCode(engine.directory,true)).toThrow('already paired');
+ }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+},30000);
