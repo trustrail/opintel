@@ -24,3 +24,17 @@ it.each([
   expect(result.stdout).toContain('Phase: arguments');expect(result.stdout).toContain('Run directory: not created (preflight failed)');expect(result.stdout.match(/Archive: not produced/gu)).toHaveLength(2);expect(result.stdout.trim()).toMatch(/Acceptance result: not produced$/u);
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+
+it('native release names a loopback host process before builds or certificate access',()=>{
+ const root=mkdtempSync(join(tmpdir(),'native-listener-'));
+ try{
+  mkdirSync(join(root,'scripts/release'),{recursive:true});mkdirSync(join(root,'bin'));
+  const script=join(root,'scripts/release/native.sh');copyFileSync('scripts/release/native.sh',script);
+  writeFileSync(join(root,'.env'),'# synthetic provider file\n');
+  writeFileSync(join(root,'bin/uname'),'#!/bin/sh\necho arm64\n',{mode:0o755});
+  writeFileSync(join(root,'bin/docker'),'#!/bin/sh\n[ "$1" != info ] || echo arm64\nexit 0\n',{mode:0o755});
+  writeFileSync(join(root,'bin/lsof'),'#!/bin/sh\ncase "$*" in *-iTCP:3100*) echo "node 3175 operator TCP 127.0.0.1:3100 (LISTEN)";; *) exit 1;; esac\n',{mode:0o755});
+  const result=spawnSync('/bin/bash',[script,'synthetic'],{encoding:'utf8',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH},stdio:['ignore','pipe','pipe'],timeout:5000});
+  expect(result.status).toBe(1);expect(result.stderr).toContain('acceptance port 3100 has a host listener: node 3175');expect(result.stdout).toContain('Acceptance result: not produced');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

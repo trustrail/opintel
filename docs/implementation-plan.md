@@ -1287,3 +1287,8 @@ Greenfield correction: customer-archive Stage 5 acceptance is authoritative. It
 must prove an initially empty dedicated Docker daemon, execute the shipped install,
 pair and demo commands, and retain failed as well as passing results. Runtime
 state stays private through explicit UID ownership and install-time mode audits.
+
+Stage 5 endpoint correction: pairing preserves the registered LAN endpoints for
+same-host and split-host installs alike. Native release and customer-archive
+acceptance preflight name host listeners as well as Docker installs, including
+loopback-only bindings; they never stop unrelated processes automatically.

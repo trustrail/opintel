@@ -10,7 +10,7 @@ import {homedir} from 'node:os';
 import {request} from 'node:https';
 import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
-import {createServer} from 'node:net';
+import {acceptancePortPreflight} from './acceptance-preflight.mjs';
 import {setTimeout} from 'node:timers/promises';
 import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
 import {parse} from 'dotenv';
@@ -61,7 +61,7 @@ function browserCheck(restore=false){
 }
 try{
  console.log('Stage 5 acceptance directory: '+directory);
- for(const port of [443,3100,3101,3102,5434,11465,11825,12375])await new Promise((resolve,reject)=>{const server=createServer();server.once('error',error=>{const owner=spawnSync('docker',['ps','--filter','publish='+port,'--format','{{.Names}} ({{.Label "com.docker.compose.project"}})'],{encoding:'utf8',env:outer});if(error.code==='EACCES'&&!owner.stdout?.trim()){resolve();return;}reject(new Error('Port '+port+' preflight failed ('+error.code+'): '+(owner.stdout?.trim()||'host listener or bind failure')+'; inspect that listener before acceptance.')); });server.listen(port,'0.0.0.0',()=>server.close(resolve));});
+ await acceptancePortPreflight([443,3100,3101,3102,5434,11465,11825,12375],{env:outer});
  advance('extract-and-audit-archives');
  for(const kind of ['gateway','engine']){run('tar',['-xpf',join(archives,kind+'-'+prefix+'-'+platform.split('/')[1]+'.tar.gz'),'-C',directory]);auditPackage(join(directory,kind));const release=JSON.parse(readFileSync(join(directory,kind,'release.json')));assert.equal(release.revision,manifest.revision);assert.equal(release.customerPackageVersion,1,'Customer archive marker absent');for(const [target,digest] of Object.entries(release.images))assert.equal(digest,manifest.artifacts.find(a=>a.platform===platform&&a.target===target)?.repoDigests[0],'Archive image provenance mismatch: '+target);}
  const archiveHashes={};for(const kind of ['gateway','engine']){const file=join(archives,kind+'-'+prefix+'-'+platform.split('/')[1]+'.tar.gz'),hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk);archiveHashes[kind]={file,sha256:hash.digest('hex')};}

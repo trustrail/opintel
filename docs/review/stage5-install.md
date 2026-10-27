@@ -232,3 +232,38 @@ raw-value assertion now excludes only the exact, separately verified digest;
 all other receipt content remains checked. Failed record:
 `/private/tmp/stage5-greenfield-failed-gate-2.json`, full log:
 `/private/tmp/stage5-greenfield-full-gate-2.log`. A new full gate is required.
+
+Arm64 edde049 follow-up evidence (`/Volumes/JZ OS/stage5-evidence-2`):
+archive audits, empty-daemon installation, permissions, pairing, SMTP owner login
+and XQ check passed. Demo provisioning failed before the soak at
+2026-10-27T01:42:43.556Z: /health TLS SELF_SIGNED_CERT_IN_CHAIN, written=false.
+The supplied gateway CA bundle contains two distinct self-signed roots, as does
+the passing amd64 bundle. The committed application TLS config selects explicit
+peer-ca.pem; no retained arm64 copy of that file/config or mounted job view was
+supplied. Therefore the exact platform difference remains unproven.
+A loopback check in the published amd64 demo-tools image establishes that explicit
+peer trust succeeds, while explicit gateway-only trust produces the same error
+even with both roots in NODE_EXTRA_CA_CERTS. This is a controlled reproduction of
+the trust failure, not proof of which bytes the arm64 job read. Requested evidence:
+application-tls.json, peer-ca.pem, engine public certificate/CA, and sanitized job
+TLS environment/mount paths. No keys or raw peer.json are requested.
+The local formatter's independent defect is confirmed: DomainError has a message
+but does not inherit Error. The correction reads string message fields without
+serializing private details; it still bounds and redacts the displayed message.
+No new gate, commit or publication is claimed while trust diagnosis is pending.
+
+Additional arm64 evidence in stage5-evidence-2 and stage5-evidence-3 confirms the
+explicit TLS configuration selects peer-ca.pem, that CA verifies the recorded
+engine certificate, and the job-container CA hashes match the host copies. The
+missing-root/stale-file hypothesis is not supported by these bytes. The third
+folder records a host Node listener (PID 3175) on 127.0.0.1:3100 with no Docker
+containers running. Its LAN probes ran after teardown and returned ECONNREFUSED,
+so no served certificate was captured and the exact failed peer is not proven.
+The installer did rewrite same-host engine/source/heartbeat LAN endpoints to
+host.docker.internal; the prior preflight checked only a wildcard bind and Docker
+owners. That creates an ambiguous route to an unrelated loopback listener. The
+correction preserves registered LAN endpoints on both platforms and checks/names
+all host listeners, including loopback, before release or acceptance. No trust
+checks are relaxed and no unrelated process is stopped. Regression coverage uses
+a real loopback-only listener plus native-runner owner reporting and both pairing
+layouts. The formatter correction displays domain messages, retaining redaction.

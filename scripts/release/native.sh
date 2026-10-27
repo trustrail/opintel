@@ -62,7 +62,7 @@ phase=preflight
 printf 'Phase: %s\n' "$phase"
 architecture="$(uname -m)"
 [[ "$architecture" == arm64 || "$architecture" == aarch64 ]] || fail "architecture: native arm64 required; found $architecture"
-for tool in docker git node npm make python3 openssl tar; do
+for tool in docker git node npm make python3 openssl tar lsof; do
   command -v "$tool" >/dev/null 2>&1 || fail "required command is missing: $tool"
 done
 docker info >/dev/null 2>&1 || fail 'Docker: daemon unavailable; start Docker Desktop'
@@ -70,16 +70,19 @@ docker_architecture="$(docker info --format '{{.Architecture}}')"
 [[ "$docker_architecture" == arm64 || "$docker_architecture" == aarch64 ]] || fail "Docker architecture: arm64 required; found $docker_architecture"
 [[ -f "$provider_file" && -r "$provider_file" ]] || fail "provider file is not a readable file: $provider_file"
 provider_file="$(cd "$(dirname "$provider_file")" && pwd)/$(basename "$provider_file")"
+for port in 443 3100 3101 3102 5434 11465 11825 12375; do
+  holder="$(docker ps --filter "publish=$port" --format '{{.Names}} (install {{.Label "com.docker.compose.project"}})')"
+  [[ -z "$holder" ]] || fail "acceptance port $port is held by $holder; stop that installation explicitly before release acceptance"
+  listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  [[ -z "$listeners" ]] || fail "acceptance port $port has a host listener: $listeners; stop it explicitly before release acceptance"
+done
 for certificate in 223 224 225 226; do
   for name in client.crt client.key transport.key; do
     certificate_file="$HOME/.xq/v02/$certificate/$name"
     [[ -f "$certificate_file" && -r "$certificate_file" ]] || fail "certificate file is not readable: $certificate_file"
   done
 done
-for port in 443 3100 3101 3102 5434 11465 11825 12375; do
-  holder="$(docker ps --filter "publish=$port" --format '{{.Names}} (install {{.Label "com.docker.compose.project"}})')"
-  [[ -z "$holder" ]] || fail "acceptance port $port is held by $holder; stop that installation explicitly before release acceptance"
-done
+
 cd "$root"
 resolved_revision="$(git rev-parse --verify --end-of-options "$revision^{commit}" 2>/dev/null)" || fail "revision is not available locally: $revision (fetch the branch first)"
 mkdir -p "$root/tmp"

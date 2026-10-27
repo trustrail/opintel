@@ -6010,3 +6010,8 @@ scoped DAC_OVERRIDE/CHOWN capabilities to maintain private control state owned b
 that UID. Its root-only DNS firewall rule remains unchanged; the query process
 never receives those capabilities. Install audits keys/files at 0600 and state
 directories at 0700. Public trust exchange remains outside private state.
+
+Pairing preserves the registered engine and source LAN addresses and the gateway
+heartbeat address. It does not rewrite same-host peers to host.docker.internal,
+which can reach a separate host loopback service. Explicit peer-CA trust, hostname
+validation and certificate pin checks remain mandatory on every engine request.

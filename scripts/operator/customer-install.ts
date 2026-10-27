@@ -152,8 +152,6 @@ function pair(){
  if(Date.parse(certificate.validTo)<=Date.now()||Date.parse(certificate.validFrom)>Date.now())throw new InstallError('Peer certificate is outside its validity period.');
  const endpoint=new URL(peer.address);if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password)throw new InstallError('Peer address must be HTTPS.');
  if(existsSync(join(state,'peer.json'))){const existing=z.object({pin:z.string(),address:z.string()}).parse(json(join(state,'peer.json')));if(existing.pin!==peer.pin||existing.address!==peer.address)throw new InstallError('Peer conflict; existing trust is unchanged.');console.info('Matching peer trust retained.');return;}
- const installed=z.object({address:z.string()}).parse(json(join(state,'installed.json')));
- const localPeer=kind==='gateway'&&endpoint.hostname===installed.address;
  if(kind==='gateway'){const source=new URL(z.string().parse(peer.demoSourceUrl));if(source.protocol!=='postgresql:'||source.hostname!==endpoint.hostname)throw new InstallError('Demo source identity differs from the paired engine.');}
  writeFileSync(join(state,'peer-ca.pem'),peer.ca,{mode:0o600});chmodSync(join(state,'peer-ca.pem'),0o600);
  appendFileSync(join(state,'ca.pem'),'\n'+peer.ca);
@@ -164,10 +162,9 @@ function pair(){
   writeFileSync(join(state,'service.json'),JSON.stringify(config,null,2)+'\n');
  }else{
   const url=new URL(z.string().parse(peer.demoSourceUrl));if(url.protocol!=='postgresql:'||url.hostname!==endpoint.hostname)throw new InstallError('Demo source identity differs from the paired engine.');
-  if(localPeer){url.hostname='host.docker.internal';const vars=parse(readFileSync(join(state,'package.env'))),heartbeat=new URL(z.string().parse(vars.GATEWAY_HEARTBEAT_URL));heartbeat.hostname='host.docker.internal';writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replace("GATEWAY_HEARTBEAT_URL='"+vars.GATEWAY_HEARTBEAT_URL+"'","GATEWAY_HEARTBEAT_URL='"+heartbeat.href+"'"));}
   appendFileSync(join(state,'operator.env'),`OPINTEL_SECRET_INSTALL_READINESS='${url.href}'\nOPINTEL_DEMO_DATABASE_URL='${url.href}'\n`);
  }
- write('state/peer.json',peer);if(kind==='gateway')write('state/output/peer.json',{...peer,address:localPeer?'https://host.docker.internal:'+endpoint.port:peer.address});console.info('Peer identity paired by certificate pin.');
+ write('state/peer.json',peer);if(kind==='gateway')write('state/output/peer.json',peer);console.info('Peer identity paired by certificate pin.');
 }
 function fileHash(file:string){const hash=createHash('sha256'),fd=openSync(file,'r'),buffer=Buffer.alloc(1024*1024);try{for(;;){const size=readSync(fd,buffer);if(!size)break;hash.update(buffer.subarray(0,size));}return hash.digest('hex');}finally{closeSync(fd);}}
 function stateHashes(directory:string,prefix=''):Record<string,string>{
