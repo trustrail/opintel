@@ -11,6 +11,7 @@ import {request} from 'node:https';
 import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
 import {acceptancePortPreflight} from './acceptance-preflight.mjs';
+import {captureProcessLog} from './acceptance-log.mjs';
 import {setTimeout} from 'node:timers/promises';
 import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
 import {parse} from 'dotenv';
@@ -46,7 +47,8 @@ function run(command,args,{env=outer,log=true,...options}={}){
 async function wait(check,label,timeout=120000){const deadline=Date.now()+timeout;let last;while(Date.now()<deadline){try{return await bounded(Promise.resolve().then(check),Math.min(10000,deadline-Date.now()));}catch(error){last=error;await setTimeout(500);}}throw new Error(label+' timed out'+(last instanceof Error?': '+last.message:''));}
 const gateway=join(directory,'gateway'),engine=join(directory,'engine');
 const command=(kind,name,...args)=>run(join(kind==='gateway'?gateway:engine,name),args,{env:nested});
-const compose=(kind,...args)=>{const root=kind==='gateway'?gateway:engine;return run('docker',['compose','--project-name',readFileSync(join(root,'state/project-name'),'utf8').trim(),'--env-file',join(root,'state/package.env'),'-f',join(root,'state/compose.json'),...args],{env:nested});};
+const composeArgs=(kind,...args)=>{const root=kind==='gateway'?gateway:engine;return ['compose','--project-name',readFileSync(join(root,'state/project-name'),'utf8').trim(),'--env-file',join(root,'state/package.env'),'-f',join(root,'state/compose.json'),...args];};
+const compose=(kind,...args)=>run('docker',composeArgs(kind,...args),{env:nested});
 const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
 function https(path,method='GET',body,cookie){return bounded(new Promise((resolve,reject)=>{
  const req=request('https://127.0.0.1'+path,{method,ca:readFileSync(join(gateway,'state/ca.pem')),headers:{origin:base,'content-type':'application/json',...(cookie?{cookie}:{})},signal:AbortSignal.timeout(30000)},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('error',reject);res.on('aborted',()=>reject(new Error('API response aborted')));res.on('end',()=>resolve({status:res.statusCode,text,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(new Error('API timeout')));req.end(body===undefined?undefined:JSON.stringify(body));
@@ -121,7 +123,14 @@ try{
 finally{
  if(child&&child.exitCode===null){child.kill('SIGTERM');await childDone;}
  write(resultFile,result); // Results precede any source/daemon teardown.
- for(const kind of ['gateway','engine'])if(existsSync(join(directory,kind,'state/compose.json'))){try{phase='retain-'+kind+'-logs';write(join(directory,kind+'-services.log'),compose(kind,'logs','--no-color'));command(kind,'stop');}catch{result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;}}
- for(const name of [mail,daemon]){const found=spawnSync('docker',['inspect',name],{encoding:'utf8',env:outer});if(found.status===0){const logs=spawnSync('docker',['logs',name],{encoding:'utf8',env:outer});write(join(directory,name+'.log'),(logs.stdout??'')+(logs.stderr??''));const stopped=spawnSync('docker',['stop',name],{stdio:'ignore',env:outer,timeout:60000});if(stopped.status!==0){result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;}}}
+ const cleanupFailure=(step,error)=>{result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;result.cleanupFailures??=[];result.cleanupFailures.push({step,message:error instanceof Error?error.message:'Cleanup failed'});};
+ for(const kind of ['gateway','engine'])if(existsSync(join(directory,kind,'state/compose.json'))){
+  try{captureProcessLog('docker',composeArgs(kind,'logs','--no-color'),join(directory,kind+'-services.log'),{env:nested});}catch(error){cleanupFailure('retain-'+kind+'-logs',error);}
+  try{phase='stop-'+kind;command(kind,'stop');}catch(error){cleanupFailure(phase,error);}
+ }
+ for(const name of [mail,daemon]){const found=spawnSync('docker',['inspect',name],{encoding:'utf8',env:outer});if(found.status===0){
+  try{captureProcessLog('docker',['logs',name],join(directory,name+'.log'),{env:outer});}catch(error){cleanupFailure('retain-fixture-logs',error);}
+  const stopped=spawnSync('docker',['stop',name],{stdio:'ignore',env:outer,timeout:60000});if(stopped.error||stopped.status!==0)cleanupFailure('stop-fixture',new Error('Fixture stop failed: '+name));
+ }}
  write(resultFile,result);console.log('Stage 5 acceptance '+result.status+': '+resultFile);
 }

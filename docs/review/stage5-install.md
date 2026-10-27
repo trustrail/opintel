@@ -345,3 +345,27 @@ fixture now derives completion from its own start timestamp; all selected/used
 token-version assertions and production constraints are unchanged. The failed
 log is `/private/tmp/stage5-bundle-full-gate.log`. This changed candidate requires
 another full gate before commit or publication.
+
+The corrected directory/fixture candidate passed its full gate on tree
+`3b19bd75ddd313e08a43463f4606ad634d163592`: 2,163 tests, 59 conformance
+checks and browser/MCP smoke (1,544.21 seconds), committed as `a0e7727`.
+All seven amd64 images passed audits and were published by digest. The first
+archive attempt (`stage5-acceptance-SBR52Q`) failed before installation when
+Mac maintenance sleep interrupted the inner daemon's containerd startup. Its
+result remains failed; a fresh daemon was used with a temporary sleep assertion.
+
+The subsequent archive acceptance (`stage5-acceptance-EioUsB`) passed both
+installs, four original-export imports, permissions, HTTPS default, single-code
+pairing, SMTP login, XQ check, packaged browser, console outage and UI recovery.
+Its shipped 1,800-second soak passed: 1,200 queries, 431 custody values verified,
+all 85 scenarios, zero operational errors or invariant breaches, no skipped
+receipt checks; p50/p95/p99 were 1,854/5,953/15,790 ms. The acceptance result
+still failed because final engine-log capture exceeded the harness's 16 MiB
+string buffer and skipped engine stop. Both results are under
+`/private/tmp/opintel-stage5-gate-20261026/tmp/`.
+
+The forward harness correction streams complete service logs to private files,
+records cleanup causes and attempts each stop independently of log capture. A
+regression writes over 16 MiB and checks complete capture plus mode 0600. This
+requires another full gate before commit and a new final-revision acceptance.
+No main merge is authorized by the passing soak alone; native arm64 is pending.
