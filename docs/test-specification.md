@@ -1701,7 +1701,7 @@ installations on a dedicated Docker daemon initially containing zero images.
 DEP-019 audits the environment extracted from the final archive as well as its
 staging directory. Stage 4 acceptance alone is not a Stage 5 installation pass.
 
-DEP-018 also requires same-host and split-host pairing to preserve registered LAN
-endpoints. Acceptance preflight rejects and names non-Docker loopback listeners
+DEP-018 also covers same-host Docker routing and split-host LAN routing.
+Acceptance preflight rejects and names non-Docker loopback listeners
 as well as Docker installs; a real loopback socket is a positive failure control.
 Operator diagnostics must display DomainError.message without serializing details.

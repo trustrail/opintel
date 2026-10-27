@@ -262,8 +262,21 @@ so no served certificate was captured and the exact failed peer is not proven.
 The installer did rewrite same-host engine/source/heartbeat LAN endpoints to
 host.docker.internal; the prior preflight checked only a wildcard bind and Docker
 owners. That creates an ambiguous route to an unrelated loopback listener. The
-correction preserves registered LAN endpoints on both platforms and checks/names
-all host listeners, including loopback, before release or acceptance. No trust
+initial correction tried preserving registered LAN endpoints on both platforms
+and added checks naming all host listeners before release or acceptance. No trust
 checks are relaxed and no unrelated process is stopped. Regression coverage uses
 a real loopback-only listener plus native-runner owner reporting and both pairing
 layouts. The formatter correction displays domain messages, retaining redaction.
+
+The dc29807 full gate passed (2149 tests, 59 conformance checks and browser/MCP
+smoke; 1550.33 seconds). All seven native amd64 images passed audits and were
+published. Its customer-archive acceptance is failed: same-host LAN routing timed
+out at TCP connect before TLS, at 2026-10-27T02:59:08.812Z. The improved formatter
+reported the actual domain message. No certificate exchange or soak passed.
+Retained run: `/private/tmp/opintel-stage5-gate-20261026/tmp/stage5-acceptance-kKldg6`.
+This disproves using the LAN route universally on Docker Desktop. Restore the
+existing same-host Docker route; keep the new all-interface host-listener checks
+that catch the arm64 evidence's competing loopback Node process. Split-host
+routing and every trust/pin refusal stay unchanged. No further publication until
+a new full gate passes on this correction. The exact certificate returned during
+the original arm64 failure remains unavailable; no claim of captured-peer proof.

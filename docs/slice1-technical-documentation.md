@@ -6011,7 +6011,9 @@ that UID. Its root-only DNS firewall rule remains unchanged; the query process
 never receives those capabilities. Install audits keys/files at 0600 and state
 directories at 0700. Public trust exchange remains outside private state.
 
-Pairing preserves the registered engine and source LAN addresses and the gateway
-heartbeat address. It does not rewrite same-host peers to host.docker.internal,
-which can reach a separate host loopback service. Explicit peer-CA trust, hostname
-validation and certificate pin checks remain mandatory on every engine request.
+Same-host pairing uses host.docker.internal for engine/source/heartbeat traffic
+because Docker Desktop may not route a container back through the host LAN
+address. Split-host pairing retains registered LAN addresses. Release acceptance
+refuses competing host listeners, including loopback-only services, before any
+installation. Explicit peer-CA trust, hostname validation and certificate pin
+checks remain mandatory on every engine request.

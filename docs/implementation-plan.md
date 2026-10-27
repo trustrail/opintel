@@ -1288,7 +1288,7 @@ must prove an initially empty dedicated Docker daemon, execute the shipped insta
 pair and demo commands, and retain failed as well as passing results. Runtime
 state stays private through explicit UID ownership and install-time mode audits.
 
-Stage 5 endpoint correction: pairing preserves the registered LAN endpoints for
-same-host and split-host installs alike. Native release and customer-archive
+Stage 5 endpoint correction: retain the Docker host route for same-host peers
+and the registered LAN route for split-host peers. Native release and customer-archive
 acceptance preflight name host listeners as well as Docker installs, including
 loopback-only bindings; they never stop unrelated processes automatically.

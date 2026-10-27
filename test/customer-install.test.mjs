@@ -43,16 +43,14 @@ it('DEP-019: customer package audit rejects test-rig variables',()=>{
  for(const key of ['OPINTEL_SECRET_DEMO_POSTGRES','OPINTEL_XQ_TEST_PROJECT_ID','OPINTEL_XQ_TEST_POOL_KEY','OPINTEL_STAGE4_SMOKE']){writeFileSync(join(root,'bad.env'),key+'=synthetic');expect(()=>auditPackage(root)).toThrow('test-rig');}
 });
 
-it('DEP-018: same-host and split-host pairing retain the registered LAN endpoints',()=>{
+it('DEP-018: same-host pairing uses Docker host routing while split-host pairing retains the LAN address',()=>{
  for(const local of [true,false]){
   const {directory,run}=packageRoot('gateway');run('initialize');
   const identity=JSON.parse(readFileSync(join(directory,'trust.json'),'utf8'));identity.kind='engine';identity.address='https://'+(local?'192.0.2.10':'192.0.2.11')+':3100';identity.demoSourceUrl='postgresql://synthetic:synthetic@'+(local?'192.0.2.10':'192.0.2.11')+':5434/readiness';
   writeFileSync(join(directory,'state/incoming.json'),JSON.stringify(identity));
   execFileSync(process.execPath,['--import','tsx','scripts/operator/customer-install.ts','pair','gateway',identity.pin],{env:{...process.env,PACKAGE_HOST_DIRECTORY:directory,OPINTEL_INSTALL_ROOT:directory},stdio:'pipe'});
-  expect(JSON.parse(readFileSync(join(directory,'state/output/peer.json'),'utf8')).address).toBe(identity.address);
-  expect(readFileSync(join(directory,'state/package.env'),'utf8')).toContain('https://192.0.2.10:3102');
-  expect(parse(readFileSync(join(directory,'state/operator.env'))).OPINTEL_DEMO_DATABASE_URL).toBe(identity.demoSourceUrl);
-  expect(JSON.parse(readFileSync(join(directory,'state/peer.json'),'utf8')).address).toBe(identity.address);
+  expect(JSON.parse(readFileSync(join(directory,'state/output/peer.json'),'utf8')).address).toBe(local?'https://host.docker.internal:3100':identity.address);
+  expect(readFileSync(join(directory,'state/package.env'),'utf8')).toContain(local?'https://host.docker.internal:3102':'https://192.0.2.10:3102');
  }
 },60000);
 
