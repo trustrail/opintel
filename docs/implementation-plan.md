@@ -1283,3 +1283,7 @@ Native arm64 release execution is shipped as `scripts/release/native.sh`, taking
 a revision and optional `--provider-env PATH` (default repository `.env`). It
 names failed prerequisites and always reports phase/log/output locations, even
 on preflight failure; no pasted release program or terminal input is required.
+Greenfield correction: customer-archive Stage 5 acceptance is authoritative. It
+must prove an initially empty dedicated Docker daemon, execute the shipped install,
+pair and demo commands, and retain failed as well as passing results. Runtime
+state stays private through explicit UID ownership and install-time mode audits.

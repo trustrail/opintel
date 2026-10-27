@@ -17,7 +17,7 @@ summary() {
   done
   result=
   if [[ -n "$worktree" ]]; then
-    for candidate in "$worktree"/tmp/stage4-acceptance-*/result.json; do
+    for candidate in "$worktree"/tmp/stage5-acceptance-*/result.json; do
       if [[ -f "$candidate" ]]; then result="$candidate"; fi
     done
   fi
@@ -38,7 +38,7 @@ trap 'printf "Release terminated.\n" >&2; exit 143' TERM
 set -Eeuo pipefail
 exec </dev/null
 umask 077
-export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never
+export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never DOCKER_CLI_HINTS=false
 
 phase=arguments
 printf 'Phase: %s\n' "$phase"
@@ -75,6 +75,10 @@ for certificate in 223 224 225 226; do
     certificate_file="$HOME/.xq/v02/$certificate/$name"
     [[ -f "$certificate_file" && -r "$certificate_file" ]] || fail "certificate file is not readable: $certificate_file"
   done
+done
+for port in 443 3100 3101 3102 5434 11465 11825 12375; do
+  holder="$(docker ps --filter "publish=$port" --format '{{.Names}} (install {{.Label "com.docker.compose.project"}})')"
+  [[ -z "$holder" ]] || fail "acceptance port $port is held by $holder; stop that installation explicitly before release acceptance"
 done
 cd "$root"
 resolved_revision="$(git rev-parse --verify --end-of-options "$revision^{commit}" 2>/dev/null)" || fail "revision is not available locally: $revision (fetch the branch first)"
@@ -117,4 +121,4 @@ node scripts/images/customer-package.mjs "$run_directory/published-arm64.json" "
 phase='published-digest acceptance including XQ and two-minute soak'
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/acceptance.log"
-RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 node scripts/images/stage4-smoke.mjs >"$phase_log" 2>&1
+RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 node scripts/images/stage5-smoke.mjs "$run_directory/packages" >"$phase_log" 2>&1

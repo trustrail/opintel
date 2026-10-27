@@ -1,8 +1,9 @@
+import {operatorDiagnostic} from './diagnostics.js';
 import {randomUUID} from 'node:crypto';
 import {parseArgs} from 'node:util';
 import {z} from 'zod';
 import {withPlatform} from '../../src/platform/db/scope.js';
-import {CompanyId,UserId,SystemClock,DomainError} from '../../src/shared/kernel/index.js';
+import {CompanyId,UserId,SystemClock} from '../../src/shared/kernel/index.js';
 import {PostgresInstallationClaimWriter,inviteCompanyMember} from '../../src/modules/tenancy/index.js';
 import {configuredMail} from '../../src/platform/mail/index.js';
 import {XqReleaseProvider} from '../../src/modules/release-custody/index.js';
@@ -46,4 +47,4 @@ async function main(){
  }
  throw new CommandError('Unknown operator command.');
 }
-void main().then(()=>process.exit(0)).catch((error:unknown)=>{console.error(error instanceof z.ZodError?'Invalid command arguments or package settings.':error instanceof CommandError||error instanceof DomainError?error.message:'Operator command failed; inspect bounded service diagnostics.');process.exit(1);});
+void main().then(()=>process.exit(0)).catch((error:unknown)=>{operatorDiagnostic(error);process.exit(1);});

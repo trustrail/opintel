@@ -1,12 +1,13 @@
+import {operatorDiagnostic} from './diagnostics.js';
 import {readFile,open,rename,lstat,mkdir,unlink} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {z} from 'zod';
 import {RegionSchema} from '../../src/shared/api/tenancy-schemas.js';
-import {CompanyId,UserId,ProjectId,SystemClock,DomainError,type Result} from '../../src/shared/kernel/index.js';
+import {CompanyId,UserId,ProjectId,SystemClock,type Result} from '../../src/shared/kernel/index.js';
 import {withPlatform} from '../../src/platform/db/scope.js';
 import {SpiceDbAuthorizationPort} from '../../src/modules/authz/infrastructure/spicedb-authorization-port.js';
 export const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
-export const required=(name:string)=>z.string().min(1).parse(process.env[name]);
+export const required=(name:string)=>{const value=process.env[name];if(!value)throw new OperatorConflict('Missing operator setting: '+name);return value;};
 export async function privateRead(file:string){const st=await lstat(file);if(!st.isFile()||(st.mode&0o077))throw new OperatorConflict('Private input must be a regular mode-600 file');return readFile(file,'utf8');}
 export async function privateWrite(file:string,value:unknown){await mkdir(dirname(file),{recursive:true,mode:0o700});const next=file+'.next';const handle=await open(next,'wx',0o600);try{await handle.writeFile(JSON.stringify(value,null,2)+'\n');await handle.sync();}finally{await handle.close();}await rename(next,file);}
 export async function locked<T>(file:string,work:()=>Promise<T>){await mkdir(dirname(file),{recursive:true,mode:0o700});const lock=await open(file+'.lock','wx',0o600);try{return await work();}finally{await lock.close();await unlink(file+'.lock');}}
@@ -30,4 +31,4 @@ export const operatorApiTarget=()=>process.env.OPINTEL_OPERATOR_API_TARGET??requ
 export async function api(path:string,method='GET',body?:unknown){const base=new URL(operatorApiTarget());if(base.protocol!=='https:')throw new OperatorConflict('Packaged API target requires HTTPS');const cookie=(await privateRead(required('OPINTEL_OBSERVER_COOKIE'))).trim();if(!/^opintel_session=[^;\s]+$/u.test(cookie))throw new OperatorConflict('Normal login cookie required');const r=await fetch(new URL(path,base),{method,headers:{cookie,'content-type':'application/json',origin:base.origin},body:body===undefined?undefined:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(30000)});if(!r.ok){await r.body?.cancel();throw new OperatorConflict('Packaged API request refused: HTTP '+r.status);}return r.json() as Promise<unknown>;}
 
 export class OperatorConflict extends Error {}
-export function operatorFailure(e:unknown){console.error(e instanceof OperatorConflict||e instanceof DomainError?e.message:'Operator operation failed; inspect private prerequisite records and service diagnostics.');}
+export function operatorFailure(e:unknown){operatorDiagnostic(e);}

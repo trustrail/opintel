@@ -3,7 +3,7 @@ import {createServer} from 'node:http';
 import {request} from 'node:https';
 import {checkServerIdentity} from 'node:tls';
 import {X509Certificate} from 'node:crypto';
-import {readFile,writeFile,rename} from 'node:fs/promises';
+import {readFile,writeFile,rename,chown} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
 import {lookup} from 'node:dns/promises';
 import {isIP} from 'node:net';
@@ -34,6 +34,7 @@ async function source(ref:string){
 export type ControllerPhase='configuration'|'tls'|'stored_state'|'bootstrap_policy'|'bootstrap_firewall'|'readiness_resolution'|'receipt_resolution'|'assigned_destination_resolution'|'hosts_update'|'firewall_apply'|'state_persist'|'control_listener'|'readiness_marker';
 export async function startController(file:string,phase:(value:ControllerPhase)=>void=()=>{}){
  phase('configuration');
+ const stateOwner=process.env.EGRESS_STATE_UID===undefined?undefined:z.object({uid:z.coerce.number().int().positive(),gid:z.coerce.number().int().nonnegative()}).parse({uid:process.env.EGRESS_STATE_UID,gid:process.env.EGRESS_STATE_GID});
  const config=configSchema.parse(JSON.parse(await readFile(file,'utf8')));
  phase('tls');
  const read=(name:keyof typeof config.tls)=>readFile(resolve(dirname(file),config.tls[name]),'utf8');
@@ -49,7 +50,7 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
  firewall(bootstrap.sources);
  let applied=new Map<string,string>();
  let failures=new Map<string,SourceId[]>();
- const persist=async()=>{phase('state_persist');await writeFile('/egress/state.next',JSON.stringify(state),{mode:0o600});await rename('/egress/state.next','/egress/state.json');};
+ const persist=async()=>{phase('state_persist');await writeFile('/egress/state.next',JSON.stringify(state),{mode:0o600});if(stateOwner)await chown('/egress/state.next',stateOwner.uid,stateOwner.gid);await rename('/egress/state.next','/egress/state.json');};
  async function install(){
   applied.clear();
   phase('readiness_resolution');

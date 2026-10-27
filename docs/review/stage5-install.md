@@ -154,3 +154,81 @@ announce their start; private logs, archives and acceptance result locations are
 reported at exit, including explicit “not produced” for early failures. The
 runner uses an isolated checkout and never reads terminal input or enrolls devices.
 It is a developer release tool, not a customer installation prerequisite.
+
+Greenfield arm64 report at df56789 (customer archives, Docker wiped): installation,
+pairing and real-inbox owner login passed; demo soak failed at TLS health
+verification. This is a failed Stage 5 exit, regardless of earlier Stage 4 results.
+The reported default-port issue was withdrawn: APP_BASE_URL explicitly contained
+5173 and was honored. The supplied provenance and environment-key inventory contain neither TEST key;
+the reported leakage is not reproduced in that evidence.
+
+Corrective work: explicit operator TLS configuration and absolute container paths;
+unique installation CA subjects; private runtime keys/directories with explicit
+runtime ownership and an install-time audit; local diagnostics that retain the
+exception message and private log path; Docker hints suppressed; compact install
+output; archive-level environment audit. Engine transport diagnostics retain a
+bounded TLS error code without changing trust, pin checks, or refusal behavior.
+
+Stage 5 acceptance now requires customer archives installed using their own
+commands into a dedicated Docker daemon proven empty before installation. It
+pairs, completes normal SMTP login, executes ./demo soak, exercises the packaged
+browser and console outage, and retains its result before stopping the source.
+No Stage 4 source-oriented acceptance can count as this exit. The disposable
+nested daemon retains its own data volume and never wipes the operator's daemon.
+
+Remaining customer-experience backlog (not represented as completed):
+- Import an XQ-issued export ZIP with ./identities add, maintain the manifest,
+  and move cedant slot details into demo documentation. Requires verification
+  against the actual XQ export layout; never create replacement identities.
+- Reduce pairing to one gateway-entered pin and authenticated engine trust fetch;
+  preserve mutual verification and require a reviewed bootstrap protocol.
+
+Evidence clarification: `/Volumes/JZ OS/stage5-evidence` identifies df56789 and
+its published arm64 image digests. The supplied package.env.keys lists neither
+TEST variable nor OPINTEL_XQ_REDEEM_URL. Both recorded pins agree with the served
+identity; the peer CA verifies its signature. The saved job target is
+host.docker.internal, while the reported manual check used the LAN address; the
+certificate covers both. No retained TLS error code is present, so the exact
+MacBook transport cause is not yet established. Do not label the new diagnostics
+or independent-CA regression as a reproduction of that failure.
+The correction uses dedicated peer-CA trust for both runtimes and operator jobs;
+CA/pin checks remain mandatory. Existing installations receive the configuration
+and mode changes through upgrade without rotating their identities.
+
+Retained completed gates before this corrective work: 60e19e2 passed all seven
+full-gate tiers in 1406.42 seconds (2129 normal tests, 59 conformance checks and
+browser/MCP smoke); df56789 passed in 1558.40 seconds (2135 normal tests, including
+six native-runner reporting regressions, plus conformance and smoke). Neither
+proves the newly required greenfield customer-archive path; the corrections need
+a new full gate and published-archive acceptance.
+
+Corrective candidate experiment (unpublished, not the final release):
+`tmp/stage5-acceptance-wgjjon/result.json` passed on native amd64, from
+2026-10-26T23:35:22Z to 23:41:41Z. A dedicated daemon began with zero images
+and zero containers. Both archive installers, pairing, normal SMTP owner login,
+XQ check and the shipped seed/renew/prepare/120-second soak passed. The packaged
+browser fetched three built assets and opened the authenticated dashboard with
+zero page errors. Twenty queries completed with verified receipts during the
+console outage; the UI returned afterward. Soak counters: zero operational
+errors, invariant breaches or skipped receipt checks; five custody values verified.
+The prior driver attempt `tmp/stage5-acceptance-5mxp4e/result.json` is retained as
+failed (exit 13, unfinished await), never counted as product acceptance. Driver
+requests now have referenced deadlines and persist phase progress. Final source
+gate and published-image acceptance remain required.
+
+Corrective full-gate attempt on candidate tree
+`45e325d42671c87b2b780b8e5070f957d1fc03f8` failed at lint after both
+typechecks passed (66.76 seconds). Four acceptance-driver references needed an
+explicit AbortSignal global binding. No later tier ran. The failed gate record
+and log are retained at `/private/tmp/stage5-greenfield-failed-gate-1.*`.
+The declaration is corrected; a new full gate is required before commit.
+
+The second corrective gate (tree e66308eee3692a91bc41d116780c00fa5602520a)
+failed after 1420.61 seconds: 2140 normal tests passed and three failed; smoke
+did not run. E-10 caught transport diagnostics overwriting the last explicit
+readiness reason; that reason again takes precedence, while transport codes
+remain logged. ROW-003 matched 1002 inside its expected decision digest. Its
+raw-value assertion now excludes only the exact, separately verified digest;
+all other receipt content remains checked. Failed record:
+`/private/tmp/stage5-greenfield-failed-gate-2.json`, full log:
+`/private/tmp/stage5-greenfield-full-gate-2.log`. A new full gate is required.

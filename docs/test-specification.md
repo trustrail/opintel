@@ -1693,3 +1693,10 @@ README runs. No source smoke or emulated host substitutes for those records. Dev
 bundles are out-of-band, team-issued XQ exports, in a documented protected layout;
 no installer enrollment or replacement licensed identity is permitted. Record all
 README timings and deviations in `docs/review/stage5-install.md`.
+
+Stage 5 greenfield correction: DEP-018 additionally verifies absolute application
+TLS paths in the operator service, independent CA/pin health verification, private
+key/directory permissions with a failing loose-mode control, and customer archive
+installations on a dedicated Docker daemon initially containing zero images.
+DEP-019 audits the environment extracted from the final archive as well as its
+staging directory. Stage 4 acceptance alone is not a Stage 5 installation pass.

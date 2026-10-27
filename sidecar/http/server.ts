@@ -1,3 +1,4 @@
+import {transportFailureCode} from '../../src/shared/infrastructure/transport-failure-code.js';
 import {enginePhase} from '../../src/shared/engine-phase.js';
 import {egressRegistration,egressRegistered} from '../../src/shared/engine-egress-contract.js';
 import {rowPreviewRequest,rowPreviewResponse} from '../../src/shared/row-preview-contract.js';
@@ -135,7 +136,7 @@ export function createSidecarServer(options: {
       socket.destroy();
     }
   });
-  server.on('tlsClientError',()=>console.info({event:'sidecar.refused',reason:'mutual_tls'}));
+  server.on('tlsClientError',error=>console.info({event:'sidecar.refused',timestamp:new Date().toISOString(),reason:'mutual_tls',transportCode:transportFailureCode(error,'tls_error')}));
   server.requestTimeout = 10000;
   server.headersTimeout = 10000;
   server.keepAliveTimeout = 1000;

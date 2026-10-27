@@ -45,3 +45,7 @@ it('CONNECT-04: TLS stall never retries; persistent TCP stalls keep the original
  let lookups=0;const started=performance.now();await expect(engineConnect(new URL('https://localhost:1/execute'),requestOptions(AbortSignal.timeout(250)),'secret',consume,{connectTimeoutMs:20,lookup:()=>{lookups++;}})).rejects.toMatchObject({phase:'connect',written:false});expect(lookups).toBe(4);expect(performance.now()-started).toBeLessThan(1000);
  const controller=new AbortController();lookups=0;await expect(engineConnect(new URL('https://localhost:1/execute'),requestOptions(controller.signal),'secret',consume,{connectTimeoutMs:20,lookup:()=>{lookups++;controller.abort();}})).rejects.toBeDefined();expect(lookups).toBe(1);
 });
+
+it('CONNECT-05: invalid TLS material refuses before writing and retains a bounded native error code',async()=>{
+ await expect(engineConnect(new URL('https://localhost:1/health'),{...requestOptions(AbortSignal.timeout(500)),key:'invalid synthetic key'},undefined,consume)).rejects.toMatchObject({phase:'tls',written:false,reason:'ERR_OSSL_UNSUPPORTED'});
+});

@@ -2,7 +2,7 @@
 set -euo pipefail
 exec </dev/null
 umask 077
-export LC_ALL=C
+export LC_ALL=C DOCKER_CLI_HINTS=false
 root="$(cd "$(dirname "$0")" && pwd)"
 command="$(basename "$0")"
 [[ "$command" != command ]] || { command="${1:?command required}"; shift; }
@@ -48,8 +48,8 @@ start_services(){
  mkdir -p state/operations; chmod 700 state/operations
  startup_log="state/operations/start-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
  touch "$startup_log"; chmod 600 "$startup_log"
- if ! start_services_internal > "$startup_log" 2>&1; then fail "Service startup failed. Details are retained in $startup_log."; fi
- if grep -Eq 'WARN\[|level=warning' "$startup_log"; then fail "Startup reported a Compose warning. See $startup_log."; fi
+ if ! start_services_internal > "$startup_log" 2>&1; then echo "Service startup failed. Details are retained in $startup_log." >&2; return 1; fi
+ if grep -Eq 'WARN\[|level=warning' "$startup_log"; then echo "Startup reported a Compose warning. See $startup_log." >&2; return 1; fi
  echo 'Services are healthy.'
 }
 backup_install(){
@@ -96,7 +96,7 @@ case "$command" in
   if [[ -d state ]]; then mv state "state.before-restore-$(date -u +%Y%m%dT%H%M%SZ)-$$"; fi
   cp -pR "$restore_directory/state" state
   cp -p "$restore_directory/trust.json" trust.json
-  mkdir -p state/custody/escrow; chmod 777 state/custody/escrow
+  mkdir -p state/custody/escrow; chmod 700 state/custody/escrow
   job rebase "$(cat package-kind)"
   while IFS= read -r volume; do
    [[ -n "$volume" ]] || continue
@@ -115,15 +115,17 @@ case "$command" in
   done
   bootstrap="$(cat bootstrap.image)"; load_images; job upgrade "$(cat package-kind)"; start_services; job status "$(cat package-kind)";;
  install)
-  load_images
+  mkdir -p diagnostics; chmod 700 diagnostics
+  install_log="diagnostics/install-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
+  load_images > "$install_log" 2>&1 || fail "Image loading failed. Log: $install_log"
   if command -v ipconfig >/dev/null 2>&1; then
    host_interface="$(route -n get default 2>/dev/null | awk '/interface:/{print $2}' || true)"
    host_address="$(ipconfig getifaddr "$host_interface" 2>/dev/null || true)"
   else host_address="$(hostname -I 2>/dev/null | awk '{print $1}')"; fi
   [[ -n "$host_address" ]] || fail 'Connect this Mac to the LAN, then run ./install again.'
-  job initialize "$(cat package-kind)"
-  start_services
-  if [[ "$(cat package-kind)" == gateway ]]; then run operator node scripts/operator/customer-operator.js initial-owner; fi
+  job initialize "$(cat package-kind)" >> "$install_log" 2>&1 || { cat "$install_log" >&2; fail "Installation initialization failed. Log: $install_log"; }
+  start_services >> "$install_log" 2>&1 || { cat "$install_log" >&2; fail "Installation startup failed. Log: $install_log"; }
+  if [[ "$(cat package-kind)" == gateway ]]; then run operator node scripts/operator/customer-operator.js initial-owner >> "$install_log" 2>&1 || { cat "$install_log" >&2; fail "Owner claim failed. Log: $install_log"; }; fi
   job installed "$(cat package-kind)";;
  start) [[ -f state/compose.json ]] || fail 'Run ./install first.'; start_services; job status "$(cat package-kind)";;
  stop) compose stop;;

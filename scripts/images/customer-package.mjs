@@ -4,7 +4,7 @@ import {readFileSync,writeFileSync,copyFileSync,chmodSync,rmSync} from 'node:fs'
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {packageDeployment} from './package.mjs';
-import {auditPackage} from './package-audit.mjs';
+import {auditPackage,auditCustomerEnvironment} from './package-audit.mjs';
 const [manifestFile,destination,...flags]=process.argv.slice(2);const candidate=flags.length===1&&flags[0]==='--candidate';if(flags.length&&!candidate)throw new Error('Unknown package flag.');
 if(!manifestFile||!destination)throw new Error('Usage: customer-package.mjs PUBLISHED_MANIFEST NEW_DIRECTORY');
 const manifest=JSON.parse(readFileSync(manifestFile,'utf8')),platform=process.env.PLATFORM;
@@ -12,7 +12,7 @@ if(!manifest.publishedAt&&!candidate)throw new Error('Customer archives require 
 const output=resolve(destination);packageDeployment(manifest,output,platform,{candidate});
 function docker(args){const r=spawnSync('docker',args,{encoding:'utf8',timeout:600000,maxBuffer:4*1024*1024});if(r.status!==0)throw new Error('Offline archive Docker step failed: '+args[0]);return r.stdout.trim();}
 for(const kind of ['gateway','engine']){
- const directory=join(output,kind);rmSync(join(directory,kind+'.sh'));if(kind==='gateway')rmSync(join(directory,'run-soak.md'));const release=JSON.parse(readFileSync(join(directory,'release.json'),'utf8'));
+ const directory=join(output,kind);rmSync(join(directory,kind+'.sh'));if(kind==='gateway')rmSync(join(directory,'run-soak.md'));const release=JSON.parse(readFileSync(join(directory,'release.json'),'utf8'));release.customerPackageVersion=1;writeFileSync(join(directory,'release.json'),JSON.stringify(release,null,2)+'\n');
  const provisioning=manifest.artifacts.find(a=>a.target==='provisioning'&&a.platform===platform)?.repoDigests[0];
  if(!provisioning)throw new Error('Installer image missing.');
  const upstream=Object.fromEntries(Object.entries(manifest.upstream.services).filter(([name])=>kind==='gateway'||name==='postgres'));
@@ -39,5 +39,6 @@ for(const kind of ['gateway','engine']){
  auditPackage(directory);
  const archive=join(output,kind+'-'+manifest.revision.slice(0,7)+'-'+platform.split('/')[1]+'.tar.gz');
  const tar=spawnSync('tar',['-czf',archive,'-C',output,kind],{stdio:'inherit',timeout:600000,env:{...process.env,LC_ALL:'C'}});if(tar.status!==0)throw new Error('Package archive failed.');
+ if(kind==='gateway'){const packed=spawnSync('tar',['-xOf',archive,'gateway/package.env'],{encoding:'utf8',timeout:60000});if(packed.status!==0)throw new Error('Cannot audit archived customer environment.');auditCustomerEnvironment(packed.stdout);}
  console.log('Customer archive: '+archive);
 }

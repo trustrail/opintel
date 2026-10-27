@@ -20,7 +20,8 @@ export async function customerSoak(duration:string|undefined){
  const ownerEmail=required('OWNER_EMAIL');
  const users=await withPlatform(tx=>tx.query<{company_id:string}>("SELECT m.company_id FROM company_member m JOIN user_account u ON u.id=m.user_id WHERE u.email=$1 AND m.role='admin' AND u.last_login_at IS NOT NULL",[ownerEmail]));
  if(users.length!==1)throw new OperatorConflict('Complete normal owner email login before running the demo.');
- const peer=z.object({address:z.url(),pin:z.string()}).parse(JSON.parse(await privateRead(join(required('OPINTEL_OUTPUT_DIRECTORY'),'peer.json'))));
+ let peerText:string;try{peerText=await privateRead(join(required('OPINTEL_OUTPUT_DIRECTORY'),'peer.json'));}catch(error){if(error instanceof Error&&'code'in error&&error.code==='ENOENT')throw new OperatorConflict('No engine registered. Run ./register-engine with the engine identity and pin first.');throw error;}
+ const peer=z.object({address:z.url(),pin:z.string()}).parse(JSON.parse(peerText));
  const root='/home/operator/.xq';
  const mapping=certificateMapping.parse(JSON.parse(await privateRead(join(root,'certificates.json')))).map(item=>{
   const path=resolve(root,item.bundlePath);if(item.bundlePath.startsWith('/')||relative(root,path).startsWith('..'))throw new OperatorConflict('Device bundle paths must be relative to identities.');return {...item,bundlePath:path};

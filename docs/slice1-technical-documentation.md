@@ -6001,3 +6001,12 @@ conflicts rather than overwriting them. Customer source data is durable and neve
 removed by stop or acceptance cleanup. Cold backups exclude ephemeral observer
 credentials and release-custody escrow shares; recovery cannot resurrect those
 capabilities or grants, and a caller may need a fresh governed query.
+
+Stage 5 pairing uses a dedicated `peer-ca.pem` trust file containing the verified
+peer CA, not the peer leaf certificate or a mixture of installation issuers.
+Application and engine TLS configurations use absolute `/config` paths. Runtime
+services use the operator UID for private mounts; the root egress companion has
+scoped DAC_OVERRIDE/CHOWN capabilities to maintain private control state owned by
+that UID. Its root-only DNS firewall rule remains unchanged; the query process
+never receives those capabilities. Install audits keys/files at 0600 and state
+directories at 0700. Public trust exchange remains outside private state.
