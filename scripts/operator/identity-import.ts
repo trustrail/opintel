@@ -4,7 +4,7 @@ import {X509Certificate,createPrivateKey,timingSafeEqual,randomUUID} from 'node:
 import {fromBuffer,type Entry} from 'yauzl';
 import {z} from 'zod';
 import {CertificateAssociation} from '../../src/shared/api/certificate-association.js';
-const deviceMapping=CertificateAssociation.omit({recipientIdentifier:true}).extend({bundlePath:z.string().regex(/^device-[1-9][0-9]*$/u)});
+const deviceMapping=CertificateAssociation.omit({recipientIdentifier:true}).extend({bundlePath:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u)});
 
 const names=['client.crt','client.key','transport.key'] as const;
 async function exportFiles(file:string):Promise<Map<string,Buffer>>{
@@ -35,7 +35,7 @@ export async function importIdentity(root:string,archive:string,originalName:str
  const deviceName=device??'opintel-'+certificateId;
  const item=deviceMapping.parse({certificateId,deviceName,bundlePath:'device-'+certificateId});
  const files=await exportFiles(archive);
- const directory=join(root,'identities'),lock=join(directory,'.import-lock'),temporary=join(directory,'.import-'+randomUUID());let locked=false;
+ const directory=join(root,'identity-bundles'),lock=join(directory,'.import-lock'),temporary=join(directory,'.import-'+randomUUID());let locked=false,temporaryCreated=false;
  try{
   const certificateText=files.get('client.crt')!.toString('utf8');
   const certificate=new X509Certificate(certificateText.includes('-----BEGIN')?certificateText:Buffer.from(certificateText.trim(),'base64'));
@@ -44,20 +44,20 @@ export async function importIdentity(root:string,archive:string,originalName:str
   try{const key=keyBytes.includes(Buffer.from('-----BEGIN'))?createPrivateKey(keyBytes):createPrivateKey({key:keyBytes,format:'der',type:'pkcs8'});if(!certificate.checkPrivateKey(key))throw new Error('XQ export certificate and private key do not match.');}finally{keyBytes.fill(0);}
   if(!files.get('transport.key')!.toString('utf8').trim())throw new Error('XQ export transport key is empty.');
   await mkdir(directory,{recursive:true,mode:0o700});if(!(await lstat(directory)).isDirectory()||(await lstat(directory)).isSymbolicLink())throw new Error('Identities must be a private directory, not a link.');await chmod(directory,0o700);
-  try{await mkdir(lock,{mode:0o700});locked=true;}catch{throw new Error('Another identity import is active or interrupted; inspect identities/.import-lock.');}
+  try{await mkdir(lock,{mode:0o700});locked=true;}catch{throw new Error('Another identity import is active or interrupted; inspect identity-bundles/.import-lock.');}
   const manifest=join(directory,'certificates.json');let entries:z.infer<typeof deviceMapping>[]=[];
   try{entries=z.array(deviceMapping).parse(JSON.parse(await readFile(manifest,'utf8')));}catch(error){if(!(error instanceof Error&&'code'in error&&error.code==='ENOENT'))throw error;}
   const existing=entries.find(entry=>entry.certificateId===certificateId||entry.deviceName===deviceName);
   if(existing){
-   if(JSON.stringify(existing)!==JSON.stringify(item))throw new Error('Identity conflicts with the existing manifest; nothing was overwritten.');
-   for(const name of names){const saved=await readFile(join(directory,item.bundlePath,name)),incoming=files.get(name)!;try{if(saved.length!==incoming.length||!timingSafeEqual(saved,incoming))throw new Error('Identity conflicts with the existing bundle; nothing was overwritten.');}finally{saved.fill(0);}}
+   if(existing.certificateId!==item.certificateId||existing.deviceName!==item.deviceName)throw new Error('Identity conflicts with the existing manifest; nothing was overwritten.');
+   for(const name of names){const saved=await readFile(join(directory,existing.bundlePath,name)),incoming=files.get(name)!;try{if(saved.length!==incoming.length||!timingSafeEqual(saved,incoming))throw new Error('Identity conflicts with the existing bundle; nothing was overwritten.');}finally{saved.fill(0);}}
    console.info('Identity already imported; unchanged.');return;
   }
-  await mkdir(temporary,{mode:0o700});for(const name of names)await writeFile(join(temporary,name),files.get(name)!,{mode:0o600,flag:'wx'});
+  await mkdir(temporary,{mode:0o700});temporaryCreated=true;for(const name of names)await writeFile(join(temporary,name),files.get(name)!,{mode:0o600,flag:'wx'});
   const destination=join(directory,item.bundlePath);
   try{await lstat(destination);throw new Error('Identity directory already exists outside the manifest; inspect it before importing.');}catch(error){if(!(error instanceof Error&&'code'in error&&error.code==='ENOENT'))throw error;}
   await rename(temporary,destination);
   const next=join(directory,'.manifest-'+randomUUID());await writeFile(next,JSON.stringify([...entries,item],null,2)+'\n',{mode:0o600,flag:'wx'});await rename(next,manifest);
-  console.info('Team-issued identity imported. Manifest: identities/certificates.json');
- }finally{for(const value of files.values())value.fill(0);await rm(temporary,{recursive:true,force:true});if(locked)await rm(lock,{recursive:true});}
+  console.info('Team-issued identity imported. Manifest: identity-bundles/certificates.json');
+ }finally{for(const value of files.values())value.fill(0);if(temporaryCreated)await rm(temporary,{recursive:true,force:true});if(locked)await rm(lock,{recursive:true});}
 }

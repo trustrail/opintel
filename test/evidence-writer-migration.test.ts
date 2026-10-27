@@ -17,13 +17,15 @@ it('catalog generation advances once per transaction across objects, elements an
  await expect(withTenant(f.ctx,async tx=>{await tx.query("UPDATE catalog_element SET description='rollback' WHERE id=$1",[f.ids[0]]);throw new Error('rollback');})).rejects.toThrow('rollback');expect(await version()).toBe(before+2);
 });
 it('database requires a selected version for tokenized elements and forbids a different used version',async()=>{
+ // This test isolates token-version constraints; use one timestamp for both
+ // endpoints so host/Docker clock skew cannot trip completion ordering first.
  const f=await policyFixture(),id=randomUUID(),at=new Date().toISOString();
  await withTenant(f.ctx,tx=>tx.query("INSERT INTO query_run(id,project_id,pool_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,'test','query','SELECT 1',$4,$5)",[id,f.ctx.projectId,f.pool,{policy:1,vocabulary:1,catalog:1,tokenKeyVersionSelected:null},at]));
  await expect(withTenant(f.ctx,tx=>tx.query("INSERT INTO run_element(run_id,started_at,exposed_name,state,treatment) VALUES($1,$2,'field','released','tokenized')",[id,at]))).rejects.toMatchObject({code:'23514'});
- await expect(withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',now(),1)",[id,at]))).rejects.toMatchObject({code:'23514'});
+ await expect(withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',$2::timestamptz + interval '1 second',1)",[id,at]))).rejects.toMatchObject({code:'23514'});
  const pinned=randomUUID();await withTenant(f.ctx,tx=>tx.query("INSERT INTO query_run(id,project_id,pool_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,'test','query','SELECT 1',$4,$5)",[pinned,f.ctx.projectId,f.pool,{policy:1,vocabulary:1,catalog:1,tokenKeyVersionSelected:2},at]));
- await expect(withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',now(),1)",[pinned,at]))).rejects.toMatchObject({code:'23514'});
- await withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',now(),NULL)",[pinned,at]));
+ await expect(withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',$2::timestamptz + interval '1 second',1)",[pinned,at]))).rejects.toMatchObject({code:'23514'});
+ await withTenant(f.ctx,tx=>tx.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at,token_key_version_used) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":0,\"truncated\":false}',$2::timestamptz + interval '1 second',NULL)",[pinned,at]));
 });
  // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('047 down/up runs twice without rewriting existing immutable headers',async()=>{

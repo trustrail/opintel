@@ -2,7 +2,7 @@ import {issuePairingCode,servePairing,claimEngine} from '../scripts/operator/eng
 import {createServer} from 'node:https';
 import {X509Certificate} from 'node:crypto';
 import {HttpsEngineProbe,loadApplicationTls} from '../src/modules/engines/index.js';
-import {mkdtempSync,rmSync,readFileSync,writeFileSync,statSync,copyFileSync,chmodSync} from 'node:fs';
+import {mkdtempSync,rmSync,readFileSync,writeFileSync,statSync,copyFileSync,chmodSync,mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {execFileSync,spawnSync} from 'node:child_process';
@@ -18,6 +18,7 @@ function packageRoot(kind){
  const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
  const manifest={revision:'a'.repeat(40),upstream,artifacts:['api','console','engine','egress','migrations','provisioning','demo-tools'].map(target=>({target,platform:'linux/amd64',repoDigests:[`ghcr.io/trustrail/opintel-${target}@sha256:${'b'.repeat(64)}`]}))};
  packageDeployment(manifest,join(root,'packages'),'linux/amd64');const directory=join(root,'packages',kind);
+ copyFileSync('deploy/customer/command',join(directory,'install'));if(kind==='gateway')copyFileSync('deploy/customer/command',join(directory,'identities'));
  writeFileSync(join(directory,'bootstrap.image'),'opintel-package/test:5');
  writeFileSync(join(directory,'platform'),'linux/amd64');writeFileSync(join(directory,'upstream.json'),JSON.stringify({services:upstream.services}));
  writeFileSync(join(directory,'local-images.json'),JSON.stringify(Object.fromEntries([...manifest.artifacts.map(a=>a.repoDigests[0]),...Object.values(upstream.services).map(s=>s.image)].map((image,i)=>[image,'opintel-package/test:'+i]))));
@@ -120,3 +121,17 @@ it('DEP-018: one-use engine pairing refuses wrong pins/codes, records trust, and
   expect(()=>issuePairingCode(engine.directory,true)).toThrow('already paired');
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 },30000);
+
+it('DEP-018: gateway upgrade preserves legacy bundles and installs the identities dispatcher without a path collision',()=>{
+ const {directory,run}=packageRoot('gateway');run('initialize');
+ const runtime=readFileSync(join(directory,'state/runtime.env'),'utf8');
+ rmSync(join(directory,'identity-bundles'),{recursive:true});rmSync(join(directory,'identities'));
+ mkdirSync(join(directory,'identities'),{mode:0o700});writeFileSync(join(directory,'identities/certificates.json'),'[]\n',{mode:0o600});
+ run('upgrade');
+ expect(statSync(join(directory,'identities')).isFile()).toBe(true);
+ expect(readFileSync(join(directory,'identities'))).toEqual(readFileSync(join(directory,'install')));
+ expect(readFileSync(join(directory,'identity-bundles/certificates.json'),'utf8')).toBe('[]\n');
+ expect(statSync(join(directory,'identity-bundles')).mode&0o777).toBe(0o700);
+ expect(parse(readFileSync(join(directory,'state/package.env'))).GATEWAY_AGENT_CERTIFICATES_DIRECTORY).toBe(directory+'/identity-bundles');
+ expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(runtime);
+});

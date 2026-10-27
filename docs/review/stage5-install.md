@@ -319,3 +319,29 @@ to assert bounded fields while retaining the no-source-values/no-SQL requirement
 The failed record remains `/private/tmp/stage5-recovery-failed-gate.json`; this is
 not a green gate and cannot authorize publication. The changed candidate requires
 a new full gate before commit. Earlier interrupted runs are also retained.
+
+The corrected gate passed on tree
+`e9a3ae8abe1510bcedcdc4e6400f4fd53fc14a2e`: 2,162 tests, 59 conformance
+checks, browser/MCP smoke and cleanup (1,598.89 seconds). Commit `84b9503` was
+pushed, all seven amd64 images audited and published by digest, and both customer
+archives built. Published acceptance failed before pairing or XQ: the shipped
+`./identities` dispatcher occupied the same path the importer expected to be a
+directory. Retained result:
+`/private/tmp/opintel-stage5-gate-20261026/tmp/stage5-acceptance-mWrEVM/result.json`.
+This is not a passing Stage 5 run. No XQ or soak success is claimed for it.
+
+The forward correction separates the command from private `identity-bundles/`,
+creates that directory as the operator before container mounts, and preserves
+legacy bundles during upgrade. Regression fixtures now include the actual
+dispatcher file, and import cleanup no longer masks a directory-creation error.
+A new full gate is required before commit and further publication.
+
+The directory correction's full gate on tree
+`ddd559d29cb26dfa386546a8e27a2272ed72beb3` failed: 2,162 tests passed and
+one evidence migration fixture failed (1,504.49 seconds; smoke not reached).
+Its allowed completion mixed a host `started_at` with database `now()` and hit
+`run_completion_check` (`completed_at >= started_at`) under clock skew. The
+fixture now derives completion from its own start timestamp; all selected/used
+token-version assertions and production constraints are unchanged. The failed
+log is `/private/tmp/stage5-bundle-full-gate.log`. This changed candidate requires
+another full gate before commit or publication.

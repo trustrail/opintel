@@ -1,7 +1,7 @@
 import {issuePairingCode,servePairing,claimEngine} from './engine-pairing.js';
 import {importIdentity} from './identity-import.js';
 import {operatorDiagnostic} from './diagnostics.js';
-import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync,chmodSync,appendFileSync,openSync,readSync,closeSync,lstatSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync,chmodSync,appendFileSync,openSync,readSync,closeSync,lstatSync,renameSync,copyFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {randomBytes,X509Certificate,createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
@@ -29,6 +29,19 @@ function certificate(name:string,sans:string){
  chmodSync(join(state,name+'.pem'),0o600);chmodSync(join(state,name+'.key'),0o600);
 }
 function pairingService(uid:number,gid:number,platform:string):Service{return {image:readFileSync(join(root,'bootstrap.image'),'utf8').trim(),platform,pull_policy:'never',user:`${uid}:${gid}`,read_only:true,cap_drop:['ALL'],security_opt:['no-new-privileges:true'],stdin_open:false,tty:false,environment:{PACKAGE_HOST_DIRECTORY:host},volumes:[host+':/package'],ports:['0.0.0.0:3103:3103'],command:['node','scripts/operator/customer-install.js','pairing-server','engine'],restart:'unless-stopped',healthcheck:{test:['CMD','node','-e',"require('node:https').get('https://127.0.0.1:3103/health',{rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"],interval:'2s',timeout:'3s',retries:30}};}
+function prepareIdentityDirectory(){
+ const directory=join(root,'identity-bundles'),legacy=join(root,'identities');
+ if(existsSync(legacy)&&lstatSync(legacy).isSymbolicLink())throw new InstallError('Identity command or legacy directory must not be a link.');
+ if(existsSync(legacy)&&lstatSync(legacy).isDirectory()){
+  if(existsSync(directory))throw new InstallError('Identity directory conflict. Preserve both directories; no bundle was overwritten.');
+  renameSync(legacy,directory);
+  // Older upgrade wrappers skipped the old identities directory. Install the
+  // new command from the identical dispatcher shipped as ./install.
+  if(existsSync(join(root,'install'))){copyFileSync(join(root,'install'),legacy);chmodSync(legacy,0o755);}
+ }
+ if(existsSync(directory)&&(!lstatSync(directory).isDirectory()||lstatSync(directory).isSymbolicLink()))throw new InstallError('identity-bundles must be a private directory, not a file or link.');
+ mkdirSync(directory,{recursive:true,mode:0o700});chmodSync(directory,0o700);
+}
 function initialize(){
  if(existsSync(join(state,'installed.json'))){console.info('Existing installation retained; secrets and decisions are unchanged.');return;}
  if(existsSync(state))throw new InstallError('Incomplete installation state exists. Preserve it and use ./restore; install will not overwrite secrets.');
@@ -46,6 +59,7 @@ function initialize(){
  }
  for(const name of ['PAL_PROVIDER','PAL_MODEL','EMBEDDING_MODEL'])if(settings[name]&&settings[name]!=='disabled')throw new InstallError('Hosted models are disabled in this on-premises package. No model egress is enabled.');
  const uid=process.getuid?.()??65534,gid=process.getgid?.()??65534;if(uid===0)throw new InstallError('Run the installer as a non-root operator.');
+ if(kind==='gateway')prepareIdentityDirectory();
  mkdirSync(state,{mode:0o700});for(const name of ['xq','output','audit','custody','ingest','control']){mkdirSync(join(state,name),{mode:0o700});chmodSync(join(state,name),0o700);}
  write('state/control/hosts','',0o600);
  openssl(['req','-x509','-newkey','rsa:3072','-nodes','-keyout','ca.key','-out','ca.pem','-days','3650','-subj','/CN=Opintel installation '+randomBytes(16).toString('hex'),'-addext','basicConstraints=critical,CA:TRUE']);chmodSync(join(state,'ca.pem'),0o600);chmodSync(join(state,'ca.key'),0o600);
@@ -80,7 +94,7 @@ function initialize(){
   operator.OPINTEL_OPERATOR_API_TARGET='https://ingress:8444';
   operator.MIGRATION_DATABASE_URL=`postgresql://opintel:${database}@postgres:5432/opintel`;
   env('state/spicedb.env',{SPICEDB_GRPC_PRESHARED_KEY:spice,SPICEDB_DATASTORE_CONN_URI:`postgres://spicedb:${database}@spicedb-postgres:5432/spicedb?sslmode=disable`,SPICEDB_GRPC_TLS_CERT_PATH:'/config/spicedb.pem',SPICEDB_GRPC_TLS_KEY_PATH:'/config/spicedb.key'});
-  Object.assign(vars,{GATEWAY_CONFIG_DIRECTORY:host+'/state',GATEWAY_API_ENV_FILE:host+'/state/runtime.env',GATEWAY_OPERATOR_ENV_FILE:host+'/state/operator.env',GATEWAY_SPICEDB_ENV_FILE:host+'/state/spicedb.env',GATEWAY_POSTGRES_PASSWORD_FILE:host+'/state/postgres-password',GATEWAY_SPICEDB_POSTGRES_PASSWORD_FILE:host+'/state/postgres-password',GATEWAY_REDIS_CONFIG_FILE:host+'/state/redis.conf',GATEWAY_XQ_DIRECTORY:host+'/state/xq',GATEWAY_AGENT_CERTIFICATES_DIRECTORY:host+'/identities',GATEWAY_OPERATOR_OUTPUT_DIRECTORY:host+'/state/output',GATEWAY_OPERATOR_UID:String(process.getuid?.()??65534),GATEWAY_OPERATOR_GID:String(process.getgid?.()??65534),GATEWAY_HEARTBEAT_URL:`https://${app.hostname}:3102`,GATEWAY_HEARTBEAT_BIND_ADDRESS:'0.0.0.0',GATEWAY_RECEIPT_BIND_ADDRESS:'0.0.0.0',GATEWAY_INGRESS_CONFIG_FILE:host+'/ingress/nginx.conf',GATEWAY_INGRESS_CERT_FILE:settings.GATEWAY_INGRESS_CERT_FILE??host+'/state/ingress.pem',GATEWAY_INGRESS_KEY_FILE:settings.GATEWAY_INGRESS_KEY_FILE??host+'/state/ingress.key',GATEWAY_CONSOLE_BIND_ADDRESS:'0.0.0.0',GATEWAY_CONSOLE_PORT:app.port||'443',...Object.fromEntries(Object.entries(settings).filter(([k])=>k.startsWith('SMTP_')))});
+  Object.assign(vars,{GATEWAY_CONFIG_DIRECTORY:host+'/state',GATEWAY_API_ENV_FILE:host+'/state/runtime.env',GATEWAY_OPERATOR_ENV_FILE:host+'/state/operator.env',GATEWAY_SPICEDB_ENV_FILE:host+'/state/spicedb.env',GATEWAY_POSTGRES_PASSWORD_FILE:host+'/state/postgres-password',GATEWAY_SPICEDB_POSTGRES_PASSWORD_FILE:host+'/state/postgres-password',GATEWAY_REDIS_CONFIG_FILE:host+'/state/redis.conf',GATEWAY_XQ_DIRECTORY:host+'/state/xq',GATEWAY_AGENT_CERTIFICATES_DIRECTORY:host+'/identity-bundles',GATEWAY_OPERATOR_OUTPUT_DIRECTORY:host+'/state/output',GATEWAY_OPERATOR_UID:String(process.getuid?.()??65534),GATEWAY_OPERATOR_GID:String(process.getgid?.()??65534),GATEWAY_HEARTBEAT_URL:`https://${app.hostname}:3102`,GATEWAY_HEARTBEAT_BIND_ADDRESS:'0.0.0.0',GATEWAY_RECEIPT_BIND_ADDRESS:'0.0.0.0',GATEWAY_INGRESS_CONFIG_FILE:host+'/ingress/nginx.conf',GATEWAY_INGRESS_CERT_FILE:settings.GATEWAY_INGRESS_CERT_FILE??host+'/state/ingress.pem',GATEWAY_INGRESS_KEY_FILE:settings.GATEWAY_INGRESS_KEY_FILE??host+'/state/ingress.key',GATEWAY_CONSOLE_BIND_ADDRESS:'0.0.0.0',GATEWAY_CONSOLE_PORT:app.port||'443',...Object.fromEntries(Object.entries(settings).filter(([k])=>k.startsWith('SMTP_')))});
   const internalIngress=`
   server {
     listen 8444 ssl;
@@ -147,7 +161,7 @@ function initialize(){
 }
 function auditPermissions(){
  const walk=(directory:string)=>{for(const name of readdirSync(directory)){const file=join(directory,name),stat=lstatSync(file);if(stat.isSymbolicLink())throw new InstallError('Permission audit refuses symlink: '+file);if((stat.mode&0o077)!==0)throw new InstallError('Permission audit failed (must be private): '+file);if(stat.isDirectory())walk(file);}};
- if((lstatSync(state).mode&0o077)!==0)throw new InstallError('Permission audit failed: state directory must be mode 700.');walk(state);
+ if((lstatSync(state).mode&0o077)!==0)throw new InstallError('Permission audit failed: state directory must be mode 700.');walk(state);if(kind==='gateway'){const identities=join(root,'identity-bundles');if((lstatSync(identities).mode&0o077)!==0)throw new InstallError('Identity directory must be mode 700.');walk(identities);}
 }
 function status(){const value=z.object({kind:z.string(),installId:z.string(),baseUrl:z.string().optional()}).parse(json(join(state,'installed.json')));console.info('Install: '+value.installId);if(value.baseUrl)console.info('Console and owner sign-in: '+value.baseUrl+'/sign-in');console.info('Public identity: trust.json');const identity=z.object({pin:z.string(),address:z.string()}).parse(json(join(root,'trust.json')));console.info('Pinned service address: '+identity.address);console.info('Certificate pin: '+identity.pin);}
 function pair(expectedPin=process.argv[4]){
@@ -223,6 +237,9 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   if(kind==='gateway'&&tlsServices.includes(name))service.environment={...service.environment,APPLICATION_TLS_CONFIG:'/config/application-tls.json'};
  }
  if(kind==='gateway'){
+  prepareIdentityDirectory();
+  const packageEnvironment=join(state,'package.env');
+  writeFileSync(packageEnvironment,readFileSync(packageEnvironment,'utf8').replace(/^GATEWAY_AGENT_CERTIFICATES_DIRECTORY=.*$/mu,"GATEWAY_AGENT_CERTIFICATES_DIRECTORY='"+(host+'/identity-bundles').replaceAll("'","\\'")+"'"));
   writeFileSync(join(state,'application-tls.json'),JSON.stringify({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'})+'\n');
   writeFileSync(join(state,'nginx.conf'),readFileSync(join(state,'nginx.conf'),'utf8').replace(/^user nginx;\n/u,''));
  }else{

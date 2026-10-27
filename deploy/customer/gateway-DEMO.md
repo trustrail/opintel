@@ -9,7 +9,7 @@ The installer never creates or replaces licensed identities. Keep the original
 export filenames (ending `-CERTIFICATE_ID.zip`) and protect exports as secrets.
 Import each with `./identities add /path/to/TEAM_EXPORT-123.zip --device DEVICE_NAME`.
 Use the intended exact device name; without `--device`, the name is `opintel-ID`.
-The command maintains `identities/certificates.json` and `identities/device-ID/`
+The command maintains `identity-bundles/certificates.json` and `identity-bundles/device-ID/`
 containing `client.crt`, `client.key`, and `transport.key`. Directories are 700 and
 files 600. Never hand-write the manifest. Reimporting an identical identity is a
 no-op; a conflicting identity refuses without overwriting it.

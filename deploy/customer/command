@@ -110,7 +110,8 @@ case "$command" in
   [[ "$next_directory" != "$root" && "$(cat "$next_directory/package-kind")" == "$(cat package-kind)" && "$(cat "$next_directory/platform")" == "$platform" ]] || fail 'Upgrade needs a separate matching package.'
   backup_install
   for file in "$next_directory"/*; do
-   case "$(basename "$file")" in state|backups|package.env|identities|trust.json|*.log) continue;; esac
+   case "$(basename "$file")" in state|backups|package.env|identity-bundles|trust.json|*.log) continue;; esac
+   [[ "$(basename "$file")" == identities && -d "$root/identities" ]] && continue
    cp -pR "$file" "$root/"
   done
   bootstrap="$(cat bootstrap.image)"; load_images; job upgrade "$(cat package-kind)"; start_services; job status "$(cat package-kind)";;
