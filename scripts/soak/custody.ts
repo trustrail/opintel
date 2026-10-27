@@ -19,6 +19,9 @@ export function custodyAgents(mappingFile:string,apiKey:string,event:(value:{age
  let polling=false;const interval=setInterval(()=>{if(polling||exited)return;polling=true;void command({op:'poll'}).catch(()=>{}).finally(()=>{polling=false;});},30000);interval.unref();
  return {
   async associations(){return z.array(CertificateAssociation).parse(await command({op:'associations'}));},
+  async verifyShare(association:Pick<DeviceMapping,'certificateId'|'deviceName'>,locator:string,expectedDigest:string){
+   return z.strictObject({ok:z.boolean(),status:z.number().nullable()}).parse(await command({op:'verify-share',association,locator,expectedDigest}));
+  },
   async connect(id:number,url:string,key:string,agentId:string,association:Pick<DeviceMapping,'certificateId'|'deviceName'>,stored?:CertificateAssociation){await command({op:'connect',id,url,key,agentId,association,stored});},
   async complete(id:number,output:z.infer<typeof QueryOutput>,expected:Record<string,unknown[]>){
    try{return z.object({ok:z.boolean(),stage:z.string().optional(),status:z.number().optional(),code:z.string().optional(),mismatch:z.boolean().optional(),verified:z.number().optional(),completed:z.number().optional()}).parse(await command({op:'complete',id,output,expected}));}

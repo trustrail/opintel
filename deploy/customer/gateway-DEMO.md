@@ -18,6 +18,12 @@ Import in cedant order: the first two identities serve cedant A, the next two
 serve cedant B. This four-identity mapping is specific to the shipped scenario set.
 Keep the original exports with your protected offline backups.
 
+To verify provider key handling independently, run `./xq-check --roundtrips 200`.
+It escrows and retrieves 200 fresh shares using your imported identities, requires
+200/200 exact matches, and writes a private result beneath `state/output`. It never
+prints shares, device tokens or comparison digests. Release acceptance requires
+this check. A failed escrow is a failure, not a retried sample.
+
 Run `./demo soak 1800`. One job provisions the demonstration, seeds the source,
 renews lifecycle credentials, prepares and runs all scenarios for 30 minutes.
 Nothing reads terminal input. Receipt verification uses a project-scoped read-only

@@ -406,3 +406,99 @@ it in query refusal totals. The approved correction now counts every failed
 escrow once and preserves scenario coverage. Request bytes and safe shapes are
 recorded for all escrow subcalls, and failure evidence includes the redacted
 4xx body. Full gate and a new published amd64 soak are required for this candidate.
+
+## XQ key-encoding follow-up — 2026-10-27
+
+The `5300c82` published amd64 customer-archive run retained four subscription
+HTTP 400s: “The key you are attempting to save has one or more invalid characters
+or sequences”. All were attempt 1. Failed bodies were 199 bytes (three) and
+200 bytes (one); 85 successful subscriptions had the same sizes. All four
+exploratory failures counted as breaches. The 30-minute run had 1,253 queries,
+425 custody values verified, 85/85 scenarios, active receipt verification, zero
+operational errors and five breaches. It is FAILED, not a Stage 5 pass.
+Private evidence: `tmp/stage5-release-5300c82/release-evidence.json`; acceptance
+`/private/tmp/opintel-stage5-gate-20261026/tmp/stage5-acceptance-BrRUpU/result.json`.
+
+The other breach, evidence `01a17e9a-5bfc-70d5-b01c-15dacedffbee`, reached the
+engine at 18:23:28.919Z. During the execution scan, source connect attempt 1
+ran 18:23:45.049–46.109Z (1,060 ms); attempt 2 ran 18:23:46.841–48.516Z
+(1,675 ms), both ETIMEDOUT. No source statement was sent on those failed
+connections. Earlier metadata work on a separate connection completed. The
+phase/timestamp records are retained alongside transport evidence in
+`tmp/stage5-release-5300c82/source-connect-transport-evidence.json`. No source
+transport behaviour is changed by this follow-up.
+
+The pinned `@xqmsg/jssdk-core` 2.0.6 source was read before choosing an encoding:
+`v2/services/GeneratePacket.js` passes supplied keys unchanged;
+`v2/quantum/FetchQuantumEntropy.js` documents 256-bit entropy as Base64-encoded
+hexadecimal text; `v2/services/Encrypt.js` and `FileEncrypt.js` additionally
+expand and prefix keys for their own encryption algorithms. Those algorithms
+are not Opintel's custody construction and must not replace the existing share.
+`web-crypto/webcrypto.js` provides the SDK's standard Base64 encoder with
+`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/` and `=`
+padding. There is no local generator for an existing custody share.
+
+Before changing encoding, a diagnostic-only API image
+`candidate-xq-signature-linux-amd64` ran a baseline soak against the
+retained customer install, with the original base64url encoding unchanged.
+It is not a published release or an acceptance pass. Its source hashes, patch,
+result and service logs are retained in `tmp/stage5-key-signature-baseline/`.
+
+The first signature baseline was interrupted and retained as incomplete: Node's
+object logger rendered nested punctuation sets as `[Array]`. The diagnostic was
+corrected to emit bounded JSON, with a contract regression that parses the
+actual log string and requires the punctuation sets. The replacement baseline
+uses `candidate-xq-signature-2-linux-amd64`; its evidence directory is
+`tmp/stage5-key-signature-baseline-2/`. Neither image is published.
+
+A read-only-format inspection through the actual SDK `FetchQuantumEntropy`
+service confirmed its documented 256-bit representation: 88 canonical Base64
+characters, two `=` padding characters, decoding to 64 lowercase hexadecimal
+characters. Only these facts were retained in `/private/tmp/stage5-sdk-entropy-shape.json`;
+no returned entropy was printed or written. The SDK's manual-key workflow accepts
+this entropy payload directly through `GeneratePacket`.
+
+The second baseline captured **61 successful subscriptions and one HTTP 400**
+with complete JSON key signatures before any encoding change. The failed
+signature was `nonAlphanumeric: ["-"]`, `firstClass: "punctuation"`,
+`doubledPunctuation: []`: the key began with a hyphen. Every successful key began
+with an alphanumeric character; one successful key contained doubled hyphens.
+This is the observed comparison, not a guessed universal provider grammar.
+The failure retained the same key-validation response body. Complete per-call
+signatures and grouped counts are in the private baseline directory.
+
+This diagnostic soak stopped early at 859 queries because the old demo-tools
+receipt decoder rejected the API's new signature field. It had three breaches
+(two source-connect attempt-2 timeouts and one escrow refusal), plus that observer
+contract error. It is not a 30-minute acceptance pass. The final release updates
+API and demo-tools together; no accounting or receipt assertion is relaxed.
+
+The fix uses the SDK's own `XQWebCrypto.base64Encode` on the existing share's
+64 lowercase hexadecimal ASCII characters: 88 Base64 characters with `==`
+padding. `FetchQuantumEntropy` generates new entropy, not an encoding of an
+existing K1; replacing K1 after sealing would break custody. Platform CSPRNG
+share generation and the split-key construction therefore remain unchanged.
+Legacy 43-character base64url is an explicit, strict redemption branch. The
+88-character format has a separate canonical decoder; no grant, locator or
+accepted escrow is rewritten or re-escrowed. Tests cover all first-byte values,
+malformed formats and GET-only redemption of both existing representations.
+
+The candidate demo-tools image passed layer and runtime-user readability audits,
+then the real XQ check passed **200/200 fresh shares escrowed and redeemed**
+on 2026-10-27. All 200 subscription and validation calls succeeded; all fetched
+shares matched their original bytes. This is pre-gate candidate evidence, not
+a published-digest acceptance or a Stage 5 soak pass. Private driver evidence:
+`tmp/stage5-key-200-candidate/result.json`; detailed check:
+`/private/tmp/opintel-stage5-gate-20261026/tmp/stage5-acceptance-BrRUpU/gateway/state/output/xq-roundtrip-2026-10-27T20-30-30.927Z/result.json`.
+The final archive acceptance requires the same 200/200 check before its soak.
+
+The first completed-candidate full gate failed: 2,182 normal tests passed and
+one existing observer process-death test failed before its authority assertion.
+Its file-existence poll observed the credential file after exclusive creation
+but before the asynchronous write completed, then stopped on an empty read
+(4.4 seconds, before its 10-second readiness bound). The fixture now signals
+readiness over IPC only inside the job callback, after the awaited write. No
+credential travels over IPC; the same private-file read, live-authority check,
+SIGKILL and immediate refusal assertions remain. The 10-second readiness bound
+is unchanged. Failed gate log: `/private/tmp/stage5-key-full-gate.log`. A new
+full gate is required for this corrected candidate; the failed run is retained.

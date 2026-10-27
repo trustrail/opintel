@@ -9,11 +9,13 @@ import {exchangeDue,exchangeRetryMs} from './exchange-policy.ts';
 import {deviceAssociation} from './device-subject.ts';
 import {certificateMapping} from './manifest.ts';
 import {unwrapDeviceToken} from '../infrastructure/xq-token-unwrap.mjs';
-import {webcrypto} from 'node:crypto';
+import {webcrypto,createHash,timingSafeEqual} from 'node:crypto';
+import {z} from 'zod';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {encryptCertificatePayload,decryptCertificateResponse} from '../infrastructure/xq-device-certificate-envelope.mjs';
 import {verifyCustodyCells} from './custody-check.ts';
+import {decodeXqShare} from '../../src/shared/xq-share-codec.mjs';
 
 globalThis.window={navigator:{platform:'Node'},crypto:webcrypto};
 for(const name of ['log','info','warn','error','debug'])globalThis.console[name]=()=>{};
@@ -92,6 +94,22 @@ async function ensure(association){
 }
 async function command(m){
  if(m.op==='associations'){const result=[];for(const entry of mapping){const state=await ensure(entry);if(state.ok)result.push(identities.get(entry.certificateId).association);}return result;}
+ if(m.op==='verify-share'){
+  const input=z.object({association:z.object({certificateId:z.number().int(),deviceName:z.string()}),locator:z.string().min(1).max(4096),expectedDigest:z.string().regex(/^[a-f0-9]{64}$/u)}).parse(m);
+  const entry=mapping.find(value=>value.certificateId===input.association.certificateId&&value.deviceName===input.association.deviceName);
+  if(!entry)throw new Error('Certificate mapping mismatch');
+  const state=await ensure(entry);if(!state.ok)return {ok:false,status:state.status};
+  const identity=identities.get(entry.certificateId),sdk=new XQSDK({XQ_API_KEY:apiKey});
+  sdk.getCache().putActiveProfile(identity.association.recipientIdentifier);sdk.getCache().putXQAccess(identity.association.recipientIdentifier,identity.token);
+  let status=null,share;
+  try{
+   sdk.makeRequest=async(url,method,_service,headers)=>{if(headers.Authorization!=='Bearer '+identity.token||!url.startsWith(validationBase+'/key/'))throw new Error('Fetch boundary violation');const r=await request(url,method,headers);status=r.status;let payload;try{payload=JSON.parse(r.body);}catch{payload=r.body;}return new ServerResponse(r.ok?ServerResponse.OK:ServerResponse.ERROR,r.status,payload);};
+   const fetched=await new FetchKey(sdk).supplyAsync({locatorKey:input.locator});
+   if(fetched.status!==ServerResponse.OK||typeof fetched.payload!=='string')return {ok:false,status};
+   share=decodeXqShare(fetched.payload);
+   return {ok:share.length===32&&timingSafeEqual(createHash('sha256').update(share).digest(),Buffer.from(input.expectedDigest,'hex')),status};
+  }finally{share?.fill(0);sdk.getCache().clearAllProfiles();}
+ }
  if(m.op==='connect'){
   const entry=mapping.find(a=>a.certificateId===m.association.certificateId);
   if(!entry||entry.deviceName!==m.association.deviceName)throw new Error('Mapping differs from saved credential association');
@@ -119,7 +137,7 @@ async function command(m){
     sdk.makeRequest=async(url,method,_service,headers)=>{if(headers.Authorization!=='Bearer '+identity.token||!url.startsWith(validationBase+'/key/'))throw new Error('Fetch boundary violation');const r=await request(url,method,headers);status=r.status;let payload;try{payload=JSON.parse(r.body);}catch{payload=r.body;}return new ServerResponse(r.ok?ServerResponse.OK:ServerResponse.ERROR,r.status,payload);};
     const fetched=await new FetchKey(sdk).supplyAsync({locatorKey:claims.custody.locator});sdk.getCache().clearAllProfiles();announce(m.id,'XQ share retrieval',status);
     if(fetched.status!==ServerResponse.OK||typeof fetched.payload!=='string')return {ok:false,stage:'fetch',status};
-    first=Buffer.from(fetched.payload,'base64url');
+    first=decodeXqShare(fetched.payload);
     const checked=verifyCustodyCells(m.output,bundle.columns,m.expected,first,second);if(!checked.matches)return {ok:false,stage:'unseal',mismatch:true};verified+=checked.verified;
     announce(m.id,'local unseal verified',200);
    }finally{first?.fill(0);second.fill(0);}

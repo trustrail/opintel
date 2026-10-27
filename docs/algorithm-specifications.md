@@ -1384,3 +1384,15 @@ managed-heap residuals honestly. It does not claim to erase database WAL,
 backups, freed physical pages or an authorized recipient's own transcript.
 Telemetry remains execution metadata only, with no keys, shares, sealed rows,
 SQL text, statement shape or customer values.
+
+### XQ key-shape diagnostic exception (2026-10-27)
+
+The operator approved a bounded signature of the key string actually sent in
+each subscription request: the set of ASCII punctuation characters present
+(non-ASCII/non-alphanumeric characters collapse to `other`), the first
+character's class (`upper`, `lower`, `digit`, `punctuation`, `other`, `empty`),
+and the set of punctuation characters occurring doubled. No alphanumeric
+characters, positions, counts, fragments or hashes are retained. The sets have
+at most 33 and 32 entries respectively. The signature follows the existing
+request-shape success/failure diagnostic, including immutable refusal evidence.
+This does not authorize logging key material or replaying refused requests.

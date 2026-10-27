@@ -1,5 +1,6 @@
 import {xqRequest} from './xq-transport.mjs';
 import {redactedXqBody,xqRequestShape} from './xq-diagnostics.mjs';
+import {encodeXqShare} from '../../../shared/xq-share-codec.mjs';
 import {Buffer} from 'node:buffer';
 import {parentPort,workerData} from 'node:worker_threads';
 import {webcrypto} from 'node:crypto';
@@ -16,6 +17,12 @@ let failure;
 try{
  const {XQSDK,GeneratePacket,RevokeKeyAccess,FetchKey,CheckApiKey,ServerResponse}=await import('@xqmsg/jssdk-core');
  const {configuration,operation,alias,recipientIdentifier,locator,share,ttlSeconds,receipt}=workerData;
+ let wireShare;
+ if(operation==='escrow'){
+  const {XQWebCrypto}=await import('@xqmsg/jssdk-core/dist/cjs/src/com/xqmsg/web-crypto/webcrypto.js');
+  const bytes=Buffer.from(share,'base64url');
+  try{wireShare=encodeXqShare(bytes,XQWebCrypto.base64Encode);}finally{bytes.fill(0);}
+ }
  const sdk=new XQSDK({XQ_API_KEY:configuration.apiKey,DASHBOARD_API_KEY:configuration.dashboardApiKey});
  // Explicit infrastructure injection for local adapter contract tests; never
  // exposed through Settings or agent input.
@@ -28,7 +35,7 @@ try{
   const requestHeaders={...headers};if(requiresApiKey)requestHeaders['api-key']=configuration.apiKey;
   const plain=requestHeaders['content-type']==='text/plain;charset=UTF-8';if(!plain)requestHeaders['content-type']='application/json';
   const subcall=url.startsWith(sdk.SUBSCRIPTION_SERVER_URL+'/')?'subscription':url.startsWith(sdk.VALIDATION_SERVER_URL+'/')?'validation':'other';
-  const body=method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),requestBytes=body===undefined?0:Buffer.byteLength(body),requestShape=xqRequestShape(payload,plain),startedAt=new Date().toISOString();
+  const body=method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),requestBytes=body===undefined?0:Buffer.byteLength(body),requestShape=xqRequestShape(payload,plain,wireShare),startedAt=new Date().toISOString();
   const requestDiagnostic=(status,attempt,written)=>{if(operation==='escrow')parentPort.postMessage({type:'escrow-request',startedAt,completedAt:new Date().toISOString(),evidenceId:receipt??null,subcall,requestBytes,requestShape,status,attempt,written});};
   let response;
   try{response=await xqRequest(url,{method,headers:requestHeaders},body);}
@@ -39,7 +46,7 @@ try{
   if(!ok){
    const raw=value&&typeof value==='object'?(value.code??value.errorCode??value.error?.code):undefined;
    const code=typeof raw==='number'&&Number.isSafeInteger(raw)?String(raw):raw;
-   const secrets=[...Object.values(configuration),alias,recipientIdentifier,locator,share,receipt,typeof payload?.data==='string'?payload.data:undefined];
+   const secrets=[...Object.values(configuration),alias,recipientIdentifier,locator,share,wireShare,receipt,typeof payload?.data==='string'?payload.data:undefined];
    failure={kind:'http_refused',status:response.status,subcall,providerCode:typeof code==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u.test(code)&&redactedXqBody(code,secrets).text===code?code:null,attempt:response.attempt,requestBytes,requestShape,...(response.status>=400&&response.status<500?{responseBody:redactedXqBody(response.text,secrets)}:{})};
   }
   if(operation==='health'){healthStatus=response.status;return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,null);}
@@ -49,7 +56,7 @@ try{
  sdk.getCache().putXQAccess(operation==='fetch'?alias:configuration.senderAlias,operation==='fetch'?configuration.accessToken:configuration.senderAccessToken);
  let response;
  if(operation==='health')response=await new CheckApiKey(sdk).supplyAsync({'api-key':configuration.apiKey});
- else if(operation==='escrow')response=await new GeneratePacket(sdk).supplyAsync({key:share,recipients:[recipientIdentifier],expires:Math.ceil(ttlSeconds/3600),dor:true,type:XQ_DATABASE_STORAGE_TYPE,meta:receipt?{receipt}:null});
+ else if(operation==='escrow')response=await new GeneratePacket(sdk).supplyAsync({key:wireShare,recipients:[recipientIdentifier],expires:Math.ceil(ttlSeconds/3600),dor:true,type:XQ_DATABASE_STORAGE_TYPE,meta:receipt?{receipt}:null});
  else if(operation==='revoke')response=await new RevokeKeyAccess(sdk).supplyAsync({tokens:[locator]});
  else if(operation==='fetch')response=await new FetchKey(sdk).supplyAsync({locatorKey:locator});
  else throw new Error('Unknown XQ operation.');

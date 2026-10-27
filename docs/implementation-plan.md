@@ -1303,3 +1303,11 @@ query role, without double-counting a declared mismatch. Record escrow request
 bytes and bounded request shape on success/failure. Full gate before commit;
 then published amd64 customer-archive soak to retain an actual redacted 400 body.
 Provider behaviour remains unchanged; any recovery proposal follows that body.
+
+Stage 5 XQ key encoding correction (approved 2026-10-27): first retain a
+signature-only soak with the old wire encoding. Compare non-alphanumeric sets,
+first-character class and doubled punctuation on every escrow, never key values.
+Trace the pinned SDK's key representation, preserve the existing 32-byte share,
+and retain explicit legacy redemption. Acceptance's host XQ check must escrow
+and retrieve 200 fresh shares and verify 200/200; a failed attempt fails the
+check. Source-connect timeout phase/timing remains evidence only, with no change.

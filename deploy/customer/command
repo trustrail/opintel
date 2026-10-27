@@ -142,7 +142,13 @@ case "$command" in
   export_directory="$(cd "$(dirname "$2")" && pwd)"; export_name="$(basename "$2")"
   identity_args=(identities gateway "$export_name"); if [[ $# == 4 ]]; then identity_args+=("$4"); fi
   docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -v "$root:/package" -v "$export_directory/$export_name:/import/export.zip:ro" "$bootstrap" node scripts/operator/customer-install.js "${identity_args[@]}";;
- owner-claim|invite|users|xq-check|mail-test) run operator node scripts/operator/customer-operator.js "$command" "$@";;
+ xq-check)
+  if [[ $# == 0 ]]; then run operator node scripts/operator/customer-operator.js xq-check
+  elif [[ $# == 2 && "$1" == --roundtrips && "$2" == 200 ]]; then
+   run operator node scripts/operator/customer-operator.js xq-check
+   run demo-tools node scripts/operator/demo.js xq-roundtrip 200
+  else fail 'Usage: ./xq-check [--roundtrips 200]'; fi;;
+ owner-claim|invite|users|mail-test) run operator node scripts/operator/customer-operator.js "$command" "$@";;
  demo) if [[ ${1:-} == soak ]]; then shift; run demo-tools node scripts/operator/demo.js customer-soak "$@"; else run demo-tools node scripts/operator/demo.js "$@"; fi;;
  *) fail 'Unknown package command.';;
 esac

@@ -4,7 +4,6 @@ import {spawn,type ChildProcess} from 'node:child_process';
 import {mkdtemp,readFile,writeFile,rm,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {setTimeout as pause} from 'node:timers/promises';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {resetDatabaseBeforeEach} from './database-fixture.js';
 import {withPlatformAdmin} from '../src/platform/db/scope.js';
@@ -34,8 +33,14 @@ it('DEP-020: host-only observer permits one project receipt reads, rejects write
  expect(logs.mock.calls).toContainEqual([expect.objectContaining({event:'auth.operator_observer_created',projectId:project})]);expect(logs.mock.calls).toContainEqual([expect.objectContaining({event:'auth.operator_observer_revoked',projectId:project})]);expect(JSON.stringify(logs.mock.calls)).not.toContain(credential);await expect(stat(file)).rejects.toThrow();
 });
 it('DEP-020: killing the issuer immediately removes receipt authority without waiting for expiry',async()=>{
- const file=join(directory,'observer');child=spawn(process.execPath,['--import','tsx','test/fixtures/operator-observer/holder.ts'],{env:{...process.env,OBSERVER_PROJECT:project,OBSERVER_FILE:file},stdio:'ignore'});
- const until=Date.now()+10000;let credential='';while(Date.now()<until){try{credential=await readFile(file,'utf8');break;}catch{await pause(20);}}expect(credential).toMatch(/^opintel_observer=/u);
+ const file=join(directory,'observer');child=spawn(process.execPath,['--import','tsx','test/fixtures/operator-observer/holder.ts'],{env:{...process.env,OBSERVER_PROJECT:project,OBSERVER_FILE:file},stdio:['ignore','ignore','ignore','ipc']});
+ await new Promise<void>((resolve,reject)=>{
+  const timer=setTimeout(()=>reject(new Error('Observer issuer did not become ready within 10 seconds.')),10000);
+  child!.once('error',error=>{clearTimeout(timer);reject(error);});
+  child!.once('exit',(code,signal)=>{clearTimeout(timer);reject(new Error(`Observer issuer exited before readiness: ${code??signal}`));});
+  child!.once('message',(message:unknown)=>{clearTimeout(timer);if(message==='ready')resolve();else reject(new Error('Unexpected observer issuer readiness message.'));});
+ });
+ const credential=await readFile(file,'utf8');expect(credential).toMatch(/^opintel_observer=/u);
  const reader=operatorObserverReader(redis.client);expect(await reader.read(credential,'GET',`/api/v1/projects/${project}/runs`,new URLSearchParams())).not.toBeNull();
  const ended=new Promise<void>(resolve=>child!.once('exit',()=>resolve()));child.kill('SIGKILL');await ended;
  await expect(reader.read(credential,'GET',`/api/v1/projects/${project}/runs`,new URLSearchParams())).resolves.toBeNull();

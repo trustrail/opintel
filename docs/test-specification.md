@@ -1717,3 +1717,21 @@ packet, locator, alias or credential contents. Failure evidence retains bytes.
 DEP-SOAK-ESCROW: replay the retiring and exploratory refusal shapes from the
 arm64 report as two breaches; declared failures count once, expected governance
 refusals retain existing semantics, and scenario coverage is not weakened.
+
+E06-XQ-SIGNATURE: successful and failed escrows retain only the bounded
+punctuation sets and first-character class; no key fragment, alphanumeric
+character, position or hash survives. Historical diagnostics without signatures
+remain readable. The actual emitted log is JSON and retains the complete sets,
+never an object-inspection abbreviation such as `[Array]`.
+DEP-XQ-200: customer-archive acceptance runs `./xq-check --roundtrips 200`;
+200 fresh 32-byte shares must each survive real subscription, validation and
+licensed-device retrieval byte-for-byte. All 200 attempts are recorded, 199/200
+fails, 400s are not retried, mismatches fail, and unsuccessful retained escrows
+are revoked. Shares and comparison digests stay in memory and out of reports.
+
+E06-XQ-ENCODING: the actual pinned SDK Base64 encoder produces the verified
+88-character padded Base64-of-lowercase-hex representation for every first-byte
+value, preserving all 32 share bytes. Both new and legacy accepted keys decode
+canonically; invalid padding, high-bit non-ASCII bytes and unknown forms refuse.
+E06-XQ-LEGACY: retrieval of an existing old-format locator performs exactly one
+GET, returns the original share and never re-escrows or changes a grant.

@@ -101,7 +101,10 @@ try{
  const message=await wait(async()=>{const list=await(await fetch('http://127.0.0.1:11825/api/v1/messages',{signal:AbortSignal.timeout(5000)})).json();const found=list.messages.find(m=>m.To.some(to=>to.Address===email));assert.ok(found);return(await fetch('http://127.0.0.1:11825/api/v1/message/'+found.ID,{signal:AbortSignal.timeout(5000)})).json();},'Normal owner SMTP delivery');
  const link=message.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);
  const response=await https('/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage5-customer-acceptance'});assert.equal(response.status,200);ownerCookie=response.headers['set-cookie'].find(value=>value.startsWith('opintel_session=')).split(';')[0];result.checks.normalOwnerSmtpLogin=true;
- advance('host-xq-check');command('gateway','xq-check');result.checks.xqCheck=true;
+ advance('host-xq-check');command('gateway','xq-check','--roundtrips','200');
+ const xqDirectory=join(gateway,'state/output',readdirSync(join(gateway,'state/output')).filter(name=>name.startsWith('xq-roundtrip-')).sort().at(-1));
+ const xqResult=JSON.parse(readFileSync(join(xqDirectory,'result.json')));assert.equal(xqResult.status,'passed');assert.equal(xqResult.keyEncoding,'sdk-base64-hex-256');assert.equal(xqResult.attempted,200);assert.equal(xqResult.verified,200);assert.equal(xqResult.required,200);assert.equal(xqResult.attempts.length,200);assert.equal(new Set(xqResult.attempts.map(attempt=>attempt.id)).size,200);assert.ok(xqResult.attempts.every(attempt=>attempt.verified&&attempt.fetchStatus===200&&!attempt.cleanupFailed));
+ result.checks.xqCheck={authenticated:true,escrowRedeemAttempted:200,escrowRedeemVerified:200,result:join(xqDirectory,'result.json')};
  advance('customer-demo-soak');
  const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak','1800'],{env:nested,stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));child.stderr.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));childDone=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve);});

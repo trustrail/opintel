@@ -6028,3 +6028,11 @@ coverage still records its mismatch, but a single failed escrow counts once.
 The provider worker reports serialized request byte counts and bounded shapes
 for successful and failed subscription/validation calls, correlated by evidence
 ID and timestamps. Raw packets, recipients and credentials are never logged.
+
+The approved key-signature diagnostic adds only punctuation sets, first-character
+class and doubled punctuation to subscription request shapes. The exact wire
+key is never retained. Acceptance's optional host `./xq-check --roundtrips 200`
+uses the existing licensed-device subprocess: its token and retrieved shares
+never return to the operator parent. The parent supplies only an ephemeral
+comparison digest; reports contain statuses, identifiers and bounded failure
+diagnostics. This check does not change customer query or retry behaviour.

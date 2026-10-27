@@ -252,3 +252,18 @@ spill directory requires a separate reviewed design and performance assessment.
 ### Share-release wording — approved 2026-10-15
 
 “Opintel share released” is the user-facing name for the existing `redeemed` event. This does not evidence that the agent obtained the provider's share or decrypted the value. The event records the authenticated single-use K2 release before the response is sent, not confirmation of client receipt. API receipts and CSV/NDJSON exports include this meaning without rewriting immutable events. Provider-reported share retrieval remains a separate fact. This supersedes ambiguous “redeemed/not redeemed” presentation wording above; see [the approved position](custody-revocation-and-redemption-position.md).
+
+### XQ share representation correction — 2026-10-27
+
+New XQ escrows represent the existing 32-byte K1 as 64 lowercase hexadecimal
+ASCII characters, encoded by the pinned SDK's standard Base64 helper. This is
+the SDK's verified 256-bit entropy representation: 88 characters with `==`
+padding. The Engine's CSPRNG key generation, XOR split, sealed cells, K2 and
+signed grant fields remain unchanged. SDK encryption prefixes/expansion are
+not applied to a custody share, and SDK-generated entropy never replaces K1.
+
+Redemption explicitly supports both canonical 43-character legacy base64url
+and canonical 88-character Base64-of-lowercase-hex. Their lengths are distinct.
+Each decodes to exactly 32 original bytes; malformed inputs refuse without
+permissive decoding. Existing accepted escrows and grants are neither rewritten
+nor replayed. The provider adapter and shipped agent use the same decoder.
