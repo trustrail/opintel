@@ -592,3 +592,74 @@ clock samples showed millisecond host/VM skew. Valid-key sweep fixtures now
 inject a database-derived creation time one second in the past, while the
 explicit future-key refusal and all batch/governance assertions remain intact.
 Failed log: `/private/tmp/stage5-smtp-full-gate-6.log`. A new full gate is required.
+
+## Approved queue admission and cancellation follow-up
+
+The 5a06c2f Intel acceptance proved SMTP 250 acceptance, authenticated browser
+login, XQ 200/200 and console outage isolation, but failed its two-minute soak.
+Two cancellations lost classification after 22–23 seconds in the queue. The
+API now retains abort origin; engine cancellation retains last source phase
+with nullable driver codes. Queue admission is capped at one third of the
+deadline and emits engine_saturated plus receipt wait details before work.
+The execution timer starts after admission; health exposes aggregate queue waits.
+Full gate required before this follow-up is committed.
+
+The first full gate for this follow-up passed 2,188 tests and failed four.
+The new health schema required regeneration of sidecar/openapi.json; the new
+queue event required an explicit strict telemetry allowlist entry (the SQL and
+row-value exclusion assertions remain intact). Native release preflight now
+uses one Docker info call for both availability and architecture, reducing
+subprocess work without increasing its five-second test guard. The SIGTERM
+fixture establishes its pinned contract with testConnection before starting
+the existing active-SQL timing check; its timing and cancellation assertions
+remain unchanged. Failed log: /private/tmp/queue-classification-full-gate.log.
+
+The second gate attempt was intentionally stopped during conformance after
+review found the SQLSTATE 57014 source-cancellation branch could still say
+interruption_unclassified despite retained phase evidence. That branch now
+classifies source_operation_cancelled and has a regression preserving fetch,
+attempt and SQLSTATE. Interrupted log:
+/private/tmp/queue-classification-full-gate-2.log.
+
+The next full-gate attempt stopped in dependency preflight after 7.59 seconds:
+its PostgreSQL/Redis workers exceeded the unchanged five-second guard while
+host load averages were 10.61/19.43/17.86. Only the two healthy gate containers
+were running. The probe now imports only its selected driver, avoiding the
+unneeded Redis import in PostgreSQL workers and vice versa. All connection,
+query, retry and outer hang-guard budgets remain unchanged. Failed log:
+/private/tmp/queue-classification-full-gate-3.log.
+
+The fourth full gate passed 2,189 tests and failed four timing assertions in
+sidecar HTTP/process fixtures: active SQL was not observed within the existing
+wait; a real sidecar did not report ready within 10 seconds; two dev-process
+tests exceeded 15 seconds. No feature regression failed. Host boot time still
+reported October 24 and load averages were 8.03/16.04/16.73. No orphan test
+processes or competing containers were present. Failed log:
+/private/tmp/queue-classification-full-gate-4.log.
+
+The disconnect fixture now establishes its pinned contract before its unchanged
+active-SQL wait and aborts/awaits its request in finally, including when that
+wait fails. This prevents a failed prerequisite from leaving SQL alive for the
+next test. Timing limits and cancellation assertions remain unchanged. A real
+host reboot/quiet host is requested before another complete-candidate gate.
+No commit or publication is allowed on the failed gate.
+
+### Documented treatment-semantics soak coverage
+
+The versioned synthetic fixture adds two five-row-per-pool tables, including
+mask collisions, repeated values and null. The soak declares masked GROUP BY
+and DISTINCT results per J-029; UNION must return sql_not_permitted with a
+matching stored refusal stage; an incompatible isolated-token equality must
+return unsatisfiable_token_join and its query-run Suggestions candidate in the
+existing receipt metadata. A clear-id join compares shared tokens for equality
+and isolated tokens for inequality. Both seeders use the same domain declarations.
+The fixture now has eight objects and 115 scenarios for ten associated callers.
+No new query refusal or Observations action is introduced.
+
+Independent oracle negative controls cover late masking, inverted token
+relations, wrong/missing refusal evidence and unrelated/missing candidates.
+The completed-candidate full gate is recorded externally at
+/private/tmp/soak-semantics-full-gate.log and test-results/gate.json in the
+release worktree; a failed result prohibits a commit. Host boot time remains
+October 24; Docker memory is 4,104,388,608 bytes. Existing timing assertions and
+hang guards remain unchanged.

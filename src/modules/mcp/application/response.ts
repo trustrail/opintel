@@ -23,6 +23,8 @@ export const messages = {
   "Scan-large": "This query would read more of the source than the limit allows. Add a filter the source can evaluate, or narrow the objects read.",
   "Scan-unknown": "The size of this read cannot be estimated, so it is refused rather than run. Add a filter the source can evaluate, or narrow the objects read.",
   "Memory": "This query needed more memory than the limit allows. Reduce the result, or aggregate earlier in the query.",
+  "Saturated": "The engine could not admit this query within its queue wait limit. Retry shortly.",
+  "Cancelled": "The query was cancelled by its caller. No partial result was returned.",
   "Queue": "This pool is busy and the queue is full. Retry shortly.",
   "Connections": "The sources this query needs are busy. Retry shortly.",
   "Deadline": "This query ran longer than the limit allows and was cancelled. Nothing partial was returned.",
@@ -66,6 +68,12 @@ const mapping: Readonly<Record<string, readonly [keyof typeof messages, boolean 
  'unsupported_pushdown/scan_observed_large': ['Scan-large', false],
  'unsupported_pushdown/scan_size_unknown': ['Scan-unknown', false],
  'budget_exceeded/memory_exhausted': ['Memory', false],
+ 'engine_saturated/engine_saturated':['Saturated',true],
+ 'budget_exceeded/source_operation_cancelled':['Deadline',false],
+ 'budget_exceeded/parent_cancelled':['Cancelled',false],
+ 'source_unavailable/source_operation_cancelled':['Deadline',false],
+ 'source_unavailable/deadline_exceeded':['Deadline',false],
+ 'source_unavailable/parent_cancelled':['Cancelled',false],
  'budget_exceeded/queue_full': ['Queue', true],
  'budget_exceeded/source_connections_saturated': ['Connections', true],
  'budget_exceeded/deadline_exceeded': ['Deadline', false],
@@ -145,6 +153,7 @@ export function refusalResponse(error:DomainError) {
   if(typeof details.reason==='string'&&reasons[details.reason])text=`${reasons[details.reason]} No result was released. Configure a custody provider in Settings.`;
  }
  if(label==='Unknown'||label==='Version'||label==='Result'||text.includes('operator'))retryable=false;
+ if(cause==='source_operation_cancelled'&&details.cancellationOrigin==='parent')text=messages.Cancelled;
  return {isError:true,content:[{type:'text' as const,text}],_meta:QueryRefusalMetadata.parse({...details,code:error.code,cause,retryable:retryable==='inherit'?error.retryable:retryable})};
 }
 export function queryResponse(value:z.infer<typeof QueryOutput>&{reduction?:Reduction}) {

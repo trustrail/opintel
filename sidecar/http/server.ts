@@ -31,7 +31,7 @@ const errorMessages: Readonly<Record<string,string>> = {
 export function createSidecarServer(options: {
   registerEgress?: (body:unknown)=>Promise<Result<unknown>>;
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
-  execution?: {preview?(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
+  execution?: {health?():unknown;preview?(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
   demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
   custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
   canonicalisers?: CanonicaliserRegistry;
@@ -44,7 +44,7 @@ export function createSidecarServer(options: {
     ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
     ...(options.execution?.preview?{'/preview-rows':{permission:'pinned_application_certificate' as const,response:rowPreviewResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.preview!(body,signal)}}:{}),
     ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),
-    '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:build}) },
+    '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:{...build,...(options.execution?.health?{queue:options.execution.health()}: {})}}) },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
     '/introspect': { permission:'pinned_application_certificate', response:wire.snapshotResponse, invoke:(body,signal)=>options.connector.introspect(body,signal) },
     '/sample': { permission:'pinned_application_certificate', response:wire.sampleResponse, invoke:(body,signal)=>options.connector.sampleTopValues(body,signal) },
@@ -89,7 +89,7 @@ export function createSidecarServer(options: {
         const parsed = (path==='/egress/register'?egressRegistration:path==='/preview-rows'?rowPreviewRequest:path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
-        if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+10000));
+        if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000));
       }
       enginePhase(requestId,'arrival','end',arrivedAt);
       res.once('finish',()=>enginePhase(requestId,'respond','end'));

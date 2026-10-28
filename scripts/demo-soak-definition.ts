@@ -9,13 +9,15 @@ export const demoTables:Array<{schema:string;name:string;rows:Row[]}>= [
  {schema:'soak_policies',name:'treaty_reference',rows:base.treaty_reference},
  {schema:'soak_recoveries',name:'recoveries',rows:base.policies.flatMap((r,i)=>[{cedant:r.cedant,policy_id:r.policy_id,recovery_id:'REC-'+i,insured_name:i%3===0?null:i%3===1?'':'Élodie 東京 🦊',pool_only:'POOL-'+i,undecided_note:'NOT-DECIDED-'+i,recovery_secret:'SECRET-'+i,shape_value:[null,'','Élodie 東京 🦊','x'.repeat(8192),'v1_policy_00000000000000000000000000'][i%5]!},...(i===0?[{cedant:r.cedant,policy_id:r.policy_id,recovery_id:'REC-DUPLICATE',insured_name:'Duplicate entity',pool_only:'POOL-DUP',undecided_note:'NOT-DECIDED-DUP',recovery_secret:'SECRET-DUP',shape_value:'duplicate'}]:[])])},
  {schema:'soak_recoveries',name:'unmatched',rows:base.cedants.map((cedant,i)=>({cedant,policy_id:'DISJOINT-'+i,reference_id:'UNMATCHED-'+i}))},
+ ...['semantics_left','semantics_right'].map(name=>({schema:'soak_recoveries',name,rows:base.cedants.flatMap(cedant=>['AA-1111','BB-1111','AA-1111','CC-2222',null].map((value,i)=>({cedant,case_id:'CASE-'+i,masked_value:value,shared_key:value,isolated_key:value})))})),
  {schema:'soak_recoveries',name:'open_reference',rows:[{reference_id:'OPEN-1',description:null},{reference_id:'OPEN-2',description:''},{reference_id:'OPEN-3',description:'東京'}]},
 ];
+export function declaredTokenDomain(column:string){return column==='policy_id'?'policy':column==='shared_key'?'soakshared':null;}
 export function declaredContributorKey(object:string){return object==='claims'?'policy_id':null;}
 export function declaredTreatment(object:string,column:string,pool:number){
  if(column==='undecided_note'||column==='pool_only'&&pool===1)return 'undecided' as const;
- if(column==='policy_id')return 'tokenized' as const;
- if(column==='insured_name')return 'masked' as const;
+ if(['policy_id','shared_key','isolated_key'].includes(column))return 'tokenized' as const;
+ if(column==='insured_name'||column==='masked_value')return 'masked' as const;
  if(column==='claim_amount')return 'aggregate_only' as const;
  if(column==='underwriter_note')return 'withheld' as const;
  if(column==='risk_code')return pool===0?'custody' as const:'masked' as const;
@@ -28,10 +30,10 @@ export function declaredRows(name:string,pool:number){const rows=demoTables.find
 export function declaredFilter(name:string,pool:number){return name==='open_reference'||name==='treaty_reference'&&pool===1?null:name==='treaty_reference'?"treaty_ref = 'NO_SUCH_TREATY'":`cedant = '${base.cedants[pool]}'`;}
 const q=(s:string)=>'"'+s.replaceAll('"','""')+'"',table=(s:string)=>s.split('.').map(q).join('.');
 export function generateSpecification(names:Record<string,string>,agents:Array<{credentialId:string;poolIndex:number;association?:unknown}>=[]):Specification {
- const objects= [0,1].flatMap(poolIndex=>demoTables.map(t=>({name:names[t.name]!,poolIndex,contributorKey:declaredContributorKey(t.name),rowFilter:declaredFilter(t.name,poolIndex),rowMode:t.name==='open_reference'?'unfiltered' as const:t.name==='treaty_reference'&&poolIndex===1?'missing' as const:'filtered' as const,expectedRowCount:declaredRows(t.name,poolIndex).length,rows:declaredRows(t.name,poolIndex),columns:Object.keys(t.rows[0]!).map(name=>{const treatment=declaredTreatment(t.name,name,poolIndex);return {name,type:name==='claim_amount'?'INTEGER':name==='loss_date'?'DATE':'VARCHAR',treatment,outcome:treatment==='undecided'?'entitlement_missing':treatment==='withheld'?'element_withheld':treatment==='aggregate_only'?'unsupported_on_aggregate_only':'success',mask:treatment==='masked'?'last4' as const:null};})})));
+ const objects= [0,1].flatMap(poolIndex=>demoTables.map(t=>({name:names[t.name]!,poolIndex,contributorKey:declaredContributorKey(t.name),rowFilter:declaredFilter(t.name,poolIndex),rowMode:t.name==='open_reference'?'unfiltered' as const:t.name==='treaty_reference'&&poolIndex===1?'missing' as const:'filtered' as const,expectedRowCount:declaredRows(t.name,poolIndex).length,rows:declaredRows(t.name,poolIndex),columns:Object.keys(t.rows[0]!).map(name=>{const treatment=declaredTreatment(t.name,name,poolIndex);return {name,tokenDomain:treatment==='tokenized'?declaredTokenDomain(name):null,type:name==='claim_amount'?'INTEGER':name==='loss_date'?'DATE':'VARCHAR',treatment,outcome:treatment==='undecided'?'entitlement_missing':treatment==='withheld'?'element_withheld':treatment==='aggregate_only'?'unsupported_on_aggregate_only':'success',mask:treatment==='masked'?'last4' as const:null};})})));
  const scenarios:Scenario[]=[];
  for(const o of objects){
-  for(const c of o.columns){const anchor=o.columns.find(c=>c.treatment==='clear'&&['recovery_id','claim_id','treaty_ref','reference_id'].includes(c.name))??o.columns.find(c=>c.treatment==='clear')!;const columns=[...new Set([anchor.name,c.name])].map(name=>({object:o.name,name,alias:name,side:'a'}));
+  for(const c of o.columns){const anchor=o.columns.find(c=>c.treatment==='clear'&&['recovery_id','claim_id','treaty_ref','reference_id','case_id'].includes(c.name))??o.columns.find(c=>c.treatment==='clear')!;const columns=[...new Set([anchor.name,c.name])].map(name=>({object:o.name,name,alias:name,side:'a'}));
    scenarios.push({id:`pool${o.poolIndex}/${o.name}/${c.name}/${c.treatment}`,poolIndex:o.poolIndex,kind:'declared column',sql:`SELECT ${columns.map(c=>q(c.name)).join(',')} FROM ${table(o.name)}`,objects:[o.name],columns,expected:{outcome:c.outcome,...c.outcome==='success'?{rowCount:o.expectedRowCount,rows:o.rows}:{}},credential:'normal',requiresCustody:c.treatment==='custody'});
    if(c.treatment==='aggregate_only'){const v=o.rows.map(r=>r[c.name]).filter((v):v is number=>typeof v==='number');scenarios.push({id:`pool${o.poolIndex}/${o.name}/${c.name}/aggregate`,poolIndex:o.poolIndex,kind:'declared aggregate',sql:`SELECT COUNT(${q(c.name)}) AS n,SUM(${q(c.name)}) AS total FROM ${table(o.name)}`,objects:[o.name],columns:[],expected:{outcome:'success',rowCount:1,rows:[{n:v.length,total:v.reduce((a,b)=>a+b,0)}]},credential:'normal',requiresCustody:false});}
   }
@@ -48,6 +50,22 @@ export function generateSpecification(names:Record<string,string>,agents:Array<{
    const row=selected[0]!;const columns=['recovery_id','policy_id','insured_name','shape_value'].map(name=>({object:o.name,name,alias:name,side:'a'}));
    scenarios.push({id:`pool${poolIndex}/shape/${label}`,poolIndex,kind:'declared shape',sql:`SELECT ${columns.map(c=>q(c.name)).join(',')} FROM ${table(o.name)} WHERE recovery_id = '${row.recovery_id}'`,objects:[o.name],columns,expected:{outcome:'success',rowCount:1,rows:[row]},credential:'normal',requiresCustody:false});
   }
+ }
+ // J-029 and A1/B4a: expectations derive only from this synthetic declaration.
+ for(const poolIndex of [0,1]){
+  const left=objects.find(o=>o.poolIndex===poolIndex&&o.name===names.semantics_left)!,right=objects.find(o=>o.poolIndex===poolIndex&&o.name===names.semantics_right)!;
+  const masks=left.rows.map(r=>r.masked_value===null?null:'••••'+String(r.masked_value).slice(-4));
+  const groups=[...new Set(masks)].map(value=>[value,masks.filter(v=>v===value).length]);
+  const common={poolIndex,kind:'treatment semantics',credential:'normal' as const,requiresCustody:false};
+  const maskedColumn={object:left.name,name:'masked_value',alias:'masked_value',side:'a'};
+  scenarios.push(
+   {...common,id:`pool${poolIndex}/semantics/masked-group`,sql:`SELECT masked_value, COUNT(*) AS n FROM ${table(left.name)} GROUP BY masked_value`,objects:[left.name],columns:[maskedColumn],expected:{outcome:'success',rowCount:groups.length,resultColumns:['masked_value','n'],resultRows:groups}},
+   {...common,id:`pool${poolIndex}/semantics/masked-distinct`,sql:`SELECT DISTINCT masked_value FROM ${table(left.name)}`,objects:[left.name],columns:[maskedColumn],expected:{outcome:'success',rowCount:groups.length,resultColumns:['masked_value'],resultRows:groups.map(r=>[r[0]!])}},
+   {...common,id:`pool${poolIndex}/semantics/union`,sql:`SELECT masked_value FROM ${table(left.name)} UNION SELECT masked_value FROM ${table(right.name)}`,objects:[left.name,right.name],columns:[maskedColumn],expected:{outcome:'sql_not_permitted'}},
+   {...common,id:`pool${poolIndex}/semantics/isolated-join`,sql:`SELECT a.case_id FROM ${table(left.name)} a JOIN ${table(right.name)} b ON a.isolated_key=b.isolated_key`,objects:[left.name,right.name],columns:[{object:left.name,name:'case_id',alias:'case_id',side:'a'}],expected:{outcome:'unsupported_on_token',cause:'unsatisfiable_token_join',suggestionCandidate:true}},
+  );
+  const columns=[{object:left.name,name:'case_id',alias:'case_id',side:'a'},...[{side:'a',o:left},{side:'b',o:right}].flatMap(({side,o})=>['shared_key','isolated_key'].map(name=>({object:o.name,name,alias:side+'_'+name,side})))];
+  scenarios.push({...common,id:`pool${poolIndex}/semantics/token-domains`,sql:`SELECT ${columns.map(c=>`${c.side}.${q(c.name)} AS ${q(c.alias)}`).join(',')} FROM ${table(left.name)} a JOIN ${table(right.name)} b ON a.case_id=b.case_id`,objects:[left.name,right.name],columns,expected:{outcome:'success',rowCount:left.rows.length,rows:left.rows.map(r=>({case_id:r.case_id!,a_shared_key:r.shared_key!,a_isolated_key:r.isolated_key!,b_shared_key:r.shared_key!,b_isolated_key:r.isolated_key!})),tokenRelations:[{left:'a_shared_key',right:'b_shared_key',equal:true},{left:'a_isolated_key',right:'b_isolated_key',equal:false}]}});
  }
  const custody=scenarios.find(s=>s.poolIndex===0&&s.requiresCustody)!;
  scenarios.push({...custody,id:'credential/retiring/custody',credential:'retiring'},{...custody,id:'credential/revoked',credential:'revoked',requiresCustody:false,expected:{outcome:'unauthenticated'}});

@@ -1,4 +1,5 @@
-import {getSourceFailure,retainSourceFailure,sourceOperationEvent} from '../../../src/shared/source-failure.js';
+import {getSourceFailure,retainSourceFailure} from '../../../src/shared/source-failure.js';
+import {sourceOperationEvent} from '../../../src/shared/infrastructure/source-trace.js';
 import {enginePhase} from '../../../src/shared/engine-phase.js';
 import {createHmac,randomBytes} from 'node:crypto';
 import {stagedColumns} from '../../../src/shared/execution-contract.js';
@@ -44,7 +45,7 @@ function sourceFailureCause(error:unknown):string {
  const parsed=z.object({code:z.string()}).safeParse(error);
  if(!parsed.success)return getSourceFailure(error)?'source_read_failed':'unclassified';
  if(['ECONNREFUSED','ENOTFOUND','EHOSTUNREACH','ENETUNREACH'].includes(parsed.data.code))return 'source_unreachable';
- if(parsed.data.code==='57014')return 'interruption_unclassified';
+ if(parsed.data.code==='57014')return getSourceFailure(error)?'source_operation_cancelled':'interruption_unclassified';
  if(/^[0-9A-Z]{5}$/u.test(parsed.data.code))return 'source_read_failed';
  return getSourceFailure(error)?'source_read_failed':'unclassified';
 }
@@ -54,7 +55,7 @@ export class PostgresStagingSource implements StagingSource {
   try{return await work();}catch(e){if(e instanceof DomainError)return err(e);
    if(e instanceof Error&&e.message.startsWith('Out of Memory Error:'))return err(new DomainError('budget_exceeded','The pool memory limit was exceeded while staging. Narrow the query or review the pool limit.',{cause:'memory_exhausted',resource:'memory'}));
    if(e instanceof SourceBusy)return err(new DomainError('budget_exceeded','Source connection limit reached.',{cause:'source_connections_saturated'},true));
-   return err(new DomainError('source_unavailable',e instanceof SourceTimeout?'The source operation exceeded its deadline.':e instanceof SourceCancelled?'The source operation was cancelled.':'The source read could not complete. No partial result was returned.',{...(getSourceFailure(e)?{sourceFailure:getSourceFailure(e)}:{}),...(e instanceof z.ZodError?{reason:responseKind}:{}),cause:e instanceof SourceTimeout||e instanceof SourceCancelled?'interruption_unclassified':e instanceof z.ZodError?'source_response_unusable':sourceFailureCause(e)}));
+   return err(new DomainError('source_unavailable',e instanceof SourceTimeout?'The source operation exceeded its deadline.':e instanceof SourceCancelled?'The source operation was cancelled.':'The source read could not complete. No partial result was returned.',{...(getSourceFailure(e)?{sourceFailure:getSourceFailure(e)}:{}),...(e instanceof z.ZodError?{reason:responseKind}:{}),cause:e instanceof SourceTimeout||e instanceof SourceCancelled?(getSourceFailure(e)?'source_operation_cancelled':'interruption_unclassified'):e instanceof z.ZodError?'source_response_unusable':sourceFailureCause(e)}));
   }
  }
  estimate(s:Scan,signal:AbortSignal):Promise<Result<number|null>>{

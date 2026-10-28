@@ -1,6 +1,6 @@
 import {queryOutcomeBreach} from './query-breach.js';
 import {Coverage,type Specification,type Scenario} from './specification.js';
-import {scenarioPlan,discoveryMismatches,declaredMask,scenarioValuesMatch,expectedReturnedRows} from './scenarios.js';
+import {scenarioPlan,discoveryMismatches,declaredMask,scenarioValuesMatch,expectedReturnedRows,refusalEvidenceMatches} from './scenarios.js';
 import {certificateForAgent} from './manifest.js';
 /** Manual exploration, never a test tier. Composer sees MCP metadata only;
  * the separate oracle reads the synthetic V-01 definition to detect disclosure. */
@@ -149,7 +149,7 @@ try{
     latencies.set(Math.round(elapsed),(latencies.get(Math.round(elapsed))??0)+1);
     const context={agent:agent.agentId,pool,sequence,sql:plan.sql,response};await record({type:'query',at,...context,latencyMs:elapsed,outcome});
     let mismatch:'Declared scenario outcome mismatch'|undefined;
-    if(declared&&coverage){const valuesMatch=!output.success||!spec||scenarioValuesMatch(declared,spec,output.data.columns,output.data.rows);const actual={outcome:valuesMatch?outcome:'value_mismatch',reason:typeof response._meta?.reason==='string'?response._meta.reason:undefined,rowCount:output.success?output.data.rows.length:undefined};if(!coverage.observe(declared,actual))mismatch='Declared scenario outcome mismatch';await record({type:'scenario',scenario:declared.id,expected:declared.expected,actual});}
+    if(declared&&coverage){const valuesMatch=!output.success||!spec||scenarioValuesMatch(declared,spec,output.data.columns,output.data.rows);const actual={outcome:valuesMatch?outcome:'value_mismatch',cause:typeof response._meta?.cause==='string'?response._meta.cause:undefined,reason:typeof response._meta?.reason==='string'?response._meta.reason:undefined,rowCount:output.success?output.data.rows.length:undefined};if(!coverage.observe(declared,actual))mismatch='Declared scenario outcome mismatch';await record({type:'scenario',at,scenario:declared.id,poolId:agent.pool,agentId:agent.agentId,evidenceId:output.success?output.data.evidenceId:response._meta?.evidenceId,expected:declared.expected,actual});}
     const breach=queryOutcomeBreach(response,mismatch);if(breach)await alarm(breach,{...context,scenario:declared?.id});
     if(refused&&response.structuredContent!==undefined)await alarm('Refusal delivered structured values',context);
     if(!refused&&!output.success)await alarm('Successful response violates query contract',context);
@@ -159,12 +159,12 @@ try{
       if(!declared&&!plan.aggregate){let expected:number;if(plan.join){const a=eligible(plan.objects[0]!,agent.poolIndex),b=eligible(plan.objects[1]!,agent.poolIndex);expected=a.reduce((n,r)=>n+b.filter(s=>s[plan!.join!]===r[plan!.join!]).length,0);}else expected=eligible(plan.objects[0]!,agent.poolIndex).filter(r=>!plan!.filter||r[plan!.filter]!==null).length;if(out.rows.length!==expected)await alarm('Exploratory result count differs from seeder',{expected,actual:out.rows.length,...context});}
      }
      const agentCustody=custodyByAgent[agent.agentId]!;if(!out.custody?.length){agentCustody.ordinaryAnswers++;if(exchanges.get(agent.device.certificateId)?.ok===false)agentCustody.ordinaryAnswersWhileExchangeUnavailable++;}const custodyExpected:Record<string,unknown[]>={};if(plan.join)matched+=out.rows.length;
-     const allowed=new Set(plan.selected.map(s=>s.alias));if(plan.aggregate){allowed.add('n');allowed.add('total');}
+     const allowed=new Set(plan.selected.map(s=>s.alias));if(plan.aggregate){allowed.add('n');allowed.add('total');}for(const name of declared?.expected.resultColumns??[])allowed.add(name);
      for(const c of out.columns){if(!allowed.has(c.name))await alarm('Unexpected or withheld result column',{...context,column:c});}
      for(const o of plan.objects)for(const name of o.withheld)if(out.columns.some(c=>c.name===name))await alarm('Withheld column returned',context);
      if(plan.aggregate){const expected=eligible(plan.objects[0]!,agent.poolIndex).map(r=>r[plan!.aggregate!.name]).filter(v=>v!==null&&v!==undefined);if(out.rows.length!==1||Number(out.rows[0]?.[0])!==expected.length||Number(out.rows[0]?.[1])!==expected.reduce<number>((sum,v)=>sum+Number(v),0))await alarm('Aggregate differs from pool fixture',context);bump('treatments',plan.aggregate.treatment);}
      for(const [rowIndex,row] of out.rows.entries()){
-      if(plan.aggregate)continue;
+      if(plan.aggregate||declared?.kind==='treatment semantics')continue;
       for(const object of plan.objects){
        const selections=plan.selected.filter(s=>s.object===object);
        const candidates=(declared?.expected.rows&&plan.objects.length===1&&!plan.aggregate?declared.expected.rows:eligible(object,agent.poolIndex)).filter(raw=>selections.filter(s=>s.column.treatment==='clear').every(s=>String(raw[s.column.name])===String(row[out.columns.findIndex(c=>c.name===s.alias)])));
@@ -184,7 +184,7 @@ try{
          if(typeof value!=='string'||!/^v1_[^_]+_[0-9A-HJKMNP-TV-Z]{26}$/u.test(value))await alarm('Invalid token format',{...context,column:s.alias,value});
          const underlying=[...new Set(candidates.map(raw=>String(raw[s.column.name])))];
          if(underlying.length!==1)await alarm('Cannot independently identify token entity',{...context,column:s.alias});
-         else{const key=s.column.name+'/'+underlying[0],previous=tokens.get(key);if(previous!==undefined&&previous!==value)await alarm('Token differs across queries, pools or sources',{...context,column:s.alias,previous,value});tokens.set(key,value);}
+         else{const domain=spec?.objects.find(o=>o.name===object.name&&o.poolIndex===agent.poolIndex)?.columns.find(c=>c.name===s.column.name)?.tokenDomain;const key=(spec?(domain??object.name+'/'+s.column.name):s.column.name)+'/'+underlying[0],previous=tokens.get(key);if(previous!==undefined&&previous!==value)await alarm('Token differs across queries, pools or sources',{...context,column:s.alias,previous,value});tokens.set(key,value);}
         }
        }
       }
@@ -202,6 +202,7 @@ try{
      const observed=await receiptRead(id,agent.agentId);
      if(observed===null)await alarm('Stored receipt missing',context);
      else if(observed){const {receipt,detail}=observed;await record({type:'receipt',agent:agent.agentId,sequence,id,detail});
+      if(declared?.kind==='treatment semantics'&&refused&&!refusalEvidenceMatches(declared,id,detail))await alarm('Declared refusal evidence mismatch',{scenario:declared.id,id});
       if(receipt.agent_id!==agent.agentId||receipt.pool_id!==agent.pool||receipt.credential_id!==agent.credentialId)await alarm('Receipt caller interleaving',{...context,receipt});
       if(literals.some(v=>JSON.stringify(detail).includes(JSON.stringify(v))))await alarm('Receipt contains fixture literal',{...context,detail});
      }

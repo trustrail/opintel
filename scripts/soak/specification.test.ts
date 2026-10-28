@@ -36,7 +36,7 @@ test('edge values are literal expectations, including null, empty, Unicode, long
 });
 test('custody expectations distinguish seeded associations per credential without learning from responses',()=>{
  const agents=Array.from({length:10},(_,i)=>({credentialId:'agent-'+i,poolIndex:i%2,...i===1?{}:{association:{}}}));
- const s=generateSpecification(names,agents);assert.equal(s.scenarios.length,85);
+ const s=generateSpecification(names,agents);assert.equal(s.scenarios.length,115);
  const unavailable=s.scenarios.filter(s=>s.credentialId==='agent-1');assert.equal(unavailable.length,2);
  for(const c of unavailable)assert.deepEqual(c.expected,{outcome:'dependency_unavailable',reason:'certificate_association_missing'});
  const rows=s.objects.filter(o=>o.name===names.recoveries).map(o=>o.expectedRowCount);assert.deepEqual(rows,[7,5]);

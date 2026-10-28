@@ -6036,3 +6036,16 @@ uses the existing licensed-device subprocess: its token and retrieved shares
 never return to the operator parent. The parent supplies only an ephemeral
 comparison digest; reports contain statuses, identifiers and bounded failure
 diagnostics. This check does not change customer query or retry behaviour.
+
+### Engine queue admission and cancellation telemetry
+
+Queued execution and row-preview admission are limited to one third of the
+execution deadline. The execution timer begins after the queue grants a lease.
+A saturated admission returns engine_saturated with queue wait and bound in
+receipt details and MCP metadata. Pinned /health includes optional aggregate
+queue telemetry (active, waiting, lastWaitMs, maxWaitMs, saturated) without IDs.
+
+The API transport records parent versus transport_deadline cancellation. The
+engine retains the last source phase in request-local asynchronous context and
+attaches its operation, attempt, bounded native code/SQLSTATE, state and
+timestamp when cancelled. Refusal logs carry these fields and queue wait.

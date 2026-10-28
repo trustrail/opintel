@@ -8,7 +8,7 @@ import { Timestamp } from './kernel/index.js';
 import {rowPreviewRequest,rowPreviewResponse} from './row-preview-contract.js';
 
 const count = z.number().int().nonnegative().safe();
-export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, queryEngineVersion: z.string(), canonicalisers: z.array(z.string().regex(/^[a-z0-9]+$(?![\s\S])/u)).refine(ids => new Set(ids).size === ids.length) });
+export const healthResponse = z.strictObject({ version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/), contract: count, queryEngineVersion: z.string(), queue:z.strictObject({active:count,waiting:count,lastWaitMs:z.number().nonnegative(),maxWaitMs:z.number().nonnegative(),saturated:count}).optional(), canonicalisers: z.array(z.string().regex(/^[a-z0-9]+$(?![\s\S])/u)).refine(ids => new Set(ids).size === ids.length) });
 // Read the version before interpreting a version-specific health payload.
 export const healthContract = healthResponse.pick({ contract: true }).strip();
 export const connectionResponse = z.union([

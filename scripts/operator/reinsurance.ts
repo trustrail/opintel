@@ -22,7 +22,7 @@ import {custodyAvailability} from '../../src/modules/release-custody/index.js';
 import {createSourceRuntime} from '../../src/modules/sources/infrastructure/source-runtime.js';
 import {PoolKeyCreationResponse} from '../../src/shared/api/pool-keys.js';
 import {demoManifest,certificateMapping,certificateForAgent,type DemoManifest} from '../soak/manifest.js';
-import {demoTables,declaredContributorKey,declaredTreatment,declaredFilter,generateSpecification} from '../demo-soak-definition.js';
+import {demoTables,declaredTokenDomain,declaredContributorKey,declaredTreatment,declaredFilter,generateSpecification} from '../demo-soak-definition.js';
 import {PostgresRowDecisions} from '../../src/modules/entitlements/infrastructure/row-decisions.js';
 import type {Result} from '../../src/shared/kernel/index.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
@@ -75,7 +75,7 @@ export async function provisionReinsurance(ctx:{projectId:ProjectId;userId:UserI
    await withTenant(ctx,async tx=>{const [current]=await tx.query<{budgets:Record<string,unknown>}>('SELECT budgets FROM pool WHERE id=$1 FOR UPDATE',[pool.id]);if(!current||Object.keys(current.budgets).some(k=>k!=='threads')||current.budgets.threads!==undefined&&current.budgets.threads!==1)throw new OperatorConflict('Pool resource decision conflicts with V-01 threads=1');if(current.budgets.threads===undefined)await tx.query("UPDATE pool SET budgets=budgets||'{\"threads\":1}'::jsonb WHERE id=$1",[pool.id]);});
    for(const s of sources){const found=await withTenant(ctx,tx=>tx.query('SELECT 1 FROM pool_source_binding WHERE pool_id=$1 AND source_id=$2',[pool.id,s.id]));if(!found.length)unwrap(await bindings.set(ctx,pool.id,s.id,true));}
    const objects=await withTenant(ctx,tx=>tx.query<{id:string;name:string;schema:string;source:string;originalSchema:string;originalName:string}>(`SELECT o.id,o.exposed_name AS name,o.exposed_schema AS schema,s.exposed_alias AS source,o.schema_name AS "originalSchema",o.object_name AS "originalName" FROM catalog_object o JOIN data_source s ON s.id=o.source_id WHERE o.source_id=ANY($1::uuid[]) AND o.status='active' ORDER BY o.id`,[sources.map(s=>s.id)]));
-   if(objects.length!==demoTables.length||new Set(objects.map(o=>o.name)).size!==demoTables.length)throw new OperatorConflict('Expected all six declared objects after demo introspection');
+   if(objects.length!==demoTables.length||new Set(objects.map(o=>o.name)).size!==demoTables.length)throw new OperatorConflict('Expected all declared objects after demo introspection');
    for(const object of objects){
     const expectedTable=demoTables.find(t=>t.name===object.name);
     if(!expectedTable||object.originalName!==expectedTable.name||object.originalSchema!==expectedTable.schema)throw new OperatorConflict('Unexpected object in demo sources');
@@ -93,7 +93,7 @@ export async function provisionReinsurance(ctx:{projectId:ProjectId;userId:UserI
      const treatment=declaredTreatment(object.name,column.name,poolIndex);
      if(treatment==='undecided'){if(column.treatment)throw new OperatorConflict('Declared undecided column already has a decision: '+object.name+'.'+column.name+'; no entitlement was deleted');continue;}
      if(column.treatment&&(column.treatment!==treatment||column.maskKind!==(treatment==='masked'?'last4':null)))throw new OperatorConflict('Existing demo decision differs: '+column.name+'; it was not overwritten');
-     if(treatment==='tokenized'){const d=unwrap(await declarations.read(ctx,ElementId(column.id)));if(d.stored.tokenDomain!==null&&d.stored.tokenDomain!=='policy'||d.stored.caseInsensitive===true)throw new OperatorConflict('Token declaration conflict');if(d.stored.tokenDomain!=='policy'||d.stored.caseInsensitive!==false)unwrap(await declarations.save(ctx,ElementId(column.id),{...d.stored,tokenDomain:'policy',caseInsensitive:false},d.stored));}
+     if(treatment==='tokenized'){const domain=declaredTokenDomain(column.name);const d=unwrap(await declarations.read(ctx,ElementId(column.id)));if(d.stored.tokenDomain!==null&&d.stored.tokenDomain!==domain||d.stored.caseInsensitive===true)throw new OperatorConflict('Token declaration conflict');if(d.stored.tokenDomain!==domain||d.stored.caseInsensitive!==false)unwrap(await declarations.save(ctx,ElementId(column.id),{...d.stored,tokenDomain:domain,caseInsensitive:false},d.stored));}
      if(column.treatment)continue;
 
      const result=unwrap(await bulk.execute(ctx,pool.id,{projectId:ctx.projectId,elementIds:[ElementId(column.id)],treatment,maskKind:treatment==='masked'?'last4':null,justification:'Synthetic reinsurance: versioned V-01 governance and custody.'},randomUUID(),'packaged-reinsurance'));if(result.status!==200)throw new OperatorConflict('Demo treatment refused: '+result.body.error.message);
@@ -121,6 +121,6 @@ export async function provisionReinsurance(ctx:{projectId:ProjectId;userId:UserI
   }
   }
   manifest.version=2;manifest.definitionHash=hash;manifest.specification=generateSpecification(Object.fromEntries(Object.entries(manifest.objects).map(([full,name])=>[name,full])),manifest.agents);
-  await persist();console.info('Reinsurance governance ready: three sources, six objects, two pools and ten agents. Lifecycle probes ready: '+['retiring','revoked'].filter(kind=>manifest.lifecycle?.[kind]?.done).length+'/2. Declared scenarios: '+manifest.specification.scenarios.length+'. Private manifest: '+file+'. No keys printed.');
+  await persist();console.info('Reinsurance governance ready: three sources, '+demoTables.length+' objects, two pools and ten agents. Lifecycle probes ready: '+['retiring','revoked'].filter(kind=>manifest.lifecycle?.[kind]?.done).length+'/2. Declared scenarios: '+manifest.specification.scenarios.length+'. Private manifest: '+file+'. No keys printed.');
  }finally{await runtime.close();}
 }

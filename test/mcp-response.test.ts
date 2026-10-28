@@ -77,3 +77,12 @@ it('source failure exposes bounded operation diagnostics and evidence without na
  expect(malformed._meta.sourceFailure).toBeUndefined();
  expect(malformed._meta.cause).toBe('source_read_failed');
 });
+
+it('cancellation and saturation metadata survives the MCP refusal boundary',()=>{
+ const sourceFailure={operation:'backend_identity',attempt:1,nativeCode:'ETIMEDOUT',sqlState:null};
+ const response=refusalResponse(new DomainError('budget_exceeded','private',{cause:'source_operation_cancelled',cancellationOrigin:'engine_deadline',sourceFailure,sourcePhaseState:'failed',sourcePhaseAt:'2026-10-28T05:08:06.165Z',queueWaitMs:12},true));
+ expect(response._meta).toMatchObject({cause:'source_operation_cancelled',cancellationOrigin:'engine_deadline',sourceFailure,sourcePhaseState:'failed',sourcePhaseAt:'2026-10-28T05:08:06.165Z',queueWaitMs:12});
+ const saturated=refusalResponse(new DomainError('engine_saturated','private',{cause:'engine_saturated',queueWaitMs:10000,queueMaxWaitMs:10000},true));
+ expect(saturated._meta).toMatchObject({code:'engine_saturated',cause:'engine_saturated',retryable:true,queueWaitMs:10000,queueMaxWaitMs:10000});
+ expect(JSON.stringify(response)+JSON.stringify(saturated)).not.toContain('unclassified');
+});

@@ -1,3 +1,8 @@
+import {retainSourceFailure} from '../src/shared/source-failure.js';
+import {PostgresSourceScope} from '../sidecar/infrastructure/postgres-source-scope.js';
+import {PostgresStagingSource} from '../sidecar/execution/infrastructure/postgres-source.js';
+import {SidecarTokenizer,IanaZoneResolver} from '../sidecar/tokenize/index.js';
+import {sourceOperationEvent} from '../src/shared/infrastructure/source-trace.js';
 import { randomUUID } from 'node:crypto';
 import { DuckDBSessionEngine } from '../sidecar/session/index.js';
 import { describe,it,expect,vi } from 'vitest';
@@ -59,4 +64,49 @@ describe('S2e staged governance',{timeout:30000},()=>{
  });
 
  it('an empty pool needs no dummy table or column to execute a constant',async()=>{const f=fixture(),r=request();r.objects=[];r.entitlements=[];r.sources=[];r.namespace={catalog:'empty_pool',schema:'public'};r.sql='SELECT 1';expect(await f.executor.execute(r)).toMatchObject({ok:true,value:{rows:[[1]]}});r.sql='SELECT table_name FROM duckdb_tables()';expect(await f.executor.execute(r)).toMatchObject({ok:true,value:{rows:[]}});expect(f.source.estimate).not.toHaveBeenCalled();});
+});
+
+it('bounded admission expires without source work or starting the execution budget',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']});
+ const f=fixture(),q=new ExecutionQueue(),hold=await q.acquire(ProjectId(projectId),PoolId(poolId),1,1,new AbortController().signal),clock={after:vi.fn(()=>()=>{})};
+ try{
+  const executor=new StagedExecutor(f.source,undefined,q,clock),pending=executor.execute(request());
+  await vi.advanceTimersByTimeAsync(3334);
+  expect(await pending).toMatchObject({ok:false,error:{code:'engine_saturated',retryable:true,details:{cause:'engine_saturated',queueMaxWaitMs:3333,queueWaitMs:3333}}});
+  expect(f.source.estimate).not.toHaveBeenCalled();expect(clock.after).not.toHaveBeenCalled();expect(q.snapshot()).toMatchObject({active:1,waiting:0,saturated:1});
+ }finally{if(hold.ok)hold.value();vi.useRealTimers();}
+ expect(q.snapshot()).toMatchObject({active:0,waiting:0});
+});
+it.each(['parent','engine_deadline'] as const)('%s cancellation preserves last source operation, attempt and native code',async origin=>{
+ const f=fixture(),parent=new AbortController();let expire=()=>{};
+ f.source.estimate=async()=>{
+  sourceOperationEvent('staging-test','backend_identity','failed',1,{operation:'backend_identity',attempt:1,nativeCode:'ETIMEDOUT',sqlState:null});
+  if(origin==='parent')parent.abort();else expire();return ok(3);
+ };
+ const result=await new StagedExecutor(f.source,undefined,undefined,{after:(_ms,callback)=>{expire=callback;return ()=>{};}}).execute(request(),parent.signal);
+ expect(result).toMatchObject({ok:false,error:{code:'budget_exceeded',details:{cause:'source_operation_cancelled',cancellationOrigin:origin,sourcePhaseState:'failed',sourceFailure:{operation:'backend_identity',attempt:1,nativeCode:'ETIMEDOUT',sqlState:null}}}});
+});
+
+it('late queue grants recheck the bound before admitting and leave no capacity leak',async()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),q=new ExecutionQueue(),signal=new AbortController().signal;
+ try{
+  const first=await q.acquire(ProjectId(projectId),PoolId(poolId),1,2,signal);
+  const second=q.acquire(ProjectId(projectId),PoolId(poolId),1,2,signal,100);
+  const third=q.acquire(ProjectId(projectId),PoolId(poolId),1,2,signal,100);
+  clock.mockReturnValue(101);if(first.ok)first.value();
+  expect(await second).toMatchObject({ok:false,error:{code:'engine_saturated'}});
+  expect(await third).toMatchObject({ok:false,error:{code:'engine_saturated'}});
+  expect(q.snapshot()).toMatchObject({active:0,waiting:0,saturated:2,lastWaitMs:101});
+  const next=await q.acquire(ProjectId(projectId),PoolId(poolId),1,2,signal,100);expect(next.ok).toBe(true);if(next.ok)next.value();
+ }finally{clock.mockRestore();}
+});
+
+it('PostgreSQL cancellation 57014 retains its source classification and phase',async()=>{
+ const scope=new PostgresSourceScope({resolve:async()=>''},{maxConnectionsPerSource:1,statementTimeoutMs:1000,operationTimeoutMs:2000});
+ const error=Object.assign(new Error('not logged'),{code:'57014'});retainSourceFailure(error,'fetch',1);
+ const spy=vi.spyOn(scope,'run').mockRejectedValueOnce(error);
+ try{
+  const source=new PostgresStagingSource(scope,new SidecarTokenizer({resolveBytes:async()=>Buffer.alloc(32)},new IanaZoneResolver())),r=request();
+  expect(await source.estimate({request:r,object:r.objects[0]!,predicate:null},new AbortController().signal)).toMatchObject({ok:false,error:{details:{cause:'source_operation_cancelled',sourceFailure:{operation:'fetch',attempt:1,sqlState:'57014',nativeCode:null}}}});
+ }finally{spy.mockRestore();}
 });

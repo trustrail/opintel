@@ -20,7 +20,3 @@ export function retainSourceFailure(error:unknown,operation:SourceOperation,atte
 export function getSourceFailure(error:unknown):SourceFailure|undefined{
  return typeof error==='object'&&error!==null?diagnostics.get(error):undefined;
 }
-export function sourceOperationEvent(requestId:string|undefined,operation:SourceOperation,state:'start'|'end'|'failed',attempt:number,failure?:SourceFailure):void{
- if(!requestId||!/^[a-zA-Z0-9:_-]{1,128}$/u.test(requestId))return;
- console.info({event:'engine.source_operation',timestamp:new Date().toISOString(),requestId,operation,state,attempt,...(failure?{failure}: {})});
-}

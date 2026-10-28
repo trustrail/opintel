@@ -231,7 +231,7 @@ its association remains an operator action; the soak does not mutate credentials
 
 ## Declared coverage (external mode)
 
-`dev:demo --soak` emits 85 scenarios for ten credentials. Custody query cases are
+`dev:demo --soak` emits 115 scenarios for ten credentials. Custody query cases are
 per credential and declare a missing-association refusal where registration did
 not obtain an identity. The operator does not fill expectations by hand.
 
@@ -241,6 +241,17 @@ columns because discovery correctly omits them. The generator adds nulls, empty
 strings, Unicode, an 8192-character value, duplicate policy entities and a clear
 value resembling a token. Bag comparisons preserve duplicates and ignore row
 order. Expected masking follows the documented null/short-string/Unicode rules.
+The two `semantics_left`/`semantics_right` tables add five rows per pool,
+including distinct raw values with the same last-four mask and a null. J-029
+GROUP BY expects mask groups of 3, 1 and 1; DISTINCT expects three masks including
+null. UNION expects `sql_not_permitted` and a matching stored refusal stage.
+An equality join between the two isolated token columns expects
+`unsatisfiable_token_join` and the query's persisted Suggestions candidate in its
+receipt metadata. A clear-id join compares shared-domain tokens for equality and
+isolated-domain tokens for inequality, without deriving expected tokens from the
+response. These declarations and scan counts are shared by both seeders; existing
+manifests with a different definition hash remain conflicts, never overwritten.
+
 Two disjoint joins expect zero; the three-source joins expect 4 and 3 rows.
 `open_reference` has no row decisions and returns all three rows in both pools.
 

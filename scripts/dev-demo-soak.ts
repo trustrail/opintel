@@ -19,7 +19,7 @@ import {createSourceRuntime} from '../src/modules/sources/infrastructure/source-
 import {PoolKeyCreationResponse} from '../src/shared/api/pool-keys.js';
 import {demoManifest,certificateMapping,certificateForAgent,type DemoManifest} from './soak/manifest.js';
 import pack from '../src/modules/sources/demo/reinsurance.json' with {type:'json'};
-import {demoTables,declaredContributorKey,declaredTreatment,declaredFilter,generateSpecification} from './demo-soak-definition.js';
+import {demoTables,declaredTokenDomain,declaredContributorKey,declaredTreatment,declaredFilter,generateSpecification} from './demo-soak-definition.js';
 import {PostgresRowDecisions} from '../src/modules/entitlements/infrastructure/row-decisions.js';
 import type {Result} from '../src/shared/kernel/index.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
@@ -77,7 +77,7 @@ export async function seedDemoSoak(ctx:{projectId:ProjectId;userId:UserId},regis
    await withTenant(ctx,tx=>tx.query("UPDATE pool SET budgets=budgets||'{\"threads\":1}'::jsonb WHERE id=$1 AND NOT budgets ? 'threads'",[pool.id]));
    for(const s of sources)unwrap(await bindings.set(ctx,pool.id,s.id,true));
    const objects=await withTenant(ctx,tx=>tx.query<{id:string;name:string;schema:string;source:string}>(`SELECT o.id,o.exposed_name AS name,o.exposed_schema AS schema,s.exposed_alias AS source FROM catalog_object o JOIN data_source s ON s.id=o.source_id WHERE o.source_id=ANY($1::uuid[]) AND o.status='active'`,[sources.map(s=>s.id)]));
-   if(objects.length!==demoTables.length||new Set(objects.map(o=>o.name)).size!==demoTables.length)throw new Error('Expected all six declared objects after demo introspection');
+   if(objects.length!==demoTables.length||new Set(objects.map(o=>o.name)).size!==demoTables.length)throw new Error('Expected all declared objects after demo introspection');
    for(const object of objects){
     if(!demoTables.some(t=>t.name===object.name))throw new Error('Unexpected object in demo sources');
     manifest.objects[`${object.source}.${object.schema}.${object.name}`]=object.name;
@@ -93,7 +93,7 @@ export async function seedDemoSoak(ctx:{projectId:ProjectId;userId:UserId},regis
      const treatment=declaredTreatment(object.name,column.name,poolIndex);
      if(treatment==='undecided'){if(column.treatment)throw new Error('Declared undecided column already has a decision: '+object.name+'.'+column.name+'; no entitlement was deleted');continue;}
      if(column.treatment){if(column.treatment!==treatment)throw new Error('Existing demo decision differs: '+column.name+'; it was not overwritten');continue;}
-     if(treatment==='tokenized')await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET token_domain='policy',case_insensitive=false WHERE id=$1",[column.id]));
+     if(treatment==='tokenized')await withTenant(ctx,tx=>tx.query("UPDATE catalog_element SET token_domain=$2,case_insensitive=false WHERE id=$1",[column.id,declaredTokenDomain(column.name)]));
      const result=unwrap(await bulk.execute(ctx,pool.id,{projectId:ctx.projectId,elementIds:[ElementId(column.id)],treatment,maskKind:treatment==='masked'?'last4':null,justification:'Development reinsurance demo: shared V-01 definition and custody.'},randomUUID(),'dev-demo-soak'));if(result.status!==200)throw new Error('Demo treatment refused: '+result.body.error.message);
     }
     const existing=await withTenant(ctx,tx=>tx.query('SELECT id FROM row_entitlement WHERE object_id=$1 AND pool_id=$2',[object.id,pool.id]));
@@ -116,6 +116,6 @@ export async function seedDemoSoak(ctx:{projectId:ProjectId;userId:UserId},regis
    }
   }
   manifest.version=2;manifest.definitionHash=hash;manifest.specification=generateSpecification(Object.fromEntries(Object.entries(manifest.objects).map(([full,name])=>[name,full])),manifest.agents);
-  await persist();console.info('Demo soak ready: three sources, six objects, two pools, ten agents and two lifecycle probes. Declared scenarios: '+manifest.specification.scenarios.length+'. Private manifest: '+file+'. No keys printed.');
+  await persist();console.info('Demo soak ready: three sources, '+demoTables.length+' objects, two pools, ten agents and two lifecycle probes. Declared scenarios: '+manifest.specification.scenarios.length+'. Private manifest: '+file+'. No keys printed.');
  }finally{await runtime.close();}
 }

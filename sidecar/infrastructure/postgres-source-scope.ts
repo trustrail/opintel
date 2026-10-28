@@ -1,5 +1,6 @@
 import { Client,types } from 'pg';
-import {retainSourceFailure,sourceOperationEvent,type SourceOperation} from '../../src/shared/source-failure.js';
+import {retainSourceFailure,type SourceOperation} from '../../src/shared/source-failure.js';
+import {sourceOperationEvent} from '../../src/shared/infrastructure/source-trace.js';
 import { randomUUID } from 'node:crypto';
 import type { SourceCredentialResolver } from '../application/source-connector.js';
 import type { SecretRef } from '../../src/platform/secrets/types.js';

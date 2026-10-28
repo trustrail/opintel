@@ -11,8 +11,10 @@ export async function previewRows(input:unknown,source:StagingSource,queue:Execu
  if(r.objects.length!==1||!o||r.sources.length!==1||o.sourceId!==r.sources[0]?.sourceId||o.catalog!==o.readPlan.catalog||o.readPlan.columns.some(c=>!r.entitlements.some(e=>e.elementId===c.elementId&&e.treatment===c.treatment)))return err(new DomainError('validation_failed','The preview read plan is inconsistent.'));
  const scope=o.readPlan.rowScope;
  if(scope&&(scope.poolId!==r.poolId||scope.predicate!==null&&(hasScope(scope.predicate)||predicateHash(scope.predicate)!==scope.hash||referencedColumns(scope.predicate).some(id=>!scope.columns.some(c=>c.id===id)))))return err(new DomainError('validation_failed','The preview row predicate is inconsistent.'));
- const signal=AbortSignal.any([...(parent?[parent]:[]),AbortSignal.timeout(r.limits.timeoutMs)]);
- const acquired=await queue.acquire(ProjectId(r.projectId),PoolId(r.poolId),r.limits.concurrency,r.settings.maxQueuedExecutions,signal);if(!acquired.ok)return acquired;
+ const admission=parent??new AbortController().signal;
+ const queueStarted=performance.now();
+ const acquired=await queue.acquire(ProjectId(r.projectId),PoolId(r.poolId),r.limits.concurrency,r.settings.maxQueuedExecutions,admission,Math.max(1,Math.floor(r.limits.timeoutMs/3)));console.info({event:'engine.queue_wait',requestId:r.requestId,timestamp:new Date().toISOString(),queueWaitMs:Math.max(0,performance.now()-queueStarted),admitted:acquired.ok});if(!acquired.ok)return acquired;
+ const signal=AbortSignal.any([admission,AbortSignal.timeout(r.limits.timeoutMs)]);
  let total=0,entitled=0;
  const samples:unknown[][]=[],columns=o.readPlan.columns,visible=columns.flatMap((c,i)=>c.treatment==='aggregate_only'?[]:[i]);
  const custodyIndices=visible.flatMap((i,index)=>columns[i]!.treatment==='custody'?[index]:[]);

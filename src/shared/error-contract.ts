@@ -6,7 +6,7 @@ const codes = {
   entitlement_missing: true, element_withheld: true, object_unavailable: true, unsupported_on_token: true, unsupported_on_aggregate_only: true,
   term_unresolved: true, clarification_required: true, domain_knowledge_gap: true,
   sources_cannot_be_joined: true, large_result_confirmation: true, budget_exceeded: true,
-  source_unavailable: true, sql_not_permitted: true, unsupported_pushdown: true,
+  engine_saturated:true, source_unavailable: true, sql_not_permitted: true, unsupported_pushdown: true,
 } satisfies Record<ErrorCode, true>;
 export const errorCodeSchema = z.custom<ErrorCode>((value) => typeof value === 'string' && Object.hasOwn(codes, value));
 export const serviceErrorEnvelope = z.object({ error: z.object({

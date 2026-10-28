@@ -65,8 +65,7 @@ architecture="$(uname -m)"
 for tool in docker git node npm make python3 openssl tar lsof; do
   command -v "$tool" >/dev/null 2>&1 || fail "required command is missing: $tool"
 done
-docker info >/dev/null 2>&1 || fail 'Docker: daemon unavailable; start Docker Desktop'
-docker_architecture="$(docker info --format '{{.Architecture}}')"
+docker_architecture="$(docker info --format '{{.Architecture}}' 2>/dev/null)" || fail 'Docker: daemon unavailable; start Docker Desktop'
 [[ "$docker_architecture" == arm64 || "$docker_architecture" == aarch64 ]] || fail "Docker architecture: arm64 required; found $docker_architecture"
 [[ -f "$provider_file" && -r "$provider_file" ]] || fail "provider file is not a readable file: $provider_file"
 provider_file="$(cd "$(dirname "$provider_file")" && pwd)/$(basename "$provider_file")"

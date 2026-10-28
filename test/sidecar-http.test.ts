@@ -183,8 +183,11 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     }finally{await incompatible.close();}
   });
   it('HTTP disconnect cancels Postgres through pg_cancel_backend and releases the session',async()=>{
+    const connection=client('slow');
+    expect(await connection.testConnection(ref)).toMatchObject({ok:true});
     const controller=new AbortController();
-    const running=client('slow').sampleTopValues(ref,[elementId],2,controller.signal);
+    const running=connection.sampleTopValues(ref,[elementId],2,controller.signal);
+    try{
     await vi.waitFor(async()=>{
       const rows=await fixture(async(db)=>(await db.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND state='active' AND query LIKE '%slow%'",[role])).rows);
       expect(rows).toHaveLength(1);
@@ -197,6 +200,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       expect((await auditRows()).at(-1)).toMatchObject({outcome:'failed'});
     },{timeout:2500});
     expect(performance.now()-start).toBeLessThan(3000);
+    }finally{controller.abort();await running;}
   });
   it('validates HTTP boundaries and never reflects literal credentials',async()=>{
     expect((await json('/health',undefined,{method:'GET'})).status).toBe(405);
@@ -238,7 +242,10 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
     const exited=new Promise<{code:number|null;signal:NodeJS.Signals|null}>((resolve,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>resolve({code,signal}));});
     try{
       await vi.waitFor(()=>expect(output).toContain('Opintel Engine ready.'),{timeout:10000});
-      const result=client('slow',{...options,baseUrl:`https://127.0.0.1:${port}`,timeoutMs:9000}).sampleTopValues(ref,[elementId],2);
+      const connector=client('slow',{...options,baseUrl:`https://127.0.0.1:${port}`,timeoutMs:9000});
+      // Establish the pinned contract before the existing active-SQL timing guard.
+      expect(await connector.testConnection(ref)).toMatchObject({ok:true});
+      const result=connector.sampleTopValues(ref,[elementId],2);
       await vi.waitFor(async()=>expect((await fixture(async(db)=>(await db.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND state='active' AND query LIKE '%slow%'",[role])).rows)).length).toBe(1));
       child.kill('SIGTERM');
       await vi.waitFor(()=>expect(child.exitCode !== null || child.signalCode !== null).toBe(true),{timeout:4000});

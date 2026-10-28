@@ -3678,6 +3678,42 @@
                     "queryEngineVersion": {
                       "type": "string"
                     },
+                    "queue": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "waiting": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "lastWaitMs": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "maxWaitMs": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "saturated": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "active",
+                        "waiting",
+                        "lastWaitMs",
+                        "maxWaitMs",
+                        "saturated"
+                      ],
+                      "additionalProperties": false
+                    },
                     "canonicalisers": {
                       "type": "array",
                       "items": {

@@ -8,7 +8,7 @@ export type ErrorCode =
   | 'entitlement_missing' | 'element_withheld' | 'object_unavailable' | 'unsupported_on_token' | 'unsupported_on_aggregate_only'
   | 'term_unresolved' | 'clarification_required' | 'domain_knowledge_gap'
   | 'sources_cannot_be_joined' | 'large_result_confirmation' | 'budget_exceeded'
-  | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown';
+  | 'engine_saturated' | 'source_unavailable' | 'sql_not_permitted' | 'unsupported_pushdown';
 
 export type ActorRef =
   | { kind: 'user';   id: UserId }

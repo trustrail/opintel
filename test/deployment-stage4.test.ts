@@ -21,7 +21,7 @@ it('DEP-010 seeds a separate database, proves estimates, preserves unrelated dat
  const source=new Client({connectionString:url.href});await source.connect();
  try{vi.stubEnv('OPINTEL_DEMO_DATABASE_URL',url.href);vi.stubEnv('OPINTEL_DEMO_FIXTURE','V-01');vi.stubEnv('OPINTEL_DEMO_SEED','1');vi.stubEnv('OPINTEL_DEMO_SCHEMAS','soak_policies,soak_claims,soak_recoveries');
  await source.query('CREATE TABLE public.untouched(value text); INSERT INTO public.untouched VALUES(\'customer-owned sentinel\')');
- const first=await syntheticSource(true);expect(first.tables).toHaveLength(6);for(const t of first.tables)expect(t.estimate).toBe(t.count);expect(await syntheticSource(true)).toEqual(first);expect(await syntheticSource(false)).toEqual(first);
+ const first=await syntheticSource(true);expect(first.tables).toHaveLength(8);for(const t of first.tables)expect(t.estimate).toBe(t.count);expect(await syntheticSource(true)).toEqual(first);expect(await syntheticSource(false)).toEqual(first);
  await source.query("UPDATE soak_recoveries.open_reference SET description='changed'");await expect(syntheticSource(true)).rejects.toThrow('conflict');expect((await source.query('SELECT value FROM public.untouched')).rows).toEqual([{value:'customer-owned sentinel'}]);
  await source.query('TRUNCATE soak_recoveries.open_reference');await expect(syntheticSource(true)).rejects.toThrow('conflict');expect((await source.query('SELECT count(*)::int AS n FROM soak_recoveries.open_reference')).rows[0].n).toBe(0);
  }finally{await source.end();await admin.query('DROP DATABASE "'+database+'"');await admin.end();}

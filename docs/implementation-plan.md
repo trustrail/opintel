@@ -1311,3 +1311,19 @@ Trace the pinned SDK's key representation, preserve the existing 32-byte share,
 and retain explicit legacy redemption. Acceptance's host XQ check must escrow
 and retrieve 200 fresh shares and verify 200/200; a failed attempt fails the
 check. Source-connect timeout phase/timing remains evidence only, with no change.
+
+### Approved cancellation and queue admission follow-up (2026-10-28)
+
+Item 5.7a: retain API abort origin (transport deadline versus parent), and retain
+request-local last source phase/attempt/bounded driver diagnostics when execution
+is cancelled. Queue admission waits at most floor(timeoutMs/3), minimum 1 ms;
+expiry refuses engine_saturated with wait evidence before source/session work.
+Execution budget starts after admission. Queue waits are logged and aggregate
+active/waiting/last/max wait/saturation counts appear in pinned engine health.
+Full gate required before commit; no transport retry or governance relaxation.
+
+Stage 5 soak coverage follow-up: add the documented J-029 mask-collision,
+B4a set-operation refusal, A1 token-domain comparability and 5.24a Suggestions
+candidate scenarios to the existing fixture. No compiler/refusal/Observations
+behaviour changes. The versioned declaration expands from six to eight objects
+and from 85 to 115 scenarios for ten associated credentials.

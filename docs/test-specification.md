@@ -1735,3 +1735,24 @@ value, preserving all 32 share bytes. Both new and legacy accepted keys decode
 canonically; invalid padding, high-bit non-ASCII bytes and unknown forms refuse.
 E06-XQ-LEGACY: retrieval of an existing old-format locator performs exactly one
 GET, returns the original share and never re-escrows or changes a grant.
+
+### Cancellation provenance and bounded admission regressions
+
+| ID | Required behavior |
+|---|---|
+| ENG-CANCEL-01 | API distinguishes parent abort from its own transport deadline |
+| ENG-CANCEL-02 | Engine cancellation retains source operation/attempt/native code/state and survives MCP serialization |
+| ENG-CANCEL-03 | Concurrent asynchronous requests cannot inherit source phase records |
+| ENG-QUEUE-01 | One-third admission expiry refuses engine_saturated without source work or starting execution timeout |
+| ENG-QUEUE-02 | Expired waiters release queue capacity; health reports bounded wait/saturation and active/waiting counts |
+
+### Soak treatment-semantics fixture (J-029, A1, B4a, 5.24a)
+
+`test/soak-treatment-semantics.test.ts` validates independent, bag-valued soak
+expectations: masked GROUP BY/DISTINCT merge raw collisions before the operation;
+UNION requires `sql_not_permitted` with its stored refusal stage; incompatible
+token equality requires `unsatisfiable_token_join` and the query-run Suggestions
+candidate; shared domains compare equal and isolated elements differ. Nulls and
+repeated values are included. Negative controls reject late masking, wrong or
+missing refusal evidence, an unrelated candidate, and inverted token relations.
+Both development and packaged seeders declare the same eight-table fixture.

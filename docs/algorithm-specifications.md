@@ -1396,3 +1396,22 @@ characters, positions, counts, fragments or hashes are retained. The sets have
 at most 33 and 32 entries respectively. The signature follows the existing
 request-shape success/failure diagnostic, including immutable refusal evidence.
 This does not authorize logging key material or replaying refused requests.
+
+### Bounded admission and cancellation provenance
+
+Execution queue depth remains bounded by maxQueuedExecutions. A queued execution
+or preview also has an admission wait bound of max(1,floor(timeoutMs/3)) ms.
+Expired admission is engine_saturated (retryable), with queueWaitMs and
+queueMaxWaitMs in refusal evidence; it opens no source or DuckDB session. A
+late lease grant rechecks elapsed monotonic time, even if its timer callback was
+delayed. Execution's own timeout starts only after admission. The API transport
+allows admission plus execution plus its existing 2-second response margin;
+parent cancellation remains authoritative. Queue wait is logged per request.
+
+API abort origin is recorded as parent or transport_deadline. Engine cancellation
+records parent or engine_deadline and attaches the last request-local source
+operation, attempt, bounded native code/SQLSTATE, state and timestamp. Completed
+phases are labelled end; their presence does not assert that a driver failed.
+Source-phase state uses AsyncLocalStorage and is never a cross-request registry.
+Cancellation with source evidence maps to source_operation_cancelled, not
+interruption_unclassified. Unknown driver codes remain null rather than guessed.
