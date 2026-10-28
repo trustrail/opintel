@@ -1,0 +1,54 @@
+{
+  "status": "failed",
+  "startedAt": "2026-10-28T23:15:28.000Z",
+  "steps": [
+    {
+      "step": "create-empty-project",
+      "status": "passed",
+      "at": "2026-10-28T23:15:28.570Z"
+    },
+    {
+      "step": "verify-empty-project",
+      "status": "passed",
+      "at": "2026-10-28T23:15:28.706Z"
+    },
+    {
+      "step": "create-pool",
+      "status": "passed",
+      "at": "2026-10-28T23:15:28.806Z"
+    },
+    {
+      "step": "register-engine",
+      "status": "passed",
+      "at": "2026-10-28T23:15:28.852Z"
+    },
+    {
+      "step": "verify-engine",
+      "status": "passed",
+      "at": "2026-10-28T23:15:28.992Z"
+    },
+    {
+      "step": "designate-custody-engine",
+      "status": "passed",
+      "at": "2026-10-28T23:15:29.222Z"
+    },
+    {
+      "step": "configure-project",
+      "status": "passed",
+      "at": "2026-10-28T23:15:29.335Z"
+    },
+    {
+      "step": "connect-demo-database",
+      "status": "passed",
+      "at": "2026-10-28T23:15:29.899Z"
+    }
+  ],
+  "projectId": "48c0f74f-8b3d-4301-a283-902a54f6c380",
+  "sourceId": "01a184cc-15ac-721d-af47-97ba894583bb",
+  "poolId": "2a32133c-a6a6-4140-8f31-25155d9cd20a",
+  "failure": {
+    "step": "bind-source",
+    "message": "bind-source: PUT /api/v1/pools/2a32133c-a6a6-4140-8f31-25155d9cd20a/sources/01a184cc-15ac-721d-af47-97ba894583bb returned HTTP 404"
+  },
+  "finishedAt": "2026-10-28T23:15:29.909Z"
+}

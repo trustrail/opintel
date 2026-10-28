@@ -16,6 +16,7 @@ import {setTimeout} from 'node:timers/promises';
 import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
 import {parse} from 'dotenv';
 import {auditPackage} from './package-audit.mjs';
+import {firstHour} from './first-hour.mjs';
 
 // External acceptance only. It never alters generated package configuration.
 const archives=resolve(process.argv[2]??''),manifest=JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8'));
@@ -64,8 +65,8 @@ const command=(kind,name,...args)=>run(join(kind==='gateway'?gateway:engine,name
 const composeArgs=(kind,...args)=>{const root=kind==='gateway'?gateway:engine;return ['compose','--project-name',readFileSync(join(root,'state/project-name'),'utf8').trim(),'--env-file',join(root,'state/package.env'),'-f',join(root,'state/compose.json'),...args];};
 const compose=(kind,...args)=>run('docker',composeArgs(kind,...args),{env:nested});
 const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
-function https(path,method='GET',body,cookie){return bounded(new Promise((resolve,reject)=>{
- const req=request('https://127.0.0.1'+path,{method,ca:readFileSync(join(gateway,'state/ca.pem')),headers:{origin:base,'content-type':'application/json',...(cookie?{cookie}:{})},signal:AbortSignal.timeout(30000)},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('error',reject);res.on('aborted',()=>reject(new Error('API response aborted')));res.on('end',()=>resolve({status:res.statusCode,text,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(new Error('API timeout')));req.end(body===undefined?undefined:JSON.stringify(body));
+function https(path,method='GET',body,cookie,headers={}){return bounded(new Promise((resolve,reject)=>{
+ const req=request('https://127.0.0.1'+path,{method,ca:readFileSync(join(gateway,'state/ca.pem')),headers:{origin:base,'content-type':'application/json',...(cookie?{cookie}:{}),...headers},signal:AbortSignal.timeout(30000)},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('error',reject);res.on('aborted',()=>reject(new Error('API response aborted')));res.on('end',()=>resolve({status:res.statusCode,text,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(new Error('API timeout')));req.end(body===undefined?undefined:JSON.stringify(body));
  }),35000);}
 let base,ownerCookie;
 async function api(path,method='GET',body){const response=await https(path,method,body,ownerCookie);assert.ok(response.status>=200&&response.status<300,'API refused '+path+' ('+response.status+')');return response.text?JSON.parse(response.text):undefined;}
@@ -127,6 +128,10 @@ try{
  const message=await wait(async()=>{const list=await(await fetch('http://127.0.0.1:11825/api/v1/messages',{signal:AbortSignal.timeout(5000)})).json();const found=list.messages.find(m=>m.To.some(to=>to.Address===email));assert.ok(found);return(await fetch('http://127.0.0.1:11825/api/v1/message/'+found.ID,{signal:AbortSignal.timeout(5000)})).json();},'Normal owner SMTP delivery');
  const link=message.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);
  const response=await https('/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage5-customer-acceptance'});assert.equal(response.status,200);ownerCookie=response.headers['set-cookie'].find(value=>value.startsWith('opintel_session=')).split(';')[0];result.checks.normalOwnerSmtpLogin=true;
+ advance('first-hour');
+ const peer=JSON.parse(readFileSync(join(gateway,'state/peer.json')));
+ result.checks.firstHour=await firstHour({base,request:(path,method,body,headers)=>https(path,method,body,headers.authorization?undefined:ownerCookie,headers),engine:{name:'First hour engine',address:peer.address,certificatePin:peer.pin},source:{name:'Demonstration database',kind:'postgres',credentialRef:'secret://install/readiness',includeSchemas:['public'],samplingConsent:false,receivesLandings:false,landingStrategy:null},settings:{query:{timeoutSeconds:30,rowLimit:100,memoryLimitMb:256,concurrencyPerPool:2},custody:{provider:'xq',tenant:provider.OPINTEL_XQ_TEAM_ID,region:'us-east-1'}},onProgress:value=>{result.checks.firstHour=value;write(resultFile,result);}});
+ assert.equal(result.checks.firstHour.status,'passed','First-hour acceptance failed at '+result.checks.firstHour.failure?.step);
  advance('host-xq-check');command('gateway','xq-check','--roundtrips','200');
  const xqDirectory=join(gateway,'state/output',readdirSync(join(gateway,'state/output')).filter(name=>name.startsWith('xq-roundtrip-')).sort().at(-1));
  const xqResult=JSON.parse(readFileSync(join(xqDirectory,'result.json')));assert.equal(xqResult.status,'passed');assert.equal(xqResult.keyEncoding,'sdk-base64-hex-256');assert.equal(xqResult.attempted,200);assert.equal(xqResult.verified,200);assert.equal(xqResult.required,200);assert.equal(xqResult.attempts.length,200);assert.equal(new Set(xqResult.attempts.map(attempt=>attempt.id)).size,200);assert.ok(xqResult.attempts.every(attempt=>attempt.verified&&attempt.fetchStatus===200&&!attempt.cleanupFailed));
