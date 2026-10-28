@@ -4,6 +4,15 @@ Rules for any agent working in this repository. **These are not preferences.** A
 
 Keep this file short. If it grows past two pages it stops being read.
 
+## Standing decisions
+
+Read this section before every task and flag requests that contradict it.
+
+- Release script: two-minute soak by default; duration is an argument (`scripts/release/native.sh REVISION [--soak-seconds N]`).
+- Long soaks (30 minutes) are run by hand with `./demo soak N` on an installed package.
+- Script-only and docs-only changes: lint and syntax check, no full gate.
+- Customer install: archives, one env file, `./install`, one-code pairing, `./identities add` from the XQ export.
+
 ---
 
 ## What this is
@@ -123,7 +132,7 @@ Report once per task at the end, never between steps.
 
 ## Validation
 
-Run validation commands sequentially. The completed-candidate gate is `npm run check`: strict typecheck, unchanged lint, production-artifact exclusion, router-derived control conformance, all normal domain/integration tests, then one browser/MCP smoke path. Run it once on the completed tip; report failures honestly. Do not retry it to obtain a green record.
+Run validation commands sequentially. Except for script-only and docs-only changes covered by Standing decisions, the completed-candidate gate is `npm run check`: strict typecheck, unchanged lint, production-artifact exclusion, router-derived control conformance, all normal domain/integration tests, then one browser/MCP smoke path. Run it once on the completed tip; report failures honestly. Do not retry it to obtain a green record.
 
 The browser scenario and pixel regression tiers are retired. Historical PNGs live in `archive/browser-baselines/2026-10-16`, outside the active path. Never recapture them. Human review remains necessary for screen design.
 

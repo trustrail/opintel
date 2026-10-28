@@ -44,14 +44,19 @@ phase=arguments
 printf 'Phase: %s\n' "$phase"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 provider_file="$root/.env"
+soak_seconds=120
 revision=
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --provider-env)
       [[ $# -ge 2 && -n "$2" ]] || fail '--provider-env requires a file path'
       provider_file="$2"; shift 2 ;;
+    --soak-seconds)
+      [[ $# -ge 2 && "$2" =~ ^[1-9][0-9]*$ ]] || fail '--soak-seconds requires a positive integer'
+      [[ ${#2} -le 5 ]] && (( 10#$2 <= 86400 )) || fail '--soak-seconds must be 1–86400 seconds'
+      soak_seconds="$2"; shift 2 ;;
     --help|-h)
-      printf 'Usage: %s REVISION [--provider-env PATH]\nDefault provider file: %s/.env\n' "$0" "$root"; exit 0 ;;
+      printf 'Usage: %s REVISION [--provider-env PATH] [--soak-seconds N]\nDefault provider file: %s/.env\nDefault soak duration: 120 seconds\n' "$0" "$root"; exit 0 ;;
     -*) fail "unknown option: $1" ;;
     *) [[ -z "$revision" ]] || fail 'only one revision is accepted'; revision="$1"; shift ;;
   esac
@@ -132,7 +137,7 @@ printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/package.log"
 node scripts/images/customer-package.mjs "$run_directory/published-arm64.json" "$run_directory/packages" >"$phase_log" 2>&1
 
-phase='published-digest acceptance including XQ and 30-minute soak'
+phase="published-digest acceptance including XQ and ${soak_seconds}-second soak"
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/acceptance.log"
-RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 node scripts/images/stage5-smoke.mjs "$run_directory/packages" >"$phase_log" 2>&1
+RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 node scripts/images/stage5-smoke.mjs "$run_directory/packages" --duration-seconds "$soak_seconds" >"$phase_log" 2>&1
