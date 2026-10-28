@@ -45,7 +45,16 @@ function prepareIdentityDirectory(){
 function initialize(){
  if(existsSync(join(state,'installed.json'))){console.info('Existing installation retained; secrets and decisions are unchanged.');return;}
  if(existsSync(state))throw new InstallError('Incomplete installation state exists. Preserve it and use ./restore; install will not overwrite secrets.');
- const settings=existsSync(join(root,'package.env'))?parse(readFileSync(join(root,'package.env'))):{};
+ const packageText=existsSync(join(root,'package.env'))?readFileSync(join(root,'package.env'),'utf8'):'';
+ const settings=parse(packageText);
+ // SMTP passwords are literal single-line values, not dotenv expressions/comments.
+ const passwordLine=packageText.split(/\r?\n/u).findLast(line=>/^\s*SMTP_PASSWORD\s*=/u.test(line));
+ if(passwordLine!==undefined){
+  let value=passwordLine.slice(passwordLine.indexOf('=')+1);
+  if((value.startsWith("'")&&value.endsWith("'"))||(value.startsWith('"')&&value.endsWith('"')))value=value.slice(1,-1);
+  if(/[\r\n\0]/u.test(value))throw new InstallError('SMTP password must be single line.');
+  settings.SMTP_PASSWORD=value;
+ }
  for(const name of Object.keys(settings))if(/(?:^OPINTEL_.*TEST_|^OPINTEL_SECRET_DEMO_)/u.test(name)||name==='OPINTEL_XQ_REDEEM_URL')throw new InstallError('Unsupported customer package setting: '+name+'. Use the shipped package.env template; defaults are generated internally.');
  const address=z.ipv4().parse(process.env.PACKAGE_HOST_ADDRESS);
  const platform=z.enum(['linux/amd64','linux/arm64']).parse(readFileSync(join(root,'platform'),'utf8').trim());
@@ -148,6 +157,16 @@ function initialize(){
   if(!service.volumes)continue;
   const configFiles=kind==='engine'?['ca.pem','peer-ca.pem','engine.pem','engine.key','application.pem','service.json']:name.startsWith('spicedb')?['ca.pem','spicedb.pem','spicedb.key']:['api','operator','provision','demo-tools'].includes(name)?['ca.pem','peer-ca.pem','application.pem','application.key','application-tls.json']:['ca.pem'];
   service.volumes=service.volumes.flatMap(volume=>volume.endsWith(':/config:ro')?configFiles.map(file=>host+'/state/'+file+':/config/'+file+':ro'): [volume]);
+ }
+ if(kind==='gateway'){
+  // Raw env_file bypasses Compose interpolation and quote/escape processing.
+  write('state/smtp-password.env','SMTP_PASSWORD='+(settings.SMTP_PASSWORD??'')+'\n');
+  delete runtime.SMTP_PASSWORD;delete vars.SMTP_PASSWORD;
+  for(const name of ['api','operator','provision','demo-tools']){
+   const service=services[name]!;delete service.environment!.SMTP_PASSWORD;
+   const files=z.array(z.string()).parse(service.env_file);
+   service.env_file=[...files,{path:host+'/state/smtp-password.env',format:'raw'}];
+  }
  }
  env('state/runtime.env',runtime);env('state/operator.env',{...runtime,...operator,OPINTEL_DEPLOYMENT_PACKAGE:'gateway',OPINTEL_CUSTOMER_JOB:'1',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_DIAGNOSTIC_DISPLAY_DIRECTORY:host+'/state/output',OPINTEL_SOAK_OUTPUT_DIRECTORY:'/output/soak',OPINTEL_DEMO_FIXTURE:'V-01',OPINTEL_DEMO_SEED:'1',OPINTEL_DEMO_SCHEMAS:'soak_policies,soak_claims,soak_recoveries',OPINTEL_SOAK_DURATION:'1800',OPINTEL_SOAK_RATE:'10000'});env('state/package.env',vars);
  for(const name of Object.keys(volumes))volumes[name]={name:installId+'-'+name};

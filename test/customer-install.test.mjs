@@ -135,3 +135,13 @@ it('DEP-018: gateway upgrade preserves legacy bundles and installs the identitie
  expect(parse(readFileSync(join(directory,'state/package.env'))).GATEWAY_AGENT_CERTIFICATES_DIRECTORY).toBe(directory+'/identity-bundles');
  expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(runtime);
 });
+
+it('SMTP password remains literal through installer and Compose for API and operator jobs',()=>{
+ const {directory,run}=packageRoot('gateway');
+ const password="  !Dollar$#%='\\literal  =";
+ const file=join(directory,'package.env');writeFileSync(file,readFileSync(file,'utf8').replace('SMTP_PASSWORD=synthetic',"SMTP_PASSWORD='"+password+"'"));
+ run('initialize');
+ const config=JSON.parse(execFileSync('docker',['compose','--profile','jobs','--env-file',join(directory,'state/package.env'),'-f',join(directory,'state/compose.json'),'config','--format','json'],{encoding:'utf8'}));
+ for(const service of ['api','operator','provision','demo-tools'])expect(config.services[service].environment.SMTP_PASSWORD).toBe(password.replaceAll('$',()=>'$$'));
+ expect(statSync(join(directory,'state/smtp-password.env')).mode&0o077).toBe(0);
+},30000);

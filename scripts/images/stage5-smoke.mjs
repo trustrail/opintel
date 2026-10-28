@@ -31,7 +31,12 @@ for(let index=3;index<process.argv.length;index++){
 }
 if(!candidate){assert.equal(manifest.candidate,false,'Published release required');assert.ok(manifest.publishedAt);}
 assert.equal(platform,'linux/'+(process.arch==='arm64'?'arm64':'amd64'),'Native acceptance required');
-const provider=parse(readFileSync(process.env.STAGE4_PROVIDER_ENV??'.env','utf8'));
+const providerText=readFileSync(process.env.STAGE4_PROVIDER_ENV??'.env','utf8'),provider=parse(providerText);
+const relayPasswordLine=providerText.split(/\r?\n/u).findLast(line=>/^\s*SMTP_PASSWORD\s*=/u.test(line));
+if(relayPasswordLine!==undefined){let value=relayPasswordLine.slice(relayPasswordLine.indexOf('=')+1);if((value.startsWith("'")&&value.endsWith("'"))||(value.startsWith('"')&&value.endsWith('"')))value=value.slice(1,-1);provider.SMTP_PASSWORD=value;}
+const smtpNames=['SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASSWORD','SMTP_SENDER','SMTP_TLS_MODE'];
+for(const name of smtpNames)assert.ok(provider[name],'Missing real SMTP relay setting: '+name);
+
 const providerNames=['OPINTEL_XQ_API_KEY','OPINTEL_XQ_DASHBOARD_API_KEY','OPINTEL_XQ_SENDER_ALIAS','OPINTEL_XQ_SENDER_ACCESS_TOKEN','OPINTEL_XQ_TEAM_ID'];
 for(const name of providerNames)assert.ok(provider[name],'Missing provider setting: '+name);
 mkdirSync('tmp',{recursive:true});
@@ -88,7 +93,7 @@ try{
  let hostAddress;
  if(process.platform==='darwin'){const route=run('route',['-n','get','default']);const iface=/interface:\s+(\S+)/u.exec(route)?.[1];assert.ok(iface);hostAddress=run('ipconfig',['getifaddr',iface]);}else hostAddress=run('hostname',['-I']).split(/\s/u)[0];
  base='https://'+hostAddress;
- const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'',SMTP_PASSWORD:'',SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
+ const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:'fixture!$#%=' ,SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
  write(join(gateway,'package.env'),Object.entries(settings).map(([name,value])=>name+"='"+value.replaceAll("'","\\'")+"'").join('\n')+'\n');
  const mapping=JSON.parse(readFileSync('scripts/soak/certificates.example.json'));
  advance('gateway-install');command('gateway','install');result.checks.gatewayInstall=true;
@@ -100,12 +105,22 @@ try{
  advance('mutual-pairing');
  const engineAddress=/Engine address: (\S+)/u.exec(engineInstallOutput)?.[1];assert.ok(engineAddress,'Engine install did not print its address');
  const pairingCode=/Pairing code \(expires in 15 minutes\): (\S+)/u.exec(engineInstallOutput)?.[1];assert.ok(pairingCode,'Engine install did not print a pairing code');command('gateway','register-engine',engineAddress,pairingCode);result.checks.paired={singleCode:true,noFileTransfer:true};
+ advance('real-smtp-relay');
+ const relayFile=join(directory,'real-smtp.env');
+ write(relayFile,smtpNames.map(name=>{assert.ok(!/[\r\n\0]/u.test(provider[name]),'SMTP relay values must be single line');return name+'='+provider[name];}).join('\n')+'\n');
+ const operatorService=rendered.services.operator;
+ for(const name of smtpNames)delete operatorService.environment[name];
+ operatorService.env_file=[{path:relayFile,format:'raw'}];
+ const relayCompose=join(directory,'real-smtp-compose.json');write(relayCompose,{services:{operator:operatorService},networks:rendered.networks,volumes:rendered.volumes});
+ const relayOutput=run('docker',['compose','--project-name',readFileSync(join(gateway,'state/project-name'),'utf8').trim(),'-f',relayCompose,'run','--rm','--no-deps','--interactive=false','-T','operator','node','scripts/operator/customer-operator.js','mail-test',provider.SMTP_TEST_RECIPIENT??provider.SMTP_SENDER]);
+ const accepted=/SMTP accepted test message; response code (2[0-9]{2})/u.exec(relayOutput);assert.ok(accepted,'Real SMTP relay must accept an authenticated message');
+ result.checks.realSmtpRelay={authenticated:true,acceptedResponse:accepted[1]};
  advance('smtp-fixture');
  const mailDirectory=join(directory,'mail');mkdirSync(mailDirectory,{mode:0o700});
  run('openssl',['req','-newkey','rsa:2048','-nodes','-keyout',join(mailDirectory,'mail.key'),'-out',join(mailDirectory,'mail.csr'),'-subj','/CN=host.docker.internal']);
  write(join(mailDirectory,'mail.ext'),'subjectAltName=DNS:host.docker.internal,DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n');
  run('openssl',['x509','-req','-in',join(mailDirectory,'mail.csr'),'-CA',join(gateway,'state/ca.pem'),'-CAkey',join(gateway,'state/ca.key'),'-CAcreateserial','-out',join(mailDirectory,'mail.pem'),'-days','2','-extfile',join(mailDirectory,'mail.ext')]);
- run('docker',['run','--detach','--name',mail,'--platform',platform,'--user',String(process.getuid())+':'+process.getgid(),'--publish','127.0.0.1:11465:1025','--publish','127.0.0.1:11825:8025','--env','MP_SMTP_TLS_CERT=/tls/mail.pem','--env','MP_SMTP_TLS_KEY=/tls/mail.key','--env','MP_SMTP_REQUIRE_TLS=true','--volume',mailDirectory+':/tls:ro',upstream['x-acceptance-images'].mailpit]);
+ run('docker',['run','--detach','--name',mail,'--platform',platform,'--user',String(process.getuid())+':'+process.getgid(),'--publish','127.0.0.1:11465:1025','--publish','127.0.0.1:11825:8025','--env','MP_SMTP_TLS_CERT=/tls/mail.pem','--env','MP_SMTP_TLS_KEY=/tls/mail.key','--env','MP_SMTP_REQUIRE_TLS=true','--env','MP_SMTP_AUTH_ACCEPT_ANY=false','--env','MP_SMTP_AUTH=acceptance:'+settings.SMTP_PASSWORD,'--volume',mailDirectory+':/tls:ro',upstream['x-acceptance-images'].mailpit]);
  await wait(async()=>assert.equal((await fetch('http://127.0.0.1:11825/api/v1/messages',{signal:AbortSignal.timeout(5000)})).status,200),'SMTP catcher');
  advance('normal-owner-login');
  const email=settings.OWNER_EMAIL;assert.equal((await https('/api/v1/auth/request-link','POST',{email,deviceNonce:'stage5-customer-acceptance'})).status,202);

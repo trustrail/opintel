@@ -5,13 +5,17 @@ import {bulkFixture} from './fixtures/bulk-entitlements/fixture.js';
 import {PoolKeyService,PostgresPoolKeys,PostgresKeyVerifier,PostgresAgentPresence} from '../src/modules/pools/index.js';
 import {PostgresMcpConfiguration,type McpPrincipal} from '../src/modules/mcp/index.js';
 import {PoolKeyCreationResponse} from '../src/shared/api/pool-keys.js';
-import type {Result} from '../src/shared/kernel/index.js';
+import {Timestamp,type Result} from '../src/shared/kernel/index.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
 afterEach(()=>vi.restoreAllMocks());
 async function fixture(){
  const f=await bulkFixture(0);
  await scopes.withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,f.ctx.userId+'@example.com']));
- const created=PoolKeyCreationResponse.parse(unwrap(await new PoolKeyService(new PostgresPoolKeys(),new PostgresAgentPresence({publish:async()=>{}})).execute(f.ctx,{kind:'create',name:'Sweep fixture'},randomUUID())));
+ // Valid-key fixtures must be past according to the database clock, independent
+ // of host/VM millisecond skew. The future-key case below remains explicit.
+ const [time]=await scopes.withPlatform(tx=>tx.query<{now:Date}>("SELECT clock_timestamp()-interval '1 second' AS now"));
+ if(!time)throw new Error('Database fixture clock unavailable');
+ const created=PoolKeyCreationResponse.parse(unwrap(await new PoolKeyService(new PostgresPoolKeys({now:()=>Timestamp(time.now)}),new PostgresAgentPresence({publish:async()=>{}})).execute(f.ctx,{kind:'create',name:'Sweep fixture'},randomUUID())));
  if(!created.keyShown)throw new Error('Missing fixture key');
  const key=await new PostgresKeyVerifier().verify(created.key);if(!key.ok)throw new Error('Invalid fixture key');
  const principal:McpPrincipal={...key,agentId:'fixture'};

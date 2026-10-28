@@ -527,3 +527,68 @@ product gate or image publication was performed for this follow-up.
 Merge to main and release tagging remain conditional on one passing two-minute
 Intel acceptance after the planned reboot. No merge or tag is authorized before
 that result.
+
+## SMTP credential preservation follow-up
+
+The installer read package.env with dotenv (unquoted hash comments and trimming),
+then serialized settings to quoted env files for another Compose parse. The API
+also overrode the env-file password from interpolated state/package.env, while
+operator jobs used state/operator.env. Nodemailer itself forwards the configured
+password without trimming. An exclamation mark alone is not special to dotenv
+or these noninteractive shell commands; the reported WorkMail failure has not
+yet been reproduced with the real private credential.
+
+SMTP_PASSWORD now has one literal-line parser with optional matching outer quote
+delimiters and no expansion, comment syntax, trimming or backslash decoding. A
+private mode-0600 raw Compose env file supplies that exact value to API and all
+operator/demo jobs, with no environment override. Regression input contains
+spaces, punctuation, apostrophe, backslash, !, $, #, % and a trailing equals.
+Compose config escapes dollars for its serializable output; assertions account
+for that representation without changing the raw runtime value.
+
+The browser SMTP catcher now requires the exact synthetic password containing
+!/$/#/%/=. The separate real-relay acceptance requires the SMTP block in
+STAGE4_PROVIDER_ENV, invokes the packaged operator and requires the relay's
+accepted 2xx response. SMTP_TEST_RECIPIENT optionally selects a destination;
+default is SMTP_SENDER. Missing credentials or a refused send fail acceptance.
+The operator supplied the SMTP block in `/Users/rzarita/opintel/.env` after
+rebooting the Intel host. Real relay verification is required in the next
+published-package acceptance; no credentials are recorded here.
+
+The first post-reboot full gate passed typechecks, lint, production-artifact
+checks and all 59 conformance checks, then failed before normal tests because
+the isolated worktree had been given a node_modules symlink. Browser-container
+setup replaced that symlink with Linux dependencies, leaving macOS esbuild
+unavailable. Native dependencies are installed directly in the worktree before
+a new completed-candidate gate. Failed gate retained at
+`/private/tmp/stage5-smtp-full-gate-2.log`; no commit or publication followed it.
+
+The next full gate again passed all 59 conformance checks, then bootstrap
+inspection found that pruning had removed the normal suite's floating image
+aliases (`redis:7-alpine` and `authzed/spicedb:latest`). The next run explicitly
+uses the repository's pinned Redis and SpiceDB image digests through the
+normal-suite image settings. No test assertion or product behavior is changed.
+Failed gate retained at `/private/tmp/stage5-smtp-full-gate-3.log`.
+
+The subsequent gate stopped in dependency preflight: PostgreSQL and Redis
+probes exceeded their unchanged five-second deadlines immediately after image
+setup. Both containers were healthy, published ports matched the provider file,
+and independent probes then succeeded in 3.17 and 0.75 seconds. Readiness was
+verified before the next full gate. Failed log:
+`/private/tmp/stage5-smtp-full-gate-4.log`. No timeout assertion was relaxed.
+
+The completed normal suite then reported 81 failures across 21 files (2,104
+tests passed). Most were scanner-dependent paths: the new isolated worktree
+had no prepared native scanner. One bulk-entitlement reset hook also exceeded
+its existing 10-second guard. The standard `sidecar:prepare-scanner` command
+then downloaded the pinned native extension and successfully LOAD-verified its
+signature/build/platform. A new full gate is required with that prerequisite
+present. Failed log: `/private/tmp/stage5-smtp-full-gate-5.log`.
+
+The scanner-ready full gate passed 2,182 tests and failed three session-sweep
+fixture assertions. The application issues key timestamps from the host clock;
+the sweep rejects future keys against PostgreSQL statement time. Independent
+clock samples showed millisecond host/VM skew. Valid-key sweep fixtures now
+inject a database-derived creation time one second in the past, while the
+explicit future-key refusal and all batch/governance assertions remain intact.
+Failed log: `/private/tmp/stage5-smtp-full-gate-6.log`. A new full gate is required.

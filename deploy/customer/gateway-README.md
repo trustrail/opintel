@@ -9,6 +9,10 @@ stick. Run the commands below from that directory.
    `smtp.mail.us-east-1.awsapps.com`, port `465`, TLS mode `implicit`, sender
    `noreply@trustrail.io`. STARTTLS uses `starttls`. Optional TLS certificate and key
    paths must both be supplied. Other settings and secrets are generated.
+   `SMTP_PASSWORD` is literal text after `=`: no expansion, comments, trimming or
+   backslash escapes. Matching outer single or double quotes are delimiters and
+   are removed once; use outer quotes to preserve a value that itself begins and
+   ends with a quote. Keep the value on one line.
 2. Run `./install`. It loads the offline images, starts and checks services, claims
    the owner email and prints the sign-in address. Save the custody master key
    printed **once** in an offline backup, then run `./backup`. Protect `package.env`,

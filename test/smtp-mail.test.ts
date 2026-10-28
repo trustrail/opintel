@@ -11,17 +11,19 @@ let directory:string,tls:Awaited<ReturnType<typeof loadSidecarConfig>>['tls'];
 beforeAll(async()=>{directory=await mkdtemp(join(tmpdir(),'smtp-test-'));await prepareSidecarDevelopment(directory);tls=(await loadSidecarConfig(join(directory,'service.json'))).tls;},30000);
 afterAll(async()=>{await rm(directory,{recursive:true,force:true});});
 it.each(['implicit','starttls'] as const)('DEP-015: %s delivers mail over verified TLS without logging authentication material',async tlsMode=>{
- let delivered='',encrypted=false;
- const server=new SMTPServer({secure:tlsMode==='implicit',key:tls.key,cert:tls.cert,authOptional:true,disabledCommands:['AUTH'],onData(stream,session,callback){encrypted=session.secure;stream.on('data',chunk=>{delivered+=String(chunk);});stream.on('end',()=>callback());}});
+ let delivered='',encrypted=false;const password='fixture!$#%=';
+ const server=new SMTPServer({secure:tlsMode==='implicit',key:tls.key,cert:tls.cert,authOptional:false,onAuth(auth,session,callback){if(auth.username==='acceptance'&&auth.password===password)callback(null,{user:'acceptance'});else callback(new Error('Invalid credentials'));},onData(stream,session,callback){encrypted=session.secure;stream.on('data',chunk=>{delivered+=String(chunk);});stream.on('end',()=>callback());}});
  server.on('error',()=>{});
  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const address=server.server.address();if(!address||typeof address==='string')throw new Error();
  const log=vi.spyOn(console,'info').mockImplementation(()=>{});
  try{
-  const config={host:'127.0.0.1',port:address.port,user:'',password:'',sender:'sender@example.invalid',tlsMode};
+  const config={host:'127.0.0.1',port:address.port,user:'acceptance',password,sender:'sender@example.invalid',tlsMode};
   const adapter=new SmtpMailAdapter(config,new SystemClock(),'https://gateway.example.invalid',tls.ca);
   expect(await adapter.send({to:'person@example.invalid',template:'magic_link',vars:{token:'synthetic-only-token'},idempotencyKey:'synthetic-mail'})).toMatchObject({ok:true});
   expect(encrypted).toBe(true);expect(delivered).toContain('synthetic-only-token');expect(delivered).toContain('/auth/callback');expect(log).toHaveBeenCalledWith(expect.objectContaining({event:'mail.sent',responseCode:'250'}));
   expect(JSON.stringify(log.mock.calls)).not.toContain('synthetic-only-token');expect(JSON.stringify(log.mock.calls)).not.toContain('/auth/callback');
+  const wrongPassword=new SmtpMailAdapter({...config,password:password+'wrong'},new SystemClock(),'https://gateway.example.invalid',tls.ca);
+  expect(await wrongPassword.send({to:'person@example.invalid',template:'alert',vars:{message:'test'},idempotencyKey:'wrong-password'})).toMatchObject({ok:false,error:{details:{error:'EAUTH',responseCode:535}}});
   const untrusted=new SmtpMailAdapter(config,new SystemClock(),'https://gateway.example.invalid');
   expect(await untrusted.send({to:'person@example.invalid',template:'magic_link',vars:{token:'synthetic-only-token'},idempotencyKey:'untrusted'})).toMatchObject({ok:false,error:{code:'dependency_unavailable'}});
  }finally{log.mockRestore();await new Promise<void>(r=>server.close(()=>r()));}
