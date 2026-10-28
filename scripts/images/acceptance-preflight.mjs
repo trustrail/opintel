@@ -19,3 +19,17 @@ export async function acceptancePortPreflight(ports,{env=process.env,run=spawnSy
   });
  }
 }
+
+/** Allocation floor only: available memory and host contention still affect timings.
+ * Record the allocation in acceptance evidence before loading customer images. */
+export function acceptanceMemoryPreflight({env=process.env,run=spawnSync}={}){
+ const minimumGiB=Number(env.STAGE5_MIN_DOCKER_MEMORY_GIB??3);
+ if(!Number.isFinite(minimumGiB)||minimumGiB<=0)throw new Error('STAGE5_MIN_DOCKER_MEMORY_GIB must be positive.');
+ const response=run('docker',['info','--format','{{.MemTotal}}'],{encoding:'utf8',env,timeout:10000});
+ if(response.error||response.status!==0)throw new Error('Docker memory preflight could not inspect its allocation; start or restart Docker Desktop.');
+ const allocatedBytes=Number(response.stdout.trim());
+ if(!Number.isSafeInteger(allocatedBytes)||allocatedBytes<=0)throw new Error('Docker memory preflight received an invalid allocation.');
+ const minimumBytes=minimumGiB*1024**3;
+ if(allocatedBytes<minimumBytes)throw new Error(`Docker memory allocation ${(allocatedBytes/1024**3).toFixed(2)} GiB is below ${minimumGiB} GiB; increase Docker Desktop memory before acceptance.`);
+ return {allocatedBytes,minimumBytes};
+}

@@ -502,3 +502,28 @@ credential travels over IPC; the same private-file read, live-authority check,
 SIGKILL and immediate refusal assertions remain. The 10-second readiness bound
 is unchanged. Failed gate log: `/private/tmp/stage5-key-full-gate.log`. A new
 full gate is required for this corrected candidate; the failed run is retained.
+
+## 587c74f arm64 acceptance and Intel follow-up
+
+The operator reports a PASS from a wiped arm64 host at `587c74f`: 1,542
+queries, 549 custody values verified, zero refusals, zero invariant breaches,
+zero operational errors, and all scenarios exercised. This is operator-reported
+evidence; the local Intel results remain failed and are retained separately.
+
+The acceptance harness now defaults to a 120-second soak. Use
+`--duration-seconds 1800` for the full 30-minute run. The duration is recorded
+in `result.json`. Before extracting or loading archives, Docker memory
+preflight records the allocation and requires at least 3 GiB;
+`STAGE5_MIN_DOCKER_MEMORY_GIB` can raise that floor. This is an allocation
+check, not proof of available memory or timing capacity.
+
+Validation for this script-only follow-up, as authorized by the operator:
+JavaScript syntax checks, ESLint on both changed scripts, and all five
+isolated acceptance-preflight tests passed. The initial normal Vitest launcher
+could not bootstrap its database because the development containers are stopped;
+the isolated script test configuration has no database prerequisite. No full
+product gate or image publication was performed for this follow-up.
+
+Merge to main and release tagging remain conditional on one passing two-minute
+Intel acceptance after the planned reboot. No merge or tag is authorized before
+that result.

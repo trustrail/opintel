@@ -1,6 +1,6 @@
 import {createServer} from 'node:net';
 import {expect,it,vi} from 'vitest';
-import {acceptancePortPreflight} from '../scripts/images/acceptance-preflight.mjs';
+import {acceptancePortPreflight,acceptanceMemoryPreflight} from '../scripts/images/acceptance-preflight.mjs';
 const empty=command=>({status:command==='lsof'?1:0,stdout:'',stderr:''});
 it('acceptance names a Docker install holding a required port',async()=>{
  await expect(acceptancePortPreflight([3100],{run:()=>({status:0,stdout:'customer-engine-1 (customer-engine)'})})).rejects.toThrow('Docker install customer-engine-1 (customer-engine)');
@@ -16,4 +16,14 @@ it('acceptance rejects a real loopback-only listener even when owner discovery r
 });
 it('acceptance refuses failed listener inspection',async()=>{
  await expect(acceptancePortPreflight([3100],{run:command=>command==='lsof'?{status:null,stdout:'',error:{code:'ETIMEDOUT'}}:empty(command)})).rejects.toThrow('could not inspect host listeners');
+});
+
+it('memory preflight records sufficient allocation and refuses insufficient or uninspectable Docker memory',()=>{
+ const run=stdout=>()=>({status:0,stdout});
+ expect(acceptanceMemoryPreflight({env:{},run:run(String(4*1024**3))})).toEqual({allocatedBytes:4*1024**3,minimumBytes:3*1024**3});
+ expect(()=>acceptanceMemoryPreflight({env:{},run:run(String(2*1024**3))})).toThrow('increase Docker Desktop memory');
+ expect(()=>acceptanceMemoryPreflight({env:{},run:()=>({status:1})})).toThrow('could not inspect');
+ expect(()=>acceptanceMemoryPreflight({env:{},run:run('unknown')})).toThrow('invalid allocation');
+ expect(()=>acceptanceMemoryPreflight({env:{STAGE5_MIN_DOCKER_MEMORY_GIB:'invalid'},run:run('0')})).toThrow('must be positive');
+ expect(()=>acceptanceMemoryPreflight({env:{STAGE5_MIN_DOCKER_MEMORY_GIB:'5'},run:run(String(4*1024**3))})).toThrow('below 5 GiB');
 });

@@ -10,7 +10,7 @@ import {homedir} from 'node:os';
 import {request} from 'node:https';
 import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
-import {acceptancePortPreflight} from './acceptance-preflight.mjs';
+import {acceptancePortPreflight,acceptanceMemoryPreflight} from './acceptance-preflight.mjs';
 import {captureProcessLog} from './acceptance-log.mjs';
 import {setTimeout} from 'node:timers/promises';
 import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
@@ -20,7 +20,16 @@ import {auditPackage} from './package-audit.mjs';
 // External acceptance only. It never alters generated package configuration.
 const archives=resolve(process.argv[2]??''),manifest=JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8'));
 const platform=process.env.PLATFORM??'linux/amd64',prefix=manifest.revision.slice(0,7);
-const candidate=process.argv[3]==='--candidate';if(!candidate){assert.equal(manifest.candidate,false,'Published release required');assert.ok(manifest.publishedAt);}
+let candidate=false,soakDurationSeconds=120;
+for(let index=3;index<process.argv.length;index++){
+ const argument=process.argv[index];
+ if(argument==='--candidate')candidate=true;
+ else if(argument==='--duration-seconds'){
+  const value=process.argv[++index];assert.match(value??'',/^[1-9][0-9]*$/u,'--duration-seconds requires a positive integer');
+  soakDurationSeconds=Number(value);assert.ok(Number.isSafeInteger(soakDurationSeconds)&&soakDurationSeconds<=86400,'Soak duration must be 1–86400 seconds');
+ }else throw new Error('Unknown acceptance argument: '+argument);
+}
+if(!candidate){assert.equal(manifest.candidate,false,'Published release required');assert.ok(manifest.publishedAt);}
 assert.equal(platform,'linux/'+(process.arch==='arm64'?'arm64':'amd64'),'Native acceptance required');
 const provider=parse(readFileSync(process.env.STAGE4_PROVIDER_ENV??'.env','utf8'));
 const providerNames=['OPINTEL_XQ_API_KEY','OPINTEL_XQ_DASHBOARD_API_KEY','OPINTEL_XQ_SENDER_ALIAS','OPINTEL_XQ_SENDER_ACCESS_TOKEN','OPINTEL_XQ_TEAM_ID'];
@@ -28,7 +37,7 @@ for(const name of providerNames)assert.ok(provider[name],'Missing provider setti
 mkdirSync('tmp',{recursive:true});
 const directory=resolve(mkdtempSync('tmp/stage5-acceptance-'));chmodSync(directory,0o700);
 const write=(file,value)=>{writeFileSync(file,typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode:0o600});chmodSync(file,0o600);};
-const result={revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:'customer archives → install → pair → demo soak',checks:{}};
+const result={revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',soakDurationSeconds,startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:'customer archives → install → pair → demo soak',checks:{}};
 const resultFile=join(directory,'result.json');write(resultFile,result);
 const unique=Date.now().toString(),daemon='opintel-stage5-daemon-'+unique,mail='opintel-stage5-mail-'+unique;
 const daemonVolume=daemon+'-data',nested={...process.env,DOCKER_HOST:'tcp://127.0.0.1:12375',DOCKER_CONTEXT:'',DOCKER_TLS_VERIFY:'',DOCKER_CERT_PATH:'',DOCKER_CLI_HINTS:'false'};
@@ -63,6 +72,8 @@ function browserCheck(restore=false){
 }
 try{
  console.log('Stage 5 acceptance directory: '+directory);
+ result.checks.dockerMemory=acceptanceMemoryPreflight({env:outer});write(resultFile,result);
+ console.log('Docker memory allocation: '+(result.checks.dockerMemory.allocatedBytes/1024**3).toFixed(2)+' GiB');
  await acceptancePortPreflight([443,3100,3101,3102,3103,5434,11465,11825,12375],{env:outer});
  advance('extract-and-audit-archives');
  for(const kind of ['gateway','engine']){run('tar',['-xpf',join(archives,kind+'-'+prefix+'-'+platform.split('/')[1]+'.tar.gz'),'-C',directory]);auditPackage(join(directory,kind));const release=JSON.parse(readFileSync(join(directory,kind,'release.json')));assert.equal(release.revision,manifest.revision);assert.equal(release.customerPackageVersion,1,'Customer archive marker absent');for(const [target,digest] of Object.entries(release.images))assert.equal(digest,manifest.artifacts.find(a=>a.platform===platform&&a.target===target)?.repoDigests[0],'Archive image provenance mismatch: '+target);}
@@ -106,7 +117,7 @@ try{
  const xqResult=JSON.parse(readFileSync(join(xqDirectory,'result.json')));assert.equal(xqResult.status,'passed');assert.equal(xqResult.keyEncoding,'sdk-base64-hex-256');assert.equal(xqResult.attempted,200);assert.equal(xqResult.verified,200);assert.equal(xqResult.required,200);assert.equal(xqResult.attempts.length,200);assert.equal(new Set(xqResult.attempts.map(attempt=>attempt.id)).size,200);assert.ok(xqResult.attempts.every(attempt=>attempt.verified&&attempt.fetchStatus===200&&!attempt.cleanupFailed));
  result.checks.xqCheck={authenticated:true,escrowRedeemAttempted:200,escrowRedeemVerified:200,result:join(xqDirectory,'result.json')};
  advance('customer-demo-soak');
- const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak','1800'],{env:nested,stdio:['ignore','pipe','pipe']});
+ const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak',String(soakDurationSeconds)],{env:nested,stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));child.stderr.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));childDone=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve);});
  const output=join(gateway,'state/output');let runDirectory,jsonl;
  await wait(()=>{if(child.exitCode!==null)throw new Error('Demo exited '+child.exitCode+'; '+soakLog);runDirectory=join(output,readdirSync(output).find(name=>name.startsWith('soak-run-'))??'not-started');const soak=join(runDirectory,'soak');jsonl=join(soak,readdirSync(soak).find(name=>name.endsWith('.jsonl'))??'not-started');assert.ok(readFileSync(jsonl,'utf8').includes('"type":"start"'));},'Packaged soak start',300000);
@@ -120,7 +131,7 @@ try{
  compose('gateway','start','console');await wait(async()=>assert.equal((await https('/sign-in')).status,200),'Console return');result.checks.consoleIsolation={stoppedAt,resumedAt:new Date().toISOString(),verifiedQueriesDuringOutage:verified.length};result.checks.browserRestored=browserCheck(true);
  advance('soak-result');assert.equal(await childDone,0,'Customer demo soak failed');child=undefined;
  const soakResult=JSON.parse(readFileSync(join(runDirectory,'result.json'))),summary=events().at(-1);assert.equal(soakResult.status,'passed');assert.equal(summary.status,'PASSED');assert.equal(summary.operationalErrors,0);assert.equal(summary.invariantBreaches,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
- result.checks.packagedSoak={durationSeconds:1800,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
+ result.checks.packagedSoak={durationSeconds:soakDurationSeconds,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
  result.status='passed';result.finishedAt=new Date().toISOString();
 }catch(error){result.status='failed';result.failure={phase,message:error instanceof Error?error.message:'Acceptance failed'};process.exitCode=1;}
 finally{
