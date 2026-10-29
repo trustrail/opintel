@@ -6049,3 +6049,26 @@ The API transport records parent versus transport_deadline cancellation. The
 engine retains the last source phase in request-local asynchronous context and
 attaches its operation, attempt, bounded native code/SQLSTATE, state and
 timestamp when cancelled. Refusal logs carry these fields and queue wait.
+
+### 5.38a — unified needs-you projection
+
+`GET /api/v1/projects/:id/needs-you` requires project view. It returns one
+cursor-paged list of undecided **name groups per pool** (null names remain
+separate identities), missing effective row decisions on already scoped objects,
+required query settings and conditional sampling/XQ settings, open token-join
+Suggestions, open lifecycle Observations, and required/failed saved checks.
+Items carry stable id, kind, safe title, affected count, existing target route
+and project roles for the resolving action. This is a read model, never a new
+decision store. Withheld is decided; an unscoped object is not missing a row
+filter. Suggestions use the latest immutable review; not_sure stays open.
+Observation resolution follows 5.31 facts, not an acknowledgement action.
+
+Custody Observations and token-key findings are included only after a current
+project administer check. Cursor scope binds project and this privilege bit;
+a role change invalidates a previously issued cursor. Results use C-collated
+stable item-id keyset ordering, a 1–100 limit and no-store. Counts mean affected
+members of that item; adding counts across kinds is not a unique issue total.
+Settings with safe defaults, optional retention and inactive sampling settings
+do not become compulsory. Checks report saved observations, not fresh network
+probes performed during a GET. Pagination is a live projection, not a durable
+snapshot; callers restart after mutations.

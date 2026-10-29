@@ -8,6 +8,8 @@ import {createServer} from 'node:net';
 import {gatePreflight} from './gate-preflight.mjs';
 import {gateDatabase} from './gate-database.mjs';
 import {gateMemoryMonitor} from './gate-memory.mjs';
+import {randomUUID} from 'node:crypto';
+import {cleanupGateContainers} from './gate-containers.mjs';
 async function isolation(tier){
  const checks=[];
  for(const port of [3000,3100,3101,4173,5173]){
@@ -20,6 +22,7 @@ async function isolation(tier){
 }
 
 const commit=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
+const runId=randomUUID();process.env.OPINTEL_GATE_RUN_ID=runId;
 const start=performance.now(),tiers=[];
 let preflight,database,cleanup,interrupted,child,killTimer;
 const memory=gateMemoryMonitor();
@@ -35,7 +38,7 @@ const interrupt=()=>stop('SIGINT'),terminate=()=>stop('SIGTERM');
 process.on('SIGINT',interrupt);process.on('SIGTERM',terminate);
 function record(){
  mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,preflight,memory:memory.snapshot(),tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===7&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted},null,2)+'\n');
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,runId,preflight,memory:memory.snapshot(),tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===7&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted},null,2)+'\n');
 }
 async function tier(script){
  return new Promise(resolve=>{
@@ -72,6 +75,8 @@ try{
 }finally{
  try{await database?.close();cleanup={database:database?.name,exitCode:0};}
  catch(error){cleanup={database:database?.name,exitCode:1,message:error.message};console.error(error.message);process.exitCode=1;}
+ try{const owned=tiers.length?await cleanupGateContainers(runId):{removed:0};cleanup.containersRemoved=owned.removed;}
+ catch{cleanup.exitCode=1;cleanup.containerCleanup='failed';console.error('Gate-owned container cleanup failed; preserve the run-labelled fixtures for inspection.');process.exitCode=1;}
  await memory.stop();
  clearTimeout(killTimer);
  process.removeListener('SIGINT',interrupt);process.removeListener('SIGTERM',terminate);

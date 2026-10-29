@@ -9,6 +9,7 @@ import type {DevEnvironment} from '../dev-environment.js';
 import {checkSpiceDb} from '../service-readiness.js';
 import {observeReset} from './database-deadline.js';
 import {datastoreSnapshot} from './spicedb-datastore.js';
+import {gateContainerLabels} from '../gate-containers.mjs';
 const exec=promisify(execFile);
 const quote=(name:string)=>'"'+name.replaceAll('"','""')+'"';
 
@@ -17,7 +18,7 @@ export async function freshNormalSpiceDb(environment:DevEnvironment){
  const name='opintel-normal-spicedb-'+randomUUID(),token=randomUUID();let created=false;
  const close=async()=>{if(created){await exec('docker',['rm','--force',name]);created=false;}};
  try{
-  await exec('docker',['run','--detach','--name',name,'--publish','127.0.0.1::50051',image,'serve','--grpc-preshared-key',token,'--datastore-engine','memory']);created=true;
+  await exec('docker',['run','--detach','--name',name,...gateContainerLabels(),'--publish','127.0.0.1::50051',image,'serve','--grpc-preshared-key',token,'--datastore-engine','memory']);created=true;
   const address=(await exec('docker',['port',name,'50051/tcp'])).stdout.trim();
   if(!/^127\.0\.0\.1:\d+$/u.test(address))throw new Error('Unexpected isolated SpiceDB bind address.');
   const endpoint=address.replace('127.0.0.1:','localhost:');assertTestSpiceDb(endpoint);const until=Date.now()+20_000;

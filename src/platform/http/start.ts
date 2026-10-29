@@ -26,6 +26,8 @@ import {PostgresSettings} from '../../modules/tenancy/index.js';
 import {PostgresDashboardReader} from '../../modules/tenancy/index.js';
 import {InstallationClaimAdmission,PostgresInstallationClaimRepository} from '../../modules/tenancy/index.js';
 import {dashboardRoutes} from '../../modules/tenancy/api/dashboard-routes.js';
+import {needsYouRoutes} from '../../modules/tenancy/api/needs-you-routes.js';
+import {PostgresNeedsYouReader} from '../../modules/tenancy/index.js';
 import {PostgresPoolReader} from '../../modules/pools/index.js';
 import {poolReadRoutes} from '../../modules/pools/api/read-routes.js';
 import {evidenceExportRoutes} from '../../modules/evidence/api/export-routes.js';
@@ -272,6 +274,7 @@ async function start(): Promise<void> {
     ...evidenceRoutes(evidenceQuery),
     ...suggestionRoutes(new PostgresSuggestions(evidenceQuery)),
     ...dashboardRoutes(new PostgresDashboardReader()),
+    ...needsYouRoutes(new PostgresNeedsYouReader(),authorization),
     ...poolReadRoutes(new PostgresPoolReader()),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody), presence)),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),

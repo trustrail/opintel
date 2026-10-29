@@ -1327,3 +1327,15 @@ B4a set-operation refusal, A1 token-domain comparability and 5.24a Suggestions
 candidate scenarios to the existing fixture. No compiler/refusal/Observations
 behaviour changes. The versioned declaration expands from six to eight objects
 and from 85 to 115 scenarios for ten associated credentials.
+
+### 5.38 Console redesign backend (approved 2026-10-28)
+
+Before scaffolding the redesign, add destination-owned, permissioned backend
+read models and the missing pool binding workflow. Deliver independently gated
+commits: (1) cursor-paged project needs-you, (2) project health and persisted mail
+checks/API TLS state, (3) post-commit run.completed SSE, (4) public pool source
+bindings and modes, (5) immutable redeeming-device snapshots on release events.
+For (6), write and report `docs/design/receipt-chain.md` before implementation.
+No new refusal/treatment rules, manual Observation resolutions or UI are implied.
+The first-hour release acceptance uses only public console APIs and MCP on a new
+empty project. Its first baseline must expose the missing binding route.

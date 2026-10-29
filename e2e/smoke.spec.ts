@@ -13,8 +13,14 @@ import {detail as poolTemplate} from './pools-fixture.js';
 
 // One continuous path. Identity delivery/session is a fixture boundary; decisions,
 // permission checks, database, MCP authentication, Engine and evidence are real.
+// Provision infrastructure before the user-path deadline. Both hooks retain
+// Playwright's unchanged 30-second bound; the continuous browser/MCP path still
+// has the same 30-second deadline and all of its original assertions.
+let prepared:Awaited<ReturnType<typeof queryFixture>>|undefined;
+test.beforeAll(async()=>{prepared=await queryFixture(new PostgresEvidenceWriter());});
+test.afterAll(async()=>{await prepared?.close();});
 test('sign in → pool → row filter → authenticated MCP query → persisted receipt decision',async({page})=>{
- const f=await queryFixture(new PostgresEvidenceWriter());
+ const f=prepared;if(!f)throw new Error('Smoke backend infrastructure was not prepared.');
  const repo=new PostgresRowDecisions();let signedIn=false;
  const server=createHttpServer(rowDecisionRoutes(repo),{authorization:{currentUser:async()=>signedIn?f.actor:null,port:f.authorization}});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();
@@ -67,5 +73,5 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
   const receipt=page.getByRole('region',{name:'Row scope receipt'});
   await expect(receipt.getByRole('link',{name:`Decision ${decision.id}`})).toBeVisible();
   await expect(receipt).toContainText('5 returned rows');await expect(receipt).toContainText('agent credential');
- }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));await f.close();}
+ }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

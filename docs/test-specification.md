@@ -1756,3 +1756,15 @@ candidate; shared domains compare equal and isolated elements differ. Nulls and
 repeated values are included. Negative controls reject late masking, wrong or
 missing refusal evidence, an unrelated candidate, and inverted token relations.
 Both development and packaged seeders declare the same eight-table fixture.
+
+### Console redesign backend — needs-you
+
+| ID | Type | Case | Expected |
+|---|---|---|---|
+| NY-001 | D | Bound undecided fields across objects and a decided field | Name groups/counts match entitlement reader; decided fields absent |
+| NY-002 | D | Scoped object missing a pool decision versus unscoped object | Only missing effective scope appears |
+| NY-003 | D | Required settings versus optional/default/conditional fields | Required missing values only; explicit false/zero not mistaken for absence |
+| NY-004 | D | Current open Suggestions and lifecycle Observations | Latest owning facts determine inclusion; no resolution written |
+| NY-005 | S | Custody observation and token-key findings with/without administer | Hidden from non-administrators, including cursor replay after demotion |
+| NY-006 | S | Multiple pages, other project and forged cursor | Complete stable keyset pages, tenant isolation, invalid scope rejected |
+| NY-007 | D | Failed/unverified checks and recovered facts | Needs-you reflects current saved check state without contacting sources |

@@ -1,0 +1,8 @@
+import {z} from 'zod';
+import {createApiClient} from './client.js';
+export const NeedsYouQuery=z.object({cursor:z.string().max(4096).optional(),limit:z.coerce.number().int().min(1).max(100).default(25)});
+export const NeedsYouItem=z.strictObject({id:z.string(),kind:z.enum(['undecided_entitlement','missing_row_decision','setting_required','suggestion','observation','check_required','check_failed']),title:z.string(),count:z.number().int().positive(),targetRoute:z.string().startsWith('/projects/'),roles:z.array(z.enum(['admin','operator','viewer'])).min(1)});
+export const NeedsYouPage=z.strictObject({items:z.array(NeedsYouItem),nextCursor:z.string().nullable()});
+export type NeedsYouItem=z.infer<typeof NeedsYouItem>;
+export function readNeedsYou(project:string,cursor?:string){return createApiClient().request({path:`/api/v1/projects/${project}/needs-you${cursor?'?cursor='+encodeURIComponent(cursor):''}`,response:NeedsYouPage});}
+export function needsYouOpenApiDocument(){return {openapi:'3.1.0',info:{title:'Project needs you',version:'1'},paths:{'/api/v1/projects/{id}/needs-you':{get:{'x-permission':'project#view',description:'Live read-only projection. Custody observations and token-key findings require administer; cursors bind the current privilege scope. No decision is written.',parameters:[{name:'id',in:'path',required:true,schema:{type:'string',format:'uuid'}},...Object.entries(NeedsYouQuery.shape).map(([name,schema])=>({name,in:'query',schema:z.toJSONSchema(schema)}))],responses:{200:{description:'One cursor-paged list, ordered by stable item id; counts are scoped to each finding.',content:{'application/json':{schema:z.toJSONSchema(NeedsYouPage)}}},default:{description:'Standard error envelope'}}}}}};}

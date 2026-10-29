@@ -119,3 +119,12 @@ an internal transport URL as the canonical custody-check URL. It compares actual
 checkBinding values from generated API/operator environments while requiring the
 separate internal TLS target. Matching transport reachability alone is not a
 substitute for the unchanged provider configuration binding.
+
+Parent-owned fixture cleanup (2026-10-28): normal Redis/SpiceDB and browser
+containers carry a unique gate-run label. The parent removes only that run's
+remaining fixtures during final cleanup; a cleanup failure cannot produce a
+green gate. Defect class: interrupted launchers leaking test services after
+skipping their finally. Concrete example: two normal-service containers remained
+from the interrupted console-needs-you gate; the Docker ownership proof removed
+a labelled fixture while preserving an unlabelled sentinel. This adds no tier,
+retry or service/behavioral timeout relaxation.
