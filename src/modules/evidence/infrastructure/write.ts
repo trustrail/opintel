@@ -1,3 +1,5 @@
+import {notify,type ProjectEvents} from '../../../platform/sse/port.js';
+import type {ProjectChange} from '../../../shared/api/stream.js';
 import {joinCandidateColumns} from '../application/join-candidates.js';
 import {createHash} from 'node:crypto';
 import {readSetting,projectSettingSchema} from '../../../shared/project-settings.js';
@@ -11,6 +13,7 @@ import type {EvidenceWriterPort,EvidencePrincipal,EvidencePlan,EvidenceFinish} f
  * No row values enter this port. No current decisions are consulted at close. */
 export class PostgresEvidenceWriter implements EvidenceWriterPort {
  readonly implementation='durable' as const;
+ constructor(private readonly events?:ProjectEvents){}
  async open(principal:EvidencePrincipal,sql:string,plan?:EvidencePlan){
   if(plan?.requiresTokenization&&plan.versions.tokenKeyVersionSelected===null)return err(new DomainError('dependency_unavailable','Initialize token key custody before running a tokenized plan. No source was contacted.'));
   const ctx={projectId:principal.pool.projectId,userId:principal.scopeUserId};
@@ -30,7 +33,8 @@ export class PostgresEvidenceWriter implements EvidenceWriterPort {
  async close(id:RunId,finish:EvidenceFinish,principal:EvidencePrincipal){
   const ctx={projectId:principal.pool.projectId,userId:principal.scopeUserId};
   const recordingStarted=performance.now();
-  return withTenant(ctx,async tx=>{
+  let completed:ProjectChange|undefined;
+  const result=await withTenant(ctx,async tx=>{
    const [row]=await tx.query<{header:Record<string,unknown>;startedAt:string;captureSelected:boolean}>(`SELECT capture_selected AS "captureSelected",started_at::text AS "startedAt",jsonb_build_object('id',id,'projectId',project_id,'poolId',pool_id,'agentId',agent_id,'keyPrefix',key_prefix,'credentialId',credential_id,'custodyAlias',custody_alias,'mode',mode,'request',request,'versions',versions,'startedAt',started_at) AS header FROM query_run WHERE id=$1 AND pool_id=$2`,[id,principal.pool.id]);
    if(!row)return err(new DomainError('not_found','The open evidence record was not found.'));
    const plan=finish.plan;
@@ -56,7 +60,10 @@ export class PostgresEvidenceWriter implements EvidenceWriterPort {
    for(const e of record.value.state.elements)await tx.query('INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment,withheld_reason) VALUES($1,$2,$3,$4,$5,$6,$7)',[id,row.startedAt,e.elementId,e.exposedName,e.state,e.treatment,e.withheldReason]);
    await tx.query("INSERT INTO run_stage(run_id,started_at,stage,result,detail,ms) VALUES($1,$2,'record','ok',NULL,$3)",[id,row.startedAt,Math.max(0,Math.round(performance.now()-recordingStarted))]);
    await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,cil,source_plan,generated_sql,latency_ms,freshness,synthetic,completed_at,token_key_version_used,detail_captured) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[id,row.startedAt,completion.outcome,null,completion.sourcePlan,null,completion.latencyMs,completion.freshness,completion.synthetic,completion.completedAt,completion.tokenKeyVersionUsed,detailCaptured]);
+   completed={type:'run.completed',runId:id,poolId:principal.pool.id,outcome:record.value.state.completion!.outcome.kind,at:completion.completedAt};
    return ok(undefined);
   });
+  if(result.ok&&completed)await notify(this.events,ctx.projectId,completed);
+  return result;
  }
 }

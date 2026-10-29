@@ -760,3 +760,10 @@ What has been audited against this document, and when.
 
 Anything in those two areas may be missing from this document. Z-05 is what removes this
 section's dependence on someone remembering to write it.
+
+### CONSOLE-HEALTH-MAIL — console mail-test status (Phase 1)
+
+Add a permissioned console mail-test action and a persisted, timestamped safe
+status (including the distinction between SMTP acceptance and mailbox delivery).
+Only then include mail in project health. Phase 1 deliberately omits mail; the
+operator `./mail-test` command does not provide a console status contract.

@@ -6155,3 +6155,56 @@ MCP query and receipt operation after that uses public console APIs. It forbids
 internal command/store access during that phase and rejects source connection
 material at the gateway transport boundary. Fixture results are written before
 fixture teardown; installed customer source data is never torn down.
+
+### 5.38c — Home health and completion notifications
+
+`GET /api/v1/projects/:id/health` requires project view and returns `{items}`.
+Each item has `kind`, `status` (`ok`, `warning`, `down`, `unknown`), nullable
+`checked_at`, a safe `reason`, and nullable `next_action` (`label`, existing
+project `href`). Kinds are engine, sources, custody, TLS and token key. These
+are saved observations, not continuous availability guarantees. Mail has no
+console status contract and is omitted. Known setup gaps and failed saved checks are warnings, including missing
+source scan time. Unknown is reserved for a check that could not be read/run. Custody uses the existing configuration-bound check
+and XQ dashboard result. TLS reads the existing console `/deployment.json`
+flag from APP_BASE_URL with a bounded request; an unreadable flag is unknown.
+An externally supplied TLS flag does not verify expiry or certificate chains.
+No secrets, addresses or provider bodies are projected.
+
+After `run_completion` commits, the evidence writer uses the existing
+best-effort project notification port to publish strict `run.completed`:
+runId, poolId, outcome label and completion time (`at`), plus the stream's
+sequence/type envelope. No receipt contents, SQL, values, credential/agent
+metadata or refusal detail is included. Failed/missing writes publish nothing;
+notification failure cannot turn a committed answer into a failed mutation.
+Reconnect remains snapshot-based, without replay; snapshots include the
+activity family. The parallel console invalidates its project query scope,
+coalesces event bursts and ignores duplicate sequence numbers. Stream loss
+makes its indicator grey and enables 15-second polling; reconnect refreshes the
+gap. Existing console screens are not changed in this phase.
+
+
+### Home review corrections — 29 October
+
+Needs-you decision items add optional structured `context`: the pool's real ID
+and name and the affected table/view names, kinds, source/schema names and column
+names. Grouping, member counts, role restrictions, table scopes and cursor scope
+are unchanged. Row-rule items retain a null column name. Other findings carry no
+context. Human title separators use `·`. The parallel console renders the pool
+badge (derived from its name, full name on hover), table/view and column using
+the shared kind marks; it does not parse a title to infer entity identity.
+
+All needs-you pages are read to the terminal cursor, with repeated cursors
+rejected. Every item is in the fixed-row list; its bounded, keyboard-focusable
+viewport scrolls inside the card. Expanding a row alone reveals its effect and
+resolving action. Navigation dots derive only from needs-you kinds: column/row
+findings mark Data and Pools; settings/check findings mark Settings.
+
+Known actionable health findings are warning (including unregistered/unverified
+engines, failed/incomplete source checks, uninitialized token keys and self-signed
+TLS). Unknown is for unavailable checks, such as an unreadable deployment flag.
+The header uses the status colour and includes the reason in its hover tooltip.
+No enforcement or entitlement behavior changes with these presentation states.
+
+The custody band drills into receipts with a recorded granted event only. It
+reads existing Activity/receipt contracts, with bounded concurrent detail reads;
+no decrypted-value count or new custody evidence is inferred.

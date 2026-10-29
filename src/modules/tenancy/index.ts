@@ -11,3 +11,6 @@ export {PostgresInstallationClaimRepository} from './infrastructure/installation
 export {PostgresInstallationClaimWriter} from './infrastructure/installation-claim-writer.js';
 
 export {inviteCompanyMember} from './infrastructure/operator-invitation.js';
+
+export {PostgresProjectHealthReader} from './infrastructure/project-health.js';
+export type {ProjectHealthReader} from './application/project-health.js';

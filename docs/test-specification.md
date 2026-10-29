@@ -1804,3 +1804,34 @@ Pool budget public workflow (29 October 2026, item 5.38):
 | FH-006 | D | Acceptance request uses its declared deadline instead of an inherited shorter Agent timeout |
 
 | FH-007 | S | First-hour refusals retain bounded code/cause/evidence only; a refused query never counts as a passed query step |
+
+### Console redesign Phase 1 targeted contract
+
+- HEALTH-001–004 (`test/project-health.test.ts`): the five-kind strict health
+  shape, no invented mail/TLS validation, unknown and failed saved checks,
+  bounded deployment-flag access, tenant isolation and view/authentication.
+- LIVE-001–002 (`test/run-completed.test.ts`): completion visible from another
+  transaction before notification, minimal strict payload, no notification for
+  a missing write, and successful committed answers during publisher failure.
+- `src/console-next/home/home.test.tsx`: real-contract reads, pagination
+  completeness, summary/stats ownership of numbers, absent unsupported fields,
+  list states, equal information with role/order changes, treatment marks,
+  minute buckets, completion deduplication/coalescing, 15-second fallback and
+  project subscription cleanup.
+- `src/console-next/foundations.test.ts`: AA text contrast in both themes and
+  token-only styles without new CSS classes or broad Radix state selectors.
+- `test/review/console-next.capture.ts`, selected only by its manual-review
+  config: four fresh screenshots, no horizontal overflow, real Engine requests,
+  HTTP read models and Redis stream delivery updating the band, effect/Exposure
+  drill-downs and disconnected polling. This is not a retired pixel tier or a
+  historical baseline recapture, and is not in the normal gate's include list.
+
+
+Home review corrections additionally cover NY-008 (real structured names,
+multiple table/view members, unchanged grouping and null row-rule column),
+known-actionable health warning mapping, >100 needs-you pages without a cap,
+all rows retained and reachable in the internal viewport, inline effect
+expansion, needs-only area dots, and granted-receipt custody filtering.
+The manual capture asserts visible keyboard focus, kind/reason hover text,
+all four viewport/theme variants, real filter drill-downs and reduced-motion
+expansion. No governance assertion or normal-test hang guard is weakened.

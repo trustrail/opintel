@@ -40,6 +40,7 @@ it('NY-002: an unscoped object is not a missing row decision; an override for an
  const [object]=await withTenant(f.ctx,async tx=>{await tx.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Other')",[other,f.ctx.projectId]);await tx.query('INSERT INTO pool_source_binding(pool_id,source_id,project_id) VALUES($1,$2,$3)',[other,f.source,f.ctx.projectId]);return tx.query<{id:string}>('SELECT id FROM catalog_object WHERE source_id=$1',[f.source]);});
  const decisions=new PostgresRowDecisions();unwrap(await decisions.save(f.ctx,other,ObjectId(object!.id),"field_1 <> ''"));
  expect(unwrap(await reader.read(f.ctx,false,null,100)).filter(r=>r.kind==='missing_row_decision')).toMatchObject([{id:'row:'+f.pool+':'+object!.id}]);
+ expect(unwrap(await reader.read(f.ctx,false,null,100)).find(r=>r.kind==='missing_row_decision')?.context).toMatchObject({pool:{id:f.pool,name:'Bulk pool'},targets:[{name:'records',columnName:null,kind:'table'}]});
  unwrap(await decisions.save(f.ctx,f.pool,ObjectId(object!.id),"field_1 <> ''"));expect(unwrap(await reader.read(f.ctx,false,null,100)).filter(r=>r.kind==='missing_row_decision')).toEqual([]);
 });
 it('NY-004/005: lifecycle resolution and custody scope match Observations, with no private metadata',async()=>{
@@ -70,4 +71,17 @@ it('NY-005/006: public route pages are complete, isolated and permission-bound; 
   admin=false;expect((await fetch(base+'?cursor='+firstCursor)).status).toBe(400);view=false;expect((await fetch(base)).status).toBe(404);
   expect(needsYouOpenApiDocument().paths['/api/v1/projects/{id}/needs-you'].get['x-permission']).toBe('project#view');
  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+
+it('NY-008: decision context carries actual pool/table/column names and preserves grouped members',async()=>{
+ const f=await policyFixture(2);let rows=unwrap(await reader.read(f.ctx,false,null,100));
+ const first=rows.find(r=>r.kind==='undecided_entitlement'&&r.context?.targets[0]?.columnName==='field_1');
+ expect(first?.context).toMatchObject({pool:{id:f.pool,name:'Bulk pool'},targets:[{name:'records',kind:'table',columnName:'field_1',sourceName:'Warehouse',schemaName:'public'}]});
+ await withTenant(f.ctx,async tx=>{
+  const [object]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','other','view','public','recoveries') RETURNING id",[f.ctx.projectId,f.source]);
+  await tx.query("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type) VALUES($1,$2,'counterparty','text','field_1','VARCHAR')",[f.ctx.projectId,object!.id]);
+ });
+ rows=unwrap(await reader.read(f.ctx,false,null,100));const grouped=rows.find(r=>r.id===first!.id);
+ expect(grouped?.count).toBe(2);expect(grouped?.context?.targets).toHaveLength(2);expect(grouped?.context?.targets.map(t=>t.name)).toEqual(['records','recoveries']);expect(grouped?.context?.targets[1]?.kind).toBe('view');
+ expect(rows.some(r=>r.title.includes('—'))).toBe(false);
 });

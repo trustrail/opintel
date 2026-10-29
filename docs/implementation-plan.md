@@ -1365,3 +1365,26 @@ the existing pool audit trail atomically. Demo suggested values belong to the
 future UI. First-hour explicitly supplies all required budgets, with no backend
 numeric default. Retain the targeted-check authorization above; no full gate,
 merge or publication for this task.
+
+### 5.38 Phase 1 — parallel Home (29 October reviewed scope)
+
+After the phase 0 report, build Home only in `src/console-next`
+(`@opintel/console-next`), alongside the existing console. The approved
+`docs/design/console/CODEX-PROMPT.md` Phase 1 and images 01–03 bind the stack,
+foundations and rules. The existing console and master stylesheet stay unchanged.
+Backend scope is only the composed project health GET and post-commit
+`run.completed` project stream event. Mail is omitted until a persisted console
+mail-test status exists (CONSOLE-HEALTH-MAIL). Missing queue items are absent;
+unavailable chart data is hidden. Validation for this scope is strict typecheck,
+lint, console unit tests, targeted backend/contract tests and four manual-review
+captures (1440/390, light/dark), explicitly **no full gate**. No other redesigned
+screen, production deployment, merge or push is included.
+
+
+29 October Home review corrections: retain every needs-you item in a bounded
+scroll viewport, add real pool/table/column display context to the existing
+projection, expand effects only on demand, derive navigation dots from needs-you
+areas, and map known setup/check findings to warning. Confirm filtered number
+links, kind hover names, keyboard focus and reduced motion in tests and fresh
+1440/390 light/dark captures. Lint, strict typecheck and targeted tests replace
+the full gate here. Commit and push `feat/console-home-fixes`; do not merge.

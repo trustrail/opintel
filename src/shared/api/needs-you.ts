@@ -1,7 +1,8 @@
 import {z} from 'zod';
 import {createApiClient} from './client.js';
 export const NeedsYouQuery=z.object({cursor:z.string().max(4096).optional(),limit:z.coerce.number().int().min(1).max(100).default(25)});
-export const NeedsYouItem=z.strictObject({id:z.string(),kind:z.enum(['undecided_entitlement','missing_row_decision','setting_required','suggestion','observation','check_required','check_failed']),title:z.string(),count:z.number().int().positive(),targetRoute:z.string().startsWith('/projects/'),roles:z.array(z.enum(['admin','operator','viewer'])).min(1)});
+export const NeedsYouContext=z.strictObject({pool:z.strictObject({id:z.uuid(),name:z.string()}),targets:z.array(z.strictObject({tableId:z.uuid(),name:z.string(),kind:z.enum(['table','view']),columnName:z.string().nullable(),sourceName:z.string(),schemaName:z.string()})).min(1)});
+export const NeedsYouItem=z.strictObject({id:z.string(),kind:z.enum(['undecided_entitlement','missing_row_decision','setting_required','suggestion','observation','check_required','check_failed']),title:z.string(),count:z.number().int().positive(),targetRoute:z.string().startsWith('/projects/'),roles:z.array(z.enum(['admin','operator','viewer'])).min(1),context:NeedsYouContext.nullish()});
 export const NeedsYouPage=z.strictObject({items:z.array(NeedsYouItem),nextCursor:z.string().nullable()});
 export type NeedsYouItem=z.infer<typeof NeedsYouItem>;
 export function readNeedsYou(project:string,cursor?:string){return createApiClient().request({path:`/api/v1/projects/${project}/needs-you${cursor?'?cursor='+encodeURIComponent(cursor):''}`,response:NeedsYouPage});}
