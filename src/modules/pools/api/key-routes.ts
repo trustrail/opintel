@@ -4,12 +4,13 @@ import { CredentialRevoked,IssueCredentialBody,RevokeCredentialBody,CreatePoolBo
 import { PoolId,ProjectId } from '../../../shared/kernel/index.js';
 import type { PoolKeyService } from '../application/keys.js';
 import { CredentialId, poolKeyId } from '../domain/pool.js';
+import {poolTableSelection} from '../application/tables.js';
 export function poolKeyRoutes(service:PoolKeyService) {
  const params=z.object({id:z.uuid()});
  return [
   defineRoute({method:'POST',path:'/api/v1/projects/:id/pools',params,request:CreatePoolBody,response:z.union([PoolKeyCreationResponse,errorEnvelopeSchema]),
    permission:{resource:'project',id:r=>r.params.id,permission:'administer'},handle:async r=>{
-    const result=await service.execute({projectId:ProjectId(r.params.id),userId:r.actor.id},{kind:'create',name:r.body.name,...r.body.certificateAssociation?{certificateAssociation:r.body.certificateAssociation}:{}},r.headers['idempotency-key']);
+    const result=await service.execute({projectId:ProjectId(r.params.id),userId:r.actor.id},{kind:'create',name:r.body.name,...r.body.budgets?{budgets:r.body.budgets}:{},...r.body.tableSetup?{tableSetup:poolTableSelection(r.body.tableSetup)}:{},...r.body.certificateAssociation?{certificateAssociation:r.body.certificateAssociation}:{}},r.headers['idempotency-key']);
     if(!result.ok){if(result.error.code==='idempotency_key_reused')return {status:409,body:{error:{code:result.error.code,message:result.error.message,requestId:r.requestId,retryable:false}}};throw result.error;}return {body:PoolKeyCreationResponse.parse(result.value),headers:{'cache-control':'no-store'}};
    }}),
   defineRoute({method:'POST',path:'/api/v1/pools/:id/keys/rotate',params,request:RotatePoolKeyBody,response:z.union([PoolKeyCreationResponse,errorEnvelopeSchema]),

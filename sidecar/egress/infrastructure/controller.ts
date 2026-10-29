@@ -10,7 +10,7 @@ import {isIP} from 'node:net';
 import {firewall} from './firewall.js';
 import {z} from 'zod';
 import {egressBinding,egressRegistration,egressPolicy,type EgressPolicy} from '../../../src/shared/engine-egress-contract.js';
-import {EnvironmentSecretStore} from '../../../src/platform/secrets/environment-secret-store.js';
+import {engineSecretStore} from '../../infrastructure/source-secrets.js';
 import type {SourceId} from '../../../src/shared/kernel/index.js';
 import {SecretRef} from '../../../src/platform/secrets/types.js';
 const endpoint=z.strictObject({address:z.string().refine(value=>isIP(value)!==0),port:z.number().int().min(1).max(65535),host:z.string().optional()});
@@ -26,7 +26,7 @@ async function resolveEndpoint(uri:URL):Promise<Endpoint[]>{
  return [...new Set(values.map(value=>value.address))].map(address=>endpoint.parse({address,port,...(isIP(host)?{}:{host})}));
 }
 async function source(ref:string){
- const uri=new URL(await new EnvironmentSecretStore().resolve(SecretRef(ref)));
+ const uri=new URL(await engineSecretStore().resolve(SecretRef(ref)));
  if(!['postgres:','postgresql:'].includes(uri.protocol))throw new Error('Unsupported source protocol');
  for(const key of ['host','hostaddr','port','service','connectionString'])if(uri.searchParams.has(key))throw new Error('Routing overrides are unsupported');
  return resolveEndpoint(uri);

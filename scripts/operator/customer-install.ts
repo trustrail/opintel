@@ -139,6 +139,7 @@ function initialize(){
   services.operator={...services.provision!,command:['node','scripts/operator/customer-operator.js','--help'],profiles:['jobs']};
   write('state/custody-backup.key',master+'\n');
  }else{
+  mkdirSync(join(state,'sources'),{mode:0o700});chmodSync(join(state,'sources'),0o700);
   const database=secret();runtime.OPINTEL_SECRET_INSTALL_READINESS=`postgresql://readiness:${database}@readiness:5432/readiness`;
   runtime.UV_THREADPOOL_SIZE='16';
   write('state/gateway-registration.json',{version:1,kind:'engine',address:`https://${address}:3100`,certificate:readFileSync(join(state,'engine.pem'),'utf8'),ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(readFileSync(join(state,'engine.pem'))).fingerprint256,demoSourceUrl:`postgresql://readiness:${database}@${address}:5434/readiness`});
@@ -146,6 +147,7 @@ function initialize(){
   write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000}},0o600);
   Object.assign(vars,{ENGINE_CONFIG_DIRECTORY:host+'/state',ENGINE_STATE_DIRECTORY:host+'/state',ENGINE_ENV_FILE:host+'/state/runtime.env',ENGINE_AUDIT_DIRECTORY:host+'/state/audit',ENGINE_CUSTODY_DIRECTORY:host+'/state/custody',ENGINE_INGEST_DIRECTORY:host+'/state/ingest',ENGINE_XQ_DIRECTORY:host+'/state/xq',ENGINE_BIND_ADDRESS:'0.0.0.0',ENGINE_PORT:'3100'});
   services.engine!.environment={...services.engine!.environment,ENGINE_PAIRING_TRUST_RELOAD:'1'};
+  for(const name of ['engine','egress','prepare']){services[name]!.environment={...services[name]!.environment,ENGINE_SOURCE_SECRETS_DIRECTORY:'/source-secrets'};services[name]!.volumes=[...services[name]!.volumes??[],host+'/state/sources:/source-secrets:ro'];}
   services.engine!.network_mode='service:egress';services.engine!.user=`${uid}:${gid}`;services.prepare!.user=`${uid}:${gid}`;services.egress!.cap_add=['NET_ADMIN','DAC_OVERRIDE','CHOWN'];services.egress!.environment={...services.egress!.environment,EGRESS_STATE_UID:String(uid),EGRESS_STATE_GID:String(gid)};
   services.readiness={image:localImages[defaults.services.postgres!.image],platform,pull_policy:'never',environment:{POSTGRES_USER:'readiness',POSTGRES_PASSWORD:database,POSTGRES_DB:'readiness'},volumes:['readiness-data:/var/lib/postgresql/data'],ports:['0.0.0.0:5434:5432'],restart:'unless-stopped',healthcheck:{test:['CMD','pg_isready','-U','readiness'],interval:'2s',timeout:'3s',retries:30}};
   volumes['readiness-data']={};
@@ -263,6 +265,8 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   writeFileSync(join(state,'nginx.conf'),readFileSync(join(state,'nginx.conf'),'utf8').replace(/^user nginx;\n/u,''));
  }else{
   const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
+  mkdirSync(join(state,'sources'),{recursive:true,mode:0o700});
+  for(const name of ['engine','egress','prepare']){const entry=config.services[name]!;entry.environment={...entry.environment,ENGINE_SOURCE_SECRETS_DIRECTORY:'/source-secrets'};if(!entry.volumes?.some(v=>v.includes(':/source-secrets:')))entry.volumes=[...entry.volumes??[],host+'/state/sources:/source-secrets:ro'];}
   writeFileSync(join(state,'service.json'),JSON.stringify(service,null,2)+'\n');
   config.services.pairing=pairingService(uid,gid,readFileSync(join(root,'platform'),'utf8').trim());
   config.services.engine!.environment={...config.services.engine!.environment,ENGINE_PAIRING_TRUST_RELOAD:'1'};

@@ -70,7 +70,8 @@
         "work/scripts/operator/ingress-tls.js",
         "work/scripts/operator/customer-install.js",
         "work/scripts/operator/customer-operator.js",
-        "work/scripts/operator/xq-worker.mjs"
+        "work/scripts/operator/xq-worker.mjs",
+        "work/scripts/operator/engine-sources.js"
       ],
       "patterns": []
     },

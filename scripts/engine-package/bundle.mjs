@@ -13,7 +13,7 @@ const entries={
  console:{'console.mjs':'deploy/images/console.mjs'},
  egress:{'egress.mjs':'deploy/engine/egress.mjs'},
  migrations:{'src/platform/db/migrate.js':'src/platform/db/migrate.ts','src/modules/authz/infrastructure/load-schema.js':'src/modules/authz/infrastructure/load-schema.ts'},
- provisioning:{'scripts/operator/customer-install.js':'scripts/operator/customer-install.ts','scripts/operator/customer-operator.js':'scripts/operator/customer-operator.ts','scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/ingress-tls.js':'scripts/operator/ingress-tls.ts','src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts','scripts/operator/provision.js':'scripts/operator/provision.ts'},
+ provisioning:{'scripts/operator/engine-sources.js':'scripts/operator/engine-sources.ts','scripts/operator/customer-install.js':'scripts/operator/customer-install.ts','scripts/operator/customer-operator.js':'scripts/operator/customer-operator.ts','scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/ingress-tls.js':'scripts/operator/ingress-tls.ts','src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts','scripts/operator/provision.js':'scripts/operator/provision.ts'},
  'demo-tools':{'scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/demo.js':'scripts/operator/demo.ts','scripts/operator/custody-agent.mjs':'scripts/soak/custody-agent.mjs'},
 };
 if(!Object.hasOwn(entries,target))throw new Error('Unknown runtime bundle target.');

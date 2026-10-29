@@ -442,6 +442,31 @@ scripts/soak/reinsurance.ts:154, sidecar/execution/application/execute.ts:89
 
 ## Not scheduled
 
+### A11 · Public folder-drop demo provisioning
+**Customer** A person should eventually be able to drop a demonstration file into
+an explicitly managed folder and connect the resulting table through the normal
+source/catalogue flow, without a seeder or a developer preparing project metadata.
+**What** Design and implement public demo provisioning separately from the console
+backend and its first-hour acceptance. Define the folder, provenance, discovery,
+credential ownership and public API workflow before implementation. Existing
+operator-prepared industry-pack deployments are not this feature.
+**Stage boundary (28 October 2026)** The first-hour test instead owns a disposable,
+plain PostgreSQL source container on its own network, populated from checked-in
+SQL. It imports credentials with the Engine-host package source command; the
+public gateway source API receives only its reference. All subsequent Opintel
+writes use public APIs. It must not use the Engine's bundled demo
+database, the seeder, or internal provisioning scripts.
+**Status** Later scope explicitly deferred; not implemented by this task.
+
+### A12 · Browser-to-Engine sealed source provisioning
+**Customer** A later console should collect database connection fields without
+making the gateway a holder of source secrets.
+**What** Review [the deferred protocol note](design/browser-engine-source-provisioning.md)
+before adding any route or UI. The gateway remains reference-only today; the
+current customer path is the Engine-host `./sources add NAME` command. Specify
+Engine-authenticated encryption, replay/recovery and explicit replacement first.
+**Status** Later scope explicitly deferred; design note only, no implementation.
+
 ### H-06 · Test-tree wall-clock audit
 **Customer** Date-sensitive fixtures can fail depending on when validation runs.
 RED-019 is corrected with a fixed injected clock and identical 00:10/23:50 UTC

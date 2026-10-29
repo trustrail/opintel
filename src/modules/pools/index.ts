@@ -5,6 +5,8 @@ export { PostgresKeyVerifier } from './infrastructure/key-verifier.js';
 export {credentialCustodyRecipient} from './infrastructure/custody-recipient.js';
 export { PoolBindingService, PoolElementResolver, type PoolBindingRepository, type PoolAccessRefusals } from './application/binding.js';
 export { PostgresPoolBindings } from './infrastructure/binding.js';
+export {PostgresPoolTables} from './infrastructure/tables.js';
+export type {PoolTablesPort} from './application/tables.js';
 export { InfoPoolAccessRefusals } from './infrastructure/access-refusals.js';
 
 export { AgentPresenceService, type AgentPresenceRepository, type AuthenticatedPresence } from './application/presence.js';
@@ -14,3 +16,6 @@ export { agePresence, observePresence, type AgentPresence, type PresenceState, t
 
 export {PostgresPoolReader} from './infrastructure/read.js';
 export type {PoolReader} from './application/read.js';
+
+export {PostgresPoolBudgets} from './infrastructure/budgets.js';
+export type {PoolBudgetPort} from './application/budgets.js';

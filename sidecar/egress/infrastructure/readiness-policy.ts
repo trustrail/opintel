@@ -4,13 +4,13 @@ import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {z} from 'zod';
-import {EnvironmentSecretStore} from '../../../src/platform/secrets/environment-secret-store.js';
+import {engineSecretStore} from '../../infrastructure/source-secrets.js';
 import {SecretRef} from '../../../src/platform/secrets/types.js';
 
 const bootstrapConfig=z.object({postgresReadinessSource:z.string().startsWith('secret://').min(10)});
 export async function readinessPolicy(file:string){
  const config=bootstrapConfig.parse(JSON.parse(await readFile(file,'utf8')));
- const credential=await new EnvironmentSecretStore().resolve(SecretRef(config.postgresReadinessSource));
+ const credential=await engineSecretStore().resolve(SecretRef(config.postgresReadinessSource));
  const uri=new URL(credential);
  if(!['postgres:','postgresql:'].includes(uri.protocol)||!uri.hostname)throw new Error('Invalid readiness source connection.');
  for(const name of ['host','hostaddr','port','service','connectionString'])if(uri.searchParams.has(name))throw new Error('Readiness source routing overrides are unsupported.');

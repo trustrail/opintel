@@ -1,3 +1,5 @@
+import type {PoolBudgetValues} from '../../../shared/api/pool-budgets.js';
+import {poolTableSelection,type PoolTableSelection} from './tables.js';
 import {CertificateAssociation} from '../../../shared/api/certificate-association.js';
 import type { Tx } from '../../../platform/db/scope.js';
 import { DomainError, err, type PoolId, type ProjectId, type UserId, type Timestamp, type Result } from '../../../shared/kernel/index.js';
@@ -10,7 +12,7 @@ export interface AgentPresenceQuery {
  affectedInScope?(tx:Tx,poolId:PoolId,keyVersion:PoolKeyId,settings:unknown,at:Timestamp):Promise<Result<AffectedAgents>>;
  affected(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<AffectedAgents>>;
 }
-export type KeyCommand = {kind:'create';name:string;certificateAssociation?:CertificateAssociation} | {kind:'issue';poolId:PoolId;label:string;certificateAssociation?:CertificateAssociation} | {kind:'revokeCredential';poolId:PoolId;credentialId:CredentialId;confirmation:string;confirmedLiveGrants?:number} | {kind:'rotate';poolId:PoolId;credentialId?:CredentialId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
+export type KeyCommand = {kind:'create';name:string;budgets?:PoolBudgetValues;tableSetup?:PoolTableSelection;certificateAssociation?:CertificateAssociation} | {kind:'issue';poolId:PoolId;label:string;certificateAssociation?:CertificateAssociation} | {kind:'revokeCredential';poolId:PoolId;credentialId:CredentialId;confirmation:string;confirmedLiveGrants?:number} | {kind:'rotate';poolId:PoolId;credentialId?:CredentialId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
 export interface PoolKeyRepository {
  execute(ctx:PoolKeyContext,command:KeyCommand,idempotencyKey:string,presence:AgentPresenceQuery):Promise<Result<PoolKeyCreationResponse|PoolKeyStored>>;
  inspect(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<PoolKeyMetadata>>;
@@ -25,9 +27,9 @@ export class PoolKeyService {
    if(!association.success)return Promise.resolve(err(new DomainError('validation_failed','Invalid public certificate association. Private or transport key material is not accepted.')));
   }
   if(command.kind==='create'){
-   const body=CreatePoolBody.safeParse({name:command.name,certificateAssociation:command.certificateAssociation});
-   if(!body.success)return Promise.resolve(err(new DomainError('validation_failed','A pool name must contain 1 to 80 characters.')));
-   return this.repository.execute(ctx,{kind:'create',name:body.data.name,...body.data.certificateAssociation?{certificateAssociation:body.data.certificateAssociation}:{}},key.data,this.presence);
+   const body=CreatePoolBody.safeParse({name:command.name,budgets:command.budgets,certificateAssociation:command.certificateAssociation,tableSetup:command.tableSetup});
+   if(!body.success)return Promise.resolve(err(new DomainError('validation_failed','Supply a valid pool name, table setup and positive integer budgets.')));
+   return this.repository.execute(ctx,{kind:'create',name:body.data.name,...body.data.budgets?{budgets:body.data.budgets}:{},...body.data.tableSetup?{tableSetup:poolTableSelection(body.data.tableSetup)}:{},...body.data.certificateAssociation?{certificateAssociation:body.data.certificateAssociation}:{}},key.data,this.presence);
   }
   return this.repository.execute(ctx,command,key.data,this.presence);
  }

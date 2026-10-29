@@ -4,7 +4,7 @@ import {ok,err,DomainError,SystemClock,type Clock} from '../../../shared/kernel/
 import {DashboardStats,DashboardFinding,PoolShield} from '../../../shared/api/dashboard.js';
 import {PresenceSettings} from '../../../shared/api/agent-presence.js';
 import type {DashboardReader,DashboardContext} from '../application/dashboard.js';
-const pairs=`SELECT b.pool_id,s.id AS source_id,s.name AS source_name,e.id AS element_id,t.treatment FROM pool_source_binding b JOIN data_source s ON s.id=b.source_id AND s.status<>'archived' JOIN catalog_object o ON o.source_id=s.id AND o.status='active' JOIN catalog_element e ON e.object_id=o.id AND e.status='active' LEFT JOIN entitlement t ON t.pool_id=b.pool_id AND t.element_id=e.id`;
+const pairs=`SELECT b.pool_id,s.id AS source_id,s.name AS source_name,e.id AS element_id,t.treatment FROM pool_source_binding b JOIN data_source s ON s.id=b.source_id AND s.status<>'archived' JOIN catalog_object o ON o.source_id=s.id AND o.status='active' AND public.pool_table_allowed(b.pool_id,o.id) JOIN catalog_element e ON e.object_id=o.id AND e.status='active' LEFT JOIN entitlement t ON t.pool_id=b.pool_id AND t.element_id=e.id`;
 const spectrum=`jsonb_build_object('custody',count(*) FILTER(WHERE treatment='custody'),'clear',count(*) FILTER(WHERE treatment='clear'),'tokenized',count(*) FILTER(WHERE treatment='tokenized'),'masked',count(*) FILTER(WHERE treatment='masked'),'aggregate_only',count(*) FILTER(WHERE treatment='aggregate_only'),'withheld',count(*) FILTER(WHERE treatment='withheld'),'undecided',count(*) FILTER(WHERE treatment IS NULL))`;
 export class PostgresDashboardReader implements DashboardReader{
  constructor(private readonly clock:Clock=new SystemClock()){}

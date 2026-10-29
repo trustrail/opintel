@@ -1,4 +1,6 @@
+import {auditPoolBudgets} from './budgets.js';
 import {matchesObservedRecipient,type CertificateAssociation} from '../../../shared/api/certificate-association.js';
+import {PostgresPoolTables} from './tables.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { withPlatform, withTenant, type Tx } from '../../../platform/db/scope.js';
 import { DomainError, err, ok, Timestamp, SystemClock, type Clock, type PoolId, type Result } from '../../../shared/kernel/index.js';
@@ -12,7 +14,7 @@ function metadata(row:KeyRow,now:Date):PoolKeyMetadata {
  return {credentialId:row.credential_id,label:row.label,custodyAlias:row.custody_alias,poolId:row.pool_id,keyVersion:row.id,prefix:row.key_prefix,state:row.state==='retiring'&&row.grace_until!==null&&row.grace_until<=now?'expired':row.state,graceUntil:row.grace_until?.toISOString()??null,createdAt:row.created_at.toISOString()};
 }
 export class PostgresPoolKeys implements PoolKeyRepository {
- constructor(private readonly clock:Clock=new SystemClock(),private readonly provisionAlias?:(ctx:PoolKeyContext,alias:string)=>Promise<void>,private readonly revocation?:CredentialRevocationPort) {}
+ constructor(private readonly clock:Clock=new SystemClock(),private readonly provisionAlias?:(ctx:PoolKeyContext,alias:string)=>Promise<void>,private readonly revocation?:CredentialRevocationPort,private readonly tables=new PostgresPoolTables()) {}
  async inspect(ctx:PoolKeyContext,pool:PoolId,key:PoolKeyId):Promise<Result<PoolKeyMetadata>> {
   return withTenant(ctx,async tx=>{
    const [row]=await tx.query<KeyRow>(`SELECT ${columns} FROM pool_key WHERE pool_id=$1 AND id=$2`,[pool,key]);
@@ -26,7 +28,8 @@ export class PostgresPoolKeys implements PoolKeyRepository {
   if(!grace.success)return err(new DomainError('validation_failed','The pool key grace window must be between one hour and seven days.'));
   const route=command.kind==='create'?`/projects/${ctx.projectId}/pools`:`/pools/${command.poolId}/keys/${command.kind}`;
   const bodyHash=createHash('sha256').update(JSON.stringify(command)).digest('hex');
-  return withTenant(ctx,async tx=>{
+  const bindingOutbox:bigint[]=[];
+  const result=await withTenant(ctx,async tx=>{
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,538))',[ctx.projectId]);
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify([ctx.projectId,ctx.userId,route,key])]);
    const [prior]=await tx.query<{body_hash:string;response:unknown}>('SELECT body_hash,response FROM pool_key_request WHERE actor_id=$1 AND route=$2 AND request_key=$3 AND expires_at>clock_timestamp()',[ctx.userId,route,key]);
@@ -38,11 +41,15 @@ export class PostgresPoolKeys implements PoolKeyRepository {
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify([ctx.projectId,'pool-name',command.name.toLowerCase()])]);
     const [existing]=await tx.query('SELECT id FROM pool WHERE lower(name)=lower($1)',[command.name]);
     if(existing)return err(new DomainError('conflict','A pool with this name already exists.'));
-    const [created]=await tx.query<{id:PoolId}>('INSERT INTO pool(project_id,name) VALUES($1,$2) RETURNING id',[ctx.projectId,command.name]);
+    const prepared=command.tableSetup?await this.tables.prepare(tx,command.tableSetup):undefined;if(prepared&&!prepared.ok)return prepared;
+    const [created]=await tx.query<{id:PoolId}>('INSERT INTO pool(project_id,name,budgets) VALUES($1,$2,$3) RETURNING id',[ctx.projectId,command.name,command.budgets??{}]);
     if(!created)throw new Error('Pool insert returned no row.');
     pool=created.id;
+    if(command.budgets&&Object.keys(command.budgets).length)await auditPoolBudgets(tx,ctx,pool,{},command.budgets);
+    let boundTables:PoolKeyMetadata['tables'];
+    if(prepared?.ok){await tx.query('UPDATE pool SET tables_explicit=true,table_setup=$2 WHERE id=$1',[pool,JSON.stringify({rowRule:prepared.value.setup.rowRule,startingMode:prepared.value.setup.startingMode})]);const bound=await this.tables.apply(tx,ctx,pool,prepared.value);boundTables=bound.tables;bindingOutbox.push(...bound.outbox);}
     plaintext=generatePoolKey();
-    stored={...await this.insert(tx,ctx,pool,plaintext,undefined,command.name,command.certificateAssociation),keyShown:false};
+    stored={...await this.insert(tx,ctx,pool,plaintext,undefined,command.name,command.certificateAssociation),...boundTables?{tables:boundTables}:{},keyShown:false};
    }else{
     pool=command.poolId;
     const [record]=await tx.query<{name:string}>('SELECT name FROM pool WHERE id=$1 FOR UPDATE',[pool]);
@@ -100,6 +107,8 @@ export class PostgresPoolKeys implements PoolKeyRepository {
     ON CONFLICT(project_id,actor_id,route,request_key) DO UPDATE SET body_hash=EXCLUDED.body_hash,response=EXCLUDED.response,expires_at=EXCLUDED.expires_at`,[ctx.projectId,ctx.userId,route,key,bodyHash,JSON.stringify(receipt)]);
    return ok(plaintext===undefined?receipt:PoolKeyCreationResponse.parse({...receipt,keyShown:true,key:plaintext}));
   });
+  await this.tables.dispatch(bindingOutbox);
+  return result;
  }
  private async insert(tx:Tx,ctx:PoolKeyContext,pool:PoolId,plaintext:string,credentialId?:CredentialId,label='Agent',association?:CertificateAssociation):Promise<PoolKeyMetadata>{
   const now=new Date(this.clock.now()),id=randomUUID();

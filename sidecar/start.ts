@@ -15,7 +15,7 @@ import { SpreadsheetExtractor } from './ingest/extract.js';
 import { LocalWorkbookReader } from './ingest/infrastructure/workbook-reader.js';
 import { LandingWatcher } from './ingest/watch.js';
 import { config as loadEnvironment } from 'dotenv';
-import { EnvironmentSecretStore } from '../src/platform/secrets/index.js';
+import { engineSecretStore } from './infrastructure/source-secrets.js';
 import { loadSidecarConfig } from './config.js';
 import { createPostgresConnector } from './create-postgres-connector.js';
 import { FileSamplingAudit } from './infrastructure/file-sampling-audit.js';
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   await startupCheck('custody cleanup', () => custody?.sweep());
   const custodyTimer=setInterval(()=>{void custody?.sweep().catch(()=>console.warn({event:'custody.cleanup_failed',category:'storage'}));},60000);custodyTimer.unref();
   const audit = await startupCheck(`audit file ${config.auditFile}`, () => FileSamplingAudit.open(config.auditFile));
-  const secrets=new EnvironmentSecretStore(),scope=new PostgresSourceScope(secrets,config.limits);
+  const secrets=engineSecretStore(),scope=new PostgresSourceScope(secrets,config.limits);
   const execution=new StagedExecutor(new PostgresStagingSource(scope,new SidecarTokenizer(custody??secrets,new IanaZoneResolver())),r=>new DuckDBSessionEngine(undefined,undefined,config.postgresExtension,r.limits));
   const queryEngineVersion=await startupCheck('query engine readiness', async () => {
     try{return await checkQueryReadiness(config,scope);}
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
     for (const zone of config.landingZones ?? []) {
       if (!zone.landing || !config.receiptUrl) throw new Error('Landing requires a source strategy and receipt URL.');
       const source = { ...zone.landing, sourceId: zone.sourceId, projectId: zone.projectId };
-      const writer = new PostgresLanding(new EnvironmentSecretStore(), config.limits.statementTimeoutMs);
+      const writer = new PostgresLanding(engineSecretStore(), config.limits.statementTimeoutMs);
       const connected = await writer.connect(source);
       if (!connected.ok) throw new StartupCheckError(`landing database for project ${zone.projectId}, source ${zone.sourceId}`, connected.error.message);
       const extractor = new SpreadsheetExtractor(new LocalWorkbookReader());

@@ -1768,3 +1768,39 @@ Both development and packaged seeders declare the same eight-table fixture.
 | NY-005 | S | Custody observation and token-key findings with/without administer | Hidden from non-administrators, including cursor replay after demotion |
 | NY-006 | S | Multiple pages, other project and forged cursor | Complete stable keyset pages, tenant isolation, invalid scope rejected |
 | NY-007 | D | Failed/unverified checks and recovered facts | Needs-you reflects current saved check state without contacting sources |
+
+### Engine source import and first hour
+
+| ID | Type | Expected |
+|---|---|---|
+| ES-001–006 | S | Engine-only persistence, exact private modes, exclusive create, no environment fallback for imported names, traversal/link rejection, printable password round-trip and reference-only output |
+| ES-007 | S | Package automation preserves literal password bytes, hides them from arguments/output, closes stdin and cleans its private input |
+| PT-001 | D | Tables across sources bind; missing common column stays zero-row and needs Set rows |
+| PT-002 | S | Incompatible rule stays zero-row even with an existing object default |
+| PT-003 | S | Later table rule changes only its contribution; explicit all-rows includes nulls and remains recorded |
+| PT-004 | S | Removal excludes compiler/describe access, preserves history/decisions; re-add does not duplicate or overwrite |
+| PT-005 | S | Copy matches table/column names only; unmatched undecided, own row rule, own credential and no copied grants |
+| PT-006 | S | Missing/foreign tables do not partially create a pool; duplicate table input rejected |
+| PT-007 | S | Table and row mutations enforce their declared project permissions |
+| PT-008 | S | An existing source-wide pool removes a table directly while retaining its decisions |
+| PT-009 | S | Same-name counterparts that include an undecided member never make a new column readable through copy |
+| FH-001/002 | S | Workflow imports only transport tooling, rejects readiness references and cannot silently skip Engine source import |
+| FH-003 | D | Real archived install, external fixture, Engine source import, public source/catalogue/pool/table/decisions/credential APIs, MCP governed query and completed receipt all pass; no seeder or direct Opintel-store writes |
+| FH-004 | D | Acceptance transport frames DELETE JSON explicitly, including UTF-8 byte lengths |
+
+
+Pool budget public workflow (29 October 2026, item 5.38):
+
+| ID | Class | Required proof |
+|---|---|---|
+| PB-001 | D | All six creation fields round-trip; absence remains absence; creation audit records the explicit decision |
+| PB-002 | S | Creation/change share strict positive-safe-integer validation; reject unknown/empty changes and nonnumeric/null/invalid values |
+| PB-003 | S | Concurrent patches preserve unrelated fields; same-transaction audit records before/after and actor; unchanged replay adds no audit |
+| PB-004 | S | View can read, administration can change; foreign-project pools remain inaccessible |
+| PB-005 | S | Missing threads still refuses; explicit required input enables limits, optional values cap against project limits, daily enforcement stays deferred |
+| PB-006 | D | OpenAPI uses the shared Zod schemas, with no numeric defaults |
+| PB-007 | S | Creation replay preserves later budgets and their audit; a changed creation body conflicts |
+| FH-005 | S | Default browser headers never leak onto MCP; explicit caller Origin is preserved |
+| FH-006 | D | Acceptance request uses its declared deadline instead of an inherited shorter Agent timeout |
+
+| FH-007 | S | First-hour refusals retain bounded code/cause/evidence only; a refused query never counts as a passed query step |

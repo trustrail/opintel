@@ -1,0 +1,125 @@
+{
+  "fullGateRun": false,
+  "authorization": "Targeted checks explicitly requested by operator; no merge or publication.",
+  "checks": [
+    {
+      "command": "npm test -- test/pool-tables.test.ts test/engine-source-secrets.test.ts test/engine-sources-command.test.mjs test/first-hour-contract.test.mjs test/needs-you.test.ts test/pool-keys.test.ts test/row-decision-composition.test.ts test/customer-install.test.mjs test/row-entitlements.test.ts",
+      "testsPassed": 56,
+      "filesPassed": 9
+    },
+    {
+      "command": "npm test -- test/pattern-rules.test.ts test/entitlements.test.ts",
+      "testsPassed": 41,
+      "filesPassed": 2
+    },
+    {
+      "command": "npm test -- test/engine-sources-command.test.mjs test/first-hour-contract.test.mjs test/image-build.test.ts",
+      "testsPassed": 7,
+      "filesPassed": 3
+    },
+    {
+      "command": "npm test -- test/pool-tables.test.ts",
+      "testsPassed": 9,
+      "filesPassed": 1,
+      "note": "Completed copy safety regression; undecided counterpart retained."
+    },
+    {
+      "command": "npm test -- test/engine-source-secrets.test.ts test/engine-sources-command.test.mjs",
+      "testsPassed": 7,
+      "filesPassed": 2,
+      "note": "Literal printable UTF-8 password preservation."
+    },
+    {
+      "command": "npm test -- test/acceptance-json.test.mjs",
+      "testsPassed": 3,
+      "filesPassed": 1,
+      "note": "Using exact local Redis/SpiceDB image IDs; framing, browser/agent headers, declared request deadline."
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed",
+      "log": "/private/tmp/first-hour-typecheck-copy-final.log"
+    },
+    {
+      "command": "npm run lint",
+      "status": "passed",
+      "log": "/private/tmp/first-hour-lint-deadline.log"
+    },
+    {
+      "command": "node --check changed acceptance scripts; bash -n deploy/customer/command",
+      "status": "passed"
+    },
+    {
+      "command": "migration 086 down/up round trip on disposable normal test database",
+      "status": "passed",
+      "log": "/private/tmp/first-hour-migration-roundtrip.log"
+    },
+    {
+      "command": "native amd64 candidate image build and layer audits, all seven images",
+      "status": "passed",
+      "manifest": "tmp/images/releases/candidate-console-first-hour-v2-api-engine-console-egress-migrations-provisioning-demo-tools.json"
+    },
+    {
+      "command": "archive package audits for gateway and engine",
+      "status": "passed"
+    },
+    {
+      "command": "npm test -- test/pool-budgets.test.ts test/pool-domain.test.ts test/pool-keys.test.ts test/pool-tables.test.ts test/query-batching.test.ts test/first-hour-contract.test.mjs test/acceptance-json.test.mjs",
+      "testsPassed": 35,
+      "filesPassed": 7,
+      "log": "/private/tmp/first-hour-budget-tests.log"
+    },
+    {
+      "command": "npm test -- test/pool-budgets.test.ts",
+      "testsPassed": 7,
+      "filesPassed": 1,
+      "log": "/private/tmp/first-hour-budget-replay-tests.log",
+      "note": "Includes final creation-replay preservation case."
+    },
+    {
+      "command": "npm test -- test/first-hour-contract.test.mjs",
+      "testsPassed": 3,
+      "filesPassed": 1,
+      "log": "/private/tmp/first-hour-fixture-contract-final.log",
+      "note": "Includes bounded refusal diagnostics."
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed",
+      "log": "/private/tmp/first-hour-budget-typecheck-final.log"
+    },
+    {
+      "command": "npm run lint",
+      "status": "passed",
+      "log": "/private/tmp/first-hour-budget-lint-fixture-final.log"
+    },
+    {
+      "command": "node --check acceptance scripts; bash -n deploy/customer/command",
+      "status": "passed",
+      "note": "After fixture and acceptance-only corrections."
+    }
+  ],
+  "latestCandidate": {
+    "tag": "candidate-console-first-hour-v3",
+    "platform": "linux/amd64",
+    "imageManifest": "tmp/images/releases/candidate-console-first-hour-v3-api-engine-console-egress-migrations-provisioning-demo-tools.json",
+    "baseRevision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+    "uncommittedCandidate": true,
+    "published": false,
+    "allSevenImageAudits": "passed",
+    "bothArchiveAudits": "passed",
+    "note": "External SQL fixture and acceptance-only JS changed after image build; runtime code did not."
+  },
+  "firstHourAcceptance": {
+    "status": "passed",
+    "scope": "first-hour",
+    "result": "docs/review/console-backend/first-hour-passed.json",
+    "privateRun": "tmp/stage5-acceptance-2H2lpy",
+    "passedSteps": 31,
+    "receiptStatus": "answered",
+    "latencyMs": 1882,
+    "rowRuleEvidence": true,
+    "fullStage5Acceptance": false,
+    "soakRun": false
+  }
+}

@@ -13,7 +13,7 @@ export function poolKeyId(value: string): Result<PoolKeyId> {
 export function keyHash(value: string): Result<KeyHash> {
  return /^[0-9a-f]{64}$/u.test(value) ? ok(value as KeyHash) : err(new DomainError('validation_failed','A pool key requires a SHA-256 digest.'));
 }
-export type PoolBudgets = Readonly<{ rowsPerDay: number; rowsPerRequest: number; timeoutMs: number; memoryMb: number; concurrency: number }>;
+export type PoolBudgets = Readonly<{ rowsPerDay?: number; rowsPerRequest?: number; timeoutMs?: number; memoryMb?: number; concurrency?: number; threads?: number }>;
 export type KeyRecord = Readonly<{
  id: PoolKeyId; credentialId?:CredentialId; poolId: PoolId; projectId: ProjectId; hash: KeyHash; prefix: string;
  state: 'current' | 'retiring' | 'revoked' | 'expired'; graceUntil: Timestamp | null;
@@ -38,6 +38,7 @@ export class Pool {
    const timed = key.state === 'retiring' || key.state === 'expired';
    if (timed ? key.graceUntil === null || Date.parse(key.graceUntil) <= Date.parse(key.createdAt) : key.graceUntil !== null) return invalid('A retiring or expired key requires a grace expiry after creation; other states have none.');
   }
+  if(Object.values(state.budgets).some(value=>value!==undefined&&(!Number.isSafeInteger(value)||value<=0)))return invalid('Pool budgets must be positive integers.');
   // Copy only aggregate fields: a caller's surplus credential or presence data
   // must never become part of the durable pool snapshot.
   return ok(new Pool(Object.freeze({
@@ -45,7 +46,7 @@ export class Pool {
    boundSources: Object.freeze([...state.boundSources]),
    modes: Object.freeze({query:state.modes.query,prompt:state.modes.prompt}),
    clarificationPolicy: state.clarificationPolicy,
-   budgets: Object.freeze({rowsPerDay:state.budgets.rowsPerDay,rowsPerRequest:state.budgets.rowsPerRequest,timeoutMs:state.budgets.timeoutMs,memoryMb:state.budgets.memoryMb,concurrency:state.budgets.concurrency}),
+   budgets: Object.freeze({rowsPerDay:state.budgets.rowsPerDay,rowsPerRequest:state.budgets.rowsPerRequest,timeoutMs:state.budgets.timeoutMs,memoryMb:state.budgets.memoryMb,concurrency:state.budgets.concurrency,threads:state.budgets.threads}),
    keys: Object.freeze(state.keys.map(key => Object.freeze({
     id:key.id,...key.credentialId?{credentialId:key.credentialId}:{},poolId:key.poolId,projectId:key.projectId,hash:key.hash,prefix:key.prefix,
     state:key.state,graceUntil:key.graceUntil,createdAt:key.createdAt,createdBy:key.createdBy,

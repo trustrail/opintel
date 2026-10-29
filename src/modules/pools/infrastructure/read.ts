@@ -17,7 +17,7 @@ const summary=`SELECT p.id,p.name,p.mode_query AS "modeQuery",p.mode_prompt AS "
  FROM pool p CROSS JOIN LATERAL (SELECT count(*)::int AS total,count(*) FILTER(WHERE t.treatment='clear')::int AS clear
  FROM pool_source_binding b JOIN data_source s ON s.id=b.source_id AND s.status<>'archived'
  JOIN catalog_object o ON o.source_id=s.id AND o.status='active' JOIN catalog_element e ON e.object_id=o.id AND e.status='active'
- LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=p.id WHERE b.pool_id=p.id) totals`;
+ LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=p.id WHERE b.pool_id=p.id AND public.pool_table_allowed(p.id,o.id)) totals`;
 async function keys(tx:Tx,pool:PoolId){return tx.query<{credentialId:string;label:string;poolId:string;keyVersion:string;prefix:string;custodyAlias:string;createdAt:Date;state:'current'|'retiring'|'expired'|'revoked';graceUntil:Date|null}>(`SELECT credential_id AS "credentialId",(SELECT label FROM pool_credential c WHERE c.id=credential_id) AS label,pool_id AS "poolId",id AS "keyVersion",key_prefix AS prefix,custody_alias AS "custodyAlias",created_at AS "createdAt",CASE WHEN state='retiring' AND grace_until<=now() THEN 'expired' ELSE state END AS state,grace_until AS "graceUntil" FROM pool_key WHERE pool_id=$1 ORDER BY created_at DESC,id DESC`,[pool]);}
 const keyView=(k:Awaited<ReturnType<typeof keys>>[number])=>({...k,createdAt:k.createdAt.toISOString(),graceUntil:k.graceUntil?.toISOString()??null});
 export class PostgresPoolReader implements PoolReader {
