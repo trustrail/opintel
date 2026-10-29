@@ -1,0 +1,45 @@
+import type {ReactElement} from 'react';
+import {Database} from '@phosphor-icons/react/dist/csr/Database';
+import {Table} from '@phosphor-icons/react/dist/csr/Table';
+import {Eye} from '@phosphor-icons/react/dist/csr/Eye';
+import {Columns} from '@phosphor-icons/react/dist/csr/Columns';
+import {Stack} from '@phosphor-icons/react/dist/csr/Stack';
+import {Rows} from '@phosphor-icons/react/dist/csr/Rows';
+import {Robot} from '@phosphor-icons/react/dist/csr/Robot';
+import {User} from '@phosphor-icons/react/dist/csr/User';
+import {Key} from '@phosphor-icons/react/dist/csr/Key';
+import {Receipt} from '@phosphor-icons/react/dist/csr/Receipt';
+import {ShieldCheck} from '@phosphor-icons/react/dist/csr/ShieldCheck';
+import {Gear} from '@phosphor-icons/react/dist/csr/Gear';
+import {Cpu} from '@phosphor-icons/react/dist/csr/Cpu';
+import {Lock} from '@phosphor-icons/react/dist/csr/Lock';
+import {Pulse as Activity} from '@phosphor-icons/react/dist/csr/Pulse';
+import {House} from '@phosphor-icons/react/dist/csr/House';
+import {MagnifyingGlass} from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import {ArrowsDownUp} from '@phosphor-icons/react/dist/csr/ArrowsDownUp';
+import {CaretRight} from '@phosphor-icons/react/dist/csr/CaretRight';
+import {Warning} from '@phosphor-icons/react/dist/csr/Warning';
+import {Sun} from '@phosphor-icons/react/dist/csr/Sun';
+import {Moon} from '@phosphor-icons/react/dist/csr/Moon';
+import {Check} from '@phosphor-icons/react/dist/csr/Check';
+import {Question} from '@phosphor-icons/react/dist/csr/Question';
+import {Prohibit} from '@phosphor-icons/react/dist/csr/Prohibit';
+import {ArrowsOutSimple} from '@phosphor-icons/react/dist/csr/ArrowsOutSimple';
+import {X} from '@phosphor-icons/react/dist/csr/X';
+import {ChartBar} from '@phosphor-icons/react/dist/csr/ChartBar';
+import {Copy} from '@phosphor-icons/react/dist/csr/Copy';
+import {Target} from '@phosphor-icons/react/dist/csr/Target';
+import {CaretUpDown} from '@phosphor-icons/react/dist/csr/CaretUpDown';
+import {DotsThree} from '@phosphor-icons/react/dist/csr/DotsThree';
+import {Circle} from '@phosphor-icons/react/dist/csr/Circle';
+import {CircleHalf} from '@phosphor-icons/react/dist/csr/CircleHalf';
+import {CircleDashed} from '@phosphor-icons/react/dist/csr/CircleDashed';
+import {CircleNotch} from '@phosphor-icons/react/dist/csr/CircleNotch';
+import {Smiley as CircleWavy} from '@phosphor-icons/react/dist/csr/Smiley';
+import type {Icon} from '@phosphor-icons/react';
+import {Tooltip} from './primitives.js';
+export const icons={source:Database,table:Table,view:Eye,column:Columns,pool:Stack,row_rule:Rows,agent:Robot,person:User,credential:Key,receipt:Receipt,engine:Cpu,sources:Database,custody:Lock,tls:ShieldCheck,token_key:Key,settings:Gear,activity:Activity,home:House,search:MagnifyingGlass,order:ArrowsDownUp,chevron:CaretRight,warning:Warning,sun:Sun,moon:Moon,check:Check,unknown:Question,refused:Prohibit,expand:ArrowsOutSimple,close:X,logo:ChartBar,copy:Copy,target:Target,switch:CaretUpDown,more:DotsThree,clear:Circle,tokenized:CircleNotch,masked:CircleHalf,aggregate_only:CircleWavy,withheld:Prohibit,undecided:CircleDashed} satisfies Record<string,Icon>;
+export type Kind='source'|'table'|'view'|'column'|'pool'|'row_rule'|'agent'|'person'|'credential'|'receipt';
+export function Glyph({name,size=20}:{name:keyof typeof icons;size?:number}){const Icon=icons[name];return <Icon size={size} weight="regular" aria-hidden="true"/>;}
+export function KindIcon({kind}:{kind:Kind}){return <Tooltip.Root><Tooltip.Trigger asChild><span data-kind={kind} role="img" aria-label={kind.replaceAll('_',' ')}><Glyph name={kind} size={18}/></span></Tooltip.Trigger><Tooltip.Content data-tooltip sideOffset={8}>{kind.replaceAll('_',' ')}<Tooltip.Arrow/></Tooltip.Content></Tooltip.Root>;}
+export function Tip({label,children}:{label:string;children:ReactElement}){return <Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger><Tooltip.Content data-tooltip sideOffset={8}>{label}<Tooltip.Arrow/></Tooltip.Content></Tooltip.Root>;}

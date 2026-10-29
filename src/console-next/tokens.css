@@ -1,0 +1,22 @@
+/* Phase 1 foundations. Colours, spacing, type, radii and shadows live only here. */
+:root {
+ --space-0:0;--space-1:8px;--space-2:16px;--space-3:24px;--space-4:32px;--space-5:40px;--space-6:48px;--space-7:56px;--space-8:64px;
+ --radius-1:8px;--radius-2:16px;--radius-3:999px;
+ --text-1:12px;--text-2:14px;--text-3:18px;--text-4:24px;--text-5:48px;
+ --shadow-1:0 4px 16px rgb(27 2 50 / 10%);--shadow-2:0 16px 48px rgb(27 2 50 / 24%);
+ --font:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ --rail-width:76px;--touch:44px;--row:72px;--row-detail:88px;--hairline:1px;--focus:3px;--motion:200ms;
+ --plum:#1b0232;--rail:#1b0232;--rail-active:#3b2351;--rail-ink:#c7b8d4;--white:#ffffff;
+ --green:#32df85;--bg:#f4f1f8;--surface:#ffffff;--surface-hover:#f8f6fb;--pressed:#ede7f4;
+ --ink:#220a38;--muted:#706083;--border:#e1d7ed;--neutral:#eee9f5;
+ --ok:#137b37;--ok-bg:#e7f6ed;--warning:#885600;--warning-bg:#fcf3de;--down:#bd293f;--down-bg:#fce9ec;--unknown:#716080;
+ --treatment-clear:#289d54;--treatment-tokenized:#305fb7;--treatment-masked:#b88a19;--treatment-aggregate_only:#7242a8;--treatment-custody:#23093f;--treatment-withheld:#bd293f;--treatment-undecided:#f1bf66;
+ --strip-bar:#8d7ba4;--overlay:rgb(18 4 31 / 45%);
+}
+[data-console-theme="dark"] {
+ --bg:#150c21;--surface:#21142f;--surface-hover:#2b1c3a;--pressed:#372447;
+ --ink:#f5effb;--muted:#b9a9cc;--border:#4b365f;--neutral:#352544;
+ --ok:#71dc98;--ok-bg:#193c2b;--warning:#ffd17d;--warning-bg:#49351c;--down:#ff91a5;--down-bg:#4b2231;--unknown:#c0afcf;
+ --treatment-clear:#4cbf79;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#c7aedf;--treatment-withheld:#f27c95;--treatment-undecided:#f1bf66;
+ --strip-bar:#9d86ba;--overlay:rgb(5 1 9 / 70%);
+}

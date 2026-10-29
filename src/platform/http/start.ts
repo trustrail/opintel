@@ -1,3 +1,5 @@
+import {projectHealthRoutes} from '../../modules/tenancy/api/project-health-routes.js';
+import {PostgresProjectHealthReader} from '../../modules/tenancy/index.js';
 import {poolBudgetRoutes} from '../../modules/pools/api/budget-routes.js';
 import {PostgresPoolBudgets} from '../../modules/pools/index.js';
 import {operatorObserverReader} from '../ops/observer.js';
@@ -279,6 +281,7 @@ async function start(): Promise<void> {
     ...suggestionRoutes(new PostgresSuggestions(evidenceQuery)),
     ...dashboardRoutes(new PostgresDashboardReader()),
     ...needsYouRoutes(new PostgresNeedsYouReader(),authorization),
+    ...projectHealthRoutes(new PostgresProjectHealthReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody,new PostgresPoolTables(relationshipOutbox,authorization)), presence)),
     ...poolTableRoutes(new PostgresPoolTables(relationshipOutbox,authorization)),
@@ -286,7 +289,7 @@ async function start(): Promise<void> {
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),
-    ...rowDecisionRoutes(new PostgresRowDecisions(),new PostgresRowPreview(new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),new PostgresEvidenceWriter())),
+    ...rowDecisionRoutes(new PostgresRowDecisions(),new PostgresRowPreview(new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),new PostgresEvidenceWriter(hub))),
     ...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),
     ...projectStreamRoutes(hub),
     ...catalogRoutes(new PostgresCatalogTreeReader()),
@@ -312,7 +315,7 @@ async function start(): Promise<void> {
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),
     ...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),
   ];
-  const evidence=new PostgresEvidenceWriter();assertEvidenceWriter(evidence);
+  const evidence=new PostgresEvidenceWriter(hub);assertEvidenceWriter(evidence);
   const execution=new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),filter=new QueryPreFilter(new DuckDBQueryParser());
   const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence,releaseCustody);
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),new PostgresExplainJoinCandidates());
