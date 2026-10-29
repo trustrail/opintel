@@ -1,5 +1,7 @@
 # Console-next Pools review
 
+This records the initial `806c755` review. The [Pools completion review](pools-fixes.md) supersedes its UI differences and confirmation behavior.
+
 Implementation: `src/console-next/pools`, in the existing parallel package `@opintel/console-next`. Open `/?project=PROJECT&screen=pools`; `pool=POOL` selects a pool and `tab=credentials` or `tab=agents` selects its workbench. Home now links to this Pools screen. Run `npm run console:dev` and use the same hostname as the signed-in current console (for example, `http://localhost:5174`) so its session cookie is shared across ports. The current console and master stylesheet are unchanged. No backend changes or migrations.
 
 ## Real data and commands

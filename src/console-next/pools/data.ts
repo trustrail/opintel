@@ -10,7 +10,7 @@ import {CatalogTreeResponse} from '../../shared/api/catalog.js';
 import {NeedsYouPage} from '../../shared/api/needs-you.js';
 import {homeKeys,pages,read} from '../home/data.js';
 import {treatmentOrder,type Treatment} from '../components/treatment.js';
-export const poolsKeys={all:(p:string)=>[...homeKeys.scope(p),'pools'] as const,facts:(p:string)=>[...poolsKeys.all(p),'facts'] as const,catalog:(p:string)=>[...poolsKeys.all(p),'catalog'] as const,rows:(p:string,pool:string)=>[...poolsKeys.all(p),'rows',pool] as const};
+export const poolsKeys={all:(p:string)=>[...homeKeys.scope(p),'pools'] as const,facts:(p:string)=>[...poolsKeys.all(p),'facts'] as const,columns:(p:string,ids:readonly string[])=>[...poolsKeys.all(p),'columns',...ids.toSorted()] as const,catalog:(p:string)=>[...poolsKeys.all(p),'catalog'] as const,rows:(p:string,pool:string)=>[...poolsKeys.all(p),'rows',pool] as const};
 export const emptySpectrum=()=>({clear:0,tokenized:0,masked:0,aggregate_only:0,custody:0,withheld:0,undecided:0});
 export const isConnected=(agent:AgentPresenceView)=>['connecting','active','idle'].includes(agent.state);
 export async function readPools(project:string,client=createApiClient()){
@@ -30,11 +30,12 @@ export async function readPools(project:string,client=createApiClient()){
 export type PoolFacts=Awaited<ReturnType<typeof readPools>>['pools'][number];
 export function usePools(project:string){return useQuery({queryKey:poolsKeys.facts(project),queryFn:({signal})=>readPools(project,createApiClient(undefined,{signal})),refetchInterval:15000,retry:false});}
 export function usePoolRows(project:string,pool:string,enabled:boolean){return useQuery({queryKey:poolsKeys.rows(project,pool),enabled,retry:false,queryFn:async({signal})=>(await pages(createApiClient(undefined,{signal}),`/api/v1/pools/${pool}/row-entitlements?${new URLSearchParams({projectId:project,status:'all',search:''})}`,PoolRowObjects,Infinity)).items});}
+export async function readCatalogLevel(project:string,parent?:string,client=createApiClient()){const tables=[];let cursor:string|null=null;const seen=new Set<string>();
+ do{const page:z.infer<typeof CatalogTreeResponse>=await read(client,`/api/v1/projects/${project}/catalog?${new URLSearchParams({limit:'100',...parent?{parent}:{},...cursor?{cursor}:{}})}`,CatalogTreeResponse);tables.push(...page.nodes);cursor=page.nextCursor;if(cursor&&seen.has(cursor))throw new Error('Catalogue changed while loading. Retry.');if(cursor)seen.add(cursor);}while(cursor);return tables;}
+
 export async function readTables(project:string,client=createApiClient()){
- const nodes=async(parent?:string)=>{const tables=[];let cursor:string|null=null;const seen=new Set<string>();
- do{const page:z.infer<typeof CatalogTreeResponse>=await read(client,`/api/v1/projects/${project}/catalog?${new URLSearchParams({limit:'100',...parent?{parent}:{},...cursor?{cursor}:{}})}`,CatalogTreeResponse);tables.push(...page.nodes);cursor=page.nextCursor;if(cursor&&seen.has(cursor))throw new Error('Catalogue changed while loading. Retry.');if(cursor)seen.add(cursor);}while(cursor);return tables;};
- const sources=await nodes(),result=[];
- for(const source of sources)result.push({source:{id:source.id,name:source.label??'Unnamed source'},tables:await nodes(`objects:${source.id}`)});
+ const sources=await readCatalogLevel(project,undefined,client),result=[];
+ for(const source of sources)result.push({source:{id:source.id,name:source.label??'Unnamed source'},tables:await readCatalogLevel(project,`objects:${source.id}`,client)});
  return result;
 }
 export function useTables(project:string,enabled:boolean){return useQuery({queryKey:poolsKeys.catalog(project),enabled,retry:false,queryFn:({signal})=>readTables(project,createApiClient(undefined,{signal}))});}
@@ -46,3 +47,12 @@ export function useRefreshPools(project:string,kind:'create'|'rows'|'credential'
 }
 export function sumPools(pools:PoolFacts[]){const spectrum=emptySpectrum();for(const p of pools)for(const kind of treatmentOrder)spectrum[kind]+=p.spectrum[kind];return {spectrum,columns:treatmentOrder.reduce((n,k)=>n+spectrum[k],0),connected:pools.reduce((n,p)=>n+p.connected,0),tables:pools.reduce((n,p)=>n+p.tables.length,0)};}
 export function dataLink(project:string,pool:string,object?:string,element?:string,treatment?:Treatment){return `/projects/${project}/entitlements?${new URLSearchParams({poolId:pool,decision:'all',...object&&!element?{layout:'table'}:{},...element?{elementId:element}:{},...treatment?{treatment}:{}})}`;}
+
+export function useTableColumns(project:string,ids:readonly string[]){return useQuery({queryKey:poolsKeys.columns(project,ids),enabled:ids.length>0,retry:false,queryFn:async({signal})=>{const client=createApiClient(undefined,{signal}),result=[];for(const tableId of ids)result.push({tableId,columns:await readCatalogLevel(project,tableId,client)});return result;}});}
+
+/** Lane membership uses credential authentication; solidity requires verified name identity. */
+export function credentialAgents(pool:PoolFacts,credentialId:string,alias:string){
+ const seen=new Map<string,{agent:AgentPresenceView;bound:boolean}>();
+ for(const agent of pool.agents){const observed=agent.authenticatedWith.kind==='credential'&&agent.authenticatedWith.alias===alias,bound=Boolean(agent.verified),legacy=agent.authenticatedWith.kind==='legacy_pool_key'&&pool.detail.keys.some(k=>k.keyVersion===agent.keyVersion&&k.credentialId===credentialId);if(observed||legacy){const previous=seen.get(agent.agentId);if(!previous||bound)seen.set(agent.agentId,{agent,bound});}}
+ return [...seen.values()];
+}

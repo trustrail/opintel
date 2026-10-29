@@ -1406,3 +1406,15 @@ federation or person records. Derive connected presence from fresh connecting,
 active and idle states, reading all cursor pages. Validate lint, strict typecheck,
 console tests and real-API manual captures for five views at 1440/390 in both
 themes. Commit and push a feature branch only; no full gate or merge in this scope.
+
+
+Pools completion review: use scanned catalogue columns for a named-column row
+picker, infer value controls from their types and show per-table compatibility.
+The suggested required thread value is confirmed by Create pool, without a
+second checkbox. Waiting is a fixed-width count with hover details; arrows open
+the pool and no stray Data label remains. Pool squares carry the code only;
+counts use proper singular/plural. Credential lanes retain every seen name,
+using solid circles only for verified name identity and dashed circles for all
+current unverified names, independent of credential authentication or freshness. Targeted checks and four light captures precede the commit on
+`feat/console-next-pools`. Run the full gate once on that completed tip; only a
+pass authorizes merge and push to main. Any gate failure stops delivery.
