@@ -152,3 +152,16 @@ without emitting native messages containing credentials or test data. No
 additional preflight, Compose change, governance change or normal-test timeout
 relaxation is introduced. DEP-008 also retains isolated owner-claim startup after
 removing native/operator runtimes, with the new engine-sources artifact expected.
+
+Console first-hour contract follow-up (2026-10-29): normal-table discovery caught
+the new pool_table_binding table missing from the explicit grant inventory, and
+RLS-10 caught migration 086's tenant_access name instead of tenant_read and
+tenant_write. The grant inventory now follows pool_source_binding exactly,
+without changing SQL grants. Forward migration 087 preserves the applied bytes
+of 086 and keeps its predicates and app-only policy role while supplying the
+required policy names. PT-010 checks same-table membership in two pools and
+rejects duplicate membership in one pool; the new migration regression checks
+up/down/up, unchanged privileges/predicates and forced RLS. The affected
+explicit-list inventory and separate-file baseline/candidate results are in
+`docs/review/console-backend/contract-inventory.md`. No governance assertion is
+relaxed and no grant is widened.

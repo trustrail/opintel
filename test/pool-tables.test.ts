@@ -112,3 +112,14 @@ it('PT-009: copy leaves a new column undecided when same-name source counterpart
  const pool=await create('Ambiguous copy',[target],{column:'field_1',operator:'=',value:'own'},{kind:'copy_from',poolId:f.pool});
  expect(pool.tables[0]?.copiedColumns).toBe(0);expect(await withTenant(f.ctx,tx=>tx.query('SELECT element_id FROM entitlement WHERE pool_id=$1',[pool.poolId]))).toHaveLength(0);
 });
+
+it('PT-010: one table may belong to several pools; uniqueness is per pool and table',async()=>{
+ const first=await create('First shared table',[object]),next=await create('Second shared table',[object]);
+ const rows=await withTenant(f.ctx,tx=>tx.query<{pool_id:string;object_id:string}>('SELECT pool_id,object_id FROM pool_table_binding WHERE object_id=$1 ORDER BY pool_id',[object]));
+ expect(rows).toEqual([first.poolId,next.poolId].sort().map(pool_id=>({pool_id,object_id:object})));
+ await expect(withTenant(f.ctx,tx=>tx.query('INSERT INTO pool_table_binding(project_id,pool_id,object_id) VALUES($1,$2,$3)',[f.ctx.projectId,first.poolId,object]))).rejects.toMatchObject({code:'23505'});
+ const constraints=await withPlatform(tx=>tx.query<{kind:string;definition:string}>("SELECT contype::text AS kind,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='pool_table_binding'::regclass AND contype IN ('p','u') ORDER BY conname"));
+ expect(constraints).toEqual([{kind:'p',definition:'PRIMARY KEY (pool_id, object_id)'}]);
+ const indexes=await withPlatform(tx=>tx.query<{definition:string}>("SELECT pg_get_indexdef(indexrelid) AS definition FROM pg_index WHERE indrelid='pool_table_binding'::regclass AND indisunique"));
+ expect(indexes).toHaveLength(1);expect(indexes[0]!.definition).toContain('(pool_id, object_id)');
+});
