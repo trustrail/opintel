@@ -47,16 +47,26 @@ it('captures Home from real PostgreSQL projections, real engine queries and Redi
     await page.getByRole('heading',{name:/Needs you/}).waitFor();await page.locator('[data-health-icon][aria-label^="TLS certificate:"]').waitFor({state:'attached'});await expect.poll(()=>page.locator('[data-live=true]').count()).toBeGreaterThan(0);await page.evaluate(()=>document.fonts.ready);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
     expect(await page.locator('[data-needs-row]').count()).toBe(expectedNeeds);
-    const queue=page.getByRole('region',{name:'Needs-you items'});expect(await queue.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
-    await page.keyboard.press('Tab');await page.locator('[data-needs-row]').last().focus();const focus=await page.locator('[data-needs-row]').last().evaluate(el=>({visible:el.matches(':focus-visible'),width:parseFloat(getComputedStyle(el).outlineWidth),style:getComputedStyle(el).outlineStyle}));expect(focus.visible).toBe(true);expect(focus.width).toBeGreaterThanOrEqual(2);expect(focus.style).toBe('solid');const bounds=await queue.boundingBox(),last=await page.locator('[data-needs-row]').last().boundingBox();expect(last!.y).toBeGreaterThanOrEqual(bounds!.y-1);expect(last!.y+last!.height).toBeLessThanOrEqual(bounds!.y+bounds!.height+1);
-    await queue.evaluate(el=>{el.scrollTop=0;});await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
+    const queue=page.getByRole('region',{name:'Needs-you items'});
+    if(width===390){
+     expect(await page.locator('[data-needs-row]:visible').count()).toBe(Math.min(5,expectedNeeds));
+     expect(await queue.evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);
+     const more=page.getByRole('button',{name:`${expectedNeeds-5} more`,exact:true});await more.click();
+     expect(await page.locator('[data-needs-row]:visible').count()).toBe(expectedNeeds);expect(await queue.evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);
+    }else{
+     expect(await queue.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);expect(await page.locator('[data-needs-more]').isVisible()).toBe(false);
+    }
+    await page.keyboard.press('Tab');await page.locator('[data-needs-row]').last().focus();const focus=await page.locator('[data-needs-row]').last().evaluate(el=>({visible:el.matches(':focus-visible'),width:parseFloat(getComputedStyle(el).outlineWidth),style:getComputedStyle(el).outlineStyle}));expect(focus.visible).toBe(true);expect(focus.width).toBeGreaterThanOrEqual(2);expect(focus.style).toBe('solid');
+    const bounds=await queue.boundingBox(),last=await page.locator('[data-needs-row]').last().boundingBox();expect(last!.y).toBeGreaterThanOrEqual(bounds!.y-1);expect(last!.y+last!.height).toBeLessThanOrEqual(bounds!.y+bounds!.height+1);
+    if(width===390){await page.getByRole('button',{name:'Show fewer',exact:true}).click();expect(await page.locator('[data-needs-row]:visible').count()).toBe(5);}
+    await queue.evaluate(el=>{el.scrollTop=0;});await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();window.scrollTo(0,0);});
     expect(await page.locator('[data-need-effect]').count()).toBe(0);expect(await page.locator('[data-needs]').textContent()).not.toContain('—');
     for(const name of ['Pools','Data','Settings'])expect(await page.getByRole('navigation',{name:'Main navigation'}).getByRole('link',{name}).locator('[data-attention]').count()).toBe(1);
     if(width===1440){const check=page.locator('[data-health-icon][data-status=warning]').first();await check.hover();await page.getByRole('tooltip').waitFor();expect(await page.getByRole('tooltip').textContent()).toMatch(/verification|check|initialized/);}
     await page.keyboard.press('Escape');await page.mouse.move(100,800);if(width===1440){await page.getByRole('tooltip').waitFor({state:'hidden'});await page.locator('[data-kind=table]').first().hover();await page.getByRole('tooltip').waitFor();expect(await page.getByRole('tooltip').textContent()).toBe('table');await page.keyboard.press('Escape');await page.mouse.move(100,800);await page.getByRole('tooltip').waitFor({state:'hidden'});}
 
     if(width===390){for(const link of await page.locator('[data-rail] nav a').all()){const box=await link.boundingBox();expect(box).not.toBeNull();expect(box!.width).toBeGreaterThanOrEqual(44);expect(box!.height).toBeGreaterThanOrEqual(44);expect(box!.y+box!.height).toBeLessThanOrEqual(height);}}
-    await page.screenshot({path:`${directory}/home-${width}-${theme}.png`,fullPage:true});
+    if(width===390)await page.screenshot({path:`${directory}/home-${width}-${theme}.png`,fullPage:true});
    }
   }
   // Persisting a new completion updates the band through the actual stream.
@@ -69,6 +79,6 @@ it('captures Home from real PostgreSQL projections, real engine queries and Redi
   await page.emulateMedia({reducedMotion:'no-preference'});await page.getByText('field_6',{exact:true}).first().click();await page.locator('[data-need-effect]').waitFor();await page.waitForTimeout(250);await page.locator('[data-needs-row][aria-expanded=true]').click();
   await hub.close();await page.getByText('Polling · 15 s').waitFor();
   await context.close();expect(errors).toEqual([]);expect(responses.filter(r=>r.status>=400)).toEqual([]);
-  const stats=unwrap(await new PostgresDashboardReader().stats(f.ctx));await writeFile(`${directory}/capture.json`,JSON.stringify({capturedAt:new Date().toISOString(),fixture:'Isolated test database; real PostgreSQL read models, real Engine requests and Redis SSE. Authentication supplied by the fixture, not production credentials.',viewportPairs:[[1440,1000],[390,1500]],queueItems:expectedNeeds,allQueueRowsReachable:true,attentionAreas:['Pools','Data','Settings'],reducedMotion:'reduce',keyboardFocusVisible:true,kindHoverVerified:true,healthReasonHoverVerified:true,bandFiltersVerified:true,requestsAtCapture:7,requestsAfterLiveCheck:stats.requests,apiResponses:responses,pageErrors:errors},null,2)+'\n');
+  const stats=unwrap(await new PostgresDashboardReader().stats(f.ctx));await writeFile(`${directory}/capture.json`,JSON.stringify({capturedAt:new Date().toISOString(),fixture:'Isolated test database; real PostgreSQL read models, real Engine requests and Redis SSE. Authentication supplied by the fixture, not production credentials.',viewportPairs:[[1440,1000],[390,1500]],screenshotsCaptured:[[390,1500]],phoneInitialItems:5,phoneMoreItems:expectedNeeds-5,phoneExpandsInPlace:true,desktopInnerScroll:true,queueItems:expectedNeeds,allQueueRowsReachable:true,attentionAreas:['Pools','Data','Settings'],reducedMotion:'reduce',keyboardFocusVisible:true,kindHoverVerified:true,healthReasonHoverVerified:true,bandFiltersVerified:true,requestsAtCapture:7,requestsAfterLiveCheck:stats.requests,apiResponses:responses,pageErrors:errors},null,2)+'\n');
  }finally{await browser.close();await vite.close();api.closeAllConnections();await new Promise<void>(resolve=>api.close(()=>resolve()));await hub.close();await redis.close();await f.close();}
 });

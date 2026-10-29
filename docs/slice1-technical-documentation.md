@@ -6194,8 +6194,10 @@ badge (derived from its name, full name on hover), table/view and column using
 the shared kind marks; it does not parse a title to infer entity identity.
 
 All needs-you pages are read to the terminal cursor, with repeated cursors
-rejected. Every item is in the fixed-row list; its bounded, keyboard-focusable
-viewport scrolls inside the card. Expanding a row alone reveals its effect and
+rejected. Desktop keeps every item in the fixed-row list and its bounded,
+keyboard-focusable viewport scrolls inside the card. At phone widths (<=700 px),
+only the first five items are initially visible; an exact “N more” row expands
+the remaining items in place with natural page scrolling. Expanding a row alone reveals its effect and
 resolving action. Navigation dots derive only from needs-you kinds: column/row
 findings mark Data and Pools; settings/check findings mark Settings.
 

@@ -1835,3 +1835,11 @@ expansion, needs-only area dots, and granted-receipt custody filtering.
 The manual capture asserts visible keyboard focus, kind/reason hover text,
 all four viewport/theme variants, real filter drill-downs and reduced-motion
 expansion. No governance assertion or normal-test hang guard is weakened.
+
+Phone Home completion: at <=700 px only the first five rows are initially
+visible; the exact remaining count expands the complete list in the page,
+without an inner scroll. Collapse and project switches reset the disclosure.
+Desktop still renders every row in its bounded inner viewport. Console units
+cover the count/state contract; the real-browser capture checks responsive
+visibility, expansion and absence/presence of internal scrolling, with phone
+light/dark artifacts. Full gate runs once after the candidate commit.

@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-29T19:04:01.265Z",
+  "capturedAt": "2026-10-29T19:20:18.038Z",
   "fixture": "Isolated test database; real PostgreSQL read models, real Engine requests and Redis SSE. Authentication supplied by the fixture, not production credentials.",
   "viewportPairs": [
     [
@@ -11,6 +11,16 @@
       1500
     ]
   ],
+  "screenshotsCaptured": [
+    [
+      390,
+      1500
+    ]
+  ],
+  "phoneInitialItems": 5,
+  "phoneMoreItems": 3,
+  "phoneExpandsInPlace": true,
+  "desktopInnerScroll": true,
   "queueItems": 8,
   "allQueueRowsReachable": true,
   "attentionAreas": [
@@ -31,55 +41,27 @@
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stream",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stream",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stats",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/health",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stats",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/health",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/needs-you",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/needs-you",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs/summary",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stream",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/health",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stats",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/needs-you",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs/summary",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs/summary",
       "status": 200
     },
     {
@@ -87,55 +69,27 @@
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stream",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stream",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stats",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stats",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/health",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/health",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/needs-you",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/needs-you",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs/summary",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stream",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stats",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/health",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs/summary",
-      "status": 200
-    },
-    {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/needs-you",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs/summary",
       "status": 200
     },
     {
@@ -143,74 +97,129 @@
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stream",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stream",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stats",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stats",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/health",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/health",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs/summary",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/needs-you",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/needs-you",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs/summary",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/stats",
+      "url": "/api/v1/projects",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stream",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/health",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/health",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/needs-you",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/needs-you",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/runs/summary",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stats",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/pools",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs",
       "status": 200
     },
     {
-      "url": "/api/v1/pools/b7570137-8332-4078-8745-51d89e56cbff/entitlement-members",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs/summary",
       "status": 200
     },
     {
-      "url": "/api/v1/pools/3d6bc2fe-7d75-4ed7-beb8-54b2f9ec08dc/entitlement-members",
+      "url": "/api/v1/projects",
       "status": 200
     },
     {
-      "url": "/api/v1/projects/be3f0788-b856-44e5-8e56-8f1a7e51516b/pools",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stream",
       "status": 200
     },
     {
-      "url": "/api/v1/pools/b7570137-8332-4078-8745-51d89e56cbff/agents",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stats",
       "status": 200
     },
     {
-      "url": "/api/v1/pools/3d6bc2fe-7d75-4ed7-beb8-54b2f9ec08dc/agents",
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/needs-you",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/health",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs/summary",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/stats",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/health",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/needs-you",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/runs/summary",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/pools",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/pools/e26b0ae3-bb44-471d-bc00-1ddd09316011/entitlement-members",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/pools/046c788e-596d-44ac-980b-82a1cc2209fe/entitlement-members",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/projects/bd82dd7c-4fc7-4406-bd6c-728fb952e853/pools",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/pools/e26b0ae3-bb44-471d-bc00-1ddd09316011/agents",
+      "status": 200
+    },
+    {
+      "url": "/api/v1/pools/046c788e-596d-44ac-980b-82a1cc2209fe/agents",
       "status": 200
     }
   ],
-  "pageErrors": [],
-  "responseScope": "/api/v1/ HTTP responses only"
+  "pageErrors": []
 }

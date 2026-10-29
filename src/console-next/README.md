@@ -52,8 +52,9 @@ fixture identity. No API responses or rendered numbers are mocked for captures.
 Artifacts go to `docs/review/console-backend/phase1-screenshots/`.
 
 
-Review corrections: the entire queue remains in a fixed-height scroll viewport,
-including rows below the fold. Decision labels use API-provided pool/table/column
+Review corrections: desktop keeps the entire queue in a fixed-height scroll
+viewport. Phones show five items plus an exact “N more” disclosure; expanding
+reveals the rest in the page without internal scrolling. Decision labels use API-provided pool/table/column
 context and shared kind icons; effects appear only on expansion. Area dots use
 needs-you items rather than health counts. Known setup/check findings warn;
 unknown means an unavailable check. Header hover includes the actual reason.

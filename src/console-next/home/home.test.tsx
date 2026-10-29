@@ -19,7 +19,7 @@ const stats=DashboardStats.parse({asOf:now.toISOString(),utcDay:'2026-10-29',poo
 const data:HomeData={stats,summary:{counts:{all:42,refused:7,incomplete:0,answerTreated:10},days:[],custody:[{day:'2026-10-29',state:'granted',origin:null,count:9}]},needs,needsComplete:true,minutes:null,asOf:now.toISOString(),from:'2026-10-29T00:00:00.000Z',to:now.toISOString()};
 const health=ProjectHealth.parse({items:[{kind:'tls',status:'warning',checked_at:null,reason:'Self-signed TLS is in use.',next_action:{label:'Review TLS',href:`/projects/${id}/settings-project`}}]}).items;
 const wrapper=({children}:{children:React.ReactNode})=><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Tooltip.Provider delayDuration={0}>{children}</Tooltip.Provider></QueryClientProvider>;
-afterEach(()=>{useHomeState.setState({order:'all',theme:'light',expandedNeed:null});vi.useRealTimers();});
+afterEach(()=>{useHomeState.setState({order:'all',theme:'light',expandedNeed:null,showAllNeeds:false});vi.useRealTimers();});
 describe('Home contract',()=>{
  it('uses summary numbers, stats presence and actual needs; hides unavailable strip',()=>{
   render(<HomeView project={project} projects={[project]} data={data} health={health} live onProject={()=>{}}/>,{wrapper});
@@ -94,4 +94,17 @@ it('the Custody band opens only receipts with granted events, not other custody 
  const granted=make(id),expired=make(other),detail=(run:typeof granted,kind:'granted'|'expired')=>EvidenceDetail.parse({...run,releaseEvents:[{grantId:id,receipt:run.id,provider:'local',kind,at:now.toISOString(),alias:'test',actor:null,jurObserved:null}],completedAt:now.toISOString(),tokenKeyVersionUsed:null,truncated:false,refusalCode:null,generatedSql:null,elements:[],stages:[],sources:[]});
  const fetcher=async(path:string)=>({ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify(path.includes('/projects/')?{items:[granted,expired],nextCursor:null}:path.includes('/runs/'+id+'?')?detail(granted,'granted'):detail(expired,'expired'))});
  const result=await readCustodyReceipts(other,data.from,data.to,1,createApiClient(fetcher));expect(result.map(r=>r.id)).toEqual([id]);expect(Object.keys(result[0]!).sort()).toEqual(['id','rowCount','startedAt','status']);
+});
+
+it('phone disclosure shows the exact remaining count and expands in place without removing desktop rows',()=>{
+ const many=Array.from({length:8},(_,i)=>NeedsYouItem.parse({...needs[1],id:'phone:'+i}));
+ const view=render(<HomeView project={project} projects={[project]} data={{...data,needs:many}} health={health} live onProject={()=>{}}/>,{wrapper});
+ expect(view.container.querySelectorAll('[data-needs-row]')).toHaveLength(8);expect(view.container.querySelectorAll('[data-phone-extra=true]')).toHaveLength(3);
+ const more=screen.getByRole('button',{name:'3 more'});expect(more.getAttribute('aria-expanded')).toBe('false');expect(more.getAttribute('aria-controls')).toBe(screen.getByRole('region',{name:'Needs-you items'}).id);
+ fireEvent.click(more);expect(view.container.querySelectorAll('[data-phone-extra=true]')).toHaveLength(0);expect(screen.getByRole('button',{name:'Show fewer'}).getAttribute('aria-expanded')).toBe('true');
+ fireEvent.click(screen.getByRole('button',{name:'Show fewer'}));expect(view.container.querySelectorAll('[data-phone-extra=true]')).toHaveLength(3);
+});
+it('no phone disclosure appears for at most five items and a project switch resets it',()=>{
+ const view=render(<HomeView project={project} projects={[project]} data={data} health={health} live onProject={()=>{}}/>,{wrapper});expect(view.container.querySelector('[data-needs-more]')).toBeNull();
+ act(()=>{useHomeState.getState().toggleAllNeeds();});expect(useHomeState.getState().showAllNeeds).toBe(true);act(()=>{useHomeState.getState().setProject(other);});expect(useHomeState.getState().showAllNeeds).toBe(false);
 });

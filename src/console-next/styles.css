@@ -12,3 +12,14 @@
 
 [data-need-copy] [data-need-name]{display:flex;align-items:center;gap:var(--space-1);min-width:0;overflow:hidden}[data-pool-badge]{display:inline-flex;align-items:center;gap:calc(var(--space-1)/2);flex-shrink:0;padding:calc(var(--space-1)/2);background:var(--neutral);border-radius:var(--radius-1);font-size:var(--text-1)}[data-table-names]{display:flex;min-width:0;flex:0 1 auto;gap:calc(var(--space-1)/2);overflow:hidden}[data-table-names]>span,[data-column-name]{display:inline-flex;align-items:center;gap:calc(var(--space-1)/2);min-width:0;overflow:hidden}[data-table-names]>span>span:last-child,[data-column-name]>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}[data-column-name]{flex:1;min-width:0}[data-kind]{display:inline-flex;flex-shrink:0}[data-need-effect]{height:var(--row-detail);padding:var(--space-1) var(--space-2);display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);background:var(--surface-hover);border-top:var(--hairline) solid var(--border)}[data-need-effect] p{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--muted);font-size:var(--text-1)}[data-need-effect] [data-action]{flex-shrink:0}[data-needs-row][aria-expanded=true] [data-mobile-chevron]{transform:rotate(90deg)}
 [data-needs-row]:focus-visible,[data-needs-viewport]:focus-visible{outline-offset:calc(var(--focus)*-1)}
+
+[data-needs-more]{display:none}
+@media(max-width:700px){
+ [data-needs-scroll]{height:auto!important;overflow:visible!important}
+ [data-needs-viewport]{height:auto!important;overflow:visible!important}
+ [data-phone-extra=true]{display:none}
+ [data-needs-scroll] [data-scrollbar]{display:none!important}
+ [data-needs-more]{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--touch);margin-top:var(--space-1);padding:var(--space-1) var(--space-2);border-radius:var(--radius-2);background:var(--surface);color:var(--ink)}
+ [data-needs-more] svg{transform:rotate(90deg)}
+ [data-needs-more][aria-expanded=true] svg{transform:rotate(-90deg)}
+}

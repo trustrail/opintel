@@ -1388,3 +1388,10 @@ areas, and map known setup/check findings to warning. Confirm filtered number
 links, kind hover names, keyboard focus and reduced motion in tests and fresh
 1440/390 light/dark captures. Lint, strict typecheck and targeted tests replace
 the full gate here. Commit and push `feat/console-home-fixes`; do not merge.
+
+29 October phone completion: at widths up to 700 px, show the first five
+needs-you items and an exact “N more” disclosure that expands in the page;
+desktop retains its inner scroll. Run lint, strict typecheck, console tests and
+phone light/dark captures. Commit on `feat/console-home-fixes`, then run the full
+completed-candidate gate exactly once. Only a pass authorizes merge to main and
+push; any failure stops this delivery without a retry or code changes.

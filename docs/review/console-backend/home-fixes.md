@@ -1,11 +1,12 @@
 # Home review fixes
 
 Delivery branch: `feat/console-home-fixes`. The current console is unchanged.
-This branch contains the parallel Home and its reviewed corrections; no merge
-or full gate is part of this delivery.
+This branch contains the parallel Home and its reviewed corrections. The phone
+completion authorizes one full gate after commit, then merge/push only on pass.
 
 1. Every needs-you page is read to its terminal cursor. All items remain mounted
-   in fixed-height rows, with scrolling inside the card. Keyboard focus reaches
+   in fixed-height rows. Desktop scrolls inside the card; phones show five items
+   plus “N more”, expanding the remainder into the page. Keyboard focus reaches
    the final item. The former 100-page cap is covered by a 101-page regression.
 2. Known setup and failed-check findings use warning, including missing engine
    registration/verification, failed or incomplete source checks, uninitialized
@@ -29,7 +30,7 @@ cover these behaviors. No authorization, entitlement or query guard changed.
 
 ## Validation
 
-- Console tests: 14 passed.
+- Console tests: 16 passed.
 - Needs-you/health backend tests: 10 passed.
 - Strict typecheck: passed.
 - Lint: passed.
@@ -50,3 +51,15 @@ cover these behaviors. No authorization, entitlement or query guard changed.
 The screenshot numbers/names are actual isolated fixture results, not the
 illustrative reference values. Mail remains omitted; an unreadable TLS flag is
 unknown. Unrelated pre-existing local changes are excluded from the commit.
+
+
+## Phone completion
+
+Phone width is the existing <=700 px breakpoint. With eight real fixture items,
+Home initially shows five and “3 more”. Expanding shows all eight in place;
+there is no internal phone scroll. Desktop scrolling is unchanged. Project
+switches reset the phone disclosure. Screenshots above are the updated phone
+views (desktop reference captures are retained).
+
+The full gate is run exactly once after the candidate commit. Its result and,
+only on pass, the pushed main merge commit are recorded in the final handoff.

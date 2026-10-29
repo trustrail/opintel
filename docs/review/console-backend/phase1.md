@@ -29,7 +29,8 @@ changes and respects reduced motion. Text contrast pairs are tested at AA.
   All/Decisions/Running it and the viewer's role reorder the same queue. Expanding
   an item reveals its effect and the link to the existing resolving screen.
   Collapsed rows show no effect line. Every item remains in the internal scroll
-  viewport; pages are read through the terminal cursor.
+  viewport on desktop; phones show five plus an expanding “N more” row. Pages
+  are read through the terminal cursor.
 - Requests/refusals/custody use `/runs/summary`; connected agents use `/stats`.
   Custody means receipts with grants, not decrypted values. Numbers open their
   filtered existing list or a Home drill-down of actual API records. The custody
@@ -50,7 +51,8 @@ changes and respects reduced motion. Text contrast pairs are tested at AA.
 The layout follows 02-HomeLight and 03-HomeMobile: desktop rail, project switcher,
 health/order header, four numbers, queue/height-filling ring, then the strip;
 phone header, queue, stacked two-by-two numbers, health list and fixed bottom
-navigation. The queue has fixed-height rows with an internal scroll area.
+navigation. The queue has fixed-height rows: desktop uses an internal scroll area; phones
+show five items plus an exact “N more” disclosure and expand in the page.
 
 Intentional differences dictated by available backend facts:
 
@@ -89,7 +91,7 @@ actual API response statuses, live-check counts and browser page errors.
 
 ## Validation
 
-- `npm run console:test`: 14 tests passed (including light/dark AA text pairs).
+- `npm run console:test`: 16 tests passed (including light/dark AA text pairs).
 - `npm run typecheck`: passed, strict.
 - `npm run lint`: passed; no dependency violations.
 - Targeted backend/contract suite: 43 tests passed across health, completion,
@@ -106,8 +108,9 @@ The local test database was missing existing migration 087. It was applied using
 application environment file was changed. The screenshot browser ran in Docker
 because native Playwright Chromium does not support this Mac's OS version.
 
-No full gate or merge was run. The Home review follow-up authorizes a commit
-and push to `feat/console-home-fixes`; the final handoff records its commit.
+The phone-completion follow-up authorizes one full gate after its commit on
+`feat/console-home-fixes`, then merge and push to main only on pass. The final
+handoff records the gate outcome and merge commit.
 
 
 ## Home review confirmations
@@ -120,7 +123,8 @@ and push to `feat/console-home-fixes`; the final handoff records its commit.
   tooltips name the kind. Pool badges show the full pool name on hover. Row
   separators are `·`; tables/views retain their actual kind.
 - **Keyboard focus:** the queue is a focusable region, every row remains
-  reachable, and focused rows have a visible inset token-blue outline. Browser
+  reachable (using “N more” on phones), and focused rows have a visible inset
+  token-blue outline. Browser
   checks reach the last row at both widths and assert `:focus-visible` plus its
   solid outline. No row is sliced out of the DOM.
 - **Reduced motion:** Motion layout/fades are disabled for the reduced-motion
