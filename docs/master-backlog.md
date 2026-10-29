@@ -352,6 +352,44 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### GATE-03 · Distinguish stopped PostgreSQL from missing CREATEDB
+**Status** Resolved · 29 October 2026; `scripts/gate-preflight.mjs`,
+`scripts/gate-probe.ts`, and `scripts/gate-database.mjs`; targeted error-code
+and stopped-service regressions in `test/gate-preflight.test.mjs` and
+`test/gate-database.test.mjs` pass.
+**Problem** `scripts/gate-database.mjs` catches every connection/database-creation
+failure and reports that the configured test user needs CREATEDB. The local
+`opintel-postgres-1` container was stopped during the failed bootstrap; after
+starting it, `opintel` already had CREATEDB and bootstrap passed with no grants.
+**Acceptance** Detect the stopped local PostgreSQL service and report
+"PostgreSQL is not running" with the local startup command. Distinguish connection
+refusal, authentication and actual insufficient-privilege errors; reserve the
+CREATEDB advice for the latter. Preserve credential redaction and isolation.
+
+### GATE-02 · Pin the normal-test SpiceDB image
+**Status** Resolved · 29 October 2026; `testContainerImage()` in
+`scripts/gate-preflight.mjs` resolves the repository digest for normal Redis and
+SpiceDB fixtures; the pinned-reference regression passes.
+**Problem** `scripts/testing/normal-environment.ts` defaults to
+`authzed/spicedb:latest`, so a pull can change the version used by normal tests
+and browser/MCP smoke independently of the repository's pinned images.
+**Acceptance** Use an explicit repository-pinned SpiceDB version and digest,
+consistent with `deploy/images/upstream.json`, for test bootstrap and smoke.
+Preserve the owned isolated datastore and existing schema/readiness checks.
+
+### GATE-01 · Resolve missing bootstrap images with a clear diagnostic
+**Status** Resolved · 29 October 2026; `ensureGateImage()` pulls missing exact
+references and names failed pulls; `scripts/test.ts` reports known prerequisite
+causes and safe stage/code diagnostics. Targeted pull/failure regressions pass.
+**Problem** Normal-test bootstrap inspects `redis:7-alpine` and
+`authzed/spicedb:latest` locally, but a missing image becomes a redacted
+`test.bootstrap_failed`. The same missing Redis tag failed on `cac5fb7` and
+pre-branch main `ade0d2d` before fixture seeding.
+**Acceptance** Bootstrap uses the repository-pinned image references and either
+pulls a missing pinned image or fails with a clear message naming the exact image
+and remediation. Preserve isolation, image pinning and telemetry protections;
+do not expose arbitrary exception contents. Cover the missing-image path.
+
 ### G-10 · HAVING acts as an outcome oracle
 **Customer** For a filtered singleton group, a HAVING clause that removes the group returns
 zero rows and passes validation, while a predicate that retains it is refused. The difference

@@ -1,3 +1,4 @@
+import {testContainerImage} from '../gate-preflight.mjs';
 import {assertTestDatabase,assertTestSpiceDb} from './datastore-safety.js';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -14,7 +15,7 @@ const exec=promisify(execFile);
 const quote=(name:string)=>'"'+name.replaceAll('"','""')+'"';
 
 export async function freshNormalSpiceDb(environment:DevEnvironment){
- const image=(await exec('docker',['image','inspect',process.env.OPINTEL_NORMAL_SPICEDB_IMAGE??'authzed/spicedb:latest','--format','{{.Id}}'])).stdout.trim();
+ const image=await testContainerImage('spicedb');
  const name='opintel-normal-spicedb-'+randomUUID(),token=randomUUID();let created=false;
  const close=async()=>{if(created){await exec('docker',['rm','--force',name]);created=false;}};
  try{

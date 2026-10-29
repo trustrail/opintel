@@ -1,3 +1,4 @@
+import {testContainerImage} from '../gate-preflight.mjs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
@@ -7,7 +8,7 @@ const exec=promisify(execFile);
 /** FLUSHDB tests must never share the console's session store, even on another
  * numbered database: test fixtures also select database 1. Own the whole server. */
 export async function freshNormalRedis(){
- const image=(await exec('docker',['image','inspect',process.env.OPINTEL_NORMAL_REDIS_IMAGE??'redis:7-alpine','--format','{{.Id}}'])).stdout.trim();
+ const image=await testContainerImage('redis');
  const name='opintel-normal-redis-'+randomUUID();let created=false;
  const close=async()=>{if(created){await exec('docker',['rm','--force',name]);created=false;}};
  try{
