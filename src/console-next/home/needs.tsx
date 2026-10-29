@@ -5,6 +5,7 @@ export function needsAreas(items:NeedsYouItem[]){
  return {Home:items.length>0,Activity:false,Pools:decisions,Data:decisions,Settings:items.some(i=>['setting_required','check_required','check_failed'].includes(i.kind))};
 }
 export function poolBadge(name:string){
+ const number=name.trim().split(/\s+/).at(-1);if(number&&/^\d{1,3}$/.test(number))return (name.trim()[0]??'').toUpperCase()+String(Number(number));
  const first=name.trim().split(/\s+/)[0]??'';
  return /^[a-z]\d+$/i.test(first)?first.toUpperCase():name.trim().split(/\s+/).slice(0,2).map(w=>w[0]??'').join('').toUpperCase();
 }

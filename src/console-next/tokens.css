@@ -20,3 +20,6 @@
  --treatment-clear:#4cbf79;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#c7aedf;--treatment-withheld:#f27c95;--treatment-undecided:#f1bf66;
  --strip-bar:#9d86ba;--overlay:rgb(5 1 9 / 70%);
 }
+
+/* The report bands retain a plum background in both themes. */
+[data-pool-band]{--treatment-clear:#32df85;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#e3d7ee;--treatment-withheld:#ff6c85;--treatment-undecided:#f1bf66;--warning:#f1bf66}
