@@ -1,0 +1,23 @@
+{
+  "commit": "ade0d2d3cdf41992bb13a8933d8b0597f5896ffa",
+  "preflight": {
+    "seconds": 5.648160562,
+    "exitCode": 1,
+    "message": "Redis did not become reachable within 5 seconds. Check docker compose logs redis and its configured test endpoint."
+  },
+  "memory": {
+    "startAvailableBytes": 2141872128,
+    "minimumAvailableBytes": 2141872128,
+    "minimumAt": "2026-10-29T00:10:15.960Z",
+    "lastSampleAt": "2026-10-29T00:10:21.605Z",
+    "samples": 3,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [],
+  "cleanup": {
+    "exitCode": 0
+  },
+  "wallSeconds": 5.653729059000001,
+  "complete": false
+}

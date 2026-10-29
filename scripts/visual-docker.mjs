@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
+import {gateContainerLabels} from './gate-containers.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
@@ -27,7 +28,7 @@ const selection = supplied.some(arg => /^--(?:project|config)(?:=|$)/.test(arg))
   ? [] : ['--config=playwright.conformance.config.ts'];
 console.log(`[Playwright Docker] ${image}`);
 const result = spawnSync('docker', [
-  'run', '--rm', '--init', '--ipc=host', '--platform=linux/amd64',
+  'run', '--rm', '--init', '--ipc=host', '--platform=linux/amd64', ...gateContainerLabels(),
   '--mount', `type=bind,source=${root},target=/work`,
   // Linux dependencies must never overwrite the host's node_modules.
   '--volume', '/work/node_modules', '--workdir', '/work', '--env', 'CI=1',

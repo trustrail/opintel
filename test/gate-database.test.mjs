@@ -24,11 +24,18 @@ describe('checkout gate database',()=>{
   expect(dependencies.migrateDatabase).toHaveBeenCalledWith(database.url);
  });
  it('never drops an existing database when CREATE failed and does not expose credentials',async()=>{
-  const dependencies=fixture(vi.fn().mockRejectedValue(new Error('private')));
+  const dependencies=fixture(vi.fn().mockRejectedValue(Object.assign(new Error('private'),{code:'42501'})));
   const database=gateDatabase({environment,...dependencies});
   await expect(database.prepare()).rejects.toThrow('needs CREATEDB');await database.close();
   expect(dependencies.client.query).toHaveBeenCalledTimes(1);
   expect(dependencies.migrateDatabase).not.toHaveBeenCalled();
+ });
+ it('distinguishes stopped PostgreSQL and authentication from CREATEDB without native text',async()=>{
+  for(const [code,message] of [['ECONNREFUSED','PostgreSQL is not running'],['28P01','PostgreSQL authentication failed'],['unknown','could not create']]){
+   const dependencies=fixture(vi.fn().mockRejectedValue(Object.assign(new Error('private password'),{code}))),database=gateDatabase({environment,...dependencies});
+   await expect(database.prepare()).rejects.toThrow(message);await database.close();
+   expect(dependencies.client.query).toHaveBeenCalledTimes(1);
+  }
  });
  it('retains ownership through migration failure so finally can remove the partial database',async()=>{
   const dependencies=fixture();dependencies.migrateDatabase.mockRejectedValue(new Error('private'));

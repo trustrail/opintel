@@ -21,7 +21,7 @@ export class PostgresPoolBindings implements PoolBindingRepository {
  element(ctx:PoolKeyContext,pool:PoolId,source:SourceId,element:ElementId):ReturnType<PoolBindingRepository['element']>{
   return withTenant(ctx,async tx=>{
    const [row]=await tx.query<{bound:boolean;entitlement:(Omit<EntitlementState,'setAt'>&{setAt:string})|null}>(`SELECT
-    EXISTS(SELECT 1 FROM pool_source_binding b WHERE b.pool_id=$1 AND b.source_id=s.id) AS bound,
+    EXISTS(SELECT 1 FROM pool_source_binding b WHERE b.pool_id=$1 AND b.source_id=s.id AND public.pool_table_allowed($1,o.id)) AS bound,
     CASE WHEN t.element_id IS NULL THEN NULL ELSE jsonb_build_object('poolId',t.pool_id,'elementId',t.element_id,'projectId',t.project_id,
      'treatment',t.treatment,'maskKind',t.mask_kind,'setBy',jsonb_build_object('kind',t.source_kind,'id',t.source_ref),'setAt',t.set_at,'justification',t.justification) END AS entitlement
     FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id

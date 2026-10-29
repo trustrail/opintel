@@ -1,0 +1,78 @@
+{
+  "machine": "ALTAIR.local",
+  "architecture": "x86_64",
+  "model": "MacBookPro14,2",
+  "dockerMemoryLimitBytes": 4104384512,
+  "hookLimitMilliseconds": 10000,
+  "measurement": "Temporary diagnostic runner times the existing first beforeEach hook without modifying it or its deadline. Full file, fresh normal-service fixtures each run.",
+  "runs": [
+    {
+      "run": 1,
+      "testsPassed": 14,
+      "resetMilliseconds": [
+        1019.467,
+        920.502,
+        1011.944,
+        1201.506,
+        878.685,
+        1772.963,
+        1717.743,
+        1871.649,
+        1514.127,
+        1377.203,
+        1455.881,
+        1969.114,
+        2058.353,
+        1806.711
+      ],
+      "targetResetMilliseconds": 1514.127,
+      "maxResetMilliseconds": 2058.353
+    },
+    {
+      "run": 2,
+      "testsPassed": 14,
+      "resetMilliseconds": [
+        992.644,
+        880.748,
+        969.428,
+        865.517,
+        957.601,
+        838.921,
+        760.613,
+        881.791,
+        929.382,
+        785.042,
+        714.089,
+        815.789,
+        657.718,
+        1067.992
+      ],
+      "targetResetMilliseconds": 929.382,
+      "maxResetMilliseconds": 1067.992
+    },
+    {
+      "run": 3,
+      "testsPassed": 14,
+      "resetMilliseconds": [
+        835.209,
+        912.59,
+        822.381,
+        790.107,
+        847.263,
+        883.829,
+        707.517,
+        1062.601,
+        847.237,
+        785.394,
+        840.848,
+        824.749,
+        756.57,
+        786.498
+      ],
+      "targetResetMilliseconds": 847.237,
+      "maxResetMilliseconds": 1062.601
+    }
+  ],
+  "diagnosis": "environment load; all isolated resets below unchanged deadline; no hook or timeout change",
+  "fullGateRun": false
+}

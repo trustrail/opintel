@@ -1327,3 +1327,41 @@ B4a set-operation refusal, A1 token-domain comparability and 5.24a Suggestions
 candidate scenarios to the existing fixture. No compiler/refusal/Observations
 behaviour changes. The versioned declaration expands from six to eight objects
 and from 85 to 115 scenarios for ten associated credentials.
+
+### 5.38 Console redesign backend (approved 2026-10-28)
+
+Before scaffolding the redesign, add destination-owned, permissioned backend
+read models and the missing pool binding workflow. Deliver independently gated
+commits: (1) cursor-paged project needs-you, (2) project health and persisted mail
+checks/API TLS state, (3) post-commit run.completed SSE, (4) public pool source
+bindings and modes, (5) immutable redeeming-device snapshots on release events.
+For (6), write and report `docs/design/receipt-chain.md` before implementation.
+No new refusal/treatment rules, manual Observation resolutions or UI are implied.
+The first-hour release acceptance uses only public console APIs and MCP on a new
+empty project. Its first baseline must expose the missing binding route.
+
+**29 October operator scope:** deliver Engine-host `sources add/list/remove`,
+explicit table-scoped pools and the external-fixture first-hour acceptance now,
+before the remaining health/SSE/device/receipt-chain items. Targeted tests, lint,
+strict typecheck and first-hour acceptance replace the full gate for this prompt;
+branch commits/push only, no merge or publication. Engine-only credentials and
+reference-only gateway APIs remain mandatory. A common named-column rule is
+materialized into each compatible table's immutable pool override; missing or
+incompatible inputs stay zero-row and need their own rule. Later per-table rules
+replace that pool-rule contribution, while object defaults still conjoin.
+No new table is unscoped; all rows requires an explicit human decision.
+Copy mode copies only compatible column treatments by table/column name, leaving
+missing or ambiguous matches undecided. No row decisions, grants or credentials
+are copied. Existing source-wide pools retain their semantics until an explicit
+table-binding operation converts their current catalogue selection to table
+scope; that conversion makes missing own rules fail closed.
+
+
+29 October first-hour budget completion: explicit pool creation budget inputs
+and public read/change APIs are part of this workflow. All defined budget fields
+share positive-integer validation; only threads is execution-required today,
+and its missing-value refusal stays unchanged. Effective budget decisions use
+the existing pool audit trail atomically. Demo suggested values belong to the
+future UI. First-hour explicitly supplies all required budgets, with no backend
+numeric default. Retain the targeted-check authorization above; no full gate,
+merge or publication for this task.

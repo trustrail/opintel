@@ -1,0 +1,531 @@
+{
+  "scope": "first-hour",
+  "revision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+  "platform": "linux/amd64",
+  "candidate": true,
+  "published": false,
+  "status": "failed",
+  "soakDurationSeconds": null,
+  "startedAt": "2026-10-29T04:35:36.959Z",
+  "images": [
+    {
+      "target": "api",
+      "digest": "opintel-api@sha256:c05d75538e97a680924279e179642be03d36aa187750129bbb06341bc7052c99",
+      "id": "sha256:3cde14b06620a937667f5343d9e2d2c5d1cfca3fca4f2555b92db6d7bca1b851"
+    },
+    {
+      "target": "engine",
+      "digest": "opintel-engine@sha256:5ad05c37414b311ce6182af5513041cf8cd1ffeeab3e89606df3e6758401710d",
+      "id": "sha256:0034416447fc7f24ee8cc9fe0392c08a66293ac2c0444365832c3e7b65e24941"
+    },
+    {
+      "target": "console",
+      "digest": "opintel-console@sha256:9009a429c5e5acaf26aa9dbe1b2c4b4937ff6773313826702fea55443f175667",
+      "id": "sha256:07a457a092db78103255ed45c7530e15c892d2dd7e6a5edc8a7f71ba3ce2d5fb"
+    },
+    {
+      "target": "egress",
+      "digest": "opintel-egress@sha256:a26d9b1b24b4ba49a36f5aff3220ff058d74fc63b9320c77fb2a5bdd2e0c2fba",
+      "id": "sha256:bd9fa96e689602d8b2983b33854a4e35544f209ff70c0f7b2ef9e30d1727681a"
+    },
+    {
+      "target": "migrations",
+      "digest": "opintel-migrations@sha256:0da327a7438253a11ba1f178154be2936104aeefe918a000c2668ff5633e55aa",
+      "id": "sha256:10c5dedc05c893680464edf43f6a7d3169a0848eae52b71e0772470c8f871a8a"
+    },
+    {
+      "target": "provisioning",
+      "digest": "opintel-provisioning@sha256:96d42e6bc6a836529a3e333b594104db8f14f964b403172d3828cd4e3b6deac3",
+      "id": "sha256:6aa975e0d683b551f7c63e5a056c4a3141ff7666a460f020b74331b4c60e86d6"
+    },
+    {
+      "target": "demo-tools",
+      "digest": "opintel-demo-tools@sha256:83cf19bf852dbdffc2397206ad488bb1a2db3d666dd5430f6818108ecbf61375",
+      "id": "sha256:bfb2c29d9f3b4cb54dcf4aeb8a7713c8904c6464d984c0b2f2f25bded585988b"
+    }
+  ],
+  "path": "customer archives \u2192 install \u2192 pair \u2192 first-hour public APIs",
+  "checks": {
+    "dockerMemory": {
+      "allocatedBytes": 4104384512,
+      "minimumBytes": 3221225472
+    },
+    "archives": {
+      "revision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+      "customerPackageVersion": 1,
+      "audited": true,
+      "archives": {
+        "gateway": {
+          "file": "/Users/rzarita/opintel/tmp/console-first-hour-packages-v2/gateway-a3f3e34-amd64.tar.gz",
+          "sha256": "0e12b041c0198b554df90eaf8104362a32cefe403a346258c3a68f27003c2a3e"
+        },
+        "engine": {
+          "file": "/Users/rzarita/opintel/tmp/console-first-hour-packages-v2/engine-a3f3e34-amd64.tar.gz",
+          "sha256": "da0883e42d7c182b6e4ae73ad7ca824312fdf462dc17955e4de656af609c6064"
+        }
+      },
+      "packageEnvironmentKeys": [
+        "APP_BASE_URL",
+        "OPINTEL_XQ_API_KEY",
+        "OPINTEL_XQ_DASHBOARD_API_KEY",
+        "OPINTEL_XQ_SENDER_ACCESS_TOKEN",
+        "OPINTEL_XQ_SENDER_ALIAS",
+        "OPINTEL_XQ_TEAM_ID",
+        "OWNER_EMAIL",
+        "SMTP_HOST",
+        "SMTP_PASSWORD",
+        "SMTP_PORT",
+        "SMTP_SENDER",
+        "SMTP_TLS_MODE",
+        "SMTP_USER"
+      ]
+    },
+    "emptyDocker": {
+      "imageCount": 0,
+      "containerCount": 0,
+      "daemon": "opintel-stage5-daemon-1793248536963",
+      "volume": "opintel-stage5-daemon-1793248536963-data"
+    },
+    "gatewayInstall": true,
+    "engineInstall": true,
+    "identityImports": {
+      "count": 4,
+      "command": "./identities add EXPORT.zip --device NAME"
+    },
+    "privatePermissions": true,
+    "defaultHttpsPort": 443,
+    "paired": {
+      "singleCode": true,
+      "noFileTransfer": true
+    },
+    "realSmtpRelay": {
+      "authenticated": true,
+      "acceptedResponse": "250"
+    },
+    "normalOwnerSmtpLogin": true,
+    "firstHourSource": {
+      "container": "opintel-first-hour-source-e701ee44-8fb5-4aa5-871e-11f14f2247f3",
+      "network": "opintel-first-hour-source-e701ee44-8fb5-4aa5-871e-11f14f2247f3-network",
+      "image": "postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938",
+      "fixture": "test/fixtures/first-hour/customer.sql",
+      "log": "/Users/rzarita/opintel/tmp/stage5-acceptance-fimYxz/first-hour-source.log",
+      "external": true
+    },
+    "firstHour": {
+      "status": "failed",
+      "startedAt": "2026-10-29T04:40:32.844Z",
+      "steps": [
+        {
+          "step": "engine-source-add",
+          "status": "passed",
+          "at": "2026-10-29T04:40:47.035Z"
+        },
+        {
+          "step": "create-empty-project",
+          "status": "passed",
+          "at": "2026-10-29T04:40:52.513Z"
+        },
+        {
+          "step": "verify-empty-project",
+          "status": "passed",
+          "at": "2026-10-29T04:41:01.407Z"
+        },
+        {
+          "step": "register-engine",
+          "status": "passed",
+          "at": "2026-10-29T04:41:03.241Z"
+        },
+        {
+          "step": "verify-engine",
+          "status": "passed",
+          "at": "2026-10-29T04:41:04.907Z"
+        },
+        {
+          "step": "designate-custody-engine",
+          "status": "passed",
+          "at": "2026-10-29T04:41:05.103Z"
+        },
+        {
+          "step": "configure-project",
+          "status": "passed",
+          "at": "2026-10-29T04:41:05.157Z"
+        },
+        {
+          "step": "connect-demo-database",
+          "status": "passed",
+          "at": "2026-10-29T04:41:06.264Z"
+        },
+        {
+          "step": "source-connected",
+          "status": "passed",
+          "at": "2026-10-29T04:41:14.878Z"
+        },
+        {
+          "step": "discover-tables",
+          "status": "passed",
+          "at": "2026-10-29T04:41:14.924Z"
+        },
+        {
+          "step": "create-pool-and-bind-tables",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.103Z"
+        },
+        {
+          "step": "missing-rule-needs-you",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.166Z"
+        },
+        {
+          "step": "set-table-rows",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.210Z"
+        },
+        {
+          "step": "remove-table",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.247Z"
+        },
+        {
+          "step": "add-table",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.290Z"
+        },
+        {
+          "step": "catalogue-six-supported-fields",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.326Z"
+        },
+        {
+          "step": "initialize-token-key",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.652Z"
+        },
+        {
+          "step": "declare-contributor-key",
+          "status": "passed",
+          "at": "2026-10-29T04:41:15.869Z"
+        },
+        {
+          "step": "check-custody-provider",
+          "status": "passed",
+          "at": "2026-10-29T04:41:16.475Z"
+        },
+        {
+          "step": "entitlement-clear",
+          "status": "passed",
+          "at": "2026-10-29T04:41:16.529Z"
+        },
+        {
+          "step": "declare-token-column",
+          "status": "passed",
+          "at": "2026-10-29T04:41:16.898Z"
+        },
+        {
+          "step": "entitlement-tokenized",
+          "status": "passed",
+          "at": "2026-10-29T04:41:16.949Z"
+        },
+        {
+          "step": "entitlement-masked",
+          "status": "passed",
+          "at": "2026-10-29T04:41:17.030Z"
+        },
+        {
+          "step": "entitlement-aggregate_only",
+          "status": "passed",
+          "at": "2026-10-29T04:41:17.106Z"
+        },
+        {
+          "step": "entitlement-custody",
+          "status": "passed",
+          "at": "2026-10-29T04:41:17.146Z"
+        },
+        {
+          "step": "entitlement-withheld",
+          "status": "passed",
+          "at": "2026-10-29T04:41:17.188Z"
+        },
+        {
+          "step": "issue-credential",
+          "status": "passed",
+          "at": "2026-10-29T04:41:17.225Z"
+        },
+        {
+          "step": "mcp-query",
+          "status": "passed",
+          "at": "2026-10-29T04:41:17.576Z"
+        }
+      ],
+      "publicCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/companies?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/industries",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/pools?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/engines",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/engines?limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/engines/b103ac1c-973b-47ab-8338-7817a16042ac/verify",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/engines/b103ac1c-973b-47ab-8338-7817a16042ac/custody",
+          "status": 200
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/settings",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/catalog?parent=objects%3A01a185f6-2f8b-7a72-a25e-650aa4d2ceaa&limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/pools",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/needs-you?limit=100",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/tables/01a185f6-5106-79f5-8c26-41a8aff7a5e0/rows",
+          "status": 200
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/tables/01a185f6-5106-79f5-8c26-41a8aff7a5e0",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/tables",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/catalog?parent=01a185f6-5109-7568-b0e7-397c412da199&limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/token-key/initialize",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/catalog/elements/01a185f6-5109-7b83-832f-40c9c1e43132/declarations",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/catalog/elements/01a185f6-5109-7b83-832f-40c9c1e43132/declarations",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/custody-provider/check",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/catalog/elements/01a185f6-5109-7124-ae77-975f29d32fe2/declarations",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/projects/47208a29-daee-4c1e-8bac-3512c5ad8c58/catalog/elements/01a185f6-5109-7124-ae77-975f29d32fe2/declarations",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/83b20263-e9a1-4217-9e27-c9ca2c45a08c/credentials",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/47208a29-daee-4c1e-8bac-3512c5ad8c58",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/47208a29-daee-4c1e-8bac-3512c5ad8c58",
+          "status": 202
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/47208a29-daee-4c1e-8bac-3512c5ad8c58",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/47208a29-daee-4c1e-8bac-3512c5ad8c58",
+          "status": 200
+        }
+      ],
+      "projectId": "47208a29-daee-4c1e-8bac-3512c5ad8c58",
+      "sourceId": "01a185f6-2f8b-7a72-a25e-650aa4d2ceaa",
+      "poolId": "83b20263-e9a1-4217-9e27-c9ca2c45a08c",
+      "failure": {
+        "step": "mcp-query",
+        "message": "First-hour query was refused"
+      },
+      "finishedAt": "2026-10-29T04:41:17.580Z"
+    }
+  },
+  "phase": "first-hour",
+  "failure": {
+    "phase": "first-hour",
+    "message": "First-hour acceptance failed at mcp-query\n+ actual - expected\n\n+ 'failed'\n- 'passed'"
+  }
+}

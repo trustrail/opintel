@@ -352,6 +352,44 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### GATE-03 · Distinguish stopped PostgreSQL from missing CREATEDB
+**Status** Resolved · 29 October 2026; `scripts/gate-preflight.mjs`,
+`scripts/gate-probe.ts`, and `scripts/gate-database.mjs`; targeted error-code
+and stopped-service regressions in `test/gate-preflight.test.mjs` and
+`test/gate-database.test.mjs` pass.
+**Problem** `scripts/gate-database.mjs` catches every connection/database-creation
+failure and reports that the configured test user needs CREATEDB. The local
+`opintel-postgres-1` container was stopped during the failed bootstrap; after
+starting it, `opintel` already had CREATEDB and bootstrap passed with no grants.
+**Acceptance** Detect the stopped local PostgreSQL service and report
+"PostgreSQL is not running" with the local startup command. Distinguish connection
+refusal, authentication and actual insufficient-privilege errors; reserve the
+CREATEDB advice for the latter. Preserve credential redaction and isolation.
+
+### GATE-02 · Pin the normal-test SpiceDB image
+**Status** Resolved · 29 October 2026; `testContainerImage()` in
+`scripts/gate-preflight.mjs` resolves the repository digest for normal Redis and
+SpiceDB fixtures; the pinned-reference regression passes.
+**Problem** `scripts/testing/normal-environment.ts` defaults to
+`authzed/spicedb:latest`, so a pull can change the version used by normal tests
+and browser/MCP smoke independently of the repository's pinned images.
+**Acceptance** Use an explicit repository-pinned SpiceDB version and digest,
+consistent with `deploy/images/upstream.json`, for test bootstrap and smoke.
+Preserve the owned isolated datastore and existing schema/readiness checks.
+
+### GATE-01 · Resolve missing bootstrap images with a clear diagnostic
+**Status** Resolved · 29 October 2026; `ensureGateImage()` pulls missing exact
+references and names failed pulls; `scripts/test.ts` reports known prerequisite
+causes and safe stage/code diagnostics. Targeted pull/failure regressions pass.
+**Problem** Normal-test bootstrap inspects `redis:7-alpine` and
+`authzed/spicedb:latest` locally, but a missing image becomes a redacted
+`test.bootstrap_failed`. The same missing Redis tag failed on `cac5fb7` and
+pre-branch main `ade0d2d` before fixture seeding.
+**Acceptance** Bootstrap uses the repository-pinned image references and either
+pulls a missing pinned image or fails with a clear message naming the exact image
+and remediation. Preserve isolation, image pinning and telemetry protections;
+do not expose arbitrary exception contents. Cover the missing-image path.
+
 ### G-10 · HAVING acts as an outcome oracle
 **Customer** For a filtered singleton group, a HAVING clause that removes the group returns
 zero rows and passes validation, while a predicate that retains it is refused. The difference
@@ -441,6 +479,31 @@ scripts/soak/reinsurance.ts:154, sidecar/execution/application/execute.ts:89
 ---
 
 ## Not scheduled
+
+### A11 · Public folder-drop demo provisioning
+**Customer** A person should eventually be able to drop a demonstration file into
+an explicitly managed folder and connect the resulting table through the normal
+source/catalogue flow, without a seeder or a developer preparing project metadata.
+**What** Design and implement public demo provisioning separately from the console
+backend and its first-hour acceptance. Define the folder, provenance, discovery,
+credential ownership and public API workflow before implementation. Existing
+operator-prepared industry-pack deployments are not this feature.
+**Stage boundary (28 October 2026)** The first-hour test instead owns a disposable,
+plain PostgreSQL source container on its own network, populated from checked-in
+SQL. It imports credentials with the Engine-host package source command; the
+public gateway source API receives only its reference. All subsequent Opintel
+writes use public APIs. It must not use the Engine's bundled demo
+database, the seeder, or internal provisioning scripts.
+**Status** Later scope explicitly deferred; not implemented by this task.
+
+### A12 · Browser-to-Engine sealed source provisioning
+**Customer** A later console should collect database connection fields without
+making the gateway a holder of source secrets.
+**What** Review [the deferred protocol note](design/browser-engine-source-provisioning.md)
+before adding any route or UI. The gateway remains reference-only today; the
+current customer path is the Engine-host `./sources add NAME` command. Specify
+Engine-authenticated encryption, replay/recovery and explicit replacement first.
+**Status** Later scope explicitly deferred; design note only, no implementation.
 
 ### H-06 · Test-tree wall-clock audit
 **Customer** Date-sensitive fixtures can fail depending on when validation runs.

@@ -132,6 +132,45 @@ case "$command" in
  stop) compose stop;;
  status) job status "$(cat package-kind)"; compose ps --all;;
  pairing-code) job pairing-code "$(cat package-kind)";;
+ sources)
+  [[ "$(cat package-kind)" == engine && -f state/installed.json ]] || fail 'Run ./sources on an installed engine package.'
+  source_action="${1:-}"; shift || true
+  source_args=("$source_action")
+  if [[ "$source_action" == list && $# == 0 ]]; then :
+  elif [[ "$source_action" == remove && $# == 1 ]]; then source_args+=("$1")
+  elif [[ "$source_action" == add && $# -ge 1 ]]; then
+   source_name="$1"; shift
+   mkdir -p state/operations; chmod 700 state/operations
+   source_input="$(mktemp "$root/state/operations/source-input.XXXXXX")"; chmod 600 "$source_input"
+   trap 'rm -f "$source_input"' EXIT
+   trap 'exit 130' INT
+   trap 'exit 143' HUP TERM
+   if [[ $# == 0 ]]; then
+    exec 3</dev/tty || fail 'Interactive source entry needs a terminal; automation must use --host, --port, --database, --user and --password-file.'
+    printf 'Host: ' >&2; IFS= read -r source_host <&3
+    printf 'Port [5432]: ' >&2; IFS= read -r source_port <&3; source_port="${source_port:-5432}"
+    printf 'Database: ' >&2; IFS= read -r source_database <&3
+    printf 'User: ' >&2; IFS= read -r source_user <&3
+    printf 'Password: ' >&2; IFS= read -r -s source_password <&3; printf '\n' >&2
+    exec 3<&-
+    printf '%s\0' "$source_host" "$source_port" "$source_database" "$source_user" "$source_password" > "$source_input"
+    unset source_password
+   else
+    source_host= source_port= source_database= source_user= source_password_file=
+    while [[ $# -gt 0 ]]; do
+     [[ $# -ge 2 ]] || fail 'Each source flag needs a value.'
+     case "$1" in --host) source_host="$2";; --port) source_port="$2";; --database) source_database="$2";; --user) source_user="$2";; --password-file) source_password_file="$2";; *) fail 'Unknown source flag.';; esac
+     shift 2
+    done
+    [[ -n "$source_host" && -n "$source_port" && -n "$source_database" && -n "$source_user" && -f "$source_password_file" && ! -L "$source_password_file" ]] || fail 'Automation requires --host, --port, --database, --user and --password-file.'
+    if [[ "$(uname -s)" == Darwin ]]; then source_password_mode="$(stat -f %Lp "$source_password_file")"; else source_password_mode="$(stat -c %a "$source_password_file")"; fi
+    [[ "$source_password_mode" == 600 ]] || fail 'Password file must have mode 600.'
+    printf '%s\0' "$source_host" "$source_port" "$source_database" "$source_user" > "$source_input"
+    cat "$source_password_file" >> "$source_input"; printf '\0' >> "$source_input"
+   fi
+   source_args+=("$source_name" "/package/state/operations/$(basename "$source_input")")
+  else fail 'Usage: ./sources add NAME [--host HOST --port PORT --database DATABASE --user USER --password-file FILE] | list | remove NAME'; fi
+  docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -v "$root:/package" "$bootstrap" node scripts/operator/engine-sources.js "${source_args[@]}";;
  register-engine)
   [[ "$(cat package-kind)" == gateway && $# == 2 ]] || fail 'Usage: ./register-engine ENGINE_ADDRESS CODE'
   docker run --rm --pull never --add-host host.docker.internal:host-gateway --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -v "$root:/package" "$bootstrap" node scripts/operator/customer-install.js claim-engine gateway "$1" "$2"

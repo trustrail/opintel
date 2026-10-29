@@ -1,0 +1,349 @@
+{
+  "baselineCommit": "037c682b8a078d687c4790936153a7d08e408d32",
+  "baselineInitial": [
+    {
+      "file": "test/table-grants.test.ts",
+      "exitCode": 1,
+      "log": "/private/tmp/opintel-contracts-baseline-results/table-grants.test.ts.log"
+    },
+    {
+      "file": "test/row-level-security.test.ts",
+      "exitCode": 1,
+      "log": "/private/tmp/opintel-contracts-baseline-results/row-level-security.test.ts.log"
+    },
+    {
+      "file": "test/pool-schema.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-schema.test.ts.log"
+    },
+    {
+      "file": "test/catalog-schema.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/catalog-schema.test.ts.log"
+    },
+    {
+      "file": "test/pool-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-migration.test.ts.log"
+    },
+    {
+      "file": "test/pool-binding-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-binding-migration.test.ts.log"
+    },
+    {
+      "file": "test/pool-key-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-key-migration.test.ts.log"
+    },
+    {
+      "file": "test/pool-credential-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-credential-migration.test.ts.log"
+    },
+    {
+      "file": "test/gate-database.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/gate-database.test.mjs.log"
+    },
+    {
+      "file": "test/migrate.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/migrate.test.ts.log"
+    },
+    {
+      "file": "test/packaged-migrations.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/packaged-migrations.test.mjs.log"
+    },
+    {
+      "file": "test/development-migrations.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/development-migrations.test.ts.log"
+    },
+    {
+      "file": "test/provisioning-runtime.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/provisioning-runtime.test.mjs.log"
+    },
+    {
+      "file": "test/image-build.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/image-build.test.ts.log"
+    },
+    {
+      "file": "test/image-build-plan.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/image-build-plan.test.mjs.log"
+    },
+    {
+      "file": "test/image-console.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/image-console.test.mjs.log"
+    },
+    {
+      "file": "test/deployment-packages.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/deployment-packages.test.mjs.log"
+    },
+    {
+      "file": "test/customer-install.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/customer-install.test.mjs.log"
+    },
+    {
+      "file": "test/customer-command.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/customer-command.test.mjs.log"
+    },
+    {
+      "file": "test/engine-sources-command.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/engine-sources-command.test.mjs.log"
+    },
+    {
+      "file": "test/first-hour-contract.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/first-hour-contract.test.mjs.log"
+    },
+    {
+      "file": "test/packaged-soak-workflow.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/packaged-soak-workflow.test.ts.log"
+    },
+    {
+      "file": "test/pool-key-route-schemas.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-key-route-schemas.test.ts.log"
+    },
+    {
+      "file": "test/http-server.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/http-server.test.ts.log"
+    },
+    {
+      "file": "test/permission-explanation.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/permission-explanation.test.ts.log"
+    },
+    {
+      "file": "test/authz-spicedb.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/authz-spicedb.test.ts.log"
+    },
+    {
+      "file": "test/needs-you.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/needs-you.test.ts.log"
+    },
+    {
+      "file": "test/pool-tables.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-tables.test.ts.log"
+    },
+    {
+      "file": "test/pool-budgets.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-budgets.test.ts.log"
+    },
+    {
+      "file": "test/pool-keys.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-keys.test.ts.log"
+    },
+    {
+      "file": "test/pool-credentials.test.ts",
+      "exitCode": 1,
+      "log": "/private/tmp/opintel-contracts-baseline-results/pool-credentials.test.ts.log"
+    },
+    {
+      "file": "test/settings-contract.test.tsx",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/settings-contract.test.tsx.log"
+    },
+    {
+      "file": "test/mcp-session-sweep-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/mcp-session-sweep-migration.test.ts.log"
+    },
+    {
+      "file": "test/evidence-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/evidence-migration.test.ts.log"
+    },
+    {
+      "file": "test/release-custody-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/release-custody-migration.test.ts.log"
+    },
+    {
+      "file": "test/token-join-candidate-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/token-join-candidate-migration.test.ts.log"
+    },
+    {
+      "file": "test/row-entitlement-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/row-entitlement-migration.test.ts.log"
+    },
+    {
+      "file": "test/policy-version-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/policy-version-migration.test.ts.log"
+    },
+    {
+      "file": "test/evidence-lifecycle-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/evidence-lifecycle-migration.test.ts.log"
+    },
+    {
+      "file": "test/contributor-key-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-results/contributor-key-migration.test.ts.log"
+    }
+  ],
+  "baselineScannerProvisioned": [
+    {
+      "file": "test/pool-credentials.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-baseline-scanner-ready/pool-credentials.test.ts.log"
+    }
+  ],
+  "candidateInitial": [
+    {
+      "file": "test/table-grants.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/table-grants.test.ts.log"
+    },
+    {
+      "file": "test/row-level-security.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/row-level-security.test.ts.log"
+    },
+    {
+      "file": "test/pool-tables.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/pool-tables.test.ts.log"
+    },
+    {
+      "file": "test/pool-table-policies-migration.test.ts",
+      "exitCode": 1,
+      "log": "/private/tmp/opintel-contracts-candidate-results/pool-table-policies-migration.test.ts.log"
+    },
+    {
+      "file": "test/gate-database.test.mjs",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/gate-database.test.mjs.log"
+    },
+    {
+      "file": "test/mcp-session-sweep-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/mcp-session-sweep-migration.test.ts.log"
+    },
+    {
+      "file": "test/evidence-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/evidence-migration.test.ts.log"
+    },
+    {
+      "file": "test/release-custody-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/release-custody-migration.test.ts.log"
+    },
+    {
+      "file": "test/token-join-candidate-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/token-join-candidate-migration.test.ts.log"
+    },
+    {
+      "file": "test/row-entitlement-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/row-entitlement-migration.test.ts.log"
+    },
+    {
+      "file": "test/policy-version-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/policy-version-migration.test.ts.log"
+    },
+    {
+      "file": "test/evidence-lifecycle-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/evidence-lifecycle-migration.test.ts.log"
+    },
+    {
+      "file": "test/pool-credential-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/pool-credential-migration.test.ts.log"
+    },
+    {
+      "file": "test/contributor-key-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-contracts-candidate-results/contributor-key-migration.test.ts.log"
+    }
+  ],
+  "candidateDriverDecodeCorrected": [
+    {
+      "file": "test/pool-table-policies-migration.test.ts",
+      "exitCode": 0,
+      "log": "/private/tmp/opintel-policy-migration-fixed/pool-table-policies-migration.test.ts.log"
+    }
+  ],
+  "baselineFinalExitCodes": {
+    "test/table-grants.test.ts": 1,
+    "test/row-level-security.test.ts": 1,
+    "test/pool-schema.test.ts": 0,
+    "test/catalog-schema.test.ts": 0,
+    "test/pool-migration.test.ts": 0,
+    "test/pool-binding-migration.test.ts": 0,
+    "test/pool-key-migration.test.ts": 0,
+    "test/pool-credential-migration.test.ts": 0,
+    "test/gate-database.test.mjs": 0,
+    "test/migrate.test.ts": 0,
+    "test/packaged-migrations.test.mjs": 0,
+    "test/development-migrations.test.ts": 0,
+    "test/provisioning-runtime.test.mjs": 0,
+    "test/image-build.test.ts": 0,
+    "test/image-build-plan.test.mjs": 0,
+    "test/image-console.test.mjs": 0,
+    "test/deployment-packages.test.mjs": 0,
+    "test/customer-install.test.mjs": 0,
+    "test/customer-command.test.mjs": 0,
+    "test/engine-sources-command.test.mjs": 0,
+    "test/first-hour-contract.test.mjs": 0,
+    "test/packaged-soak-workflow.test.ts": 0,
+    "test/pool-key-route-schemas.test.ts": 0,
+    "test/http-server.test.ts": 0,
+    "test/permission-explanation.test.ts": 0,
+    "test/authz-spicedb.test.ts": 0,
+    "test/needs-you.test.ts": 0,
+    "test/pool-tables.test.ts": 0,
+    "test/pool-budgets.test.ts": 0,
+    "test/pool-keys.test.ts": 0,
+    "test/pool-credentials.test.ts": 0,
+    "test/settings-contract.test.tsx": 0,
+    "test/mcp-session-sweep-migration.test.ts": 0,
+    "test/evidence-migration.test.ts": 0,
+    "test/release-custody-migration.test.ts": 0,
+    "test/token-join-candidate-migration.test.ts": 0,
+    "test/row-entitlement-migration.test.ts": 0,
+    "test/policy-version-migration.test.ts": 0,
+    "test/evidence-lifecycle-migration.test.ts": 0,
+    "test/contributor-key-migration.test.ts": 0
+  },
+  "candidateFinalExitCodes": {
+    "test/table-grants.test.ts": 0,
+    "test/row-level-security.test.ts": 0,
+    "test/pool-tables.test.ts": 0,
+    "test/pool-table-policies-migration.test.ts": 0,
+    "test/gate-database.test.mjs": 0,
+    "test/mcp-session-sweep-migration.test.ts": 0,
+    "test/evidence-migration.test.ts": 0,
+    "test/release-custody-migration.test.ts": 0,
+    "test/token-join-candidate-migration.test.ts": 0,
+    "test/row-entitlement-migration.test.ts": 0,
+    "test/policy-version-migration.test.ts": 0,
+    "test/evidence-lifecycle-migration.test.ts": 0,
+    "test/pool-credential-migration.test.ts": 0,
+    "test/contributor-key-migration.test.ts": 0
+  }
+}

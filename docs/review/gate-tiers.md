@@ -119,3 +119,49 @@ an internal transport URL as the canonical custody-check URL. It compares actual
 checkBinding values from generated API/operator environments while requiring the
 separate internal TLS target. Matching transport reachability alone is not a
 substitute for the unchanged provider configuration binding.
+
+Parent-owned fixture cleanup (2026-10-28): normal Redis/SpiceDB and browser
+containers carry a unique gate-run label. The parent removes only that run's
+remaining fixtures during final cleanup; a cleanup failure cannot produce a
+green gate. Defect class: interrupted launchers leaking test services after
+skipping their finally. Concrete example: two normal-service containers remained
+from the interrupted console-needs-you gate; the Docker ownership proof removed
+a labelled fixture while preserving an unlabelled sentinel. This adds no tier,
+retry or service/behavioral timeout relaxation.
+
+Existing dependency preflight extended (2026-10-29): `gatePreflight()` in
+`scripts/gate-preflight.mjs` remains the single gate prerequisite step. After
+the unchanged 1 GiB available-host-memory check, it requires at least 7 GiB
+usable Docker RAM (an 8 GB Docker Desktop allocation), resolves PostgreSQL, Redis
+and SpiceDB by the exact digests in `deploy/images/upstream.json`, and resolves
+the browser by the locked Playwright version. Missing references are pulled
+with a 120-second deadline, then inspected again; no mutable fallback is used.
+Normal Redis/SpiceDB fixtures use the same pinned references, including when
+launched outside the full gate. Existing five-second Compose inspection,
+stopped-service startup and bounded connection probes remain; PostgreSQL probes
+also verify CREATEDB. The gate does not recreate running services.
+
+Defect examples: a missing `redis:7-alpine` tag caused a redacted normal-bootstrap
+failure after conformance; a stopped PostgreSQL service was misreported as a
+CREATEDB grant problem. Targeted controls now cover exact-reference pulls, pull
+failure before tiers, Docker memory refusal, authenticated readiness, stopped
+service startup, and connection-refused/authentication/privilege distinctions.
+Normal bootstrap reports known prerequisite causes on one line; other failures
+report the bootstrap stage and an allowlisted operating-system/database code,
+without emitting native messages containing credentials or test data. No
+additional preflight, Compose change, governance change or normal-test timeout
+relaxation is introduced. DEP-008 also retains isolated owner-claim startup after
+removing native/operator runtimes, with the new engine-sources artifact expected.
+
+Console first-hour contract follow-up (2026-10-29): normal-table discovery caught
+the new pool_table_binding table missing from the explicit grant inventory, and
+RLS-10 caught migration 086's tenant_access name instead of tenant_read and
+tenant_write. The grant inventory now follows pool_source_binding exactly,
+without changing SQL grants. Forward migration 087 preserves the applied bytes
+of 086 and keeps its predicates and app-only policy role while supplying the
+required policy names. PT-010 checks same-table membership in two pools and
+rejects duplicate membership in one pool; the new migration regression checks
+up/down/up, unchanged privileges/predicates and forced RLS. The affected
+explicit-list inventory and separate-file baseline/candidate results are in
+`docs/review/console-backend/contract-inventory.md`. No governance assertion is
+relaxed and no grant is widened.

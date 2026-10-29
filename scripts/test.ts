@@ -8,7 +8,8 @@ import {loadDevEnvironment,repositoryRoot} from './dev-environment.js';
 import {testPreflight} from './service-readiness.js';
 import {freshNormalRedis} from './testing/normal-redis.js';
 import {freshNormalSpiceDb,seedNormalPostgres} from './testing/normal-environment.js';
-import {sanitiseException} from '../src/platform/telemetry/exception-log.js';
+import {bootstrapFailure} from './gate-preflight.mjs';
+let bootstrapStage='load environment';
 
 async function main():Promise<void>{
  const environment=loadDevEnvironment();
@@ -19,15 +20,19 @@ async function main():Promise<void>{
  let redis:Awaited<ReturnType<typeof freshNormalRedis>>|undefined;
  let baseline:Awaited<ReturnType<typeof seedNormalPostgres>>|undefined;
  try{
+  bootstrapStage='isolated Redis image/startup';
   redis=await freshNormalRedis();process.env.REDIS_URL=redis.url;
   const isolatedEnvironment={...environment,redisUrl:redis.url};
   if(!performance){
+   bootstrapStage='isolated SpiceDB image/startup/schema';
    spice=await freshNormalSpiceDb(environment);
    process.env.SPICEDB_ENDPOINT=spice.endpoint;process.env.SPICEDB_TOKEN=spice.token;
   }
   assertTestSpiceDb(spice?.endpoint??environment.spiceDbEndpoint);
+  bootstrapStage='service readiness';
   await testPreflight(spice?{...isolatedEnvironment,spiceDbEndpoint:spice.endpoint,spiceDbToken:spice.token}:isolatedEnvironment);
   if(!performance){
+   bootstrapStage='PostgreSQL fixture reset/seed';
    baseline=await seedNormalPostgres(environment);
    const metadata=join(repositoryRoot,'test-results','normal',randomUUID());await mkdir(metadata,{recursive:true});
    process.env.OPINTEL_NORMAL_RUN_METADATA=metadata;
@@ -43,4 +48,4 @@ async function main():Promise<void>{
   });
  }finally{try{await baseline?.close();}finally{try{await spice?.close();}finally{await redis?.close();}}}
 }
-void main().catch((error:unknown)=>{console.error(JSON.stringify({event:'test.bootstrap_failed',...sanitiseException(error)}));process.exitCode=1;});
+void main().catch((error:unknown)=>{console.error(bootstrapFailure(error,bootstrapStage));process.exitCode=1;});

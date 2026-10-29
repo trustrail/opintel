@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "runtime": "packaged operator image",
+  "hostNodeUsed": false,
+  "passwordAbsentFromTerminal": true,
+  "stdoutReferenceOnly": true,
+  "listedByName": true,
+  "explicitRemovalPassed": true,
+  "candidate": "candidate-console-first-hour-v3",
+  "privateInstall": "tmp/stage5-acceptance-2H2lpy/engine"
+}

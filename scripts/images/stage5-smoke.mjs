@@ -17,14 +17,17 @@ import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
 import {parse} from 'dotenv';
 import {auditPackage} from './package-audit.mjs';
 import {firstHour} from './first-hour.mjs';
+import {firstHourSource} from './first-hour-source.mjs';
+import {acceptanceRequest,acceptanceDeadlineMs} from './acceptance-json.mjs';
 
 // External acceptance only. It never alters generated package configuration.
 const archives=resolve(process.argv[2]??''),manifest=JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8'));
 const platform=process.env.PLATFORM??'linux/amd64',prefix=manifest.revision.slice(0,7);
-let candidate=false,soakDurationSeconds=120;
+let candidate=false,firstHourOnly=false,firstHourActive=false,customerSource,soakDurationSeconds=120;
 for(let index=3;index<process.argv.length;index++){
  const argument=process.argv[index];
  if(argument==='--candidate')candidate=true;
+ else if(argument==='--first-hour-only')firstHourOnly=true;
  else if(argument==='--duration-seconds'){
   const value=process.argv[++index];assert.match(value??'',/^[1-9][0-9]*$/u,'--duration-seconds requires a positive integer');
   soakDurationSeconds=Number(value);assert.ok(Number.isSafeInteger(soakDurationSeconds)&&soakDurationSeconds<=86400,'Soak duration must be 1–86400 seconds');
@@ -43,7 +46,7 @@ for(const name of providerNames)assert.ok(provider[name],'Missing provider setti
 mkdirSync('tmp',{recursive:true});
 const directory=resolve(mkdtempSync('tmp/stage5-acceptance-'));chmodSync(directory,0o700);
 const write=(file,value)=>{writeFileSync(file,typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode:0o600});chmodSync(file,0o600);};
-const result={revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',soakDurationSeconds,startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:'customer archives → install → pair → demo soak',checks:{}};
+const result={scope:firstHourOnly?'first-hour':'stage5',revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',soakDurationSeconds:firstHourOnly?null:soakDurationSeconds,startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:firstHourOnly?'customer archives → install → pair → first-hour public APIs':'customer archives → install → pair → first-hour → demo soak',checks:{}};
 const resultFile=join(directory,'result.json');write(resultFile,result);
 const unique=Date.now().toString(),daemon='opintel-stage5-daemon-'+unique,mail='opintel-stage5-mail-'+unique;
 const daemonVolume=daemon+'-data',nested={...process.env,DOCKER_HOST:'tcp://127.0.0.1:12375',DOCKER_CONTEXT:'',DOCKER_TLS_VERIFY:'',DOCKER_CERT_PATH:'',DOCKER_CLI_HINTS:'false'};
@@ -53,6 +56,7 @@ function advance(name){phase=name;result.phase=name;write(resultFile,result);con
 process.once('beforeExit',()=>{if(result.status==='running'){result.status='failed';result.failure={phase,message:'Acceptance driver ended with an unfinished await.'};write(resultFile,result);console.error('Acceptance driver incomplete: '+resultFile);process.exitCode=1;}});
 function bounded(work,ms){let timer;return Promise.race([work,new Promise((_,reject)=>{timer=deadlineTimer(()=>reject(new Error('Acceptance request deadline exceeded')),ms);})]).finally(()=>clearTimeout(timer));}
 function run(command,args,{env=outer,log=true,...options}={}){
+ if(firstHourActive)assert.equal(command,join(engine,'sources'),'First-hour driver forbids internal commands and direct Opintel-store access');
  const output=spawnSync(command,args,{encoding:'utf8',timeout:600000,maxBuffer:16*1024*1024,env,stdio:['ignore','pipe','pipe'],...options});
  const file=join(directory,String(++sequence).padStart(3,'0')+'-'+phase.replaceAll(/[^a-z0-9-]/giu,'-')+'.log');
  if(log||output.error||output.status!==0)write(file,(output.stdout??'')+(output.stderr??''));
@@ -66,7 +70,8 @@ const composeArgs=(kind,...args)=>{const root=kind==='gateway'?gateway:engine;re
 const compose=(kind,...args)=>run('docker',composeArgs(kind,...args),{env:nested});
 const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
 function https(path,method='GET',body,cookie,headers={}){return bounded(new Promise((resolve,reject)=>{
- const req=request('https://127.0.0.1'+path,{method,ca:readFileSync(join(gateway,'state/ca.pem')),headers:{origin:base,'content-type':'application/json',...(cookie?{cookie}:{}),...headers},signal:AbortSignal.timeout(30000)},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('error',reject);res.on('aborted',()=>reject(new Error('API response aborted')));res.on('end',()=>resolve({status:res.statusCode,text,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(new Error('API timeout')));req.end(body===undefined?undefined:JSON.stringify(body));
+ const json=acceptanceRequest(path,base,body,cookie,headers);
+ const req=request('https://127.0.0.1'+path,{method,ca:readFileSync(join(gateway,'state/ca.pem')),headers:json.headers,timeout:acceptanceDeadlineMs,signal:AbortSignal.timeout(acceptanceDeadlineMs)},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('error',reject);res.on('aborted',()=>reject(new Error('API response aborted')));res.on('end',()=>resolve({status:res.statusCode,text,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(new Error('API timeout')));req.end(json.payload);
  }),35000);}
 let base,ownerCookie;
 async function api(path,method='GET',body){const response=await https(path,method,body,ownerCookie);assert.ok(response.status>=200&&response.status<300,'API refused '+path+' ('+response.status+')');return response.text?JSON.parse(response.text):undefined;}
@@ -128,10 +133,16 @@ try{
  const message=await wait(async()=>{const list=await(await fetch('http://127.0.0.1:11825/api/v1/messages',{signal:AbortSignal.timeout(5000)})).json();const found=list.messages.find(m=>m.To.some(to=>to.Address===email));assert.ok(found);return(await fetch('http://127.0.0.1:11825/api/v1/message/'+found.ID,{signal:AbortSignal.timeout(5000)})).json();},'Normal owner SMTP delivery');
  const link=message.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);
  const response=await https('/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage5-customer-acceptance'});assert.equal(response.status,200);ownerCookie=response.headers['set-cookie'].find(value=>value.startsWith('opintel_session=')).split(';')[0];result.checks.normalOwnerSmtpLogin=true;
+ advance('first-hour-customer-source');
+ customerSource=await firstHourSource({directory,image:upstream['x-acceptance-images'].customerPostgres,host:hostAddress,env:outer,recordFailure:(error,fixture)=>{result.status='failed';result.checks.firstHourSource={...fixture,external:true};result.failure={phase,message:error instanceof Error?error.message:'Source fixture failed'};write(resultFile,result);}});
+ result.checks.firstHourSource={container:customerSource.name,network:customerSource.network,image:customerSource.image,fixture:'test/fixtures/first-hour/customer.sql',log:customerSource.log,external:true};
  advance('first-hour');
+ firstHourActive=true;
  const peer=JSON.parse(readFileSync(join(gateway,'state/peer.json')));
- result.checks.firstHour=await firstHour({base,request:(path,method,body,headers)=>https(path,method,body,headers.authorization?undefined:ownerCookie,headers),engine:{name:'First hour engine',address:peer.address,certificatePin:peer.pin},source:{name:'Demonstration database',kind:'postgres',credentialRef:'secret://install/readiness',includeSchemas:['public'],samplingConsent:false,receivesLandings:false,landingStrategy:null},settings:{query:{timeoutSeconds:30,rowLimit:100,memoryLimitMb:256,concurrencyPerPool:2},custody:{provider:'xq',tenant:provider.OPINTEL_XQ_TEAM_ID,region:'us-east-1'}},onProgress:value=>{result.checks.firstHour=value;write(resultFile,result);}});
+ result.checks.firstHour=await firstHour({base,addSource:()=>command('engine','sources','add','first-hour','--host',customerSource.host,'--port',customerSource.port,'--database',customerSource.database,'--user',customerSource.user,'--password-file',customerSource.passwordFile),request:(path,method,body,headers)=>{assert.ok(!(JSON.stringify(body)??'').includes(readFileSync(customerSource.passwordFile,'utf8')),'Source secret reached gateway transport');return https(path,method,body,headers.authorization?undefined:ownerCookie,headers);},engine:{name:'First hour engine',address:peer.address,certificatePin:peer.pin},source:{name:'Demonstration database',kind:'postgres',credentialRef:'secret://sources/first-hour',includeSchemas:['public'],samplingConsent:false,receivesLandings:false,landingStrategy:null},settings:{query:{timeoutSeconds:30,rowLimit:100,memoryLimitMb:256,concurrencyPerPool:2},custody:{provider:'xq',tenant:provider.OPINTEL_XQ_TEAM_ID,region:'us-east-1'}},onProgress:value=>{result.checks.firstHour=value;write(resultFile,result);}});
+ firstHourActive=false;
  assert.equal(result.checks.firstHour.status,'passed','First-hour acceptance failed at '+result.checks.firstHour.failure?.step);
+ if(!firstHourOnly){
  advance('host-xq-check');command('gateway','xq-check','--roundtrips','200');
  const xqDirectory=join(gateway,'state/output',readdirSync(join(gateway,'state/output')).filter(name=>name.startsWith('xq-roundtrip-')).sort().at(-1));
  const xqResult=JSON.parse(readFileSync(join(xqDirectory,'result.json')));assert.equal(xqResult.status,'passed');assert.equal(xqResult.keyEncoding,'sdk-base64-hex-256');assert.equal(xqResult.attempted,200);assert.equal(xqResult.verified,200);assert.equal(xqResult.required,200);assert.equal(xqResult.attempts.length,200);assert.equal(new Set(xqResult.attempts.map(attempt=>attempt.id)).size,200);assert.ok(xqResult.attempts.every(attempt=>attempt.verified&&attempt.fetchStatus===200&&!attempt.cleanupFailed));
@@ -152,11 +163,14 @@ try{
  advance('soak-result');assert.equal(await childDone,0,'Customer demo soak failed');child=undefined;
  const soakResult=JSON.parse(readFileSync(join(runDirectory,'result.json'))),summary=events().at(-1);assert.equal(soakResult.status,'passed');assert.equal(summary.status,'PASSED');assert.equal(summary.operationalErrors,0);assert.equal(summary.invariantBreaches,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
  result.checks.packagedSoak={durationSeconds:soakDurationSeconds,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
+ }
  result.status='passed';result.finishedAt=new Date().toISOString();
 }catch(error){result.status='failed';result.failure={phase,message:error instanceof Error?error.message:'Acceptance failed'};process.exitCode=1;}
 finally{
+ firstHourActive=false;
  if(child&&child.exitCode===null){child.kill('SIGTERM');await childDone;}
  write(resultFile,result); // Results precede any source/daemon teardown.
+ if(customerSource){try{customerSource.close();}catch(error){result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;result.cleanupFailures=[{step:'customer-source',message:error instanceof Error?error.message:'Fixture cleanup failed'}];}}
  const cleanupFailure=(step,error)=>{result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;result.cleanupFailures??=[];result.cleanupFailures.push({step,message:error instanceof Error?error.message:'Cleanup failed'});};
  for(const kind of ['gateway','engine'])if(existsSync(join(directory,kind,'state/compose.json'))){
   try{captureProcessLog('docker',composeArgs(kind,'logs','--no-color'),join(directory,kind+'-services.log'),{env:nested});}catch(error){cleanupFailure('retain-'+kind+'-logs',error);}
@@ -166,5 +180,5 @@ finally{
   try{captureProcessLog('docker',['logs',name],join(directory,name+'.log'),{env:outer});}catch(error){cleanupFailure('retain-fixture-logs',error);}
   const stopped=spawnSync('docker',['stop',name],{stdio:'ignore',env:outer,timeout:60000});if(stopped.error||stopped.status!==0)cleanupFailure('stop-fixture',new Error('Fixture stop failed: '+name));
  }}
- write(resultFile,result);console.log('Stage 5 acceptance '+result.status+': '+resultFile);
+ write(resultFile,result);console.log((firstHourOnly?'First-hour':'Stage 5')+' acceptance '+result.status+': '+resultFile);
 }

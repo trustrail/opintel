@@ -1,0 +1,416 @@
+{
+  "scope": "first-hour",
+  "revision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+  "platform": "linux/amd64",
+  "candidate": true,
+  "published": false,
+  "status": "failed",
+  "soakDurationSeconds": null,
+  "startedAt": "2026-10-29T03:41:25.191Z",
+  "images": [
+    {
+      "target": "api",
+      "digest": "opintel-api@sha256:0e6ff777e3cf5c3c625e5c9dcb224300214c9ed455e8b6852bcf0f6d06ce359a",
+      "id": "sha256:2b3a947603260be0884478e674da3a9e85e938a72cd06001ddbe7e8288ae0def"
+    },
+    {
+      "target": "engine",
+      "digest": "opintel-engine@sha256:cbeef096befa428e23038d1183df97557faca139e50d4d9bdd84894e0107b2a7",
+      "id": "sha256:dd97ea7589c6f9027aa0a7b53e450d5a4b329ed68b06c5e94f1dd05a78f55e47"
+    },
+    {
+      "target": "console",
+      "digest": "opintel-console@sha256:03e31fb9602c04877a7a4f2d528c7bce43c6d09ed594ebb7452c26aa48613ec2",
+      "id": "sha256:0e5172c7c154eda0d8f8ee423f759845e06449628b6417d03d6b4cca51daa48d"
+    },
+    {
+      "target": "egress",
+      "digest": "opintel-egress@sha256:7ce4f81190fc067d6fd9c2b84d42a574352d19a82766e370e1b0cd9d40345ec8",
+      "id": "sha256:a1119660ffa082a1430dd501305d884d6fe8ce7a52cc3d99e4784d76a17e0166"
+    },
+    {
+      "target": "migrations",
+      "digest": "opintel-migrations@sha256:5220b59ad86bbe39d9cf0c70ede1029e5087613cc8b5a995f7248fbd1989d1f2",
+      "id": "sha256:286e152abee87a43939ec5167a1b000a8767f53c6a89c2f3a6b05662cb7a70b5"
+    },
+    {
+      "target": "provisioning",
+      "digest": "opintel-provisioning@sha256:bdacc7de8d9da3382d1bdc40438a3555cbd30a89ae4cfd4c1a7a950fbdbb6eb4",
+      "id": "sha256:f0506a82b93fe1cf8401b96dde0bf71e4d5267f767fd614df39598b4856858bd"
+    },
+    {
+      "target": "demo-tools",
+      "digest": "opintel-demo-tools@sha256:8d1764063cfebde977bed10af99296de84f06b85160c25be93103d8e591a833a",
+      "id": "sha256:1c85c3bbf23eba970fd688022c6c25ebdecac3b22d6b87b2318add5ac6b78050"
+    }
+  ],
+  "path": "customer archives → install → pair → first-hour public APIs",
+  "checks": {
+    "dockerMemory": {
+      "allocatedBytes": 4104384512,
+      "minimumBytes": 3221225472
+    },
+    "archives": {
+      "revision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+      "customerPackageVersion": 1,
+      "audited": true,
+      "archives": {
+        "gateway": {
+          "file": "/Users/rzarita/opintel/tmp/console-first-hour-packages/gateway-a3f3e34-amd64.tar.gz",
+          "sha256": "5735365e50903703ebe61df492d72c4bebbded0996a950589b79e83ea8eb31b2"
+        },
+        "engine": {
+          "file": "/Users/rzarita/opintel/tmp/console-first-hour-packages/engine-a3f3e34-amd64.tar.gz",
+          "sha256": "8f3395deed936761c9e32f70b15f051e7e801e8a3f8568594e18d46686ffa884"
+        }
+      },
+      "packageEnvironmentKeys": [
+        "APP_BASE_URL",
+        "OPINTEL_XQ_API_KEY",
+        "OPINTEL_XQ_DASHBOARD_API_KEY",
+        "OPINTEL_XQ_SENDER_ACCESS_TOKEN",
+        "OPINTEL_XQ_SENDER_ALIAS",
+        "OPINTEL_XQ_TEAM_ID",
+        "OWNER_EMAIL",
+        "SMTP_HOST",
+        "SMTP_PASSWORD",
+        "SMTP_PORT",
+        "SMTP_SENDER",
+        "SMTP_TLS_MODE",
+        "SMTP_USER"
+      ]
+    },
+    "emptyDocker": {
+      "imageCount": 0,
+      "containerCount": 0,
+      "daemon": "opintel-stage5-daemon-1793245285194",
+      "volume": "opintel-stage5-daemon-1793245285194-data"
+    },
+    "gatewayInstall": true,
+    "engineInstall": true,
+    "identityImports": {
+      "count": 4,
+      "command": "./identities add EXPORT.zip --device NAME"
+    },
+    "privatePermissions": true,
+    "defaultHttpsPort": 443,
+    "paired": {
+      "singleCode": true,
+      "noFileTransfer": true
+    },
+    "realSmtpRelay": {
+      "authenticated": true,
+      "acceptedResponse": "250"
+    },
+    "normalOwnerSmtpLogin": true,
+    "firstHourSource": {
+      "container": "opintel-first-hour-source-602f8eda-6136-4e75-9b06-999446a0dcba",
+      "network": "opintel-first-hour-source-602f8eda-6136-4e75-9b06-999446a0dcba-network",
+      "image": "postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938",
+      "fixture": "test/fixtures/first-hour/customer.sql",
+      "log": "/Users/rzarita/opintel/tmp/stage5-acceptance-ZCeCqq/first-hour-source.log",
+      "external": true
+    },
+    "firstHour": {
+      "status": "failed",
+      "startedAt": "2026-10-29T03:45:16.607Z",
+      "steps": [
+        {
+          "step": "engine-source-add",
+          "status": "passed",
+          "at": "2026-10-29T03:45:18.353Z"
+        },
+        {
+          "step": "create-empty-project",
+          "status": "passed",
+          "at": "2026-10-29T03:45:18.535Z"
+        },
+        {
+          "step": "verify-empty-project",
+          "status": "passed",
+          "at": "2026-10-29T03:45:18.651Z"
+        },
+        {
+          "step": "register-engine",
+          "status": "passed",
+          "at": "2026-10-29T03:45:18.718Z"
+        },
+        {
+          "step": "verify-engine",
+          "status": "passed",
+          "at": "2026-10-29T03:45:18.929Z"
+        },
+        {
+          "step": "designate-custody-engine",
+          "status": "passed",
+          "at": "2026-10-29T03:45:19.047Z"
+        },
+        {
+          "step": "configure-project",
+          "status": "passed",
+          "at": "2026-10-29T03:45:19.107Z"
+        },
+        {
+          "step": "connect-demo-database",
+          "status": "passed",
+          "at": "2026-10-29T03:45:19.671Z"
+        },
+        {
+          "step": "source-connected",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.132Z"
+        },
+        {
+          "step": "discover-tables",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.197Z"
+        },
+        {
+          "step": "create-pool-and-bind-tables",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.417Z"
+        },
+        {
+          "step": "missing-rule-needs-you",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.487Z"
+        },
+        {
+          "step": "set-table-rows",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.528Z"
+        },
+        {
+          "step": "remove-table",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.565Z"
+        },
+        {
+          "step": "add-table",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.607Z"
+        },
+        {
+          "step": "catalogue-six-supported-fields",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.638Z"
+        },
+        {
+          "step": "initialize-token-key",
+          "status": "passed",
+          "at": "2026-10-29T03:45:28.929Z"
+        },
+        {
+          "step": "declare-contributor-key",
+          "status": "passed",
+          "at": "2026-10-29T03:45:29.117Z"
+        }
+      ],
+      "publicCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/companies?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/industries",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/pools?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/engines",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/engines?limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/engines/6889858d-bc41-4639-ad6e-5265f4e310c9/verify",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/engines/6889858d-bc41-4639-ad6e-5265f4e310c9/custody",
+          "status": 200
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/settings",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/catalog?parent=objects%3A01a185c3-1f05-76a0-8e17-526a07c67a89&limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/pools",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/needs-you?limit=100",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/pools/891d9549-ee19-4f14-8ae6-6742a12fa392/tables/01a185c3-3f54-759f-8b11-5a7056e6986c/rows",
+          "status": 200
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/pools/891d9549-ee19-4f14-8ae6-6742a12fa392/tables/01a185c3-3f54-759f-8b11-5a7056e6986c",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/891d9549-ee19-4f14-8ae6-6742a12fa392/tables",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/catalog?parent=01a185c3-3f56-7f45-b9df-5f59152dd1b1&limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/token-key/initialize",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/catalog/elements/01a185c3-3f56-76f1-b7ad-7c2e78408149/declarations",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/catalog/elements/01a185c3-3f56-76f1-b7ad-7c2e78408149/declarations",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/07c2e850-dba2-49ae-aa69-3217c6909130/custody-provider/check",
+          "status": 200
+        }
+      ],
+      "projectId": "07c2e850-dba2-49ae-aa69-3217c6909130",
+      "sourceId": "01a185c3-1f05-76a0-8e17-526a07c67a89",
+      "poolId": "891d9549-ee19-4f14-8ae6-6742a12fa392",
+      "failure": {
+        "step": "check-custody-provider",
+        "message": "XQ dashboard key check failed: missing_check\n+ actual - expected\n\n+ undefined\n- 'authenticated'"
+      },
+      "finishedAt": "2026-10-29T03:45:31.826Z"
+    }
+  },
+  "phase": "first-hour",
+  "failure": {
+    "phase": "first-hour",
+    "message": "First-hour acceptance failed at check-custody-provider\n+ actual - expected\n\n+ 'failed'\n- 'passed'"
+  }
+}

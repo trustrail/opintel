@@ -5,6 +5,7 @@ import {promisify} from 'node:util';
 import {fileURLToPath,URL} from 'node:url';
 import {config} from 'dotenv';
 import pg from 'pg';
+import {GatePrerequisiteError,postgresFailure} from './gate-preflight.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const exec=promisify(execFile);
@@ -37,7 +38,7 @@ export function gateDatabase({environment=process.env,checkout=root,clientFactor
   name,url:target.toString(),
   async prepare(){
    try{await query(`CREATE DATABASE "${name}" TEMPLATE template0`,()=>{owned=true;});}
-   catch{throw new Error('Test PostgreSQL: cannot create the isolated gate database; configured test user needs CREATEDB.');}
+   catch(error){throw new GatePrerequisiteError(postgresFailure(error));}
    try{await migrateDatabase(target.toString());}
    catch{throw new Error('Test PostgreSQL: isolated gate database migration failed or exceeded 120 seconds.');}
   },

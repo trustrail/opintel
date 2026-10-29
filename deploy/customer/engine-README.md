@@ -22,10 +22,22 @@ be installed, running, and allowed at least 8 GB memory. Extract this archive to
 Lifecycle: `./start`, `./stop`, `./status`, `./upgrade /path/to/new/engine`,
 `./backup`, `./restore /path/to/backup`. Backup/restore stop services. Back up before moving.
 Backups contain private identities and customer state; protect them offline.
-Restore retains a pre-restore backup. Nothing reads terminal input. Never delete
+Restore retains a pre-restore backup. Only `./sources add` asks for terminal input. Never delete
 state or volumes to repair an installation. Restart does not rotate credentials.
 The engine remains locally ready while the gateway is unreachable; it serves no
 unverified caller and gets assignments only after explicit gateway registration.
+
+Customer databases: run `./sources add NAME` on this Engine host. Enter host,
+port (default 5432), database, user and password; password entry is hidden.
+Only `secret://sources/NAME` is printed. Use that reference when registering the
+source in the gateway. Credentials remain in private mode-600 files under
+`state/sources` (directory mode 700), mounted only into Engine services. Existing
+names are never overwritten. `./sources list` prints names only;
+`./sources remove NAME` explicitly removes one credential and new reads fail
+closed. Backups include this private state. Automation uses
+`./sources add NAME --host HOST --port PORT --database DATABASE --user USER --password-file FILE`;
+FILE must be mode 600 and contain the exact password bytes, with no newline.
+No password appears in arguments or environment variables. No host Node is needed.
 
 LAN firewall: gateway → engine TCP 3100 (pinned engine API), 3103 (pairing/recovery), and 5434 (demo source);
 engine → gateway TCP 3102 (pinned heartbeat) and 3101 (optional ingest receipt).

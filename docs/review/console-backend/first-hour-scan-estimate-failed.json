@@ -1,0 +1,566 @@
+{
+  "scope": "first-hour",
+  "revision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+  "platform": "linux/amd64",
+  "candidate": true,
+  "published": false,
+  "status": "failed",
+  "soakDurationSeconds": null,
+  "startedAt": "2026-10-29T05:08:34.530Z",
+  "images": [
+    {
+      "target": "api",
+      "digest": "opintel-api@sha256:0943f6900d897c0b5dfa324096c36b02a17300445e2c45f869d58e5c0c34642a",
+      "id": "sha256:c0e15e1e9f01978d3b5037edd905fb37575ff8f2eb65172b6ee00efede3ddb55"
+    },
+    {
+      "target": "engine",
+      "digest": "opintel-engine@sha256:95ff39cb6312a09fb896effb81e61f435aaad6a7a3508e6a58830a03832af7b1",
+      "id": "sha256:736609a41c164f2187710fc2f6323f63d809b2c5d0425f4dbc133204c7b19026"
+    },
+    {
+      "target": "console",
+      "digest": "opintel-console@sha256:1792f69a146e6ecce287b01f7e5234f9d3376a452a52e814c38c74752445ecfd",
+      "id": "sha256:4b47072eb7406abf6698c235d036dedafb95cd509487f993c6380e518f27dd3c"
+    },
+    {
+      "target": "egress",
+      "digest": "opintel-egress@sha256:c9d65ec8b55f55174b095d9351dcb20f7b029cf942d99f8b60f24139a112f847",
+      "id": "sha256:69126d152d82b3f0c1076070b95019fcd9035b8af0dd73b4a68ce84b796f2c5e"
+    },
+    {
+      "target": "migrations",
+      "digest": "opintel-migrations@sha256:16433eadfe3de0515e9d9276330bc04ed18f13099643562f8fa6b4bd243c36e4",
+      "id": "sha256:2ff3a7f5d6eb66e248d7ef45c9a3651a782dbf091582be39fe819384b8b3d343"
+    },
+    {
+      "target": "provisioning",
+      "digest": "opintel-provisioning@sha256:e936f95cdfc9fbcd8d8d6273cbae1ffb6e50a433f1c38843272e011c76827857",
+      "id": "sha256:fce2fe90f69128c9f746d278dad163a0f2cdbf00127e46d1f7a43aabab388e9e"
+    },
+    {
+      "target": "demo-tools",
+      "digest": "opintel-demo-tools@sha256:8e2f21ed5c9d53ecfb4012f5879fe633cdcea63ec36d39f1051a9d5a3cc124b9",
+      "id": "sha256:c01ff0406dc3dfadfe3917e13e12e8e46a9d00877e0bcc97ca0bdc8050a05c83"
+    }
+  ],
+  "path": "customer archives \u2192 install \u2192 pair \u2192 first-hour public APIs",
+  "checks": {
+    "dockerMemory": {
+      "allocatedBytes": 4104384512,
+      "minimumBytes": 3221225472
+    },
+    "archives": {
+      "revision": "a3f3e345f6c0012d3d75e4982dbdad6450875aa8",
+      "customerPackageVersion": 1,
+      "audited": true,
+      "archives": {
+        "gateway": {
+          "file": "/Users/rzarita/opintel/tmp/console-first-hour-packages-v3/gateway-a3f3e34-amd64.tar.gz",
+          "sha256": "36c5860cad8572f33629afeb121fb6aeb42b187c9a1bae839c5fd51a3d4a1cfe"
+        },
+        "engine": {
+          "file": "/Users/rzarita/opintel/tmp/console-first-hour-packages-v3/engine-a3f3e34-amd64.tar.gz",
+          "sha256": "073a73f866c7cedbb69f506044044365762dbbbc23c15fe546a87e71b51153a4"
+        }
+      },
+      "packageEnvironmentKeys": [
+        "APP_BASE_URL",
+        "OPINTEL_XQ_API_KEY",
+        "OPINTEL_XQ_DASHBOARD_API_KEY",
+        "OPINTEL_XQ_SENDER_ACCESS_TOKEN",
+        "OPINTEL_XQ_SENDER_ALIAS",
+        "OPINTEL_XQ_TEAM_ID",
+        "OWNER_EMAIL",
+        "SMTP_HOST",
+        "SMTP_PASSWORD",
+        "SMTP_PORT",
+        "SMTP_SENDER",
+        "SMTP_TLS_MODE",
+        "SMTP_USER"
+      ]
+    },
+    "emptyDocker": {
+      "imageCount": 0,
+      "containerCount": 0,
+      "daemon": "opintel-stage5-daemon-1793250514627",
+      "volume": "opintel-stage5-daemon-1793250514627-data"
+    },
+    "gatewayInstall": true,
+    "engineInstall": true,
+    "identityImports": {
+      "count": 4,
+      "command": "./identities add EXPORT.zip --device NAME"
+    },
+    "privatePermissions": true,
+    "defaultHttpsPort": 443,
+    "paired": {
+      "singleCode": true,
+      "noFileTransfer": true
+    },
+    "realSmtpRelay": {
+      "authenticated": true,
+      "acceptedResponse": "250"
+    },
+    "normalOwnerSmtpLogin": true,
+    "firstHourSource": {
+      "container": "opintel-first-hour-source-b696c6fa-7ca1-4b1b-8389-c6bb9be44b7b",
+      "network": "opintel-first-hour-source-b696c6fa-7ca1-4b1b-8389-c6bb9be44b7b-network",
+      "image": "postgres:16-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938",
+      "fixture": "test/fixtures/first-hour/customer.sql",
+      "log": "/Users/rzarita/opintel/tmp/stage5-acceptance-woBBkT/first-hour-source.log",
+      "external": true
+    },
+    "firstHour": {
+      "status": "failed",
+      "startedAt": "2026-10-29T05:13:05.458Z",
+      "steps": [
+        {
+          "step": "engine-source-add",
+          "status": "passed",
+          "at": "2026-10-29T05:13:11.121Z"
+        },
+        {
+          "step": "create-empty-project",
+          "status": "passed",
+          "at": "2026-10-29T05:13:11.465Z"
+        },
+        {
+          "step": "verify-empty-project",
+          "status": "passed",
+          "at": "2026-10-29T05:13:11.591Z"
+        },
+        {
+          "step": "register-engine",
+          "status": "passed",
+          "at": "2026-10-29T05:13:11.644Z"
+        },
+        {
+          "step": "verify-engine",
+          "status": "passed",
+          "at": "2026-10-29T05:13:12.075Z"
+        },
+        {
+          "step": "designate-custody-engine",
+          "status": "passed",
+          "at": "2026-10-29T05:13:12.240Z"
+        },
+        {
+          "step": "configure-project",
+          "status": "passed",
+          "at": "2026-10-29T05:13:12.341Z"
+        },
+        {
+          "step": "connect-demo-database",
+          "status": "passed",
+          "at": "2026-10-29T05:13:13.043Z"
+        },
+        {
+          "step": "source-connected",
+          "status": "passed",
+          "at": "2026-10-29T05:13:23.870Z"
+        },
+        {
+          "step": "discover-tables",
+          "status": "passed",
+          "at": "2026-10-29T05:13:23.908Z"
+        },
+        {
+          "step": "create-pool-and-bind-tables",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.198Z"
+        },
+        {
+          "step": "read-pool-budgets",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.262Z"
+        },
+        {
+          "step": "change-pool-budgets",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.322Z"
+        },
+        {
+          "step": "missing-rule-needs-you",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.390Z"
+        },
+        {
+          "step": "set-table-rows",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.439Z"
+        },
+        {
+          "step": "remove-table",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.501Z"
+        },
+        {
+          "step": "add-table",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.547Z"
+        },
+        {
+          "step": "catalogue-six-supported-fields",
+          "status": "passed",
+          "at": "2026-10-29T05:13:24.589Z"
+        },
+        {
+          "step": "initialize-token-key",
+          "status": "passed",
+          "at": "2026-10-29T05:13:25.372Z"
+        },
+        {
+          "step": "declare-contributor-key",
+          "status": "passed",
+          "at": "2026-10-29T05:13:26.450Z"
+        },
+        {
+          "step": "check-custody-provider",
+          "status": "passed",
+          "at": "2026-10-29T05:13:27.575Z"
+        },
+        {
+          "step": "entitlement-clear",
+          "status": "passed",
+          "at": "2026-10-29T05:13:27.677Z"
+        },
+        {
+          "step": "declare-token-column",
+          "status": "passed",
+          "at": "2026-10-29T05:13:28.260Z"
+        },
+        {
+          "step": "entitlement-tokenized",
+          "status": "passed",
+          "at": "2026-10-29T05:13:29.071Z"
+        },
+        {
+          "step": "entitlement-masked",
+          "status": "passed",
+          "at": "2026-10-29T05:13:29.493Z"
+        },
+        {
+          "step": "entitlement-aggregate_only",
+          "status": "passed",
+          "at": "2026-10-29T05:13:29.707Z"
+        },
+        {
+          "step": "entitlement-custody",
+          "status": "passed",
+          "at": "2026-10-29T05:13:30.481Z"
+        },
+        {
+          "step": "entitlement-withheld",
+          "status": "passed",
+          "at": "2026-10-29T05:13:31.505Z"
+        },
+        {
+          "step": "issue-credential",
+          "status": "passed",
+          "at": "2026-10-29T05:13:31.853Z"
+        },
+        {
+          "step": "mcp-query",
+          "status": "passed",
+          "at": "2026-10-29T05:13:36.331Z"
+        }
+      ],
+      "publicCalls": [
+        {
+          "method": "GET",
+          "path": "/api/v1/companies?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/industries",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/pools?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/engines",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/engines?limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/engines/8fd51c4e-6d61-4e69-b1a2-9a7bf882f042/verify",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/engines/8fd51c4e-6d61-4e69-b1a2-9a7bf882f042/custody",
+          "status": 200
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/settings",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/sources?limit=100",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/catalog?parent=objects%3A01a18613-9610-7062-9bde-c8c3272ef021&limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/pools",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/budgets?projectId=6f5f6a59-8d6e-4cd1-be93-409e1ed1d152",
+          "status": 200
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/budgets",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/needs-you?limit=100",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/tables/01a18613-beeb-770b-8f82-7e35f7f0f07e/rows",
+          "status": 200
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/tables/01a18613-beeb-770b-8f82-7e35f7f0f07e",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/tables",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/catalog?parent=01a18613-beee-701b-8232-95897f0ddb60&limit=100",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/token-key/initialize",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/catalog/elements/01a18613-beee-710d-bbbc-a466d094b97d/declarations",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/catalog/elements/01a18613-beee-710d-bbbc-a466d094b97d/declarations",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/custody-provider/check",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/catalog/elements/01a18613-beee-709a-badf-eeafc6403946/declarations",
+          "status": 200
+        },
+        {
+          "method": "PUT",
+          "path": "/api/v1/projects/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152/catalog/elements/01a18613-beee-709a-badf-eeafc6403946/declarations",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/entitlements/bulk",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/pools/504f28c0-125f-48ce-8c8b-06b1a6a76df6/credentials",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152",
+          "status": 202
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/mcp/v1/p/6f5f6a59-8d6e-4cd1-be93-409e1ed1d152",
+          "status": 200
+        }
+      ],
+      "projectId": "6f5f6a59-8d6e-4cd1-be93-409e1ed1d152",
+      "sourceId": "01a18613-9610-7062-9bde-c8c3272ef021",
+      "poolId": "504f28c0-125f-48ce-8c8b-06b1a6a76df6",
+      "failure": {
+        "step": "mcp-query",
+        "message": "First-hour query was refused"
+      },
+      "finishedAt": "2026-10-29T05:13:36.341Z"
+    }
+  },
+  "phase": "first-hour",
+  "failure": {
+    "phase": "first-hour",
+    "message": "First-hour acceptance failed at mcp-query\n+ actual - expected\n\n+ 'failed'\n- 'passed'"
+  }
+}

@@ -1917,6 +1917,37 @@ Project query limits cap the corresponding optional pool budget overrides;
 is read from `pool.budgets.threads` and must be explicitly configured. Missing or
 invalid execution limits refuse rather than inventing a deployment default.
 
+Public pool budgets (29 October 2026): `POST /api/v1/projects/:id/pools`
+accepts an optional `budgets` object. All six fields are optional explicit
+positive safe integers, with no numeric backend defaults: `threads`,
+`rowsPerRequest`, `timeoutMs`, `memoryMb`, `concurrency`, `rowsPerDay`.
+Only `threads` is required by query execution today. The four per-request
+limits override downward against the corresponding project limits. The daily
+row budget is stored but its accounting/enforcement remains deferred (Q-020);
+saving it does not assert an enforced cap. An omitted threads budget still
+refuses queries as `validation_failed` / `invalid_settings`.
+
+`GET /api/v1/pools/:id/budgets?projectId=P` requires project `view` and returns
+`{poolId,budgets}` exactly as saved, without suggested values.
+`PATCH /api/v1/pools/:id/budgets` requires project `administer` and accepts
+`{projectId,budgets}` with at least one of the same validated fields. It merges
+only supplied fields under a pool row lock, so concurrent edits preserve each
+other's unrelated fields. Unknown fields, null, strings, zero, negative,
+fractional and unsafe integer values refuse. Omission never clears a field.
+Creation's explicit budget decision and every effective update append
+`PoolBudgetsChanged` to `audit_entry` in the same tenant transaction, with actor,
+project, pool target and before/after budgets; an unchanged edit emits no extra
+change. Creation idempotency includes the budgets and never re-applies a replay.
+
+The packaged reinsurance demo pools Cedant 01/02 set only `{threads:1}`;
+`rowsPerRequest`, `timeoutMs`, `memoryMb`, `concurrency` and `rowsPerDay` are
+unset. Development demo/soak and image-smoke fixtures likewise set threads to
+one. A future Create pool UI may suggest these demo values for confirmation;
+the suggestion belongs to the UI, never the backend. The first-hour acceptance
+explicitly supplies every execution-required budget and exercises both read and
+change APIs before its MCP query.
+
+
 ### Item 5.8 model text and refusal metadata
 
 Successful query responses retain `QueryOutput` in `structuredContent`, add the
@@ -6049,3 +6080,78 @@ The API transport records parent versus transport_deadline cancellation. The
 engine retains the last source phase in request-local asynchronous context and
 attaches its operation, attempt, bounded native code/SQLSTATE, state and
 timestamp when cancelled. Refusal logs carry these fields and queue wait.
+
+### 5.38a — unified needs-you projection
+
+`GET /api/v1/projects/:id/needs-you` requires project view. It returns one
+cursor-paged list of undecided **name groups per pool** (null names remain
+separate identities), missing effective row decisions on already scoped objects,
+required query settings and conditional sampling/XQ settings, open token-join
+Suggestions, open lifecycle Observations, and required/failed saved checks.
+Items carry stable id, kind, safe title, affected count, existing target route
+and project roles for the resolving action. This is a read model, never a new
+decision store. Withheld is decided; an unscoped object is not missing a row
+filter. Suggestions use the latest immutable review; not_sure stays open.
+Observation resolution follows 5.31 facts, not an acknowledgement action.
+
+Custody Observations and token-key findings are included only after a current
+project administer check. Cursor scope binds project and this privilege bit;
+a role change invalidates a previously issued cursor. Results use C-collated
+stable item-id keyset ordering, a 1–100 limit and no-store. Counts mean affected
+members of that item; adding counts across kinds is not a unique issue total.
+Settings with safe defaults, optional retention and inactive sampling settings
+do not become compulsory. Checks report saved observations, not fresh network
+probes performed during a GET. Pagination is a live projection, not a durable
+snapshot; callers restart after mutations.
+
+### 5.38b Engine source import and explicit pool tables (29 October decision)
+
+Source connection credentials stay exclusively on the Engine host. The customer
+package provides `./sources add NAME`, prompting for host, port, database, user
+and hidden password. It prints only `secret://sources/NAME`; list prints names
+only, and remove explicitly deletes one reference. The Engine file adapter uses
+mode-700 directories, mode-600 regular files, exclusive creation, no symlinks and
+no overwrite. Existing environment references remain readable for non-imported
+namespaces. Imported references never fall back to an environment credential.
+Runtime mounts are read-only. Automated acceptance passes fields plus a private
+password file to the same package command, with stdin closed and no host Node.
+The gateway source registration endpoint remains reference-only (§2.7, §10.5).
+
+Pool creation accepts `tableSetup: {tables, rowRule, startingMode}`. Tables are
+catalogue object IDs, including tables from different sources. A row rule is
+`{column, operator, value}` or the explicit `{allRows:true}` decision. Compile it
+through the existing typed row-expression grammar separately for each table.
+Missing columns and incompatible literal types do not reject binding: the table
+remains bound, returns zero rows, and the response/needs-you list requires
+**Set rows**. No explicit-table pool gains unscoped access from an absent rule,
+including when an object default exists. Compatible common rules are immutable
+pool overrides; a later per-table rule replaces that contribution only. Existing
+object defaults still conjoin, and receipt scope decisions remain immutable.
+All-rows is stored as an explicit typed null/non-null tautology, never inferred
+from absence. Existing source-wide pools keep their earlier semantics until an
+explicit table-binding operation converts their current catalogue selection.
+
+Starting modes are `{kind:'nothing_yet'}` and `{kind:'copy_from',poolId}`. Nothing
+yet creates no column decisions. Copy matches active table and column exposed
+names, including across sources, and validates treatments against the target's
+own declarations. Missing, ambiguous or incompatible counterparts stay undecided;
+aggregate-only requires its target contributor declaration and custody requires
+the target provider check. Copy does not transfer declarations, row decisions,
+grants, keys or credentials. The new pool has its own ordinary initial credential.
+
+`POST /api/v1/pools/P/tables` adds tables using the stored common rule (or an
+explicit supplied rule); `DELETE .../tables/O` removes a table; both require
+project bind_source. `PUT .../tables/O/rows` requires set_entitlement and appends
+the table's rule. `GET .../tables?projectId=...` is cursor-paged and requires view.
+Removing a table preserves its treatments, row-decision history and evidence;
+compilation, describe and current governance projections exclude it. Re-adding
+does not duplicate or overwrite existing decisions. Source authorization uses
+the existing transactional outbox and remains fail closed while pending.
+
+First-hour acceptance owns a separate plain Postgres container/network, populated
+only by `test/fixtures/first-hour/customer.sql`. It runs the Engine package source
+command; every Opintel project, source, catalogue, table, treatment, credential,
+MCP query and receipt operation after that uses public console APIs. It forbids
+internal command/store access during that phase and rejects source connection
+material at the gateway transport boundary. Fixture results are written before
+fixture teardown; installed customer source data is never torn down.

@@ -51,7 +51,7 @@ export function selectPatternRule(rules: readonly PatternRule[], element: RuleEl
   return ok(matches.sort((a,b)=>b.priority-a.priority)[0] ?? null);
 }
 
-export function validateRuleTreatment(rule: PatternRule, element: RuleElement): Result<void> {
+function treatmentProblems(rule: Pick<PatternRule,'treatment'|'maskKind'>, element: RuleElement): string[] {
   const problems: string[] = [];
   if (element.exposedType === null || element.exposedName === null) problems.push('The element has no supported exposed type or name.');
   if (rule.maskKind !== null) {
@@ -72,5 +72,7 @@ export function validateRuleTreatment(rule: PatternRule, element: RuleElement): 
     const type = element.exposedType;
     if (type !== null && !['VARCHAR','UUID','DATE','TIMESTAMP','TIMESTAMPTZ','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(type) && !type.startsWith('DECIMAL(')) problems.push(`Type ${type} cannot be tokenized; cast it to a supported type upstream.`);
   }
-  return problems.length ? err(new DomainError('validation_failed', `Rule ${rule.id} (${rule.matcher}) cannot apply to element ${element.exposedName ?? element.id} (${element.id}): ${problems.join(' ')}`)) : ok(undefined);
+  return problems;
 }
+export function validateRuleTreatment(rule:PatternRule,element:RuleElement):Result<void>{const problems=treatmentProblems(rule,element);return problems.length?err(new DomainError('validation_failed',`Rule ${rule.id} (${rule.matcher}) cannot apply to element ${element.exposedName??element.id} (${element.id}): ${problems.join(' ')}`)):ok(undefined);}
+export function validateCopiedTreatment(decision:Pick<PatternRule,'treatment'|'maskKind'>,element:RuleElement):Result<void>{const problems=treatmentProblems(decision,element);return problems.length?err(new DomainError('validation_failed','The copied treatment is incompatible with the target declarations.')):ok(undefined);}

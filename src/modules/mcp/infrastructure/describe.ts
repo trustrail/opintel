@@ -13,7 +13,7 @@ export class PostgresDescribeReader implements DescribeReader {
    JOIN catalog_object o ON o.id=e.object_id AND o.project_id=e.project_id
    JOIN data_source s ON s.id=o.source_id AND s.project_id=o.project_id
    JOIN pool_source_binding b ON b.pool_id=t.pool_id AND b.source_id=s.id AND b.project_id=t.project_id
-   WHERE t.pool_id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived'
+   WHERE public.pool_table_allowed($1,o.id) AND t.pool_id=$1 AND e.status='active' AND o.status='active' AND s.status<>'archived'
     AND e.exposed_name IS NOT NULL AND e.exposed_type IS NOT NULL
     AND ($2::text IS NULL OR s.exposed_alias||'.'||o.exposed_schema||'.'||o.exposed_name=$2)
    ORDER BY s.exposed_alias COLLATE "C",o.exposed_schema COLLATE "C",o.exposed_name COLLATE "C",e.ordinal NULLS LAST,e.exposed_name COLLATE "C"

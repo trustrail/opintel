@@ -1,3 +1,5 @@
+import {poolBudgetRoutes} from '../../modules/pools/api/budget-routes.js';
+import {PostgresPoolBudgets} from '../../modules/pools/index.js';
 import {operatorObserverReader} from '../ops/observer.js';
 import {withDiagnosticWork} from '../telemetry/diagnostics.js';
 import {initializeDatabaseDiagnostics} from '../db/diagnostics.js';
@@ -26,6 +28,8 @@ import {PostgresSettings} from '../../modules/tenancy/index.js';
 import {PostgresDashboardReader} from '../../modules/tenancy/index.js';
 import {InstallationClaimAdmission,PostgresInstallationClaimRepository} from '../../modules/tenancy/index.js';
 import {dashboardRoutes} from '../../modules/tenancy/api/dashboard-routes.js';
+import {needsYouRoutes} from '../../modules/tenancy/api/needs-you-routes.js';
+import {PostgresNeedsYouReader} from '../../modules/tenancy/index.js';
 import {PostgresPoolReader} from '../../modules/pools/index.js';
 import {poolReadRoutes} from '../../modules/pools/api/read-routes.js';
 import {evidenceExportRoutes} from '../../modules/evidence/api/export-routes.js';
@@ -35,6 +39,8 @@ import {evidenceRoutes} from '../../modules/evidence/api/routes.js';
 import {PostgresEvidenceWriter} from '../../modules/evidence/index.js';
 import { PoolKeyService, PostgresPoolKeys, AgentPresenceService, PostgresAgentPresence, sweepAgentPresence } from '../../modules/pools/index.js';
 import { poolKeyRoutes } from '../../modules/pools/api/key-routes.js';
+import {poolTableRoutes} from '../../modules/pools/api/table-routes.js';
+import {PostgresPoolTables} from '../../modules/pools/index.js';
 import { agentPresenceRoutes } from '../../modules/pools/api/presence-routes.js';
 import { McpAccess, McpHttpServer, PostgresMcpConfiguration, DescribeService, PostgresDescribeReader,ExplainService,QueryService,PostgresQueryReader,assertEvidenceWriter } from '../../modules/mcp/index.js';
 import { PostgresKeyVerifier } from '../../modules/pools/index.js';
@@ -272,8 +278,11 @@ async function start(): Promise<void> {
     ...evidenceRoutes(evidenceQuery),
     ...suggestionRoutes(new PostgresSuggestions(evidenceQuery)),
     ...dashboardRoutes(new PostgresDashboardReader()),
+    ...needsYouRoutes(new PostgresNeedsYouReader(),authorization),
     ...poolReadRoutes(new PostgresPoolReader()),
-    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody), presence)),
+    ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody,new PostgresPoolTables(relationshipOutbox,authorization)), presence)),
+    ...poolTableRoutes(new PostgresPoolTables(relationshipOutbox,authorization)),
+    ...poolBudgetRoutes(new PostgresPoolBudgets()),
     ...agentPresenceRoutes(new AgentPresenceService(presence)),
     ...keyCustodyRoutes(custody),
     ...entitlementReadRoutes(new PostgresEntitlementReader()),

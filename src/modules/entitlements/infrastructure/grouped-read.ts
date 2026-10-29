@@ -8,7 +8,7 @@ const visible=(elementParameter:string,rowFilterParameter:string)=>`SELECT e.id,
  CASE WHEN $5='table' THEN 'table:'||o.id::text WHEN e.exposed_name IS NULL THEN 'element:'||e.id::text ELSE 'name:'||e.exposed_name END AS "group",
  t.treatment,t.mask_kind AS "maskKind",t.justification FROM catalog_element e JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id
  JOIN pool_source_binding b ON b.source_id=s.id AND b.pool_id=$1 LEFT JOIN entitlement t ON t.element_id=e.id AND t.pool_id=$1
- WHERE e.status='active' AND o.status='active' AND s.status<>'archived' AND ($2::uuid IS NULL OR s.id=$2)
+ WHERE public.pool_table_allowed($1,o.id) AND e.status='active' AND o.status='active' AND s.status<>'archived' AND ($2::uuid IS NULL OR s.id=$2)
  AND (${rowFilterParameter}::text IS NULL OR NOT EXISTS(SELECT 1 FROM row_entitlement r WHERE r.object_id=o.id)) AND ($3='' OR starts_with(e.exposed_name,$3)) AND (${elementParameter}::uuid IS NULL OR e.id=${elementParameter})`;
 const filtered=`SELECT * FROM visible WHERE $4='all' OR ($4='undecided' AND treatment IS NULL) OR ($4='decided' AND treatment IS NOT NULL)`;
 const counts=(table:string)=>`SELECT jsonb_agg(jsonb_build_object('value',value,'count',n) ORDER BY value) FROM (SELECT COALESCE(treatment,'undecided') AS value,count(*)::int AS n FROM ${table} GROUP BY treatment)c`;

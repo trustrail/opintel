@@ -13,13 +13,13 @@ export class PostgresRowDecisions implements RowDecisionRepository{
  async objects(...[ctx,pool,filter]:Parameters<RowDecisionRepository['objects']>){const result=await withTenant(ctx,async tx=>{
   const base=`WITH objects AS (
    SELECT o.id,o.exposed_name AS name,s.id AS "sourceId",s.name AS "sourceName",
-    CASE WHEN own.id IS NOT NULL THEN 'overridden' WHEN def.id IS NOT NULL THEN 'inherited'
+    CASE WHEN own.id IS NOT NULL THEN 'overridden' WHEN EXISTS(SELECT 1 FROM pool p WHERE p.id=$1 AND p.tables_explicit) THEN 'missing' WHEN def.id IS NOT NULL THEN 'inherited'
      WHEN EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=o.id) THEN 'missing' ELSE 'unscoped' END AS status,
     (def.id IS NOT NULL) AS "hasDefault",own.id AS "decisionId",own.predicate,own.columns,own.actor_id,own.decided_at
    FROM catalog_object o JOIN data_source s ON s.id=o.source_id JOIN pool_source_binding b ON b.source_id=o.source_id
    LEFT JOIN LATERAL(SELECT d.* FROM row_entitlement d WHERE d.object_id=o.id AND d.pool_id=$1 ORDER BY sequence DESC LIMIT 1) own ON true
    LEFT JOIN LATERAL(SELECT d.id FROM row_entitlement d WHERE d.object_id=o.id AND d.level='object_default' ORDER BY sequence DESC LIMIT 1) def ON true
-   WHERE b.pool_id=$1 AND o.status='active' AND s.status<>'archived'
+   WHERE b.pool_id=$1 AND public.pool_table_allowed($1,o.id) AND o.status='active' AND s.status<>'archived'
   )`;
   const [counts]=await tx.query(base+` SELECT count(*) FILTER(WHERE status='missing')::int AS missing,count(*) FILTER(WHERE status='overridden')::int AS overridden,count(*) FILTER(WHERE status='inherited')::int AS inherited,count(*) FILTER(WHERE status='unscoped')::int AS unscoped FROM objects`,[pool]);
   const [defaults]=await tx.query<{present:boolean}>(`SELECT EXISTS(SELECT 1 FROM row_entitlement d JOIN catalog_object o ON o.id=d.object_id JOIN data_source s ON s.id=o.source_id WHERE d.level='object_default' AND o.status='active' AND s.status<>'archived') AS present`);
@@ -42,17 +42,18 @@ export class PostgresRowDecisions implements RowDecisionRepository{
  });}
 
  read(...[ctx,pool,object]:Parameters<RowDecisionRepository['read']>){return withTenant(ctx,async tx=>{
-  const [o]=await tx.query<{name:string}>(`SELECT o.exposed_name AS name FROM catalog_object o JOIN pool_source_binding b ON b.source_id=o.source_id AND b.pool_id=$2 WHERE o.id=$1 AND o.status='active'`,[object,pool]);
+  const [o]=await tx.query<{name:string}>(`SELECT o.exposed_name AS name FROM catalog_object o JOIN pool_source_binding b ON b.source_id=o.source_id AND b.pool_id=$2 WHERE o.id=$1 AND public.pool_table_allowed($2,o.id) AND o.status='active'`,[object,pool]);
   if(!o)return err(new DomainError('not_found','The object is not bound to this pool.'));
   const columns=await tx.query<PredicateColumn>(`SELECT id,exposed_name AS name,source_identifier AS "sourceIdentifier",exposed_type AS type FROM catalog_element WHERE object_id=$1 AND status='active' AND exposed_name IS NOT NULL AND exposed_type IS NOT NULL ORDER BY ordinal`,[object]);
   const [current]=await tx.query(`SELECT ${projection} FROM row_entitlement WHERE object_id=$1 AND pool_id=$2 ORDER BY sequence DESC LIMIT 1`,[object,pool]);
   const [objectDefault]=await tx.query(`SELECT ${projection} FROM row_entitlement WHERE object_id=$1 AND level='object_default' ORDER BY sequence DESC LIMIT 1`,[object]);
-  const pools=await tx.query<{id:string;name:string;hasOverride:boolean}>(`SELECT p.id,p.name,EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=$1 AND d.pool_id=p.id) AS "hasOverride" FROM pool p JOIN pool_source_binding b ON b.pool_id=p.id JOIN catalog_object o ON o.source_id=b.source_id WHERE o.id=$1 ORDER BY p.name,p.id`,[object]);
-  const scoped=(await tx.query('SELECT id FROM row_entitlement WHERE object_id=$1 LIMIT 1',[object])).length>0;
-  return ok(RowDecisionRead.parse({objectId:object,objectName:o.name,poolId:pool,scoped,columns,current:current??null,objectDefault:objectDefault??null,effectiveExpression:[objectDefault,current].filter(Boolean).map(d=>'('+RowDecision.parse(d).expression+')').join(' AND ')||null,pools:pools.map(p=>({id:p.id,name:p.name,status:p.hasOverride?'overridden':objectDefault?'inherited':scoped?'missing':'unscoped'}))}));
+  const pools=await tx.query<{id:string;name:string;hasOverride:boolean;explicit:boolean}>(`SELECT p.id,p.name,p.tables_explicit AS explicit,EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=$1 AND d.pool_id=p.id) AS "hasOverride" FROM pool p JOIN pool_source_binding b ON b.pool_id=p.id JOIN catalog_object o ON o.source_id=b.source_id WHERE o.id=$1 AND public.pool_table_allowed(p.id,o.id) ORDER BY p.name,p.id`,[object]);
+  const strict=(await tx.query('SELECT id FROM pool WHERE id=$1 AND tables_explicit',[pool])).length>0;
+  const scoped=strict||(await tx.query('SELECT id FROM row_entitlement WHERE object_id=$1 LIMIT 1',[object])).length>0;
+  return ok(RowDecisionRead.parse({objectId:object,objectName:o.name,poolId:pool,scoped,columns,current:current??null,objectDefault:objectDefault??null,effectiveExpression:strict&&!current?null:[objectDefault,current].filter(Boolean).map(d=>'('+RowDecision.parse(d).expression+')').join(' AND ')||null,pools:pools.map(p=>({id:p.id,name:p.name,status:p.hasOverride?'overridden':p.explicit?'missing':objectDefault?'inherited':scoped?'missing':'unscoped'}))}));
  });}
  save(...[ctx,pool,object,expression,level='pool_override']:Parameters<RowDecisionRepository['save']>){return withTenant(ctx,async tx=>{
-  const source=await tx.query(`SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN pool_source_binding b ON b.source_id=s.id AND b.pool_id=$2 WHERE o.id=$1 AND o.status='active' AND s.status<>'archived' FOR UPDATE OF s`,[object,pool]);
+  const source=await tx.query(`SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN pool_source_binding b ON b.source_id=s.id AND b.pool_id=$2 WHERE o.id=$1 AND public.pool_table_allowed($2,o.id) AND o.status='active' AND s.status<>'archived' FOR UPDATE OF s`,[object,pool]);
   if(!source.length)return err(new DomainError('not_found','The object is not bound to this pool.'));
   if(this.requireUndecided&&(await tx.query("SELECT 1 FROM row_entitlement WHERE object_id=$1 AND (pool_id=$2 OR level='object_default') LIMIT 1",[object,pool])).length)return err(new DomainError('conflict','A row decision was recorded during provisioning; it was not replaced.'));
   const columns=await tx.query<PredicateColumn>(`SELECT id,exposed_name AS name,source_identifier AS "sourceIdentifier",exposed_type AS type FROM catalog_element WHERE object_id=$1 AND status='active' AND exposed_name IS NOT NULL AND exposed_type IS NOT NULL ORDER BY ordinal FOR SHARE`,[object]);
