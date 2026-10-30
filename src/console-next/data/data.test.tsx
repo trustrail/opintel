@@ -4,6 +4,8 @@ import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {Tooltip} from '../components/primitives.js';
 import {ScopePicker} from '../components/scope.js';
+import {Navigation} from '../components/navigation.js';
+import {useHomeState} from '../home/state.js';
 import {emptySpectrum} from '../pools/data.js';
 import {DataBand} from './band.js';
 import {DataScreen,filterTables} from './screen.js';
@@ -45,3 +47,8 @@ it('reads all catalogue pages, preserves unknown estimates and ignores unbound p
  });const data=await readData(id,client);expect(data.tables).toHaveLength(2);expect(data.tables.map(t=>t.node.rowEstimate)).toEqual([null,0]);expect(data.tables[1]?.pools).toEqual([]);expect(tableSpectrum(data.tables).undecided).toBe(1);
 });
 it('Data failures expose the actual retryable error without replacing it with zero statistics',async()=>{vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({error:{code:'dependency_unavailable',message:'Catalogue unavailable',requestId:id,retryable:true}}),{status:503})));render(<DataScreen project={project}/>,{wrapper});expect(await screen.findByRole('alert')).toBeTruthy();expect(screen.getByText('Catalogue unavailable')).toBeTruthy();expect(screen.getByRole('button',{name:'Retry'})).toBeTruthy();expect(screen.queryByText('~0')).toBeNull();useDataState.setState({source:null,table:null,tab:'entitlements',filter:null,search:'',connect:false});});
+
+it('theme switching lives in the shared account menu on Home, Pools and Data, never in source scope',async()=>{
+ for(const active of ['Home','Pools','Data'] as const){useHomeState.setState({theme:'light'});const view=render(<Navigation project={id} active={active} needs={[]}/>,{wrapper});fireEvent.keyDown(screen.getByRole('button',{name:'Account menu'}),{key:'ArrowDown'});fireEvent.click(await screen.findByRole('menuitem',{name:'Use dark theme'}));expect(useHomeState.getState().theme).toBe('dark');view.unmount();}
+ render(<ScopePicker kind="source" items={[]} selected={null} onSelect={()=>{}}/>,{wrapper});fireEvent.click(screen.getByRole('button',{name:'Choose source'}));await screen.findByRole('button',{name:/All sources/});expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();useHomeState.setState({theme:'light'});
+});

@@ -1858,3 +1858,10 @@ bulk treatment command, verifies keyboard focus and filter behavior, and emits
 six light screenshots at the requested viewports. It is separate from the
 normal gate and retired pixel baselines. Estimate fixture values are read from
 pg_class.reltuples after ANALYZE, never COUNT(*).
+
+Data completion review additionally verifies the shared account-menu switch on
+Home/Pools/Data and its absence from the source picker. Real-browser assertions
+check phone band height and hidden legends, retained phone ring filtering, regular
+font for estimates in list/band/Sources, Sources numeric/header alignment, text-size
+status badge positioning, phone account reachability and an actual light/dark
+switch. Two review screenshots are captured, without historical baseline changes.

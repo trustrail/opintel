@@ -4,7 +4,7 @@ Home, Pools and Data console, built beside `src/app`. The current console is unc
 Run `npm run console:dev` from the repository root, then open
 `http://localhost:5174/?project=PROJECT_ID`. Sign in through the current console
 first (same host, existing session cookie). `?theme=dark` selects dark mode;
-the appearance menu and project-menu appearance option also switch themes.
+the shared rail account menu switches themes on every screen, including phones.
 
 - `npm run console:test`: isolated console unit tests, no databases.
 - `npm run console:build`: independent Vite output in `dist/console-next`.
@@ -73,3 +73,5 @@ result, then offers Save and assign. Engine reference inventory remains outside
 this phase. Read `docs/review/console-backend/data.md` for review differences and
 six screenshot links. Manual capture config is
 `test/review/console-next-data.config.ts` (requires the browser server above).
+
+Data completion fixes and the compact phone band are reviewed in `docs/review/console-backend/data-fixes.md`.
