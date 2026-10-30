@@ -1,0 +1,65 @@
+{
+  "runtimeRevision": "1ce8a358aec2396b84fc5d86a56e77d82e767f89",
+  "platform": "linux/amd64",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "owner-sign-in",
+      "status": "passed"
+    },
+    {
+      "name": "1-create-project",
+      "status": "passed"
+    },
+    {
+      "name": "2-engine-registered-verified",
+      "status": "passed"
+    },
+    {
+      "name": "3-source-connected-scanned",
+      "status": "passed"
+    },
+    {
+      "name": "project-query-limits",
+      "status": "passed"
+    },
+    {
+      "name": "4-pool-created",
+      "status": "passed"
+    },
+    {
+      "name": "explicit-clear-decision",
+      "status": "passed"
+    },
+    {
+      "name": "5-credential-issued",
+      "status": "passed"
+    },
+    {
+      "name": "agent-request-answered",
+      "status": "passed"
+    },
+    {
+      "name": "6-receipt-visible-in-activity",
+      "status": "passed"
+    }
+  ],
+  "screenshots": [
+    "1440-light-welcome.png",
+    "390-light-welcome.png",
+    "1440-light-first-hour-step3.png",
+    "390-light-first-hour-step3.png",
+    "1440-light-connect-source.png"
+  ],
+  "browserErrors": 0,
+  "projectId": "e04fa620-9d2d-4eed-954d-ebb2162851cc",
+  "atomicEngineRegistration": true,
+  "scanSummary": [
+    "2",
+    "8",
+    "~11"
+  ],
+  "poolId": "8b0e280f-8aaf-44b3-8976-ca4ae66b6c68",
+  "receiptTitle": "Answered \u00b7 6 rows from table records",
+  "permanentMarkerRecorded": true
+}
