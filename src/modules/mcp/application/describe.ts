@@ -9,7 +9,7 @@ import type { AuthorizationPort } from '../../authz/index.js';
 import type { PoolKeyContext } from '../../pools/index.js';
 import type { McpPrincipal } from './access.js';
 
-export type DescribeDecision = { sourceId: SourceId; object: string; name: string; exposedType: ExposedType; treatment: Treatment };
+export type DescribeDecision = { rowEstimate?:number|null; sourceId: SourceId; object: string; name: string; exposedType: ExposedType; treatment: Treatment };
 export interface DescribeReader {
  /** Active, named, supported elements with an explicit entitlement in this
   * pool and a local source binding. Never returns undecided catalogue rows. */
@@ -32,7 +32,7 @@ export class DescribeService implements DescribeTool {
   for (const row of decisions.value) {
    if (!allowed.has(row.sourceId)) continue;
    let object = objects.get(row.object);
-   if (!object) { object={name:row.object,columns:[],withheld:[]};objects.set(row.object,object); }
+   if (!object) { object={name:row.object,rowEstimate:row.rowEstimate??null,columns:[],withheld:[]};objects.set(row.object,object); }
    if (row.treatment==='withheld') object.withheld.push(row.name);
    else {
     const type = postTreatmentType(row.exposedType,row.treatment);

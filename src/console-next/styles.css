@@ -23,3 +23,6 @@
  [data-needs-more] svg{transform:rotate(90deg)}
  [data-needs-more][aria-expanded=true] svg{transform:rotate(-90deg)}
 }
+
+/* One account menu remains reachable in the phone navigation on every screen. */
+@media(max-width:700px){[data-rail]{display:flex;flex-direction:row;align-items:center;gap:var(--space-1)}[data-rail] nav{flex:1;min-width:0;width:auto}[data-rail] [data-profile]{display:grid;margin:0;flex-shrink:0}}

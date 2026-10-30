@@ -1843,3 +1843,25 @@ Desktop still renders every row in its bounded inner viewport. Console units
 cover the count/state contract; the real-browser capture checks responsive
 visibility, expansion and absence/presence of internal scrolling, with phone
 light/dark artifacts. Full gate runs once after the candidate commit.
+
+Parallel Data scope (5.39): catalogue-tree and MCP describe integration checks
+exercise stored positive, zero and null row estimates in both catalogue object
+listing paths and actual tool output. MCP producer/consumer contracts retain
+nullability; entitlement visibility/omission remains unchanged. Console Data
+checks cover membership-aware per-pool spectra, complete cursor reads, unknown
+sum propagation, open-first/size sorting, source scope and band filters,
+justified clear/idempotent saves, read-only cells, typed stored-reference
+registration and actual save-first feedback, suggestion confirmation with
+existing member versions/latest attempt, blocked acceptance and refusal.
+The manual Data capture uses real PostgreSQL/SpiceDB/HTTP projections and a real
+bulk treatment command, verifies keyboard focus and filter behavior, and emits
+six light screenshots at the requested viewports. It is separate from the
+normal gate and retired pixel baselines. Estimate fixture values are read from
+pg_class.reltuples after ANALYZE, never COUNT(*).
+
+Data completion review additionally verifies the shared account-menu switch on
+Home/Pools/Data and its absence from the source picker. Real-browser assertions
+check phone band height and hidden legends, retained phone ring filtering, regular
+font for estimates in list/band/Sources, Sources numeric/header alignment, text-size
+status badge positioning, phone account reachability and an actual light/dark
+switch. Two review screenshots are captured, without historical baseline changes.

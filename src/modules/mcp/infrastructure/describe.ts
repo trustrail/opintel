@@ -7,7 +7,7 @@ export class PostgresDescribeReader implements DescribeReader {
  read(ctx: PoolKeyContext, pool: PoolId, object?: string) {
   return withTenant(ctx,async tx=>ok(await tx.query<DescribeDecision>(`
    SELECT s.id AS "sourceId",s.exposed_alias||'.'||o.exposed_schema||'.'||o.exposed_name AS object,
-    e.exposed_name AS name,e.exposed_type AS "exposedType",t.treatment
+    o.row_estimate::float8 AS "rowEstimate",e.exposed_name AS name,e.exposed_type AS "exposedType",t.treatment
    FROM entitlement t
    JOIN catalog_element e ON e.id=t.element_id AND e.project_id=t.project_id
    JOIN catalog_object o ON o.id=e.object_id AND o.project_id=e.project_id

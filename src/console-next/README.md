@@ -1,10 +1,10 @@
 # @opintel/console-next
 
-Home-only console, built beside `src/app`. The current console is unchanged.
+Home, Pools and Data console, built beside `src/app`. The current console is unchanged.
 Run `npm run console:dev` from the repository root, then open
 `http://localhost:5174/?project=PROJECT_ID`. Sign in through the current console
 first (same host, existing session cookie). `?theme=dark` selects dark mode;
-the appearance menu and project-menu appearance option also switch themes.
+the shared rail account menu switches themes on every screen, including phones.
 
 - `npm run console:test`: isolated console unit tests, no databases.
 - `npm run console:build`: independent Vite output in `dist/console-next`.
@@ -59,3 +59,19 @@ context and shared kind icons; effects appear only on expansion. Area dots use
 needs-you items rather than health counts. Known setup/check findings warn;
 unknown means an unavailable check. Header hover includes the actual reason.
 The custody number opens only granted receipts, not all custody summary states.
+
+
+Data lives in `data/`, selected by `?project=PROJECT_ID&screen=data`. Optional
+`source`, `table` and `tab=sources|suggestions` parameters select scope/view.
+Data shares the Pools scope picker, report band and fixed-list wrappers, plus
+Home/Pools kind icons, treatment marks and visx ring. Lists read every page and
+refresh every 15 seconds. Actual per-pool members own decision counts. Unknown
+estimates stay unknown; no source row counts run. Writes use the existing bulk
+entitlement and source/suggestion flows. The current source test reports that
+connection testing happens after assignment; the form displays that exact
+result, then offers Save and assign. Engine reference inventory remains outside
+this phase. Read `docs/review/console-backend/data.md` for review differences and
+six screenshot links. Manual capture config is
+`test/review/console-next-data.config.ts` (requires the browser server above).
+
+Data completion fixes and the compact phone band are reviewed in `docs/review/console-backend/data-fixes.md`.

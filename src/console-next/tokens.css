@@ -23,3 +23,5 @@
 
 /* The report bands retain a plum background in both themes. */
 [data-pool-band]{--treatment-clear:#32df85;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#e3d7ee;--treatment-withheld:#ff6c85;--treatment-undecided:#f1bf66;--warning:#f1bf66}
+
+:root{--size-1:#e4d9f2;--size-2:#bd9de3;--size-3:#9776ba;--size-4:#765590;--size-5:#58446b}

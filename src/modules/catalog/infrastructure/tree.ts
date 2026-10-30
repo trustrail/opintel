@@ -5,7 +5,7 @@ import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type { CatalogNode } from '../../../shared/api/catalog.js';
 import type { CatalogContext, CatalogTreeReader, TreeRead } from '../application/tree.js';
 const uuid = z.uuid();
-type Row = { schema_name?:string; qualified_name?:string; source_type?: string; id: string; label: string | null; child_count: number | null; exposed_type: string | null; position: string };
+type Row = { row_estimate?:number|null; schema_name?:string; qualified_name?:string; source_type?: string; id: string; label: string | null; child_count: number | null; exposed_type: string | null; position: string };
 export class PostgresCatalogTreeReader implements CatalogTreeReader {
   read(context: CatalogContext, query: TreeRead) {
     return withTenant(context, async tx => {
@@ -28,7 +28,7 @@ export class PostgresCatalogTreeReader implements CatalogTreeReader {
         const exists=await tx.query("SELECT id FROM data_source WHERE id=$1 AND status<>'archived'",[source]);
         if(!exists.length)return missing();
         kind='object';
-        rows=await tx.query<Row>(`SELECT o.id,o.id::text AS position,o.exposed_name AS label,o.exposed_schema AS schema_name,
+        rows=await tx.query<Row>(`SELECT o.id,o.id::text AS position,o.exposed_name AS label,o.exposed_schema AS schema_name,o.row_estimate::float8 AS row_estimate,
           concat_ws('.',s.exposed_alias,o.exposed_schema,o.exposed_name) AS qualified_name,
           (SELECT count(*)::int FROM catalog_element e WHERE e.object_id=o.id AND e.status='active') AS child_count,NULL::text AS exposed_type
           FROM catalog_object o JOIN data_source s ON s.id=o.source_id WHERE o.source_id=$1 AND o.status='active' AND starts_with(o.exposed_name,$2) AND (${query.filter===undefined||query.filter==='all'?'true':`EXISTS(SELECT 1 FROM catalog_element e WHERE e.object_id=o.id AND e.status='active' AND ${elementFilter})`})
@@ -39,7 +39,7 @@ export class PostgresCatalogTreeReader implements CatalogTreeReader {
         const exists = await tx.query(`SELECT o.id FROM catalog_object o JOIN data_source s ON s.id=o.source_id WHERE o.source_id=$1 AND o.exposed_schema=$2 AND o.status='active' AND s.status<>'archived' LIMIT 1`, [source, schema]);
         if (!exists.length) return missing();
         kind = 'object';
-        rows = await tx.query<Row>(`SELECT o.id, o.id::text AS position, o.exposed_name AS label,
+        rows = await tx.query<Row>(`SELECT o.id, o.id::text AS position, o.exposed_name AS label,o.row_estimate::float8 AS row_estimate,
           (SELECT count(*)::int FROM catalog_element e WHERE e.object_id=o.id AND e.status='active') AS child_count, NULL::text AS exposed_type
           FROM catalog_object o WHERE o.source_id=$1 AND o.exposed_schema=$2 AND o.status='active' AND starts_with(o.exposed_name,$3)
           AND ($4::uuid IS NULL OR o.id>$4) ORDER BY o.id LIMIT $5`, [source, schema, prefix, after, limit]);
@@ -79,7 +79,7 @@ export class PostgresCatalogTreeReader implements CatalogTreeReader {
         LEFT JOIN catalog_schema_temporal d ON d.source_id=s.id AND d.schema_name=o.schema_name WHERE e.id=ANY($1::uuid[])`,[ids]):[];
       const undecided=kind==='object'?await tx.query<{id:string;count:number}>(`SELECT e.object_id AS id,count(*)::int AS count FROM catalog_element e WHERE e.object_id=ANY($1::uuid[]) AND e.status='active' AND e.exposed_type IS NOT NULL AND e.exposed_name IS NOT NULL AND (NOT EXISTS(SELECT 1 FROM pool) OR EXISTS(SELECT 1 FROM pool p WHERE NOT EXISTS(SELECT 1 FROM entitlement t WHERE t.pool_id=p.id AND t.element_id=e.id))) GROUP BY e.object_id`,[ids]):[];
       return ok(rows.map(row => ({ position: row.position, node: {
-        kind, ...(row.schema_name?{schemaName:row.schema_name}:{}),...(row.qualified_name?{qualifiedName:row.qualified_name}:{}),
+        kind, ...(kind==='object'?{rowEstimate:row.row_estimate??null}:{}), ...(row.schema_name?{schemaName:row.schema_name}:{}),...(row.qualified_name?{qualifiedName:row.qualified_name}:{}),
         ...(kind==='object'||kind==='element'?{decisions:decisions.filter(d=>d.id===row.id).map(({value,count})=>({value,count})),...(kind==='object'?{undecidedCount:undecided.find(d=>d.id===row.id)?.count??0}:{})}:{}),
         ...(kind==='element'?(()=>{const m=metadata.find(m=>m.id===row.id);return m?{qualifiedName:m.qualifiedName,declarations:{tokenDomain:m.tokenDomain,sourceTimezone:m.sourceTimezone,timezoneProvenance:m.timezoneProvenance,isolated:m.tokenDomain===null,declared:m.declared}}:{};})():{}),
         ...(kind==='element'?{sourceType:row.source_type??null}:{}), id: row.id, label: row.label, childCount: row.child_count, exposedType: row.exposed_type,

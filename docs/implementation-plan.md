@@ -1418,3 +1418,29 @@ using solid circles only for verified name identity and dashed circles for all
 current unverified names, independent of credential authentication or freshness. Targeted checks and four light captures precede the commit on
 `feat/console-next-pools`. Run the full gate once on that completed tip; only a
 pass authorizes merge and push to main. Any gate failure stops delivery.
+
+### 5.39 Parallel console Data (29 October reviewed scope)
+
+After green Home and Pools, implement images 12–15 in `src/console-next/data`.
+Reuse the shared kind/treatment components, visx Ring, scope picker, report band
+and fixed lists. Scope all three workbench tabs and four report rings by source.
+Use existing entitlement, source test/register/introspect and token-domain review
+commands, retaining justification, declaration, idempotency, permission,
+confirmation and version checks. No new domain behavior or migrations.
+The only backend increment exposes stored nullable `catalog_object.row_estimate`
+in both catalogue object-list paths and `opintel.describe`; never query source
+row counts. Unknown is null, including in incomplete source totals; zero remains
+zero. Current console and master CSS are unchanged. Targeted backend/contracts,
+console tests, strict typecheck, lint and six light manual captures (1440 for
+all four views, 390 for tables/columns) replace the full gate in this scope.
+Commit and push `feat/console-next-data`; do not merge.
+
+Data completion review: estimates use ordinary text font and ASCII `~`, preserving
+unknown. Source/pool/project pickers do not contain appearance controls; the shared
+rail avatar opens the account menu on every screen, including phones. At phone
+widths Data's four rings form a compact 2x2, number and label only, retaining their
+filters; legends/footers remain on wider screens. Sources numbers align right
+with their headers and status badges size to text. Validate lint, strict typecheck,
+console tests and two light manual captures (390 Entitlements, 1440 Sources with
+picker open), commit on `feat/console-next-data`, then run the full gate once.
+Only a pass authorizes merge and push to main; any failure stops the delivery.
