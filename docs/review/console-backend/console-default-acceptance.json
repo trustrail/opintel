@@ -143,7 +143,6 @@
     "projectId": "1bedf472-5d0b-4af7-b7e6-634b6a702254",
     "atomicEngineRegistration": true,
     "phoneSelectTargetsVerified": true,
-    "scanSummary": [],
     "poolId": "b7719916-4102-4bdd-acb0-652f31d60b11",
     "receiptTitle": "Answered \u00b7 6 rows from table records",
     "permanentMarkerRecorded": true,
@@ -252,5 +251,6 @@
     "fontOrigins": [
       "https://host.docker.internal"
     ]
-  }
+  },
+  "catalogueSummaryEvidence": "console-default-screenshots/1440-light-data.png"
 }
