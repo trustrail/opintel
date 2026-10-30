@@ -24,6 +24,7 @@ RUN npm run sidecar:prepare-scanner
 RUN node scripts/engine-package/bundle.mjs engine /artifacts
 
 FROM toolchain AS console-build
+COPY --chmod=0755 scripts/build-consoles.mjs ./scripts/build-consoles.mjs
 COPY --chmod=0755 public ./public
 COPY --chmod=0755 docs/opintel-master.css ./docs/opintel-master.css
 COPY --chmod=0755 vite.config.ts vite.legacy.config.ts index.html ./
