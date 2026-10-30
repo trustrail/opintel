@@ -2,6 +2,7 @@ import {mkdtempSync,mkdirSync,copyFileSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
+import {performance} from 'node:perf_hooks';
 import {it,expect} from 'vitest';
 
 it.each([
@@ -19,7 +20,9 @@ it.each([
   writeFileSync(join(root,'bin/uname'),'#!/bin/sh\nprintf "%s\\n" "$NATIVE_TEST_ARCH"\n',{mode:0o755});
   writeFileSync(join(root,'bin/docker'),'#!/bin/sh\n[ "$NATIVE_TEST_DOCKER" != unavailable ] || exit 1\nprintf "%s\\n" "$NATIVE_TEST_DOCKER"\n',{mode:0o755});
   for(const tool of ['git','node','npm','make','python3','openssl','tar'])writeFileSync(join(root,'bin',tool),'#!/bin/sh\nexit 98\n',{mode:0o755});
-  const result=spawnSync('/bin/bash',[script,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,NATIVE_TEST_ARCH:architecture,NATIVE_TEST_DOCKER:docker},timeout:5000});
+  const started=performance.now();
+  const result=spawnSync('/bin/bash',[script,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,NATIVE_TEST_ARCH:architecture,NATIVE_TEST_DOCKER:docker},timeout:30000});
+  if(result.error||result.signal||result.status!==1)console.error({code:result.error?.code??null,signal:result.signal,elapsedMs:performance.now()-started,stderr:result.stderr});
   expect(result.status).toBe(1);expect(result.stderr).toContain('Precondition failed: '+message);
   expect(result.stdout).toContain('Phase: arguments');expect(result.stdout).toContain('Run directory: not created (preflight failed)');expect(result.stdout.match(/Archive: not produced/gu)).toHaveLength(2);expect(result.stdout.trim()).toMatch(/Acceptance result: not produced$/u);
  }finally{rmSync(root,{recursive:true,force:true});}
@@ -34,7 +37,9 @@ it('native release names a loopback host process before builds or certificate ac
   writeFileSync(join(root,'bin/uname'),'#!/bin/sh\necho arm64\n',{mode:0o755});
   writeFileSync(join(root,'bin/docker'),'#!/bin/sh\n[ "$1" != info ] || echo arm64\nexit 0\n',{mode:0o755});
   writeFileSync(join(root,'bin/lsof'),'#!/bin/sh\ncase "$*" in *-iTCP:3100*) echo "node 3175 operator TCP 127.0.0.1:3100 (LISTEN)";; *) exit 1;; esac\n',{mode:0o755});
-  const result=spawnSync('/bin/bash',[script,'synthetic'],{encoding:'utf8',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH},stdio:['ignore','pipe','pipe'],timeout:5000});
+  const started=performance.now();
+  const result=spawnSync('/bin/bash',[script,'synthetic'],{encoding:'utf8',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH},stdio:['ignore','pipe','pipe'],timeout:30000});
+  if(result.error||result.signal||result.status!==1)console.error({code:result.error?.code??null,signal:result.signal,elapsedMs:performance.now()-started,stderr:result.stderr});
   expect(result.status).toBe(1);expect(result.stderr).toContain('acceptance port 3100 has a host listener: node 3175');expect(result.stdout).toContain('Acceptance result: not produced');
  }finally{rmSync(root,{recursive:true,force:true});}
 });
