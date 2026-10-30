@@ -1,3 +1,5 @@
+import {Welcome} from './first-run/welcome.js';
+import './first-run/styles.css';
 import {Settings} from './settings/screen.js';
 import './settings/styles.css';
 import {Activity} from './activity/screen.js';
@@ -23,7 +25,7 @@ function App(){
  if(projects.isPending)return <ListState state="loading"/>;
  if(projects.isError)return <div data-project-empty><ListState state="error" error={projects.error} retry={()=>{void projects.refetch();}}/><a href="/sign-in">Sign in to the current console</a></div>;
  const project=projects.data.find(p=>p.id===selected)??projects.data[0];
- if(!project)return <div data-project-empty><h1>Welcome to Opintel</h1><p>Create your first project in the current console to get started.</p><a href="/projects">Open projects</a></div>;
+ if(!project)return <Welcome/>;
  if(new URLSearchParams(window.location.search).get('screen')==='settings')return <Settings key={project.id} project={project}/>;
  if(new URLSearchParams(window.location.search).get('screen')==='activity')return <Activity key={project.id} project={project}/>;
  if(new URLSearchParams(window.location.search).get('screen')==='data')return <DataScreen key={project.id} project={project}/>;

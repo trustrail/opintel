@@ -18,12 +18,13 @@ export function createConsoleServer({root=resolve('dist'),read=createReadStream}
   if(publicRoute?.path==='/deployment.json'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({selfSignedTls:!process.env.CONSOLE_EXTERNAL_TLS}));return;}
   if(publicRoute?.path==='/healthz'){res.writeHead(200);res.end('ok');return;}
   try{
+   const fallback=resolve(root,path==='/console-next'||path.startsWith('/console-next/')?'console-next/index.html':'index.html');
    let file=resolve(root,'.'+path);
    if(file!==root&&!file.startsWith(root+sep)){res.writeHead(404);res.end();return;}
-   try{if(!(await stat(file)).isFile())file=resolve(root,'index.html');}catch(error){
+   try{if(!(await stat(file)).isFile())file=fallback;}catch(error){
     if(error.code!=='ENOENT'&&error.code!=='ENOTDIR'){failed();return;}
     if(extname(path)||path.startsWith('/assets/')){res.writeHead(404);res.end();return;}
-    file=resolve(root,'index.html');
+    file=fallback;
    }
    const stream=read(file);
    stream.once('error',failed);

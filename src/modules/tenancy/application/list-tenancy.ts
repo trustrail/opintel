@@ -2,6 +2,7 @@ import { DomainError, err, ok, type CompanyId, type IndustryId, type ProjectId, 
 import type { AuthorizationPort, CheckRequest } from '../../authz/index.js';
 
 export type ProjectCandidate = {
+  firstReceiptAt?:Timestamp|null;
   id: ProjectId; name: string; region: Region; archivedAt: Timestamp | null;
   company: { id: CompanyId; name: string };
   industry: { id: IndustryId; name: string };

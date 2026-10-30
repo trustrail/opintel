@@ -52,17 +52,17 @@ const openStream:OpenStream=url=>new EventSource(url);
 export function useHomeStream(project:string,connect:OpenStream=openStream){
  const cache=useQueryClient(),[live,setLive]=useState(false);
  useEffect(()=>{
-  setLive(false);let disposed=false,timer:ReturnType<typeof setTimeout>|undefined;let sequence=-1;
-  const refresh=()=>{timer??=setTimeout(()=>{timer=undefined;void cache.invalidateQueries({queryKey:homeKeys.scope(project)});},50);};
+  setLive(false);let disposed=false,timer:ReturnType<typeof setTimeout>|undefined;let sequence=-1,projectsDirty=false;
+  const refresh=()=>{timer??=setTimeout(()=>{timer=undefined;void cache.invalidateQueries({queryKey:homeKeys.scope(project)});if(projectsDirty){projectsDirty=false;void cache.invalidateQueries({queryKey:homeKeys.projects()});}},50);};
   const stream=connect(`/api/v1/projects/${project}/stream`);
   stream.onopen=()=>{if(!disposed){setLive(true);refresh();}};
   stream.onerror=()=>{if(!disposed){setLive(false);refresh();}};
-  stream.onmessage=message=>{if(disposed)return;try{const event=streamEventSchema.safeParse(JSON.parse(message.data) as unknown);if(!event.success)return;const e=event.data;if(e.type==='snapshot'){sequence=e.sequence;refresh();}else if(e.sequence>sequence){sequence=e.sequence;refresh();}}catch{/* Malformed events cannot patch server facts. */}};
+  stream.onmessage=message=>{if(disposed)return;try{const event=streamEventSchema.safeParse(JSON.parse(message.data) as unknown);if(!event.success)return;const e=event.data;if(e.type==='snapshot'){sequence=e.sequence;refresh();}else if(e.sequence>sequence){sequence=e.sequence;if(e.type==='run.completed')projectsDirty=true;refresh();}}catch{/* Malformed events cannot patch server facts. */}};
   return ()=>{disposed=true;if(timer)clearTimeout(timer);stream.close();};
  },[project,cache,connect]);
  return live;
 }
-export function useProjects(){return useQuery({queryKey:homeKeys.projects(),queryFn:async({signal})=>(await pages(createApiClient(undefined,{signal}),'/api/v1/projects?limit=100',ProjectListResponse)).items,retry:false});}
+export function useProjects(){return useQuery<Project[]>({queryKey:homeKeys.projects(),refetchInterval:q=>q.state.data?.length?15000:false,queryFn:async({signal})=>(await pages(createApiClient(undefined,{signal}),'/api/v1/projects?limit=100',ProjectListResponse)).items,retry:false});}
 export function useHome(project:string,live:boolean){return useQuery({queryKey:homeKeys.facts(project),queryFn:({signal})=>readHome(project,createApiClient(undefined,{signal})),retry:false,refetchInterval:live?false:15000});}
 export function useHealth(project:string,live:boolean){return useQuery({queryKey:homeKeys.health(project),queryFn:({signal})=>read(createApiClient(undefined,{signal}),`/api/v1/projects/${project}/health`,ProjectHealth),retry:false,refetchInterval:live?false:15000});}
 

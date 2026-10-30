@@ -5,10 +5,10 @@ import type { TenancyListRepository } from '../application/list-tenancy.js';
 export class PostgresTenancyListRepository implements TenancyListRepository {
   async projects(user: UserId, after: string | null, limit: number, includeArchived: boolean, company?: CompanyId): ReturnType<TenancyListRepository['projects']> {
     const rows = await withPlatform((tx) => tx.query<{
-      id: string; name: string; region: Region; archived_at: Date | null;
+      id: string; name: string; region: Region; archived_at: Date | null; first_receipt_at:Date|null;
       company_id: string; company_name: string; industry_id: string; industry_name: string;
     }>(
-      `SELECT p.id, p.name, p.region, p.archived_at, c.id AS company_id, c.name AS company_name,
+      `SELECT p.id, p.name, p.region, p.archived_at,p.first_receipt_at, c.id AS company_id, c.name AS company_name,
               i.id AS industry_id, i.name AS industry_name
        FROM project p JOIN company c ON c.id = p.company_id JOIN industry i ON i.id = p.industry_id
        WHERE ($2::uuid IS NULL OR p.id > $2::uuid)
@@ -20,7 +20,7 @@ export class PostgresTenancyListRepository implements TenancyListRepository {
       [user, after, limit, includeArchived, company ?? null],
     ));
     return rows.map((row) => ({
-      id: ProjectId(row.id), name: row.name, region: row.region,
+      id: ProjectId(row.id), name: row.name, region: row.region,firstReceiptAt:row.first_receipt_at===null?null:Timestamp(row.first_receipt_at),
       archivedAt: row.archived_at === null ? null : Timestamp(row.archived_at),
       company: { id: CompanyId(row.company_id), name: row.company_name },
       industry: { id: IndustryId(row.industry_id), name: row.industry_name },
