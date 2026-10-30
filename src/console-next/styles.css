@@ -26,3 +26,14 @@
 
 /* One account menu remains reachable in the phone navigation on every screen. */
 @media(max-width:700px){[data-rail]{display:flex;flex-direction:row;align-items:center;gap:var(--space-1)}[data-rail] nav{flex:1;min-width:0;width:auto}[data-rail] [data-profile]{display:grid;margin:0;flex-shrink:0}}
+[data-workbench][data-exposure-visible=false]{grid-template-columns:minmax(0,1fr)}
+[data-minute-strip][data-empty-strip]{padding:var(--space-2);min-height:var(--space-6);color:var(--muted);font-size:var(--text-1)}
+@media(max-width:700px){
+ [data-needs-viewport]>div{display:block!important;min-width:0!important;width:100%}
+ [data-needs-row]{min-width:0;max-width:100%;gap:var(--space-1);padding-inline:var(--space-1)}
+ [data-row-action]{display:block;flex-shrink:0;padding:var(--space-1);min-width:var(--touch);text-align:center}
+ [data-mobile-chevron]{display:none}
+ [data-needs-viewport] ul,[data-needs-viewport] li{min-width:0;max-width:100%}
+}
+[data-minute-strip][data-empty-strip]{height:auto}
+@media(min-width:701px){[data-needs-scroll]{height:min(calc(var(--row)*5),calc(var(--row)*var(--queue-rows)))}}

@@ -8,7 +8,7 @@ import {ProjectHealth} from '../../shared/api/project-health.js';
 import {ActivityEntry,EvidenceDetail} from '../../shared/api/activity.js';
 import {DashboardStats} from '../../shared/api/dashboard.js';
 import {homeKeys,minuteStrip,orderNeeds,readHome,readCustodyReceipts,useHomeStream,useHome,type Project,type HomeData,type StreamConnection} from './data.js';
-import {needsAreas,poolBadge} from './needs.js';
+import {groupSettingNeeds,needsAreas,poolBadge} from './needs.js';
 import {NeedsYouItem,type NeedsYouItem as Item} from '../../shared/api/needs-you.js';
 import {useHomeState} from './state.js';
 import {createApiClient} from '../../shared/api/client.js';
@@ -107,4 +107,11 @@ it('phone disclosure shows the exact remaining count and expands in place withou
 it('no phone disclosure appears for at most five items and a project switch resets it',()=>{
  const view=render(<HomeView project={project} projects={[project]} data={data} health={health} live onProject={()=>{}}/>,{wrapper});expect(view.container.querySelector('[data-needs-more]')).toBeNull();
  act(()=>{useHomeState.getState().toggleAllNeeds();});expect(useHomeState.getState().showAllNeeds).toBe(true);act(()=>{useHomeState.getState().setProject(other);});expect(useHomeState.getState().showAllNeeds).toBe(false);
+});
+
+it('groups only settings edited in the same form, preserving decisions and linking directly to its editor',()=>{
+ const settings=['timeoutSeconds','rowLimit','memoryMb','concurrency'].map(path=>({...needs[0]!,kind:'setting_required' as const,id:'setting:query.'+path,targetRoute:`/projects/${id}/settings-query`,count:1}));
+ const result=groupSettingNeeds([...settings,...needs],id);expect(result).toHaveLength(3);expect(result[0]).toMatchObject({title:'Set query limits · 4 values',count:4,targetRoute:`?project=${id}&screen=settings&section=query&edit=true`,roles:['admin']});expect(result.slice(1)).toEqual(needs);
+ const view=render(<HomeView project={project} projects={[project]} data={{...data,needs:settings,stats:{...stats,spectrum:{clear:0,tokenized:0,masked:0,aggregate_only:0,custody:0,withheld:0,undecided:0}},minutes:[{at:now.toISOString(),requests:0,refused:0,custody:0}]}} health={health} live onProject={()=>{}}/>,{wrapper});
+ expect(screen.getByText('Set query limits · 4 values')).toBeTruthy();expect(view.container.querySelectorAll('[data-needs-row]')).toHaveLength(1);expect(view.container.querySelector('[data-workbench]')?.getAttribute('data-exposure-visible')).toBe('false');expect(screen.getByText('No requests yet')).toBeTruthy();expect(screen.queryByRole('img',{name:/one-minute buckets/})).toBeNull();
 });

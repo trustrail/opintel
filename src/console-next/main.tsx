@@ -1,5 +1,4 @@
 import {Welcome} from './first-run/welcome.js';
-import './first-run/styles.css';
 import {Settings} from './settings/screen.js';
 import './settings/styles.css';
 import {Activity} from './activity/screen.js';
@@ -17,6 +16,7 @@ import './styles.css';
 import './pools/styles.css';
 import './data/styles.css';
 import './activity/styles.css';
+import './first-run/styles.css';
 const cache=new QueryClient({defaultOptions:{queries:{refetchOnWindowFocus:true,retry:false}}});
 function App(){
  const projects=useProjects(),selected=useHomeState(s=>s.project),setSelected=useHomeState(s=>s.setProject),theme=useHomeState(s=>s.theme);

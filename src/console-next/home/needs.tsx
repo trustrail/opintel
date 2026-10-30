@@ -20,3 +20,14 @@ export function NeedName({item}:{item:NeedsYouItem}){
   {item.kind==='undecided_entitlement'?<span data-column-name title={column??'Unnameable column'}><KindIcon kind="column"/><span>{column??'Unnameable column'}</span></span>:<span data-column-name><KindIcon kind="row_rule"/><span>rows</span></span>}
  </strong>;
 }
+
+/** Only these destinations use one shared settings editor. Preserve every other item. */
+export function groupSettingNeeds(items:NeedsYouItem[],project:string):NeedsYouItem[]{
+ const forms=new Map<string,NeedsYouItem[]>();
+ for(const item of items)if(item.kind==='setting_required'&&/\/settings-(query|discovery)$/.test(item.targetRoute)){const group=forms.get(item.targetRoute)??[];group.push(item);forms.set(item.targetRoute,group);}
+ const emitted=new Set<string>();return items.flatMap(item=>{
+  const group=forms.get(item.targetRoute);if(item.kind!=='setting_required'||!group)return [item];if(emitted.has(item.targetRoute))return [];emitted.add(item.targetRoute);
+  const section=item.targetRoute.endsWith('settings-query')?'query':'discovery',count=group.reduce((n,i)=>n+i.count,0);
+  return [{...item,id:'settings-form:'+section,title:`Set ${section==='query'?'query limits':'discovery'} · ${count} ${count===1?'value':'values'}`,count,roles:item.roles.filter(r=>group.every(i=>i.roles.includes(r))),targetRoute:`?project=${project}&screen=settings&section=${section}&edit=true`}];
+ });
+}

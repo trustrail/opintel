@@ -1524,3 +1524,14 @@ sign in as the owner through normal email authentication and complete the six
 steps through console controls, except engine `./sources add` and the actual
 agent request. Record five light captures and each step's result. Commit and
 push `feat/console-next-first-run`; do not merge. No full gate in this scope.
+
+### 5.43 Console-next first-run fixes (30 October reviewed follow-up)
+
+Console only: shorten step 2 to Verify the engine, align three fixed tracker
+rows, group settings sharing an editor, fill the hidden-Exposure workbench,
+show the empty request strip, and remove phone overflow with visible actions.
+Match source-dialog and Welcome details from designs 17–19. Preserve truthful
+connectivity: the existing deferred test is not a successful reachability check.
+Targeted console tests, browser width assertions and six light review captures,
+lint and strict typecheck precede one full completed-candidate gate. A pass
+allows merging `feat/console-next-first-run` to main and pushing main.

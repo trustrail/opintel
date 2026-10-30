@@ -1916,3 +1916,12 @@ database; it is excluded from the normal gate and historical pixel tiers.
   coalesced and also refreshes the project marker on run completion.
 - Manual archive acceptance uses `console-first-run-install.mjs` and
   `console-first-run-browser.mjs`, not the dev server or API write fixtures.
+
+**First-run console follow-up:** `src/console-next/first-run/first-run.test.tsx`
+checks aligned-step contents and truthful/stale reachability badges;
+`src/console-next/home/home.test.tsx` checks shared-form grouping, unchanged
+other queue items, editor links and the empty strip. Explicitly run
+`npx vitest run --config test/review/console-next-first-run.config.ts` for the
+browser regression: Welcome/Home have no horizontal scrolling at 390, queue
+actions fit, and all six titles fit at 390/1440. Its six deterministic endpoint
+fixture captures are manual design evidence, outside retired pixel tiers.
