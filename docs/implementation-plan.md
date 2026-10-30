@@ -1472,3 +1472,27 @@ Right now says names are self-declared. Validate lint, strict typecheck, console
 tests and desktop-refused/phone-list light captures, commit on
 `feat/console-next-activity`, then run the full gate once. Only a pass authorizes
 merge and push to main; stop on any gate failure.
+
+### 5.41 Parallel console Settings (30 October reviewed scope)
+
+Build image 16 in `src/console-next/settings`, beside the current console, using
+shared navigation, kind chips/icons, fixed rows, Radix controls and visx rings.
+Use existing health, settings, engines, release-provider, members, invitations
+and token-key routes only. Never render secret material, team identifiers or
+certificates. Project settings saves retain other active fields in a changed
+section. Mail stays operator-only; identity providers are omitted. There is no
+member-role update route. The current custody summary counts distinct receipts,
+not release events, so its numbers cannot populate the requested event ring.
+Hide that unavailable panel pending a correct event-count contract. Retention is
+shown only when configured. Targeted console tests, lint, strict typecheck and
+five real-route light manual captures replace the full gate in this scope.
+Commit/push `feat/console-next-settings`; do not merge.
+
+Settings completion review: derive the custody title from its configured provider;
+local custody is warning with reason “development only, not real custody”.
+Aggregate each section's row statuses into its dot, including missing signing
+keys, backup/rehearsal problems and pending invitations. People badges use Active
+or Pending; roles remain values. Legend counts use the regular face and tabular
+numerals. Run console tests, lint, strict typecheck and a 1440 light custody
+capture, commit on `feat/console-next-settings`, then run the full gate once.
+Only a pass authorizes merge and push to main; stop on any gate failure.

@@ -1,0 +1,229 @@
+{
+  "screenshots": [
+    "1440-light-custody.png",
+    "1440-light-people.png",
+    "1440-light-query-limits.png",
+    "390-light-sections.png",
+    "390-light-custody.png"
+  ],
+  "errors": [],
+  "responses": [
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/70aa6e8f-e099-4f35-85f5-a66299a31f71/needs-you",
+      "status": 200
+    }
+  ],
+  "fixture": "Isolated test database; real HTTP routes; local development custody; no browser response mocks."
+}

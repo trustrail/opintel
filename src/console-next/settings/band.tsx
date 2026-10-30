@@ -1,0 +1,19 @@
+import type {ProjectHealthItem} from '../../shared/api/project-health.js';
+import {readSetting} from '../../shared/project-settings.js';
+import {Ring,type RingSegment} from '../components/ring.js';
+import {ReportBand} from '../components/scope.js';
+import {Glyph} from '../components/kind.js';
+import {emptySpectrum} from '../pools/data.js';
+import type {SettingsData} from './data.js';
+import type {Section} from './state.js';
+export const healthSection=(k:ProjectHealthItem['kind']):Section=>k==='engine'||k==='sources'?'engines':k==='token_key'?'token':k;
+function Panel({name,icon,center,caption,segments,onSelect,footer,reasons}:{name:string;icon:'activity'|'person'|'receipt';center:string;caption:string;segments:RingSegment[];onSelect:(key:string|null)=>void;footer:string;reasons?:string}){return <section title={reasons}><h2><Glyph name={icon}/>{name}</h2><div><Ring spectrum={emptySpectrum()} selected={null} onSelect={()=>{}} center={center} caption={caption} compactCaption={name} segments={segments} label={name} onCenter={()=>onSelect(null)} onSegment={onSelect}/><ul data-band-key>{segments.map(s=><li key={s.key}><button onClick={()=>onSelect(s.key)}><i style={{background:s.color}}/>{s.label}<strong>{s.value}</strong></button></li>)}</ul></div><button data-settings-band-footer onClick={()=>onSelect(null)}>{footer}<Glyph name="chevron" size={16}/></button></section>;}
+export function SettingsBand({data,health,onSelect,onRole}:{data:SettingsData;health:ProjectHealthItem[]|undefined;onSelect:(s:Section)=>void;onRole:(r:string|null)=>void}){
+ const people=data.people.data,settings=data.settings.data?.settings,full=readSetting(settings,'evidence.fullRetentionDays'),rollup=readSetting(settings,'evidence.rollupRetentionDays'),retention=typeof full==='number'||typeof rollup==='number';
+ const healthClick=(status:string|null)=>{const item=health?.find(h=>status?h.status===status:h.status==='warning'||h.status==='down')??health?.[0];if(item)onSelect(healthSection(item.kind));};
+ return <ReportBand title="This installation" description="Settings"><div data-settings-band>
+ {health&&<Panel name="Health" icon="activity" reasons={health.map(h=>h.reason).join(' · ')} center={`${health.filter(h=>h.status==='ok').length}/${health.length}`} caption="healthy" segments={(['ok','warning','down','unknown'] as const).map((key,i)=>({key,label:['Healthy','Warning','Down','Unknown'][i]!,value:health.filter(h=>h.status===key).length,color:['var(--green)','var(--warning)','var(--treatment-withheld)','var(--strip-bar)'][i]!}))} onSelect={healthClick} footer="Review checks"/>}
+ {people&&<Panel name="People" icon="person" center={String(people.length)} caption="people" segments={(['admin','operator','viewer'] as const).map((key,i)=>({key,label:['Admins','Operators','Viewers'][i]!,value:people.filter(p=>(p.projectRole??(p.companyRole==='admin'?'admin':null))===key).length,color:`var(--size-${i+1})`}))} onSelect={r=>{onSelect('people');onRole(r);}} footer="Invite by email"/>}
+ {retention&&<section><h2><Glyph name="receipt"/>Evidence kept</h2><div><Ring spectrum={emptySpectrum()} selected={null} onSelect={()=>{}} center={typeof full==='number'?String(full):'∞'} caption={typeof full==='number'?'days · full receipts':'full receipts kept'} compactCaption="Evidence kept" segments={[{key:'retention',label:'Configured retention',value:1,color:'var(--warning)'}]} onCenter={()=>onSelect('evidence')} onSegment={()=>onSelect('evidence')}/><ul data-settings-retention><li>Full receipts<strong>{typeof full==='number'?`${full} days`:'Retained'}</strong></li><li>Daily rollups<strong>{typeof rollup==='number'?`${rollup} days`:'Retained'}</strong></li></ul></div><button data-settings-band-footer onClick={()=>onSelect('evidence')}>Review retention<Glyph name="chevron" size={16}/></button></section>}
+ </div></ReportBand>;
+}

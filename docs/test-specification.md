@@ -1885,3 +1885,14 @@ lifecycle text. Browser assertions verify no outcome selector, Today control,
 Activity · today picker label, recorded refusal column chip and exact 88 px/
 two-row phone geometry. Counts remain recorded release events, not decrypted
 values; no receipt or release script is changed.
+
+### Console-next Settings (5.41)
+
+`src/console-next/settings/settings.test.tsx` verifies safe metadata projection
+(no key/certificate/team identifier rendering), consequential destructive
+confirmation, role filtering and project-scoped invitation inputs, admin-only
+controls, preservation of unrelated active settings during section replacement,
+typed discovery sampling, optional retention, unavailable count suppression and
+phone section navigation. `test/review/console-next-settings.capture.ts` supplies
+five manual review captures against real routes in the isolated normal-test
+database; it is excluded from the normal gate and historical pixel tiers.
