@@ -4,7 +4,7 @@ import {stat} from 'node:fs/promises';
 import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {z} from 'zod';
-import {consoleDestination} from '../../src/shared/console-destinations.mjs';
+import {consoleDestination,consoleAuthPaths} from '../../src/shared/console-destinations.mjs';
 import process from 'node:process';
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'};
 // Standalone public static-service routes; no authenticated application data.
@@ -21,7 +21,7 @@ export function createConsoleServer({root=resolve('dist'),read=createReadStream}
   try{
    const requestUrl=new URL(req.url??'/','http://localhost'),destination=consoleDestination(requestUrl.pathname+requestUrl.search+requestUrl.hash);
    if(destination){res.writeHead(302,{location:destination,'cache-control':'no-store'});res.end();return;}
-   if(!path.startsWith('/legacy/')&&path!=='/legacy'&&path!=='/'&&!extname(path)){res.writeHead(404);res.end('Not found');return;}
+   if(!path.startsWith('/legacy/')&&path!=='/legacy'&&path!=='/'&&!consoleAuthPaths.includes(path)&&!extname(path)){res.writeHead(404);res.end('Not found');return;}
    const fallback=resolve(root,path==='/legacy'||path.startsWith('/legacy/')?'legacy/index.html':'index.html');
    let file=resolve(root,'.'+path);
    if(file!==root&&!file.startsWith(root+sep)){res.writeHead(404);res.end();return;}

@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { TokenKeyScreen } from './custody/screen.js';
 import { IntrospectionListScreen, IntrospectionRunScreen } from './introspection/screens.js';
 import { CatalogScreen } from './catalog/screen.js';
-import { ObservationsScreen } from './filings/screens.js';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { Navigate, Outlet, useRouterState, notFound } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -52,7 +51,6 @@ const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: 
   if (screen === 'token-key') return <RouteErrorBoundary><TokenKeyScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'catalog') return <RouteErrorBoundary><CatalogScreen key={projectId} projectId={projectId} search={search} onSearch={next=>{void navigate({search:next});}} /></RouteErrorBoundary>;
   if (screen === 'data-sources') return <RouteErrorBoundary><SourcesScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
-  if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId+JSON.stringify([search.observationKind,search.observationGroup,search.observationView])} projectId={projectId} filter={{kind:search.observationKind,group:search.observationGroup,view:search.observationView}} /></RouteErrorBoundary>;
   if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   throw notFound();
 } });

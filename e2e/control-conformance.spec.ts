@@ -78,3 +78,10 @@ test('VIS-003/VIS-005: placement counts rows and knows uniform scope beyond a re
  await page.setContent('<div id="opintel-app"><span class="tr clear"><i></i>Clear</span></div>');
  expect((await page.evaluate(inspectMarkPlacement)).map(f=>f.reason)).toEqual(['Legacy badge dot is not a specified identity mark.']);
 });
+
+test('console-next authentication controls require their approved field/action patterns',async({page})=>{
+ await page.setContent('<main id="console-next"><button>Unclassified action</button><input aria-label="Unclassified field"></main>');
+ expect((await page.evaluate(inspectControls,controlPatterns)).findings).toHaveLength(2);
+ await page.setContent('<main id="console-next"><div data-auth-content><h2>Sign in</h2><span data-auth-email><input aria-label="Work email"></span><button>Continue</button></div></main>');
+ const result=await page.evaluate(inspectControls,controlPatterns);expect(result.controls).toBe(2);expect(result.heading).toBe('Sign in');expect(result.findings).toEqual([]);
+});

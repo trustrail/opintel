@@ -11,7 +11,7 @@ export function rowsLabel(value:number|null|undefined){return value===null||valu
 export async function readData(project:string,client=createApiClient()){
  const [sourcePage,poolData]=await Promise.all([pages(client,`/api/v1/projects/${project}/sources?limit=100`,SourceListResponse,Infinity),readPools(project,client)]),tables=[];
  for(const source of sourcePage.items){for(const node of await readCatalogLevel(project,`objects:${source.id}`,client)){
-  const columns=await readCatalogLevel(project,node.id,client),pools=poolData.pools.filter(p=>p.detail.sourceIds.includes(source.id)).map(p=>{const members=p.members.filter(m=>m.objectId===node.id);return {pool:p.detail,members,spectrum:members.reduce((s,m)=>{s[m.treatment??'undecided']++;return s;},emptySpectrum())};}).filter(p=>p.members.length>0),open=pools.reduce((sum,p)=>sum+p.spectrum.undecided,0);
+  const columns=await readCatalogLevel(project,node.id,client),pools=poolData.pools.filter(p=>p.detail.sourceIds.includes(source.id)).map(p=>{const members=p.members.filter(m=>m.objectId===node.id);return {pool:p.detail,members,spectrum:members.filter(m=>m.exposedType!==null).reduce((s,m)=>{s[m.treatment??'undecided']++;return s;},emptySpectrum())};}).filter(p=>p.members.length>0),open=pools.reduce((sum,p)=>sum+p.spectrum.undecided,0);
   tables.push({node,source,columns,pools,open});
  }}return {sources:sourcePage.items,tables,pools:poolData.pools,needs:poolData.needs,kinds:poolData.kinds};
 }
@@ -25,5 +25,5 @@ export function useRefreshData(project:string){const cache=useQueryClient();retu
 export function tableSpectrum(tables:DataTable[]){const s=emptySpectrum();for(const table of tables)for(const p of table.pools)for(const k of Object.keys(s) as Array<keyof typeof s>)s[k]+=p.spectrum[k];return s;}
 
 export function scopedTables(tables:DataTable[],pool:string|null,element:string|null):DataTable[]{
- return tables.filter(t=>!element||t.columns.some(c=>c.id===element)).map(t=>{const pools=t.pools.filter(p=>!pool||p.pool.id===pool).map(p=>{const members=p.members.filter(m=>!element||m.id===element),spectrum=emptySpectrum();for(const member of members)spectrum[member.treatment??'undecided']++;return {...p,members,spectrum};});return {...t,pools,open:pools.reduce((n,p)=>n+p.spectrum.undecided,0)};}).filter(t=>!pool||t.pools.length>0);
+ return tables.filter(t=>!element||t.columns.some(c=>c.id===element)).map(t=>{const pools=t.pools.filter(p=>!pool||p.pool.id===pool).map(p=>{const members=p.members.filter(m=>!element||m.id===element),spectrum=emptySpectrum();for(const member of members.filter(m=>m.exposedType!==null))spectrum[member.treatment??'undecided']++;return {...p,members,spectrum};});return {...t,pools,open:pools.reduce((n,p)=>n+p.spectrum.undecided,0)};}).filter(t=>!pool||t.pools.length>0);
 }

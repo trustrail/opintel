@@ -5,7 +5,6 @@ import { useFilings } from './data.js';
 
 export const landingLabels = { append_as_at: 'append as at', table_per_filing: 'table per filing' };
 export {quarantineLabels} from '../../shared/observation-copy.js';
-export {ObservationsScreen} from '../observations/screen.js';
 export function QuarantineResolutionSummary({ zoneId, filingId }: { zoneId: string; filingId: string }): ReactNode {
   const copyStyle = { userSelect: 'all' as const, overflowWrap: 'anywhere' as const };
   return <>

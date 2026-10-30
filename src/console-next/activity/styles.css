@@ -25,3 +25,6 @@
 [data-request-second-line]>*{grid-row:1}
 [data-refusal-reason]>p{font-size:var(--text-2);color:var(--ink)}
 [data-receipt-reason=true] [data-receipt-value],[data-receipt-reason=true] [data-radix-scroll-area-viewport]{height:100%}[data-receipt-vertical]{width:var(--space-1);background:var(--neutral)}[data-receipt-vertical]>div{background:var(--muted);border-radius:var(--radius-3)}
+
+/* Let each SVG derive both dimensions from its grid track before its first paint. */
+[data-activity-band]>section[data-activity-now]{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}[data-activity-now] [data-ring]{display:block;width:100%;height:auto;aspect-ratio:1;min-width:0;overflow:visible}[data-activity-now] [data-band-key]{min-width:0}

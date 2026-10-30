@@ -1,0 +1,55 @@
+import process from 'node:process';
+import console from 'node:console';
+// Fresh offline archives acceptance; never alters development containers or env files.
+import {spawnSync,spawn} from 'node:child_process';
+import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,existsSync,unlinkSync,renameSync,openSync,closeSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {randomBytes,randomUUID} from 'node:crypto';
+import {parse} from 'dotenv';
+import assert from 'node:assert/strict';
+import {setInterval,clearInterval} from 'node:timers';
+import ExcelJS from 'exceljs';
+import {firstHourSource} from './first-hour-source.mjs';
+const [archivesArg,revision]=process.argv.slice(2),archives=resolve(archivesArg),directory=resolve(mkdtempSync('tmp/console-auth-source-acceptance-'));process.umask(0o077);
+let phase='extract',source,mail;const result={status:'running',revision,directory,steps:[]};
+function run(command,args,name){const r=spawnSync(command,args,{encoding:'utf8',timeout:600000,maxBuffer:32*1024*1024});writeFileSync(join(directory,name+'.log'),(r.stdout??'')+(r.stderr??''),{mode:0o600});if(r.error||r.status!==0)throw new Error(`${phase}: ${name} failed; private log retained`);return r.stdout;}
+function record(name){result.steps.push({name,status:'passed'});writeFileSync(join(directory,'install-result.json'),JSON.stringify(result,null,2));}
+const roots={gateway:join(directory,'gateway'),engine:join(directory,'engine')},command=(kind,name,...args)=>run(join(roots[kind],name),args,kind+'-'+name);
+try{
+ for(const kind of ['gateway','engine'])run('tar',['-xpf',join(archives,`${kind}-${revision.slice(0,7)}-amd64.tar.gz`),'-C',directory],'extract-'+kind);record('fresh-archives-extracted');
+ const provider=parse(readFileSync('.env','utf8')),names=['OPINTEL_XQ_API_KEY','OPINTEL_XQ_DASHBOARD_API_KEY','OPINTEL_XQ_SENDER_ALIAS','OPINTEL_XQ_SENDER_ACCESS_TOKEN','OPINTEL_XQ_TEAM_ID'];for(const name of names)assert.ok(provider[name],'Missing installation setting '+name);
+ const email='owner@first-run.invalid',base='https://host.docker.internal',password=randomBytes(24).toString('hex'),settings={APP_BASE_URL:base,OWNER_EMAIL:email,...Object.fromEntries(names.map(n=>[n,provider[n]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:password,SMTP_SENDER:'noreply@first-run.invalid',SMTP_TLS_MODE:'implicit'};
+ writeFileSync(join(roots.gateway,'package.env'),Object.entries(settings).map(([k,v])=>k+"='"+v.replaceAll("'","\\'")+"'").join('\n')+'\n',{mode:0o600});
+ phase='gateway-install';command('gateway','install');record('gateway-installed-from-archive');phase='engine-install';const output=command('engine','install');record('engine-installed-from-archive');
+ phase='pair';const address=/Engine address: (\S+)/u.exec(output)?.[1],code=/Pairing code \(expires in 15 minutes\): (\S+)/u.exec(output)?.[1];assert.ok(address&&code,'Pairing metadata missing');command('gateway','register-engine',address,code);record('one-code-pairing');
+ phase='smtp-catcher';const tls=join(directory,'mail');mkdirSync(tls,{mode:0o700});run('openssl',['req','-newkey','rsa:2048','-nodes','-keyout',join(tls,'mail.key'),'-out',join(tls,'mail.csr'),'-subj','/CN=host.docker.internal'],'mail-csr');writeFileSync(join(tls,'mail.ext'),'subjectAltName=DNS:host.docker.internal\nextendedKeyUsage=serverAuth\n');run('openssl',['x509','-req','-in',join(tls,'mail.csr'),'-CA',join(roots.gateway,'state/ca.pem'),'-CAkey',join(roots.gateway,'state/ca.key'),'-CAcreateserial','-out',join(tls,'mail.pem'),'-days','2','-extfile',join(tls,'mail.ext')],'mail-sign');
+ const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));mail='opintel-first-run-mail-'+Date.now();run('docker',['run','--detach','--name',mail,'--platform','linux/amd64','--publish','127.0.0.1:11465:1025','--publish','0.0.0.0:11825:8025','--env','MP_SMTP_TLS_CERT=/tls/mail.pem','--env','MP_SMTP_TLS_KEY=/tls/mail.key','--env','MP_SMTP_REQUIRE_TLS=true','--env','MP_SMTP_AUTH_ACCEPT_ANY=false','--env','MP_SMTP_AUTH=acceptance:'+password,'--volume',tls+':/tls:ro',upstream['x-acceptance-images'].mailpit],'mail-start');
+ phase='external-source';source=await firstHourSource({directory,image:upstream['x-acceptance-images'].customerPostgres,host:'host.docker.internal',recordFailure:()=>{}});command('engine','sources','add','claims-db','--host',source.host,'--port',source.port,'--database',source.database,'--user',source.user,'--password-file',source.passwordFile);record('engine-sources-add');
+ writeFileSync(join(directory,'browser.json'),JSON.stringify({base,email,mail:'http://host.docker.internal:11825'}),{mode:0o600});phase='packaged-console';const version=JSON.parse(readFileSync('package-lock.json','utf8')).packages['node_modules/@playwright/test'].version;
+ const fixture=async(input)=>{
+  assert.match(input.project,/^[a-f0-9-]{36}$/u);assert.match(input.source??input.project,/^[a-f0-9-]{36}$/u);
+  if(input.kind==='customer-change'){run('docker',['exec',source.name,'psql','-U','customer','-d','customer','-v','ON_ERROR_STOP=1','-c',"CREATE TYPE review_unsupported AS ENUM ('one'); ALTER TABLE public.records ADD COLUMN happened_at timestamp; ALTER TABLE public.records ADD COLUMN epoch_value bigint; UPDATE public.records SET masked_label=token_id; ALTER TABLE public.records ADD COLUMN unsupported_value review_unsupported; ALTER TABLE public.records ALTER COLUMN amount TYPE text USING amount::text; ANALYZE public.records;"],'customer-change');return;}
+  if(input.kind==='held-filing'){
+   command('engine','stop');const state=join(roots.engine,'state'),ingest=join(state,'ingest'),zone=join(ingest,'zone');mkdirSync(zone,{recursive:true,mode:0o700});const party=randomUUID(),rule=randomUUID();
+   writeFileSync(join(ingest,'rules.json'),JSON.stringify({filingParties:[{id:party,projectId:input.project,code:'supplier',name:'Synthetic supplier',active:true,decimalSeparator:'.',dateFormat:'YYYY-MM-DD'}],rules:[{id:rule,projectId:input.project,partyId:party,active:true,matchKind:'filename_regex',pattern:'^supplier_(?<period>2026-03)\\.xlsx$',kind:'claims',periodGroup:'period',priority:1,sheetIndex:1,headerRow:1,periodAsAtFormat:'month_end'}]}));
+   const configFile=join(state,'service.json'),config=JSON.parse(readFileSync(configFile,'utf8'));config.receiptUrl='https://host.docker.internal:3101';config.landingZones=[{projectId:input.project,sourceId:input.source,directory:'/ingest/zone',stateFile:'/ingest/register.json',rulesFile:'/ingest/rules.json',pollMs:1000,landing:{name:'acceptance_landing',credentialRef:'secret://sources/claims-db',strategy:'append_as_at'}}];writeFileSync(configFile,JSON.stringify(config));
+   const composeFile=join(state,'compose.json'),compose=JSON.parse(readFileSync(composeFile,'utf8'));if(!compose.services.engine.volumes.some(v=>v.endsWith(':/ingest')))compose.services.engine.volumes.push(ingest+':/ingest');writeFileSync(composeFile,JSON.stringify(compose));
+   const workbook=new ExcelJS.Workbook(),sheet=workbook.addWorksheet('Claims');sheet.addRow(['Merged header','']);sheet.mergeCells('A1:B1');sheet.addRow([1,2]);await workbook.xlsx.writeFile(join(zone,'supplier_2026-03.xlsx'));command('engine','start');return;
+  }
+  if(input.kind==='backup-unavailable'||input.kind==='backup-restore'){const path=join(roots.engine,'state/custody/escrow',input.project,'v1');renameSync(input.kind==='backup-unavailable'?path:path+'.acceptance',input.kind==='backup-unavailable'?path+'.acceptance':path);return;}
+  if(input.kind==='sso-fixture'){
+   const project=readFileSync(join(roots.gateway,'state/project-name'),'utf8').trim(),compose=join(roots.gateway,'state/compose.json');
+   const sql=`UPDATE company SET allowed_domains=array_append(allowed_domains,'review.invalid'),sso_enforced=true WHERE id=(SELECT company_id FROM project WHERE id='${input.project}'); INSERT INTO company_idp(company_id,provider,display_name,issuer,client_id,client_secret_ref) SELECT company_id,'oidc:review','Company SSO','https://sso.example.invalid','review','vault://review/oidc' FROM project WHERE id='${input.project}';`;
+   run('docker',['compose','--project-name',project,'--project-directory',roots.gateway,'--env-file',join(roots.gateway,'state/package.env'),'-f',compose,'exec','-T','postgres','psql','-U','opintel','-d','opintel','-v','ON_ERROR_STOP=1','-c',sql],'sso-fixture');return;
+  }
+  throw new Error('Unknown acceptance fixture action');
+ };
+ const fd=openSync(join(directory,'browser.log'),'w',0o600),child=spawn('docker',['run','--rm','--init','--ipc=host','--platform','linux/amd64','--volume',resolve('node_modules')+':/work/node_modules:ro','--volume',resolve('scripts/images/console-auth-source-browser.mjs')+':/work/browser.mjs:ro','--volume',directory+':/acceptance','--workdir','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs'],{stdio:['ignore',fd,fd]});let busy=false;
+ const timer=setInterval(()=>{if(busy||!existsSync(join(directory,'fixture-request.json')))return;busy=true;const input=JSON.parse(readFileSync(join(directory,'fixture-request.json'),'utf8'));unlinkSync(join(directory,'fixture-request.json'));void fixture(input).then(()=>writeFileSync(join(directory,'fixture-result.json'),JSON.stringify({ok:true}))).catch(()=>writeFileSync(join(directory,'fixture-result.json'),JSON.stringify({ok:false}))).finally(()=>{busy=false;});},250);
+ try{const status=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve);});assert.equal(status,0,'Packaged browser verification failed; private log retained');}finally{clearInterval(timer);closeSync(fd);};result.browser=JSON.parse(readFileSync(join(directory,'browser-result.json'),'utf8'));assert.equal(result.browser.status,'passed','Browser first-run acceptance failed');result.status='passed';
+}catch(error){result.status='failed';result.failure={phase,message:error instanceof Error?error.message:'Unknown failure'};process.exitCode=1;}finally{
+ try{source?.close();}catch{/* Preserve the original acceptance failure. */}
+ if(mail)spawnSync('docker',['rm','--force',mail],{stdio:'ignore'});
+ for(const kind of ['engine','gateway']){try{command(kind,'stop');}catch{/* Record remains available for manual cleanup. */}}
+ writeFileSync(join(directory,'install-result.json'),JSON.stringify(result,null,2),{mode:0o600});console.log(JSON.stringify({status:result.status,phase,result:join(directory,'install-result.json')}));
+}

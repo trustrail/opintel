@@ -20,14 +20,14 @@ for(const pattern of screenPaths())test(`conformance: ${pattern}`,async({page})=
  await page.route('**/api/v1/auth/providers*',route=>route.fulfill({json:{magicLink:true,providers:[],enforced:null}}));
  await page.route('**/api/v1/auth/callback',route=>route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Sign-in unavailable. Request a new link.',requestId:'conformance',retryable:true}}}));
  const path=pattern.replace('$projectId',project).replace('$companyId',source).replace('$poolId',pool).replace('$sourceId',source).replace('$runId',entry.id).replace('$agentId','reporter');
- const query=pattern.includes('/runs/')?`?startedAt=${encodeURIComponent(entry.startedAt)}`:pattern.includes('/auth/')?'?token=conformance':'';
+ const query=pattern.endsWith('/catalog')||pattern.endsWith('/data-sources')||pattern.includes('/introspections')?'?advanced=true':pattern.includes('/runs/')?`?startedAt=${encodeURIComponent(entry.startedAt)}`:pattern.includes('/auth/')?'?token=conformance':'';
  await page.goto('/legacy'+path+query);
  if(pattern==='/auth/callback'){
-  const app=page.locator('#opintel-app');
-  await expect(app.getByText('We could not complete that',{exact:true})).toBeVisible();
+  const app=page.locator('#console-next');
+  await expect(app.getByText('We could not sign you in',{exact:true})).toBeVisible();
   await expect(app.getByText('Sign-in unavailable. Request a new link.',{exact:true})).toBeVisible();
-  await expect(app.getByRole('button',{name:'Try again',exact:true})).toBeVisible();
- }else await expect(page.locator('#opintel-app h1')).toBeVisible();
+  await expect(app.getByRole('button',{name:'Request a new link',exact:true})).toBeVisible();
+ }else if(['/sign-in','/check-email','/auth/confirm-device'].includes(pattern))await expect(page.locator('#console-next [data-auth-content] h2')).toBeVisible();else await expect(page.locator('#opintel-app h1')).toBeVisible();
  // Let all outstanding fixture responses commit before the final observer scan.
  await page.waitForLoadState('networkidle');
 });

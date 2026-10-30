@@ -1553,3 +1553,24 @@ sign-in through its first receipt, all five root screens, five old URLs and the
 legacy Observations workflow. Capture the requested desktop light/dark and phone
 screens in Inter. Run the completed-candidate gate once. Commit and push a feature
 branch; do not merge. No new application backend behaviour is in scope.
+
+### 5.45 Console authentication and contextual Data work (30 October reviewed scope)
+
+Port sign-in, enforced SSO recovery, email and device confirmation plus all six
+outcomes to console-next, preserving nonce, return-to, owner claim and invitations.
+Match approved designs 20–29 and the updated rule 10: explanations stay on the
+source, column or key they concern; no findings page. Add scoped source scan and
+filing panels, existing safe operator-packet copy, contextual declarations and
+confirmed token changes, and route legacy links to these surfaces. The table
+header edits the existing source/schema timezone default, explicitly naming that
+scope; no source-wide inheritance or new backend behaviour is introduced. Keep
+canonicalisers unchanged and show server refusals. Fix Activity's clipped ring.
+
+Use the existing API contracts only. Stop and report if backend behaviour is
+required. Validate console and changed route/bundle contracts, lint and both strict
+typechecks; exercise a fresh packaged install with email/device accept/decline,
+merged-header quarantine, unsupported/type-changed columns, unverified backup,
+operator packet, reset treatment and shared token domain confirmation. Capture
+1440 light designs 20–23/26–29 and 390 light design 25 side by side with the approved
+images, documenting differences. Run one full gate on the completed tip, then
+commit/push feat/console-auth-source-panel; do not merge.

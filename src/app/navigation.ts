@@ -19,7 +19,6 @@ export type NavGroup = { readonly label: string; readonly items: readonly NavIte
 export const navGroups: readonly NavGroup[] = [
   { label: 'Watch', items: [
     { label: 'Dashboard', path: '/dashboard', icon: 'nav-dashboard' },
-    { label: 'Observations', path: '/observations', icon: 'nav-observations' },
     { label: 'Activity', path: '/activity', icon: 'nav-activity' },
   ] },
   { label: 'Understand', items: [

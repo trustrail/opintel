@@ -1,0 +1,2 @@
+import {Glyph,Tip} from './kind.js';
+export function Unsupported({sourceType,reason}:{sourceType?:string|null;reason?:string|null}){return <Tip label={`Can't be governed${sourceType?' · '+sourceType:''}${reason==='unmapped'?' · no type mapping':reason==='explicitly_excluded'?' · explicitly excluded':''}`}><span data-unsupported role="img" aria-label="Can't be governed"><Glyph name="refused" size={16}/></span></Tip>;}
