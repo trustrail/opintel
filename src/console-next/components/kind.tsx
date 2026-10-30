@@ -43,3 +43,6 @@ export type Kind='source'|'table'|'view'|'column'|'pool'|'row_rule'|'agent'|'per
 export function Glyph({name,size=20}:{name:keyof typeof icons;size?:number}){const Icon=icons[name];return <Icon size={size} weight="regular" aria-hidden="true"/>;}
 export function KindIcon({kind}:{kind:Kind}){return <Tooltip.Root><Tooltip.Trigger asChild><span data-kind={kind} role="img" aria-label={kind.replaceAll('_',' ')}><Glyph name={kind} size={18}/></span></Tooltip.Trigger><Tooltip.Content data-tooltip sideOffset={8}>{kind.replaceAll('_',' ')}<Tooltip.Arrow/></Tooltip.Content></Tooltip.Root>;}
 export function Tip({label,children}:{label:string;children:ReactElement}){return <Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger><Tooltip.Content data-tooltip sideOffset={8}>{label}<Tooltip.Arrow/></Tooltip.Content></Tooltip.Root>;}
+
+/** Missing public metadata must not turn a view into a guessed table. */
+export function TableIcon({kind}:{kind:'table'|'view'|undefined}){return kind?<KindIcon kind={kind}/>:null;}

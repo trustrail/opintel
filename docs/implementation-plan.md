@@ -1395,3 +1395,26 @@ desktop retains its inner scroll. Run lint, strict typecheck, console tests and
 phone light/dark captures. Commit on `feat/console-home-fixes`, then run the full
 completed-candidate gate exactly once. Only a pass authorizes merge to main and
 push; any failure stops this delivery without a retry or code changes.
+
+29 October Pools review scope: extend the parallel console only with images
+04–09: picker/All pools, report band, Access, credentials, agent presence and
+table-scoped creation. Reuse the Home navigation, treatment marks, kind icons
+and visx ring. Existing APIs own all decisions. Creation requires explicitly
+confirmed `threads`; optional `concurrency`, rows, time and memory limits inherit
+project limits when absent. Do not expose unenforced `rowsPerDay`, sample
+federation or person records. Derive connected presence from fresh connecting,
+active and idle states, reading all cursor pages. Validate lint, strict typecheck,
+console tests and real-API manual captures for five views at 1440/390 in both
+themes. Commit and push a feature branch only; no full gate or merge in this scope.
+
+
+Pools completion review: use scanned catalogue columns for a named-column row
+picker, infer value controls from their types and show per-table compatibility.
+The suggested required thread value is confirmed by Create pool, without a
+second checkbox. Waiting is a fixed-width count with hover details; arrows open
+the pool and no stray Data label remains. Pool squares carry the code only;
+counts use proper singular/plural. Credential lanes retain every seen name,
+using solid circles only for verified name identity and dashed circles for all
+current unverified names, independent of credential authentication or freshness. Targeted checks and four light captures precede the commit on
+`feat/console-next-pools`. Run the full gate once on that completed tip; only a
+pass authorizes merge and push to main. Any gate failure stops delivery.
