@@ -4,3 +4,5 @@
 [data-auth-content] a[data-auth-outcome-action]{display:flex;align-items:center;justify-content:center;min-height:var(--space-6);padding:var(--space-1) var(--space-2);border:var(--hairline) solid var(--border);background:var(--surface);border-radius:var(--radius-3)}
 
 [data-auth-email] input:focus-visible{outline:none}
+
+[data-auth-content] button[data-primary]:not(:disabled):hover{background:var(--rail-active)}[data-auth-content] button[data-primary]:not(:disabled):active{background:var(--plum)}
