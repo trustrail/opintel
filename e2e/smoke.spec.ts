@@ -28,7 +28,7 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
  const backend=`http://127.0.0.1:${address.port}`;
  try{
   const [object]=await withTenant(f.ctx,tx=>tx.query<{id:string}>('SELECT id FROM catalog_object WHERE source_id=$1',[f.source]));
-  const objectId=ObjectId(object!.id),poolPath=`/projects/${f.ctx.projectId}/pools/${f.pool}`;
+  const objectId=ObjectId(object!.id),poolPath=`/legacy/projects/${f.ctx.projectId}/pools/${f.pool}`;
   await page.addInitScript(()=>{class Stream{close(){}}Object.defineProperty(window,'EventSource',{value:Stream});});
   await page.route('**/api/v1/**',async route=>{
    const request=route.request(),url=new URL(request.url()),path=url.pathname;
@@ -52,7 +52,7 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
   await page.goto(poolPath);await expect(page).toHaveURL(/\/sign-in/);
   await page.getByLabel('Email address').fill('bulk@example.com');await page.getByRole('button',{name:'Continue with email',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Check your email'})).toBeVisible();
-  await page.goto('/auth/callback?token=fixture-mail-link');await expect(page).toHaveURL(poolPath);
+  await page.goto('/auth/callback?token=fixture-mail-link');await expect(page).toHaveURL(url=>url.pathname==='/'&&url.searchParams.get('pool')===f.pool);await page.goto(poolPath);
   const section=page.getByRole('region',{name:'Pool row entitlements'});
   await section.getByRole('button',{name:'Add override',exact:true}).click();
   await page.getByRole('dialog',{name:'Choose objects'}).getByRole('button',{name:'Choose records',exact:true}).click();
@@ -69,7 +69,7 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
   const [run]=await withTenant(f.ctx,tx=>tx.query<{at:string}>('SELECT started_at::text AS at FROM query_run WHERE id=$1',[answer.evidenceId]));
   const stored=unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(answer.evidenceId),run!.at));
   expect(stored.metadata.rowScopes?.[0]?.decisionIds).toEqual([decision.id]);
-  await page.goto(`/projects/${f.ctx.projectId}/runs/${answer.evidenceId}?startedAt=${encodeURIComponent(stored.startedAt)}`);
+  await page.goto(`/legacy/projects/${f.ctx.projectId}/runs/${answer.evidenceId}?startedAt=${encodeURIComponent(stored.startedAt)}`);
   const receipt=page.getByRole('region',{name:'Row scope receipt'});
   await expect(receipt.getByRole('link',{name:`Decision ${decision.id}`})).toBeVisible();
   await expect(receipt).toContainText('5 returned rows');await expect(receipt).toContainText('agent credential');

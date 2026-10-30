@@ -65,7 +65,7 @@ if(target==='engine'){
 }
 if(target==='console'){
  await cp('dist',join(destination,'dist'),{recursive:true});
- const walk=async(directory)=>{for(const entry of await readdir(join(destination,directory),{withFileTypes:true})){const name=directory+'/'+entry.name;if(entry.isDirectory())await walk(name);else{if(!/\.(?:html|js|css|png)$/u.test(name))throw new Error('Unexpected console artifact: '+name);await record(name);}}};
+ const walk=async(directory)=>{for(const entry of await readdir(join(destination,directory),{withFileTypes:true})){const name=directory+'/'+entry.name;if(entry.isDirectory())await walk(name);else{if(!/\.(?:html|js|css|png|woff2|txt)$/u.test(name))throw new Error('Unexpected console artifact: '+name);await record(name);}}};
  await walk('dist');
 }
 await writeFile(join(destination,'runtime-manifest.json'),JSON.stringify({version:1,target,minified:true,sourceMaps:false,artifacts},null,2)+'\n');

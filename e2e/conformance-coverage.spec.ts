@@ -21,7 +21,7 @@ for(const pattern of screenPaths())test(`conformance: ${pattern}`,async({page})=
  await page.route('**/api/v1/auth/callback',route=>route.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Sign-in unavailable. Request a new link.',requestId:'conformance',retryable:true}}}));
  const path=pattern.replace('$projectId',project).replace('$companyId',source).replace('$poolId',pool).replace('$sourceId',source).replace('$runId',entry.id).replace('$agentId','reporter');
  const query=pattern.includes('/runs/')?`?startedAt=${encodeURIComponent(entry.startedAt)}`:pattern.includes('/auth/')?'?token=conformance':'';
- await page.goto(path+query);
+ await page.goto('/legacy'+path+query);
  if(pattern==='/auth/callback'){
   const app=page.locator('#opintel-app');
   await expect(app.getByText('We could not complete that',{exact:true})).toBeVisible();

@@ -1,0 +1,256 @@
+{
+  "status": "passed",
+  "runtimeRevision": "a90b3dd475db8efcce0b05ef143d165d46848e3f",
+  "archivesSha256": {
+    "gateway-a90b3dd-amd64.tar.gz": "e36e7a97ee366545260af1c7b81976b9c84a0670dfcfbf5c6a3aeb514084f923",
+    "engine-a90b3dd-amd64.tar.gz": "ea37c4b44ba9d42019f29a2b94a3317c479162edff132c7efef41cd6421c5111"
+  },
+  "installationSteps": [
+    {
+      "name": "fresh-archives-extracted",
+      "status": "passed"
+    },
+    {
+      "name": "gateway-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "engine-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "one-code-pairing",
+      "status": "passed"
+    },
+    {
+      "name": "engine-sources-add",
+      "status": "passed"
+    }
+  ],
+  "browser": {
+    "status": "passed",
+    "steps": [
+      {
+        "name": "owner-sign-in",
+        "status": "passed"
+      },
+      {
+        "name": "1-create-project",
+        "status": "passed"
+      },
+      {
+        "name": "2-engine-registered-verified",
+        "status": "passed"
+      },
+      {
+        "name": "3-source-connected-scanned",
+        "status": "passed"
+      },
+      {
+        "name": "project-query-limits",
+        "status": "passed"
+      },
+      {
+        "name": "4-pool-created",
+        "status": "passed"
+      },
+      {
+        "name": "explicit-clear-decision",
+        "status": "passed"
+      },
+      {
+        "name": "5-credential-issued",
+        "status": "passed"
+      },
+      {
+        "name": "agent-request-answered",
+        "status": "passed"
+      },
+      {
+        "name": "6-receipt-visible-in-activity",
+        "status": "passed"
+      },
+      {
+        "name": "root-home-light",
+        "status": "passed"
+      },
+      {
+        "name": "root-pools-light",
+        "status": "passed"
+      },
+      {
+        "name": "root-data-light",
+        "status": "passed"
+      },
+      {
+        "name": "root-activity-light",
+        "status": "passed"
+      },
+      {
+        "name": "root-settings-light",
+        "status": "passed"
+      },
+      {
+        "name": "root-home-dark",
+        "status": "passed"
+      },
+      {
+        "name": "root-pools-dark",
+        "status": "passed"
+      },
+      {
+        "name": "root-data-dark",
+        "status": "passed"
+      },
+      {
+        "name": "root-activity-dark",
+        "status": "passed"
+      },
+      {
+        "name": "root-settings-dark",
+        "status": "passed"
+      },
+      {
+        "name": "all-query-settings-visible",
+        "status": "passed"
+      },
+      {
+        "name": "observations-opened-from-console-next",
+        "status": "passed"
+      }
+    ],
+    "screenshots": [
+      "1440-light-welcome.png",
+      "390-light-welcome.png",
+      "1440-light-first-hour-step3.png",
+      "390-light-first-hour-step3.png",
+      "1440-light-connect-source.png",
+      "1440-light-home.png",
+      "1440-light-pools.png",
+      "1440-light-data.png",
+      "1440-light-activity.png",
+      "1440-light-settings.png",
+      "1440-dark-home.png",
+      "1440-dark-pools.png",
+      "1440-dark-data.png",
+      "1440-dark-activity.png",
+      "1440-dark-settings.png",
+      "390-light-home.png",
+      "390-light-pools.png",
+      "1440-light-settings-extended.png"
+    ],
+    "browserErrors": 0,
+    "projectId": "1bedf472-5d0b-4af7-b7e6-634b6a702254",
+    "atomicEngineRegistration": true,
+    "phoneSelectTargetsVerified": true,
+    "poolId": "b7719916-4102-4bdd-acb0-652f31d60b11",
+    "receiptTitle": "Answered \u00b7 6 rows from table records",
+    "permanentMarkerRecorded": true,
+    "renderedFonts": {
+      "1440-light-home": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-light-pools": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-light-data": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-light-activity": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-light-settings": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-dark-home": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-dark-pools": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-dark-data": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-dark-activity": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-dark-settings": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "390-light-home": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "390-light-pools": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ],
+      "1440-light-settings-extended": [
+        {
+          "family": "Inter Variable",
+          "custom": true
+        }
+      ]
+    },
+    "oldUrls": [
+      {
+        "from": "/projects/1bedf472-5d0b-4af7-b7e6-634b6a702254/dashboard",
+        "to": "/?project=1bedf472-5d0b-4af7-b7e6-634b6a702254"
+      },
+      {
+        "from": "/projects/1bedf472-5d0b-4af7-b7e6-634b6a702254/activity?from=2026-10-30T00%3A00%3A00.000Z&to=2026-10-31T00%3A00%3A00.000Z&outcome=answered&poolId=b7719916-4102-4bdd-acb0-652f31d60b11",
+        "to": "/?from=2026-10-30T00%3A00%3A00.000Z&to=2026-10-31T00%3A00%3A00.000Z&outcome=answered&project=1bedf472-5d0b-4af7-b7e6-634b6a702254&pool=b7719916-4102-4bdd-acb0-652f31d60b11&screen=activity"
+      },
+      {
+        "from": "/projects/1bedf472-5d0b-4af7-b7e6-634b6a702254/runs/01a18e08-37e5-767b-ba0a-0146394f0c05?startedAt=2026-10-30T18%3A17%3A45.706699Z",
+        "to": "/?startedAt=2026-10-30T18%3A17%3A45.706699Z&project=1bedf472-5d0b-4af7-b7e6-634b6a702254&run=01a18e08-37e5-767b-ba0a-0146394f0c05&screen=activity"
+      },
+      {
+        "from": "/projects/1bedf472-5d0b-4af7-b7e6-634b6a702254/entitlements?poolId=b7719916-4102-4bdd-acb0-652f31d60b11&elementId=01a18e08-1878-756c-b787-280cbd3d22f5&decision=decided",
+        "to": "/?poolId=b7719916-4102-4bdd-acb0-652f31d60b11&elementId=01a18e08-1878-756c-b787-280cbd3d22f5&decision=decided&project=1bedf472-5d0b-4af7-b7e6-634b6a702254&tab=entitlements&screen=data&table=01a18e08-1878-7e78-b0a2-c055ffb0bacd"
+      },
+      {
+        "from": "/projects/1bedf472-5d0b-4af7-b7e6-634b6a702254/relationship-suggestions?poolId=b7719916-4102-4bdd-acb0-652f31d60b11&elementId=01a18e08-1878-756c-b787-280cbd3d22f5",
+        "to": "/?poolId=b7719916-4102-4bdd-acb0-652f31d60b11&elementId=01a18e08-1878-756c-b787-280cbd3d22f5&project=1bedf472-5d0b-4af7-b7e6-634b6a702254&tab=suggestions&screen=data&table=01a18e08-1878-7e78-b0a2-c055ffb0bacd"
+      }
+    ],
+    "fontOrigins": [
+      "https://host.docker.internal"
+    ]
+  },
+  "catalogueSummaryEvidence": "console-default-screenshots/1440-light-data.png"
+}

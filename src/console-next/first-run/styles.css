@@ -36,7 +36,7 @@
 [data-scan-summary] p{font-size:var(--text-1);color:var(--muted)}
 [data-connect-source] form>footer{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3);background:var(--surface-hover)}
 [data-connect-source] form>footer>span{display:flex;gap:var(--space-1);flex-shrink:0}
-[data-connect-source] button:not([data-close]):not([role=checkbox]){min-height:var(--touch);padding:var(--space-1) var(--space-2);border-radius:var(--radius-3)}
+[data-connect-source] button:not([data-close]):not([role=checkbox]):not([role=combobox]){min-height:var(--touch);padding:var(--space-1) var(--space-2);border-radius:var(--radius-3)}
 @media(max-width:700px){
  [data-welcome] aside ol{grid-template-columns:repeat(2,minmax(0,1fr))}
  [data-welcome] li{min-width:0}

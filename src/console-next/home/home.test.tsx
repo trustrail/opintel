@@ -1,3 +1,4 @@
+import {consoleLink} from '../../shared/console-destinations.mjs';
 import React from 'react';
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {render,screen,fireEvent,renderHook,act,waitFor} from '@testing-library/react';
@@ -29,7 +30,7 @@ describe('Home contract',()=>{
   expect(screen.queryByText('999')).toBeNull();expect(screen.queryByLabelText('Requests in the last 30 minutes')).toBeNull();
   expect(screen.queryByText('Evidence retention')).toBeNull();expect(screen.getByText('recoveries')).toBeTruthy();expect(screen.getByText('C2')).toBeTruthy();expect(screen.queryByText('Column stays hidden until treated')).toBeNull();
   fireEvent.click(screen.getByText('counterparty_name'));expect(screen.getByRole('button',{expanded:true})).toBeTruthy();expect(screen.getByText('Column stays hidden until treated')).toBeTruthy();
-  expect(screen.getByRole('link',{name:'Decide'}).getAttribute('href')).toBe(needs[1]!.targetRoute);
+  expect(screen.getByRole('link',{name:'Decide'}).getAttribute('href')).toBe(consoleLink(needs[1]!.targetRoute));
  });
  it('orders the same complete queue for owners and operators without filtering information',()=>{
   const owner=orderNeeds(needs,'all','admin'),operator=orderNeeds(needs,'all','operator');expect(owner[0]?.kind).toBe('undecided_entitlement');expect(operator[0]?.kind).toBe('check_required');expect(new Set(owner.map(i=>i.id))).toEqual(new Set(operator.map(i=>i.id)));
