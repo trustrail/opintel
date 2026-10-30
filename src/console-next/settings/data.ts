@@ -24,3 +24,12 @@ export function useSettings(project:string,admin:boolean){
 }
 export type SettingsData=ReturnType<typeof useSettings>;
 export function useSettingsCommand(project:string){const cache=useQueryClient();return useMutation({mutationFn:async(request:ApiRequest<unknown>)=>{const r=await createApiClient().request(request);if(!r.ok)throw r.error;return r.value;},onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:settingsKeys.all(project)}),cache.invalidateQueries({queryKey:homeKeys.health(project)}),cache.invalidateQueries({queryKey:homeKeys.facts(project)})]);}});}
+
+/** One ordering for displayed rows, section dots and the Settings health band. */
+export type Status='ok'|'unknown'|'warning'|'down';
+export const worstStatus=(statuses:readonly Status[]):Status=>(['down','warning','unknown','ok'] as const).find(s=>statuses.includes(s))??'unknown';
+export const localCustodyReason='development only, not real custody';
+export const custodyTitle=(provider:'local'|'xq'|null|undefined)=>provider?`Custody · ${provider==='xq'?'XQ':'local'}`:'Custody';
+export function custodyRowStatuses(provider:SettingsData['provider']['data']){
+ return {provider:provider?.provider==='local'||!provider?.provider?'warning':'ok',connection:provider?.available?'ok':'warning',apiKey:provider?.apiKeySet?'ok':'warning',dashboard:provider?.dashboardCheck?.status==='authenticated'?'ok':'warning',signingKey:provider?.signingKeyId?'ok':'warning'} satisfies Record<string,Status>;
+}

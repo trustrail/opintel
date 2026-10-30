@@ -1487,3 +1487,12 @@ Hide that unavailable panel pending a correct event-count contract. Retention is
 shown only when configured. Targeted console tests, lint, strict typecheck and
 five real-route light manual captures replace the full gate in this scope.
 Commit/push `feat/console-next-settings`; do not merge.
+
+Settings completion review: derive the custody title from its configured provider;
+local custody is warning with reason “development only, not real custody”.
+Aggregate each section's row statuses into its dot, including missing signing
+keys, backup/rehearsal problems and pending invitations. People badges use Active
+or Pending; roles remain values. Legend counts use the regular face and tabular
+numerals. Run console tests, lint, strict typecheck and a 1440 light custody
+capture, commit on `feat/console-next-settings`, then run the full gate once.
+Only a pass authorizes merge and push to main; stop on any gate failure.

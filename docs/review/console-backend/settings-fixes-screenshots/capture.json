@@ -1,0 +1,45 @@
+{
+  "screenshots": [
+    "1440-light-custody.png"
+  ],
+  "errors": [],
+  "responses": [
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/97e47138-58a2-49b0-9cb8-e60463609e8a/health",
+      "status": 200
+    }
+  ],
+  "fixture": "Isolated test database; real HTTP routes; local development custody; no browser response mocks."
+}
