@@ -1877,3 +1877,11 @@ filtering and shared stream invalidation/fallback/cleanup. Real-browser captures
 exercise actual MCP answers/refusals/custody, historical row decisions, live
 completion updating the band, focus visibility and phone bottom-sheet placement.
 No retired pixel baselines are modified.
+
+Activity completion checks cover exhaustive ErrorCode sentence mapping (enforced
+by Record<ErrorCode,string>), unknown-code safe fallback, recorded withheld/join
+column context, secondary code, no receipt subtitle, and compact custody count/
+lifecycle text. Browser assertions verify no outcome selector, Today control,
+Activity · today picker label, recorded refusal column chip and exact 88 px/
+two-row phone geometry. Counts remain recorded release events, not decrypted
+values; no receipt or release script is changed.

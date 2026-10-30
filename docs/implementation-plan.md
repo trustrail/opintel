@@ -1461,3 +1461,14 @@ No person/device/verification claims. Validate lint, strict typecheck, console
 and targeted backend/contracts, plus four light review captures (1440 answered/
 refused and 390 list/sheet). Commit/push `feat/console-next-activity`, no full gate,
 merge or deployment in this scope.
+
+Activity completion review: map all canonical receipt refusal codes to one plain
+sentence, with recorded context chips, secondary code and safe-message fallback
+for unknown historical codes. Remove the outcome selector and receipt subtitle;
+keep band/filter-chip interactions and a Today time control. Custody uses one
+compact release-event-count/lifecycle chip, retaining the original count unit.
+Phones use fixed 88 px two-line cards. Activity picker says Activity · today;
+Right now says names are self-declared. Validate lint, strict typecheck, console
+tests and desktop-refused/phone-list light captures, commit on
+`feat/console-next-activity`, then run the full gate once. Only a pass authorizes
+merge and push to main; stop on any gate failure.
