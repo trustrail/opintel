@@ -2,7 +2,7 @@ import {rowScopeReceipt} from '../../../shared/row-scope-contract.js';
 import {z} from 'zod';
 import {withTenant,withPlatform} from '../../../platform/db/scope.js';
 import {ok,err,DomainError,type RunId} from '../../../shared/kernel/index.js';
-import {ActivityEntry,ActivityMetadata,ActivitySummary,EvidenceDetail,type ActivityFilters} from '../../../shared/api/activity.js';
+import {ActivityEntry,ActivityMetadata,ActivitySummary,EvidenceDetail,type ActivityFilters,type ActivitySummaryFilters} from '../../../shared/api/activity.js';
 import type {EvidenceContext,EvidencePosition,EvidenceReader} from '../application/read.js';
 export const time=(column:string)=>`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 export const columns=`r.id,r.project_id AS "projectId",r.pool_id AS "poolId",r.agent_id AS "agentId",r.key_prefix AS "keyPrefix",r.credential_id AS "credentialId",r.custody_alias AS "custodyAlias",r.mode,${time('r.started_at')} AS "startedAt",COALESCE(c.outcome->>'kind','incomplete') AS status,(c.outcome->>'rowCount')::bigint::float8 AS "rowCount",c.latency_ms AS "latencyMs",c.synthetic,r.request,'raw' AS "argumentVisibility",r.versions,r.record_kind AS "recordKind",${time('r.rolled_up_at')} AS "rolledUpAt",r.treatment_counts AS "treatmentCounts",r.source_treatment_counts AS "sourceTreatmentCounts",r.capture_percent::float8 AS "capturePercent",r.capture_selected AS "captureSelected",c.detail_captured AS "detailCaptured",r.redactions`;
@@ -43,7 +43,7 @@ export class PostgresEvidenceReader implements EvidenceReader {
   params.push(limit);const rows=await withTenant(ctx,tx=>tx.query<Record<string,unknown>>(`SELECT ${columns},${metadataColumns} ${joined} WHERE ${where.join(' AND ')} ORDER BY r.started_at DESC,r.id DESC LIMIT $${params.length}`,params));
   return ok(rows.map(entry));
  }
- async summary(ctx:EvidenceContext,filters:ActivityFilters){
+ async summary(ctx:EvidenceContext,filters:ActivitySummaryFilters){
   // Tabs share pool/agent/search/range scope. Day totals include the selected tab.
   const {params,where}=activityScope(ctx.projectId,{...filters,outcome:undefined,answerTreated:undefined});
   // Measured completion-sort footprint: 4,703 KiB, plus 25% headroom.
@@ -59,7 +59,23 @@ export class PostgresEvidenceReader implements EvidenceReader {
   // Scope follows the requests selected by Activity; event days are always UTC.
   const custody=await withTenant(ctx,tx=>tx.query<{day:string;state:string;origin:string|null;count:number}>(`SELECT to_char(ev.occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS day,ev.kind AS state,CASE WHEN ev.kind='redeemed' THEN ev.jur_observed ELSE NULL END AS origin,count(DISTINCT g.receipt_id)::float8 AS count ${joined} JOIN release_grant g ON g.receipt_id=r.id AND g.project_id=r.project_id JOIN release_event ev ON ev.grant_id=g.id AND ev.project_id=g.project_id AND (ev.kind='granted' OR ev.kind=g.state) WHERE ${where.join(' AND ')} AND ev.kind IN ('granted','redeemed','expired','revoked') GROUP BY 1,2,3 ORDER BY 1 DESC,2,3`,params,{jit:'off'}));
   const scopingEvents=await withTenant(ctx,tx=>tx.query(`SELECT d.object_id AS "objectId",d.object_name AS "objectName",d.id AS "decisionId",d.pool_id AS "poolId",d.actor_id AS "actorId",d.decided_at::text AS at FROM row_entitlement d JOIN catalog_object o ON o.id=d.object_id WHERE d.first_scoping AND ($1::timestamptz IS NULL OR d.decided_at >= $1) AND ($2::timestamptz IS NULL OR d.decided_at < $2) AND ($3::uuid IS NULL OR d.pool_id=$3) ORDER BY d.decided_at DESC`,[filters.from??null,filters.to??null,filters.poolId??null]));
-  return ok(ActivitySummary.parse({counts,days:[...days.values()],custody,...(scopingEvents.length?{scopingEvents}:{})}));
+  const buckets=filters.bucket==='15m'?await withTenant(ctx,tx=>tx.query(`WITH deliveries AS (
+    SELECT r.started_at,COALESCE(c.outcome->>'kind','incomplete') AS status,${deliveredCounts} AS delivered,
+      (r.record_kind='rollup' OR (r.capture_selected AND c.detail_captured IS TRUE)) AS captured
+    ${joined} WHERE ${where.join(' AND ')}
+  ), classified AS (
+    SELECT started_at,CASE WHEN status IN ('answered','reduced') THEN
+      CASE WHEN NOT captured THEN 'unknown' WHEN COALESCE((delivered->>'custody')::int,0)>0 THEN 'custody'
+      WHEN COALESCE((delivered->>'tokenized')::int,0)+COALESCE((delivered->>'masked')::int,0)+COALESCE((delivered->>'aggregate_only')::int,0)>0 THEN 'treated'
+      WHEN COALESCE((delivered->>'clear')::int,0)>0 THEN 'clear' ELSE 'unknown' END
+      ELSE status END AS category FROM deliveries
+  ) SELECT ${time("date_bin('15 minutes',started_at,'2000-01-01T00:00:00Z'::timestamptz)")} AS at,
+    count(*) FILTER(WHERE category='clear')::float8 AS clear,count(*) FILTER(WHERE category='treated')::float8 AS treated,
+    count(*) FILTER(WHERE category='custody')::float8 AS custody,count(*) FILTER(WHERE category='refused')::float8 AS refused,
+    count(*) FILTER(WHERE category='unknown')::float8 AS unknown,count(*) FILTER(WHERE category='incomplete')::float8 AS incomplete,
+    count(*) FILTER(WHERE category='failed')::float8 AS failed,count(*) FILTER(WHERE category='clarify')::float8 AS clarify
+    FROM classified GROUP BY 1 ORDER BY 1`,params,{jit:'off'})):undefined;
+  return ok(ActivitySummary.parse({...buckets?{buckets}:{},counts,days:[...days.values()],custody,...(scopingEvents.length?{scopingEvents}:{})}));
  }
  async detail(ctx:EvidenceContext,id:RunId,at:string){
   return withTenant(ctx,async tx=>{

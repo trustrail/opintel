@@ -58,6 +58,7 @@ it('Q-025: full records atomically become visible rollups with a fresh retention
  expect(await withTenant(f.ctx,tx=>tx.query('SELECT id FROM query_run WHERE id=$1',[run!.id]))).toHaveLength(0);
  const rolled=await withTenant(f.ctx,tx=>tx.query('SELECT treatment_counts,minimum_retention_days FROM evidence_rollup WHERE id=$1',[run!.id]));expect(rolled).toEqual([{treatment_counts:{clear:1},minimum_retention_days:1}]);
  const detail=unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(run!.id),run!.at));expect(detail).toMatchObject({recordKind:'rollup',elements:[],stages:[],treatmentCounts:{clear:1}});
+ const bucket=unwrap(await new PostgresEvidenceReader().summary(f.ctx,{bucket:'15m',from:new Date(run!.at).toISOString(),to:new Date(Date.parse(run!.at)+900000).toISOString()})).buckets;expect(bucket).toHaveLength(1);expect(bucket![0]).toMatchObject({clear:1,treated:0,unknown:0});
  const outsider=await policyFixture(0);expect(await withTenant(outsider.ctx,tx=>tx.query('SELECT id FROM evidence_run_read WHERE id=$1',[run!.id]))).toEqual([]);
  const list=unwrap(await new PostgresEvidenceReader().list(f.ctx,{},null,50));expect(list.find(r=>r.id===run!.id)).toMatchObject({recordKind:'rollup',treatmentCounts:{clear:1},request:null});expect(list.find(r=>r.id===incomplete)).toMatchObject({status:'incomplete',recordKind:'full'});
 });
@@ -75,6 +76,7 @@ it('RED-015/016: retained delivery counts keep Answer treated searchable without
  });unwrap(await f.maintenance.project(f.ctx.projectId));
  const reader=new PostgresEvidenceReader(),items=unwrap(await reader.list(f.ctx,{answerTreated:'true'},null,50));expect(items).toHaveLength(1);expect(items[0]).toMatchObject({id:run!.id,recordKind:'rollup',metadata:{objects:null,delivered:{masked:1}}});
  expect(unwrap(await reader.summary(f.ctx,{})).counts.answerTreated).toBe(1);
+ const bucket=unwrap(await reader.summary(f.ctx,{bucket:'15m',from:new Date(run!.at).toISOString(),to:new Date(Date.parse(run!.at)+900000).toISOString()})).buckets;expect(bucket).toHaveLength(1);expect(bucket![0]).toMatchObject({clear:0,treated:1,unknown:0});
  expect(unwrap(await reader.list(f.ctx,{search:'old_mask'},null,50))).toHaveLength(0);
  expect(unwrap(await reader.detail(f.ctx,RunId(run!.id),run!.at))).toMatchObject({objects:[],elements:[],recordKind:'rollup'});
 });

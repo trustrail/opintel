@@ -1,0 +1,368 @@
+{
+  "capturedAt": "2026-10-30T02:52:52.705Z",
+  "fixture": "Actual Engine/MCP requests including custody and refusals, PostgreSQL evidence projections, immutable row decisions, real SpiceDB permissions and Redis project stream. Authentication only is supplied by fixture.",
+  "screenshots": [
+    "activity-answered-1440-light.png",
+    "activity-refused-1440-light.png",
+    "activity-list-390-light.png",
+    "activity-sheet-390-light.png"
+  ],
+  "keyboardFocusVisible": true,
+  "reducedMotion": "reduce",
+  "completionUpdatedBand": true,
+  "pageErrors": [],
+  "apiResponses": [
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/runs/01a18ab9-3405-7eef-9096-23c116835f80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/row-decisions/276279b2-35be-4153-addf-3b89cf080807",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/runs/01a18ab9-3322-7476-8281-7ec9c060fb9c",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/row-decisions/276279b2-35be-4153-addf-3b89cf080807",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/runs/01a18ab9-3405-7eef-9096-23c116835f80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/row-decisions/276279b2-35be-4153-addf-3b89cf080807",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/72d81089-e56b-4568-aa68-76eb286ea80d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/e003cbd9-2a77-48bb-bb3b-d3f94c94ba80/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/6ed0295f-082d-4c60-83fe-175caf156d22/runs/summary",
+      "status": 200
+    }
+  ]
+}

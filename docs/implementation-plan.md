@@ -1444,3 +1444,31 @@ with their headers and status badges size to text. Validate lint, strict typeche
 console tests and two light manual captures (390 Entitlements, 1440 Sources with
 picker open), commit on `feat/console-next-data`, then run the full gate once.
 Only a pass authorizes merge and push to main; any failure stops the delivery.
+
+### 5.40 Parallel console Activity (30 October reviewed scope)
+
+After merged Data, build images 10–11 in `src/console-next/activity`, beside the
+current console. Reuse shared navigation/account, scope picker, report band,
+fixed lists, kind icons/chips, treatment marks and visx rings. Read historical
+Activity list/detail/summary contracts, preserving partition timestamps and
+capture/retention distinctions. Use the existing project stream and 15-second
+fallback. Add only the bounded `bucket=15m` summary option; no new route,
+permission, migration or evidence write behavior. Outcomes partition answered
+receipts by recorded delivery (custody before other treatments before clear),
+with uncaptured detail unclassified. Credential labels are explicitly current;
+row expressions resolve recorded immutable decision ids only where permitted.
+No person/device/verification claims. Validate lint, strict typecheck, console
+and targeted backend/contracts, plus four light review captures (1440 answered/
+refused and 390 list/sheet). Commit/push `feat/console-next-activity`, no full gate,
+merge or deployment in this scope.
+
+Activity completion review: map all canonical receipt refusal codes to one plain
+sentence, with recorded context chips, secondary code and safe-message fallback
+for unknown historical codes. Remove the outcome selector and receipt subtitle;
+keep band/filter-chip interactions and a Today time control. Custody uses one
+compact release-event-count/lifecycle chip, retaining the original count unit.
+Phones use fixed 88 px two-line cards. Activity picker says Activity · today;
+Right now says names are self-declared. Validate lint, strict typecheck, console
+tests and desktop-refused/phone-list light captures, commit on
+`feat/console-next-activity`, then run the full gate once. Only a pass authorizes
+merge and push to main; stop on any gate failure.

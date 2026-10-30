@@ -6228,3 +6228,16 @@ explicitly identified as partial. Treatment decisions are counted per actual
 pool member, rather than treating a source-level binding or catalogue global
 spectrum as a per-table decision. Writes use existing bulk and suggestion
 contracts with all required confirmation/declaration/version guards.
+
+### Parallel Activity: optional 15-minute summary
+
+`GET /api/v1/projects/:id/runs/summary` accepts `bucket=15m` with an explicit
+increasing from/to interval of at most 24 hours. Existing calls omit the option
+and keep their previous response. The additional tenant-scoped aggregate uses
+UTC date_bin boundaries and recorded delivered treatments, including retained
+rollup counts. For answered/reduced receipts, custody takes priority over other
+transforms, followed by clear. Uncaptured or unclassifiable answers remain
+unknown. Refused, incomplete, failed and clarify retain their recorded kinds.
+Buckets are sparse; the console fills known empty intervals only after a
+successful complete aggregate response. No source database or result values are
+read. Existing route permission, redaction and immutable evidence guards remain.
