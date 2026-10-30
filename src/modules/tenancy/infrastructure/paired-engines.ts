@@ -8,7 +8,7 @@ import {PairedEngineCandidate} from '../../../shared/api/tenancy-schemas.js';
 import type {InstallationEngines,PairedEngineCandidates} from '../application/paired-engines.js';
 const Peer=z.object({kind:z.literal('engine'),address:z.string(),pin:z.string(),certificate:z.string(),ca:z.string(),name:z.string().optional()});
 export class FileInstallationEngines implements InstallationEngines {
- constructor(private readonly file=process.env.APPLICATION_TLS_CONFIG?join(dirname(process.env.APPLICATION_TLS_CONFIG),'peer.json'):null){}
+ constructor(private readonly file=process.env.INSTALLATION_PAIRING_FILE??(process.env.APPLICATION_TLS_CONFIG?join(dirname(process.env.APPLICATION_TLS_CONFIG),'peer.json'):null)){}
  async read(){
   if(!this.file)return [];
   let text:string;try{text=await readFile(this.file,'utf8');}catch(e){if(e&&typeof e==='object'&&'code'in e&&e.code==='ENOENT')return [];throw e;}

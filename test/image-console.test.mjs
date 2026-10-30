@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,rm,mkdir,readFile} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {Readable} from 'node:stream';
 import {tmpdir} from 'node:os';
@@ -22,4 +22,15 @@ it('DEP-014: EACCES is a bounded request failure; later requests survive',async(
   expect(await (await fetch(url+'/sign-in')).text()).toContain('Console application');
   expect(log).toHaveBeenCalledWith({event:'console.static_read_failed',timestamp:expect.any(String)});expect(JSON.stringify(log.mock.calls)).not.toContain('sentinel');
  }finally{log.mockRestore();}
+});
+
+it('parallel console uses its own index/assets while the current console stays intact',async()=>{
+ const root=await fixture();await mkdir(join(root,'console-next/assets'),{recursive:true});await writeFile(join(root,'console-next/index.html'),'<html>Parallel console</html>');await writeFile(join(root,'console-next/assets/index-test.js'),'console-next-bundle');const url=await serve(createConsoleServer({root}));
+ for(const path of ['/console-next','/console-next/','/console-next/settings'])expect(await(await fetch(url+path)).text()).toContain('Parallel console');
+ expect(await(await fetch(url+'/console-next/assets/index-test.js')).text()).toBe('console-next-bundle');expect((await fetch(url+'/console-next/assets/missing.js')).status).toBe(404);expect(await(await fetch(url+'/sign-in')).text()).toContain('Console application');
+});
+it('console runtime contract permits only the parallel built index and hashed JS/CSS paths',async()=>{
+ const p=JSON.parse(await readFile('deploy/images/runtime-policy.json','utf8')).targets.console,allowed=name=>p.files.includes(name)||p.patterns.some(pattern=>new RegExp('^'+pattern+'$','u').test(name));
+ for(const name of ['work/dist/console-next/index.html','work/dist/console-next/assets/index-test.js','work/dist/console-next/assets/index-test.css'])expect(allowed(name)).toBe(true);
+ for(const name of ['work/dist/console-next/src/screen.tsx','work/dist/console-next/.env','work/dist/console-next/assets/index-test.js.map','work/dist/other/index.html'])expect(allowed(name)).toBe(false);
 });

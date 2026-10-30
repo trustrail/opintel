@@ -10,6 +10,8 @@ visx ring, kind chips, source dialog and pool/Settings/Data/Activity screens.
 - Company-admin-only GET `/api/v1/companies/:id/paired-engines` returns only names
   and opaque candidate ids from trusted installation pairing state. It does not
   expose addresses, certificates, pins, keys or engine source references.
+  The installer projects public peer identity into a dedicated read-only API
+  mount; it excludes readiness URLs, source credentials and private keys.
 - POST `/api/v1/projects` reads that same installation state. Within its creation
   transaction, one unused paired engine is registered unverified. Several are
   returned for explicit selection (`pairedEngineId`); none is selected silently.
@@ -66,6 +68,9 @@ estimates remain unknown; no source COUNT(*) is run.
 - Source testing/registration precedes the real scan summary. After registration,
   Reference and Name are read-only and Done closes the summary; there is no
   invented pre-registration scan or pre-scan table/row count.
+- Welcome retains the shared 48 px display token (24 px on phones), rather than
+  adding a separate prototype font size; the title uses tighter tracking. Phone
+  Welcome shows the six-step plan in two compact columns above the form.
 - Home keeps the shared Needs-you queue with actual required settings/decisions;
   unavailable exposure content is hidden. Phone uses a compact two-column tracker
   and the shared bottom rail; there are no phone reference images for 17–19.
@@ -80,5 +85,8 @@ No full gate or merge is part of this phase.
 
 ## Fresh archive acceptance
 
-Pending the completed candidate archive install. Results and five reviewed
+The initial archive attempt found a missing API mount for pairing state after
+owner sign-in/project creation. The installer now supplies a dedicated public
+metadata mount and has regression coverage; verification restarts from fresh
+archives. Pending the corrected candidate archive install. Results and five reviewed
 screenshots are added after the packaged owner-to-first-receipt run.

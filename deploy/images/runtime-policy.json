@@ -38,10 +38,12 @@
         "work/dist/opintel-logo.png",
         "work/dist/opintel-logo@2x.png",
         "work/dist/opintel-logo@3x.png",
-        "work/dist/opintel-favicon.png"
+        "work/dist/opintel-favicon.png",
+        "work/dist/console-next/index.html"
       ],
       "patterns": [
-        "work/dist/assets/[A-Za-z0-9_-]+\\.(?:js|css)"
+        "work/dist/assets/[A-Za-z0-9_-]+\\.(?:js|css)",
+        "work/dist/console-next/assets/[A-Za-z0-9_-]+\\.(?:js|css)"
       ]
     },
     "egress": {
