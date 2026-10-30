@@ -5,7 +5,7 @@ import {beforeEach,afterEach,it,expect} from 'vitest';
 import {createHttpServer} from '../src/platform/http/index.js';
 import {evidenceRoutes} from '../src/modules/evidence/api/routes.js';
 import {EvidenceQuery,PostgresEvidenceReader,DuckDBEvidenceText} from '../src/modules/evidence/index.js';
-import {ActivityPage,ActivitySummary,EvidenceDetail} from '../src/shared/api/activity.js';
+import {ActivityPage,ActivitySummary,EvidenceDetail,activityOpenApiDocument} from '../src/shared/api/activity.js';
 import {withTenant,withPlatform} from '../src/platform/db/scope.js';
 import {Timestamp} from '../src/shared/kernel/index.js';
 import type {AuthorizationPort,AuthorizationRevision} from '../src/modules/authz/index.js';
@@ -133,4 +133,23 @@ it('X-06: one summary returns query/prompt counts in the same UTC/filter scope, 
  expect((await read('?from=2026-10-06T00:00:00Z&to=2026-10-07T00:00:00Z')).days).toHaveLength(1);
  expect((await read('?poolId='+randomUUID())).days).toEqual([]);
  view=false;expect((await fetch(url)).status).toBe(404);
+});
+
+it('ACT-15M: bucket option groups UTC boundaries, partitions outcomes and preserves uncaptured evidence',async()=>{
+ const cases=[['00:14:59','clear',true],['00:15:00','tokenized',true],['00:15:01','custody',true],['00:15:02','refused',true],['00:15:03','clear',false]] as const;
+ for(const [clock,kind,captured] of cases){const h=await header('SELECT field_1',`2026-10-06T${clock}.000Z`);await withTenant(f.ctx,async tx=>{
+  if(kind!=='refused'&&captured)await tx.query("INSERT INTO run_element(run_id,started_at,exposed_name,state,treatment) VALUES($1,$2,'recorded_column','released',$3)",[h.id,h.startedAt,kind]);
+  await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,detail_captured,completed_at) VALUES($1,$2,$3,$4,$2)',[h.id,h.startedAt,kind==='refused'?{kind:'refused',code:'sql_not_permitted',element:null,stage:'validate'}:{kind:'answered',rowCount:0,truncated:false},captured]);
+ });}
+ const path=`${base}/api/v1/projects/${f.ctx.projectId}/runs/summary`,range='bucket=15m&from=2026-10-06T00:00:00Z&to=2026-10-07T00:00:00Z';
+ const response=await fetch(path+'?'+range);expect(response.status).toBe(200);const summary=ActivitySummary.parse(await response.json());expect(summary.buckets).toEqual([
+  {at:'2026-10-06T00:00:00.000000Z',clear:1,treated:0,custody:0,refused:0,unknown:0,incomplete:0,failed:0,clarify:0},
+  {at:'2026-10-06T00:15:00.000000Z',clear:0,treated:1,custody:1,refused:1,unknown:1,incomplete:0,failed:0,clarify:0},
+ ]);expect(summary.counts.all).toBe(5);
+ expect(ActivitySummary.parse(await(await fetch(path)).json()).buckets).toBeUndefined();
+ expect(activityOpenApiDocument().paths['/projects/{id}/runs/summary'].get.parameters).toContainEqual({name:'bucket',in:'query',schema:expect.objectContaining({const:'15m',type:'string'})});
+ expect((await fetch(path+'?bucket=15m&from=2026-10-05T00:00:00Z&to=2026-10-07T00:00:00Z')).status).toBe(400);
+ expect((await fetch(path+'?bucket=15m')).status).toBe(400);expect((await fetch(path+'?bucket=1m')).status).toBe(400);
+ expect(ActivitySummary.parse(await(await fetch(path+'?'+range+'&poolId='+randomUUID())).json()).buckets).toEqual([]);
+ view=false;expect((await fetch(path+'?'+range)).status).toBe(404);
 });

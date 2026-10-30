@@ -75,3 +75,14 @@ six screenshot links. Manual capture config is
 `test/review/console-next-data.config.ts` (requires the browser server above).
 
 Data completion fixes and the compact phone band are reviewed in `docs/review/console-backend/data-fixes.md`.
+
+Activity lives in `activity/`, selected by `?project=PROJECT_ID&screen=activity`
+(with optional `pool` and `outcome=refused`). It reads every page for today's UTC
+scope, displays 50 fixed rows at a time with an exact remaining disclosure, and
+fetches a selected receipt with its original full-precision startedAt. It reuses
+the project stream refresh/fallback and shared account/scope/ring/mark/chip
+components. The optional bounded 15-minute summary supplies the Today chart.
+Receipts display current credential names as current, and retrieve immutable
+recorded row decision ids only for authorized roles. Missing detail never becomes
+zero. Four manual capture links and every design difference are documented in
+`docs/review/console-backend/activity.md`. No full gate or merge for this phase.

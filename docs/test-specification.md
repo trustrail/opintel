@@ -1865,3 +1865,15 @@ check phone band height and hidden legends, retained phone ring filtering, regul
 font for estimates in list/band/Sources, Sources numeric/header alignment, text-size
 status badge positioning, phone account reachability and an actual light/dark
 switch. Two review screenshots are captured, without historical baseline changes.
+
+Parallel Activity (5.40): ACT-15M extends Activity integration coverage with UTC
+15-minute boundaries, disjoint clear/treated/custody/refused classification,
+uncaptured answers remaining unknown, zero returned rows, bounded-range/option
+validation, OpenAPI parameter coverage, pool scoping and unchanged view denial.
+Console Activity coverage verifies terminal cursor reads, treatment marks per
+recorded delivery, null vs zero, receipt current-label disclosure, recorded column
+names, omitted-column exclusion, safe refusal projections, missing-detail states,
+filtering and shared stream invalidation/fallback/cleanup. Real-browser captures
+exercise actual MCP answers/refusals/custody, historical row decisions, live
+completion updating the band, focus visibility and phone bottom-sheet placement.
+No retired pixel baselines are modified.
