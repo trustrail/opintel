@@ -1496,3 +1496,42 @@ or Pending; roles remain values. Legend counts use the regular face and tabular
 numerals. Run console tests, lint, strict typecheck and a 1440 light custody
 capture, commit on `feat/console-next-settings`, then run the full gate once.
 Only a pass authorizes merge and push to main; stop on any gate failure.
+
+### 5.42 Console-next first run (30 October reviewed scope)
+
+Build images 17–19 beside the current console. Welcome is limited to a signed-in
+company administrator with no project; other users without a project see only
+an administrator instruction. Use trusted installation pairing metadata, never
+browser-supplied addresses or certificates. New-project creation attaches the
+sole unregistered paired engine atomically, or accepts an explicit choice among
+several. Existing projects retain explicit engine registration. The candidate
+read is company-admin-only and returns names and opaque candidate ids.
+
+An approved scope extension adds only `project.first_receipt_at`: backfill from
+the earliest retained receipt (including rollups), then set once in the durable
+receipt-header transaction. A trigger prevents subsequent changes or clearing.
+Expose read-only on the existing project list. Home's six real-state steps end
+permanently when that timestamp is set, independently of evidence retention.
+The source reference is typed; test, assignment, policy acknowledgement and scan
+use existing services, with real scan counts/estimates and no reference feed or
+demo-data action. Source prerequisites include explicit engine verification and
+backed-up token-key preparation; required query limits remain explicit settings.
+
+Ship the parallel console at `/console-next/` in the existing console archive.
+Validate targeted migration/read/grant/permission/package and console contracts,
+lint and strict typecheck. Then install fresh candidate gateway/engine archives,
+sign in as the owner through normal email authentication and complete the six
+steps through console controls, except engine `./sources add` and the actual
+agent request. Record five light captures and each step's result. Commit and
+push `feat/console-next-first-run`; do not merge. No full gate in this scope.
+
+### 5.43 Console-next first-run fixes (30 October reviewed follow-up)
+
+Console only: shorten step 2 to Verify the engine, align three fixed tracker
+rows, group settings sharing an editor, fill the hidden-Exposure workbench,
+show the empty request strip, and remove phone overflow with visible actions.
+Match source-dialog and Welcome details from designs 17–19. Preserve truthful
+connectivity: the existing deferred test is not a successful reachability check.
+Targeted console tests, browser width assertions and six light review captures,
+lint and strict typecheck precede one full completed-candidate gate. A pass
+allows merging `feat/console-next-first-run` to main and pushing main.

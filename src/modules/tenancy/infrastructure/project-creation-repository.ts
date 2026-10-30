@@ -1,3 +1,7 @@
+import {z} from 'zod';
+import {PairedEngineCandidate} from '../../../shared/api/tenancy-schemas.js';
+import type {InstallationEngines} from '../application/paired-engines.js';
+import {FileInstallationEngines} from './paired-engines.js';
 import {effectiveSetting} from '../../../shared/project-settings.js';
 import { withPlatform } from '../../../platform/db/scope.js';
 import { DomainError, ProjectId, Timestamp, err, ok, type UserId } from '../../../shared/kernel/index.js';
@@ -5,10 +9,11 @@ import type { CreateProjectInput, ProjectCreationRepository } from '../applicati
 import type { RelationshipOutbox } from '../application/relationship-outbox.js';
 
 export class PostgresProjectCreationRepository implements ProjectCreationRepository {
-  constructor(private readonly outbox: RelationshipOutbox) {}
+  constructor(private readonly outbox: RelationshipOutbox,private readonly installation:InstallationEngines=new FileInstallationEngines()) {}
 
   async create(input: CreateProjectInput, creator: UserId): ReturnType<ProjectCreationRepository['create']> {
-    return withPlatform(async (tx) => {
+    const candidates=await this.installation.read();
+    try{return await withPlatform(async (tx) => {
       const companies = await tx.query<{ id: string }>('SELECT id FROM company WHERE id = $1', [input.companyId]);
       if (companies.length === 0) return err(new DomainError('not_found', 'The company does not exist.'));
       const industries = await tx.query<{ name: string; inherited_term_count: number }>(
@@ -48,6 +53,9 @@ export class PostgresProjectCreationRepository implements ProjectCreationReposit
          VALUES ($1, $2, 'admin', $2)`,
         [project.id, creator],
       );
+      let pairing:{registered:{id:string;name:string}|null;candidates:Array<{id:string;name:string}>}={registered:null,candidates:[]};
+      if(candidates.length||input.pairedEngineId){const [paired]=await tx.query<{value:unknown}>('SELECT first_run_paired_engines($1,$2,$3,$4::jsonb,$5) AS value',[input.companyId,creator,project.id,JSON.stringify(candidates),input.pairedEngineId??null]);
+      pairing=z.object({registered:z.object({id:z.uuid(),name:z.string()}).nullable(),candidates:z.array(PairedEngineCandidate)}).parse(paired?.value);}
       const companyRelationshipId = await this.outbox.enqueue(tx, {
         operation: 'touch', resource: { type: 'project', id: project.id },
         relation: 'company', subject: { type: 'company', id: input.companyId },
@@ -56,7 +64,7 @@ export class PostgresProjectCreationRepository implements ProjectCreationReposit
         operation: 'touch', resource: { type: 'project', id: project.id },
         relation: 'admin', subject: { type: 'user', id: creator },
       });
-      return ok({ project, outboxIds: [companyRelationshipId, adminRelationshipId] as const });
-    });
+      return ok({ project:{...project,registeredEngine:pairing.registered,pairedEngines:pairing.candidates}, outboxIds: [companyRelationshipId, adminRelationshipId] as const });
+    });}catch(error){if(error&&typeof error==='object'&&'code'in error&&error.code==='22023')return err(new DomainError('conflict','The paired engine is no longer available. Refresh and choose again.'));throw error;}
   }
 }

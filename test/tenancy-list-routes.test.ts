@@ -104,7 +104,7 @@ databaseDescribe('tenancy lists with Postgres', () => {
       [inherited, 'admin'], [operator, 'operator'], [viewer, 'viewer'], [overlapping, 'admin'],
     ].sort());
     expect(page.items.find((item) => item.id === inherited)).toEqual({
-      id: inherited, name: `Project ${inherited}`, region: 'us-east-1', role: 'admin',
+      firstReceiptAt:null,id: inherited, name: `Project ${inherited}`, region: 'us-east-1', role: 'admin',
       company: { id: companyId, name: `Company ${companyId}` }, industry: { id: industryId, name: industryName },
     });
     expect(page.nextCursor).toBeNull();

@@ -8,7 +8,7 @@ import {ProjectHealth} from '../../shared/api/project-health.js';
 import {ActivityEntry,EvidenceDetail} from '../../shared/api/activity.js';
 import {DashboardStats} from '../../shared/api/dashboard.js';
 import {homeKeys,minuteStrip,orderNeeds,readHome,readCustodyReceipts,useHomeStream,useHome,type Project,type HomeData,type StreamConnection} from './data.js';
-import {needsAreas,poolBadge} from './needs.js';
+import {groupSettingNeeds,needsAreas,poolBadge} from './needs.js';
 import {NeedsYouItem,type NeedsYouItem as Item} from '../../shared/api/needs-you.js';
 import {useHomeState} from './state.js';
 import {createApiClient} from '../../shared/api/client.js';
@@ -59,7 +59,7 @@ it('subscribes to completion, deduplicates sequences, coalesces refresh, polls a
  const Provider=({children}:{children:React.ReactNode})=><QueryClientProvider client={cache}>{children}</QueryClientProvider>;
  const hook=renderHook(({p})=>{const live=useHomeStream(p,connect);const query=useHome(p,live);return {live,query};},{wrapper:Provider,initialProps:{p:id}});await act(async()=>{await vi.advanceTimersByTimeAsync(1);});const stream=streams[0]!;
  act(()=>stream.onopen?.(new Event('open')));await act(async()=>{await vi.advanceTimersByTimeAsync(50);});expect(hook.result.current.live).toBe(true);invalidate.mockClear();fetcher.mockClear();
- act(()=>{for(let i=1;i<=10;i++)stream.onmessage?.(new MessageEvent('message',{data:JSON.stringify({type:'run.completed',sequence:i,runId:id,poolId:id,outcome:'answered',at:now.toISOString()})}));});await act(async()=>{await vi.advanceTimersByTimeAsync(50);});expect(invalidate).toHaveBeenCalledTimes(1);expect(invalidate).toHaveBeenCalledWith({queryKey:homeKeys.scope(id)});
+ act(()=>{for(let i=1;i<=10;i++)stream.onmessage?.(new MessageEvent('message',{data:JSON.stringify({type:'run.completed',sequence:i,runId:id,poolId:id,outcome:'answered',at:now.toISOString()})}));});await act(async()=>{await vi.advanceTimersByTimeAsync(50);});expect(invalidate).toHaveBeenCalledTimes(2);expect(invalidate).toHaveBeenCalledWith({queryKey:homeKeys.scope(id)});expect(invalidate).toHaveBeenCalledWith({queryKey:homeKeys.projects()});
  act(()=>stream.onmessage?.(new MessageEvent('message',{data:JSON.stringify({type:'run.completed',sequence:1,runId:id,poolId:id,outcome:'answered',at:now.toISOString()})})));await act(async()=>{await vi.advanceTimersByTimeAsync(15000);});expect(fetcher).not.toHaveBeenCalled();
  act(()=>stream.onerror?.(new Event('error')));await act(async()=>{await vi.advanceTimersByTimeAsync(15000);});expect(hook.result.current.live).toBe(false);expect(fetcher).toHaveBeenCalled();
  hook.rerender({p:other});expect(stream.close).toHaveBeenCalledOnce();hook.unmount();expect(streams[1]?.close).toHaveBeenCalledOnce();cache.clear();
@@ -107,4 +107,11 @@ it('phone disclosure shows the exact remaining count and expands in place withou
 it('no phone disclosure appears for at most five items and a project switch resets it',()=>{
  const view=render(<HomeView project={project} projects={[project]} data={data} health={health} live onProject={()=>{}}/>,{wrapper});expect(view.container.querySelector('[data-needs-more]')).toBeNull();
  act(()=>{useHomeState.getState().toggleAllNeeds();});expect(useHomeState.getState().showAllNeeds).toBe(true);act(()=>{useHomeState.getState().setProject(other);});expect(useHomeState.getState().showAllNeeds).toBe(false);
+});
+
+it('groups only settings edited in the same form, preserving decisions and linking directly to its editor',()=>{
+ const settings=['timeoutSeconds','rowLimit','memoryMb','concurrency'].map(path=>({...needs[0]!,kind:'setting_required' as const,id:'setting:query.'+path,targetRoute:`/projects/${id}/settings-query`,count:1}));
+ const result=groupSettingNeeds([...settings,...needs],id);expect(result).toHaveLength(3);expect(result[0]).toMatchObject({title:'Set query limits · 4 values',count:4,targetRoute:`?project=${id}&screen=settings&section=query&edit=true`,roles:['admin']});expect(result.slice(1)).toEqual(needs);
+ const view=render(<HomeView project={project} projects={[project]} data={{...data,needs:settings,stats:{...stats,spectrum:{clear:0,tokenized:0,masked:0,aggregate_only:0,custody:0,withheld:0,undecided:0}},minutes:[{at:now.toISOString(),requests:0,refused:0,custody:0}]}} health={health} live onProject={()=>{}}/>,{wrapper});
+ expect(screen.getByText('Set query limits · 4 values')).toBeTruthy();expect(view.container.querySelectorAll('[data-needs-row]')).toHaveLength(1);expect(view.container.querySelector('[data-workbench]')?.getAttribute('data-exposure-visible')).toBe('false');expect(screen.getByText('No requests yet')).toBeTruthy();expect(screen.queryByRole('img',{name:/one-minute buckets/})).toBeNull();
 });

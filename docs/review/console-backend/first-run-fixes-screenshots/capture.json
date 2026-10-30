@@ -1,0 +1,13 @@
+{
+  "fixture": "Deterministic endpoint response fixtures through the actual console application. No backend code changes. Not an archive acceptance run.",
+  "screenshots": [
+    "1440-light-welcome.png",
+    "390-light-welcome.png",
+    "1440-light-home-step3.png",
+    "390-light-home-step3.png",
+    "1440-light-connect-before-registration.png",
+    "1440-light-connect-after-scan.png"
+  ],
+  "phoneOverflowAssertions": "Welcome and Home: document and all horizontal scroll containers; visible Needs-you action; six untruncated tracker titles at both widths.",
+  "errors": []
+}

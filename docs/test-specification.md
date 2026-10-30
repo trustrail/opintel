@@ -1896,3 +1896,32 @@ typed discovery sampling, optional retention, unavailable count suppression and
 phone section navigation. `test/review/console-next-settings.capture.ts` supplies
 five manual review captures against real routes in the isolated normal-test
 database; it is excluded from the normal gate and historical pixel tiers.
+
+### Console-next first run (5.42)
+
+- `first-run-paired-engines.test.ts`: exactly one candidate, multiple explicit
+  choices, unavailable selection rollback, concurrent allocation, no silent
+  attachment to an existing project, and company-admin permission declaration.
+- `first-run-paired-engine-migration.test.ts`: reversible narrow function grants;
+  no platform SELECT grant on the tenant engine table.
+- `project-first-receipt.test.ts`: earliest retained header/rollup backfill,
+  null for empty projects, first new receipt sets the marker, later receipts
+  preserve it, deletion of every retained receipt preserves it, edits refused.
+- `tenancy-list-routes.test.ts` includes the nullable marker in its response
+  contract; table grants, project routes, HTTP permissions, existing retention
+  and DEP-008 packaged isolation remain targeted checks.
+- `src/console-next/first-run/first-run.test.tsx`: administrator-only Welcome,
+  actual paired metadata, permanent marker authority and real-state step three,
+  typed source reference with no secret entry. Home stream invalidation remains
+  coalesced and also refreshes the project marker on run completion.
+- Manual archive acceptance uses `console-first-run-install.mjs` and
+  `console-first-run-browser.mjs`, not the dev server or API write fixtures.
+
+**First-run console follow-up:** `src/console-next/first-run/first-run.test.tsx`
+checks aligned-step contents and truthful/stale reachability badges;
+`src/console-next/home/home.test.tsx` checks shared-form grouping, unchanged
+other queue items, editor links and the empty strip. Explicitly run
+`npx vitest run --config test/review/console-next-first-run.config.ts` for the
+browser regression: Welcome/Home have no horizontal scrolling at 390, queue
+actions fit, and all six titles fit at 390/1440. Its six deterministic endpoint
+fixture captures are manual design evidence, outside retired pixel tiers.

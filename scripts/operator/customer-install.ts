@@ -29,6 +29,18 @@ function certificate(name:string,sans:string){
  chmodSync(join(state,name+'.pem'),0o600);chmodSync(join(state,name+'.key'),0o600);
 }
 function pairingService(uid:number,gid:number,platform:string):Service{return {image:readFileSync(join(root,'bootstrap.image'),'utf8').trim(),platform,pull_policy:'never',user:`${uid}:${gid}`,read_only:true,cap_drop:['ALL'],security_opt:['no-new-privileges:true'],stdin_open:false,tty:false,environment:{PACKAGE_HOST_DIRECTORY:host},volumes:[host+':/package'],ports:['0.0.0.0:3103:3103'],command:['node','scripts/operator/customer-install.js','pairing-server','engine'],restart:'unless-stopped',healthcheck:{test:['CMD','node','-e',"require('node:https').get('https://127.0.0.1:3103/health',{rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"],interval:'2s',timeout:'3s',retries:30}};}
+function writePairedMetadata(){
+ const directory=join(state,'paired-engines');mkdirSync(directory,{recursive:true,mode:0o700});chmodSync(directory,0o700);
+ if(!existsSync(join(state,'peer.json')))return;
+ const peer=z.object({version:z.literal(1),kind:z.literal('engine'),address:z.url(),certificate:z.string(),ca:z.string(),pin:z.string()}).parse(json(existsSync(join(state,'output/peer.json'))?join(state,'output/peer.json'):join(state,'peer.json')));
+ // This projection contains public trust metadata only, never readiness URLs,
+ // source credentials, the CA private key or the installation custody master.
+ writeFileSync(join(directory,'peer.json'),JSON.stringify(peer)+'\n',{mode:0o600});chmodSync(join(directory,'peer.json'),0o600);
+}
+function mountPairedMetadata(service:Service){
+ writePairedMetadata();service.environment={...service.environment,INSTALLATION_PAIRING_FILE:'/installation-pairing/peer.json'};
+ if(!service.volumes?.some(v=>v.endsWith(':/installation-pairing:ro')))service.volumes=[...service.volumes??[],host+'/state/paired-engines:/installation-pairing:ro'];
+}
 function prepareIdentityDirectory(){
  const directory=join(root,'identity-bundles'),legacy=join(root,'identities');
  if(existsSync(legacy)&&lstatSync(legacy).isSymbolicLink())throw new InstallError('Identity command or legacy directory must not be a link.');
@@ -174,6 +186,7 @@ function initialize(){
  for(const name of Object.keys(volumes))volumes[name]={name:installId+'-'+name};
  write('state/project-name',installId+'\n');
  write('state/volumes.list',Object.keys(volumes).map(n=>installId+'-'+n).join('\n')+'\n');
+ if(kind==='gateway')mountPairedMetadata(services.api!);
  write('state/compose.json',{name:installId,services,volumes});
  const pem=readFileSync(join(state,kind==='gateway'?'application.pem':'engine.pem'),'utf8');
  write('trust.json',{version:1,kind,address:kind==='gateway'?`https://${app!.hostname}:3102`:`https://${address}:3100`,certificate:pem,ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(pem).fingerprint256},0o600);
@@ -208,7 +221,7 @@ function pair(expectedPin=process.argv[4]){
   if(localPeer){url.hostname='host.docker.internal';const vars=parse(readFileSync(join(state,'package.env'))),heartbeat=new URL(z.string().parse(vars.GATEWAY_HEARTBEAT_URL));heartbeat.hostname='host.docker.internal';writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replace("GATEWAY_HEARTBEAT_URL='"+vars.GATEWAY_HEARTBEAT_URL+"'","GATEWAY_HEARTBEAT_URL='"+heartbeat.href+"'"));}
   appendFileSync(join(state,'operator.env'),`OPINTEL_SECRET_INSTALL_READINESS='${url.href}'\nOPINTEL_DEMO_DATABASE_URL='${url.href}'\n`);
  }
- write('state/peer.json',peer);if(kind==='gateway')write('state/output/peer.json',{...peer,address:localPeer?'https://host.docker.internal:'+endpoint.port:peer.address});console.info('Peer identity paired by certificate pin.');
+ write('state/peer.json',peer);if(kind==='gateway'){write('state/output/peer.json',{...peer,address:localPeer?'https://host.docker.internal:'+endpoint.port:peer.address});writePairedMetadata();}console.info('Peer identity paired by certificate pin.');
 }
 function fileHash(file:string){const hash=createHash('sha256'),fd=openSync(file,'r'),buffer=Buffer.alloc(1024*1024);try{for(;;){const size=readSync(fd,buffer);if(!size)break;hash.update(buffer.subarray(0,size));}return hash.digest('hex');}finally{closeSync(fd);}}
 function stateHashes(directory:string,prefix=''):Record<string,string>{
@@ -258,6 +271,7 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   if(kind==='gateway'&&tlsServices.includes(name))service.environment={...service.environment,APPLICATION_TLS_CONFIG:'/config/application-tls.json'};
  }
  if(kind==='gateway'){
+  mountPairedMetadata(config.services.api!);
   prepareIdentityDirectory();
   const packageEnvironment=join(state,'package.env');
   writeFileSync(packageEnvironment,readFileSync(packageEnvironment,'utf8').replace(/^GATEWAY_AGENT_CERTIFICATES_DIRECTORY=.*$/mu,"GATEWAY_AGENT_CERTIFICATES_DIRECTORY='"+(host+'/identity-bundles').replaceAll("'","\\'")+"'"));

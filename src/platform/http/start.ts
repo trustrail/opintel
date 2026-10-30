@@ -1,3 +1,5 @@
+import {pairedEngineRoutes} from '../../modules/tenancy/api/project-routes.js';
+import {PostgresPairedEngineCandidates} from '../../modules/tenancy/infrastructure/paired-engines.js';
 import {projectHealthRoutes} from '../../modules/tenancy/api/project-health-routes.js';
 import {PostgresProjectHealthReader} from '../../modules/tenancy/index.js';
 import {poolBudgetRoutes} from '../../modules/pools/api/budget-routes.js';
@@ -310,6 +312,7 @@ async function start(): Promise<void> {
     ...providerRoutes(createProviderResolutionRuntime()),
     ...currentUserRoutes(currentUsers),
     ...companyRoutes(companies),
+    ...pairedEngineRoutes(new PostgresPairedEngineCandidates()),
     ...projectRoutes(projects),
     ...projectUpdateRoutes(new UpdateProjectService(new PostgresProjectUpdateRepository())),
     ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), authorization)),

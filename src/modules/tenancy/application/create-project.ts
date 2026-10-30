@@ -3,6 +3,7 @@ import type { AuthorizationPort } from '../../authz/index.js';
 import type { RelationshipOutbox } from './relationship-outbox.js';
 
 export type CreateProjectInput = {
+  readonly pairedEngineId?:string;
   readonly companyId: CompanyId;
   readonly name: ProjectName;
   readonly industryId: IndustryId;
@@ -10,6 +11,8 @@ export type CreateProjectInput = {
 };
 
 export type CreatedProject = {
+  readonly registeredEngine?:{id:string;name:string}|null;
+  readonly pairedEngines?:Array<{id:string;name:string}>;
   readonly id: ProjectId;
   readonly companyId: CompanyId;
   readonly name: ProjectName;

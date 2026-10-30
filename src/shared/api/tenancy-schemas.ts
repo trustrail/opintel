@@ -19,7 +19,10 @@ export const CompanyView = z.object({
 
 
 
+export const PairedEngineCandidate=z.object({id:z.string().regex(/^[a-f0-9]{64}$/u),name:z.string()});
+export const PairedEngineCandidates=z.object({items:z.array(PairedEngineCandidate)});
 export const CreateProjectBody = z.object({
+  pairedEngineId:PairedEngineCandidate.shape.id.optional(),
   companyId: z.string().uuid(),
   name: z.string().min(1).max(80),
   industryId: z.string().uuid(),
@@ -27,6 +30,8 @@ export const CreateProjectBody = z.object({
 });
 
 export const ProjectView = z.object({
+  pairedEngines:z.array(PairedEngineCandidate).optional(),
+  registeredEngine:z.object({id:z.uuid(),name:z.string()}).nullable().optional(),
   id: z.string().uuid(), companyId: z.string().uuid(), name: z.string(),
   industry: z.object({ id: z.string().uuid(), name: z.string(), inheritedTermCount: z.number().int() }),
   region: RegionSchema,
@@ -48,6 +53,7 @@ export const MigrateIndustryPreview = z.object({
 
 
 export const ProjectListItem = z.object({
+  firstReceiptAt:z.iso.datetime({offset:true}).nullable().optional(),
   id: z.string().uuid(), name: z.string(),
   region: RegionSchema,
   company: z.object({ id: z.string().uuid(), name: z.string() }),

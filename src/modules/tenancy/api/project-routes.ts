@@ -1,6 +1,8 @@
+import {PairedEngineCandidates} from '../../../shared/api/tenancy-schemas.js';
+import type {PairedEngineCandidates as CandidatesPort} from '../application/paired-engines.js';
 import { z } from 'zod';
 import { defineRoute, errorEnvelopeSchema } from '../../../platform/http/index.js';
-import { CompanyId, IndustryId, ProjectId, ProjectName } from '../../../shared/kernel/index.js';
+import { CompanyId, IndustryId, ProjectId, ProjectName,UserId } from '../../../shared/kernel/index.js';
 import type { CreateProjectService } from '../application/create-project.js';
 import type { UpdateProjectService } from '../application/update-project.js';
 
@@ -34,7 +36,7 @@ export function projectRoutes(service: CreateProjectService) {
     handle: async (request) => {
       const result = await service.create({
         companyId: CompanyId(request.body.companyId), name: ProjectName(request.body.name),
-        industryId: IndustryId(request.body.industryId), region: request.body.region,
+        industryId: IndustryId(request.body.industryId), region: request.body.region,pairedEngineId:request.body.pairedEngineId,
       }, request.actor.id);
       if (!result.ok) {
         const status = result.error.code === 'validation_failed' ? 400
@@ -49,3 +51,5 @@ export function projectRoutes(service: CreateProjectService) {
     },
   })];
 }
+
+export function pairedEngineRoutes(candidates:CandidatesPort){return [defineRoute({method:'GET',path:'/api/v1/companies/:id/paired-engines',params:z.object({id:z.uuid()}),request:z.undefined(),response:PairedEngineCandidates,permission:{resource:'company',id:r=>r.params.id,permission:'administer'},handle:async r=>({body:{items:await candidates.list(CompanyId(r.params.id),UserId(r.actor.id))},headers:{'cache-control':'no-store'}})})];}
