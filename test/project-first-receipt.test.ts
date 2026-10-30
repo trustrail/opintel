@@ -19,5 +19,11 @@ it('backfills the earliest retained receipt; new receipts set once, survive dele
  const fresh=(await db.query("INSERT INTO project(company_id,name,industry_id,region) VALUES($1,'Fresh',$2,'us-east-1') RETURNING id,first_receipt_at",[company,industry])).rows[0];expect(fresh.first_receipt_at).toBeNull();
  const freshPool=(await db.query("INSERT INTO pool(project_id,name) VALUES($1,'Fresh pool') RETURNING id",[fresh.id])).rows[0].id;
  await db.query("INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,versions,started_at) VALUES(gen_random_uuid(),$1,$2,'claimed','test','query','{\"policy\":1,\"catalog\":1,\"vocabulary\":1,\"tokenKeyVersionSelected\":null}','2026-02-01T00:00:00Z')",[fresh.id,freshPool]);
- expect((await db.query('SELECT first_receipt_at FROM project WHERE id=$1',[fresh.id])).rows[0].first_receipt_at.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+ const freshMarker=async()=>(await db.query('SELECT first_receipt_at FROM project WHERE id=$1',[fresh.id])).rows[0].first_receipt_at.toISOString();
+ expect(await freshMarker()).toBe('2026-02-01T00:00:00.000Z');
+ await db.query("INSERT INTO query_run(id,project_id,pool_id,agent_id,key_prefix,mode,versions,started_at) VALUES(gen_random_uuid(),$1,$2,'claimed','test','query','{\"policy\":1,\"catalog\":1,\"vocabulary\":1,\"tokenKeyVersionSelected\":null}','2026-02-02T00:00:00Z')",[fresh.id,freshPool]);
+ expect(await freshMarker()).toBe('2026-02-01T00:00:00.000Z');
+ await db.query('DELETE FROM query_run WHERE project_id=$1',[fresh.id]);
+ expect((await db.query('SELECT count(*)::int AS n FROM evidence_run_read WHERE project_id=$1',[fresh.id])).rows[0].n).toBe(0);
+ expect(await freshMarker()).toBe('2026-02-01T00:00:00.000Z');
 });
