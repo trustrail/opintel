@@ -4,6 +4,7 @@ import { createApiClient } from './client.js';
 export const CatalogNode = z.object({
   kind: z.enum(['source', 'schema', 'object', 'element']),
   id: z.string(), label: z.string().nullable(), childCount: z.number().int().nullable(),
+  rowEstimate:z.number().finite().nonnegative().nullable().optional(),
   schemaName: z.string().optional(), qualifiedName:z.string().optional(),
   decisions:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided', 'custody']),count:z.number().int().nonnegative()})).optional(),
   undecidedCount:z.number().int().nonnegative().optional(),

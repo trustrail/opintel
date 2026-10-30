@@ -47,9 +47,13 @@ async function fixture(){
  return {...f,otherPool:f.pool,pool,bindings,authorization,reader,client,call,describe};
 }
 describe('5.6 agent describe',{timeout:30_000},()=>{
+ it('projects stored estimates, including zero, and preserves unknown as null',async()=>{
+  const f=await fixture();
+  for(const estimate of [12345,0,null]){await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_object SET row_estimate=$2 WHERE source_id=$1',[f.source,estimate]));expect((await f.describe()).objects[0]?.rowEstimate).toBe(estimate);}
+ });
  it('I-007/I-008: exposed names, all post-treatment types, withheld named only, and no undecided metadata in any content',async()=>{
   const f=await fixture(),result=await f.call();
-  const expected={objects:[{name:'warehouse.public.records',columns:[
+  const expected={objects:[{name:'warehouse.public.records',rowEstimate:null,columns:[
    {name:'field_1',type:'INTEGER',treatment:'clear'},
    {name:'field_2',type:'VARCHAR',treatment:'tokenized'},
    {name:'field_3',type:'VARCHAR',treatment:'masked'},
@@ -75,8 +79,8 @@ describe('5.6 agent describe',{timeout:30_000},()=>{
     }
    }
   });
-  expect(await f.describe({object:'warehouse.public.all_withheld'})).toEqual({objects:[{name:'warehouse.public.all_withheld',columns:[],withheld:['decided','never_decided']}]});
-  expect(await f.describe({object:'warehouse.public.mixed'})).toEqual({objects:[{name:'warehouse.public.mixed',columns:[],withheld:['decided']}]});
+  expect(await f.describe({object:'warehouse.public.all_withheld'})).toEqual({objects:[{name:'warehouse.public.all_withheld',rowEstimate:null,columns:[],withheld:['decided','never_decided']}]});
+  expect(await f.describe({object:'warehouse.public.mixed'})).toEqual({objects:[{name:'warehouse.public.mixed',rowEstimate:null,columns:[],withheld:['decided']}]});
   expect(await f.describe({object:'warehouse.public.all_undecided'})).toEqual({objects:[]});
   const output=await f.describe();expect(output.objects.map(o=>o.name)).toEqual(['warehouse.public.all_withheld','warehouse.public.mixed','warehouse.public.records']);
  });

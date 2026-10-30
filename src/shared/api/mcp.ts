@@ -5,7 +5,7 @@ import {releaseNonClaim,releaseBundle,releaseDescription,releaseRedeemInput,rele
 
 export const DescribeInput = z.strictObject({ object: z.string().optional() });
 export const DescribeOutput = z.strictObject({ custody:releaseDescription.optional(),objects: z.array(z.strictObject({
- name: z.string(), columns: z.array(z.strictObject({ name: z.string(), type: z.string(), treatment: z.enum(['clear','tokenized','masked','aggregate_only','custody']) })), withheld: z.array(z.string()),
+ name: z.string(), rowEstimate:z.number().finite().nonnegative().nullable(), columns: z.array(z.strictObject({ name: z.string(), type: z.string(), treatment: z.enum(['clear','tokenized','masked','aggregate_only','custody']) })), withheld: z.array(z.string()),
 })) });
 export const ExplainInput = z.strictObject({ sql: z.string() });
 export const ExplainOutput = z.discriminatedUnion('permitted', [

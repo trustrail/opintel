@@ -8,5 +8,5 @@ it('foundations: primary, secondary, state and action text maintain AA contrast 
  for(const theme of [light,dark])for(const [fg,bg] of [['ink','surface'],['muted','surface'],['ink','bg'],['muted','bg'],['warning','warning-bg'],['down','down-bg'],['ok','ok-bg'],['unknown','neutral'],['white','plum'],['plum','green'],['rail-ink','rail']])expect(contrast(theme[fg!]!,theme[bg!]!),`${fg}/${bg}`).toBeGreaterThanOrEqual(4.5);
 });
 it('foundations: one token file owns colours; no screen creates a CSS class or hard-coded colour',()=>{
- for(const file of ['styles.css','home/screen.tsx','components/ring.tsx','components/strip.tsx']){const body=readFileSync('src/console-next/'+file,'utf8');expect(body).not.toMatch(/#[0-9a-f]{3,8}\b/i);expect(body).not.toContain('className=');expect(body).not.toMatch(/\[data-state\]\s*\{/);}
+ for(const file of ['styles.css','home/screen.tsx','components/ring.tsx','components/strip.tsx','components/scope.tsx','data/styles.css','data/screen.tsx','data/band.tsx','data/connect.tsx','data/suggestions.tsx','data/treatment.tsx']){const body=readFileSync('src/console-next/'+file,'utf8');expect(body).not.toMatch(/#[0-9a-f]{3,8}\b/i);expect(body).not.toContain('className=');expect(body).not.toMatch(/\[data-state\]\s*\{/);}
 });

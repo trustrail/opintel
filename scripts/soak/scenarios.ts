@@ -3,7 +3,7 @@ import type {Specification,Scenario,ObjectExpectation} from './specification.js'
 import type {DescribeOutput} from '../../src/shared/api/mcp.js';
 type ObjectInfo=z.infer<typeof DescribeOutput>['objects'][number];
 export function scenarioPlan(s:Scenario,spec:Specification){
- const objects:ObjectInfo[]=s.objects.map(name=>{const o=spec.objects.find(o=>o.name===name&&o.poolIndex===s.poolIndex)!;return {name,columns:o.columns.filter(c=>c.treatment!=='undecided'&&c.treatment!=='withheld').map(c=>({name:c.name,type:c.type,treatment:c.treatment as ObjectInfo['columns'][number]['treatment']})),withheld:o.columns.filter(c=>c.treatment==='withheld').map(c=>c.name)};});
+ const objects:ObjectInfo[]=s.objects.map(name=>{const o=spec.objects.find(o=>o.name===name&&o.poolIndex===s.poolIndex)!;return {name,rowEstimate:null,columns:o.columns.filter(c=>c.treatment!=='undecided'&&c.treatment!=='withheld').map(c=>({name:c.name,type:c.type,treatment:c.treatment as ObjectInfo['columns'][number]['treatment']})),withheld:o.columns.filter(c=>c.treatment==='withheld').map(c=>c.name)};});
  const selected=s.columns.flatMap(c=>{const object=objects.find(o=>o.name===c.object)!;const column=object.columns.find(v=>v.name===c.name);return column?[{object,column,alias:c.alias,side:c.side}]:[];});
  const aggregate=s.kind==='declared aggregate'?objects[0]!.columns.find(c=>c.treatment==='aggregate_only'):undefined;
  return {sql:s.sql,kind:s.kind,objects,selected,...aggregate?{aggregate}:{},...s.kind==='declared join'?{join:'policy_id'}:{}};

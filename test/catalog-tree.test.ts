@@ -47,6 +47,10 @@ describe('catalogue tree scoped to real Postgres', () => {
   });
   afterEach(async () => { if(server)await new Promise<void>(resolve=>server.close(()=>resolve())); });
 
+  it('returns stored estimates on both object-list paths without turning unknown into zero',async()=>{
+    for(const estimate of [12345,0,null]){await withTenant(ctx,tx=>tx.query('UPDATE catalog_object SET row_estimate=$2 WHERE id=$1',[objectId,estimate]));for(const parent of [`objects:${sourceId}`,`${sourceId}:public`])expect((await page(`?parent=${encodeURIComponent(parent)}`)).nodes[0]?.rowEstimate).toBe(estimate);}
+    expect((await page()).nodes[0]).not.toHaveProperty('rowEstimate');
+  });
   it('R-001: fetches exactly one level, uses stored exposed names and types, and scopes every branch', async () => {
     expect((await page()).nodes).toEqual([{kind:'source',id:sourceId,label:'original_warehouse',childCount:1,exposedType:null,state:null}]);
     const schemas = await page(`?parent=${sourceId}`); expect(schemas.nodes).toEqual([{kind:'schema',id:`${sourceId}:public`,label:'public',childCount:1,exposedType:null,state:null}]);

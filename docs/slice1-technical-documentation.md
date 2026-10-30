@@ -6210,3 +6210,21 @@ No enforcement or entitlement behavior changes with these presentation states.
 The custody band drills into receipts with a recorded granted event only. It
 reads existing Activity/receipt contracts, with bounded concurrent detail reads;
 no decrypted-value count or new custody evidence is inferred.
+
+### Parallel Data console: stored row estimates
+
+Catalogue object nodes expose `rowEstimate: number | null` on both flat
+`objects:SOURCE` and schema object paths. Other node kinds omit this property.
+`opintel.describe` objects always include the same nullable field. Both read
+`catalog_object.row_estimate` inside their existing tenant scope, casting the
+stored bigint to a JSON number. Neither path contacts the source or counts rows.
+Existing source/pool eligibility and withheld/undecided metadata rules remain
+unchanged. The soak expectation adapter uses null when its specification has no
+estimate; scenario matching does not infer a count.
+
+The parallel Data screen sums estimates only when every selected table has an
+estimate. Unknown totals remain labelled unknown, with known chart slices
+explicitly identified as partial. Treatment decisions are counted per actual
+pool member, rather than treating a source-level binding or catalogue global
+spectrum as a per-table decision. Writes use existing bulk and suggestion
+contracts with all required confirmation/declaration/version guards.

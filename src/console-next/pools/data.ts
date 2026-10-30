@@ -46,7 +46,7 @@ export function useRefreshPools(project:string,kind:'create'|'rows'|'credential'
  };
 }
 export function sumPools(pools:PoolFacts[]){const spectrum=emptySpectrum();for(const p of pools)for(const kind of treatmentOrder)spectrum[kind]+=p.spectrum[kind];return {spectrum,columns:treatmentOrder.reduce((n,k)=>n+spectrum[k],0),connected:pools.reduce((n,p)=>n+p.connected,0),tables:pools.reduce((n,p)=>n+p.tables.length,0)};}
-export function dataLink(project:string,pool:string,object?:string,element?:string,treatment?:Treatment){return `/projects/${project}/entitlements?${new URLSearchParams({poolId:pool,decision:'all',...object&&!element?{layout:'table'}:{},...element?{elementId:element}:{},...treatment?{treatment}:{}})}`;}
+export function dataLink(project:string,pool:string,object?:string,element?:string,treatment?:Treatment){return `?project=${project}&screen=data&${new URLSearchParams({poolId:pool,decision:'all',...object?{table:object}:{},...element?{elementId:element}:{},...treatment?{treatment}:{}})}`;}
 
 export function useTableColumns(project:string,ids:readonly string[]){return useQuery({queryKey:poolsKeys.columns(project,ids),enabled:ids.length>0,retry:false,queryFn:async({signal})=>{const client=createApiClient(undefined,{signal}),result=[];for(const tableId of ids)result.push({tableId,columns:await readCatalogLevel(project,tableId,client)});return result;}});}
 
