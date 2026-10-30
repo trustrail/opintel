@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 describe('application shell contracts', () => {
   it('ports all five navigation groups and their console items', () => {
-    expect(navGroups.map((group) => group.label)).toEqual(['Watch', 'Work', 'Understand', 'Govern', 'Manage']);
+    expect(navGroups.map((group) => group.label)).toEqual(['Watch', 'Understand', 'Govern', 'Manage']);
     expect(navGroups.flatMap((group) => group.items).map((item) => item.label)).toContain('Dashboard');
     expect(navGroups.flatMap((group) => group.items).map((item) => item.label)).toContain('Settings');
     expect(navGroups.flatMap((group) => group.items).every((item) => item.count === undefined)).toBe(true);

@@ -1,3 +1,4 @@
+import {consoleLink} from '../shared/console-destinations.mjs';
 import {Welcome} from './first-run/welcome.js';
 import {Settings} from './settings/screen.js';
 import './settings/styles.css';
@@ -20,11 +21,14 @@ import './first-run/styles.css';
 const cache=new QueryClient({defaultOptions:{queries:{refetchOnWindowFocus:true,retry:false}}});
 function App(){
  const projects=useProjects(),selected=useHomeState(s=>s.project),setSelected=useHomeState(s=>s.setProject),theme=useHomeState(s=>s.theme);
+ useEffect(()=>{if(projects.isError&&'code' in projects.error&&projects.error.code==='unauthenticated')window.location.replace('/legacy/sign-in?'+new URLSearchParams({next:window.location.pathname+window.location.search}));},[projects.isError,projects.error]);
  useEffect(()=>{document.documentElement.setAttribute('data-console-theme',theme);},[theme]);
  const choose=(id:string)=>{cache.removeQueries({queryKey:homeKeys.allProjects()});setSelected(id);const url=new URL(window.location.href);url.searchParams.set('project',id);window.history.replaceState(null,'',url);};
  if(projects.isPending)return <ListState state="loading"/>;
- if(projects.isError)return <div data-project-empty><ListState state="error" error={projects.error} retry={()=>{void projects.refetch();}}/><a href="/sign-in">Sign in to the current console</a></div>;
- const project=projects.data.find(p=>p.id===selected)??projects.data[0];
+ if(projects.isError)return <div data-project-empty><ListState state="error" error={projects.error} retry={()=>{void projects.refetch();}}/><a href={consoleLink("/sign-in")}>Sign in</a></div>;
+ const requested=projects.data.find(p=>p.id===selected);
+ if(selected&&!requested&&projects.data.length)return <div data-project-empty><ListState state="error" error={{message:'This project was not found or is not available to your account.'}}/><a href="/">Choose an available project</a></div>;
+ const project=requested??projects.data[0];
  if(!project)return <Welcome/>;
  if(new URLSearchParams(window.location.search).get('screen')==='settings')return <Settings key={project.id} project={project}/>;
  if(new URLSearchParams(window.location.search).get('screen')==='activity')return <Activity key={project.id} project={project}/>;

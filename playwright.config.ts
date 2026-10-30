@@ -28,7 +28,7 @@ export default defineConfig({
   },
   // Compile once before any scenario deadline; never reuse an unrelated dev server.
   webServer: {
-    command: 'npm run build -- --mode browser-test --outDir tmp/browser-build && npm exec vite preview -- --outDir tmp/browser-build --host 127.0.0.1 --port 4173 --strictPort',
+    command: 'npm run build -- --mode browser-test --outDir tmp/browser-build && node scripts/console-preview.mjs tmp/browser-build',
     url: 'http://127.0.0.1:4173',
     // Build/startup budget, outside every scenario deadline.
     timeout: 120_000,

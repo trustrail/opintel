@@ -15,12 +15,12 @@ export function screenPaths():string[]{
  paths.delete('/'); // redirect to /projects, not a screen
  paths.delete('/projects/$projectId/$screen');
  for(const group of navGroups)for(const item of group.items){
-  paths.add(item.path);
+  if(item.path==='/projects'||item.path==='/settings')paths.add(item.path);
   if(item.path!=='/projects')paths.add(`/projects/$projectId${item.path}`);
   for(const child of item.children??[])paths.add(`/projects/$projectId/${child.screen}`);
  }
  return [...paths].sort();
 }
 export function matchesScreen(pattern:string,path:string):boolean{
- const a=pattern.split('/'),b=path.split('/');return a.length===b.length&&a.every((part,index)=>part.startsWith('$')?Boolean(b[index]):part===b[index]);
+ const a=pattern.split('/'),b=path.replace(/^\/legacy(?=\/|$)/,'').split('/');return a.length===b.length&&a.every((part,index)=>part.startsWith('$')?Boolean(b[index]):part===b[index]);
 }

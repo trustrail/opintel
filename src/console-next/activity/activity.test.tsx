@@ -55,3 +55,9 @@ it('custody is one compact chip with correct singular and recorded lifecycle sta
  const r={...detail,releaseEvents:[event,{...event,kind:'revoked' as const,at:'2026-10-30T00:16:00Z'}]};expect(custodyChip(r)).toBe('2 releases · revoked');
  const view=render(<Dialog.Root open><ReceiptBody project={project} r={r} facts={facts}/></Dialog.Root>,{wrapper});expect(screen.getByText('2 releases · revoked').closest('[data-kind-chip]')).toBeTruthy();expect(view.container.querySelectorAll('[data-fixed-list=receipt] li').length).toBeGreaterThan(0);
 });
+
+it('historical Activity bounds and supported filters reach both reads without being replaced by today',async()=>{
+ const paths:string[]=[],from='2026-10-01T00:00:00.000Z',to='2026-10-02T00:00:00.000Z';
+ const client=createApiClient(async(path)=>{paths.push(path);const value=path.includes('/runs/summary')?{counts:{all:0,refused:0,incomplete:0,answerTreated:0},days:[],custody:[]}:path.includes('/suggestions')?{items:[],nextCursor:null,projectName:'Review'}:{items:[],nextCursor:null};return {ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify(value)};});
+ const facts=await readActivity(id,null,client,new Date('2026-10-30T00:00:00Z'),{from,to,mode:'query',search:'records',answerTreated:'true'});expect(facts.from).toBe(from);expect(facts.to).toBe(to);for(const path of paths.filter(p=>p.includes('/runs'))){const q=new URL(path,'https://console.test').searchParams;expect(q.get('from')).toBe(from);expect(q.get('to')).toBe(to);expect(q.get('mode')).toBe('query');expect(q.get('answerTreated')).toBe('true');}
+});

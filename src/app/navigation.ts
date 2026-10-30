@@ -21,21 +21,14 @@ export const navGroups: readonly NavGroup[] = [
     { label: 'Dashboard', path: '/dashboard', icon: 'nav-dashboard' },
     { label: 'Observations', path: '/observations', icon: 'nav-observations' },
     { label: 'Activity', path: '/activity', icon: 'nav-activity' },
-    { label: 'Releases', path: '/releases', icon: 'nav-releases' },
   ] },
-  { label: 'Work', items: [{ label: 'Workbench', path: '/workbench', icon: 'nav-workbench' }] },
   { label: 'Understand', items: [
     { label: 'Data sources', path: '/data-sources', icon: 'nav-data-sources', children: [{label: 'Explore schema', screen: 'catalog'}, {label:'Suggestions',screen:'relationship-suggestions'}] },
-    { label: 'Vocabulary', path: '/vocabulary', icon: 'nav-vocabulary' },
-    { label: 'Source of truth', path: '/source-of-truth', icon: 'nav-source-of-truth' },
-    { label: 'Relationships', path: '/relationships', icon: 'nav-relationships' },
-    { label: 'Knowledge', path: '/knowledge', icon: 'nav-knowledge' },
   ] },
   { label: 'Govern', items: [
     { label: 'Entitlements', path: '/entitlements', icon: 'nav-entitlements' },
     { label: 'Pools', path: '/pools', icon: 'nav-pools' },
     { label: 'Access', path: '/access', icon: 'nav-access', children: [{label: 'Token key', screen: 'token-key', adminOnly: true}] },
-    { label: 'Audit log', path: '/audit-log', icon: 'nav-audit-log', hidden: true },
   ] },
   { label: 'Manage', items: [
     { label: 'All projects', path: '/projects', icon: 'nav-all-projects' },

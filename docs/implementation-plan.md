@@ -1535,3 +1535,21 @@ connectivity: the existing deferred test is not a successful reachability check.
 Targeted console tests, browser width assertions and six light review captures,
 lint and strict typecheck precede one full completed-candidate gate. A pass
 allows merging `feat/console-next-first-run` to main and pushing main.
+
+### 5.44 Console-next as the packaged default (30 October reviewed scope)
+
+Serve console-next at `/`; retain frozen, real legacy workflows under `/legacy/`.
+Translate existing equivalent URLs, including Activity time/outcome/pool filters,
+receipt identity with `startedAt`, entitlement pool/element/decision scopes and
+suggestion scopes. Authentication completion enters Welcome or Home. Unported
+workflows remain reachable from console-next; remove only heading placeholders.
+Use a shared Radix Select, self-host Inter with its OFL licence, and expose every
+existing project-setting definition in the approved Settings sections. Frontend
+rules now point to console-next foundations and the approved 14 design rules.
+
+Validate targeted console, route/bundle contract and provisioning tests, lint and
+strict typecheck. Verify a fresh packaged gateway/engine installation from owner
+sign-in through its first receipt, all five root screens, five old URLs and the
+legacy Observations workflow. Capture the requested desktop light/dark and phone
+screens in Inter. Run the completed-candidate gate once. Commit and push a feature
+branch; do not merge. No new application backend behaviour is in scope.

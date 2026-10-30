@@ -10,10 +10,9 @@ import { IntrospectionListScreen, IntrospectionRunScreen } from './introspection
 import { CatalogScreen } from './catalog/screen.js';
 import { ObservationsScreen } from './filings/screens.js';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { Navigate, Outlet, useRouterState } from '@tanstack/react-router';
+import { Navigate, Outlet, useRouterState, notFound } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { RouteErrorBoundary } from './error-boundary.js';
-import { navGroups, type NavItem } from './navigation.js';
 import { AppShell } from './shell.js';
 import { AuthCallbackScreen, CheckEmailScreen, ConfirmDeviceScreen, isAuthPath, SignInScreen } from './auth-screens.js';
 import { SourcesScreen } from './sources/screen.js';
@@ -25,10 +24,6 @@ import { CreateCompanyScreen, CreateProjectScreen, ProjectChooser, ProjectDashbo
 
 // Component review routes belong in development and the optimized browser-test build only.
 const componentReviewEnabled=import.meta.env.DEV||import.meta.env.MODE==='browser-test';
-
-function RouteScreen({ title }: { title: string }): ReactNode {
-  return <RouteErrorBoundary><section className="screen on"><h1>{title}</h1></section></RouteErrorBoundary>;
-}
 
 function RootLayout(): ReactNode {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -59,7 +54,7 @@ const projectScreenRoute = createRoute({ getParentRoute: () => rootRoute, path: 
   if (screen === 'data-sources') return <RouteErrorBoundary><SourcesScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
   if (screen === 'observations') return <RouteErrorBoundary><ObservationsScreen key={projectId+JSON.stringify([search.observationKind,search.observationGroup,search.observationView])} projectId={projectId} filter={{kind:search.observationKind,group:search.observationGroup,view:search.observationView}} /></RouteErrorBoundary>;
   if (screen === 'access') return <RouteErrorBoundary><AccessScreen key={projectId} projectId={projectId} /></RouteErrorBoundary>;
-  return <RouteScreen title={navGroups.flatMap((group) => group.items).find((item) => item.path === `/${screen}`)?.label ?? 'Not found'} />;
+  throw notFound();
 } });
 const introspectionListRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/sources/$sourceId/introspections',component:()=>{const params=introspectionListRoute.useParams();return <RouteErrorBoundary><IntrospectionListScreen key={params.projectId+params.sourceId} {...params}/></RouteErrorBoundary>;}});
 const introspectionRunRoute=createRoute({getParentRoute:()=>rootRoute,path:'/projects/$projectId/introspections/$runId',component:()=>{const params=introspectionRunRoute.useParams();return <RouteErrorBoundary><IntrospectionRunScreen key={params.projectId+params.runId} {...params}/></RouteErrorBoundary>;}});
@@ -77,16 +72,7 @@ const kitchenSinkRoutes = componentReviewEnabled
   ? [createRoute({ getParentRoute: () => rootRoute, path: '/dev/kitchen-sink', component: KitchenSinkScreen }),createRoute({getParentRoute:()=>rootRoute,path:'/dev/shared-patterns',component:SharedPatternsScreen})]
   : [];
 
-function routeFor(item: NavItem) {
-  return createRoute({
-    getParentRoute: () => rootRoute,
-    path: item.path,
-    component: () => <RouteScreen title={item.label} />,
-  });
-}
-
-const routes = navGroups.flatMap((group) => group.items.filter((item) => item.path !== '/projects'&&item.path!=='/settings').map(routeFor));
-const routeTree = rootRoute.addChildren([personalSettingsRoute,companySettingsRoute,poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes, ...routes]);
+const routeTree = rootRoute.addChildren([personalSettingsRoute,companySettingsRoute,poolDetailRoute,agentTwinRoute,activityRoute,recordRoute,introspectionListRoute,introspectionRunRoute,dashboardRoute, chooserRoute, createProjectRoute, createCompanyRoute, projectDashboardRoute, projectScreenRoute, signInRoute, checkEmailRoute, authCallbackRoute, confirmDeviceRoute, ...kitchenSinkRoutes]);
 
 export const router = createRouter({ routeTree });
 
