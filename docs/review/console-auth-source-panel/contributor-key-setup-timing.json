@@ -1,0 +1,14 @@
+{
+  "commit": "ca747c08d2737e3fbb5b5f631356e5c10aaacd94",
+  "measurement": "Vitest hook start/end reporter events; existing timeout unchanged",
+  "hooks": [
+    {
+      "hook": "beforeAll",
+      "elapsedMs": 3827.885
+    },
+    {
+      "hook": "afterAll",
+      "elapsedMs": 0.034
+    }
+  ]
+}

@@ -352,6 +352,17 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### GATE-04 · contributor-key-migration setup hook exceeds 10 s on the Intel Mac gate; raise the hook timeout with a diagnostic, as done for the native-release test
+**Status** Open · Backlog only · 31 October 2026
+**Evidence** Full gate on `ca747c0` exhausted the existing 10,000 ms setup hook
+in `test/fixtures/migration-database.ts:12`; the unchanged suite passed alone
+with setup measured at 3,827.885 ms. No migration, grant or catalogue backend
+file changed in the branch. See `docs/review/console-auth-source-panel.md`.
+**Acceptance** Raise the setup hook's hang-guard timeout and report measured
+setup duration and the full failure diagnostic, following the native-release
+test precedent. Preserve migration assertions, database isolation and phase
+deadline enforcement. Do not treat the timeout as a speed assertion.
+
 ### GATE-03 · Distinguish stopped PostgreSQL from missing CREATEDB
 **Status** Resolved · 29 October 2026; `scripts/gate-preflight.mjs`,
 `scripts/gate-probe.ts`, and `scripts/gate-database.mjs`; targeted error-code

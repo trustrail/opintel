@@ -1,0 +1,20 @@
+Prepared the existing gate-owned isolated database for the standalone diagnostic.
+
+> opintel@0.0.0 test
+> tsx scripts/test.ts test/contributor-key-migration.test.ts --reporter=default --reporter=./scripts/testing/database-stop-reporter.ts --reporter=/private/tmp/opintel-contributor-ready-reporter.mjs
+
+{"normalSuiteBaseline":"verified","initialRelationships":0,"postgresRows":{"public.agent_presence":0,"public.arrival_notice":0,"public.audit_entry":0,"public.bulk_decision":0,"public.bulk_entitlement_request":0,"public.catalog_element":0,"public.catalog_object":0,"public.catalog_schema_temporal":0,"public.company":0,"public.company_creation_request":0,"public.company_idp":0,"public.company_idp_sign_in":0,"public.company_member":0,"public.data_source":0,"public.demo_source_template":1,"public.element_stats":0,"public.embedding":0,"public.engine":0,"public.entitlement":0,"public.evidence_export":0,"public.evidence_export_request":0,"public.evidence_redaction":0,"public.evidence_rollup":0,"public.filing_party":0,"public.filing_party_rule":0,"public.industry":2,"public.installation_owner_claim":0,"public.introspection_completed":0,"public.introspection_run":0,"public.landing_receipt":0,"public.magic_link_token":0,"public.mail_outbox":0,"public.observation_event":0,"public.pattern_rule":0,"public.pattern_rule_application":0,"public.pending_invite":0,"public.pool":0,"public.pool_credential":0,"public.pool_key":0,"public.pool_key_request":0,"public.pool_source_binding":0,"public.pool_table_binding":0,"public.project":0,"public.project_member":0,"public.query_run":0,"public.reconciliation_report":0,"public.relationship_outbox":0,"public.release_event":0,"public.release_grant":0,"public.release_signing_key":0,"public.row_entitlement":0,"public.run_completion":0,"public.run_element":0,"public.run_stage":0,"public.synonym_candidate":0,"public.term_synonym":0,"public.token_domain_assignment":0,"public.token_join_candidate":0,"public.token_join_review":0,"public.token_key_operation":0,"public.token_key_version":0,"public.user_account":0,"public.user_identity":0,"public.vocabulary_term":2},"metadata":"/Users/rzarita/opintel/test-results/normal/9604fc21-2d95-4825-9c5e-bce8e09f2dc0"}
+
+ RUN  v4.1.11 /Users/rzarita/opintel
+
+{"normalTestOrder":["test/contributor-key-migration.test.ts"],"cacheOrdering":false,"shuffle":false,"metadata":"/Users/rzarita/opintel/test-results/normal/9604fc21-2d95-4825-9c5e-bce8e09f2dc0/order.json"}
+SETUP_DIAGNOSTIC {"hook":"beforeAll","elapsedMs":3827.885}
+SETUP_DIAGNOSTIC {"hook":"afterAll","elapsedMs":0.034}
+ ✓ test/contributor-key-migration.test.ts (1 test) 4056ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:50:22
+   Duration  5.48s (transform 111ms, setup 13ms, import 171ms, tests 4.06s, environment 0ms)
+
+Removed only the owned diagnostic database.

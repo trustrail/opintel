@@ -1,0 +1,58 @@
+Development services inspected before the standalone diagnostic, 31 October 2026 (UTC).
+
+NAMES                STATUS                  CREATED
+opintel-redis-1      Up 39 hours (healthy)   39 hours ago
+opintel-postgres-1   Up 39 hours (healthy)   39 hours ago
+/opintel-postgres-1 state=running health=healthy started=2026-10-29T14:18:55.951734998Z restarts=0 restartPolicy=unless-stopped
+/opintel-redis-1 state=running health=healthy started=2026-10-29T14:18:55.937529604Z restarts=0 restartPolicy=unless-stopped
+
+PostgreSQL: last 40 log lines
+	  RAISE EXCEPTION 'Cannot downgrade while explain join candidates exist: the legacy schema cannot preserve their provenance';
+	 END IF;
+	END $$;
+	DROP POLICY tenant_write ON token_join_candidate;
+	DROP INDEX token_join_candidate_run;
+	ALTER TABLE token_join_candidate DROP CONSTRAINT candidate_operation_run;
+	ALTER TABLE token_join_candidate DROP COLUMN operation;
+	ALTER TABLE token_join_candidate DROP COLUMN run_id;
+	ALTER TABLE token_join_candidate RENAME COLUMN id TO run_id;
+	CREATE POLICY tenant_write ON token_join_candidate FOR INSERT TO opintel_app
+	 WITH CHECK(project_id=NULLIF(current_setting('app.project_id',true),'')::uuid
+	 AND EXISTS(SELECT 1 FROM query_run r WHERE r.id=run_id AND r.project_id=token_join_candidate.project_id AND r.pool_id=token_join_candidate.pool_id AND r.started_at=attempted_at));
+	
+2026-10-31 04:39:32.092 UTC [27] LOG:  checkpoint complete: wrote 1885 buffers (11.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=129.598 s, sync=3.076 s, total=132.973 s; sync files=17451, longest=0.028 s, average=0.001 s; distance=29379 kB, estimate=71680 kB; lsn=1/82577060, redo lsn=1/80D39B78
+2026-10-31 04:39:32.096 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:32.536 UTC [27] LOG:  checkpoint complete: wrote 1789 buffers (10.9%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.133 s, sync=0.131 s, total=0.441 s; sync files=448, longest=0.063 s, average=0.001 s; distance=24821 kB, estimate=66994 kB; lsn=1/82577110, redo lsn=1/825770D8
+2026-10-31 04:39:46.810 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:46.837 UTC [27] LOG:  checkpoint complete: wrote 186 buffers (1.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.014 s, sync=0.007 s, total=0.028 s; sync files=22, longest=0.004 s, average=0.001 s; distance=779 kB, estimate=60372 kB; lsn=1/82639EF0, redo lsn=1/82639EB8
+2026-10-31 04:39:46.986 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.047 UTC [27] LOG:  checkpoint complete: wrote 5 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.007 s, sync=0.014 s, total=0.061 s; sync files=3, longest=0.008 s, average=0.005 s; distance=43 kB, estimate=54339 kB; lsn=1/82644E98, redo lsn=1/82644E60
+2026-10-31 04:39:47.211 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.265 UTC [27] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.006 s, total=0.055 s; sync files=4, longest=0.003 s, average=0.002 s; distance=40 kB, estimate=48909 kB; lsn=1/8264EFB8, redo lsn=1/8264EF80
+2026-10-31 04:39:47.387 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.465 UTC [27] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.017 s, total=0.079 s; sync files=4, longest=0.010 s, average=0.005 s; distance=43 kB, estimate=44023 kB; lsn=1/82659E30, redo lsn=1/82659DF8
+2026-10-31 04:39:47.575 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.629 UTC [27] LOG:  checkpoint complete: wrote 9 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.014 s, sync=0.012 s, total=0.054 s; sync files=3, longest=0.009 s, average=0.004 s; distance=42 kB, estimate=39625 kB; lsn=1/826646E0, redo lsn=1/826646A8
+2026-10-31 04:39:47.697 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.744 UTC [27] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.013 s, sync=0.006 s, total=0.048 s; sync files=4, longest=0.003 s, average=0.002 s; distance=38 kB, estimate=35666 kB; lsn=1/8266DFD8, redo lsn=1/8266DFA0
+2026-10-31 04:39:47.776 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.813 UTC [27] LOG:  checkpoint complete: wrote 15 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.006 s, sync=0.006 s, total=0.037 s; sync files=4, longest=0.004 s, average=0.002 s; distance=92 kB, estimate=32109 kB; lsn=1/82685158, redo lsn=1/82685120
+2026-10-31 04:39:47.848 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:47.899 UTC [27] LOG:  checkpoint complete: wrote 8 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.005 s, sync=0.019 s, total=0.052 s; sync files=4, longest=0.016 s, average=0.005 s; distance=48 kB, estimate=28902 kB; lsn=1/82691338, redo lsn=1/82691300
+2026-10-31 04:39:47.929 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:48.040 UTC [27] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.010 s, total=0.111 s; sync files=4, longest=0.006 s, average=0.003 s; distance=37 kB, estimate=26016 kB; lsn=1/8269A8F8, redo lsn=1/8269A8C0
+2026-10-31 04:39:48.082 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:48.178 UTC [27] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.033 s, sync=0.020 s, total=0.096 s; sync files=4, longest=0.016 s, average=0.005 s; distance=36 kB, estimate=23418 kB; lsn=1/826A3A80, redo lsn=1/826A3A48
+2026-10-31 04:39:52.979 UTC [27] LOG:  checkpoint starting: immediate force wait
+2026-10-31 04:39:53.031 UTC [27] LOG:  checkpoint complete: wrote 55 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.026 s, sync=0.010 s, total=0.052 s; sync files=13, longest=0.007 s, average=0.001 s; distance=272 kB, estimate=21103 kB; lsn=1/826E7CC0, redo lsn=1/826E7C88
+2026-10-31 04:44:52.221 UTC [27] LOG:  checkpoint starting: time
+2026-10-31 04:44:52.465 UTC [27] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.108 s, sync=0.060 s, total=0.245 s; sync files=2, longest=0.038 s, average=0.022 s; distance=0 kB, estimate=18993 kB; lsn=1/826E7E48, redo lsn=1/826E7E10
+
+Redis: last 40 requested; container has only 7 log lines
+1:C 29 Oct 2026 14:18:57.946 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1:C 29 Oct 2026 14:18:57.947 * Redis version=7.4.11, bits=64, commit=00000000, modified=0, pid=1, just started
+1:C 29 Oct 2026 14:18:57.947 * Configuration loaded
+1:M 29 Oct 2026 14:18:57.948 * monotonic clock: POSIX clock_gettime
+1:M 29 Oct 2026 14:18:57.960 * Running mode=standalone, port=6379.
+1:M 29 Oct 2026 14:18:57.963 * Server initialized
+1:M 29 Oct 2026 14:18:57.966 * Ready to accept connections tcp
