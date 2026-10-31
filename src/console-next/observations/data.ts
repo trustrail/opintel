@@ -4,6 +4,7 @@ import {ObservationPage,ObservationMemberPage,type ObservationGroup,type Observa
 import type {NeedsYouItem} from '../../shared/api/needs-you.js';
 import type {ProjectHealthItem,ProjectHealth} from '../../shared/api/project-health.js';
 import {CatalogTreeResponse} from '../../shared/api/catalog.js';
+import {filingListResponseSchema} from '../../shared/landing-contract.js';
 import {pages,read,type Client} from '../api.js';
 export const observationKeys={all:(p:string)=>['console-next','project',p,'contextual-observations'] as const,open:(p:string)=>[...observationKeys.all(p),'open'] as const,group:(p:string,g:string,view:string)=>[...observationKeys.all(p),'group',g,view] as const};
 export async function readObservationGroup(project:string,group:string,client:Client=createApiClient(),view:'open'|'resolved'='open'){return (await pages(client,`/api/v1/projects/${project}/observations/members?${new URLSearchParams({group,view,limit:'100'})}`,ObservationMemberPage,Infinity)).items;}
@@ -11,6 +12,14 @@ export async function openObservations(project:string,client:Client=createApiCli
  const groups=(await pages(client,`/api/v1/projects/${project}/observations?view=open&limit=100`,ObservationPage,Infinity)).items;
  const result:Array<{group:ObservationGroup;members:ObservationMember[]}>=[];
  for(const group of groups)result.push({group,members:await readObservationGroup(project,group.id,client)});
+ if(result.some(g=>g.group.kind==='filing'&&g.members.some(m=>!m.metadata.sourceId))){
+  const filings=(await pages(client,`/api/v1/projects/${project}/filings?limit=100`,filingListResponseSchema,Infinity)).items;
+  const sources=new Map<string,string>(filings.map(f=>[f.filingId,f.sourceId]));
+  for(const group of result)if(group.group.kind==='filing')group.members=group.members.map(member=>{
+   const source=member.metadata.filingId?sources.get(member.metadata.filingId):undefined;
+   return !member.metadata.sourceId&&source?{...member,metadata:{...member.metadata,sourceId:source}}:member;
+  });
+ }
  return result;
 }
 export const backupProblem=(h:ProjectHealthItem)=>h.kind==='token_key'&&h.status!=='ok'&&/backup|rehears/i.test(h.reason);
