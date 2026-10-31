@@ -2,7 +2,7 @@
 
 Branch: `feat/console-final-workflows`. Base: `3a4076548fed4f8245968b4a94f49526f2f77897`.
 
-Implementation and validation in progress. No full gate has run for this phase.
+Blocked during fresh packaged verification at prepared-demo connection. No full gate has run for this phase; the branch is not merged.
 
 ## Approved scope
 
@@ -62,10 +62,70 @@ Removed without an editor replacement, as explicitly decided: the console scope-
 ## Validation
 
 - Membership/list/outbox/table-grants targets: 29 passed.
-- Console tests: 129 passed, including Project-section, multi-company switcher and contextual Settings-link coverage.
+- Console tests: 129 passed, including Project-section, multi-company switcher and contextual Settings-link coverage. Repeated after the image-31 footer/close-control refinements: 129 passed.
 - Route, bundle, provisioning, settings, stream, membership and dashboard contracts: 42 passed in eight files. DEP-008 isolated packaged owner startup passed after removing scripts/native dependencies.
-- Lint and dependency boundaries passed. Conformance TypeScript passed. Browser conformance passed all 36 checks, covering 28/28 registered URL scopes with zero findings. The real UI → row decision → authenticated MCP/Engine → persisted receipt and history smoke passed in 11.5 seconds. Strict production and conformance typechecks passed.
-- Packaged first run, dialogs, company/people, prepared demo, retained-key restore, ten old URLs and screenshots: pending.
-- Single completed-candidate full gate: not run.
+- Final lint and dependency boundaries passed; final strict production typecheck passed. Conformance TypeScript passed. Browser conformance passed all 36 checks, covering 28/28 registered URL scopes with zero findings. The real UI → row decision → authenticated MCP/Engine → persisted receipt and history smoke passed in 11.5 seconds. Strict production and conformance typechecks passed.
+- Fresh packaged first run, root screens, agent panel, three dialogs, engine/project rename, Company editor and inherited-access removal passed. Prepared-demo connection failed as described below. Retained-key restore, twelve old URLs and the final dark Home screenshot were not reached.
+- Single completed-candidate full gate: not run because completing the packaged demo requires an additional backend decision. No retry or full-gate result is claimed.
 
 Custody and TLS check links are mapped in the console by check kind, keeping the old Project settings bookmark for Name/Industry. The company-filtered switcher offers New project only when the user administers that company.
+
+
+## Fresh packaged verification and stopping point
+
+The seven candidate images for `fdb3f8cd517b4162b6d38f6cb17031182d82e58d` built and passed their secret/runtime audits. Installed fresh gateway and engine archives, paired them with one code, and added the external synthetic PostgreSQL reference using the packaged `./sources add`. Archive SHA-256 values are in [archive-hashes.json](console-final-workflows/archive-hashes.json). No development env file or development container was changed.
+
+The final attempted fixture is `tmp/console-final-workflows-acceptance-0z83Gb`; [packaged-verification.json](console-final-workflows/packaged-verification.json) contains the recorded results and CDP evidence of packaged Inter rendering. Earlier runs stopped at three harness locator mistakes (Data band attribute, ambiguous agent-name button and the region Select's accessible name). Those selectors were corrected; these were not full-gate runs.
+
+| Verification | Result |
+|---|---|
+| Email link opened in a second browser and device confirmed | Passed |
+| Separate email link declined; no session issued | Passed |
+| Create first project; the one unused paired engine attaches | Passed |
+| Verify engine and initialize its custody/token prerequisites | Passed |
+| Connect, test, register and scan the external reference | Passed |
+| Set project limits, create pool and explicitly clear the record-number column | Passed |
+| Issue credential; real MCP agent request returns the six permitted rows | Passed |
+| Receipt in Activity; permanent first-receipt marker; tracker disappears | Passed |
+| Home, Activity, Pools, Data and Settings at the root | Passed |
+| Agent panel, self-declared client and scoped Activity link | Passed |
+| Receipt's recorded row decision opens history | Passed |
+| You: save name and America/Toronto through existing settings API | Passed |
+| New project using Welcome form; no used engine silently attaches | Passed |
+| Add and verify existing paired engine explicitly; rename and verify | Passed |
+| Project → Name inline rename | Passed |
+| Company editor: defaults, domains, session and SSO controls | Passed |
+| People: both badge, warning, remove direct grant, company access remains | Passed |
+| Connect operator-prepared demo template through existing endpoint | **Failed: packaged engine has no provision-demo endpoint** |
+| Two retained token versions and typed Restore | Not reached |
+| Twelve old URL destinations, including the four specifically requested | Not reached in packaged browser; targeted redirect contracts passed |
+| Final dark Home capture | Not reached |
+
+### Existing backend blocker: prepared demo
+
+The console displayed: **“The source or demo preparation was not found. Check the project preparation before retrying.”** The source was marked introspection failed and Done remained disabled. The engine's retained log records `sidecar.refused` with `reason: not_found`; inspection confirms its `NODE_ENV=production`.
+
+This is a production/backend mismatch, rather than another UI locator problem:
+
+- `src/modules/sources/application/source-registration.ts` calls `this.connector(ctx,work.sourceId).provisionDemo(...)` for every template-backed source before scanning.
+- `src/modules/sources/infrastructure/sidecar-source-connector.ts` sends that operation to `'/provision-demo'`.
+- `sidecar/start.ts` constructs the handler only under `config.demo && process.env.NODE_ENV !== 'production'`; its comment explicitly says synthetic workbook generation is not a shipping-engine payload.
+- `sidecar/http/server.ts` registers the route only with `...(options.demo ? { '/provision-demo': ... } : {})`; missing routes return 404 `not_found`.
+- `deploy/engine/Dockerfile` sets `NODE_ENV=production`. The production bundle removes the generator and its workbook dependencies.
+
+The acceptance fixture inserted operator template/deployment metadata after the first receipt; it did not mock a response, enable development mode, or bypass the real connection endpoint. It used a minimal database template. That fixture would additionally need real spreadsheet/landing preparation for the development-only generator; correcting the fixture alone cannot supply a route deliberately absent from the packaged engine.
+
+**Decision needed:** permit a narrow backend path for connecting already-prepared demo data without invoking the development-only generator, or revise the prepared-demo requirement. Do not add the workbook generator to the shipping engine as an incidental fix. No backend fix for this blocker was applied: direct project-grant removal remains the only backend exception in this branch.
+
+The final tip also includes image-31 footer/round-close styling identified during screenshot review. Its console tests passed, but those style refinements were not rebuilt into archives after the blocker was established. Final packaged verification and the single full gate remain outstanding.
+
+## Screenshots and differences
+
+Side-by-side evidence: [image 30 comparison](console-final-workflows/comparison-30.png) and [image 31 comparison before footer refinement](console-final-workflows/comparison-31-before-footer-refinement.png). The latter is deliberately labelled as earlier evidence, not the final tip.
+
+- [Agent panel, 1440 light](console-final-workflows/30-agent-panel.png), compared with image 30: actual single-agent data replaces illustrative names/counts; the real Pools band is present (the reference abbreviates it); timestamps follow the user's locale/zone, with complete dates; the Activity action uses the shared primary-action styling. No person identity is invented.
+- [Company](console-final-workflows/settings-company.png), [People provenance](console-final-workflows/settings-people-provenance.png), and [company-access-remains confirmation](console-final-workflows/people-company-access-remains.png). These reuse Settings' approved fixed-row layout; no separate Company/People image was provided for this phase.
+- Image-31 captures of [New project](console-final-workflows/31-new-project-before-footer-refinement.png), [You](console-final-workflows/31-you-before-footer-refinement.png), and [Add engine](console-final-workflows/31-add-engine-before-footer-refinement.png) are **before the final footer/close-control refinements**, not screenshots of the final tip. Real account/project values replace examples; the already-used engine is not offered as free; Add engine omits Test and a pre-registration reachable badge as explicitly approved; the operator hint uses the packaged `./status` command.
+- [Prepared-demo failure](console-final-workflows/prepared-demo-blocker.png) shows the actual stopping point. The dark Home and final image-31 screenshots remain pending.
+
+No legacy-only workflow URL remains without a destination in the route inventory/contracts. The sole intentionally removed editor is scope tags, as approved; its API remains. No evidence records, applied migrations, grants or authorization schema were altered for the new membership removal operation.
