@@ -11,7 +11,7 @@ import {AgentPresencePage} from '../../shared/api/agent-presence.js';
 import {PoolPage} from '../../shared/api/pools.js';
 import {ProjectHealth} from '../../shared/api/project-health.js';
 import {ProjectListResponse} from '../../shared/api/tenancy-schemas.js';
-import {streamEventSchema} from '../../shared/api/stream.js';
+import {projectStreamCache} from '../stream-cache.js';
 import type {Order} from './state.js';
 export type Project=z.infer<typeof ProjectListResponse>['items'][number];
 export const homeKeys={custody:(p:string,from:string,to:string)=>[...homeKeys.scope(p),'custody-receipts',from,to] as const,allProjects:()=>['console-next','project'] as const,projects:()=>['console-next','projects'] as const,scope:(p:string)=>['console-next','project',p] as const,facts:(p:string)=>[...homeKeys.scope(p),'home'] as const,agents:(p:string)=>[...homeKeys.scope(p),'connected-agents'] as const,exposure:(p:string,kind:string|null)=>[...homeKeys.scope(p),'exposure',kind] as const,health:(p:string)=>[...homeKeys.scope(p),'health'] as const};
@@ -45,13 +45,12 @@ const openStream:OpenStream=url=>new EventSource(url);
 export function useHomeStream(project:string,connect:OpenStream=openStream){
  const cache=useQueryClient(),[live,setLive]=useState(false);
  useEffect(()=>{
-  setLive(false);let disposed=false,timer:ReturnType<typeof setTimeout>|undefined;let sequence=-1,projectsDirty=false;
-  const refresh=()=>{timer??=setTimeout(()=>{timer=undefined;void cache.invalidateQueries({queryKey:homeKeys.scope(project)});if(projectsDirty){projectsDirty=false;void cache.invalidateQueries({queryKey:homeKeys.projects()});}},50);};
+  setLive(false);let disposed=false;const consumer=projectStreamCache(cache,project);
   const stream=connect(`/api/v1/projects/${project}/stream`);
-  stream.onopen=()=>{if(!disposed){setLive(true);refresh();}};
-  stream.onerror=()=>{if(!disposed){setLive(false);refresh();}};
-  stream.onmessage=message=>{if(disposed)return;try{const event=streamEventSchema.safeParse(JSON.parse(message.data) as unknown);if(!event.success)return;const e=event.data;if(e.type==='snapshot'){sequence=e.sequence;refresh();}else if(e.sequence>sequence){sequence=e.sequence;if(e.type==='run.completed')projectsDirty=true;refresh();}}catch{/* Malformed events cannot patch server facts. */}};
-  return ()=>{disposed=true;if(timer)clearTimeout(timer);stream.close();};
+  stream.onopen=()=>{if(!disposed){setLive(true);consumer.refresh();}};
+  stream.onerror=()=>{if(!disposed){setLive(false);consumer.refresh();}};
+  stream.onmessage=message=>{if(disposed)return;try{consumer.receive(JSON.parse(message.data) as unknown);}catch{/* Malformed events cannot patch server facts. */}};
+  return ()=>{disposed=true;consumer.dispose();stream.close();};
  },[project,cache,connect]);
  return live;
 }

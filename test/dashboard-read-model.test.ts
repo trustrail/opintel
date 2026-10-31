@@ -3,7 +3,7 @@ import {once} from 'node:events';
 import {afterEach,it,expect,vi} from 'vitest';
 import {withTenant,withPlatform} from '../src/platform/db/scope.js';
 import {createHttpServer} from '../src/platform/http/index.js';
-import {PostgresDashboardReader} from '../src/modules/tenancy/index.js';
+import {PostgresDashboardReader,PostgresNeedsYouReader} from '../src/modules/tenancy/index.js';
 import {dashboardRoutes} from '../src/modules/tenancy/api/dashboard-routes.js';
 import {PostgresEntitlementReader} from '../src/modules/entitlements/index.js';
 import {entitlementReadRoutes} from '../src/modules/entitlements/api/read-routes.js';
@@ -17,7 +17,10 @@ import {PostgresFilingRegister} from '../src/modules/ingest/infrastructure/regis
 import {createApiClient} from '../src/shared/api/client.js';
 import {PoolId,FilingId,TestClock} from '../src/shared/kernel/index.js';
 import type {AuthorizationPort,AuthorizationRevision} from '../src/modules/authz/index.js';
-import {readDashboardModel} from '../src/app/dashboard/read-model.js';
+import {readHome} from '../src/console-next/home/data.js';
+import {openObservations} from '../src/console-next/observations/data.js';
+import {needsYouRoutes} from '../src/modules/tenancy/api/needs-you-routes.js';
+import {registerRoutes} from '../src/modules/ingest/api/register-routes.js';
 import {policyFixture,unwrap} from './fixtures/policy-version/fixture.js';
 import {allowBulk} from './fixtures/bulk-entitlements/fixture.js';
 import {resetDatabaseBeforeEach} from './database-fixture.js';
@@ -25,7 +28,7 @@ resetDatabaseBeforeEach('company');
 afterEach(()=>vi.useRealTimers());
 it.each(['2026-10-20T00:10:00.000Z','2026-10-20T23:50:00.000Z'])('RED-019: Dashboard totals are destination facts with host clock %s',async hostNow=>{
  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date(hostNow));
- const fixedNow=new Date('2026-10-20T12:00:00.000Z'),clock=new TestClock(fixedNow),currentTime=()=>new Date(clock.now()),day=clock.now().slice(0,10);
+ const fixedNow=new Date('2026-10-20T12:00:00.000Z'),clock=new TestClock(fixedNow),day=clock.now().slice(0,10);
  const runAt=new Date(fixedNow.getTime()-11*3600_000).toISOString(),observationAt=new Date(fixedNow.getTime()-10*3600_000).toISOString();
  const f=await policyFixture(55),second=PoolId(randomUUID());
  await f.set('clear',randomUUID(),f.ids.slice(0,2));
@@ -39,17 +42,25 @@ it.each(['2026-10-20T00:10:00.000Z','2026-10-20T23:50:00.000Z'])('RED-019: Dashb
  });
  const register=new PostgresFilingRegister(),notices=Array.from({length:4},(_,n)=>({filingId:FilingId(randomUUID()),projectId:f.ctx.projectId,sourceId:f.source,fileSha256:'a'.repeat(64),receivedAt:observationAt,revision:1,outcome:'quarantined' as const,partyCode:null,kind:null,period:null,quarantineCategory:n===3?'merged_header' as const:'no_rule_matched' as const}));for(const notice of notices)unwrap(await register.notice(notice));
  const auth:AuthorizationPort={...allowBulk,checkMany:async rs=>rs.map(()=>({allowed:false,token:'test' as AuthorizationRevision,checkedAt:clock.now(),snapshotAgeMs:0}))},evidence=new EvidenceQuery(new PostgresEvidenceReader(),auth,{stripSql:async()=>null}),suggestions=new PostgresSuggestions(evidence),entitlements=new PostgresEntitlementReader(),observations=new PostgresObservationReader();
- const server=createHttpServer([...dashboardRoutes(new PostgresDashboardReader(clock)),...entitlementReadRoutes(entitlements),...observationRoutes(observations),...suggestionRoutes(suggestions),...evidenceRoutes(evidence),...agentPresenceRoutes(new AgentPresenceService(new PostgresAgentPresence({publish:async()=>{}},clock)))],{authorization:{port:auth,currentUser:async()=>f.actor}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing test listener.');const seen:string[]=[],client=createApiClient((path,init)=>{seen.push(path);return fetch(`http://127.0.0.1:${address.port}${path}`,init);});
+ const server=createHttpServer([...dashboardRoutes(new PostgresDashboardReader(clock)),...needsYouRoutes(new PostgresNeedsYouReader(),auth),...registerRoutes(register),...entitlementReadRoutes(entitlements),...observationRoutes(observations),...suggestionRoutes(suggestions),...evidenceRoutes(evidence),...agentPresenceRoutes(new AgentPresenceService(new PostgresAgentPresence({publish:async()=>{}},clock)))],{authorization:{port:auth,currentUser:async()=>f.actor}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing test listener.');const seen:string[]=[],client=createApiClient((path,init)=>{seen.push(path);return fetch(`http://127.0.0.1:${address.port}${path}`,init);});
  try{
-  const model=await readDashboardModel(f.ctx.projectId,true,client,undefined,currentTime);expect(model.today).toEqual({from:day+'T00:00:00.000Z',to:new Date(fixedNow.getTime()+1).toISOString()});expect(model.spectrum).toMatchObject({clear:2,undecided:108});expect(model.pools.map(p=>p.pending).sort((a,b)=>a-b)).toEqual([53,55]);
-  for(const p of model.pools){const destination=unwrap(await entitlements.groups(f.ctx,PoolId(p.pool.id),{projectId:f.ctx.projectId,prefix:'',decision:'undecided',mode:'name'},null,100));expect(p.pending).toBe(destination.totals.members);expect(p.groups).toBe(destination.totals.groups);expect(p.demand).toEqual(destination.items.filter(g=>g.queries+g.explains>0));}
-  expect(seen.some(path=>path.includes('entitlement-groups')&&path.includes('cursor='))).toBe(true);
-  expect(model.observations.filter(g=>g.kind==='filing').reduce((n,g)=>n+g.count,0)).toBe(4);expect(model.observations).toEqual(unwrap(await observations.groups(f.ctx,{view:'open',custody:false},null,100)).items);
-  expect(model.suggestions).toEqual(unwrap(await suggestions.list(f.ctx,undefined,100,{view:'open'})).items);expect(model.suggestions).toHaveLength(1);
-  const activity=unwrap(await evidence.summary(f.ctx,model.today));expect(model.days.at(-1)).toMatchObject({requests:activity.counts.all,refused:activity.counts.refused,incomplete:activity.counts.incomplete,queries:2,prompts:1});expect(model.days).toHaveLength(7);expect(model.days.at(-2)).toMatchObject({requests:1,queries:1,prompts:0,incomplete:1});expect(model.days.slice(0,5).every(d=>d.requests===0)).toBe(true);expect(model.recent).toHaveLength(4);expect(JSON.stringify(model)).not.toContain('DASH_PRIVATE_SENTINEL');
+  const model=await readHome(f.ctx.projectId,client,fixedNow);
+  expect({from:model.from,to:model.to}).toEqual({from:day+'T00:00:00.000Z',to:new Date(fixedNow.getTime()+1).toISOString()});
+  expect(model.stats).toEqual(unwrap(await new PostgresDashboardReader(clock).stats(f.ctx)));
+  const authoritative=unwrap(await evidence.summary(f.ctx,{from:model.from,to:model.to}));expect(model.summary).toEqual(authoritative);
+  expect(model.summary.counts).toMatchObject({all:3,refused:1,incomplete:1});
+  const rawNeeds=unwrap(await new PostgresNeedsYouReader().read(f.ctx,false,null,10000));
+  expect(model.needs.filter(n=>n.kind==='undecided_entitlement')).toEqual(rawNeeds.filter(n=>n.kind==='undecided_entitlement'));
+  expect(model.needs.find(n=>n.id==='context:held-filings')?.count).toBe(4);
+  expect(model.minutes).toHaveLength(30);expect(model.minutes?.every(m=>m.requests===0)).toBe(true);
+  expect(JSON.stringify(model)).not.toContain('DASH_PRIVATE_SENTINEL');
   expect(seen.filter(p=>p.includes('/runs/summary?'))).toHaveLength(1);expect(seen.some(p=>/^\/api\/v1\/runs\//.test(p))).toBe(false);
-  const suggestion=model.suggestions[0]!;unwrap(await suggestions.decide(f.ctx,suggestion.id,{action:'not_sure',latestAttemptId:suggestion.latestAttemptId}));expect((await readDashboardModel(f.ctx.projectId,false,client,undefined,currentTime)).suggestions).toHaveLength(1);
-  unwrap(await suggestions.decide(f.ctx,suggestion.id,{action:'reject',latestAttemptId:suggestion.latestAttemptId}));for(const notice of notices)unwrap(await register.notice({...notice,revision:2,outcome:'landed',quarantineCategory:null}));const next=await readDashboardModel(f.ctx.projectId,false,client,undefined,currentTime);expect(next.suggestions).toHaveLength(0);expect(next.observations.filter(g=>g.kind==='filing')).toHaveLength(0);
-  seen.length=0;await readDashboardModel(f.ctx.projectId,false,client,undefined,currentTime);expect(seen.some(p=>p.includes('custody-observations'))).toBe(false);
+  const pending=unwrap(await suggestions.list(f.ctx,undefined,100,{view:'open'})).items;expect(pending).toHaveLength(1);
+  unwrap(await suggestions.decide(f.ctx,pending[0]!.id,{action:'not_sure',latestAttemptId:pending[0]!.latestAttemptId}));expect(unwrap(await suggestions.list(f.ctx,undefined,100,{view:'open'})).items).toHaveLength(1);
+  unwrap(await suggestions.decide(f.ctx,pending[0]!.id,{action:'reject',latestAttemptId:pending[0]!.latestAttemptId}));
+  for(const notice of notices)unwrap(await register.notice({...notice,revision:2,outcome:'landed',quarantineCategory:null}));
+  const next=await readHome(f.ctx.projectId,client,fixedNow);expect(next.needs.some(n=>n.id==='context:held-filings')).toBe(false);
+  expect((await openObservations(f.ctx.projectId,client)).filter(g=>g.group.kind==='filing')).toHaveLength(0);
+  expect(unwrap(await suggestions.list(f.ctx,undefined,100,{view:'open'})).items).toHaveLength(0);
  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

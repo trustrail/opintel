@@ -1,38 +1,16 @@
-export type MarkFinding = {mark:string;reason:string;row:string};
-/** Passive identity marks are distinct from control affordances and chart SVGs. */
+export type MarkFinding={mark:string;reason:string;row:string};
+/** Rule 14 applies to each named thing, including several chips in one receipt
+ * row. Control icons and chart SVGs are separate from those passive kind marks. */
 export function inspectMarkPlacement():MarkFinding[]{
- const root=document.querySelector('#opintel-app');
- if(!root)return [];
- const findings:MarkFinding[]=[];
- const rowSelector='[data-mark-row],tr,[role="listitem"],[role="treeitem"]';
- for(const legacy of root.querySelectorAll('.tr > i,.sbpill > i'))findings.push({mark:'legacy-dot',reason:'Legacy badge dot is not a specified identity mark.',row:legacy.closest(rowSelector)?.tagName.toLowerCase()??''});
- const report=(mark:Element,reason:string,row:Element|null)=>findings.push({mark:mark.getAttribute('data-mark')??'',reason,row:row?.getAttribute('data-row-kind')??row?.tagName.toLowerCase()??''});
- for(const mark of root.querySelectorAll('[data-mark]')){
-  const category=mark.getAttribute('data-mark-category');
-  if(!['kind','state','treatment'].includes(category??''))report(mark,'Mark category is missing or unknown.',null);
-  const decorative=mark.getAttribute('aria-hidden')==='true';
-  const named=category==='treatment'&&mark.getAttribute('role')==='img'&&!!mark.getAttribute('aria-label')?.trim()&&mark.getAttribute('aria-hidden')!=='true';
-  if(mark.tagName.toLowerCase()!=='svg'||(!decorative&&!named)||mark.getAttribute('focusable')!=='false')report(mark,'Identity marks must be passive SVGs, decorative or accessibly named treatments.',null);
-  const navigation=mark.closest('[data-mark-navigation]');
-  if(category==='kind'&&mark.closest('h1,h2,h3,h4,h5,h6,.blank'))report(mark,'Kind mark repeats a heading or empty state identity.',null);
-  if(navigation)continue;
-  const row=mark.closest(rowSelector);
-  if(!row)continue;
-  const ownMarks=[...row.querySelectorAll('[data-mark]')].filter(candidate=>candidate.closest(rowSelector)===row);
-  if(ownMarks.length>1&&ownMarks[0]===mark)report(mark,'Row carries more than one identity mark.',row);
-  const list=row.closest('[data-mark-list]');
-  if(category==='kind'&&!list)report(mark,'Kind-marked row has no declared list kind scope.',row);
-  if(category==='kind'&&list?.getAttribute('data-mark-list')==='uniform')report(mark,'Uniform list carries a kind mark.',row);
- }
- for(const navigation of root.querySelectorAll('[data-mark-navigation]')){
-  for(const destination of navigation.querySelectorAll('button:not([data-disclosure]),a[href]')){
-   const marks=[...destination.querySelectorAll('[data-mark]')];
-   if(marks.length!==1)findings.push({mark:marks[0]?.getAttribute('data-mark')??'',reason:'Navigation destination must carry exactly one identity mark.',row:destination.tagName.toLowerCase()});
-  }
- }
- for(const list of root.querySelectorAll('[data-mark-list]')){
-  if(!['uniform','mixed'].includes(list.getAttribute('data-mark-list')??''))findings.push({mark:'',reason:'List kind scope is unknown.',row:''});
-  for(const row of list.querySelectorAll(rowSelector))if(row.closest('[data-mark-list]')===list&&!row.getAttribute('data-row-kind'))findings.push({mark:'',reason:'Row kind is missing; scope cannot be checked independently of marks.',row:''});
+ const roots=[document.querySelector('#console-next'),...document.querySelectorAll('[data-dialog],[data-activity-receipt],[data-popover]')].filter((e):e is Element=>e!==null),findings:MarkFinding[]=[];
+ const kinds=['source','table','view','column','pool','row_rule','agent','person','credential','receipt'];
+ const elements=[...new Set(roots.flatMap(r=>[...r.querySelectorAll('[data-kind],[data-treatment],[data-kind-chip]')]))];
+ for(const e of elements){
+  const kind=e.getAttribute('data-kind'),treatment=e.getAttribute('data-treatment');
+  const report=(reason:string)=>findings.push({mark:kind??treatment??'',reason,row:e.closest('li')?.getAttribute('data-row-kind')??''});
+  if(kind){if(!kinds.includes(kind))report('Kind is unknown.');if(e.getAttribute('role')!=='img'||!e.getAttribute('aria-label')?.trim()||e.querySelectorAll('svg').length!==1)report('Kind mark must contain one passive SVG and a named kind.');}
+  if(treatment&&(!['clear','tokenized','masked','aggregate_only','custody','withheld','undecided'].includes(treatment)||e.getAttribute('role')!=='img'||!e.getAttribute('aria-label')?.trim()||e.querySelectorAll('svg').length!==1))report('Treatment mark must have a known treatment, passive SVG and accessible name.');
+  if(Boolean(e.getAttribute('data-kind-chip'))&&e.querySelectorAll('[data-kind]').length!==1)report('A named chip must carry exactly one kind mark.');
  }
  return findings;
 }

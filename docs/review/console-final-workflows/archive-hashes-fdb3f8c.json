@@ -1,0 +1,12 @@
+[
+  {
+    "file": "engine-fdb3f8c-amd64.tar.gz",
+    "bytes": 298902721,
+    "sha256": "8c73f0c2f98baa9045ed7a2c3760ab9b40f8280743a1fff968def434da2329f2"
+  },
+  {
+    "file": "gateway-fdb3f8c-amd64.tar.gz",
+    "bytes": 382947293,
+    "sha256": "f055598496bbcd1694d7a768dac3f7e0b25723a599d207b9b4bd434ca1aeb403"
+  }
+]

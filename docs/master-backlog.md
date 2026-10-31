@@ -778,3 +778,65 @@ Add a permissioned console mail-test action and a persisted, timestamped safe
 status (including the distinction between SMTP acceptance and mailbox delivery).
 Only then include mail in project health. Phase 1 deliberately omits mail; the
 operator `./mail-test` command does not provide a console status contract.
+
+
+### DEMO-01 · Remove demo-specific product paths
+**Status** Open · Backlog only; excluded from the final-console phase.
+**Decision** Demo and real data take the same path. A demo is an ordinary database
+or file connected through `./sources add` or a landing zone. Product code never
+branches on demo data.
+**What** Remove demo-specific product paths: template-backed source registration
+calling `provisionDemo`, the engine `/provision-demo` route and its handler, and
+demo-template tables or settings. Move the synthetic data generator out of the
+product into a development tool that produces an ordinary Postgres database or
+ordinary files, connected through `./sources add` or a landing zone. Inventory
+every other place product code distinguishes demo data, and list it in this item.
+
+**Inventory checked 31 October 2026; none of these backend paths changed here:**
+- Registration/listing: `src/modules/sources/api/source-routes.ts` (`/sources/from-demo`,
+  `/industries/:id/demo-sources`); `application/source-registration.ts` (template lookup,
+  reserved source identity, generation before scan and filing wait); its
+  `demo-provisioning.ts` port, `source-connector.ts` demo kind, `source-runtime.ts`
+  facade and `sources/index.ts` exports.
+- Persistence/rescan: `sources/infrastructure/source-registration-repository.ts`
+  (origin/template insert, prepared deployment matching, connected-template list,
+  schema fallback, template job dispatch); `engines/infrastructure/repository.ts`
+  (demo-specific schema fallback after assignment); `sources/demo/templates.ts`,
+  `metadata.ts` and `reinsurance.json` (template and filing-generation metadata).
+- Wire/engine: `sources/infrastructure/sidecar-source-connector.ts` and
+  `engines/infrastructure/routing.ts` (`provisionDemo` forwarding);
+  `src/shared/demo-contract.ts`, `sidecar-contract.ts`, `sidecar/openapi.json`;
+  `sidecar/config.ts` (`demo` config); `sidecar/start.ts` (development-only generator);
+  `sidecar/http/server.ts` (optional route and special error mapping);
+  `sidecar/demo/{provision,generate,workbook-port}.ts` and its workbook writer.
+- Schema/API/discovery: `migrations/003*`, `009*`, `010*`, `014*`, `023*`, `024*`,
+  `025*`, `036*` include template tables, grants, seed, deployment metadata, origin/kind
+  constraints and secret-reference conversion. Use forward migrations, never edit
+  applied bytes. `src/shared/api/source-schemas.ts` exposes demo routes/origin/template
+  types; `tenancy-schemas.ts` and `vocabulary/{application/list-industries,
+  infrastructure/industry-list-repository}.ts` expose `hasDemoPack`.
+- Evidence: `evidence/infrastructure/write.ts` derives `synthetic` from reached demo
+  sources; domain/application record schemas and `infrastructure/read.ts` carry it.
+  Both `evidence/application/export.ts` and `infrastructure/export.ts` exclude
+  synthetic receipts; `src/shared/api/{activity,evidence-export}.ts` expose synthetic
+  or demo provenance. `entitlements/infrastructure/entitlement-read.ts` carries source
+  origin into the execution snapshot. Preserve immutable historical records; explicitly
+  review export compatibility and replace matching contract tests when removing this
+  distinction, rather than deleting evidence or silently weakening export assertions.
+- Installation/operator coupling: `scripts/operator/{customer-install,engine-pairing}.ts`
+  carry `demoSourceUrl` and demo database naming/settings in pairing/readiness;
+  `common.ts` and `{demo,customer-demo,run-soak,prepare,reinsurance}.ts`,
+  `infrastructure/synthetic-source.ts`, `scripts/demo-pack.ts` and `sidecar-dev.ts`
+  prepare/operate synthetic data. `deploy/{customer,images,engine}`, the runtime bundle
+  manifest and `scripts/images/{build-plan,package}.mjs` distribute demo-tools and
+  demo/readiness resources. Separate ordinary readiness from data generation; retain
+  release/soak verification as development/operator tooling with ordinary sources.
+- Safe source-error messages in `src/shared/source-errors.ts` distinguish demo
+  preparation/generation. Related source-registration, sidecar provisioning/landing,
+  schema/grant, evidence-export and packaging tests assert the current special paths;
+  migrate their contracts deliberately in that future change.
+
+**This phase** Removes only the Connect-a-source demo control/component/query/style
+and its legacy UI (already deleted), records this decision, and verifies synthetic
+fixture data through the same ordinary reference and source endpoints as customer data.
+No backend, migration, grant, export or runtime generator change is part of this item now.

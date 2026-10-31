@@ -14,3 +14,7 @@ export {inviteCompanyMember} from './infrastructure/operator-invitation.js';
 
 export {PostgresProjectHealthReader} from './infrastructure/project-health.js';
 export type {ProjectHealthReader} from './application/project-health.js';
+
+export {RemoveProjectMemberService} from './application/remove-member.js';
+export {PostgresProjectGrantRemoval} from './infrastructure/remove-member.js';
+export {memberRemovalRoutes} from './api/remove-member-routes.js';

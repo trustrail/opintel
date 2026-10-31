@@ -10,7 +10,7 @@ import {CatalogTreeResponse} from '../../shared/api/catalog.js';
 import {NeedsYouPage} from '../../shared/api/needs-you.js';
 import {homeKeys,pages,read} from '../home/data.js';
 import {treatmentOrder,type Treatment} from '../components/treatment.js';
-export const poolsKeys={all:(p:string)=>[...homeKeys.scope(p),'pools'] as const,facts:(p:string)=>[...poolsKeys.all(p),'facts'] as const,columns:(p:string,ids:readonly string[])=>[...poolsKeys.all(p),'columns',...ids.toSorted()] as const,catalog:(p:string)=>[...poolsKeys.all(p),'catalog'] as const,rows:(p:string,pool:string)=>[...poolsKeys.all(p),'rows',pool] as const};
+export const poolsKeys={history:(p:string,pool:string,o:string)=>[...poolsKeys.all(p),'row-history',pool,o] as const,people:(p:string)=>[...homeKeys.scope(p),'members'] as const,decision:(p:string,d:string)=>[...poolsKeys.all(p),'row-decision',d] as const,agent:(p:string,pool:string,agent:string)=>[...poolsKeys.all(p),'agent',pool,agent] as const,all:(p:string)=>[...homeKeys.scope(p),'pools'] as const,facts:(p:string)=>[...poolsKeys.all(p),'facts'] as const,columns:(p:string,ids:readonly string[])=>[...poolsKeys.all(p),'columns',...ids.toSorted()] as const,catalog:(p:string)=>[...poolsKeys.all(p),'catalog'] as const,rows:(p:string,pool:string)=>[...poolsKeys.all(p),'rows',pool] as const};
 export const emptySpectrum=()=>({clear:0,tokenized:0,masked:0,aggregate_only:0,custody:0,withheld:0,undecided:0});
 export const isConnected=(agent:AgentPresenceView)=>['connecting','active','idle'].includes(agent.state);
 export async function readPools(project:string,client=createApiClient()){

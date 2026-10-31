@@ -1,6 +1,6 @@
 # @opintel/console-next
 
-Home, Pools and Data console, built beside `src/app`. The current console is unchanged.
+The packaged console. Routes, settings sections and tabs are declared in `routing.ts`; shared tokens and components implement the approved console designs.
 Run `npm run console:dev` from the repository root, then open
 `http://localhost:5174/?project=PROJECT_ID`. Sign in through the current console
 first (same host, existing session cookie). `?theme=dark` selects dark mode;

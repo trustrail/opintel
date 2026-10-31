@@ -1,6 +1,6 @@
 import type {ReactNode} from 'react';
 import {afterEach,it,expect,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor,renderHook,act} from '@testing-library/react';
+import {cleanup,render,screen,fireEvent,waitFor,renderHook,act} from '@testing-library/react';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {ActivityEntry,EvidenceDetail,ActivitySummary} from '../../shared/api/activity.js';
 import {createApiClient} from '../../shared/api/client.js';
@@ -20,7 +20,7 @@ const poolDetail:ActivityFacts['pools'][number]['detail']={id:pool,name:'Query p
 const summary=ActivitySummary.parse({counts:{all:1,refused:0,incomplete:0,answerTreated:1},days:[],buckets:[{at:'2026-10-30T00:15:00Z',clear:0,treated:1,custody:0,refused:0,unknown:0,incomplete:0,failed:0,clarify:0}]});
 const facts:ActivityFacts={runs:[run],summary,pools:[{detail:poolDetail,tables:[],members:[],agents:[],spectrum:emptySpectrum(),connected:0,kinds:{}}],kinds:{},needs:[],from:'2026-10-30T00:00:00Z',to:'2026-10-30T00:30:00Z'};
 function wrapper({children}:{children:ReactNode}){return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}})}><Tooltip.Provider>{children}</Tooltip.Provider></QueryClientProvider>;}
-afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.useRealTimers();});
 it('classifies only actual returned treatments, custody first, never uncaptured answers as clear',()=>{expect(category(run)).toBe('treated');expect(category({...run,metadata:{...run.metadata,delivered:{custody:1,tokenized:1}}})).toBe('custody');expect(category({...run,detailCaptured:false})).toBe('other');expect(category({...run,metadata:{...run.metadata,delivered:{}}})).toBe('other');expect(category({...run,status:'refused'})).toBe('refused');expect(captured({...run,recordKind:'rollup'})).toBe(false);});
 it('fills known empty 15-minute buckets but hides the chart if the endpoint supplied no buckets',()=>{expect(todayBuckets(facts)).toEqual([{at:'2026-10-30T00:00:00.000Z',answered:0,custody:0,refused:0},{at:'2026-10-30T00:15:00.000Z',answered:1,custody:0,refused:0}]);expect(todayBuckets({...facts,summary:{...summary,buckets:undefined}})).toBeNull();expect(todayBuckets({...facts,summary:{...summary,buckets:[{...summary.buckets![0]!,treated:0,unknown:1}]}})?.[1]?.answered).toBe(1);});
 it('filters exact outcome, agent and UTC bucket without inventing connected identities',()=>{expect(filterRuns(facts,'clear','','')).toEqual([]);expect(filterRuns(facts,'treated','claimed-agent','2026-10-30T00:15:00Z')).toEqual([run]);expect(filterRuns(facts,'connected','',null)).toEqual([]);expect(filterRuns(facts,'named','',null)).toEqual([run]);expect(filterRuns({...facts,runs:[{...run,agentId:null}]},'named','',null)).toEqual([]);expect(filterRuns(facts,null,'different',null)).toEqual([]);});

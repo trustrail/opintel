@@ -1,8 +1,10 @@
+import {RemoveProjectMemberService,PostgresProjectGrantRemoval,memberRemovalRoutes,RelationshipOutbox} from '../src/modules/tenancy/index.js';
+import {ProjectGrantRemovalResponse} from '../src/shared/api/project-members.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { v1 } from '@authzed/authzed-node';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpiceDbAuthorizationPort } from '../src/modules/authz/infrastructure/spicedb-authorization-port.js';
 import type { RelationshipUpdate } from '../src/modules/authz/index.js';
 import { memberRoutes } from '../src/modules/tenancy/api/member-routes.js';
@@ -61,6 +63,7 @@ describe('project members and project discovery with Postgres and SpiceDB', () =
     ]);
     server = createHttpServer([
       ...memberRoutes(new ListMembersService(new PostgresMemberListRepository())),
+      ...memberRemovalRoutes(new RemoveProjectMemberService(new PostgresProjectGrantRemoval(new RelationshipOutbox()),port)),
       ...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(), port)),
     ], { authorization: { port, currentUser: async () => actor === null ? null : {
       id: actor, email: 'caller@example.com', fullName: null, timezone: 'UTC', method: 'magic_link', sessionCreatedAt: clock.now(), deviceConfirmed: true,
@@ -73,6 +76,41 @@ describe('project members and project discovery with Postgres and SpiceDB', () =
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
     port?.close(); sdk?.close();
+  });
+
+  it('removes only a direct project grant, records its revision and audit, and stops direct access',async()=>{
+    actor=users.admin;
+    const response=await fetch(`${base}/projects/${project}/members/${users.direct}`,{method:'DELETE'});
+    expect(response.status).toBe(200);expect(ProjectGrantRemovalResponse.parse(await response.json())).toEqual({removed:true,companyAccessRemains:false});
+    expect(await withPlatform(tx=>tx.query('SELECT user_id FROM project_member WHERE project_id=$1 AND user_id=$2',[project,users.direct]))).toEqual([]);
+    expect((await port.check({resource:{type:'project',id:project},permission:'view',subject:{type:'user',id:users.direct}})).allowed).toBe(false);
+    const entries=await withPlatform(tx=>tx.query<{authorization_revision:string;written_at:Date}>("SELECT authorization_revision,written_at FROM relationship_outbox WHERE resource_id=$1 AND subject_id=$2 AND operation='delete'",[project,users.direct]));
+    expect(entries).toHaveLength(1);expect(entries[0]?.authorization_revision).toBeTruthy();expect(entries[0]?.written_at).toBeTruthy();
+    expect(await withPlatform(tx=>tx.query("SELECT actor_id,before,after FROM audit_entry WHERE company_id=$1 AND target->>'projectId'=$2 AND action='ProjectGrantRemoved'",[company,project]))).toEqual([{actor_id:users.admin,before:{role:'operator'},after:{directGrant:false,companyAccessRemains:false}}]);
+  });
+  it('removing a both grant preserves company membership, inherited access and company provenance',async()=>{
+    actor=users.admin;const response=await fetch(`${base}/projects/${project}/members/${users.both}`,{method:'DELETE'});
+    expect(response.status).toBe(200);expect(ProjectGrantRemovalResponse.parse(await response.json())).toEqual({removed:true,companyAccessRemains:true});
+    expect((await withPlatform(tx=>tx.query('SELECT role FROM company_member WHERE company_id=$1 AND user_id=$2',[company,users.both])))).toEqual([{role:'member'}]);
+    expect((await port.check({resource:{type:'project',id:project},permission:'view',subject:{type:'user',id:users.both}})).allowed).toBe(true);
+    const members=ProjectMemberListResponse.parse(await(await fetch(`${base}/projects/${project}/members`)).json());expect(members.items.find(m=>m.user.id===users.both)).toMatchObject({projectRole:null,companyRole:'member',via:'company'});
+  });
+  it('refuses to remove the last direct project admin without company inheritance',async()=>{
+    await withPlatform(tx=>tx.query("UPDATE project_member SET role='admin' WHERE project_id=$1 AND user_id=$2",[project,users.direct]));
+    await port.write([{operation:'delete',resource:{type:'project',id:project},relation:'operator',subject:{type:'user',id:users.direct}},{operation:'touch',resource:{type:'project',id:project},relation:'admin',subject:{type:'user',id:users.direct}}]);
+    actor=users.admin;const response=await fetch(`${base}/projects/${project}/members/${users.direct}`,{method:'DELETE'});expect(response.status).toBe(409);expect((await response.json()).error.message).toContain('last direct project administrator');
+    expect(await withPlatform(tx=>tx.query('SELECT role FROM project_member WHERE project_id=$1 AND user_id=$2',[project,users.direct]))).toEqual([{role:'admin'}]);expect((await port.check({resource:{type:'project',id:project},permission:'administer',subject:{type:'user',id:users.direct}})).allowed).toBe(true);
+  });
+  it('declares project administer permission and rejects non-admin grant removal before mutation',async()=>{
+    const route=memberRemovalRoutes(new RemoveProjectMemberService(new PostgresProjectGrantRemoval(new RelationshipOutbox()),port))[0]!;expect(route.permission).toMatchObject({resource:'project',permission:'administer'});
+    actor=users.direct;const response=await fetch(`${base}/projects/${project}/members/${users.both}`,{method:'DELETE'});expect(response.status).toBe(403);
+    expect(await withPlatform(tx=>tx.query('SELECT role FROM project_member WHERE project_id=$1 AND user_id=$2',[project,users.both]))).toEqual([{role:'viewer'}]);
+  });
+  it('an authorization outage refuses removal and leaves membership and audit unchanged',async()=>{
+    actor=users.admin;const spy=vi.spyOn(port,'write').mockRejectedValue(new Error('Provider unavailable'));
+    try{const response=await fetch(`${base}/projects/${project}/members/${users.direct}`,{method:'DELETE'});expect(response.status).toBe(503);}finally{spy.mockRestore();}
+    expect(await withPlatform(tx=>tx.query('SELECT role FROM project_member WHERE project_id=$1 AND user_id=$2',[project,users.direct]))).toEqual([{role:'operator'}]);
+    expect(await withPlatform(tx=>tx.query("SELECT id FROM audit_entry WHERE company_id=$1 AND target->>'projectId'=$2 AND action='ProjectGrantRemoved'",[company,project]))).toEqual([]);
   });
 
   it('includes direct and inherited members once, with both and project grant provenance', async () => {

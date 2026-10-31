@@ -14,6 +14,7 @@ Read this section before every task and flag requests that contradict it.
 - Any change to a packaged script or bundle list runs `test/provisioning-runtime.test.mjs` as part of its targeted tests.
 - Script-only and docs-only changes: lint and syntax check, no full gate.
 - Customer install: archives, one env file, `./install`, one-code pairing, `./identities add` from the XQ export.
+- Demo and real data take the same path. A demo is a demo database or file connected like any customer source (./sources add, or a landing zone). Product code never branches on demo data.
 
 ---
 
@@ -61,7 +62,7 @@ Most rules below exist to protect that sentence.
 
 
    If asked to implement one, say so and stop, unless its row records a decision otherwise. A generator produces plausible wrong answers in exactly these places, and a wrong bypass suite passes while proving nothing.
-2. **Frontend work goes to `src/console-next`, using its tokens, shared components, approved design images and all 14 rules.** The legacy console is frozen: no changes except removal. Mounting, redirects and packaging belong outside its screen code.
+2. **Frontend work goes to `src/console-next`, using its tokens, shared components, approved design images and all 14 rules.**
 3. **Never invent a CSS class.** If one is genuinely missing, say so and stop. Adding it is a reviewed change to the console-next foundations. Properties that affect rendering performance without affecting appearance, such as containment, are set where they apply and do not require a master pattern. This rule prevents ad hoc visual decisions; behavioural containment is not one.
 4. **Never use `any`.** `strict` and `noUncheckedIndexedAccess` are on.
 5. **Never write a raw hex colour or an arbitrary Tailwind value** (`text-[13px]`, `bg-[#1B0232]`). Tokens only.

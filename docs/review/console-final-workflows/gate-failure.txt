@@ -1,0 +1,25 @@
+ FAIL  test/oidc-routes.test.ts > 1.9 reachability: production OIDC factory completes start/callback HTTP routes into a readable session
+AssertionError: expected 'export {default} from \'./src/console…' to contain '\'/auth/oidc\':'
+
+- Expected
++ Received
+
+- '/auth/oidc':
++ export {default} from './src/console-next/vite.config.js';
++
+
+ ❯ test/oidc-routes.test.ts:41:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 263 passed (264)
+      Tests  1 failed | 2206 passed (2207)
+   Start at  10:20:24
+   Duration  1622.52s (transform 19.53s, setup 4.26s, import 180.34s, tests 1358.09s, environment 614ms)
+
+Gate wall time: 2141.82s
+
+Process exit: 1
+Gate attempts in this phase: 1

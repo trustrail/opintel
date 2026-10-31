@@ -21,8 +21,9 @@ export function createConsoleServer({root=resolve('dist'),read=createReadStream}
   try{
    const requestUrl=new URL(req.url??'/','http://localhost'),destination=consoleDestination(requestUrl.pathname+requestUrl.search+requestUrl.hash);
    if(destination){res.writeHead(302,{location:destination,'cache-control':'no-store'});res.end();return;}
-   if(!path.startsWith('/legacy/')&&path!=='/legacy'&&path!=='/'&&!consoleAuthPaths.includes(path)&&!extname(path)){res.writeHead(404);res.end('Not found');return;}
-   const fallback=resolve(root,path==='/legacy'||path.startsWith('/legacy/')?'legacy/index.html':'index.html');
+   if(path.startsWith('/legacy/')||path==='/legacy'){res.writeHead(404);res.end('Not found');return;}
+   if(path!=='/'&&!consoleAuthPaths.includes(path)&&!extname(path)){res.writeHead(404);res.end('Not found');return;}
+   const fallback=resolve(root,'index.html');
    let file=resolve(root,'.'+path);
    if(file!==root&&!file.startsWith(root+sep)){res.writeHead(404);res.end();return;}
    try{if(!(await stat(file)).isFile())file=fallback;}catch(error){
