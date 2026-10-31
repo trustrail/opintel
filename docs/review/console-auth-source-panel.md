@@ -2,6 +2,8 @@
 
 The console phase is on **feat/console-auth-source-panel** and is not merged. The prior console-default merge was pushed to main as **c7f57fe7884f88d6b89b48312896c3e3d91ba3d3**, without repeating its gate.
 
+**Full-gate status: failed once on 39a110e.** One generated OpenAPI document was stale; it is now regenerated and all 20 affected contract tests pass. The full gate was not rerun, and its final browser/MCP smoke tier did not run. The independent fresh packaged verification below passed.
+
 ## Implementation and backend scope
 
 Console-next now serves sign-in, check-email, device confirmation and authentication outcomes, the scoped Data source panel, inline declarations and contextual observation destinations. It uses React, the shared Radix primitives, regular Phosphor icons, Motion, visx and packaged Inter. The legacy Observations destination is removed; resolved observations remain in the API and evidence exports. Advanced column tags and source administration remain explicitly under the frozen legacy prefix.
@@ -89,4 +91,10 @@ Common foundation differences: the existing five-size type scale uses a 48 px de
 - Earlier route/static/backend contracts and control conformance passed; the completed-candidate gate rechecks the active gate tiers.
 - All package images passed secret and runtime-content audits.
 
-The single completed-candidate command is **npm run check**, run after the final review-evidence commit. Its result is written to test-results/gate.json and the private log /private/tmp/opintel-auth-source-full-gate.log; the final handoff reports its actual result and pushed commit. It must not be repeated to obtain a green record.
+The single completed-candidate **npm run check** ran on **39a110e804d17f1d9a115fd215b295d91bc045cb**, taking 2,184.97 seconds. Preflight, both strict typecheck tiers, lint, production-artifact exclusion and control conformance passed. Conformance visited 32/32 routes with zero findings.
+
+The normal tier reported **2,275 passed and one failed test** across **276 passed and one failed file**. The failure was test/sidecar-http.test.ts, in the OpenAPI-document equality assertion: the generated shared schema used declaredZone while the checked-in sidecar/openapi.json still used sourceTimezone in three request schemas. This was a missed generated contract update, not an environment or runtime-tokenization failure. The new timestamp read-plan regression and wire-shape tests passed inside this gate.
+
+The document was regenerated with the repository command, changing only those three field names. JSON syntax and lint passed; all **20 tests** in sidecar-http and execution-token-contract then passed on an isolated database. No runtime code or validation assertion changed in this follow-up.
+
+The full gate was **not rerun**, and its browser/MCP smoke tier was skipped after the normal-tier failure. The separate fresh packaged browser/MCP verification above passed all 25 recorded steps. A green full-gate result is not claimed. See the preserved [original gate record](console-auth-source-panel/gate-result.json) and [targeted correction record](console-auth-source-panel/post-gate-contract-check.json). The private full log remains /private/tmp/opintel-auth-source-full-gate.log.

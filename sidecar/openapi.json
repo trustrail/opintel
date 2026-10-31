@@ -1326,7 +1326,7 @@
                                       "caseInsensitive": {
                                         "type": "boolean"
                                       },
-                                      "sourceTimezone": {
+                                      "declaredZone": {
                                         "type": "string"
                                       },
                                       "epochUnit": {
@@ -2282,7 +2282,7 @@
                                       "caseInsensitive": {
                                         "type": "boolean"
                                       },
-                                      "sourceTimezone": {
+                                      "declaredZone": {
                                         "type": "string"
                                       },
                                       "epochUnit": {
@@ -3062,7 +3062,7 @@
                                       "caseInsensitive": {
                                         "type": "boolean"
                                       },
-                                      "sourceTimezone": {
+                                      "declaredZone": {
                                         "type": "string"
                                       },
                                       "epochUnit": {

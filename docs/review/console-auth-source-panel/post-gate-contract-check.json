@@ -1,0 +1,19 @@
+{
+  "fullGateCommit": "39a110e804d17f1d9a115fd215b295d91bc045cb",
+  "fullGateRerun": false,
+  "changedRuntimeCode": false,
+  "generatedDocument": "sidecar/openapi.json",
+  "generator": "npm run sidecar:openapi",
+  "jsonSyntax": "passed",
+  "lint": "passed",
+  "targetedTests": {
+    "files": [
+      "test/sidecar-http.test.ts",
+      "test/execution-token-contract.test.ts"
+    ],
+    "passed": 20,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "fullGateBrowserMcpSmoke": "not run after normal-tier failure"
+}
