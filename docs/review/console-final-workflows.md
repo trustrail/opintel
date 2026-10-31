@@ -62,8 +62,10 @@ Removed without an editor replacement, as explicitly decided: the console scope-
 ## Validation
 
 - Membership/list/outbox/table-grants targets: 29 passed.
-- Console tests: 128 passed, including Project-section and multi-company switcher coverage.
+- Console tests: 129 passed, including Project-section, multi-company switcher and contextual Settings-link coverage.
 - Route, bundle, provisioning, settings, stream, membership and dashboard contracts: 42 passed in eight files. DEP-008 isolated packaged owner startup passed after removing scripts/native dependencies.
 - Lint and dependency boundaries passed. Conformance TypeScript passed. Browser conformance passed all 36 checks, covering 28/28 registered URL scopes with zero findings. The real UI → row decision → authenticated MCP/Engine → persisted receipt and history smoke passed in 11.5 seconds. Strict production and conformance typechecks passed.
 - Packaged first run, dialogs, company/people, prepared demo, retained-key restore, ten old URLs and screenshots: pending.
 - Single completed-candidate full gate: not run.
+
+Custody and TLS check links are mapped in the console by check kind, keeping the old Project settings bookmark for Name/Industry. The company-filtered switcher offers New project only when the user administers that company.

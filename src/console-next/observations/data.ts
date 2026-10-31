@@ -24,10 +24,10 @@ export async function openObservations(project:string,client:Client=createApiCli
 }
 export const backupProblem=(h:ProjectHealthItem)=>h.kind==='token_key'&&h.status!=='ok'&&/backup|rehears/i.test(h.reason);
 export function contextualHealth(project:string,items:ProjectHealthItem[]):ProjectHealth{
- const backup=items.find(backupProblem);return {items:items.map(h=>backup&&(h.kind==='custody'||h.kind==='token_key')?{...h,status:'down',reason:backup.reason,next_action:{label:'Verify key backup',href:`/projects/${project}/token-key?verify=true`}}:h)};
+ const backup=items.find(backupProblem);return {items:items.map(h=>backup&&(h.kind==='custody'||h.kind==='token_key')?{...h,status:'down',reason:backup.reason,next_action:{label:'Verify key backup',href:`/projects/${project}/token-key?verify=true`}}:h.next_action&&(h.kind==='custody'||h.kind==='tls')?{...h,next_action:{...h.next_action,href:`/?project=${project}&screen=settings&section=${h.kind}`}}:h)};
 }
 export async function contextualNeeds(project:string,items:NeedsYouItem[],client:Client=createApiClient()):Promise<NeedsYouItem[]>{
- const base=items.map(i=>i.id.startsWith('check:token-key:')?{...i,title:'Verify key backup',targetRoute:`/projects/${project}/token-key?verify=true`}:i);
+ const base=items.map(i=>i.id.startsWith('check:token-key:')?{...i,title:'Verify key backup',targetRoute:`/projects/${project}/token-key?verify=true`}:i.id==='check:custody-provider'||i.id==='check:xq-dashboard'||i.id.startsWith('setting:custody.')?{...i,targetRoute:`/?project=${project}&screen=settings&section=custody${i.kind==='setting_required'?'&edit=true':''}`}:i);
  if(!base.some(i=>i.kind==='observation'&&!i.id.startsWith('observation:custody:')))return base;
  const observations=await openObservations(project,client),held=observations.filter(g=>g.group.kind==='filing'),types=observations.filter(g=>g.group.kind==='type'),out:NeedsYouItem[]=[];
  const unsupported=new Map<string,Set<string>>();

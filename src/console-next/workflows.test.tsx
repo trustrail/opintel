@@ -37,7 +37,7 @@ it('the project switcher groups multiple companies and honours the company filte
  api(c=>c.path.startsWith('/api/v1/companies?')?{items:[{id,name:'Company',role:'admin',projectCount:1},{id:other,name:'Other company',role:'member',projectCount:1}],nextCursor:null}:undefined);
  const projects=ProjectListResponse.parse({items:[project,{...project,id:other,name:'Other project',company:{id:other,name:'Other company'}}],nextCursor:null}).items,choose=vi.fn();
  useAccountState.setState({picker:true,company:other});render(<ProjectPicker project={projects[0]!} projects={projects} onProject={choose}/>,{wrapper});
- const menu=await screen.findByRole('menu');await within(menu).findByText('Other company');expect(within(menu).queryByRole('menuitem',{name:'Project'})).toBeNull();
+ const menu=await screen.findByRole('menu');await within(menu).findByText('Other company');expect(within(menu).queryByRole('menuitem',{name:'Project'})).toBeNull();expect(within(menu).queryByRole('menuitem',{name:'New project'})).toBeNull();
  fireEvent.click(within(menu).getByRole('menuitem',{name:'All companies'}));await within(menu).findByText('Company');
- expect(within(menu).getAllByRole('group')).toHaveLength(2);fireEvent.click(within(menu).getByRole('menuitem',{name:'Other project'}));expect(choose).toHaveBeenCalledWith(other);
+ expect(within(menu).getAllByRole('group')).toHaveLength(2);await within(menu).findByRole('menuitem',{name:'New project'});fireEvent.click(within(menu).getByRole('menuitem',{name:'Other project'}));expect(choose).toHaveBeenCalledWith(other);
 });

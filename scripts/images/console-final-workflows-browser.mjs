@@ -4,7 +4,7 @@ import {Buffer} from 'node:buffer';
 import process from 'node:process';
 import {setTimeout} from 'node:timers';
 const {Headers,Response}=globalThis;
-// Manual packaged first-run acceptance. No API response mocks or backend writes.
+// Manual packaged acceptance without API response mocks. First run uses the console; prepared demo metadata is an explicit operator fixture after the first receipt.
 import {readFileSync,writeFileSync,mkdirSync,existsSync,unlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {request} from 'node:https';
