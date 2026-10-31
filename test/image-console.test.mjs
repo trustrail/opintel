@@ -24,16 +24,17 @@ it('DEP-014: EACCES is a bounded request failure; later requests survive',async(
  }finally{log.mockRestore();}
 });
 
-it('default root and frozen legacy have separate SPA/assets; old project and auth links redirect',async()=>{
+it('only console-next is served; even stale legacy assets are refused and known bookmarks redirect',async()=>{
  const root=await fixture();await mkdir(join(root,'legacy/assets'),{recursive:true});await writeFile(join(root,'legacy/assets/index-test.js'),'legacy-bundle');const url=await serve(createConsoleServer({root}));
  expect(await(await fetch(url+'/')).text()).toContain('Console application');
- for(const path of ['/legacy/','/legacy/projects/p/catalog?advanced=true'])expect(await(await fetch(url+path)).text()).toContain('Legacy console');
- expect(await(await fetch(url+'/legacy/assets/index-test.js')).text()).toBe('legacy-bundle');expect((await fetch(url+'/legacy/assets/missing.js')).status).toBe(404);
- for(const [old,destination] of [['/console-next/?project=p','/?project=p'],['/projects/p/dashboard','/?project=p'],['/projects/p/observations','/?project=p&tab=sources&held=true&screen=data'],['/projects/p/pools/q/agents/name%2Fpart','/legacy/projects/p/pools/q/agents/name%2Fpart'],['/legacy/auth/callback?token=opaque','/auth/callback?token=opaque']])expect((await fetch(url+old,{redirect:'manual'})).headers.get('location')).toBe(destination);
+ expect(await(await fetch(url+'/legacy/')).text()).toContain('Console application');
+ expect((await fetch(url+'/legacy/projects/p/catalog?advanced=true',{redirect:'manual'})).headers.get('location')).toBe('/?project=p&tab=entitlements&declarations=true&screen=data');
+ expect((await fetch(url+'/legacy/assets/index-test.js')).status).toBe(404);expect((await fetch(url+'/legacy/assets/missing.js')).status).toBe(404);
+ for(const [old,destination] of [['/console-next/?project=p','/?project=p'],['/projects/p/dashboard','/?project=p'],['/projects/p/observations','/?project=p&tab=sources&held=true&screen=data'],['/projects/p/pools/q/agents/name%2Fpart','/?project=p&pool=q&agent=name%2Fpart&tab=agents&screen=pools'],['/legacy/auth/callback?token=opaque','/auth/callback?token=opaque']])expect((await fetch(url+old,{redirect:'manual'})).headers.get('location')).toBe(destination);
  expect((await fetch(url+'/releases')).status).toBe(404);
 });
-it('console runtime contract permits only the root and legacy built assets plus the exact self-hosted font/licence',async()=>{
+it('console runtime contract permits only the root built assets plus the exact self-hosted font/licence',async()=>{
  const p=JSON.parse(await readFile('deploy/images/runtime-policy.json','utf8')).targets.console,allowed=name=>p.files.includes(name)||p.patterns.some(pattern=>new RegExp('^'+pattern+'$','u').test(name));
- for(const name of ['work/dist/index.html','work/dist/legacy/index.html','work/dist/legacy/assets/index-test.js','work/dist/assets/index-test.css','work/dist/fonts/InterVariable.woff2','work/dist/fonts/OFL.txt'])expect(allowed(name)).toBe(true);
- for(const name of ['work/dist/legacy/src/screen.tsx','work/dist/legacy/.env','work/dist/legacy/assets/index-test.js.map','work/dist/other/index.html','work/dist/fonts/private.txt','work/dist/fonts/other.woff2'])expect(allowed(name)).toBe(false);
+ for(const name of ['work/dist/index.html','work/dist/assets/index-test.css','work/dist/fonts/InterVariable.woff2','work/dist/fonts/OFL.txt'])expect(allowed(name)).toBe(true);
+ for(const name of ['work/dist/legacy/index.html','work/dist/legacy/assets/index-test.js','work/dist/legacy/src/screen.tsx','work/dist/legacy/.env','work/dist/legacy/assets/index-test.js.map','work/dist/other/index.html','work/dist/fonts/private.txt','work/dist/fonts/other.woff2'])expect(allowed(name)).toBe(false);
 });

@@ -5,7 +5,7 @@ import {EnginePage} from '../../shared/api/engines.js';
 import {createApiClient} from '../../shared/api/client.js';
 import {readCatalogLevel,readPools,poolsKeys,emptySpectrum} from '../pools/data.js';
 import {homeKeys,pages} from '../home/data.js';
-export const dataKeys={all:(p:string)=>[...homeKeys.scope(p),'data'] as const,declarations:(p:string)=>[...dataKeys.all(p),'declarations'] as const,facts:(p:string)=>[...dataKeys.all(p),'facts'] as const,suggestions:(p:string)=>[...dataKeys.all(p),'suggestions'] as const,domains:(p:string)=>[...dataKeys.all(p),'domains'] as const,engines:(p:string)=>[...dataKeys.all(p),'engines'] as const};
+export const dataKeys={demos:(p:string,i:string)=>[...dataKeys.all(p),'demo-packs',i] as const,all:(p:string)=>[...homeKeys.scope(p),'data'] as const,declarations:(p:string)=>[...dataKeys.all(p),'declarations'] as const,facts:(p:string)=>[...dataKeys.all(p),'facts'] as const,suggestions:(p:string)=>[...dataKeys.all(p),'suggestions'] as const,domains:(p:string)=>[...dataKeys.all(p),'domains'] as const,engines:(p:string)=>[...dataKeys.all(p),'engines'] as const};
 export function estimateTotal(values:readonly (number|null|undefined)[]){return values.some(v=>v===null||v===undefined)?null:values.reduce<number>((sum,v)=>sum+(v??0),0);}
 export function rowsLabel(value:number|null|undefined){return value===null||value===undefined?'unknown':'~'+value.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1});}
 export async function readData(project:string,client=createApiClient()){

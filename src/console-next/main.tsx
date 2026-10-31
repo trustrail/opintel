@@ -1,3 +1,5 @@
+import {screenFrom} from './routing.js';
+import {AccountDialogs,usePersonal} from './components/account.js';
 import {Auth} from './auth/screen.js';
 import {isAuthPath} from './auth/state.js';
 import './auth/styles.css';
@@ -24,22 +26,28 @@ import './activity/styles.css';
 import './first-run/styles.css';
 const cache=new QueryClient({defaultOptions:{queries:{refetchOnWindowFocus:true,retry:false}}});
 function ProjectApp(){
+ usePersonal();
  const projects=useProjects(),selected=useHomeState(s=>s.project),setSelected=useHomeState(s=>s.setProject),theme=useHomeState(s=>s.theme);
  useEffect(()=>{if(projects.isError&&'code' in projects.error&&projects.error.code==='unauthenticated')window.location.replace('/sign-in?'+new URLSearchParams({next:window.location.pathname+window.location.search}));},[projects.isError,projects.error]);
  useEffect(()=>{document.documentElement.setAttribute('data-console-theme',theme);},[theme]);
+ useEffect(()=>{const media=window.matchMedia('(prefers-color-scheme: dark)'),update=()=>useHomeState.getState().setTheme(media.matches?'dark':'light');update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
  const choose=(id:string)=>{cache.removeQueries({queryKey:homeKeys.allProjects()});setSelected(id);const url=new URL(window.location.href);url.searchParams.set('project',id);window.history.replaceState(null,'',url);};
  if(projects.isPending)return <ListState state="loading"/>;
  if(projects.isError)return <div data-project-empty><ListState state="error" error={projects.error} retry={()=>{void projects.refetch();}}/><a href={consoleLink("/sign-in")}>Sign in</a></div>;
  const requested=projects.data.find(p=>p.id===selected);
  if(selected&&!requested&&projects.data.length)return <div data-project-empty><ListState state="error" error={{message:'This project was not found or is not available to your account.'}}/><a href="/">Choose an available project</a></div>;
- const project=requested??projects.data[0];
+ const company=new URLSearchParams(window.location.search).get('companyId'),project=requested??projects.data.find(p=>p.company.id===company)??projects.data[0];
  if(!project)return <Welcome/>;
- if(new URLSearchParams(window.location.search).get('screen')==='settings')return <Settings key={project.id} project={project}/>;
- if(new URLSearchParams(window.location.search).get('screen')==='activity')return <Activity key={project.id} project={project}/>;
- if(new URLSearchParams(window.location.search).get('screen')==='data')return <DataScreen key={project.id} project={project}/>;
- if(new URLSearchParams(window.location.search).get('screen')==='pools')return <Pools key={project.id} project={project}/>;
- return <Home key={project.id} project={project} projects={projects.data} onProject={choose}/>;
+ const screen=screenFrom(window.location.search);
+ switch(screen){
+  case 'settings':return <Settings key={project.id} project={project}/>;
+  case 'activity':return <Activity key={project.id} project={project}/>;
+  case 'data':return <DataScreen key={project.id} project={project}/>;
+  case 'pools':return <Pools key={project.id} project={project}/>;
+  case 'home':return <Home key={project.id} project={project} projects={projects.data} onProject={choose}/>;
+  default:{const unhandled:never=screen;throw new Error('Unhandled console screen: '+String(unhandled));}
+ }
 }
-function App(){return isAuthPath(window.location.pathname)?<Auth/>:<ProjectApp/>;}
+function App(){return isAuthPath(window.location.pathname)?<Auth/>:<><ProjectApp/><AccountDialogs/></>;}
 const root=document.getElementById('console-next');if(!root)throw new Error('Missing console root.');
 createRoot(root).render(<React.StrictMode><QueryClientProvider client={cache}><MotionConfig reducedMotion="user"><Tooltip.Provider delayDuration={300}><App/></Tooltip.Provider></MotionConfig></QueryClientProvider></React.StrictMode>);

@@ -1,8 +1,9 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 import {expect,type BrowserContext,type TestInfo} from '@playwright/test';
 import {controlPatterns,inspectControls,type Scan} from './checker.js';
 
-const master=readFileSync(new URL('../../docs/opintel-master.css',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../../src/console-next/auth/styles.css',import.meta.url),'utf8');
+const directory=new URL('../../src/console-next/',import.meta.url);
+const master=readdirSync(directory,{recursive:true}).filter((name):name is string=>typeof name==='string'&&name.endsWith('.css')).map(name=>readFileSync(new URL(name,directory),'utf8')).join('\n');
 export async function observeConformance(context:BrowserContext,testInfo:TestInfo){
  const scans=new Map<string,Scan>();
  const findings=new Map<string,Scan['findings'][number]>();
@@ -17,19 +18,19 @@ export async function observeConformance(context:BrowserContext,testInfo:TestInf
   const patterns = ${JSON.stringify(controlPatterns)};
   const sheet = new CSSStyleSheet(); sheet.replaceSync(${JSON.stringify(master)});
   const selectors = new Set();
-  const normalize = s => s.replace(/['"]/g, '').replace(/\\s+/g,' ').trim();
+  const normalize = s => s.replace(/['"]/g, '').replace(/\\s+/g,' ').replace(/\\s*([>+~])\\s*/g,'$1').trim();
   const walk = rules => { for (const rule of rules) {
     if (rule.selectorText) for (const selector of rule.selectorText.split(',')) selectors.add(normalize(selector));
     if (rule.cssRules) walk(rule.cssRules);
   }}; walk(sheet.cssRules);
   const missing = patterns.filter(p => !selectors.has(normalize(p.master)));
-  let contentPath = location.pathname, contentHeading = null;
+  let contentPath = location.pathname+location.search, contentHeading = null;
   const scan = () => {
     const result=inspect(patterns);
     // History updates before React replaces the outgoing page. Attribute its
     // controls to the content still mounted, not the destination URL.
-    if (result.heading && result.heading !== contentHeading) {
-      contentPath=location.pathname; contentHeading=result.heading;
+    if (result.heading && (result.heading !== contentHeading || location.pathname+location.search !== contentPath)) {
+      contentPath=location.pathname+location.search; contentHeading=result.heading;
     }
     result.screen=contentPath;
     result.findings=result.findings.map(f => ({...f,screen:contentPath}));
@@ -45,7 +46,7 @@ export async function observeConformance(context:BrowserContext,testInfo:TestInf
  return async()=>{
   for(const page of context.pages())if(!page.isClosed())await page.evaluate(async()=>{
    const scan=(window as Window & {__scanControlConformance?:()=>Promise<void>}).__scanControlConformance;
-   if(document.querySelector('#opintel-app, #console-next')&&!scan)throw new Error('Control conformance observer did not initialize.');
+   if(document.querySelector('#console-next')&&!scan)throw new Error('Control conformance observer did not initialize.');
    await scan?.();
   });
   const result={test:testInfo.titlePath,scans:[...scans.values()].map(({findings:_findings,...scan})=>scan),findings:[...findings.values()]};

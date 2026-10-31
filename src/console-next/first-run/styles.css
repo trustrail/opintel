@@ -54,3 +54,5 @@
 [data-connect-source] form input:not([type=checkbox]):not([type=radio]),[data-connect-source] form select{min-height:var(--space-6);padding:var(--space-2);font-weight:400}
 [data-connect-source] form [data-reference-field] input:not([type=checkbox]):not([type=radio]){border:0;background:transparent}
 @media(max-width:700px){[data-connect-source]{top:var(--space-2);max-height:calc(100dvh - var(--space-4))}}
+
+[data-project-dialog]>header,[data-you-dialog]>header{display:flex;align-items:center;gap:var(--space-2);padding-bottom:var(--space-2);border-bottom:var(--hairline) solid var(--border)}[data-project-dialog]>header>span:nth-child(2),[data-you-dialog]>header>span:nth-child(2){flex:1}[data-you-dialog] p{display:flex;gap:var(--space-1);align-items:center;color:var(--muted)}[data-project-dialog] form,[data-you-dialog] form{display:flex;flex-direction:column;gap:var(--space-2);padding-top:var(--space-2)}[data-project-dialog] [data-welcome-actions]{flex-wrap:wrap}[data-project-dialog] [data-welcome-actions] p{flex-basis:100%}

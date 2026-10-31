@@ -15,15 +15,15 @@ export function useSettings(project:string,admin:boolean){
  const base=`/api/v1/projects/${project}`,client=createApiClient();
  const settings=useQuery({queryKey:settingsKeys.part(project,'values'),queryFn:()=>read(client,base+'/settings',ProjectSettingsView)});
  const provider=useQuery({queryKey:settingsKeys.part(project,'provider'),queryFn:()=>read(client,base+'/custody-provider',CustodyProviderStatus),refetchInterval:15000});
- const engines=useQuery({queryKey:settingsKeys.part(project,'engines'),queryFn:async()=>(await pages(client,base+'/engines?limit=100',EnginePage,Infinity)).items.map(({id,name,health,verifiedAt,lastSeenAt,sources})=>({id,name,health,verifiedAt,lastSeenAt,sourceCount:sources.length})),refetchInterval:15000});
- const people=useQuery({queryKey:settingsKeys.part(project,'people'),queryFn:async()=>(await pages(client,base+'/members?limit=100',ProjectMemberListResponse,Infinity)).items.filter(member=>member.projectRole!==null)});
+ const engines=useQuery({queryKey:settingsKeys.part(project,'engines'),queryFn:async()=>(await pages(client,base+'/engines?limit=100',EnginePage,Infinity)).items.map(({id,name,address,certificatePin,custody,health,verifiedAt,lastSeenAt,sources})=>({id,name,address,certificatePin,custody,health,verifiedAt,lastSeenAt,sourceCount:sources.length})),refetchInterval:15000});
+ const people=useQuery({queryKey:settingsKeys.part(project,'people'),queryFn:async()=>(await pages(client,base+'/members?limit=100',ProjectMemberListResponse,Infinity)).items});
  const invitations=useQuery({queryKey:settingsKeys.part(project,'invitations'),queryFn:async()=>(await pages(client,base+'/invitations?limit=100',Invitations,Infinity)).items});
  const token=useQuery({queryKey:settingsKeys.part(project,'token'),enabled:admin,queryFn:()=>read(client,base+'/token-key',TokenKeyView),refetchInterval:15000});
  const needs=useQuery({queryKey:settingsKeys.part(project,'needs'),queryFn:async()=>(await pages(client,base+'/needs-you?limit=100',NeedsYouPage,Infinity)).items});
  return {settings,provider,engines,people,invitations,token,needs};
 }
 export type SettingsData=ReturnType<typeof useSettings>;
-export function useSettingsCommand(project:string){const cache=useQueryClient();return useMutation({mutationFn:async(request:ApiRequest<unknown>)=>{const r=await createApiClient().request(request);if(!r.ok)throw r.error;return r.value;},onSuccess:async()=>{await Promise.all([cache.invalidateQueries({queryKey:settingsKeys.all(project)}),cache.invalidateQueries({queryKey:homeKeys.health(project)}),cache.invalidateQueries({queryKey:homeKeys.facts(project)})]);}});}
+export function useSettingsCommand(project:string){const cache=useQueryClient();return useMutation({mutationFn:async(request:ApiRequest<unknown>)=>{const r=await createApiClient().request(request);if(!r.ok)throw r.error;return r.value;},onSuccess:async(_result,request)=>{if(request.method==='DELETE'&&request.path.includes('/members/'))await cache.invalidateQueries({queryKey:homeKeys.projects()});await Promise.all([cache.invalidateQueries({queryKey:settingsKeys.all(project)}),cache.invalidateQueries({queryKey:homeKeys.health(project)}),cache.invalidateQueries({queryKey:homeKeys.facts(project)})]);}});}
 
 /** One ordering for displayed rows, section dots and the Settings health band. */
 export type Status='ok'|'unknown'|'warning'|'down';

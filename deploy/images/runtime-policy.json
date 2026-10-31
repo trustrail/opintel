@@ -39,17 +39,11 @@
         "work/dist/opintel-logo@2x.png",
         "work/dist/opintel-logo@3x.png",
         "work/dist/opintel-favicon.png",
-        "work/dist/legacy/index.html",
         "work/dist/fonts/InterVariable.woff2",
-        "work/dist/fonts/OFL.txt",
-        "work/dist/legacy/opintel-logo.png",
-        "work/dist/legacy/opintel-logo@2x.png",
-        "work/dist/legacy/opintel-logo@3x.png",
-        "work/dist/legacy/opintel-favicon.png"
+        "work/dist/fonts/OFL.txt"
       ],
       "patterns": [
-        "work/dist/assets/[A-Za-z0-9_-]+\\.(?:js|css)",
-        "work/dist/legacy/assets/[A-Za-z0-9_-]+\\.(?:js|css)"
+        "work/dist/assets/[A-Za-z0-9_-]+\\.(?:js|css)"
       ]
     },
     "egress": {

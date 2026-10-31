@@ -195,6 +195,7 @@ async function start(): Promise<void> {
     clock, stalenessCeilingMs: 0,
   });
   const relationshipOutbox = new RelationshipOutbox();
+  const {RemoveProjectMemberService,PostgresProjectGrantRemoval,memberRemovalRoutes}=await import('../../modules/tenancy/index.js');
   const companies = new CreateCompanyService(
     new PostgresCompanyCreationRepository(relationshipOutbox), relationshipOutbox, authorization,
   );
@@ -308,6 +309,7 @@ async function start(): Promise<void> {
     ...oidcRoutes(oidc,process.env.APP_BASE_URL ?? 'http://localhost:5173'),
     ...invitationRoutes(invitations),
     ...memberRoutes(new ListMembersService(new PostgresMemberListRepository())),
+    ...memberRemovalRoutes(new RemoveProjectMemberService(new PostgresProjectGrantRemoval(relationshipOutbox),authorization)),
     ...permissionRoutes(new ExplainPermissionsService(new PostgresPermissionSubjectRepository(), authorization)),
     ...providerRoutes(createProviderResolutionRuntime()),
     ...currentUserRoutes(currentUsers),

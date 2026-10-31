@@ -1,4 +1,4 @@
-import {observationKeys} from '../src/app/observations/keys.js';
+import {observationKeys} from '../src/console-next/observations/data.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -10,9 +10,9 @@ import { createHttpServer } from '../src/platform/http/index.js';
 import { ProjectId, UserId, SourceId, RunId, FilingId, Timestamp } from '../src/shared/kernel/index.js';
 import type { AuthorizationPort, AuthorizationRevision } from '../src/modules/authz/index.js';
 import { streamEventSchema, streamFamilies, streamOpenApiDocument, type StreamEvent } from '../src/shared/api/stream.js';
-import { projectStreamCache } from '../src/app/stream-cache.js';
-import { introspectionKeys } from '../src/app/introspection/data.js';
-import { elementKeys } from '../src/app/catalog/data.js';
+import { projectStreamCache } from '../src/console-next/stream-cache.js';
+import {sourceKeys} from '../src/console-next/data/source-data.js';
+import {dataKeys} from '../src/console-next/data/data.js';
 import type { RunView } from '../src/shared/api/introspection.js';
 
 const project = ProjectId(randomUUID());
@@ -22,14 +22,14 @@ afterEach(() => vi.useRealTimers());
 it('S-008: progress writes existing detail and paginated list caches without refetch or invented records', async () => {
  const cache = new QueryClient(); const consumer = projectStreamCache(cache, project);
  const run: RunView = { id: runId, sourceId, state: 'reading', progress: { objects: 0, total: null }, error: null, startedAt: null, endedAt: null, diff: null };
- const key = introspectionKeys.detail(project,runId);
+ const key = sourceKeys.scan(project,runId);
  cache.setQueryData(key,run);
- cache.setQueryData(introspectionKeys.list(project,sourceId),{pages:[{items:[run],nextCursor:null}],pageParams:[null]});
+ cache.setQueryData(sourceKeys.scans(project,sourceId),{pages:[{items:[run],nextCursor:null}],pageParams:[null]});
  const refetch = vi.fn(async()=>run);
  const observer = new QueryObserver(cache,{queryKey:key,queryFn:refetch,staleTime:Infinity});const unsubscribe = observer.subscribe(()=>{});
  for (let sequence=1;sequence<=100;sequence++) consumer.receive({type:'introspection.progress',sequence,runId,sourceId,state:'reading',objects:sequence,total:100});
  expect(cache.getQueryData<RunView>(key)?.progress.objects).toBe(100);
- expect(cache.getQueryData(introspectionKeys.list(project,sourceId))).toMatchObject({pages:[{items:[{progress:{objects:100}}]}]});
+ expect(cache.getQueryData(sourceKeys.scans(project,sourceId))).toMatchObject({pages:[{items:[{progress:{objects:100}}]}]});
  expect(refetch).not.toHaveBeenCalled();
  consumer.receive({type:'introspection.progress',sequence:1,runId,sourceId,state:'connecting',objects:0,total:null});
  expect(cache.getQueryData<RunView>(key)?.state).toBe('reading');
@@ -43,9 +43,9 @@ it('S-008: progress writes existing detail and paginated list caches without ref
 });
 it('S-009: a structural burst refetches each active family once, scoped to its project', async () => {
  vi.useFakeTimers();const cache=new QueryClient();const consumer=projectStreamCache(cache,project);
- const key=elementKeys.list(project,{limit:50});const refetch=vi.fn(async()=>({items:[]}));
+ const key=dataKeys.facts(project);const refetch=vi.fn(async()=>({items:[]}));
  cache.setQueryData(key,{items:[]});const observer=new QueryObserver(cache,{queryKey:key,queryFn:refetch,staleTime:Infinity});const unsubscribe=observer.subscribe(()=>{});
- const other=elementKeys.all(randomUUID());cache.setQueryData(other,{untouched:true});
+ const other=dataKeys.all(randomUUID());cache.setQueryData(other,{untouched:true});
  for(let sequence=1;sequence<=30;sequence++)consumer.receive({type:'catalog.changed',sequence,sourceId});
  await vi.advanceTimersByTimeAsync(50);
  expect(refetch).toHaveBeenCalledTimes(1);expect(cache.getQueryState(other)?.isInvalidated).toBe(false);
@@ -87,9 +87,8 @@ it('shares strict wire validation with the OpenAPI description',()=>{
 });
 
 it('refreshes unsupported counts and type observations on completion, archive and reconnect',async()=>{
- const {sourceKeys}=await import('../src/app/sources/data.js');
  vi.useFakeTimers();const cache=new QueryClient();const consumer=projectStreamCache(cache,project);
- const key=sourceKeys.typeObservations(project),counts=sourceKeys.lists(project),other=sourceKeys.typeObservations(randomUUID());
+ const key=observationKeys.open(project),counts=dataKeys.facts(project),other=observationKeys.open(randomUUID());
  const reset=()=>{cache.setQueryData(key,[]);cache.setQueryData(counts,[]);cache.setQueryData(other,[]);};
  for(const event of [
   {type:'introspection.finished',sequence:1,sourceId,runId,state:'complete'},
@@ -102,7 +101,7 @@ it('refreshes unsupported counts and type observations on completion, archive an
 
 it('RED-013: finding lifecycle streams and reconnect invalidate both views and member history only in their project',async()=>{
  vi.useFakeTimers();const cache=new QueryClient(),consumer=projectStreamCache(cache,project);
- const keys=[observationKeys.groups(project,'open',false),observationKeys.groups(project,'resolved',false),observationKeys.members(project,'filing:no_rule_matched:','open',false)],other=observationKeys.groups(randomUUID(),'open',false);
+ const keys=[observationKeys.open(project),observationKeys.group(project,'group','resolved'),observationKeys.group(project,'filing:no_rule_matched:','open')],other=observationKeys.open(randomUUID());
  for(const key of [...keys,other])cache.setQueryData(key,{items:[]});
  consumer.receive({type:'filing.arrived',sequence:1,sourceId,filingId:randomUUID()});await vi.advanceTimersByTimeAsync(50);
  for(const key of keys)expect(cache.getQueryState(key)?.isInvalidated).toBe(true);expect(cache.getQueryState(other)?.isInvalidated).toBe(false);

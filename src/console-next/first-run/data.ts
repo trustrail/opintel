@@ -9,7 +9,7 @@ import {homeKeys,pages,read} from '../home/data.js';
 import {readPools} from '../pools/data.js';
 export const firstRunKeys={welcome:()=>['console-next','welcome'] as const,candidates:(id:string)=>['console-next','company',id,'paired-engines'] as const,company:(id:string)=>['console-next','company',id,'settings'] as const,facts:(p:string)=>[...homeKeys.scope(p),'first-run'] as const};
 const User=z.object({email:z.email()});
-export function useWelcome(){return useQuery({queryKey:firstRunKeys.welcome(),queryFn:async()=>{const c=createApiClient();const [companies,user,industries]=await Promise.all([pages(c,'/api/v1/companies?limit=100',CompanyListResponse,Infinity),read(c,'/api/v1/auth/me',User),read(c,'/api/v1/industries',IndustryListResponse)]);return {companies:companies.items,user,industries};}});}
+export function useWelcome(){return useQuery({queryKey:firstRunKeys.welcome(),retry:false,queryFn:async({signal})=>{const c=createApiClient(undefined,{signal});const [companies,user,industries]=await Promise.all([pages(c,'/api/v1/companies?limit=100',CompanyListResponse,Infinity),read(c,'/api/v1/auth/me',User),read(c,'/api/v1/industries',IndustryListResponse)]);return {companies:companies.items,user,industries};}});}
 export type Company=z.infer<typeof CompanyListItem>;
 export function useCandidates(company:string|null){return useQuery({queryKey:firstRunKeys.candidates(company??''),enabled:Boolean(company),queryFn:()=>read(createApiClient(),`/api/v1/companies/${company}/paired-engines`,PairedEngineCandidates)});}
 export function useCompanyDefaults(company:string|null){return useQuery({queryKey:firstRunKeys.company(company??''),enabled:Boolean(company),queryFn:()=>read(createApiClient(),`/api/v1/companies/${company}/settings`,CompanySettingsView)});}

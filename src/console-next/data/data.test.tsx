@@ -1,12 +1,11 @@
 import {selectOption} from '../test-select.js';
 import type {ReactNode} from 'react';
 import {afterEach,it,expect,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {cleanup,render,screen,fireEvent,waitFor} from '@testing-library/react';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {Tooltip} from '../components/primitives.js';
 import {ScopePicker} from '../components/scope.js';
 import {Navigation} from '../components/navigation.js';
-import {useHomeState} from '../home/state.js';
 import {emptySpectrum} from '../pools/data.js';
 import {DataBand} from './band.js';
 import {DataScreen,filterTables} from './screen.js';
@@ -28,7 +27,7 @@ const facts:DataFacts={tables:[table],sources:[source],pools:[],needs:[],kinds:{
 function wrapper({children}:{children:ReactNode}){return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}})}><Tooltip.Provider>{children}</Tooltip.Provider></QueryClientProvider>;}
 const calls:Array<{path:string;body:unknown;method?:string}>=[];
 function install(response:(path:string,body:unknown)=>unknown){vi.stubGlobal('fetch',vi.fn(async(path:string,init:{body?:string;method?:string})=>{const body=typeof init.body==='string'?JSON.parse(init.body) as unknown:null;calls.push({path,method:init.method,body});return new Response(JSON.stringify(response(path,body)),{status:200});}));}
-afterEach(()=>{vi.unstubAllGlobals();calls.length=0;});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();calls.length=0;});
 it('preserves unknown and zero; never calls unknown estimates zero or gives an incomplete total',()=>{expect(rowsLabel(null)).toBe('unknown');expect(rowsLabel(undefined)).toBe('unknown');expect(rowsLabel(0)).toBe('~0');expect(rowsLabel(12345)).toBe('~12.3K');expect(estimateTotal([0,12])).toBe(12);expect(estimateTotal([12,null])).toBeNull();expect(estimateTotal([undefined])).toBeNull();});
 it('sums decisions once per bound pool and sorts open tables before size, unknown last',()=>{const known={...table,node:{...table.node,id:pool,rowEstimate:99},open:0},unknown={...table,node:{...table.node,id:element},open:0};expect(tableSpectrum([table])).toMatchObject({undecided:1,clear:0});expect(filterTables([unknown,known,table],null,'').map(t=>t.node.id)).toEqual([id,pool,element]);expect(filterTables([known,table],'open','')).toEqual([table]);expect(filterTables([table],null,'SECRET')).toEqual([table]);});
 it('band charts and legend numbers filter real scopes and explicitly label incomplete size',()=>{const filter=vi.fn();render(<DataBand source={null} facts={facts} tables={[table]} sources={[source]} onFilter={filter}/>,{wrapper});expect(screen.getByText('unknown total; known slices only',{exact:false})).toBeTruthy();fireEvent.click(screen.getByRole('link',{name:'View decided'}));expect(filter).toHaveBeenLastCalledWith('open');fireEvent.click(screen.getByRole('link',{name:'1 connected'}));expect(filter).toHaveBeenLastCalledWith('status:connected');});
@@ -49,9 +48,9 @@ it('reads all catalogue pages, preserves unknown estimates and ignores unbound p
 });
 it('Data failures expose the actual retryable error without replacing it with zero statistics',async()=>{vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({error:{code:'dependency_unavailable',message:'Catalogue unavailable',requestId:id,retryable:true}}),{status:503})));render(<DataScreen project={project}/>,{wrapper});expect(await screen.findByRole('alert')).toBeTruthy();expect(screen.getByText('Catalogue unavailable')).toBeTruthy();expect(screen.getByRole('button',{name:'Retry'})).toBeTruthy();expect(screen.queryByText('~0')).toBeNull();useDataState.setState({source:null,table:null,tab:'entitlements',filter:null,search:'',connect:false});});
 
-it('theme switching lives in the shared account menu on Home, Pools and Data, never in source scope',async()=>{
- for(const active of ['Home','Pools','Data'] as const){useHomeState.setState({theme:'light'});const view=render(<Navigation project={id} active={active} needs={[]}/>,{wrapper});fireEvent.keyDown(screen.getByRole('button',{name:'Account menu'}),{key:'ArrowDown'});fireEvent.click(await screen.findByRole('menuitem',{name:'Use dark theme'}));expect(useHomeState.getState().theme).toBe('dark');view.unmount();}
- render(<ScopePicker kind="source" items={[]} selected={null} onSelect={()=>{}}/>,{wrapper});fireEvent.click(screen.getByRole('button',{name:'Choose source'}));await screen.findByRole('button',{name:/All sources/});expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();useHomeState.setState({theme:'light'});
+it('the shared account menu opens You and has no theme override',async()=>{
+ for(const active of ['Home','Pools','Data'] as const){const view=render(<Navigation project={id} active={active} needs={[]}/>,{wrapper});fireEvent.keyDown(screen.getByRole('button',{name:'Account menu'}),{key:'ArrowDown'});expect(await screen.findByRole('menuitem',{name:'You'})).toBeTruthy();expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();view.unmount();}
+ render(<ScopePicker kind="source" items={[]} selected={null} onSelect={()=>{}}/>,{wrapper});fireEvent.click(screen.getByRole('button',{name:'Choose source'}));await screen.findByRole('button',{name:/All sources/});expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();
 });
 
 it('linked Data scopes exclude other pools and elements without changing the stored catalogue',()=>{const member={id:element,group:'secret',name:'secret',qualifiedName:'warehouse.public.records.secret',objectId:id,objectName:'records',objectLabel:'records',sourceId:id,sourceType:'text',exposedType:'VARCHAR',treatment:null,maskKind:null,justification:null};const bound={...table,pools:table.pools.map(p=>({...p,members:[member]}))};const unbound={...table,node:{...table.node,id:pool},pools:[]};expect(scopedTables([bound,unbound],pool,element)).toHaveLength(1);const scoped=scopedTables([bound],pool,element)[0]!;expect(scoped.pools).toHaveLength(1);expect(scoped.pools[0]?.members.map(m=>m.id)).toEqual([element]);expect(scoped.open).toBe(1);expect(scopedTables([table],id,null)).toEqual([]);expect(scopedTables([table],null,id)).toEqual([]);expect(table.pools[0]?.spectrum.undecided).toBe(1);});
