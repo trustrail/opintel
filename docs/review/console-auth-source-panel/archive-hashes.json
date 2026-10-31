@@ -1,0 +1,12 @@
+[
+  {
+    "file": "gateway-ec3400d-amd64.tar.gz",
+    "bytes": 431579488,
+    "sha256": "33d7d8f2d35757fffca5e4bb14de2530161835e5e55bf2227a51e616d56b865d"
+  },
+  {
+    "file": "engine-ec3400d-amd64.tar.gz",
+    "bytes": 298902807,
+    "sha256": "46d5b448014464d894fd6c617f45ad47880e5418ff98daa2605806628f0cc5b0"
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "file": "gateway-08fcc8e-amd64.tar.gz",
+    "bytes": 431580397,
+    "sha256": "6fdca56c73296e24f440f166dc073a1871143e3b2d8c8d516aff468c7ed295d7"
+  },
+  {
+    "file": "engine-08fcc8e-amd64.tar.gz",
+    "bytes": 298901569,
+    "sha256": "e2f623710bd9a1b38737ffd609c07f4d12e2f11f1d14912e9702324e42776680"
+  }
+]
