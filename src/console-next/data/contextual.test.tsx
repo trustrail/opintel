@@ -8,10 +8,11 @@ import {PoolDetail} from '../../shared/api/pools.js';
 import {ElementDeclarations} from '../../shared/api/declarations.js';
 import {Tooltip} from '../components/primitives.js';
 import {emptySpectrum} from '../pools/data.js';
-import {Comparable,TemporalChip,SchemaTimezone} from './declarations.js';
+import {Comparable,TemporalChip,SchemaTimezone,useDeclaration} from './declarations.js';
 import {SourceBand} from './source-band.js';
 import {SourcePanel} from './source-panel.js';
 import {scanEffect,filingOrder,type Filing} from './source-data.js';
+import {useRefreshData} from './data.js';
 import {useDataState} from './state.js';
 import {useSourceState} from './source-state.js';
 import type {DataFacts} from './data.js';
@@ -39,3 +40,5 @@ it('the filing band includes pending and duplicate filings in its clickable outc
 
 it('returning to All tables leaves a declaration permalink instead of reopening the same schema',()=>{window.history.replaceState({},'',`/?project=${id}&screen=data&source=${id}&table=${id}&elementId=${element}&declarationSchema=public&declarations=true&editDeclaration=token&domain=recovery`);useDataState.setState({table:id});useDataState.getState().setTable(null);const q=new URLSearchParams(window.location.search);expect(useDataState.getState().table).toBeNull();expect(q.get('source')).toBe(id);for(const key of ['table','elementId','declarationSchema','declarations','editDeclaration','domain'])expect(q.has(key)).toBe(false);});
 it('unavailable declaration metadata never claims an isolated group or an unset schema timezone',async()=>{install(()=>({status:503,data:{error:{code:'dependency_unavailable',message:'Declaration store unavailable',requestId:id,retryable:true}}}));render(<><Comparable project={project} element={element} facts={facts}/><SchemaTimezone project={project} element={element}/></>,{wrapper});expect(screen.queryByText('Only this column')).toBeNull();expect(screen.queryByText('Not declared')).toBeNull();await screen.findByText('Declaration unavailable');expect(screen.getByText('Unavailable')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:/times without a zone/}));expect(await screen.findByText('Declaration store unavailable')).toBeTruthy();expect(screen.getByRole('button',{name:'Retry'})).toBeTruthy();});
+
+it('a saved treatment refreshes the cached affected-pool count used by token confirmations',async()=>{let count=0;install(()=>({data:{...declaration,tokenizedEntitlements:count}}));function View(){const q=useDeclaration(id,element),refresh=useRefreshData(id);return <><output>{q.data?.tokenizedEntitlements} affected {q.data?.tokenizedEntitlements===1?'pool':'pools'}</output><button onClick={()=>{count=1;void refresh();}}>Treatment saved</button></>;}render(<View/>,{wrapper});await screen.findByText('0 affected pools');fireEvent.click(screen.getByRole('button',{name:'Treatment saved'}));expect(await screen.findByText('1 affected pool')).toBeTruthy();});
