@@ -40,7 +40,7 @@ try{
   if(input.kind==='backup-unavailable'||input.kind==='backup-restore'){const path=join(roots.engine,'state/custody/escrow',input.project,'v1');renameSync(input.kind==='backup-unavailable'?path:path+'.acceptance',input.kind==='backup-unavailable'?path+'.acceptance':path);return;}
   if(input.kind==='sso-fixture'){
    const project=readFileSync(join(roots.gateway,'state/project-name'),'utf8').trim(),compose=join(roots.gateway,'state/compose.json');
-   const sql=`UPDATE company SET allowed_domains=array_append(allowed_domains,'review.invalid'),sso_enforced=true WHERE id=(SELECT company_id FROM project WHERE id='${input.project}'); INSERT INTO company_idp(company_id,provider,display_name,issuer,client_id,client_secret_ref) SELECT company_id,'oidc:review','Company SSO','https://sso.example.invalid','review','vault://review/oidc' FROM project WHERE id='${input.project}';`;
+   const sql=`BEGIN; INSERT INTO company_idp(company_id,provider,display_name,issuer,client_id,client_secret_ref) SELECT company_id,'oidc:review','Company SSO','https://sso.example.invalid','review','secret://review/oidc' FROM project WHERE id='${input.project}'; UPDATE company SET allowed_domains=array_append(allowed_domains,'review.invalid'),sso_enforced=true WHERE id=(SELECT company_id FROM project WHERE id='${input.project}'); COMMIT;`;
    run('docker',['compose','--project-name',project,'--project-directory',roots.gateway,'--env-file',join(roots.gateway,'state/package.env'),'-f',compose,'exec','-T','postgres','psql','-U','opintel','-d','opintel','-v','ON_ERROR_STOP=1','-c',sql],'sso-fixture');return;
   }
   throw new Error('Unknown acceptance fixture action');
