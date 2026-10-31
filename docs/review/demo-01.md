@@ -87,8 +87,14 @@ Archive SHA-256:
 - Engine: `3cec1cb517ab03d5f5152274df8c2ef04f0f55d99d9630326d360ddbdbe1a3bb`
 - Gateway: `3cfb1fc00ac5bcc0b4897dc2f2c9465ca61a7b39ede01c0bf32464c18a65205e`
 
-The completed-candidate gate runs once after packaged verification; its outcome
-is reported with the pushed commit and retained gate log.
+The initial attempt on `d6e26a9` stopped before any test tier: Docker info hit
+its 5 s preflight guard (5.037 s total preflight). Standalone diagnostic then
+passed, measuring Docker info at 4.824 s, image inspections at 0.143–0.201 s,
+Compose inspection at 0.602 s, startup at 1.897 s, Redis at 2.571 s and PostgreSQL
+at 4.084 s (11.644 s total). Docker info now has a 30 s hang guard and logs elapsed
+time on success/failure; other preflight deadlines remain unchanged. GATE-04
+records this diagnostic. The user authorized one full gate after this correction;
+its result is reported with the pushed revision and retained log.
 
 ## Native release follow-up
 

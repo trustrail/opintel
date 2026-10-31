@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath,URL} from 'node:url';
+import {performance} from 'node:perf_hooks';
 
 const exec=promisify(execFile);
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -96,8 +97,10 @@ export async function gatePreflight({run=runPreflightCommand,probe=probeGateServ
  if(availableBytes<minimumAvailableBytes)throw new GatePrerequisiteError(`Gate memory preflight: ${(availableBytes/1024**3).toFixed(2)} GiB available RAM; at least 1 GiB required. Free host memory before starting the gate.`);
  console.info(`Gate memory preflight: ${(availableBytes/1024**3).toFixed(2)} GiB available RAM; minimum 1 GiB.`);
  let dockerBytes;
- try{dockerBytes=Number((await run('docker',['info','--format','{{.MemTotal}}'],5000)).trim());}
- catch{throw new GatePrerequisiteError('Docker is not running; start Docker Desktop');}
+ const dockerInfoStarted=performance.now();
+ try{dockerBytes=Number((await run('docker',['info','--format','{{.MemTotal}}'],30000)).trim());}
+ catch(error){throw new GatePrerequisiteError(error?.killed?'Docker info exceeded 30 seconds; check Docker Desktop':'Docker is not running; start Docker Desktop');}
+ finally{console.info(`Docker info: ${((performance.now()-dockerInfoStarted)/1000).toFixed(3)}s elapsed; timeout 30s.`);}
  if(!Number.isSafeInteger(dockerBytes)||dockerBytes<=0)throw new GatePrerequisiteError('Docker memory could not be determined; check Docker Desktop');
  const minimumDockerBytes=7*1024**3;
  if(dockerBytes<minimumDockerBytes)throw new GatePrerequisiteError(`Docker has ${(dockerBytes/1024**3).toFixed(2)} GiB, needs at least 7 GiB usable (allocate 8 GB in Docker Desktop)`);

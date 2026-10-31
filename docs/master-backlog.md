@@ -362,6 +362,14 @@ file changed in the branch. See `docs/review/console-auth-source-panel.md`.
 setup duration and the full failure diagnostic, following the native-release
 test precedent. Preserve migration assertions, database isolation and phase
 deadline enforcement. Do not treat the timeout as a speed assertion.
+**DEMO-01 diagnostic, 31 October 2026** The Docker-info guard was also only
+5 s: standalone preflight measured 4,824 ms for info, 143–201 ms per pinned-image
+inspection, 602 ms for Compose inspection, 1,897 ms for container startup,
+2,571 ms for Redis and 4,084 ms for PostgreSQL readiness/privilege probes.
+The diagnostic completed in 11,644 ms. Raise only Docker info to a 30 s hang
+guard and log its measured duration on success and failure; preserve all other
+preflight limits and checks. The migration fixture guard is now 60 s and logs
+its setup duration. These are hang guards, not performance assertions.
 
 ### GATE-03 · Distinguish stopped PostgreSQL from missing CREATEDB
 **Status** Resolved · 29 October 2026; `scripts/gate-preflight.mjs`,

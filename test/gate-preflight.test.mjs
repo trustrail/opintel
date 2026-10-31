@@ -1,4 +1,5 @@
 import process from 'node:process';
+import console from 'node:console';
 import {describe,it,expect,vi} from 'vitest';
 import {gatePreflight,runPreflightCommand,parseAvailableMemory,availableMemory,pinnedGateImages,ensureGateImage,GatePrerequisiteError,bootstrapFailure} from '../scripts/gate-preflight.mjs';
 
@@ -9,6 +10,20 @@ function fixture(){
  return {run,probe:vi.fn().mockResolvedValue(undefined),memory,images};
 }
 describe('gate service preflight',()=>{
+ it('allows 30 seconds for Docker info and logs duration on success and timeout',async()=>{
+  const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+  try{
+   for(const timedOut of [false,true]){
+    const dependencies=fixture(),base=dependencies.run.getMockImplementation();
+    if(timedOut)dependencies.run.mockImplementation((command,args,...rest)=>args[0]==='info'?Promise.reject(Object.assign(new Error('private'),{killed:true})):base(command,args,...rest));
+    if(timedOut)await expect(gatePreflight(dependencies)).rejects.toThrow('Docker info exceeded 30 seconds');
+    else await expect(gatePreflight(dependencies)).resolves.toMatchObject({postgres:'reachable'});
+    expect(dependencies.run).toHaveBeenCalledWith('docker',['info','--format','{{.MemTotal}}'],30000);
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/^Docker info: \d+\.\d{3}s elapsed; timeout 30s\.$/u));
+    log.mockClear();
+   }
+  }finally{log.mockRestore();}
+ });
  it('refuses below 1 GiB before inspecting or starting services',async()=>{
   const dependencies=fixture();
   await expect(gatePreflight({...dependencies,memory:()=>1024**3-1})).rejects.toThrow('at least 1 GiB required');
