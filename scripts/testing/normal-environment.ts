@@ -51,10 +51,10 @@ export async function seedNormalPostgres(environment:DevEnvironment){
   await client.query(`INSERT INTO industry(slug,name,description) VALUES
    ('reinsurance-treaty','Reinsurance Treaty','Reinsurance treaty vocabulary and demo pack.'),
    ('general','General','No industry vocabulary. Terms you define yourself.')`);
-  for(const file of ['021_reinsurance_filing_vocabulary.up.sql','024_reinsurance_demo_pack.up.sql'])await client.query(await readFile(new URL('../../migrations/'+file,import.meta.url),'utf8'));
+  for(const file of ['021_reinsurance_filing_vocabulary.up.sql'])await client.query(await readFile(new URL('../../migrations/'+file,import.meta.url),'utf8'));
   const counts:Record<string,number>={};
   for(const row of tables.rows){const result=await client.query<{n:string}>(`SELECT count(*) AS n FROM ${quote(row.schema)}.${quote(row.name)}`);counts[`${row.schema}.${row.name}`]=Number(result.rows[0]!.n);}
-  if(counts['public.industry']!==2||counts['public.vocabulary_term']!==2||counts['public.demo_source_template']!==1||Object.entries(counts).some(([table,count])=>!['public.industry','public.vocabulary_term','public.demo_source_template'].includes(table)&&count!==0))throw new Error('Normal-suite Postgres baseline differs from the declared seed.');
+  if(counts['public.industry']!==2||counts['public.vocabulary_term']!==2||Object.entries(counts).some(([table,count])=>!['public.industry','public.vocabulary_term'].includes(table)&&count!==0))throw new Error('Normal-suite Postgres baseline differs from the declared seed.');
   await client.query('COMMIT');return {counts,close:()=>client.end()};
  }catch(error){try{await client.query('ROLLBACK');}finally{await client.end();}throw error;}
 }

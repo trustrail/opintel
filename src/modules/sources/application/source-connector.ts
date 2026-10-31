@@ -2,7 +2,7 @@ import type { DomainError, ElementId, ObjectId, ProjectId, Result, SourceId, Tim
 import type { SecretRef } from '../../../platform/secrets/types.js';
 
 export type SourceRef = Readonly<{ id: SourceId; projectId: ProjectId; kind: SourceKind; alias: ExposedName }>;
-export type SourceKind = 'postgres' | 'demo';
+export type SourceKind = 'postgres';
 export type ObjectRef = { id: ObjectId; sourceId: SourceId; schema: string; name: string };
 export type TopValue = { value: string; frequency: number };
 export type CatalogSnapshot = {

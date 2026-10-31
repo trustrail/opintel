@@ -69,8 +69,7 @@ export const CompanyListResponse = z.object({ items: z.array(CompanyListItem), n
 
 
 export const IndustryListItem = z.object({
-  id: z.string().uuid(), slug: z.string(), name: z.string(), description: z.string().nullable(),
-  inheritedTermCount: z.number().int(), hasDemoPack: z.boolean(),
+  id: z.string().uuid(), slug: z.string(), name: z.string(), description: z.string().nullable(), inheritedTermCount:z.number().int().nonnegative(),
 });
 export const IndustryListResponse = z.array(IndustryListItem);
 

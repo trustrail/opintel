@@ -6,7 +6,7 @@ import {createServer,request} from 'node:https';
 import {checkServerIdentity,type TLSSocket} from 'node:tls';
 import {z} from 'zod';
 
-export const pairingIdentity=z.strictObject({version:z.literal(1),kind:z.enum(['gateway','engine']),address:z.url(),certificate:z.string().max(32768),ca:z.string().max(32768),pin:z.string(),demoSourceUrl:z.string().optional()});
+export const pairingIdentity=z.strictObject({version:z.literal(1),kind:z.enum(['gateway','engine']),address:z.url(),certificate:z.string().max(32768),ca:z.string().max(32768),pin:z.string()});
 type Identity=z.infer<typeof pairingIdentity>;
 const codeState=z.strictObject({code:z.string(),expiresAt:z.number().int(),pin:z.string()});
 const read=(file:string):unknown=>JSON.parse(readFileSync(file,'utf8')) as unknown;
@@ -23,7 +23,6 @@ export function verifyPairingIdentity(value:unknown,kind:'gateway'|'engine',pin?
  if(address.protocol!=='https:'||address.username||address.password||address.search||address.hash||!['','/'].includes(address.pathname))throw new Error('Pairing address must be an HTTPS origin.');
  const host=address.hostname.replace(/^\[|\]$/gu,'');
  if(!(isIP(host)?certificate.checkIP(host):certificate.checkHost(host)))throw new Error('Pairing address does not match the certificate.');
- if(kind==='engine'){const source=new URL(z.string().parse(identity.demoSourceUrl));if(source.protocol!=='postgresql:'||source.hostname!==address.hostname)throw new Error('Demo source does not match the engine identity.');}
  return identity;
 }
 export function issuePairingCode(root:string,renew=false):string{

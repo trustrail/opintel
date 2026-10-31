@@ -39,12 +39,12 @@ closed. Backups include this private state. Automation uses
 FILE must be mode 600 and contain the exact password bytes, with no newline.
 No password appears in arguments or environment variables. No host Node is needed.
 
-LAN firewall: gateway → engine TCP 3100 (pinned engine API), 3103 (pairing/recovery), and 5434 (demo source);
+LAN firewall: gateway → engine TCP 3100 (pinned engine API), 3103 (pairing/recovery), and 5434 (private readiness Postgres; never seed synthetic data here);
 engine → gateway TCP 3102 (pinned heartbeat) and 3101 (optional ingest receipt).
 No shared Docker network, filesystem or source checkout connects the hosts. Open
 these ports only between the two laptops. External customer databases need their
 own explicit source configuration and network authorization. The bundled empty
-readiness/demo database is durable and is never removed by stop or acceptance.
+readiness database is durable and is never removed by stop or acceptance.
 
 No XQ device bundle belongs in this package: the gateway's demo job alone mounts
 team-issued agent identities. No hosted model is enabled or called by default.

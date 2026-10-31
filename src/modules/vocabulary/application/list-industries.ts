@@ -1,8 +1,7 @@
 import { ok, type DomainError, type IndustryId, type Result } from '../../../shared/kernel/index.js';
 
 export type IndustryListEntry = {
-  id: IndustryId; slug: string; name: string; description: string | null;
-  inheritedTermCount: number; hasDemoPack: boolean;
+  id: IndustryId; slug: string; name: string; description: string | null; inheritedTermCount: number;
 };
 export interface IndustryListRepository { list(): Promise<IndustryListEntry[]> }
 export class ListIndustriesService {

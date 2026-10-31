@@ -5,10 +5,10 @@ import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import {demoTables} from '../../demo-soak-definition.js';
 const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
-export async function syntheticSource(write:boolean){
- const target=z.string().url().parse(process.env.OPINTEL_DEMO_DATABASE_URL);
- if(process.env.OPINTEL_DEMO_FIXTURE!=='V-01'||process.env.OPINTEL_DEMO_SEED!=='1'||process.env.OPINTEL_DEMO_SCHEMAS!=='soak_policies,soak_claims,soak_recoveries')throw new OperatorConflict('Declare demo fixture V-01, seed 1 and its three dedicated schemas');
- const address=new URL(target);for(const app of [process.env.DATABASE_URL,process.env.MIGRATION_DATABASE_URL])if(app){const a=new URL(app);if(a.hostname===address.hostname&&a.port===address.port&&a.pathname===address.pathname)throw new OperatorConflict('Synthetic target must be separate from the application database');}
+export async function syntheticSource(write:boolean, options:{target:string;fixture:string;seed:number;schemas:readonly string[]}){
+ const target=z.string().url().parse(options.target);
+ if(options.fixture!=='V-01'||options.seed!==1||options.schemas.join(',')!=='soak_policies,soak_claims,soak_recoveries')throw new OperatorConflict('Declare demo fixture V-01, seed 1 and its three dedicated schemas');
+ const address=new URL(target);if(decodeURIComponent(address.pathname)==='/readiness'||address.hostname==='readiness')throw new OperatorConflict('Synthetic target must not be the engine readiness database');for(const app of [process.env.DATABASE_URL,process.env.MIGRATION_DATABASE_URL])if(app){const a=new URL(app);if(a.hostname===address.hostname&&a.port===address.port&&a.pathname===address.pathname)throw new OperatorConflict('Synthetic target must be separate from the application database');}
  const client=new Client({connectionString:target});await client.connect();const report=[];
  try{await client.query('BEGIN');await client.query('SELECT pg_advisory_xact_lock(17761024)');
  for(const t of demoTables){const name=quote(t.schema)+'.'+quote(t.name),columns=Object.keys(t.rows[0]!);const exists=await client.query<{id:string|null}>('SELECT to_regclass($1)::text AS id',[name]);const fresh=!exists.rows[0]?.id;

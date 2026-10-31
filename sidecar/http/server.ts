@@ -5,8 +5,6 @@ import {rowPreviewRequest,rowPreviewResponse} from '../../src/shared/row-preview
 import { executionRequest,validationRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
 import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
 import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
-import { safeSourceMessage } from '../../src/shared/source-errors.js';
-import { provisionDemoResponse } from '../../src/shared/demo-contract.js';
 import { randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:https';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -25,14 +23,13 @@ const errorMessages: Readonly<Record<string,string>> = {
   forbidden: 'Sampling requires source consent.', validation_failed: 'The request did not pass validation.',
   object_unavailable: 'The source object is unavailable.', budget_exceeded: 'Source connection limit reached.',
   source_unavailable: 'The source is unavailable.', dependency_unavailable: 'An Opintel Engine dependency is unavailable.',
-  conflict: 'The demo template or delivery path conflicts with an existing delivery.',
+  conflict: 'The operation conflicts with existing state.',
 };
 
 export function createSidecarServer(options: {
   registerEgress?: (body:unknown)=>Promise<Result<unknown>>;
   config: SidecarConfig; tls: SidecarTls; connector: SidecarConnector;
   execution?: {health?():unknown;preview?(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
-  demo?: { provision(body: unknown, signal?: AbortSignal): Promise<Result<unknown>> };
   custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
   canonicalisers?: CanonicaliserRegistry;
   build?: typeof sidecarBuild | { version: string; contract: number; queryEngineVersion: string };
@@ -43,7 +40,6 @@ export function createSidecarServer(options: {
     ...(options.registerEgress?{'/egress/register':{permission:'pinned_application_certificate' as const,response:egressRegistered,invoke:options.registerEgress}}:{}),
     ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
     ...(options.execution?.preview?{'/preview-rows':{permission:'pinned_application_certificate' as const,response:rowPreviewResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.preview!(body,signal)}}:{}),
-    ...(options.demo ? { '/provision-demo': { permission: 'pinned_application_certificate' as const, response: provisionDemoResponse, invoke: (body: unknown, signal: AbortSignal) => options.demo!.provision(body,signal) } } : {}),
     '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:{...build,...(options.execution?.health?{queue:options.execution.health()}: {})}}) },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
     '/introspect': { permission:'pinned_application_certificate', response:wire.snapshotResponse, invoke:(body,signal)=>options.connector.introspect(body,signal) },
@@ -99,7 +95,7 @@ export function createSidecarServer(options: {
       enginePhase(requestId,'respond','start');
       if (!result.ok) {
         const code = result.error.code;
-        fail(res,execution&&['sql_not_permitted','unsupported_on_token','unsupported_on_aggregate_only','unsupported_pushdown'].includes(code)?422:statusFor(code),code,execution?result.error.message:path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : req.url === '/provision-demo' ? safeSourceMessage(code,result.error.message) : errorMessages[code] ?? 'The Opintel Engine operation failed.',requestId,result.error.retryable,execution?result.error.details:undefined);
+        fail(res,execution&&['sql_not_permitted','unsupported_on_token','unsupported_on_aggregate_only','unsupported_pushdown'].includes(code)?422:statusFor(code),code,execution?result.error.message:path.startsWith('/custody/') ? safeCustodyMessage(result.error.message) : errorMessages[code] ?? 'The Opintel Engine operation failed.',requestId,result.error.retryable,execution?result.error.details:undefined);
         return;
       }
       const response = route.response.safeParse(result.value);

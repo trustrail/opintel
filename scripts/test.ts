@@ -36,7 +36,7 @@ async function main():Promise<void>{
    baseline=await seedNormalPostgres(environment);
    const metadata=join(repositoryRoot,'test-results','normal',randomUUID());await mkdir(metadata,{recursive:true});
    process.env.OPINTEL_NORMAL_RUN_METADATA=metadata;
-   await writeFile(join(metadata,'run.json'),JSON.stringify({startedAt:new Date().toISOString(),args:process.argv.slice(2),spice:spice?.metadata,redis:redis.metadata,postgres:{baseline:'two industries, two filing vocabulary terms, one demo template; all other fixture tables empty; migration ledger preserved',counts:baseline.counts}},null,2)+'\n');
+   await writeFile(join(metadata,'run.json'),JSON.stringify({startedAt:new Date().toISOString(),args:process.argv.slice(2),spice:spice?.metadata,redis:redis.metadata,postgres:{baseline:'two industries, two filing vocabulary terms; all other fixture tables empty; migration ledger preserved',counts:baseline.counts}},null,2)+'\n');
    console.info(JSON.stringify({normalSuiteBaseline:'verified',initialRelationships:0,postgresRows:baseline.counts,metadata}));
   }
   process.env.REQUIRE_DB_TESTS='1';

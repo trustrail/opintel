@@ -24,7 +24,7 @@ export const runOutcomeSchema=z.discriminatedUnion('kind',[
  z.strictObject({kind:z.literal('failed'),code:errorCodeSchema,retryable:z.boolean()}),
 ]);
 export const runHeaderSchema=z.strictObject({id:z.uuid().transform(RunId),projectId:z.uuid().transform(ProjectId),poolId:z.uuid().transform(PoolId),agentId:z.string().nullable(),keyPrefix:z.string(),credentialId:z.uuid().nullable().optional(),custodyAlias:z.string().nullable().optional(),mode:z.enum(['query','prompt']),request:z.string().nullable(),versions:versionStampSchema,startedAt:time});
-export const runCompletionSchema=z.strictObject({tokenKeyVersionUsed:count.positive().nullable().default(null),outcome:runOutcomeSchema,cil:object.nullable(),sourcePlan:object.nullable(),generatedSql:z.string().nullable(),latencyMs:count.nullable(),freshness:object,synthetic:z.boolean(),completedAt:time});
+export const runCompletionSchema=z.strictObject({tokenKeyVersionUsed:count.positive().nullable().default(null),outcome:runOutcomeSchema,cil:object.nullable(),sourcePlan:object.nullable(),generatedSql:z.string().nullable(),latencyMs:count.nullable(),freshness:object,synthetic:z.boolean().default(false),completedAt:time});
 export const queryRunSchema=z.strictObject({header:runHeaderSchema,stages:z.array(runStageSchema),elements:z.array(elementDeliverySchema),completion:runCompletionSchema.nullable()});
 /** Boundary for reconstructing a record; it neither reads nor writes storage. */
 export function parseQueryRun(input:unknown):Result<QueryRun> {

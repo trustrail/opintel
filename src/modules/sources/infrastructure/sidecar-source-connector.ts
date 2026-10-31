@@ -1,7 +1,5 @@
 import {effectiveSetting} from '../../../shared/project-settings.js';
 import { safeSourceMessage } from '../../../shared/source-errors.js';
-import { provisionDemoPayload, provisionDemoResponse, type ProvisionDemoPayload } from '../../../shared/demo-contract.js';
-import type { DemoProvisioningPort } from '../application/demo-provisioning.js';
 import { X509Certificate } from 'node:crypto';
 import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
 import { checkServerIdentity } from 'node:tls';
@@ -19,7 +17,7 @@ export interface SidecarOptions {
   timeoutMs?: number;
 }
 
-export class SidecarSourceConnector implements SourceConnector, DemoProvisioningPort {
+export class SidecarSourceConnector implements SourceConnector {
   private readonly url: URL;
   private readonly timeoutMs: number;
   private readonly fingerprint: string;
@@ -35,10 +33,6 @@ export class SidecarSourceConnector implements SourceConnector, DemoProvisioning
     this.fingerprint = options.tls.certificatePin ? options.tls.certificatePin.match(/.{2}/gu)!.join(':') : new X509Certificate(options.tls.pinnedCertificate!).fingerprint256;
   }
 
-  async provisionDemo(ref: SecretRef, payload: ProvisionDemoPayload, signal?: AbortSignal) {
-    const parsed = provisionDemoPayload.safeParse(payload);
-    return parsed.success ? this.call('/provision-demo', ref, parsed.data, provisionDemoResponse, signal) : this.invalid();
-  }
   async testConnection(ref: SecretRef, signal?: AbortSignal): Promise<Result<void>> {
     const response = await this.call('/test-connection', ref, {}, wire.connectionResponse, signal);
     if (!response.ok) return response;

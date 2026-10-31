@@ -37,7 +37,7 @@ describe('GET /industries', () => {
     expect(called).toBe(false);
   });
   it('returns a non-paginated list with descriptions, counts, and demo availability', async () => {
-    const items = [{ id: IndustryId(randomUUID()), slug: 'test', name: 'Test', description: 'Industry description', inheritedTermCount: 4, hasDemoPack: true }];
+    const items = [{ id: IndustryId(randomUUID()), slug: 'test', name: 'Test', description: 'Industry description', inheritedTermCount: 4 }];
     const response = await request(new ListIndustriesService({ list: async () => items }));
     expect(response.status).toBe(200);
     expect(IndustryListResponse.parse(await response.json())).toEqual(items);
@@ -58,8 +58,7 @@ databaseDescribe('industry listing with Postgres', () => {
     const response = await request(new ListIndustriesService(new PostgresIndustryListRepository()));
     expect(response.status).toBe(200);
     const items = IndustryListResponse.parse(await response.json());
-    expect(items.find((item) => item.id === active)).toMatchObject({ inheritedTermCount: 1, description: null, hasDemoPack: false });
+    expect(items.find((item) => item.id === active)).toMatchObject({ inheritedTermCount: 1, description: null });
     expect(items.find((item) => item.id === inactive)).toBeUndefined();
-    await expect(withPlatform((tx) => tx.query('SELECT id FROM demo_source_template LIMIT 1'))).resolves.toBeDefined();
   });
 });

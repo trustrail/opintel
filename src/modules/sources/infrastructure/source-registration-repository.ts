@@ -1,9 +1,8 @@
 import { CatalogNaming, AsciiTransliterator } from '../../catalog/index.js';
 import { ExposedName } from '../../../shared/kernel/index.js';
-import { withTenant,withPlatform,type Tx } from '../../../platform/db/scope.js';
-import { DeploymentRef,SourceListItem, type NewSource } from '../../../shared/api/source-schemas.js';
-import { schemaSpecSchema,generatorSpecSchema } from '../../../shared/demo-contract.js';
-import { DomainError,DemoSourceId,err,ok,type IndustryId,type SourceId,type RunId } from '../../../shared/kernel/index.js';
+import { withTenant,type Tx } from '../../../platform/db/scope.js';
+import { SourceListItem, type NewSource } from '../../../shared/api/source-schemas.js';
+import { DomainError,err,ok,type SourceId,type RunId } from '../../../shared/kernel/index.js';
 import type { SourceContext,SourceRegistrationRepository,QueuedSource } from '../application/source-registration.js';
 const selection=`SELECT s.id,s.engine_id AS "engineId",s.name,s.exposed_alias AS "exposedAlias",s.kind,s.origin,CASE WHEN s.status IN ('archived','pending_egress','unreachable') THEN s.status WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
  (SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS error,
@@ -32,19 +31,7 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   await tx.query("UPDATE data_source SET status='archived' WHERE id=$1",[id]);
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}
- private async pack(ctx:SourceContext){return withPlatform(async tx=>{const [project]=await tx.query<{industry_id:string}>('SELECT industry_id FROM project WHERE id=$1',[ctx.projectId]);return project?.industry_id;});}
- async templates(ctx:SourceContext,industryId:IndustryId){
-  const industry=await this.pack(ctx);if(!industry||industry!==industryId)return err(new DomainError('not_found','Project not found.'));
-  const rows=await withPlatform(tx=>tx.query<{id:string;name:string;narrative:string|null;deployment_ref:unknown}>('SELECT id,name,narrative,deployment_ref FROM demo_source_template WHERE industry_id=$1 AND active ORDER BY name,id',[industry]));
-  const connected=await withTenant(ctx,tx=>tx.query<{demo_template_id:string}>('SELECT demo_template_id FROM data_source WHERE origin=\'demo\''));
-  return ok(rows.map(row=>({id:DemoSourceId(row.id),name:row.name,narrative:row.narrative,prepared:DeploymentRef.parse(row.deployment_ref)[ctx.projectId]!==undefined,connected:connected.some(source=>source.demo_template_id===row.id)})));
- }
- async template(ctx:SourceContext,id:DemoSourceId){
-  const industry=await this.pack(ctx);
-  const [row]=await withPlatform(tx=>tx.query<{id:string;schema_spec:unknown;generator_spec:unknown;deployment_ref:unknown}>('SELECT id,schema_spec,generator_spec,deployment_ref FROM demo_source_template WHERE id=$1 AND industry_id=$2 AND active',[id,industry??null]));
-  return row?ok({id:DemoSourceId(row.id),schemaSpec:schemaSpecSchema.parse(row.schema_spec),generatorSpec:generatorSpecSchema.parse(row.generator_spec),deployment:DeploymentRef.parse(row.deployment_ref)[ctx.projectId]??null}):err(new DomainError('not_found','This demo template does not belong to the project industry.'));
- }
- async create(ctx:SourceContext,id:SourceId,runId:RunId,input:NewSource,templateId:DemoSourceId|null){
+ async create(ctx:SourceContext,id:SourceId,runId:RunId,input:NewSource){
   try{return await withTenant(ctx,async tx=>{
    if(input.engineId){const engine=await tx.query('SELECT id FROM engine WHERE id=$1 AND verified_at IS NOT NULL AND contract_version=3',[input.engineId]);if(!engine.length)return err(new DomainError('source_unavailable','Assign a verified engine before saving the source.'));}
    // Serialize alias assignment within a project, including concurrent connects.
@@ -52,25 +39,16 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
    const occupied=await tx.query<{exposed_alias:string}>('SELECT exposed_alias FROM data_source');
    const alias=new CatalogNaming(new AsciiTransliterator()).assign(input.name,occupied.map(row=>ExposedName(row.exposed_alias))).name;
    if(alias===null)return err(new DomainError('validation_failed','The source name normalises to nothing. Choose a name containing letters or numbers with an ASCII transliteration.'));
-   const inserted=await tx.query<{id:string}>(`INSERT INTO data_source(id,project_id,name,kind,origin,demo_template_id,credential_ref,sampling_consent,receives_landings,landing_strategy,exposed_alias,engine_id) VALUES($1,$2,$3,'postgres',$4,$5,$6,$7,$8,$9,$10,$11) ${templateId?'ON CONFLICT(id) DO NOTHING':''} RETURNING id`,[id,ctx.projectId,input.name,templateId?'demo':'customer',templateId,input.credentialRef,input.samplingConsent,input.receivesLandings,input.landingStrategy,alias,input.engineId??null]);
-   if(!inserted.length){
-    const [existing]=await tx.query<{origin:string;demo_template_id:string|null;credential_ref:string;name:string;status:string;receives_landings:boolean;landing_strategy:string}>('SELECT origin,demo_template_id,credential_ref,name,status,receives_landings,landing_strategy FROM data_source WHERE id=$1 FOR UPDATE',[id]);
-    if(!existing||existing.origin!=='demo'||existing.demo_template_id!==templateId||existing.credential_ref!==input.credentialRef||existing.name!==input.name||!existing.receives_landings||existing.landing_strategy!==input.landingStrategy)
-     return err(new DomainError('conflict','The reserved source does not match this demo preparation. Ask the deployment operator to restore its original preparation before retrying.'));
-    if(existing.status==='archived')return err(new DomainError('conflict','An archived source cannot be provisioned.'));
-    const [latest]=await tx.query<{state:string}>('SELECT state FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[id]);
-    if(!latest||latest.state==='failed'||latest.state==='cancelled')await this.enqueueRetry(tx,ctx,id,runId);
-    const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok({source:item(row!),created:false});
-   }
+   await tx.query(`INSERT INTO data_source(id,project_id,name,kind,origin,credential_ref,sampling_consent,receives_landings,landing_strategy,exposed_alias,engine_id) VALUES($1,$2,$3,'postgres','customer',$4,$5,$6,$7,$8,$9)`,[id,ctx.projectId,input.name,input.credentialRef,input.samplingConsent,input.receivesLandings,input.landingStrategy,alias,input.engineId??null]);
    if(input.engineId)await tx.query("UPDATE data_source SET egress_pending=true,status='pending_egress' WHERE id=$1",[id]);
    await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,input.includeSchemas,JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:input.samplingConsent})]);
    const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok({source:item(row!),created:true});
-  });}catch(error){if(error instanceof Error&&'code'in error&&error.code==='23505')return err(new DomainError('conflict','A source with this name or reserved ID is already connected.'));throw error;}
+  });}catch(error){if(error instanceof Error&&'code'in error&&error.code==='23505')return err(new DomainError('conflict','A source with this name is already connected.'));throw error;}
  }
  private async enqueueRetry(tx:Tx,ctx:SourceContext,id:SourceId,runId:RunId){
   const [latest]=await tx.query<{include_schemas:string[]}>('SELECT include_schemas FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[id]);
-  const [source]=await tx.query<{sampling_consent:boolean;origin:string;name:string}>('SELECT sampling_consent,origin,name FROM data_source WHERE id=$1',[id]);
-  await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,latest?.include_schemas??(source!.origin==='demo'?[source!.name]:[]),JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:source!.sampling_consent})]);
+  const [source]=await tx.query<{sampling_consent:boolean}>('SELECT sampling_consent FROM data_source WHERE id=$1',[id]);
+  await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,latest?.include_schemas??[],JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:source!.sampling_consent})]);
  }
  async retry(ctx:SourceContext,id:SourceId,runId:RunId){return withTenant(ctx,async tx=>{
   const [source]=await tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1 FOR UPDATE',[id]);
@@ -81,6 +59,5 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
   await this.enqueueRetry(tx,ctx,id,runId);
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}
- queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId",CASE WHEN r.progress->>'ordinalRepair'='true' THEN NULL ELSE s.demo_template_id END AS "templateId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND NOT s.egress_pending AND r.state='queued' AND r.progress ? 'userId'`,[]));}
- settledFilings(ctx:SourceContext,id:SourceId){return withTenant(ctx,async tx=>{const [row]=await tx.query<{count:number}>(`SELECT count(*)::int AS count FROM arrival_notice WHERE source_id=$1 AND payload->>'outcome' IN ('landed','quarantined','duplicate')`,[id]);return row!.count;});}
+ queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND NOT s.egress_pending AND r.state='queued' AND r.progress ? 'userId'`,[]));}
 }

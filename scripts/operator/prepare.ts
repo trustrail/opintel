@@ -13,6 +13,7 @@ import {QueryOutput,DescribeOutput} from '../../src/shared/api/mcp.js';
 import {discoveryMismatches} from '../soak/scenarios.js';
 import {CustodyProviderStatus} from '../../src/shared/api/release-custody.js';
 import {required,privateRead,privateWrite,api} from './common.js';
+import {seedOptions} from './seed-options.js';
 import {syntheticSource} from './infrastructure/synthetic-source.js';
 export async function prepare(){
  const record:{at:string;status:string;checks:string[];reason?:string;certificates?:Array<{certificateId:number;ok:boolean;status:number|null;reason:string|null}>;verifiedValues?:number;receiptIds?:string[]}={at:new Date().toISOString(),status:'incomplete',checks:[]};
@@ -24,7 +25,7 @@ export async function prepare(){
  if(m.version!==2||!m.specification||m.agents.length!==10||m.definitionHash!==createHash('sha256').update(JSON.stringify(demoTables)).digest('hex'))throw new OperatorConflict('Scenario manifest is incomplete or incompatible');
  if(JSON.stringify(m.specification)!==JSON.stringify(generateSpecification(Object.fromEntries(Object.entries(m.objects).map(([full,name])=>[name,full])),m.agents)))throw new OperatorConflict('Scenario declaration differs from the versioned generator');
  lifecycleReady(m,duration);
- record.checks.push('scenario-and-lifecycle');await syntheticSource(false);record.checks.push('source-counts-and-estimates');
+ record.checks.push('scenario-and-lifecycle');await syntheticSource(false,await seedOptions());record.checks.push('source-counts-and-estimates');
  const provider=CustodyProviderStatus.parse(await (async()=>{if(process.env.OPINTEL_CUSTOMER_JOB!=='1')return api(`/api/v1/projects/${m.projectId}/custody-provider`);const c=await context(),runtime=new ReleaseRuntime();try{return await runtime.status({projectId:ProjectId(m.projectId),userId:c.userId});}finally{runtime.close();c.auth.close();}})());if(provider.provider!=='xq'||!provider.available)throw new OperatorConflict('XQ provider unavailable; run the explicit packaged API connection check');record.checks.push('packaged-api-provider');
  external=await externalTarget(operatorApiTarget(),required('OPINTEL_SOAK_MANIFEST'));
  observer=createObserver(external.base,m.projectId,required('OPINTEL_OBSERVER_COOKIE'),()=>{});await observer.ready();record.checks.push('receipt-list');

@@ -22,7 +22,7 @@ Version 1.0 · September 2026
 
 **Automation:** all cases are automated unless marked **M** (manual), which is reserved for judgement, visual quality, copy review, and the ergonomics assessment in the pilot criteria.
 
-**Fixtures.** One seeded project, `Far East Treaty Book`, Kuwait Re, Reinsurance. Sources: the demo pack, which is twelve cedant spreadsheets in inconsistent formats landing into a demo Postgres, plus one customer Postgres. 2,140 elements, four pools, sixty-one deliberately undecided, deterministic. Every test starts from this seed and restores it. Tests that mutate the seed run in a transaction rolled back at teardown, or against a per-worker database. Integration tests use `TEST_DATABASE_URL`, never the development `DATABASE_URL`; CI migrates the isolated test database before running them.
+**Fixtures.** One seeded project, `Far East Treaty Book`, Kuwait Re, Reinsurance. Sources: twelve generated cedant spreadsheets in inconsistent formats landing into ordinary customer-owned Postgres, plus one customer Postgres. 2,140 elements, four pools, sixty-one deliberately undecided, deterministic. Every test starts from this seed and restores it. Tests that mutate the seed run in a transaction rolled back at teardown, or against a per-worker database. Integration tests use `TEST_DATABASE_URL`, never the development `DATABASE_URL`; CI migrates the isolated test database before running them.
 
 ---
 
@@ -153,8 +153,8 @@ lookup open and verifies that one subsequent submit issues one link request.
 | E2-010 | F | Create succeeds | SpiceDB `project#company` and `project#admin` written; assert both tuples |
 | E2-011 | D | Inheritance after create | **By reference.** No vocabulary rows copied; assert the row count is unchanged |
 | E2-012 | F | Republish the industry pack after create | Project sees the new terms without a migration |
-| E2-013 | F | A new project with no sources *(needs item 3.11 demo sources)*| No demo source is connected automatically. The offer appears, nothing is provisioned |
-| E2-014 | F | Demo source connected at create *(3.11 proves provisioning and shared connector; persisted undecided assertion needs 4.1)* | Provisioned, introspected, every element undecided. Same connector port as a customer source |
+| E2-013 | F | A new project with no sources *(needs item 3.11 demo sources)*| No source is connected automatically; synthetic data uses the ordinary Connect a source flow |
+| E2-014 | F | Generated data connected through ordinary source registration | Registered, introspected, every element undecided. Same connector port for all sources |
 | E2-015 | F | Copy settings from another project *(needs item 3.x sources)* | Query, reference, evidence, alert settings copied |
 | E2-016 | D | Copy settings | **Does not** copy entitlements, sources, pools or vocabulary overrides; assert each is empty *(needs item 5.1 pools)* |
 | E2-017 | F | Region defaults from the company | Pre-filled, changeable at create |
@@ -389,7 +389,7 @@ The code-performance launcher starts an isolated fresh SpiceDB datastore, verifi
 | M-007 | P | Filter 1M records by pool and range | Under 500ms |
 | M-008 | P | Export 100k records | Streams without exhausting memory |
 | M-009 | F | Export respects filters | Only matching records present |
-| M-010 | D | Runs touching a demo source, in an export | Absent. `synthetic` is derived from the sources reached, never from a project flag |
+| M-010 | D | Runs touching a demo source, in an export | Included like every other receipt. Historical synthetic/origin facts remain readable without affecting export or any decision |
 | M-011 | F | Record for a refused request | Present, with the reason |
 | M-012 | F | Record for a partially reduced response | Names what was withheld and why |
 | M-013 | A | Viewer opens a record | No unredacted arguments |
@@ -843,8 +843,8 @@ Protocols and fragments do not exist before Slice 3, so these cases are not runn
 | TE-001 | F | New project with demo sources | Seeded deterministically; checksum matches |
 | TE-002 | F | Reset | Restores the seed exactly; checksum matches |
 | TE-003 | F | Each scenario trigger | Produces its documented effect on the documented screen |
-| TE-005 | F | Demo source reconnected after deletion | Provisioned again from the industry pack; seed restored |
-| TE-006 | D | Evidence from a demo source | Marked synthetic, derived from the sources reached; never in an export |
+| TE-005 | F | Demo source reconnected after deletion | Ordinary source reference and registration; data is generated explicitly in an operator-named database |
+| TE-006 | D | Evidence from a demo source | No new synthetic classification. Historical synthetic receipts export like every other receipt |
 | TE-007 | F | Own agent connected to a pool bound only to demo sources | Real MCP endpoint, generated data |
 
 ## S3-F · Key-policy release
@@ -1412,7 +1412,7 @@ Q-006/Q-038 and ENG-007 open disclosures before accessing editors and use the En
 
 | ID | Contract |
 |---|---|
-| DS-001 | Source cards show authoritative active element/object totals, unique awaiting decisions, landed/quarantined counts, last-landed receipt time and selected-pool exposure. Awaiting decision, spectrum, legend and destination agree for a fully decided pool beside an empty one; never sum pools. Hide equal display name/alias. Readable name/alias, connection state and demo tag; demo connection states remain in the connect flow. |
+| DS-001 | Source cards show authoritative active element/object totals, unique awaiting decisions, landed/quarantined counts, last-landed receipt time and selected-pool exposure. Awaiting decision, spectrum, legend and destination agree for a fully decided pool beside an empty one; never sum pools. Hide equal display name/alias. Readable name/alias and connection state; no demo-specific display or connect flow. |
 | DS-002 | Source-scoped object-root paging/filtering refuses foreign branches and cursors; object and element summaries reflect real entitlements, including mixed treatments across pools, withheld and missing decisions. Existing bounded window and keyboard contracts stay. |
 | DS-003 | Domain/timezone/isolation chips reflect metadata, not inference; stored, inherited, derived and missing provenance remain distinct. Inapplicable declarations say Not needed and offer no editor; stored unused values are retained. |
 | DS-004 | One draft across disclosures, Discard, one atomic save and effective-change typed confirmation. Existing validation, compatibility, viewer authority, recovery and immutable evidence assertions stay. |

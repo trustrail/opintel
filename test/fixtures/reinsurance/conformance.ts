@@ -1,6 +1,6 @@
 import type {CertificateAssociation} from '../../../src/shared/api/certificate-association.js';
 import {randomUUID} from 'node:crypto';
-import pack from '../../../src/modules/sources/demo/reinsurance.json' with {type:'json'};
+import pack from '../../../scripts/verification/reinsurance.json' with {type:'json'};
 import {withTenant,withPlatform} from '../../../src/platform/db/scope.js';
 import {ElementId,ObjectId,PoolId,SourceId} from '../../../src/shared/kernel/index.js';
 import {BulkEntitlementService,PostgresBulkEntitlements} from '../../../src/modules/entitlements/index.js';

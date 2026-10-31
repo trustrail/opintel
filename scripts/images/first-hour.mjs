@@ -32,7 +32,7 @@ export async function firstHour({request,base,engine,source,settings,certificate
   assert.equal(typeof addSource,'function','Engine package sources add is required');
   await run('engine-source-add',async()=>assert.equal(await addSource(),source.credentialRef));
   const companies=await all('/api/v1/companies'),company=companies.find(c=>c.role==='admin');assert.ok(company,'No administered company available');
-  const industries=await api('/api/v1/industries'),industry=industries.find(i=>i.hasDemoPack);assert.ok(industry,'No demo industry available');
+  const industries=await api('/api/v1/industries'),industry=industries.find(i=>i.slug==='reinsurance-treaty');assert.ok(industry,'No demo industry available');
   const project=await run('create-empty-project',()=>api('/api/v1/projects','POST',{companyId:company.id,name:'First hour '+randomUUID().slice(0,8),industryId:industry.id,region:'us-east-1'}));
   const p=project.id;result.projectId=p;
   await run('verify-empty-project',async()=>{assert.equal((await all(`/api/v1/projects/${p}/pools`)).length,0);assert.equal((await all(`/api/v1/projects/${p}/sources`)).length,0);});

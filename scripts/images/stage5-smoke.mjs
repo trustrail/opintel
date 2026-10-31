@@ -148,7 +148,12 @@ try{
  const xqResult=JSON.parse(readFileSync(join(xqDirectory,'result.json')));assert.equal(xqResult.status,'passed');assert.equal(xqResult.keyEncoding,'sdk-base64-hex-256');assert.equal(xqResult.attempted,200);assert.equal(xqResult.verified,200);assert.equal(xqResult.required,200);assert.equal(xqResult.attempts.length,200);assert.equal(new Set(xqResult.attempts.map(attempt=>attempt.id)).size,200);assert.ok(xqResult.attempts.every(attempt=>attempt.verified&&attempt.fetchStatus===200&&!attempt.cleanupFailed));
  result.checks.xqCheck={authenticated:true,escrowRedeemAttempted:200,escrowRedeemVerified:200,result:join(xqDirectory,'result.json')};
  advance('customer-demo-soak');
- const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak',String(soakDurationSeconds)],{env:nested,stdio:['ignore','pipe','pipe']});
+ // Reuse the explicitly named external customer database, never engine readiness.
+ command('engine','sources','add','v01','--host',customerSource.host,'--port',customerSource.port,'--database',customerSource.database,'--user',customerSource.user,'--password-file',customerSource.passwordFile);
+ const target=new URL('postgresql://'+customerSource.host+':'+customerSource.port+'/'+customerSource.database);target.username=customerSource.user;target.password=readFileSync(customerSource.passwordFile,'utf8');
+ writeFileSync(join(gateway,'state/output/v01-uri'),target.href,{mode:0o600});
+ writeFileSync(join(gateway,'state/output/owner.cookie'),ownerCookie,{mode:0o600});
+ const soakLog=join(directory,'demo-soak.log');child=spawn(join(gateway,'demo'),['soak',String(soakDurationSeconds),'--target-file','/output/v01-uri','--source-ref','secret://sources/v01','--session-file','/output/owner.cookie'],{env:nested,stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));child.stderr.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));childDone=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve);});
  const output=join(gateway,'state/output');let runDirectory,jsonl;
  await wait(()=>{if(child.exitCode!==null)throw new Error('Demo exited '+child.exitCode+'; '+soakLog);runDirectory=join(output,readdirSync(output).find(name=>name.startsWith('soak-run-'))??'not-started');const soak=join(runDirectory,'soak');jsonl=join(soak,readdirSync(soak).find(name=>name.endsWith('.jsonl'))??'not-started');assert.ok(readFileSync(jsonl,'utf8').includes('"type":"start"'));},'Packaged soak start',300000);

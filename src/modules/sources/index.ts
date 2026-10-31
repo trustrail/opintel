@@ -5,7 +5,6 @@ export { PostgresIntrospectionStore } from './infrastructure/postgres-introspect
 export type { IntrospectionContext, IntrospectionRun, IntrospectionSource, IntrospectionStore, SourceStatus } from './application/introspection-store.js';
 export { runStates, transitions, transitionRun, enforceTransition, type IntrospectionState } from './domain/introspection-run.js';
 
-export type { DemoProvisioningPort } from './application/demo-provisioning.js';
 
 export type { SourceRef } from './application/source-connector.js';
 export type { IntrospectionCompleted, IntrospectionCompletedHandler } from './application/introspection-completed.js';

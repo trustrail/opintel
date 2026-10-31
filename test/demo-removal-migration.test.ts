@@ -1,0 +1,42 @@
+import {readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {it,expect} from 'vitest';
+import {migrationDatabase} from './fixtures/migration-database.js';
+const owner=migrationDatabase();
+it('DEMO-01 converts sources in place and drops templates without changing governance, landings or historical receipts; schema down/up remains safe',async()=>{
+ const db=owner(),sql=async(name:string)=>db.query(await readFile('migrations/'+name,'utf8'));
+ await db.query('BEGIN');
+ try{
+  await sql('091_remove_source_templates.down.sql');
+  const engine=randomUUID(),project=randomUUID(),source=randomUUID(),pool=randomUUID(),object=randomUUID(),element=randomUUID(),template=randomUUID(),user=randomUUID(),run=randomUUID();
+  const company=(await db.query("INSERT INTO company(name,default_region) VALUES('Upgrade','us-east-1') RETURNING id")).rows[0].id;
+  const industry=(await db.query('SELECT id FROM industry LIMIT 1')).rows[0].id;
+  await db.query("INSERT INTO user_account(id,email) VALUES($1,'upgrade@example.test')",[user]);
+  await db.query("SELECT set_config('app.project_id',$1,true),set_config('app.user_id',$2,true)",[project,user]);
+  await db.query("INSERT INTO project(id,company_id,industry_id,name,region) VALUES($1,$2,$3,'Upgrade','us-east-1')",[project,company,industry]);
+  await db.query("INSERT INTO engine(id,project_id,name,address,certificate_pin) VALUES($1,$2,'Kept engine','https://engine.invalid:3100',$3)",[engine,project,'A'.repeat(64)]);
+  await db.query("INSERT INTO demo_source_template(id,industry_id,name,kind,schema_spec,generator_spec) VALUES($1,$2,'Old pack','spreadsheet','{}','{}')",[template,industry]);
+  await db.query("INSERT INTO data_source(id,project_id,name,kind,origin,demo_template_id,credential_ref,exposed_alias,status,receives_landings,landing_strategy,engine_id) VALUES($1,$2,'Old source','demo','demo',$3,'secret://sources/upgrade','kept_alias','connected',true,'append_as_at',$4)",[source,project,template,engine]);
+  await db.query("INSERT INTO introspection_run(source_id,project_id,state,include_schemas) VALUES($1,$2,'complete',ARRAY['kept_schema'])",[source,project]);
+  await db.query("INSERT INTO pool(id,project_id,name) VALUES($1,$2,'Kept pool')",[pool,project]);
+  await db.query('INSERT INTO pool_source_binding(project_id,pool_id,source_id) VALUES($1,$2,$3)',[project,pool,source]);
+  await db.query("INSERT INTO catalog_object(id,project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,$3,'kept_schema','records','table','kept_schema','records')",[object,project,source]);
+  await db.query("INSERT INTO catalog_element(id,project_id,object_id,source_identifier,source_type,exposed_type,exposed_name,token_domain,case_insensitive) VALUES($1,$2,$3,'id','text','VARCHAR','id','keptdomain',false)",[element,project,object]);
+  await db.query("INSERT INTO entitlement(project_id,pool_id,element_id,treatment,source_kind,source_ref) VALUES($1,$2,$3,'clear','user',$4)",[project,pool,element,user]);
+  await db.query('INSERT INTO pool_table_binding(project_id,pool_id,object_id) VALUES($1,$2,$3)',[project,pool,object]);
+  await db.query("INSERT INTO row_entitlement(project_id,object_id,pool_id,expression,predicate,predicate_hash,columns,actor_id) VALUES($1,$2,$3,'true','{}',$4,'[]',$5)",[project,object,pool,'a'.repeat(64),user]);
+  const filingId=randomUUID();await db.query('INSERT INTO arrival_notice(project_id,source_id,filing_id,revision,payload) VALUES($1,$2,$3,1,$4)',[project,source,filingId,{filingId,projectId:project,sourceId:source,revision:1,outcome:'quarantined',quarantineCategory:'merged_header',receivedAt:new Date().toISOString(),fileSha256:'0'.repeat(64),partyCode:null,period:null,kind:null}]);
+  const at=(await db.query("INSERT INTO query_run(id,project_id,pool_id,key_prefix,mode,request,versions,started_at) VALUES($1,$2,$3,'test','query','SELECT id','{\"policy\":1,\"catalog\":1,\"vocabulary\":1,\"tokenKeyVersionSelected\":null}',clock_timestamp()) RETURNING started_at::text AS at",[run,project,pool])).rows[0].at;
+  await db.query("INSERT INTO run_completion(run_id,started_at,outcome,synthetic,source_plan,completed_at) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":1,\"truncated\":false}',true,'{\"sources\":[{\"origin\":\"demo\"}]}',$2)",[run,at]);
+  const tables=['catalog_object','catalog_element','entitlement','row_entitlement','pool_source_binding','pool_table_binding','arrival_notice','introspection_run','query_run','run_completion'];
+  const snapshot=async()=>Object.fromEntries(await Promise.all(tables.map(async table=>[table,(await db.query('SELECT * FROM '+table)).rows])));
+  const before=await snapshot(),old=(await db.query('SELECT * FROM data_source')).rows[0];
+  await sql('090_ordinary_sources.up.sql');await sql('091_remove_source_templates.up.sql');
+  expect(await snapshot()).toEqual(before);
+  const converted=(await db.query('SELECT * FROM data_source')).rows[0];const {demo_template_id:removed,...expected}=old;
+  expect(removed).toBe(template);expect(converted).toEqual({...expected,kind:'postgres',origin:'customer'});
+  expect((await db.query("SELECT to_regclass('demo_source_template') AS name")).rows).toEqual([{name:null}]);
+  await sql('091_remove_source_templates.down.sql');await sql('090_ordinary_sources.down.sql');await sql('090_ordinary_sources.up.sql');await sql('091_remove_source_templates.up.sql');
+  expect(await snapshot()).toEqual(before);
+ }finally{await db.query('ROLLBACK');}
+},60000);

@@ -840,3 +840,7 @@ every other place product code distinguishes demo data, and list it in this item
 and its legacy UI (already deleted), records this decision, and verifies synthetic
 fixture data through the same ordinary reference and source endpoints as customer data.
 No backend, migration, grant, export or runtime generator change is part of this item now.
+
+### VERIFY-01 — Soak coverage completeness
+
+Soak reports passed without checking scenario coverage completeness (reinsurance.ts:220/225 vs gateway-DEMO.md:34). Address in VERIFY-01, not DEMO-01; preserve the current V-01 oracle and expected answers in DEMO-01.

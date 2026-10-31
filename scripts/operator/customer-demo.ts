@@ -1,3 +1,4 @@
+import {seedOptions} from './seed-options.js';
 import {mkdir} from 'node:fs/promises';
 import {withOperatorObserver} from '../../src/platform/ops/observer.js';
 import {createRedisConnection} from '../../src/platform/redis/index.js';
@@ -14,9 +15,11 @@ async function matching(file:string,value:unknown){
  try{const saved:unknown=JSON.parse(await privateRead(file));if(JSON.stringify(saved)!==JSON.stringify(value))throw new OperatorConflict('Existing demo configuration differs; no identity, credential or decision was overwritten.');}
  catch(error){if(!(error instanceof Error&&'code'in error&&error.code==='ENOENT'))throw error;await privateWrite(file,value);}
 }
-export async function customerSoak(duration:string|undefined){
+export async function customerSoak(duration:string|undefined,args:readonly string[]=[]){
  if(process.env.OPINTEL_CUSTOMER_JOB!=='1')throw new OperatorConflict('Use the installed gateway ./demo command.');
  const seconds=Number(duration);if(!Number.isSafeInteger(seconds)||seconds<1||seconds>86400)throw new OperatorConflict('Usage: ./demo soak DURATION_SECONDS');
+ const options=await seedOptions(args);if(!options.sourceRef?.startsWith('secret://sources/')||!options.sessionFile)throw new OperatorConflict('Use ./sources add on the engine, then supply --source-ref and --session-file from normal owner login');
+ process.env.OPINTEL_OBSERVER_COOKIE=options.sessionFile;
  const ownerEmail=required('OWNER_EMAIL');
  const users=await withPlatform(tx=>tx.query<{company_id:string}>("SELECT m.company_id FROM company_member m JOIN user_account u ON u.id=m.user_id WHERE u.email=$1 AND m.role='admin' AND u.last_login_at IS NOT NULL",[ownerEmail]));
  if(users.length!==1)throw new OperatorConflict('Complete normal owner email login before running the demo.');
@@ -27,12 +30,12 @@ export async function customerSoak(duration:string|undefined){
   const path=resolve(root,item.bundlePath);if(item.bundlePath.startsWith('/')||relative(root,path).startsWith('..'))throw new OperatorConflict('Device bundle paths must be relative to identities.');return {...item,bundlePath:path};
  });
  await matching(required('OPINTEL_CERTIFICATES'),mapping);
- await matching(required('OPINTEL_OPERATOR_CONFIG'),{ownerEmail,companyId:users[0]!.company_id,projectName:'Reinsurance demonstration',region:'us-east-1',engine:{name:'Customer engine',address:peer.address,certificatePin:peer.pin.replaceAll(':','')},sourceCredentialRef:'secret://install/readiness',settings:{query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5},custody:{provider:'xq',tenant:required('OPINTEL_XQ_TEAM_ID'),region:'us-east-1'},poolKeyGraceSeconds:3600}});
+ await matching(required('OPINTEL_OPERATOR_CONFIG'),{ownerEmail,companyId:users[0]!.company_id,projectName:'Reinsurance demonstration',region:'us-east-1',engine:{name:'Customer engine',address:peer.address,certificatePin:peer.pin.replaceAll(':','')},sourceCredentialRef:options.sourceRef,settings:{query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5},custody:{provider:'xq',tenant:required('OPINTEL_XQ_TEAM_ID'),region:'us-east-1'},poolKeyGraceSeconds:3600}});
  await provision();
  const manifest=provisionManifest.parse(JSON.parse(await privateRead(required('OPINTEL_PROVISION_MANIFEST')))),c=await context(),runtime=new ReleaseRuntime();
  try{const check=await runtime.checkConnection({projectId:manifest.projectId,userId:c.userId});if(!check.reachable||!check.authenticated||check.failure)throw new OperatorConflict('XQ connection check failed; demo was not started.');}
  finally{runtime.close();c.auth.close();}
- await runSoak(duration);
+ await runSoak(duration,args);
 }
 
 /** Standalone preparation is the receipt-verifying phase of the same soak job. */

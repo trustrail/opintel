@@ -36,7 +36,7 @@ commands. Invitations require normal email or company SSO login before access.
 
 LAN: browsers → gateway TCP 443 (or APP_BASE_URL port); engine → gateway TCP 3102
 for heartbeat and 3101 for optional ingest receipts; gateway → engine TCP 3100 and
-3103 for pairing/recovery, and 5434 for the demo source. Gateway database, Redis and SpiceDB ports are private.
+3103 for pairing/recovery, and the operator-selected port for each ordinary source database. Gateway database, Redis and SpiceDB ports are private.
 XQ and configured SMTP are required external destinations. PAL_PROVIDER, PAL_MODEL
 and EMBEDDING_MODEL are disabled: hosted models require future explicit opt-in.
 No checkout, host Node or Compose command is needed. Retain failure logs/results.

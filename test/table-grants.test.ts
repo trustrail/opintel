@@ -53,7 +53,6 @@ const contracts: Record<string, GrantContract> = {
   industry: sharedRead,
   vocabulary_term: projectVocabulary,
   embedding: sharedRead,
-  demo_source_template: sharedRead,
   // §4.5: synonyms must be accessed through their vocabulary_term parent.
   term_synonym: projectVocabulary,
   synonym_candidate: {

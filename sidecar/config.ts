@@ -16,7 +16,6 @@ export const sidecarConfigSchema = z.strictObject({
   postgresReadinessSource:z.string().startsWith('secret://').min(10).transform(SecretRef).optional(),
   custody:z.strictObject({keyStore:z.string().min(1),keyEscrow:z.string().min(1)}).optional(),
   limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds }),
-  demo: z.strictObject({ database: z.string().min(1), credentialRef: z.string().startsWith('secret://').min(10).transform(SecretRef) }).optional(),
   receiptUrl: z.url().refine((value) => new URL(value).protocol === 'https:').optional(),
   landingZones: z.array(landingZoneSchema).optional(),
   maxRequestBytes: z.number().int().min(1).max(16 * 1024 * 1024).default(1024 * 1024),

@@ -6,7 +6,7 @@ import {mkdir,readdir,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {required,privateWrite,OperatorConflict} from './common.js';
 /** One-shot packaged workflow. Ordinary caller keys and decisions are preserved. */
-export async function runSoak(argument:string|undefined){
+export async function runSoak(argument:string|undefined,args:readonly string[]=[]){
  const duration=Number(argument);if(!Number.isSafeInteger(duration)||duration<1||duration>86400)throw new OperatorConflict('Usage: demo-tools run-soak DURATION_SECONDS (1–86400)');
  const directory=join(required('OPINTEL_OUTPUT_DIRECTORY'),'soak-run-'+new Date().toISOString().replaceAll(':','-'));
  await mkdir(directory,{mode:0o700});
@@ -14,7 +14,7 @@ export async function runSoak(argument:string|undefined){
  let summary:unknown=null;
  const env={...process.env,OPINTEL_OBSERVER_COOKIE:process.env.OPINTEL_OBSERVER_COOKIE??'',OPINTEL_SOAK_DURATION:String(duration),OPINTEL_SOAK_OUTPUT_DIRECTORY:join(directory,'soak')};
  const execute=async()=>{for(const step of ['seed','lifecycle-renew','prepare','soak']){
-  const exitCode=await new Promise<number>((resolve,reject)=>{const child=spawn(process.execPath,[process.argv[1]!,step],{env,stdio:['ignore','inherit','inherit']});child.once('error',reject);child.once('exit',code=>resolve(code??1));});
+  const exitCode=await new Promise<number>((resolve,reject)=>{const child=spawn(process.execPath,[process.argv[1]!,step,...args],{env,stdio:['ignore','inherit','inherit']});child.once('error',reject);child.once('exit',code=>resolve(code??1));});
   steps.push({step,exitCode});if(exitCode!==0)break;
  }};
  if(process.env.OPINTEL_CUSTOMER_JOB==='1'){
