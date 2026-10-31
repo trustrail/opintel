@@ -1,0 +1,75 @@
+{
+  "commit": "39a110e804d17f1d9a115fd215b295d91bc045cb",
+  "runId": "7983dc0f-2f2d-4b03-802e-1a6f8bf7e844",
+  "preflight": {
+    "memory": {
+      "availableBytes": 2306715648,
+      "minimumAvailableBytes": 1073741824
+    },
+    "docker": {
+      "bytes": 8325943296,
+      "minimumBytes": 7516192768
+    },
+    "images": {
+      "postgres": "pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a",
+      "redis": "redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541",
+      "spicedb": "authzed/spicedb:latest@sha256:a170d372c9f6b921bb6849064df6ca3566dd5b174882c1a2c4300c2ae1d60efd",
+      "browser": "mcr.microsoft.com/playwright:v1.63.0-noble"
+    },
+    "started": [],
+    "postgres": "reachable",
+    "redis": "reachable",
+    "database": "opintel_test_gate_64cadc497d02_82e81400790c",
+    "migratedFromZero": true,
+    "seconds": 13.798659112000001,
+    "exitCode": 0
+  },
+  "memory": {
+    "startAvailableBytes": 2306715648,
+    "minimumAvailableBytes": 892014592,
+    "minimumAt": "2026-10-31T03:01:52.238Z",
+    "lastSampleAt": "2026-10-31T03:32:04.370Z",
+    "samples": 437,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [
+    {
+      "tier": "typecheck",
+      "seconds": 46.150954026,
+      "exitCode": 0
+    },
+    {
+      "tier": "typecheck:conformance",
+      "seconds": 6.639467582999997,
+      "exitCode": 0
+    },
+    {
+      "tier": "lint",
+      "seconds": 24.194295436,
+      "exitCode": 0
+    },
+    {
+      "tier": "build:production",
+      "seconds": 4.849871360999997,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:conformance",
+      "seconds": 407.062392887,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 1678.9135235259998,
+      "exitCode": 1
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_82e81400790c",
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 2184.962112758,
+  "complete": false
+}

@@ -1,6 +1,6 @@
 # Console redesign: phase 0 report, then Home only
 
-The approved screen designs are the 19 images in `docs/design/console/` (01-Main is the rules board, the rest are screens; files named Mobile are 390 px phone layouts). They are the specification for layout, hierarchy and behaviour. Numbers in them are illustrative unless this prompt says otherwise; values in square brackets such as `[time]` are placeholders for data the backend does not provide yet.
+The approved screen designs are the numbered images in `docs/design/console/` (01-Main is the rules board, the rest are screens; files named Mobile are 390 px phone layouts). They are the specification for layout, hierarchy and behaviour. Numbers in them are illustrative unless this prompt says otherwise; values in square brackets such as `[time]` are placeholders for data the backend does not provide yet.
 
 Do not start before the first-hour acceptance work is finished and reported.
 
@@ -31,7 +31,7 @@ Stop after the report.
 Build a new console beside the current one. Do not modify or delete the current console in this phase. Choose the location and package name following the repository's conventions, and say which.
 
 ### Stack
-React, Radix primitives (Dialog, Popover, Tabs, Checkbox, ScrollArea, Tooltip, DropdownMenu), Phosphor icons in one weight, Motion for animation, visx for every chart. No other UI kit.
+React, Radix primitives (Dialog, Popover, Tabs, Checkbox, ScrollArea, Tooltip, DropdownMenu, Select), Phosphor icons in one weight, Motion for animation, visx for every chart. No other UI kit.
 
 ### Foundations
 - Design tokens in one place: an 8 px spacing scale, three corner radii, a type scale of five sizes, two shadow levels, and the colours used in the images. Nothing hard-coded per screen.
@@ -43,7 +43,7 @@ React, Radix primitives (Dialog, Popover, Tabs, Checkbox, ScrollArea, Tooltip, D
 - Empty, loading and error states for every list.
 
 ### Rules from 01-Main, all 14 binding
-1. One queue. 2. Health is a strip, not a page. 3. Report above, workbench below. 4. One primary action per screen; destructive actions in menus. 5. At most four numbers per band. 6. A state is a badge, never a sentence. 7. Names, not identifiers. 8. Motion only when state changes. 9. Same screens for the data owner and the operator; role changes the order, never the information. 10. Existing responsibilities stay as designed (Activity records, Suggestions asks, Entitlements decides, Observations explains). 11. Works on a phone: navigation becomes a bottom tab bar, cards stack, tables become lists, touch targets at least 44 px. 12. Fixed row heights and column widths; long text is truncated, never wrapped; cards only for summaries, never for data that can grow. 13. A number in a band is also the button that filters by it. 14. Every name wears its kind: source, table, view, column, pool, row rule, agent, person, credential and receipt each have one icon (see the key on 01-Main), shown wherever the name appears, with the kind named on hover. Build it as one shared component.
+1. One queue. 2. Health is a strip, not a page. 3. Report above, workbench below. 4. One primary action per screen; destructive actions in menus. 5. At most four numbers per band. 6. A state is a badge, never a sentence. 7. Names, not identifiers. 8. Motion only when state changes. 9. Same screens for the data owner and the operator; role changes the order, never the information. 10. Explanations live on the thing they explain. Activity records, Suggestions asks, Entitlements decides. Findings are badges on their source, column or key, with detail in a tooltip and a fix one click away. There is no separate findings page. 11. Works on a phone: navigation becomes a bottom tab bar, cards stack, tables become lists, touch targets at least 44 px. 12. Fixed row heights and column widths; long text is truncated, never wrapped; cards only for summaries, never for data that can grow. 13. A number in a band is also the button that filters by it. 14. Every name wears its kind: source, table, view, column, pool, row rule, agent, person, credential and receipt each have one icon (see the key on 01-Main), shown wherever the name appears, with the kind named on hover. Build it as one shared component.
 
 Vocabulary on screen: say "table" (a view gets a different icon). "Object" stays in the API.
 

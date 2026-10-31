@@ -9,10 +9,15 @@ export const executionSettings=z.strictObject({
  maxStagingRows:numericProjectSetting('query.maxStagingRows'),
  maxQueuedExecutions:numericProjectSetting('query.maxQueuedExecutions'),
 });
+/** Adapt application declarations once, before serializing the engine read plan. */
+export function engineTokenDeclaration<T extends {sourceTimezone?:string}>(token:T){
+ const {sourceTimezone,...config}=token;
+ return {...config,...(sourceTimezone===undefined?{}:{declaredZone:sourceTimezone})};
+}
 const column=z.strictObject({numericDefault:z.enum(['scalar','array']).optional(),sourceIdentifier:name,exposedName:name,
  exposedType:z.string().refine(v=>stagingType(v)!==null),
  treatment:z.enum(['clear','aggregate_only','tokenized','masked', 'custody']),readAs:z.enum(['text','native']),
- token:z.strictObject({domain:z.string().regex(/^[a-z0-9]+$/u),canonId:name,mode:z.enum(['text','number','date','timestamp']),caseInsensitive:z.boolean(),sourceTimezone:z.string().optional(),epochUnit:z.enum(['seconds','milliseconds']).optional()}).optional(),
+ token:z.strictObject({domain:z.string().regex(/^[a-z0-9]+$/u),canonId:name,mode:z.enum(['text','number','date','timestamp']),caseInsensitive:z.boolean(),declaredZone:z.string().optional(),epochUnit:z.enum(['seconds','milliseconds']).optional()}).optional(),
  mask:z.strictObject({kind:z.enum(['all','last4','email','year'])}).optional(),elementId:z.uuid(),
 }).superRefine((c,ctx)=>{
  const treated=c.treatment==='tokenized'||c.treatment==='masked';

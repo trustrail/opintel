@@ -20,7 +20,7 @@ export async function readPools(project:string,client=createApiClient()){
  for(const pool of list.items){
   const base=`/api/v1/pools/${pool.id}`,q=new URLSearchParams({projectId:project,limit:'100'});
   const [detail,tables,members,agents]=await Promise.all([read(client,`${base}?${q}`,PoolDetail),pages(client,`${base}/tables?${q}`,PoolTablesPage,Infinity),pages(client,`${base}/entitlement-members?${q}&mode=name&decision=all`,MemberPage,Infinity),pages(client,`${base}/agents?${q}`,AgentPresencePage,Infinity)]);
-  const spectrum=emptySpectrum();for(const m of members.items)spectrum[m.treatment??'undecided']++;
+  const spectrum=emptySpectrum();for(const m of members.items.filter(m=>m.exposedType!==null))spectrum[m.treatment??'undecided']++;
   pools.push({detail,tables:tables.items,members:members.items,agents:agents.items,spectrum,connected:agents.items.filter(isConnected).length});
  }
  const needs=await pages(client,`/api/v1/projects/${project}/needs-you?limit=100`,NeedsYouPage,Infinity);

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { QueryInput } from '../../../shared/api/mcp.js';
-import { validationRequest } from '../../../shared/execution-contract.js';
+import { validationRequest,engineTokenDeclaration } from '../../../shared/execution-contract.js';
 import { DomainError, err, ok, type ElementId } from '../../../shared/kernel/index.js';
 import { QueryPreFilter, type ViewDefinition } from '../../entitlements/index.js';
 import type { AuthorizationPort } from '../../authz/index.js';
@@ -48,7 +48,7 @@ export class QueryPreparation {
    const request=validationRequest.safeParse({requestId,tokenKeyVersionSelected:evidence?.versions.tokenKeyVersionSelected??null,projectId:principal.pool.projectId,poolId:principal.pool.id,sql:input.sql,policyVersion:s.policyVersion,
     namespace:{catalog:first?.catalog??'memory',schema:first?.schema??'main'},
     sources:sources.map(source=>({sourceId:source.id,credentialRef:source.credentialRef})),
-    objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,sourceId:s.sources.find(source=>source.alias===v.catalog)?.id,readPlan:{...v.readPlan,columns:v.readPlan.columns.map(c=>({...c,elementId:v.columns.find(column=>column.exposedName===c.exposedName)?.elementId}))}})),
+    objects:touched.map(v=>({catalog:v.catalog,schema:v.schema,name:v.name,sourceId:s.sources.find(source=>source.alias===v.catalog)?.id,readPlan:{...v.readPlan,columns:v.readPlan.columns.map(c=>({...c,...(c.token?{token:engineTokenDeclaration(c.token)}:{}),elementId:v.columns.find(column=>column.exposedName===c.exposedName)?.elementId}))}})),
     entitlements:touched.flatMap(v=>v.columns.filter(c=>c.state==='emitted').map(c=>({elementId:c.elementId,treatment:c.treatment}))),aggregateMinGroupSize:s.aggregateMinGroupSize,settings:s.settings,
     limits:s.limits?{...s.limits,rowLimit:Math.min(input.maxRows??s.limits.rowLimit,s.limits.rowLimit)}:undefined,entitlementContext:null});
    if(!request.success)return err(new DomainError('dependency_unavailable','The pool read plan or execution settings are incomplete.',{cause:'component_configuration',reason:'read_plan'}));

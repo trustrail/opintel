@@ -41,7 +41,7 @@ it('a focused control finding still fails',async()=>{
 });
 it('the full gate requires every route derived from the application',async()=>{
  const reporter=new Reporter();observe(reporter,screenPaths());
- expect(screenPaths()).toHaveLength(33);for(const removed of ['/releases','/workbench','/vocabulary','/source-of-truth','/relationships','/knowledge','/audit-log']){expect(screenPaths()).not.toContain(removed);expect(screenPaths()).not.toContain('/projects/$projectId'+removed);}
+ expect(screenPaths()).toHaveLength(32);for(const removed of ['/releases','/workbench','/vocabulary','/source-of-truth','/relationships','/knowledge','/audit-log']){expect(screenPaths()).not.toContain(removed);expect(screenPaths()).not.toContain('/projects/$projectId'+removed);}
  expect(await reporter.onEnd(result)).toBeUndefined();
  expect(artifact()).toMatchObject({scope:'full',coverageComplete:true,missing:[]});
 });

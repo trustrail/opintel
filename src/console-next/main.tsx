@@ -1,3 +1,6 @@
+import {Auth} from './auth/screen.js';
+import {isAuthPath} from './auth/state.js';
+import './auth/styles.css';
 import {consoleLink} from '../shared/console-destinations.mjs';
 import {Welcome} from './first-run/welcome.js';
 import {Settings} from './settings/screen.js';
@@ -16,12 +19,13 @@ import {useHomeState} from './home/state.js';
 import './styles.css';
 import './pools/styles.css';
 import './data/styles.css';
+import './data/contextual.css';
 import './activity/styles.css';
 import './first-run/styles.css';
 const cache=new QueryClient({defaultOptions:{queries:{refetchOnWindowFocus:true,retry:false}}});
-function App(){
+function ProjectApp(){
  const projects=useProjects(),selected=useHomeState(s=>s.project),setSelected=useHomeState(s=>s.setProject),theme=useHomeState(s=>s.theme);
- useEffect(()=>{if(projects.isError&&'code' in projects.error&&projects.error.code==='unauthenticated')window.location.replace('/legacy/sign-in?'+new URLSearchParams({next:window.location.pathname+window.location.search}));},[projects.isError,projects.error]);
+ useEffect(()=>{if(projects.isError&&'code' in projects.error&&projects.error.code==='unauthenticated')window.location.replace('/sign-in?'+new URLSearchParams({next:window.location.pathname+window.location.search}));},[projects.isError,projects.error]);
  useEffect(()=>{document.documentElement.setAttribute('data-console-theme',theme);},[theme]);
  const choose=(id:string)=>{cache.removeQueries({queryKey:homeKeys.allProjects()});setSelected(id);const url=new URL(window.location.href);url.searchParams.set('project',id);window.history.replaceState(null,'',url);};
  if(projects.isPending)return <ListState state="loading"/>;
@@ -36,5 +40,6 @@ function App(){
  if(new URLSearchParams(window.location.search).get('screen')==='pools')return <Pools key={project.id} project={project}/>;
  return <Home key={project.id} project={project} projects={projects.data} onProject={choose}/>;
 }
+function App(){return isAuthPath(window.location.pathname)?<Auth/>:<ProjectApp/>;}
 const root=document.getElementById('console-next');if(!root)throw new Error('Missing console root.');
 createRoot(root).render(<React.StrictMode><QueryClientProvider client={cache}><MotionConfig reducedMotion="user"><Tooltip.Provider delayDuration={300}><App/></Tooltip.Provider></MotionConfig></QueryClientProvider></React.StrictMode>);

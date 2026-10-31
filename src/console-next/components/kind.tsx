@@ -38,9 +38,14 @@ import {CircleHalf} from '@phosphor-icons/react/dist/csr/CircleHalf';
 import {CircleDashed} from '@phosphor-icons/react/dist/csr/CircleDashed';
 import {CircleNotch} from '@phosphor-icons/react/dist/csr/CircleNotch';
 import {Smiley as CircleWavy} from '@phosphor-icons/react/dist/csr/Smiley';
+import {Clock} from '@phosphor-icons/react/dist/csr/Clock';
+import {ArrowsClockwise} from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import {ArrowRight} from '@phosphor-icons/react/dist/csr/ArrowRight';
+import {SignIn} from '@phosphor-icons/react/dist/csr/SignIn';
+import {ArrowUUpLeft} from '@phosphor-icons/react/dist/csr/ArrowUUpLeft';
 import type {Icon} from '@phosphor-icons/react';
 import {Tooltip} from './primitives.js';
-export const icons={project:Folder,mail:Envelope,source:Database,table:Table,view:Eye,column:Columns,pool:Stack,row_rule:Rows,agent:Robot,person:User,credential:Key,receipt:Receipt,engine:Cpu,sources:Database,custody:Lock,tls:ShieldCheck,token_key:Key,settings:Gear,activity:Activity,home:House,search:MagnifyingGlass,order:ArrowsDownUp,chevron:CaretRight,warning:Warning,sun:Sun,moon:Moon,check:Check,unknown:Question,refused:Prohibit,expand:ArrowsOutSimple,close:X,logo:ChartBar,copy:Copy,target:Target,switch:CaretUpDown,more:DotsThree,clear:Circle,tokenized:CircleNotch,masked:CircleHalf,aggregate_only:CircleWavy,withheld:Prohibit,undecided:CircleDashed} satisfies Record<string,Icon>;
+export const icons={clock:Clock,scan:ArrowsClockwise,arrow:ArrowRight,signin:SignIn,restate:ArrowUUpLeft,project:Folder,mail:Envelope,source:Database,table:Table,view:Eye,column:Columns,pool:Stack,row_rule:Rows,agent:Robot,person:User,credential:Key,receipt:Receipt,engine:Cpu,sources:Database,custody:Lock,tls:ShieldCheck,token_key:Key,settings:Gear,activity:Activity,home:House,search:MagnifyingGlass,order:ArrowsDownUp,chevron:CaretRight,warning:Warning,sun:Sun,moon:Moon,check:Check,unknown:Question,refused:Prohibit,expand:ArrowsOutSimple,close:X,logo:ChartBar,copy:Copy,target:Target,switch:CaretUpDown,more:DotsThree,clear:Circle,tokenized:CircleNotch,masked:CircleHalf,aggregate_only:CircleWavy,withheld:Prohibit,undecided:CircleDashed} satisfies Record<string,Icon>;
 export type Kind='source'|'table'|'view'|'column'|'pool'|'row_rule'|'agent'|'person'|'credential'|'receipt';
 export function Glyph({name,size=20}:{name:keyof typeof icons;size?:number}){const Icon=icons[name];return <Icon size={size} weight="regular" aria-hidden="true"/>;}
 export function KindIcon({kind,label}:{kind:Kind;label?:string}){return <Tooltip.Root><Tooltip.Trigger asChild><span data-kind={kind} role="img" aria-label={label??kind.replaceAll('_',' ')}><Glyph name={kind} size={18}/></span></Tooltip.Trigger><Tooltip.Content data-tooltip sideOffset={8}>{label??kind.replaceAll('_',' ')}<Tooltip.Arrow/></Tooltip.Content></Tooltip.Root>;}
@@ -48,3 +53,6 @@ export function Tip({label,children}:{label:string;children:ReactElement}){retur
 
 /** Missing public metadata must not turn a view into a guessed table. */
 export function TableIcon({kind}:{kind:'table'|'view'|undefined}){return kind?<KindIcon kind={kind}/>:null;}
+
+/** Product brand artwork, distinct from the regular-weight icon set. */
+export function BrandMark({size=32}:{size?:number}){return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false" data-brand-mark><rect x="2" y="16" width="8" height="16" rx="2" fill="currentColor"/><rect x="12" y="8" width="8" height="24" rx="2" fill="currentColor" opacity=".7"/><rect x="22" y="0" width="8" height="32" rx="2" fill="currentColor" opacity=".4"/></svg>;}

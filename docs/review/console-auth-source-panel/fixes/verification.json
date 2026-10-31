@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "clipboardIdentifiersOnly": true,
+  "confirmationTransient": true,
+  "packetTextarea": false,
+  "brand": "filled three-bar mark",
+  "source": "updated console preview with retained packaged gateway APIs",
+  "screenshots": [
+    "22-check-email.png",
+    "27-source-filings-after-copy.png",
+    "28-declarations.png"
+  ],
+  "capture": "Successful console capture using retained packaged API data; check-email and Copy images subsequently recaptured with central renderer arguments.",
+  "font": "Self-hosted Inter, fonts ready before capture; CDP verification additionally passed for 22 and 27."
+}

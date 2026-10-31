@@ -1,0 +1,250 @@
+{
+  "status": "passed",
+  "steps": [
+    {
+      "name": "email-link-opened-and-confirmed-in-second-browser",
+      "status": "passed"
+    },
+    {
+      "name": "second-email-link-declined-with-no-session",
+      "status": "passed"
+    },
+    {
+      "name": "1-create-project",
+      "status": "passed"
+    },
+    {
+      "name": "2-engine-registered-verified",
+      "status": "passed"
+    },
+    {
+      "name": "3-source-connected-scanned",
+      "status": "passed"
+    },
+    {
+      "name": "project-query-limits",
+      "status": "passed"
+    },
+    {
+      "name": "4-pool-created",
+      "status": "passed"
+    },
+    {
+      "name": "explicit-clear-decision",
+      "status": "passed"
+    },
+    {
+      "name": "5-credential-issued",
+      "status": "passed"
+    },
+    {
+      "name": "agent-request-answered",
+      "status": "passed"
+    },
+    {
+      "name": "6-receipt-visible-in-activity",
+      "status": "passed"
+    },
+    {
+      "name": "unsupported-type-and-type-change-visible-in-source-scan",
+      "status": "passed"
+    },
+    {
+      "name": "legacy-type-observation-opens-unsupported-column",
+      "status": "passed"
+    },
+    {
+      "name": "legacy-scan-permalink-opens-source-context",
+      "status": "passed"
+    },
+    {
+      "name": "reset-column-decided-through-existing-entitlements",
+      "status": "passed"
+    },
+    {
+      "name": "merged-header-quarantine-and-identifier-only-operator-packet",
+      "status": "passed"
+    },
+    {
+      "name": "legacy-schema-declaration-opens-inline-and-breadcrumb-leaves-it",
+      "status": "passed"
+    },
+    {
+      "name": "contributor-key-schema-timezone-and-epoch-declarations",
+      "status": "passed"
+    },
+    {
+      "name": "isolated-token-domains-produce-distinct-tokens",
+      "status": "passed"
+    },
+    {
+      "name": "shared-token-domain-across-two-tokenized-columns-with-project-confirmation",
+      "status": "passed"
+    },
+    {
+      "name": "unverified-backup-on-custody-icon-needs-you-and-token-settings",
+      "status": "passed"
+    },
+    {
+      "name": "legacy-custody-observation-opens-token-settings",
+      "status": "passed"
+    },
+    {
+      "name": "backup-reverified-through-existing-action",
+      "status": "passed"
+    },
+    {
+      "name": "account-menu-held-filings-opens-owning-source",
+      "status": "passed"
+    },
+    {
+      "name": "activity-light-ring-not-clipped",
+      "status": "passed"
+    }
+  ],
+  "screenshots": [
+    "20-sign-in.png",
+    "25-phone-sign-in.png",
+    "22-check-email.png",
+    "23-confirm-device.png",
+    "1440-light-welcome.png",
+    "390-light-welcome.png",
+    "1440-light-first-hour-step3.png",
+    "390-light-first-hour-step3.png",
+    "1440-light-connect-source.png",
+    "26-source-scans.png",
+    "27-source-filings.png",
+    "29-token-change.png",
+    "28-declarations.png",
+    "21-enforced-sso.png",
+    "activity-ring-unclipped.png"
+  ],
+  "browserErrors": 0,
+  "renderedFonts": {
+    "20-sign-in": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "25-phone-sign-in": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "22-check-email": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "23-confirm-device": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "1440-light-welcome": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "390-light-welcome": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "1440-light-first-hour-step3": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "390-light-first-hour-step3": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "1440-light-connect-source": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "26-source-scans": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "27-source-filings": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "29-token-change": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "28-declarations": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "21-enforced-sso": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "activity-ring-unclipped": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ]
+  },
+  "projectId": "ea372ad4-735c-4d86-9066-6ffa169c327c",
+  "atomicEngineRegistration": true,
+  "phoneSelectTargetsVerified": true,
+  "scanSummary": [
+    "2",
+    "8",
+    "~11"
+  ],
+  "poolId": "1e64c496-def2-4446-9803-721c6b4a518f",
+  "receiptTitle": "Answered · 6 rows from table records",
+  "permanentMarkerRecorded": true,
+  "scanRowGeometry": [
+    {
+      "height": 56,
+      "actionInside": true
+    },
+    {
+      "height": 56,
+      "actionInside": true
+    },
+    {
+      "height": 56,
+      "actionInside": true
+    },
+    {
+      "height": 56,
+      "actionInside": true
+    }
+  ],
+  "tokenChangeVerified": true,
+  "activityRingGeometry": {
+    "width": 142.5,
+    "height": 142.5,
+    "inside": true
+  }
+}

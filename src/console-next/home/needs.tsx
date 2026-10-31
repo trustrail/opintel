@@ -2,7 +2,7 @@ import type {NeedsYouItem} from '../../shared/api/needs-you.js';
 import {KindIcon} from '../components/kind.js';
 export function needsAreas(items:NeedsYouItem[]){
  const decisions=items.some(i=>i.kind==='undecided_entitlement'||i.kind==='missing_row_decision');
- return {Home:items.length>0,Activity:false,Pools:decisions,Data:decisions,Settings:items.some(i=>['setting_required','check_required','check_failed'].includes(i.kind))};
+ return {Home:items.length>0,Activity:false,Pools:decisions,Data:decisions||items.some(i=>i.kind==='observation'&&!i.targetRoute.includes('token-key')),Settings:items.some(i=>['setting_required','check_required','check_failed'].includes(i.kind))};
 }
 export function poolBadge(name:string){
  const number=name.trim().split(/\s+/).at(-1);if(number&&/^\d{1,3}$/.test(number))return (name.trim()[0]??'').toUpperCase()+String(Number(number));

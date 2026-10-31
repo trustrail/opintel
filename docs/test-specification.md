@@ -1925,3 +1925,5 @@ other queue items, editor links and the empty strip. Explicitly run
 browser regression: Welcome/Home have no horizontal scrolling at 390, queue
 actions fit, and all six titles fit at 390/1440. Its six deterministic endpoint
 fixture captures are manual design evidence, outside retired pixel tiers.
+
+The execution timezone boundary regression in `staging-source.test.ts` compiles a tokenized TIMESTAMP with a declared IANA zone, serializes its read plan, and compares its real source-read token with the equivalent UTC instant through staged execution. `execution-token-contract.test.ts` asserts `declaredZone` on the wire, absence of `sourceTimezone`, and rejection of unknown fields.

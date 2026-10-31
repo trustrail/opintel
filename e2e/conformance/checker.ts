@@ -1,6 +1,8 @@
 /** Reviewed control contracts. The master selector must exist; a utility class is
  * never sufficient. Input kinds are separate so .fld cannot bless a raw checkbox. */
 export const controlPatterns = [
+  {kind:'button',selector:'[data-auth-content] button',master:'[data-auth-content] button'},
+  {kind:'text',selector:'[data-auth-email] input',master:'[data-auth-email] input'},
   ...['btn','toolchip','dtoggle','projbtn','pmitem','pmfoot','acct','iconbtn','shield','rhead','gchip','eg','pcard','newproj','sw','copy','eo','wh','audh','xbtn','relh','ch2','opt','th3','cellbox'].map(name => ({
     kind: 'button', selector: `.${name}`, master: `#opintel-app .${name}`,
   })),
@@ -16,7 +18,7 @@ export type Scan = {screen:string;heading:string;controls:number;states:string[]
 
 /** Self-contained for page.evaluate/addInitScript. No source values are collected. */
 export function inspectControls(patterns: readonly {kind:string;selector:string;master:string}[]): Scan {
-  const root=document.querySelector('#opintel-app');
+  const root=document.querySelector('#opintel-app, #console-next');
   const screen=location.pathname;
   const findings:Finding[]=[];
   const controls=[...(root?.querySelectorAll('button,input:not([type="hidden"]),select,textarea,details,summary,[role="button"],[role="switch"],[role="checkbox"],[role="radio"],[role="combobox"],[contenteditable="true"]')??[])];
@@ -59,5 +61,5 @@ export function inspectControls(patterns: readonly {kind:string;selector:string;
       if(expanded==='true')states.add('expanded');
     }
   }
-  return {screen,heading:root?.querySelector('h1')?.textContent??'',controls:controls.length,states:[...states],findings};
+  return {screen,heading:(root?.querySelector('[data-auth-content] h2')??root?.querySelector('h1'))?.textContent??'',controls:controls.length,states:[...states],findings};
 }

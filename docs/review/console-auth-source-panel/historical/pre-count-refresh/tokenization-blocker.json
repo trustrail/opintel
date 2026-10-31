@@ -1,0 +1,19 @@
+{
+  "outcome": {
+    "kind": "refused",
+    "code": "validation_failed",
+    "stage": "execute",
+    "element": null
+  },
+  "detail": {
+    "cause": "invalid_token_declaration",
+    "reason": "token_declaration",
+    "message": "Tokenization requires a valid mode and non-empty lowercase alphanumeric domain and canonicaliser identifiers."
+  },
+  "currentTokenKeyCount": 1,
+  "pureDiagnostic": {
+    "sourceTimezoneShapeAccepted": false,
+    "declaredZoneShapeAccepted": true
+  },
+  "backendFilesUnchangedFromMain": "c7f57fe7884f88d6b89b48312896c3e3d91ba3d3"
+}

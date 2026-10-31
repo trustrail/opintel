@@ -2,7 +2,7 @@ import {readFileSync} from 'node:fs';
 import {expect,type BrowserContext,type TestInfo} from '@playwright/test';
 import {controlPatterns,inspectControls,type Scan} from './checker.js';
 
-const master=readFileSync(new URL('../../docs/opintel-master.css',import.meta.url),'utf8');
+const master=readFileSync(new URL('../../docs/opintel-master.css',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../../src/console-next/auth/styles.css',import.meta.url),'utf8');
 export async function observeConformance(context:BrowserContext,testInfo:TestInfo){
  const scans=new Map<string,Scan>();
  const findings=new Map<string,Scan['findings'][number]>();
@@ -45,7 +45,7 @@ export async function observeConformance(context:BrowserContext,testInfo:TestInf
  return async()=>{
   for(const page of context.pages())if(!page.isClosed())await page.evaluate(async()=>{
    const scan=(window as Window & {__scanControlConformance?:()=>Promise<void>}).__scanControlConformance;
-   if(document.querySelector('#opintel-app')&&!scan)throw new Error('Control conformance observer did not initialize.');
+   if(document.querySelector('#opintel-app, #console-next')&&!scan)throw new Error('Control conformance observer did not initialize.');
    await scan?.();
   });
   const result={test:testInfo.titlePath,scans:[...scans.values()].map(({findings:_findings,...scan})=>scan),findings:[...findings.values()]};

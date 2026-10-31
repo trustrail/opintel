@@ -1,3 +1,5 @@
+import {read,pages,type Client} from '../api.js';
+import {contextualNeeds,contextualHealth} from '../observations/data.js';
 import {z} from 'zod';
 import {useEffect,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
@@ -13,16 +15,7 @@ import {streamEventSchema} from '../../shared/api/stream.js';
 import type {Order} from './state.js';
 export type Project=z.infer<typeof ProjectListResponse>['items'][number];
 export const homeKeys={custody:(p:string,from:string,to:string)=>[...homeKeys.scope(p),'custody-receipts',from,to] as const,allProjects:()=>['console-next','project'] as const,projects:()=>['console-next','projects'] as const,scope:(p:string)=>['console-next','project',p] as const,facts:(p:string)=>[...homeKeys.scope(p),'home'] as const,agents:(p:string)=>[...homeKeys.scope(p),'connected-agents'] as const,exposure:(p:string,kind:string|null)=>[...homeKeys.scope(p),'exposure',kind] as const,health:(p:string)=>[...homeKeys.scope(p),'health'] as const};
-type Client=ReturnType<typeof createApiClient>;
-export async function read<T>(client:Client,path:string,response:z.ZodType<T>){const result=await client.request({path,response});if(!result.ok)throw result.error;return result.value;}
-export async function pages<T>(client:Client,path:string,schema:z.ZodType<{items:T[];nextCursor:string|null}>,maxPages=100){
- const items:T[]=[],seen=new Set<string>();let cursor:string|null=null;
- for(let n=0;n<maxPages;n++){
-  const page:{items:T[];nextCursor:string|null}=await read(client,path+(path.includes('?')?'&':'?')+(cursor?'cursor='+encodeURIComponent(cursor):''),schema);items.push(...page.items);cursor=page.nextCursor;
-  if(!cursor)return {items,complete:true};
-  if(seen.has(cursor))throw new Error('The list changed while loading. Refresh to read it again.');seen.add(cursor);
- }return {items,complete:false};
-}
+export {read,pages} from '../api.js';
 export type Minute={at:string;requests:number;refused:number;custody:number};
 export function minuteStrip(runs:ActivityEntry[],now:Date):Minute[]{
  const start=Math.floor(now.getTime()/60000)*60000-29*60000;
@@ -37,7 +30,7 @@ export async function readHome(project:string,client:Client=createApiClient(),no
   read(client,base+'/stats',DashboardStats),read(client,base+'/runs/summary?'+new URLSearchParams({from,to}),ActivitySummary),
   pages(client,base+'/needs-you?limit=100',NeedsYouPage,Number.POSITIVE_INFINITY),pages(client,base+'/runs?'+new URLSearchParams({from:stripFrom,to,limit:'100'}),ActivityPage,10),
  ]);
- return {stats,summary,needs:needs.items,needsComplete:needs.complete,minutes:recent.complete?minuteStrip(recent.items,now):null,asOf:now.toISOString(),from,to};
+ return {stats,summary,needs:await contextualNeeds(project,needs.items,client),needsComplete:needs.complete,minutes:recent.complete?minuteStrip(recent.items,now):null,asOf:now.toISOString(),from,to};
 }
 export type HomeData=Awaited<ReturnType<typeof readHome>>;
 const decision=(item:NeedsYouItem)=>['undecided_entitlement','missing_row_decision','suggestion'].includes(item.kind);
@@ -64,7 +57,7 @@ export function useHomeStream(project:string,connect:OpenStream=openStream){
 }
 export function useProjects(){return useQuery<Project[]>({queryKey:homeKeys.projects(),refetchInterval:q=>q.state.data?.length?15000:false,queryFn:async({signal})=>(await pages(createApiClient(undefined,{signal}),'/api/v1/projects?limit=100',ProjectListResponse)).items,retry:false});}
 export function useHome(project:string,live:boolean){return useQuery({queryKey:homeKeys.facts(project),queryFn:({signal})=>readHome(project,createApiClient(undefined,{signal})),retry:false,refetchInterval:live?false:15000});}
-export function useHealth(project:string,live:boolean){return useQuery({queryKey:homeKeys.health(project),queryFn:({signal})=>read(createApiClient(undefined,{signal}),`/api/v1/projects/${project}/health`,ProjectHealth),retry:false,refetchInterval:live?false:15000});}
+export function useHealth(project:string,live:boolean){return useQuery({queryKey:homeKeys.health(project),queryFn:async({signal})=>contextualHealth(project,(await read(createApiClient(undefined,{signal}),`/api/v1/projects/${project}/health`,ProjectHealth)).items),retry:false,refetchInterval:live?false:15000});}
 
 export function useConnectedAgents(project:string,enabled:boolean){return useQuery({queryKey:homeKeys.agents(project),enabled,retry:false,queryFn:async({signal})=>{const client=createApiClient(undefined,{signal}),pools=await pages(client,`/api/v1/projects/${project}/pools?limit=100`,PoolPage);return Promise.all(pools.items.map(async pool=>({pool,agents:(await pages(client,`/api/v1/pools/${pool.id}/agents?projectId=${project}`,AgentPresencePage)).items.filter(a=>['connecting','active','idle'].includes(a.state))})));}});}
 

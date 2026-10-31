@@ -9,7 +9,9 @@ import { PostgresStagingSource } from '../sidecar/execution/infrastructure/postg
 import { StagedExecutor } from '../sidecar/execution/application/execute.js';
 import { DuckDBSessionEngine } from '../sidecar/session/index.js';
 import { SidecarTokenizer,IanaZoneResolver } from '../sidecar/tokenize/index.js';
-import { executionRequest } from '../src/shared/execution-contract.js';
+import {compileViews} from '../src/modules/entitlements/index.js';
+import {fixture as compileFixture,unwrap} from './fixtures/view-compiler/input.js';
+import { executionRequest,engineTokenDeclaration } from '../src/shared/execution-contract.js';
 const schema='staging_'+randomUUID().replaceAll('-',''),sourceId=randomUUID();
 async function fixture(sql:string){const c=new Client({connectionString:process.env.TEST_DATABASE_URL});try{await c.connect();await c.query(sql);}finally{await c.end();}}
 beforeAll(async()=>{await fixture(`CREATE SCHEMA ${schema};CREATE TABLE ${schema}.orders(id integer,customer integer,hidden text);INSERT INTO ${schema}.orders VALUES(1,123,'secret'),(2,456,'secret'),(3,789,'secret');ALTER TABLE ${schema}.orders ADD COLUMN numbers bigint[] DEFAULT ARRAY[9007199254740993::bigint,2];ANALYZE ${schema}.orders;`);},30000);
@@ -143,4 +145,19 @@ it('E09-003: a non-pushed null predicate keeps the source scan count distinct fr
   r.sql='SELECT id FROM orders WHERE id IS NOT NULL ORDER BY id';
   const result=await executor().execute(r);expect(result).toMatchObject({ok:true,value:{rows:[[1],[2]],rowScopes:[{returnedRows:3,decisionId:o.readPlan.rowScope.decisionId}]}});
  }finally{await fixture(`DROP TABLE ${schema}.nullable_counts`);}
+},30000);
+
+it('a compiled tokenized TIMESTAMP with a declared source timezone executes through the wire read plan and real source reader',async()=>{
+ await fixture(`ALTER TABLE ${schema}.orders ADD COLUMN naive timestamp DEFAULT '2026-09-21 11:30:00.123456';ALTER TABLE ${schema}.orders ADD COLUMN instant timestamptz DEFAULT '2026-09-21 15:30:00.123456+00';`);
+ const compiled=unwrap(compileViews(compileFixture([{name:'orders',schema,exposedSchema:'public',alias:'warehouse',columns:[
+  {name:'naive',source:'naive',type:'TIMESTAMP',treatment:'tokenized',declarations:{tokenDomain:'clock',sourceTimezone:'America/New_York'}},
+  {name:'instant',source:'instant',type:'TIMESTAMPTZ',treatment:'tokenized',declarations:{tokenDomain:'clock'}},
+ ]}]))).views[0]!;
+ expect(compiled.readPlan.columns[0]!.token).toMatchObject({sourceTimezone:'America/New_York'});
+ const r=request();r.sql='SELECT naive,instant FROM orders';r.objects=[{catalog:compiled.catalog,schema:compiled.schema,name:compiled.name,sourceId,readPlan:{...compiled.readPlan,columns:compiled.readPlan.columns.map(c=>({...c,token:engineTokenDeclaration(c.token!),elementId:compiled.columns.find(e=>e.exposedName===c.exposedName)!.elementId}))}}];
+ r.entitlements=r.objects[0]!.readPlan.columns.map(c=>({elementId:c.elementId,treatment:'tokenized'}));
+ const wire=executionRequest.parse(JSON.parse(JSON.stringify(r))),proof={attachments:0,appended:[] as unknown[][],closed:[] as string[]};
+ const result=await executor(proof).execute(wire);expect(result.ok,result.ok?'':result.error.message).toBe(true);
+ if(result.ok){expect(result.value.rows.length).toBe(2);for(const row of result.value.rows){expect(row[0]).toMatch(/^v1_clock_/);expect(row[0]).toBe(row[1]);}}
+ expect(proof.attachments).toBe(0);expect(JSON.stringify(proof.appended)).not.toContain('2026-09-21');
 },30000);
