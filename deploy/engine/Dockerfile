@@ -51,6 +51,7 @@ COPY --chmod=0755 scripts/operator ./scripts/operator
 COPY --chmod=0755 scripts/soak ./scripts/soak
 COPY --chmod=0755 scripts/infrastructure ./scripts/infrastructure
 COPY --chmod=0755 scripts/demo-soak-definition.ts ./scripts/
+COPY --chmod=0755 scripts/verification/reinsurance.json ./scripts/verification/
 RUN node scripts/engine-package/bundle.mjs demo-tools /artifacts
 
 # These bases never COPY --chmod=0755 a repository input. Final image policy separately

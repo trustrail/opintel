@@ -147,3 +147,15 @@ it('SMTP password remains literal through installer and Compose for API and oper
  for(const service of ['api','operator','provision','demo-tools'])expect(config.services[service].environment.SMTP_PASSWORD).toBe(password.replaceAll('$',()=>'$$'));
  expect(statSync(join(directory,'state/smtp-password.env')).mode&0o077).toBe(0);
 },30000);
+
+it.each(['gateway','engine'])('DEMO-01: %s upgrade removes retired metadata without changing trust, secrets or landing configuration',kind=>{
+ const {directory,run}=packageRoot(kind);run('initialize');
+ const trust=JSON.parse(readFileSync(join(directory,'trust.json'),'utf8')),env=readFileSync(join(directory,'state/runtime.env'),'utf8');
+ writeFileSync(join(directory,'trust.json'),JSON.stringify({...trust,demoSourceUrl:'postgresql://retired:retired@engine.invalid:5434/readiness'}));
+ writeFileSync(join(directory,'state/runtime.env'),env+"OPINTEL_DEMO_DATABASE_URL='postgresql://retired'\nOPINTEL_DEMO_FIXTURE='V-01'\nOPINTEL_DEMO_SEED='1'\nOPINTEL_DEMO_SCHEMAS='old'\n");
+ const key=join(directory,'state',kind==='gateway'?'application.key':'engine.key'),before=readFileSync(key);
+ const zones=[{projectId:'00000000-0000-4000-8000-000000000001',sourceId:'00000000-0000-4000-8000-000000000002',directory:'/ingest/kept',stateFile:'/ingest/kept-state.json',rulesFile:'/ingest/kept-rules.json',pollMs:1000,landing:{name:'kept',credentialRef:'secret://sources/kept',strategy:'append_as_at'}}];
+ if(kind==='engine'){const path=join(directory,'state/service.json'),config=JSON.parse(readFileSync(path,'utf8'));config.demo={database:'readiness',credentialRef:'secret://install/readiness'};config.landingZones=zones;writeFileSync(path,JSON.stringify(config));}
+ run('upgrade');expect(JSON.parse(readFileSync(join(directory,'trust.json'),'utf8'))).toEqual(trust);expect(readFileSync(key)).toEqual(before);expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(env);
+ if(kind==='engine'){const config=JSON.parse(readFileSync(join(directory,'state/service.json'),'utf8'));expect(config).not.toHaveProperty('demo');expect(config.landingZones).toEqual(zones);}
+},30000);

@@ -1,4 +1,4 @@
-import {issuePairingCode,servePairing,claimEngine} from './engine-pairing.js';
+import {issuePairingCode,servePairing,claimEngine,pairingIdentity} from './engine-pairing.js';
 import {importIdentity} from './identity-import.js';
 import {operatorDiagnostic} from './diagnostics.js';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync,chmodSync,appendFileSync,openSync,readSync,closeSync,lstatSync,renameSync,copyFileSync} from 'node:fs';
@@ -254,9 +254,21 @@ function rebase(){
  writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replaceAll(saved.hostDirectory+'/',host+'/'));
  writeFileSync(join(state,'installed.json'),JSON.stringify({...saved,hostDirectory:host},null,2)+'\n');
 }
+function removeRetiredConfiguration(){
+ // Project local identity files onto the current public wire shape. Keep trust
+ // material verbatim; unknown retired metadata is not part of that identity.
+ const identity=z.object(pairingIdentity.shape);
+ for(const file of [join(root,'trust.json'),join(state,'gateway-registration.json'),join(state,'peer.json')]){
+  if(!existsSync(file))continue;const saved=json(file),projected=identity.parse(saved);
+  if(JSON.stringify(saved)!==JSON.stringify(projected))writeFileSync(file,JSON.stringify(projected,null,2)+'\n');
+ }
+ const retired=new Set(['OPINTEL_DEMO_DATABASE_URL','OPINTEL_DEMO_FIXTURE','OPINTEL_DEMO_SEED','OPINTEL_DEMO_SCHEMAS']);
+ for(const file of ['runtime.env','operator.env']){const path=join(state,file);if(!existsSync(path))continue;const saved=readFileSync(path,'utf8'),clean=saved.split('\n').filter(line=>!retired.has(line.split('=',1)[0]??'')).join('\n');if(clean!==saved)writeFileSync(path,clean);}
+}
 function hardenConfiguration(config:{services:Record<string,Service>}){
  const uid=process.getuid?.()??65534,gid=process.getgid?.()??65534;
  if(uid===0)throw new InstallError('Run the upgrade as the original non-root operator.');
+ removeRetiredConfiguration();
  let peerCa=readFileSync(join(state,'ca.pem'),'utf8');
  const paired=existsSync(join(state,'peer.json'));
  if(paired){const peer=z.object({ca:z.string(),certificate:z.string(),pin:z.string()}).parse(json(join(state,'peer.json')));const certificate=new X509Certificate(peer.certificate),ca=new X509Certificate(peer.ca);if(!ca.ca||!certificate.verify(ca.publicKey)||certificate.fingerprint256!==peer.pin)throw new InstallError('Saved peer trust is invalid; upgrade retained all credentials.');peerCa=peer.ca;}
@@ -275,7 +287,7 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   writeFileSync(join(state,'application-tls.json'),JSON.stringify({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'})+'\n');
   writeFileSync(join(state,'nginx.conf'),readFileSync(join(state,'nginx.conf'),'utf8').replace(/^user nginx;\n/u,''));
  }else{
-  const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
+  const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));delete service.demo;service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
   mkdirSync(join(state,'sources'),{recursive:true,mode:0o700});
   for(const name of ['engine','egress','prepare']){const entry=config.services[name]!;entry.environment={...entry.environment,ENGINE_SOURCE_SECRETS_DIRECTORY:'/source-secrets'};if(!entry.volumes?.some(v=>v.includes(':/source-secrets:')))entry.volumes=[...entry.volumes??[],host+'/state/sources:/source-secrets:ro'];}
   writeFileSync(join(state,'service.json'),JSON.stringify(service,null,2)+'\n');
