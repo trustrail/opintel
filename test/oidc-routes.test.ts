@@ -38,6 +38,6 @@ it('1.9 reachability: production OIDC factory completes start/callback HTTP rout
   expect((await fetch(callback,{headers:{cookie},redirect:'manual'})).status).toBe(401);
   await sessions.revoke(session);
   const root=await readFile('src/platform/http/start.ts','utf8');expect(root).toContain('const oidc=createOidcRuntime(');expect(root).toContain('...oidcRoutes(oidc,');
-  expect(await readFile('vite.config.ts','utf8')).toContain("'/auth/oidc':");
+  expect(await readFile('src/console-next/vite.config.ts','utf8')).toContain("'/auth/oidc':");
  }finally{authorize.mockRestore();exchange.mockRestore();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));await redis.close();await withPlatform(tx=>tx.query('DELETE FROM company WHERE id=$1',[company!.id]));}
 });
