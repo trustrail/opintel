@@ -1,0 +1,237 @@
+{
+  "status": "failed",
+  "steps": [
+    {
+      "name": "email-link-opened-and-confirmed-in-second-browser",
+      "status": "passed"
+    },
+    {
+      "name": "second-email-link-declined-with-no-session",
+      "status": "passed"
+    },
+    {
+      "name": "1-create-project",
+      "status": "passed"
+    },
+    {
+      "name": "2-engine-registered-verified",
+      "status": "passed"
+    },
+    {
+      "name": "3-source-connected-scanned",
+      "status": "passed"
+    },
+    {
+      "name": "project-query-limits",
+      "status": "passed"
+    },
+    {
+      "name": "4-pool-created",
+      "status": "passed"
+    },
+    {
+      "name": "explicit-clear-decision",
+      "status": "passed"
+    },
+    {
+      "name": "5-credential-issued",
+      "status": "passed"
+    },
+    {
+      "name": "agent-request-answered",
+      "status": "passed"
+    },
+    {
+      "name": "6-receipt-visible-in-activity",
+      "status": "passed"
+    },
+    {
+      "name": "root-home",
+      "status": "passed"
+    },
+    {
+      "name": "root-activity",
+      "status": "passed"
+    },
+    {
+      "name": "root-pools",
+      "status": "passed"
+    },
+    {
+      "name": "root-data",
+      "status": "passed"
+    },
+    {
+      "name": "root-settings",
+      "status": "passed"
+    },
+    {
+      "name": "agent-panel-and-scoped-activity",
+      "status": "passed"
+    },
+    {
+      "name": "receipt-opens-recorded-row-decision",
+      "status": "passed"
+    },
+    {
+      "name": "you-name-timezone-device-preferences",
+      "status": "passed"
+    },
+    {
+      "name": "new-project-reuses-welcome-and-engine-attachment-rule",
+      "status": "passed"
+    },
+    {
+      "name": "add-and-verify-existing-paired-engine-explicitly",
+      "status": "passed"
+    },
+    {
+      "name": "engine-rename-and-verification",
+      "status": "passed"
+    },
+    {
+      "name": "project-name-inline-existing-endpoint",
+      "status": "passed"
+    },
+    {
+      "name": "company-defaults-domains-session-sso-editor",
+      "status": "passed"
+    },
+    {
+      "name": "both-removal-warning-and-company-access-preserved",
+      "status": "passed"
+    }
+  ],
+  "screenshots": [
+    "20-sign-in.png",
+    "25-phone-sign-in.png",
+    "22-check-email.png",
+    "23-confirm-device.png",
+    "1440-light-welcome.png",
+    "390-light-welcome.png",
+    "1440-light-first-hour-step3.png",
+    "390-light-first-hour-step3.png",
+    "1440-light-connect-source.png",
+    "30-agent-panel.png",
+    "31-you.png",
+    "31-new-project.png",
+    "31-add-engine.png",
+    "settings-company.png",
+    "settings-people-provenance.png",
+    "people-company-access-remains.png"
+  ],
+  "browserErrors": 0,
+  "renderedFonts": {
+    "20-sign-in": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "25-phone-sign-in": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "22-check-email": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "23-confirm-device": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "1440-light-welcome": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "390-light-welcome": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "1440-light-first-hour-step3": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "390-light-first-hour-step3": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "1440-light-connect-source": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "30-agent-panel": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "31-you": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "31-new-project": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "31-add-engine": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "settings-company": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "settings-people-provenance": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ],
+    "people-company-access-remains": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
+    ]
+  },
+  "projectId": "f14f5cac-f2ef-4876-94ed-4d4fa739ec1d",
+  "atomicEngineRegistration": true,
+  "phoneSelectTargetsVerified": true,
+  "scanSummary": [
+    "2",
+    "8",
+    "~11"
+  ],
+  "poolId": "ed1547fe-a0b1-40c4-8cff-0fc94f9cb77e",
+  "receiptTitle": "Answered \u00b7 6 rows from table records",
+  "permanentMarkerRecorded": true,
+  "failure": {
+    "phase": "prepared-demo",
+    "message": "locator.click: Timeout 120000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Done', exact: true })\n    - locator resolved to <button disabled type=\"button\" data-primary=\"true\">Done</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    231 \u00d7 waiting for element to be visible, enabled and stable\n        - element is not enabled\n      - retrying click action\n        - waiting 500ms\n"
+  }
+}

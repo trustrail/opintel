@@ -1,5 +1,5 @@
 {
-  "status": "failed",
+  "status": "passed",
   "steps": [
     {
       "name": "email-link-opened-and-confirmed-in-second-browser",
@@ -100,6 +100,14 @@
     {
       "name": "both-removal-warning-and-company-access-preserved",
       "status": "passed"
+    },
+    {
+      "name": "retained-version-restored-with-typed-confirmation-current-version-unchanged",
+      "status": "passed"
+    },
+    {
+      "name": "twelve-old-urls-redirected-with-scopes-and-permalinks",
+      "status": "passed"
     }
   ],
   "screenshots": [
@@ -118,7 +126,8 @@
     "31-add-engine.png",
     "settings-company.png",
     "settings-people-provenance.png",
-    "people-company-access-remains.png"
+    "people-company-access-remains.png",
+    "home-1440-dark.png"
   ],
   "browserErrors": 0,
   "renderedFonts": {
@@ -217,9 +226,15 @@
         "family": "Inter Variable",
         "custom": true
       }
+    ],
+    "home-1440-dark": [
+      {
+        "family": "Inter Variable",
+        "custom": true
+      }
     ]
   },
-  "projectId": "f14f5cac-f2ef-4876-94ed-4d4fa739ec1d",
+  "projectId": "60682c13-b060-41ae-b067-4c49148a17e5",
   "atomicEngineRegistration": true,
   "phoneSelectTargetsVerified": true,
   "scanSummary": [
@@ -227,11 +242,57 @@
     "8",
     "~11"
   ],
-  "poolId": "ed1547fe-a0b1-40c4-8cff-0fc94f9cb77e",
-  "receiptTitle": "Answered \u00b7 6 rows from table records",
+  "poolId": "ab6b6eed-e356-480c-a372-4ff33d87fe62",
+  "receiptTitle": "Answered · 6 rows from table records",
   "permanentMarkerRecorded": true,
-  "failure": {
-    "phase": "prepared-demo",
-    "message": "locator.click: Timeout 120000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Done', exact: true })\n    - locator resolved to <button disabled type=\"button\" data-primary=\"true\">Done</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    231 \u00d7 waiting for element to be visible, enabled and stable\n        - element is not enabled\n      - retrying click action\n        - waiting 500ms\n"
-  }
+  "oldUrls": [
+    {
+      "old": "/companies/new",
+      "destination": "/"
+    },
+    {
+      "old": "/projects?companyId=dd18ea52-7733-4a44-9227-a5d170b9e21f",
+      "destination": "/?companyId=dd18ea52-7733-4a44-9227-a5d170b9e21f&switcher=true"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/access",
+      "destination": "/?project=60682c13-b060-41ae-b067-4c49148a17e5&section=people&screen=settings"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/entitlements?poolId=ab6b6eed-e356-480c-a372-4ff33d87fe62&rowFilter=unscoped",
+      "destination": "/?rowFilter=unscoped&project=60682c13-b060-41ae-b067-4c49148a17e5&pool=ab6b6eed-e356-480c-a372-4ff33d87fe62&tab=access&screen=pools"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/runs/01a19249-8d83-7eed-852c-657628677357?startedAt=2026-10-31T14%3A07%3A36.336967Z",
+      "destination": "/?startedAt=2026-10-31T14%3A07%3A36.336967Z&project=60682c13-b060-41ae-b067-4c49148a17e5&run=01a19249-8d83-7eed-852c-657628677357&screen=activity"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/activity?from=2026-10-31T00%3A00%3A00.000Z&outcome=refused&poolId=ab6b6eed-e356-480c-a372-4ff33d87fe62",
+      "destination": "/?from=2026-10-31T00%3A00%3A00.000Z&outcome=refused&project=60682c13-b060-41ae-b067-4c49148a17e5&pool=ab6b6eed-e356-480c-a372-4ff33d87fe62&screen=activity"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/entitlements?poolId=ab6b6eed-e356-480c-a372-4ff33d87fe62&rowObjectId=01a19249-3e6b-7ce7-a724-3275f1807009&rowDecisionId=16a074b7-0a93-47f5-9dab-fe6a91bad8c2",
+      "destination": "/?rowDecisionId=16a074b7-0a93-47f5-9dab-fe6a91bad8c2&project=60682c13-b060-41ae-b067-4c49148a17e5&pool=ab6b6eed-e356-480c-a372-4ff33d87fe62&rows=01a19249-3e6b-7ce7-a724-3275f1807009&tab=access&screen=pools"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/pools/ab6b6eed-e356-480c-a372-4ff33d87fe62/agents/first-run-review",
+      "destination": "/?project=60682c13-b060-41ae-b067-4c49148a17e5&pool=ab6b6eed-e356-480c-a372-4ff33d87fe62&agent=first-run-review&tab=agents&screen=pools"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/catalog?advanced=true",
+      "destination": "/?project=60682c13-b060-41ae-b067-4c49148a17e5&tab=entitlements&declarations=true&screen=data"
+    },
+    {
+      "old": "/companies/dd18ea52-7733-4a44-9227-a5d170b9e21f/settings",
+      "destination": "/?companyId=dd18ea52-7733-4a44-9227-a5d170b9e21f&section=company&screen=settings"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/settings-project",
+      "destination": "/?project=60682c13-b060-41ae-b067-4c49148a17e5&section=project&screen=settings"
+    },
+    {
+      "old": "/projects/60682c13-b060-41ae-b067-4c49148a17e5/token-key",
+      "destination": "/?project=60682c13-b060-41ae-b067-4c49148a17e5&section=token&screen=settings"
+    }
+  ]
 }

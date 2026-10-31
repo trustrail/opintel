@@ -2,7 +2,7 @@
 
 Branch: `feat/console-final-workflows`. Base: `3a4076548fed4f8245968b4a94f49526f2f77897`.
 
-The revised decision removes the demo UI and keeps all source connections on the ordinary reference flow. Final archives/verification and the single full gate are in progress. The branch is not merged.
+The revised decision removes the demo UI and keeps all source connections on the ordinary reference flow. Final archives and fresh packaged verification passed on `c518101177c8c419acb792c645380eda1b6b9417`. The single full gate failed on a stale OIDC proxy-file assertion. Not merged.
 
 ## Approved scope
 
@@ -59,85 +59,157 @@ Additional query-bearing redirects preserve Activity range/outcome/pool/agent, r
 
 Removed without an editor replacement, as explicitly decided: the console scope-tag link/editor. Its API is unchanged. Removed development galleries and the unused legacy UI kit, styles, screens and tests. The old project Name/Industry, prepared demos, company editor, personal editor, engine administration, row history and retained-key restoration have console-next homes. The demo-pack editor/control was also removed by the revised decision; its backend paths are inventoried in backlog DEMO-01 and unchanged in this round. Original backend API/governance tests remain; settings contracts, stream cache/reconnect and dashboard fact/privacy assertions now exercise console-next. The build produces one console and the image allowlist excludes legacy bundles.
 
+## Revised demo decision
+
+Removed the demo picker/component, query key, styles, demo-only connection state and
+the acceptance fixture that used template registration. Both synthetic and customer
+data now use the ordinary console reference flow; the acceptance database was connected
+through packaged `./sources add`, tested, registered and scanned through ordinary endpoints.
+There is no demo control in console-next or retained legacy editor. AGENTS.md contains
+the exact standing decision. [DEMO-01](../master-backlog.md#demo-01--remove-demo-specific-product-paths)
+is backlog only, including the inventory of registration, engine, schema/API, evidence/export
+and installer/operator distinctions. No backend path was changed in this round; the
+previously explicitly approved direct-project-grant removal remains unchanged.
+
 ## Validation
 
-- Membership/list/outbox/table-grants targets: 29 passed.
-- Console tests: 129 passed, including Project-section, multi-company switcher and contextual Settings-link coverage. Repeated after the image-31 footer/close-control refinements: 129 passed.
-- Route, bundle, provisioning, settings, stream, membership and dashboard contracts: 42 passed in eight files. DEP-008 isolated packaged owner startup passed after removing scripts/native dependencies.
-- Final lint and dependency boundaries passed; final strict production typecheck passed. Conformance TypeScript passed. Browser conformance passed all 36 checks, covering 28/28 registered URL scopes with zero findings. The real UI → row decision → authenticated MCP/Engine → persisted receipt and history smoke passed in 11.5 seconds. Strict production and conformance typechecks passed.
-- Fresh packaged first run, root screens, agent panel, three dialogs, engine/project rename, Company editor and inherited-access removal passed. Prepared-demo connection failed as described below. Retained-key restore, twelve old URLs and the final dark Home screenshot were not reached.
-- Single completed-candidate full gate: not run because completing the packaged demo requires an additional backend decision. No retry or full-gate result is claimed.
+- Final console tests: **129 passed**, 13 files. Includes absence of demo controls/requests,
+  Project Name/Industry, multi-company switching, dialogs and membership provenance.
+- Final provisioning, route and bundle contracts: **13 passed**, three files, including
+  DEP-008 isolated packaged owner startup (6.4 seconds).
+- Earlier full-phase membership/list/outbox/table-grants targets: 29 passed; the eight-file
+  route/bundle/provisioning/settings/stream/dashboard/membership target set: 42 passed.
+- Final strict production typecheck and unchanged lint/dependency boundaries passed.
+  The final gate also passed conformance typecheck and all 36 browser checks across
+  28/28 scopes with zero findings. The earlier targeted real UI/MCP/Engine receipt-and-row-history
+  smoke passed before demo-only UI removal; the final gate smoke was skipped after failure.
+- Seven final `linux/amd64` candidate images built and passed secret/runtime/user-readability
+  audits. Final archived install and all 27 recorded browser steps passed; zero page errors.
+- **Single completed-candidate gate: failed, exit 1**, on `c518101`, in 35m 41.82s.
+  Normal tests: **2,206 passed, 1 failed** (263 passing files, one failing file).
+  Typecheck, conformance typecheck, lint, production build and 36 browser conformance checks
+  passed. Smoke was not run. Cleanup succeeded. No gate retry or post-failure code fix.
+  [Gate result](console-final-workflows/gate.json), [exact assertion](console-final-workflows/gate-failure.txt).
 
-Custody and TLS check links are mapped in the console by check kind, keeping the old Project settings bookmark for Name/Industry. The company-filtered switcher offers New project only when the user administers that company.
+## Final offline archives and fresh verification
 
+Code/archive revision: `c518101177c8c419acb792c645380eda1b6b9417`. All application code was committed. Pre-existing tracked backlog edits and unrelated
+untracked user files were excluded from commits and shipped bundles. Output: `tmp/console-final-workflows-packages-c518101/`.
+[Archive sizes and SHA-256](console-final-workflows/archive-hashes.json).
+Installed into `tmp/console-final-workflows-acceptance-JuD4SO`, without a development server,
+API response mocks or changes to the development env file/containers.
+[Recorded browser results and Inter font proof](console-final-workflows/packaged-verification.json).
 
-## Fresh packaged verification and stopping point
-
-The seven candidate images for `fdb3f8cd517b4162b6d38f6cb17031182d82e58d` built and passed their secret/runtime audits. Installed fresh gateway and engine archives, paired them with one code, and added the external synthetic PostgreSQL reference using the packaged `./sources add`. Archive SHA-256 values are in [archive-hashes.json](console-final-workflows/archive-hashes.json). No development env file or development container was changed.
-
-The final attempted fixture is `tmp/console-final-workflows-acceptance-0z83Gb`; [packaged-verification.json](console-final-workflows/packaged-verification.json) contains the recorded results and CDP evidence of packaged Inter rendering. Earlier runs stopped at three harness locator mistakes (Data band attribute, ambiguous agent-name button and the region Select's accessible name). Those selectors were corrected; these were not full-gate runs.
-
-| Verification | Result |
+| First run / workflow | Result |
 |---|---|
-| Email link opened in a second browser and device confirmed | Passed |
-| Separate email link declined; no session issued | Passed |
-| Create first project; the one unused paired engine attaches | Passed |
-| Verify engine and initialize its custody/token prerequisites | Passed |
-| Connect, test, register and scan the external reference | Passed |
-| Set project limits, create pool and explicitly clear the record-number column | Passed |
-| Issue credential; real MCP agent request returns the six permitted rows | Passed |
-| Receipt in Activity; permanent first-receipt marker; tracker disappears | Passed |
-| Home, Activity, Pools, Data and Settings at the root | Passed |
-| Agent panel, self-declared client and scoped Activity link | Passed |
-| Receipt's recorded row decision opens history | Passed |
-| You: save name and America/Toronto through existing settings API | Passed |
-| New project using Welcome form; no used engine silently attaches | Passed |
-| Add and verify existing paired engine explicitly; rename and verify | Passed |
-| Project → Name inline rename | Passed |
-| Company editor: defaults, domains, session and SSO controls | Passed |
-| People: both badge, warning, remove direct grant, company access remains | Passed |
-| Connect operator-prepared demo template through existing endpoint | **Failed: packaged engine has no provision-demo endpoint** |
-| Two retained token versions and typed Restore | Not reached |
-| Twelve old URL destinations, including the four specifically requested | Not reached in packaged browser; targeted redirect contracts passed |
-| Final dark Home capture | Not reached |
+| Owner email link opened in a second browser, device confirmed; another link declined with no session | Passed |
+| 1. Create project; the single unused paired engine attaches | Passed |
+| 2. Verify engine and initialize token custody prerequisites | Passed |
+| 3. Ordinary reference test/register/scan | Passed: 2 tables, 8 columns, ~11 estimated rows |
+| Set query limits | Passed |
+| 4. Create first pool with a table and `id >= 5` row rule; explicitly clear its record-number column | Passed |
+| 5. Issue the first agent credential | Passed |
+| 6. Real MCP agent request and receipt in Activity | Passed: 6 permitted rows; permanent marker set; tracker gone |
+| Open Home, Activity, Pools, Data and Settings from root | Passed |
+| Agent panel with claimed client facts and scoped Activity link | Passed |
+| Receipt row-decision link opens immutable history | Passed |
+| You: save name/time zone; device theme/motion and locale date policy | Passed |
+| New project: reused Welcome form; already-used engine does not silently attach | Passed |
+| Add engine and verify explicitly; rename and reverify | Passed |
+| Settings Project: inline rename through existing endpoint | Passed |
+| Company defaults/domains/session/SSO editor | Passed |
+| People both badge, removal warning, direct grant removed, company access preserved | Passed |
+| Two retained token versions; typed Restore of version 1 | Passed: disabled until typed name; restore completed; version 2 still current |
+| Twelve old URLs, including all four specifically requested | Passed; destinations below |
+| Final 1440 dark Home | Passed; packaged Inter and device-dark theme |
 
-### Existing backend blocker: prepared demo
+The earlier image-31 dialog captures preceded the final footer/close-control fixes; the
+new captures below come from the final archives. The exact Add-engine Test omission is
+the previously approved decision, not an invented pre-registration check.
 
-The console displayed: **“The source or demo preparation was not found. Check the project preparation before retrying.”** The source was marked introspection failed and Done remained disabled. The engine's retained log records `sidecar.refused` with `reason: not_found`; inspection confirms its `NODE_ENV=production`.
+## Old URL verification
 
-This is a production/backend mismatch, rather than another UI locator problem:
+`P` = project, `Q` = pool, `C` = company, `R` = receipt, `T` = table, `D` = row decision.
+Exact identifiers, timestamps and redirect destinations are retained in the JSON results.
 
-- `src/modules/sources/application/source-registration.ts` calls `this.connector(ctx,work.sourceId).provisionDemo(...)` for every template-backed source before scanning.
-- `src/modules/sources/infrastructure/sidecar-source-connector.ts` sends that operation to `'/provision-demo'`.
-- `sidecar/start.ts` constructs the handler only under `config.demo && process.env.NODE_ENV !== 'production'`; its comment explicitly says synthetic workbook generation is not a shipping-engine payload.
-- `sidecar/http/server.ts` registers the route only with `...(options.demo ? { '/provision-demo': ... } : {})`; missing routes return 404 `not_found`.
-- `deploy/engine/Dockerfile` sets `NODE_ENV=production`. The production bundle removes the generator and its workbook dependencies.
+| Opened old URL | Landed at |
+|---|---|
+| `/companies/new` | `/` |
+| `/projects?companyId=C` | `/?companyId=C&switcher=true` |
+| `/projects/P/access` | `/?project=P&section=people&screen=settings` |
+| `/projects/P/entitlements?poolId=Q&rowFilter=unscoped` | `/?rowFilter=unscoped&project=P&pool=Q&tab=access&screen=pools` |
+| `/projects/P/runs/R?startedAt=2026-10-31T14:07:36.336967Z` | `/?startedAt=2026-10-31T14:07:36.336967Z&project=P&run=R&screen=activity` |
+| `/projects/P/activity?from=2026-10-31T00:00:00.000Z&outcome=refused&poolId=Q` | `/?from=2026-10-31T00:00:00.000Z&outcome=refused&project=P&pool=Q&screen=activity` |
+| `/projects/P/entitlements?poolId=Q&rowObjectId=T&rowDecisionId=D` | `/?rowDecisionId=D&project=P&pool=Q&rows=T&tab=access&screen=pools` |
+| `/projects/P/pools/Q/agents/first-run-review` | `/?project=P&pool=Q&agent=first-run-review&tab=agents&screen=pools` |
+| `/projects/P/catalog?advanced=true` | `/?project=P&tab=entitlements&declarations=true&screen=data` |
+| `/companies/C/settings` | `/?companyId=C&section=company&screen=settings` |
+| `/projects/P/settings-project` | `/?project=P&section=project&screen=settings` |
+| `/projects/P/token-key` | `/?project=P&section=token&screen=settings` |
 
-The acceptance fixture inserted operator template/deployment metadata after the first receipt; it did not mock a response, enable development mode, or bypass the real connection endpoint. It used a minimal database template. That fixture would additionally need real spreadsheet/landing preparation for the development-only generator; correcting the fixture alone cannot supply a route deliberately absent from the packaged engine.
+## Screenshots and remaining design differences
 
-**Decision needed:** permit a narrow backend path for connecting already-prepared demo data without invoking the development-only generator, or revise the prepared-demo requirement. Do not add the workbook generator to the shipping engine as an incidental fix. No backend fix for this blocker was applied: direct project-grant removal remains the only backend exception in this branch.
+- [Image 30 beside the final agent panel](console-final-workflows/comparison-30.png),
+  [full 1440 light capture](console-final-workflows/30-agent-panel.png).
+- [Image 31 beside final New project, You and Add engine](console-final-workflows/comparison-31.png).
+  Individual 1440 light captures: [New project](console-final-workflows/31-new-project.png),
+  [You](console-final-workflows/31-you.png), [Add engine](console-final-workflows/31-add-engine.png).
+  The three dialogs open separately; the comparison labels their unmodified dialog excerpts.
+- [Company](console-final-workflows/settings-company.png),
+  [People provenance](console-final-workflows/settings-people-provenance.png),
+  [company-access-remains confirmation](console-final-workflows/people-company-access-remains.png),
+  [Home 1440 dark](console-final-workflows/home-1440-dark.png).
 
-The final tip also includes image-31 footer/round-close styling identified during screenshot review. Its console tests passed, but those style refinements were not rebuilt into archives after the blocker was established. Final packaged verification and the single full gate remain outstanding.
+Differences from the reference images: real fixture names/counts replace illustrative values;
+image 30 abbreviates the existing Pools band while the implementation shows it; the panel
+uses complete locale/time-zone dates and the shared primary Activity action. Image 31 uses
+the shared control tokens, focus ring and switch chevrons; input adornment icons are not
+repeated inside the fields and the helper/field text has the shared weight. The New project
+fixture has no company-default industry or unused paired engine, so neither explanatory
+line is invented. You shows the real email without appending a role claim. Add engine
+omits Test and an unverified reachable badge by approval, and gives the packaged `./status`
+operator instruction rather than a source-tree command. Company/People reuse the approved
+Settings row layout; no distinct reference was supplied. The demo offer from image 19 is
+intentionally removed by the revised binding decision.
 
-## Screenshots and differences
+## Historical attempts and environment work
 
-Side-by-side evidence: [image 30 comparison](console-final-workflows/comparison-30.png) and [image 31 comparison before footer refinement](console-final-workflows/comparison-31-before-footer-refinement.png). The latter is deliberately labelled as earlier evidence, not the final tip.
+Earlier packaged `fdb3f8c` verification reached prepared-demo connection and failed because
+production engines omit `/provision-demo`. That requirement was then removed by the user's
+revised decision; no backend workaround was applied. Earlier evidence remains in
+[failed results](console-final-workflows/packaged-verification-fdb3f8c-failed.json),
+[archive hashes](console-final-workflows/archive-hashes-fdb3f8c.json) and explicitly labelled
+before-footer screenshots. Three earlier acceptance locator mistakes were corrected; none
+was a full-gate run.
 
-- [Agent panel, 1440 light](console-final-workflows/30-agent-panel.png), compared with image 30: actual single-agent data replaces illustrative names/counts; the real Pools band is present (the reference abbreviates it); timestamps follow the user's locale/zone, with complete dates; the Activity action uses the shared primary-action styling. No person identity is invented.
-- [Company](console-final-workflows/settings-company.png), [People provenance](console-final-workflows/settings-people-provenance.png), and [company-access-remains confirmation](console-final-workflows/people-company-access-remains.png). These reuse Settings' approved fixed-row layout; no separate Company/People image was provided for this phase.
-- Image-31 captures of [New project](console-final-workflows/31-new-project-before-footer-refinement.png), [You](console-final-workflows/31-you-before-footer-refinement.png), and [Add engine](console-final-workflows/31-add-engine-before-footer-refinement.png) are **before the final footer/close-control refinements**, not screenshots of the final tip. Real account/project values replace examples; the already-used engine is not offered as free; Add engine omits Test and a pre-registration reachable badge as explicitly approved; the operator hint uses the packaged `./status` command.
-- [Prepared-demo failure](console-final-workflows/prepared-demo-blocker.png) shows the actual stopping point. The dark Home and final image-31 screenshots remain pending.
+The first final-archive install stopped before browser work because Docker reported
+“all predefined address pools have been fully subnetted”. Ten empty networks belonging
+only to this phase's stopped acceptance fixtures were rechecked and removed. No container,
+volume, image, evidence or unrelated network was removed. The final install then passed
+unchanged. Only unused build cache and superseded reproducible archive bytes were cleared
+to make room; hashes and verification records were retained.
 
-No legacy-only workflow URL remains without a destination in the route inventory/contracts. The sole intentionally removed editor is scope tags, as approved; its API remains. No evidence records, applied migrations, grants or authorization schema were altered for the new membership removal operation.
 
+## Single-gate failure: branch contract mismatch, not environment
 
-## Revised demo decision (31 October 2026)
+The only failing test is `test/oidc-routes.test.ts:41:51`, after its start/callback,
+readable-session, replay refusal and production-factory wiring assertions passed.
 
-The prepared-demo blocker above is a retained record of the earlier attempt, not an
-outstanding requirement after the revised decision. The demo picker, component, query
-key, styling, demo-only Connect state, and demo-specific acceptance fixture are removed.
-No production backend, wire, schema, grant, generator or export behaviour was changed
-in this round. The earlier explicitly approved direct-project-grant removal remains
-unchanged. The exact standing decision is in AGENTS.md; backlog DEMO-01 inventories the
-remaining backend/operator distinctions for a separate phase. Ordinary synthetic source
-first-run verification and all remaining checks will be repeated from the final archives.
+```text
+Expected substring:
+'/auth/oidc':
+
+Received root vite.config.ts:
+export {default} from './src/console-next/vite.config.js';
+```
+
+`f0a2fa2` replaced the legacy root Vite configuration with this delegation. The actual
+`src/console-next/vite.config.ts` still declares `'/auth/oidc': {target, changeOrigin:true}`.
+I missed this legacy-file assertion when updating the route contracts. This is a branch
+contract-test mismatch, not an environment timing failure or a missing backend route.
+
+**Proposed fix, not applied:** update the final OIDC assertion to follow the root export
+and check the authoritative console-next proxy configuration, preserving every HTTP,
+session, replay and factory-wiring assertion. No backend change is needed. Per the
+single-gate instruction, no test or application code was changed afterward and the
+gate was not retried. The branch remains unmerged and the full phase is not marked green.
