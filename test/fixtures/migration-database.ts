@@ -1,7 +1,16 @@
 import {randomUUID} from 'node:crypto';
 import {Client} from 'pg';
 import {beforeAll,afterAll} from 'vitest';
-import {migrateUp} from '../../src/platform/db/migrate.js';
+import {migrateDown,migrateUp,migrationStatus,type MigrationClient} from '../../src/platform/db/migrate.js';
+
+/** Leave the named baseline applied using the real runner and checksum ledger. */
+export async function migrateDownToVersion(client:MigrationClient,version:string){
+ const applied=await migrationStatus(client);
+ if(!applied.some(migration=>migration.version===version))throw new Error(`Migration baseline ${version} is not applied.`);
+ while((await migrationStatus(client)).at(-1)?.version!==version){
+  if(!await migrateDown(client))throw new Error(`Migration chain ended before baseline ${version}.`);
+ }
+}
 
 /** Empty, fully migrated owner fixture. Downgrades encounter real dependencies
  * without deleting another test's provenance to get past their guards. */

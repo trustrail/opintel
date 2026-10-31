@@ -122,9 +122,9 @@ integration('catalogue schema with Postgres', () => {
     for (const credential of [null, 'literal-secret', plaintext]) {
       await expect(scope((tx) => tx.query(`INSERT INTO data_source (project_id, kind, name, exposed_alias, credential_ref)
         VALUES ($1, 'postgres', 'Invalid', 'invalid', $2)`, [projectId, credential])))
-        .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });
+        .rejects.toMatchObject({ code: '23514', constraint: 'source_credential_reference' });
       await expect(scope((tx) => tx.query('UPDATE data_source SET credential_ref = $1 WHERE id = $2', [credential, source])))
-        .rejects.toMatchObject({ code: '23514', constraint: 'credential_matches_origin' });
+        .rejects.toMatchObject({ code: '23514', constraint: 'source_credential_reference' });
     }
     const rows = await scope((tx) => tx.query<{ credential_ref: string; stored: string }>(
       'SELECT credential_ref, row_to_json(data_source)::text AS stored FROM data_source',
