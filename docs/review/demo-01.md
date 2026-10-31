@@ -42,8 +42,53 @@ merged-header file and retains both versions of the restatement. The upgrade
 regression compares catalogue, declarations, decisions, bindings, arrivals and
 receipt records before and after conversion, including a non-null engine assignment.
 
-The completed-candidate full gate has not yet run. Fresh archive verification is
-pending and its results will be recorded before the final gate and push.
+## Fresh amd64 archive verification
+
+Installed `gateway-f763975-amd64.tar.gz` and `engine-f763975-amd64.tar.gz`
+from the seven audited images for `f7639755f9be63286e9b17dede50262683e84b3f`.
+Later changes affect only the internal workbook generator, its tests/dependency
+metadata and documentation; all resolved dependency versions remain unchanged.
+
+- Owner email-link sign-in, second-browser device confirmation and one decline
+  passed. Created the project, attached and verified the paired engine, connected
+  and scanned the ordinary source through the console, configured limits, created
+  the pool and row rule, issued a credential, and obtained six rows through MCP.
+  Activity showed the receipt and the permanent first-receipt marker was set.
+- Explicit named-database seed and engine `./sources add` used the ordinary path.
+- The final internal generator delivered thirteen ordinary workbook files to the
+  unchanged packaged ingest: twelve landed, one merged-header file was held with
+  “The declared header row contains a merged cell.” Both restatement versions
+  remain recorded; the source catalogue contains eleven physical tables.
+- The packaged `./demo soak 120` passed: 83 requests (80 successes and three
+  expected refusals), six custody values verified, zero invariant breaches,
+  zero operational errors and zero skipped receipt-invariant checks.
+  Existing scenario coverage was **12/115 (10%)**; pass status does not assert
+  completeness. That known defect is recorded under VERIFY-01, unchanged here.
+- The real packaged migration runner downgraded only 091/090 for a controlled
+  legacy fixture, then upgraded it. Catalogue, declarations, entitlements, row
+  decisions, bindings, landing registers and issued receipts compared equal.
+  The converted source answered the original MCP query with the same six rows.
+  A separately inserted historical synthetic receipt exported normally unchanged.
+
+Private fixture evidence: `tmp/demo-01-acceptance-3x8Nql/browser-result.json`,
+`final-verification-result.json`, per-command logs and screenshots. Those local
+files include credentials or operational identifiers and are not committed.
+
+Harness diagnostics retained: the first host-side helper needed a local transport
+address while preserving TLS hostname/CA validation; after Redis restart the owner
+signed in again through the real email-link flow. Optional ingest needed its
+already documented `TMPDIR=/ingest/scratch` configuration, with `/tmp` still
+read-only. An internal generator byte-comparison exposed ZIP wall-clock metadata;
+canonical timestamps now make files deterministic without changing XML parts.
+No ingest implementation, evidence record or oracle was modified to resolve these.
+
+Archive SHA-256:
+
+- Engine: `3cec1cb517ab03d5f5152274df8c2ef04f0f55d99d9630326d360ddbdbe1a3bb`
+- Gateway: `3cfb1fc00ac5bcc0b4897dc2f2c9465ca61a7b39ede01c0bf32464c18a65205e`
+
+The completed-candidate gate runs once after packaged verification; its outcome
+is reported with the pushed commit and retained gate log.
 
 ## Native release follow-up
 

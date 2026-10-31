@@ -1,3 +1,5 @@
+import JSZip from 'jszip';
+import {canonicalWorkbook} from '../scripts/verification/workbooks/infrastructure/workbook-writer.js';
 import {readFile,mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -28,7 +30,7 @@ it('standalone workbooks are deterministic with all header/locale variants and o
  const db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{
   const paths=await writeWorkbooks(join(directory,'generated')),second=await writeWorkbooks(join(directory,'second'));
-  for(let i=0;i<paths.length;i++)expect(await readFile(paths[i]!)).toEqual(await readFile(second[i]!));
+  for(let i=0;i<paths.length;i++){const bytes=await readFile(paths[i]!);expect(bytes).toEqual(await readFile(second[i]!));for(const entry of Object.values((await JSZip.loadAsync(bytes)).files))expect(entry.date.toISOString()).toBe('2026-01-01T00:00:00.000Z');}
   // Deliver through the ordinary file path. Restatements follow their original.
   for(const path of paths){await writeFile(join(zone.directory,path.split('/').at(-1)!),await readFile(path));await watcher.scan();await watcher.scan();}
   const records=watcher.records();expect(records).toHaveLength(13);expect(records.filter(r=>r.status==='quarantined')).toEqual([expect.objectContaining({reason:'The declared header row contains a merged cell.'})]);expect(records.filter(r=>r.landing?.registered)).toHaveLength(12);
@@ -77,3 +79,11 @@ it('forward demo credential migration rejects NULL/plaintext, preserves referenc
   expect((await db.query('SELECT id FROM demo_source_template')).rows).toEqual([{id:templateId}]);
  } finally { await db.query('ROLLBACK'); await db.end(); }
 }, 60_000);
+
+it('workbook bytes are independent of ZIP wall-clock metadata without changing any part',async()=>{
+ const one=new JSZip(),two=new JSZip();
+ for(const [name,data] of [['xl/workbook.xml','<workbook>unchanged</workbook>'],['xl/sharedStrings.xml','<sst>same values</sst>']]){one.file(name!,data!,{date:new Date('2030-02-03T04:05:06Z')});two.file(name!,data!,{date:new Date('2040-07-08T09:10:12Z')});}
+ const a=await one.generateAsync({type:'nodebuffer'}),b=await two.generateAsync({type:'nodebuffer'});expect(a).not.toEqual(b);
+ const canonical=await canonicalWorkbook(a);expect(canonical).toEqual(await canonicalWorkbook(b));const decoded=await JSZip.loadAsync(canonical);
+ expect(Object.keys(decoded.files).sort()).toEqual(Object.keys(one.files).sort());for(const [name,file] of Object.entries(one.files))expect(await decoded.files[name]!.async('uint8array')).toEqual(await file.async('uint8array'));
+});

@@ -51,3 +51,11 @@ team-issued agent identities. No hosted model is enabled or called by default.
 Queries run against sources in place; result values are held in memory, not
 persisted after the response. Optional spreadsheet ingest writes into the
 customer's own Postgres inside their network. Retain logs and every failed result.
+
+For optional workbook ingest, create `state/ingest/scratch` owned by the operator
+(mode 700) and set `TMPDIR=/ingest/scratch` in `state/runtime.env`, as in the
+existing optional ingest configuration. Keep `/tmp` and `/dev/shm` read-only.
+Configure watched directories, rule snapshots and durable registers separately
+under `/ingest`; restart the engine after changing its configuration. Stop the
+engine before using the packaged local register's `retry` command. These settings
+and commands are identical for generated files and customer submissions.
