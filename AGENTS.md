@@ -14,6 +14,7 @@ Read this section before every task and flag requests that contradict it.
 - Any change to a packaged script or bundle list runs `test/provisioning-runtime.test.mjs` as part of its targeted tests.
 - Script-only and docs-only changes: lint and syntax check, no full gate.
 - Customer install: archives, one env file, `./install`, one-code pairing, `./identities add` from the XQ export.
+- Demo and real data take the same path. A demo is a demo database or file connected like any customer source (./sources add, or a landing zone). Product code never branches on demo data.
 
 ---
 

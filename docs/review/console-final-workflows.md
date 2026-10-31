@@ -2,13 +2,13 @@
 
 Branch: `feat/console-final-workflows`. Base: `3a4076548fed4f8245968b4a94f49526f2f77897`.
 
-Blocked during fresh packaged verification at prepared-demo connection. No full gate has run for this phase; the branch is not merged.
+The revised decision removes the demo UI and keeps all source connections on the ordinary reference flow. Final archives/verification and the single full gate are in progress. The branch is not merged.
 
 ## Approved scope
 
 Pools opens an agent detail panel from Agents & people, with recorded presence facts and self-declared tags. The Activity link preserves pool and agent scope. The project switcher groups companies and opens the reused Welcome form as New project. You edits name and time zone; theme and motion follow the device and date formatting follows the locale. Settings adds company defaults/access controls and a two-row Project section: inline Name and the existing Industry migration preview, consequences and typed confirmation. Engine registration omits Test by the approved decision, then registers and verifies; rename uses the existing update and verification endpoints.
 
-People identifies direct, company and both access. Removing a direct grant requires confirmation, with “Company access remains” for both. Retained token-key versions show backup verification, rehearsal and creation facts; company admins can restore through the existing endpoint with the project-name confirmation. Connect a source lists only operator-prepared demo packs. Pools row rules show immutable decision history and receipt links open the recorded decision. The rows-set band filters missing row rules.
+People identifies direct, company and both access. Removing a direct grant requires confirmation, with “Company access remains” for both. Retained token-key versions show backup verification, rehearsal and creation facts; company admins can restore through the existing endpoint with the project-name confirmation. Connect a source has no demo-specific control. The revised decision removes the prepared-pack UI entirely; synthetic fixture data connects through the ordinary `./sources add` reference flow. Pools row rules show immutable decision history and receipt links open the recorded decision. The rows-set band filters missing row rules.
 
 ## Backend exception: direct project-grant removal
 
@@ -57,7 +57,7 @@ The inventory below was extracted from the old router and navigation before remo
 
 Additional query-bearing redirects preserve Activity range/outcome/pool/agent, run `startedAt`, Data pool/element/decision, Suggestions element/pool, source/scan scopes and row-decision identity. `/companies/new` goes Home; `/projects?companyId=C` opens the company-filtered switcher; `/projects/P/access` opens Settings → People; `rowFilter=unscoped` opens the Pools missing-row-rule filter.
 
-Removed without an editor replacement, as explicitly decided: the console scope-tag link/editor. Its API is unchanged. Removed development galleries and the unused legacy UI kit, styles, screens and tests. The old project Name/Industry, prepared demos, company editor, personal editor, engine administration, row history and retained-key restoration have console-next homes. Original backend API/governance tests remain; settings contracts, stream cache/reconnect and dashboard fact/privacy assertions now exercise console-next. The build produces one console and the image allowlist excludes legacy bundles.
+Removed without an editor replacement, as explicitly decided: the console scope-tag link/editor. Its API is unchanged. Removed development galleries and the unused legacy UI kit, styles, screens and tests. The old project Name/Industry, prepared demos, company editor, personal editor, engine administration, row history and retained-key restoration have console-next homes. The demo-pack editor/control was also removed by the revised decision; its backend paths are inventoried in backlog DEMO-01 and unchanged in this round. Original backend API/governance tests remain; settings contracts, stream cache/reconnect and dashboard fact/privacy assertions now exercise console-next. The build produces one console and the image allowlist excludes legacy bundles.
 
 ## Validation
 
@@ -129,3 +129,15 @@ Side-by-side evidence: [image 30 comparison](console-final-workflows/comparison-
 - [Prepared-demo failure](console-final-workflows/prepared-demo-blocker.png) shows the actual stopping point. The dark Home and final image-31 screenshots remain pending.
 
 No legacy-only workflow URL remains without a destination in the route inventory/contracts. The sole intentionally removed editor is scope tags, as approved; its API remains. No evidence records, applied migrations, grants or authorization schema were altered for the new membership removal operation.
+
+
+## Revised demo decision (31 October 2026)
+
+The prepared-demo blocker above is a retained record of the earlier attempt, not an
+outstanding requirement after the revised decision. The demo picker, component, query
+key, styling, demo-only Connect state, and demo-specific acceptance fixture are removed.
+No production backend, wire, schema, grant, generator or export behaviour was changed
+in this round. The earlier explicitly approved direct-project-grant removal remains
+unchanged. The exact standing decision is in AGENTS.md; backlog DEMO-01 inventories the
+remaining backend/operator distinctions for a separate phase. Ordinary synthetic source
+first-run verification and all remaining checks will be repeated from the final archives.

@@ -5,7 +5,7 @@ import console from 'node:console';
 import {spawnSync,spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,existsSync,unlinkSync,openSync,closeSync} from 'node:fs';
 import {resolve,join} from 'node:path';
-import {randomBytes,randomUUID} from 'node:crypto';
+import {randomBytes} from 'node:crypto';
 import {parse} from 'dotenv';
 import assert from 'node:assert/strict';
 import {setInterval,clearInterval} from 'node:timers';
@@ -32,13 +32,6 @@ try{
  const fixture=async(input)=>{
   if(input.kind==='mail-next'){
    for(let n=0;n<120;n++){const list=await(await fetch('http://127.0.0.1:11825/api/v1/messages')).json();const m=list.messages.find(m=>!input.previous.includes(m.ID)&&m.To.some(to=>to.Address===email));if(m){const message=await(await fetch('http://127.0.0.1:11825/api/v1/message/'+m.ID)).json();const link=message.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);return {id:m.ID,link};}await delay(500);}throw new Error('Owner SMTP message missing');
-  }
-  assert.match(input.project,/^[a-f0-9-]{36}$/u);
-  if(input.kind==='demo-prepare'){
-   const reserved=randomUUID(),template=randomUUID(),schemaSpec={schemas:[{name:'prepared_demo',objects:[{name:'records',kind:'table',columns:[{name:'id',type:'integer',nullable:false,isKey:true},{name:'label',type:'text',nullable:false}]}]}]},generatorSpec={seed:1,rows:{'prepared_demo.records':3},joinKeys:[]};
-   const literal=value=>"'"+JSON.stringify(value).replaceAll("'","''")+"'::jsonb";
-   const sql=`INSERT INTO demo_source_template(id,industry_id,name,kind,narrative,schema_spec,generator_spec,deployment_ref) SELECT '${template}',industry_id,'Prepared review pack','postgres','Operator-prepared synthetic data',${literal(schemaSpec)},${literal(generatorSpec)},jsonb_build_object(id::text,jsonb_build_object('engineId',(SELECT id FROM engine WHERE project_id=project.id AND verified_at IS NOT NULL LIMIT 1),'sourceId','${reserved}','credentialRef','secret://sources/claims-db','landingZone',NULL,'sourceName','prepared_demo','registrationName','Prepared review pack')) FROM project WHERE id='${input.project}'`;
-   const composeProject=readFileSync(join(roots.gateway,'state/project-name'),'utf8').trim();run('docker',['compose','--project-name',composeProject,'--project-directory',roots.gateway,'--env-file',join(roots.gateway,'state/package.env'),'-f',join(roots.gateway,'state/compose.json'),'exec','-T','postgres','psql','-U','opintel','-d','opintel','-v','ON_ERROR_STOP=1','-c',sql],'prepare-demo-fixture');return {templateId:template};
   }
   throw new Error('Unknown acceptance fixture action');
  };
