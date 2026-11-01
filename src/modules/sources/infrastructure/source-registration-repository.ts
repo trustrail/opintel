@@ -1,11 +1,13 @@
+import {SecretRef} from '../../../platform/secrets/types.js';
 import { CatalogNaming, AsciiTransliterator } from '../../catalog/index.js';
 import { ExposedName } from '../../../shared/kernel/index.js';
 import { withTenant,type Tx } from '../../../platform/db/scope.js';
 import { SourceListItem, type NewSource } from '../../../shared/api/source-schemas.js';
 import { DomainError,err,ok,type SourceId,type RunId } from '../../../shared/kernel/index.js';
 import type { SourceContext,SourceRegistrationRepository,QueuedSource } from '../application/source-registration.js';
-const selection=`SELECT s.id,s.engine_id AS "engineId",s.name,s.exposed_alias AS "exposedAlias",s.kind,s.origin,CASE WHEN s.status IN ('archived','pending_egress','unreachable') THEN s.status WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
- (SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS error,
+const selection=`SELECT s.id,s.engine_id AS "engineId",s.name,s.exposed_alias AS "exposedAlias",s.kind,s.origin,CASE WHEN s.status IN ('archived','pending_egress','unreachable') THEN s.status WHEN s.status='pending' AND NOT EXISTS(SELECT 1 FROM introspection_run r WHERE r.source_id=s.id) THEN 'choose_schemas' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('failed','cancelled') THEN 'introspection_failed' WHEN (SELECT r.state FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) IN ('queued','connecting','reading','diffing') THEN 'pending' ELSE s.status END AS status,s.landing_strategy AS "landingStrategy",
+ COALESCE(s.schema_listing_error,(SELECT r.error FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1)) AS error,
+ COALESCE((SELECT r.include_schemas FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1),ARRAY[]::text[]) AS "includeSchemas",
  (SELECT r.id FROM introspection_run r WHERE r.source_id=s.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS "latestIntrospectionId",
  CASE WHEN s.receives_landings THEN (SELECT count(*)::int FROM arrival_notice a WHERE a.source_id=s.id AND a.payload->>'outcome'='landed') ELSE NULL END AS "filingCount",
  (SELECT count(*)::int FROM catalog_object o WHERE o.source_id=s.id AND o.status='active') AS "objectCount",
@@ -41,23 +43,34 @@ export class PostgresSourceRegistrationRepository implements SourceRegistrationR
    if(alias===null)return err(new DomainError('validation_failed','The source name normalises to nothing. Choose a name containing letters or numbers with an ASCII transliteration.'));
    await tx.query(`INSERT INTO data_source(id,project_id,name,kind,origin,credential_ref,sampling_consent,receives_landings,landing_strategy,exposed_alias,engine_id) VALUES($1,$2,$3,'postgres','customer',$4,$5,$6,$7,$8,$9)`,[id,ctx.projectId,input.name,input.credentialRef,input.samplingConsent,input.receivesLandings,input.landingStrategy,alias,input.engineId??null]);
    if(input.engineId)await tx.query("UPDATE data_source SET egress_pending=true,status='pending_egress' WHERE id=$1",[id]);
-   await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,input.includeSchemas,JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:input.samplingConsent})]);
+   if(input.includeSchemas.length)await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,input.includeSchemas,JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:input.samplingConsent})]);
    const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok({source:item(row!),created:true});
   });}catch(error){if(error instanceof Error&&'code'in error&&error.code==='23505')return err(new DomainError('conflict','A source with this name is already connected.'));throw error;}
  }
- private async enqueueRetry(tx:Tx,ctx:SourceContext,id:SourceId,runId:RunId){
+ private async enqueueRetry(tx:Tx,ctx:SourceContext,id:SourceId,runId:RunId,schemas?:string[]){
   const [latest]=await tx.query<{include_schemas:string[]}>('SELECT include_schemas FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[id]);
+  const include=schemas??latest?.include_schemas??[];if(!include.length)return false;
   const [source]=await tx.query<{sampling_consent:boolean}>('SELECT sampling_consent FROM data_source WHERE id=$1',[id]);
-  await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,latest?.include_schemas??[],JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:source!.sampling_consent})]);
+  await tx.query(`INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)`,[runId,id,ctx.projectId,include,JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:source!.sampling_consent})]);
+  await tx.query("UPDATE data_source SET schema_listing_error=NULL,status='pending' WHERE id=$1",[id]);return true;
  }
- async retry(ctx:SourceContext,id:SourceId,runId:RunId){return withTenant(ctx,async tx=>{
-  const [source]=await tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1 FOR UPDATE',[id]);
+ async retry(ctx:SourceContext,id:SourceId,runId:RunId,schemas?:string[]){return withTenant(ctx,async tx=>{
+  const [source]=await tx.query<{status:string;egress_pending:boolean}>('SELECT status,egress_pending FROM data_source WHERE id=$1 FOR UPDATE',[id]);
   if(!source)return err(new DomainError('not_found','The source was not found in this project.'));
   if(source.status==='archived')return err(new DomainError('conflict','An archived source cannot be introspected.'));
+  if(schemas&&source.egress_pending)return err(new DomainError('conflict','Waiting for the engine to apply this source’s network policy.'));
   const active=await tx.query<{id:RunId}>("SELECT id FROM introspection_run WHERE source_id=$1 AND state IN ('queued','connecting','reading','diffing')",[id]);
   if(active[0])return err(new DomainError('conflict',`This source already has an active introspection run: ${active[0].id}. Wait for it to finish before re-introspecting.`,{runId:active[0].id}));
-  await this.enqueueRetry(tx,ctx,id,runId);
+  if(!await this.enqueueRetry(tx,ctx,id,runId,schemas))return err(new DomainError('validation_failed','Choose schemas before starting a scan.'));
   const [row]=await tx.query<Record<string,unknown>>(`${selection} WHERE s.id=$1`,[id]);return ok(item(row!));
  });}
+ schemaTarget(ctx:SourceContext,id:SourceId){return withTenant(ctx,async tx=>{
+  const [source]=await tx.query<{credential_ref:string;egress_pending:boolean;status:string;engine_id:string|null}>('SELECT credential_ref,egress_pending,status,engine_id FROM data_source WHERE id=$1',[id]);
+  if(!source||source.status==='archived')return err(new DomainError('not_found','The source was not found in this project.'));
+  if(source.egress_pending||!source.engine_id||source.status==='unreachable')return err(new DomainError('conflict','Waiting for the engine to apply this source’s network policy.'));
+  const [latest]=await tx.query<{include_schemas:string[]}>('SELECT include_schemas FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[id]);
+  return ok({ref:SecretRef(source.credential_ref),included:latest?.include_schemas??[]});
+ });}
+ async schemaError(ctx:SourceContext,id:SourceId,message:string|null){await withTenant(ctx,tx=>tx.query("UPDATE data_source SET schema_listing_error=$2 WHERE id=$1 AND status<>'archived'",[id,message]));}
  queued(ctx:SourceContext){return withTenant(ctx,tx=>tx.query<QueuedSource>(`SELECT r.id AS "runId",s.id AS "sourceId",(r.progress->>'userId') AS "userId" FROM introspection_run r JOIN data_source s ON s.id=r.source_id WHERE s.status<>'archived' AND NOT s.egress_pending AND r.state='queued' AND r.progress ? 'userId'`,[]));}
 }

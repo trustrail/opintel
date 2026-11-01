@@ -232,3 +232,5 @@ describe('sidecar Postgres connector against a read-only source credential', () 
     expect(await fixture(async (db) => (await db.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1", [role])).rows)).toEqual([{ count: 0 }]);
   });
 });
+
+it('saved-source schema metadata respects USAGE and excludes every system/temporary namespace without reading rows',async()=>{const listed=unwrap(await connector.listSchemas(request({})));expect(listed.schemas).toContain(schema);expect(listed.schemas).not.toContain(hiddenSchema);expect(listed.schemas.some(name=>['pg_catalog','information_schema','pg_toast'].includes(name)||/^pg_(?:toast_)?temp/u.test(name))).toBe(false);});

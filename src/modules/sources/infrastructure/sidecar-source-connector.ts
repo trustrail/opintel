@@ -33,6 +33,8 @@ export class SidecarSourceConnector implements SourceConnector {
     this.fingerprint = options.tls.certificatePin ? options.tls.certificatePin.match(/.{2}/gu)!.join(':') : new X509Certificate(options.tls.pinnedCertificate!).fingerprint256;
   }
 
+  async listSchemas(ref:SecretRef,signal?:AbortSignal){const result=await this.call('/schemas',ref,{},wire.schemaListResponse,signal);return result.ok?ok(result.value.schemas):result;}
+
   async testConnection(ref: SecretRef, signal?: AbortSignal): Promise<Result<void>> {
     const response = await this.call('/test-connection', ref, {}, wire.connectionResponse, signal);
     if (!response.ok) return response;

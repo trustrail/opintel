@@ -1,28 +1,23 @@
+import {CreationRows,columnChoices,resolvedDraft,compatible,newRule,ruleValue} from './rows.js';
+export {newRule,ruleValue,type RuleDraft} from './rows.js';
 import {RowHistory} from './history.js';
-import {Select} from '../components/select.js';
 import {useState} from 'react';
 import {useMutation} from '@tanstack/react-query';
 import {Dialog,Checkbox} from '../components/primitives.js';
 import {Glyph,KindIcon} from '../components/kind.js';
 import {createPool,issueCredential,rotatePoolKey,revokeCredential,type PoolKeyCreationResponse} from '../../shared/api/pool-keys.js';
-import {setPoolTableRows,type PoolRowRule} from '../../shared/api/pool-tables.js';
+import {setPoolTableRows} from '../../shared/api/pool-tables.js';
 import type {CredentialMetadata} from '../../shared/api/pools.js';
 import type {z} from 'zod';
-import {useRefreshPools,type PoolFacts} from './data.js';
+import {useTableColumns,useRefreshPools,type PoolFacts} from './data.js';
 export function Message({error}:{error:unknown}){return <p role="alert">{error&&typeof error==='object'&&'message' in error?String(error.message):'The decision could not be saved.'}</p>;}
 export function Close(){return <Dialog.Close data-close aria-label="Close"><Glyph name="close"/></Dialog.Close>;}
 export function Secret({issued,onClose}:{issued:PoolKeyCreationResponse|null;onClose:()=>void}){
  return <Dialog.Root open={issued!==null} onOpenChange={open=>{if(!open)onClose();}}><Dialog.Portal><Dialog.Overlay data-overlay/><Dialog.Content data-dialog><Dialog.Title>Credential saved</Dialog.Title><Dialog.Description>{issued?.keyShown?'Copy this key now. It is shown once. Anyone holding it can use this pool.':'This request was already completed. Its key cannot be shown again.'}</Dialog.Description>{issued?.keyShown&&<textarea data-secret readOnly value={issued.key} aria-label="New credential key" onFocus={e=>e.target.select()}/>}<Dialog.Close data-primary>Done</Dialog.Close><Close/></Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
-export type RuleDraft={all:boolean;column:string;operator:'='|'<>'|'<'|'<='|'>'|'>=';value:string;type:'text'|'number'|'boolean'|'null'};
-export const newRule=():RuleDraft=>({all:false,column:'',operator:'=',value:'',type:'text'});
-export function ruleValue(d:RuleDraft):PoolRowRule{if(d.all)return {allRows:true};return {column:d.column,operator:d.operator,value:d.type==='null'?null:d.type==='number'?Number(d.value):d.type==='boolean'?d.value==='true':d.value};}
-export function RuleFields({draft,onChange}:{draft:RuleDraft;onChange:(draft:RuleDraft)=>void}){
- return <div data-rule-editor><label data-check><Checkbox.Root checked={draft.all} onCheckedChange={value=>onChange({...draft,all:value===true})}><Checkbox.Indicator><Glyph name="check" size={16}/></Checkbox.Indicator></Checkbox.Root>All rows · explicit decision</label>{!draft.all&&<div data-rule-fields><label><KindIcon kind="column"/>Column<input required maxLength={63} aria-label="Row rule column" value={draft.column} onChange={e=>onChange({...draft,column:e.target.value})}/></label><label>Operator<Select aria-label="Row rule operator" value={draft.operator} onChange={e=>onChange({...draft,operator:e.target.value as RuleDraft['operator']})}>{['=','<>','<','<=','>','>='].map(op=><option key={op}>{op}</option>)}</Select></label><label>Value type<Select aria-label="Value type" value={draft.type} onChange={e=>onChange({...draft,type:e.target.value as RuleDraft['type'],value:e.target.value==='boolean'?'true':''})}><option value="text">Text</option><option value="number">Number</option><option value="boolean">Boolean</option><option value="null">Null</option></Select></label>{draft.type!=='null'&&<label>Value{draft.type==='boolean'?<Select aria-label="Row rule value" value={draft.value} onChange={e=>onChange({...draft,value:e.target.value})}><option>true</option><option>false</option></Select>:<input aria-label="Row rule value" type={draft.type==='number'?'number':'text'} required={draft.type==='number'} step="any" value={draft.value} onChange={e=>onChange({...draft,value:e.target.value})}/>}</label>}</div>}</div>;
-}
 export function SetRows({project,pool,table,onClose,inline=false}:{project:string;pool:string;table:{objectId:string;name:string};onClose:()=>void;inline?:boolean}){
- const [draft,setDraft]=useState(newRule),refresh=useRefreshPools(project,'rows',pool),command=useMutation({retry:false,mutationFn:async()=>{const result=await setPoolTableRows(pool,table.objectId,{projectId:project,rowRule:ruleValue(draft)});if(!result.ok)throw result.error;},onSuccess:async()=>{await refresh();onClose();}});
- const form=<form data-row-form onSubmit={e=>{e.preventDefault();command.mutate();}}><RuleFields draft={draft} onChange={setDraft}/><RowHistory project={project} pool={pool} object={table.objectId}/>{command.isError&&<Message error={command.error}/>}<footer data-form-actions><button type="button" disabled={command.isPending} onClick={onClose}>Cancel</button><button data-primary disabled={command.isPending}>{command.isPending?'Saving…':'Apply'}</button></footer></form>;
+ const [draft,setDraft]=useState(newRule),columns=useTableColumns(project,[table.objectId]),choices=columnChoices((columns.data??[]).map(t=>({...t,name:table.name}))),resolved=resolvedDraft(draft,choices),valid=Boolean(columns.data?.[0]&&compatible(columns.data[0].columns,resolved)),refresh=useRefreshPools(project,'rows',pool),command=useMutation({retry:false,mutationFn:async()=>{const result=await setPoolTableRows(pool,table.objectId,{projectId:project,rowRule:ruleValue(resolved)});if(!result.ok)throw result.error;},onSuccess:async()=>{await refresh();onClose();}});
+ const form=<form data-row-form onSubmit={e=>{e.preventDefault();command.mutate();}}><CreationRows draft={resolved} choices={choices} tables={(columns.data??[]).map(t=>({...t,name:table.name}))} kinds={{}} onChange={setDraft}/>{columns.isPending&&<p role="status">Loading table columns…</p>}{columns.isError&&<Message error={columns.error}/>}<RowHistory project={project} pool={pool} object={table.objectId}/>{command.isError&&<Message error={command.error}/>}<footer data-form-actions><button type="button" disabled={command.isPending} onClick={onClose}>Cancel</button><button data-primary disabled={command.isPending||!valid}>{command.isPending?'Saving…':'Apply'}</button></footer></form>;
  if(inline)return <div data-inline-rows><h3><KindIcon kind="row_rule"/>Rows where · {table.name}</h3><small>Existing table defaults still apply.</small>{form}</div>;
  return <Dialog.Root open onOpenChange={open=>{if(!open&&!command.isPending)onClose();}}><Dialog.Portal><Dialog.Overlay data-overlay/><Dialog.Content data-dialog><Dialog.Title><KindIcon kind="row_rule"/>Set rows · {table.name}</Dialog.Title><Dialog.Description>Replace this pool's row rule for this table. Existing table defaults still apply.</Dialog.Description>{form}<Close/></Dialog.Content></Dialog.Portal></Dialog.Root>;
 }

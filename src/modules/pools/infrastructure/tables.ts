@@ -25,7 +25,7 @@ export class PostgresPoolTables implements PoolTablesPort{
   const objects=await tx.query<{id:ObjectId;sourceId:SourceId;name:string}>(`SELECT o.id,o.source_id AS "sourceId",o.exposed_name AS name FROM catalog_object o JOIN data_source s ON s.id=o.source_id WHERE o.id=ANY($1::uuid[]) AND o.status='active' AND s.status<>'archived' ORDER BY o.id FOR UPDATE OF o`,[setup.tables]);
   if(objects.length!==setup.tables.length)return missing();
   const tables:Table[]=[];
-  for(const object of objects){const columns=predicateColumn.array().parse(await tx.query(`SELECT id,exposed_name AS name,source_identifier AS "sourceIdentifier",exposed_type AS type FROM catalog_element WHERE object_id=$1 AND status='active' AND exposed_name IS NOT NULL AND exposed_type IS NOT NULL ORDER BY ordinal FOR SHARE`,[object.id]));tables.push({...object,columns,rule:compilePoolRowRule(setup.rowRule,columns)});}
+  for(const object of objects){const columns=predicateColumn.array().parse(await tx.query(`SELECT id,exposed_name AS name,source_identifier AS "sourceIdentifier",exposed_type AS type FROM catalog_element WHERE object_id=$1 AND status='active' AND exposed_name IS NOT NULL AND exposed_type IS NOT NULL ORDER BY ordinal FOR SHARE`,[object.id]));const rule=compilePoolRowRule(setup.rowRule,columns);if('combine'in setup.rowRule&&!rule.ok)return err(new DomainError('validation_failed',rule.message,{reason:rule.reason}));tables.push({...object,columns,rule});}
   return ok({setup,tables});
  }
  async apply(tx:Tx,ctx:PoolKeyContext,pool:PoolId,prepared:Prepared){
@@ -100,7 +100,7 @@ export class PostgresPoolTables implements PoolTablesPort{
  rows(ctx:PoolKeyContext,pool:PoolId,object:ObjectId,rule:PoolRowRule){return withTenant(ctx,async tx=>{
   const prepared=await this.prepare(tx,{tables:[object],rowRule:rule,startingMode:{kind:'nothing_yet'}});if(!prepared.ok)return prepared;
   if(!(await tx.query('SELECT pool_id FROM pool_table_binding WHERE pool_id=$1 AND object_id=$2 FOR UPDATE',[pool,object])).length)return missing();
-  const table=prepared.value.tables[0]!;if(!table.rule.ok)return err(new DomainError('validation_failed','The table row rule does not match a supported column and type.',{reason:table.rule.reason}));
+  const table=prepared.value.tables[0]!;if(!table.rule.ok)return err(new DomainError('validation_failed',table.rule.message,{reason:table.rule.reason}));
   await this.saveRule(tx,ctx,pool,object,table.rule);await tx.query('UPDATE pool_table_binding SET row_rule_reason=NULL WHERE pool_id=$1 AND object_id=$2',[pool,object]);
   return ok(BoundPoolTable.parse({objectId:object,sourceId:table.sourceId,name:table.name,needsRows:false,reason:null}));
  });}

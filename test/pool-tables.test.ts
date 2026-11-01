@@ -123,3 +123,18 @@ it('PT-010: one table may belong to several pools; uniqueness is per pool and ta
  const indexes=await withPlatform(tx=>tx.query<{definition:string}>("SELECT pg_get_indexdef(indexrelid) AS definition FROM pg_index WHERE indrelid='pool_table_binding'::regclass AND indisunique"));
  expect(indexes).toHaveLength(1);expect(indexes[0]!.definition).toContain('(pool_id, object_id)');
 });
+it('PT-011: compound table rules store AND/OR text, reject bad columns by name and never append a failed decision',async()=>{
+ const pool=await create('Compound',[second],{allRows:true});
+ for(const combine of ['and','or'] as const){const result=await post(`/api/v1/pools/${pool.poolId}/tables/${second}/rows`,{projectId:f.ctx.projectId,rowRule:{combine,conditions:[{column:'own_column',operator:'>=',value:2},{column:'own_column',operator:'<=',value:4}]}},'PUT');expect(result.status,await result.clone().text()).toBe(200);}
+ const before=await withTenant(f.ctx,tx=>tx.query<{expression:string}>('SELECT expression FROM row_entitlement WHERE pool_id=$1 ORDER BY sequence',[pool.poolId]));expect(before.at(-2)?.expression).toBe('("own_column" >= 2 AND "own_column" <= 4)');expect(before.at(-1)?.expression).toBe('("own_column" >= 2 OR "own_column" <= 4)');
+ for(const bad of [{column:'missing',operator:'=',value:1},{column:'own_column',operator:'=',value:'text'}]){const response=await post(`/api/v1/pools/${pool.poolId}/tables/${second}/rows`,{projectId:f.ctx.projectId,rowRule:{combine:'and',conditions:[{column:'own_column',operator:'>=',value:2},bad]}},'PUT');expect(response.status).toBe(400);expect((await response.json()).error.message).toContain(bad.column);}
+ expect(await withTenant(f.ctx,tx=>tx.query('SELECT expression FROM row_entitlement WHERE pool_id=$1 ORDER BY sequence',[pool.poolId]))).toEqual(before);
+ const failed=await post(`/api/v1/projects/${f.ctx.projectId}/pools`,{name:'Invalid compound',tableSetup:{tables:[second],rowRule:{combine:'and',conditions:[{column:'own_column',operator:'=',value:2},{column:'missing',operator:'=',value:3}]},startingMode:{kind:'nothing_yet'}}});expect(failed.status).toBe(400);expect((await failed.json()).error.message).toContain('missing');
+});
+it('PT-012: row-rule wire contracts retain legacy shapes and allow only two to sixteen unnested conditions',async()=>{
+ const {PoolRowRule,poolTablesOpenApiDocument}=await import('../src/shared/api/pool-tables.js');const condition={column:'id',operator:'=',value:1};
+ expect(PoolRowRule.safeParse(condition).success).toBe(true);expect(PoolRowRule.safeParse({allRows:true}).success).toBe(true);
+ for(const combine of ['and','or'])expect(PoolRowRule.safeParse({combine,conditions:[condition,condition]}).success).toBe(true);
+ for(const conditions of [[condition],Array(17).fill(condition),[{combine:'and',conditions:[condition,condition]},condition]])expect(PoolRowRule.safeParse({combine:'and',conditions}).success).toBe(false);
+ const paths=poolTablesOpenApiDocument().paths;expect(JSON.stringify(paths['/api/v1/pools/{id}/tables/{objectId}/rows'].put)).toContain('conditions');expect(JSON.stringify(paths['/api/v1/pools/{id}/tables'].post)).toContain('conditions');
+});

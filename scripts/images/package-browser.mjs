@@ -21,7 +21,7 @@ try{
   const messages=await (await fetch(config.mail+'/api/v1/messages')).json();const before=new Set(messages.messages.map(m=>m.ID));
   phase='sign-in';await page.goto(config.base+'/sign-in');
   await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
-  const brand=page.locator('[data-auth-brand] svg[data-brand-mark]');await brand.waitFor({state:'visible'});assert.ok(await brand.locator('rect,path,polygon,circle').count(),'Inline Opintel brand mark is missing');
+  const brand=page.locator('[data-auth-brand] img[data-brand-mark]');await brand.waitFor({state:'visible'});await brand.evaluate(image=>image.decode());assert.ok(await brand.evaluate(image=>image.naturalWidth>0),'Approved Opintel brand artwork is missing');
   const imagePaths=await page.locator('img,source,svg image,svg use').evaluateAll(images=>images.flatMap(image=>[image.getAttribute('src'),image.getAttribute('href')??image.getAttribute('xlink:href'),...(image.getAttribute('srcset')??'').split(',').map(part=>part.trim().split(' ')[0])]).filter(path=>path&&!path.startsWith('#')&&!path.startsWith('data:')));
   signInImageAssets=imagePaths.length;
   for(const imagePath of imagePaths)assert.equal((await context.request.get(new URL(imagePath,config.base).href)).status(),200,'Sign-in image unavailable');
@@ -46,5 +46,5 @@ try{
  await page.screenshot({path:'/acceptance/home-'+(restore?'restored':'initial')+'.png'});
  assert.equal(pageErrors,0);
  await context.storageState({path:'/acceptance/browser-state.json'});chmodSync('/acceptance/browser-state.json',0o600);
- writeFileSync('/acceptance/browser-'+(restore?'restored':'initial')+'.json',JSON.stringify({status:'passed',builtIndexAssets:assets.length,signInImageAssets,inlineBrandMark:!restore,authenticatedHome:true,projectId:config.projectId,storageRestored:restore,pageErrors,smtpCallback:!restore}),{mode:0o600});
+ writeFileSync('/acceptance/browser-'+(restore?'restored':'initial')+'.json',JSON.stringify({status:'passed',builtIndexAssets:assets.length,signInImageAssets,brandArtwork:!restore,authenticatedHome:true,projectId:config.projectId,storageRestored:restore,pageErrors,smtpCallback:!restore}),{mode:0o600});
 }catch{process.stderr.write('Packaged browser acceptance failed at '+phase+'; no authentication material logged.\n');process.exitCode=1;}finally{await browser.close();}

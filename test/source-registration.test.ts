@@ -79,6 +79,24 @@ describe('source registration against real Postgres and the sidecar',()=>{
   try{const response=await request(path(),'POST',body());expect(response.status).toBe(503);expect((await response.json()).error.message).toBe('Token key escrow write failed. Check the configured backup location and retry.');expect(connectors).toHaveLength(0);
   }finally{custody.mockRestore();}
  });
+ it('F-010: saving without schemas does no scan or source contact; policy-gated metadata excludes system schemas and selection scans exactly those chosen',async()=>{
+  const created=await request(path(),'POST',{...body(),includeSchemas:[]});expect(created.status).toBe(201);const source=await created.json();
+  expect(connectors).toHaveLength(0);expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM introspection_run'))).toEqual([]);
+  const pending=await request(`/api/v1/sources/${source.id}/schemas?projectId=${projectId}`);expect(pending.status).toBe(409);expect(connectors).toHaveLength(0);
+  await settle();expect(connectors).toHaveLength(0);expect((await(await request(path())).json()).items[0].status).toBe('choose_schemas');
+  const listed=await request(`/api/v1/sources/${source.id}/schemas?projectId=${projectId}`);expect(listed.status).toBe(200);const schemas=await listed.json();expect(schemas.schemas).toContain(schema);expect(schemas.schemas).toContain(landed);expect(schemas.schemas.some((name:string)=>['pg_catalog','information_schema','pg_toast'].includes(name)||/^pg_(?:toast_)?temp/u.test(name))).toBe(false);
+  expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM introspection_run'))).toEqual([]);
+  const selected=await request(`/api/v1/sources/${source.id}/schemas`,'PUT',{projectId,includeSchemas:[schema]});expect(selected.status,await selected.clone().text()).toBe(202);await service.idle();
+  expect(await withTenant({projectId,userId},tx=>tx.query('SELECT include_schemas FROM introspection_run'))).toEqual([{include_schemas:[schema]}]);expect((await(await request(path())).json()).items[0]).toMatchObject({status:'connected',includeSchemas:[schema],elementCount:2});
+  const changed=await request(`/api/v1/sources/${source.id}/schemas`,'PUT',{projectId,includeSchemas:[landed]});expect(changed.status).toBe(202);await service.idle();expect(await withTenant({projectId,userId},tx=>tx.query('SELECT include_schemas FROM introspection_run ORDER BY created_at,id'))).toEqual([{include_schemas:[schema]},{include_schemas:[landed]}]);
+  const empty=await request(`/api/v1/sources/${source.id}/schemas`,'PUT',{projectId,includeSchemas:[]});expect(empty.status).toBe(400);
+  denied=true;expect((await request(`/api/v1/sources/${source.id}/schemas?projectId=${projectId}`)).status).toBe(403);expect((await request(`/api/v1/sources/${source.id}/schemas`,'PUT',{projectId,includeSchemas:[schema]})).status).toBe(403);
+ });
+ it('F-011: metadata listing failure is saved on the source, without creating a failed or automatic scan',async()=>{
+  const source=await(await request(path(),'POST',{...body(),includeSchemas:[]})).json();await settle();
+  const failure=vi.spyOn(SidecarSourceConnector.prototype,'listSchemas').mockResolvedValueOnce(err(new DomainError('source_unavailable','Source connection timed out.')));
+  try{const result=await request(`/api/v1/sources/${source.id}/schemas?projectId=${projectId}`);expect(result.status).toBe(503);expect((await(await request(path())).json()).items[0]).toMatchObject({status:'choose_schemas',error:'Source connection timed out.'});expect(await withTenant({projectId,userId},tx=>tx.query('SELECT id FROM introspection_run'))).toEqual([]);}finally{failure.mockRestore();}
+ });
  it('F-001: saves and assigns before contact, then tests and introspects after applied heartbeat',async()=>{
   const tested=await request(path()+'/test','POST',{engineId:registeredEngineId,kind:'postgres',credentialRef:body().credentialRef});expect(tested.status).toBe(200);expect(await tested.json()).toMatchObject({reachable:false,schemas:[]});expect(connectors).toHaveLength(0);
   expect((await (await request(path())).json()).items).toEqual([]);
