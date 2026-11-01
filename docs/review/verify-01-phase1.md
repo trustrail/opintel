@@ -216,6 +216,56 @@ typecheck passed. Lint passed after removing the import made unused by centraliz
 scanner telemetry. The first test-launch attempt was blocked by sandbox IPC before
 any test ran; the actual targeted run used normal Docker/socket access.
 
-Fresh archive verification and the single new-candidate gate are pending. At this
-point host disk free space was below the image builder's 4 GiB minimum; regenerable
-unused Docker cache is being reclaimed. No gate has been started for this correction.
+### Correction verification result — stopped at packaged failure
+
+Source correction commit: `c967006a2615ef9e13a33c0589c8682c1002a572`.
+All seven fresh amd64 images pass layer, runtime allowlist and runtime-user audits.
+Offline gateway and engine archives install. Installed engine configuration has
+`connectTimeoutMs:10000`, `operationTimeoutMs:35000`, `statementTimeoutMs:30000`,
+`maxConnectionsPerSource:8`.
+
+The host initially had less than 1 GiB free. Unused cache reclamation and the
+operator-authorized image removal freed space; Docker retained the images used
+by the running development Postgres and Redis containers. One build was cancelled
+for that removal. Another stopped because Docker lacked its just-exported runtime
+base tag; rebuilding unchanged inputs under fresh local tags passed every audit.
+Logs remain `/private/tmp/verify01-connect-build*.log`; no build check was bypassed.
+
+Fresh installation: `tmp/verify01-packaged-vu8nT4`. The initial local harness reused
+the original phase-1 pairing alias error. It correctly failed before any verifier
+cell ran. Its result and private command log remain as
+`install-result-first-pairing-harness-failure.json` and
+`gateway-register-engine-first-harness-failure.log`. The existing phase-1 recovery
+harness continued that same fresh installation using the advertised address and
+recorded gateway identity; it did not replace trust or alter product code. One-code
+pairing, customer identity import and real SMTP owner magic-link sign-in passed.
+
+The single finite all-cells run completed: **115 selected, 114 passed, 1 failed,
+0 not exercised**, exit 1. No cell was rerun. The 16 custody cells within that
+selection all passed. The failed cell is
+`pool0/v01.soak_recoveries.unmatched/policy_id/tokenized`: expected success, actual
+`source_unavailable`, cause `engine_registry`, duration 9,767 ms, receipt
+`01a1956a-8ae3-7939-8553-073c331316c9`. Diagnostics: outcome and row-count mismatch.
+
+Gateway log lines 950–964 record `engine.transport_failed` at
+2026-11-01T04:42:39.034Z (`phase:connect`, `reason:ABORT_ERR`, `written:false`,
+`aborted:true`, `attempt:4`) and `engine.probe_refused` on `/custody/attest`.
+Lines 972–985 record the receipt's refusal at 04:42:39.038Z with
+`sourceFailure:undefined`. These retained events identify a gateway-to-engine
+transport refusal, rather than a recorded source-Postgres connect failure; its
+underlying cause is not established and no fix is applied. Log:
+`tmp/verify01-packaged-vu8nT4/gateway-services-diagnostic.log`.
+
+The verifier correctly skips optional two-minute traffic when finite coverage
+fails. The acceptance driver stops at that failed assertion, so the standalone
+missing-session and custody-only runs were not reached. The fresh services were
+stopped by its cleanup. Full matrices remain in `all/result.{json,md}`; a compact
+copy with image identities and no fixture row bodies is
+`verify-01-phase1/source-connect-all.json`.
+
+**The full gate has not been run for this correction.** Work stops at the known
+packaged failure: no further code change, validation rerun, merge or push. The
+source-connect correction has targeted-test, strict-typecheck and lint evidence,
+but this candidate is not verified for release. There is no green native handoff
+revision yet. The earlier native command in this report is historical, not an
+assertion that this correction passed.

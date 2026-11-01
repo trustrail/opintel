@@ -1,0 +1,4431 @@
+{
+  "verifierVersion": "1.0.0",
+  "fixture": "V-01",
+  "fixtureHash": "74361dce6ea4906ffabcaabf7f0bb0279d326304b4f2e8bc8f8bcbb78f3875ee",
+  "status": "failed",
+  "complete": true,
+  "counts": {
+    "selected": 115,
+    "passed": 114,
+    "failed": 1,
+    "notExercised": 0
+  },
+  "revision": "c967006a2615ef9e13a33c0589c8682c1002a572",
+  "images": [
+    {
+      "target": "api",
+      "platform": "linux/amd64",
+      "id": "sha256:eba9b7a063a3da77f5ecfb2d3fc383132873814f5a2d2f40ff9020ed2df5a1c5",
+      "repoDigests": [
+        "opintel-api@sha256:c027d04739d35fd0c670ca589b7d296c21871838fa0ca4721ce4bc22c2a6fe34"
+      ]
+    },
+    {
+      "target": "engine",
+      "platform": "linux/amd64",
+      "id": "sha256:6858bdc2bc3916e10b6b8928b9c381ba2ae41118a6ce7a167fcbe1084fc235a7",
+      "repoDigests": [
+        "opintel-engine@sha256:6d4b245f9150eaed6d858dd5c78ec9b65b497fbfaa3f207c3cd8795d37051406"
+      ]
+    },
+    {
+      "target": "console",
+      "platform": "linux/amd64",
+      "id": "sha256:a47beae3bf1b818504dbe07354fd588b1c5bce58cda29548e2b018dfe18f1e01",
+      "repoDigests": [
+        "opintel-console@sha256:c6cb3352a95a498731c93d96964a8204c33d990abc4ce811ffb7bc2d851aa23f"
+      ]
+    },
+    {
+      "target": "egress",
+      "platform": "linux/amd64",
+      "id": "sha256:a352e03b1ee2eaf45ee8849e9faa4099061131e48da15b62f2cc53533b577afa",
+      "repoDigests": [
+        "opintel-egress@sha256:5a4fe8a9eb5b0d5644b2885dd12ed81c86a61e1444fb0498db23d48bbabb05a4"
+      ]
+    },
+    {
+      "target": "migrations",
+      "platform": "linux/amd64",
+      "id": "sha256:cd131557415ae19175f57bdf6679c28647a5cfdaf0c3b303f7bd2230759b2202",
+      "repoDigests": [
+        "opintel-migrations@sha256:19e2cba24667d3a78371d14e69a753612c4f95fd4e407e8d546aa97fd6d57e29"
+      ]
+    },
+    {
+      "target": "provisioning",
+      "platform": "linux/amd64",
+      "id": "sha256:2cb6727b4f90a7f6670761e84b6fa2b4827ee6ed8c3e68d37fd501f071ccbc35",
+      "repoDigests": [
+        "opintel-provisioning@sha256:600320b90371cf42bdbe66dd411ddee2679dd21a2cfd4188514c942c15e9193c"
+      ]
+    },
+    {
+      "target": "demo-tools",
+      "platform": "linux/amd64",
+      "id": "sha256:08abc9e663c37b28b40a224fee667d6ad2d3b29cce0515e2b65cc836170e9009",
+      "repoDigests": [
+        "opintel-demo-tools@sha256:6ee30d7b563a546838a4678fc4e25b79c96de4919e9ce0765aee06d283393936"
+      ]
+    }
+  ],
+  "cells": [
+    {
+      "id": "pool0/v01.soak_policies.policies/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 6913,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-37db-7ce4-81d2-f86d9ab29638"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 7987,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-4fca-74f1-aa87-87f78ef631ae"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/insured_name/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 4741,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-690e-7c73-b1a2-d2600f2291b1"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/treaty_ref/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 3990,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-8068-7f01-9493-daec678a08f5"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/line_of_business/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 3062,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-8a27-7f75-8f22-9bf9974165b2"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/underwriter_note/withheld",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "element_withheld",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 692,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "element_withheld"
+      },
+      "actual": {
+        "outcome": "element_withheld",
+        "cause": "withheld",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-9480-7bab-baf4-8bda85383208"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/broker_reference/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 2086,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-981c-7159-9882-4aa053d5a647"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/risk_code/custody/credential/pool0-agent1",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool0-agent1",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 6822,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-a1b0-75ba-8b88-10e0bd3f9eb1"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/risk_code/custody/credential/pool0-agent2",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool0-agent2",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 2902,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-ba2a-7381-9717-09a545f1b779"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/risk_code/custody/credential/pool0-agent3",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool0-agent3",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 3093,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-c51d-7aa3-a5d4-add1c1b88b95"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/risk_code/custody/credential/pool0-agent4",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool0-agent4",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 3735,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-d1f4-761c-904a-442c0b920081"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.policies/risk_code/custody/credential/pool0-agent5",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool0-agent5",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 5992,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-e3af-71a8-9b86-8faf0a0d4dee"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_claims.claims/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 3013,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a19569-fab5-7e6c-8692-34e5efca72c4"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_claims.claims/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 2101,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-02fa-7f37-9e41-ffd4105700c4"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_claims.claims/claim_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 1997,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-0b71-73a4-b627-e3cc04140ff9"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_claims.claims/loss_date/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 2030,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-13ee-7957-a076-bdec491d31e7"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_claims.claims/claim_amount/aggregate_only",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "unsupported_on_aggregate_only",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 565,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "unsupported_on_aggregate_only"
+      },
+      "actual": {
+        "outcome": "unsupported_on_aggregate_only",
+        "cause": "row_access",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-1a8a-7459-ab8d-18d82d83ed81"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_claims.claims/claim_amount/aggregate",
+      "capability": "aggregates",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared aggregate",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 3806,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-1e72-7ea6-bdd1-670439929ce0"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_policies.treaty_reference/treaty_ref/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "treaty_reference"
+      },
+      "status": "passed",
+      "durationMs": 2242,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 0
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 0,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-2d3c-7a1d-aade-7e4235a2f548"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2171,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-35da-7dd4-86de-40fd217435c3"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2413,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-3dc5-7c2c-9dbb-08cba64289f8"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/recovery_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 5897,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-4898-7a85-adb1-222b936de558"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/insured_name/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2946,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-605f-7b37-b789-95604f8fa69d"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/pool_only/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2825,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-6a4e-749d-826e-f11497a994ea"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/undecided_note/undecided",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "entitlement_missing",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 406,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "entitlement_missing"
+      },
+      "actual": {
+        "outcome": "entitlement_missing",
+        "cause": "undecided",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-73b8-737e-bbc4-719414480f7b"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/recovery_secret/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2018,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-765c-760f-964b-ee554f58df07"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.recoveries/shape_value/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1584,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 7
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 7,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-7dee-7f46-8360-50d8ac3e657e"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.unmatched/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "unmatched"
+      },
+      "status": "passed",
+      "durationMs": 1590,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-84c5-7674-b7ea-7110f64df307"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.unmatched/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "unmatched"
+      },
+      "status": "failed",
+      "durationMs": 9767,
+      "diagnostics": [
+        "outcome mismatch",
+        "row count mismatch"
+      ],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "source_unavailable",
+        "cause": "engine_registry",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-8ae3-7939-8553-073c331316c9"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.unmatched/reference_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "unmatched"
+      },
+      "status": "passed",
+      "durationMs": 1478,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-b0a8-71b1-91fe-257e745bd84d"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_left/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2153,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-b6d8-7c0f-945c-de23b88ea09b"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_left/case_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2108,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-c0db-7a8f-8a16-6453298e40c8"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_left/masked_value/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2936,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-c732-7789-9e88-5fcd9761d186"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_left/shared_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 1550,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-d2b9-7107-9c37-bb07c21cb854"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_left/isolated_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 1470,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-d89b-759f-a164-015a8507f00c"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_right/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 1463,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-de46-7f5a-97a5-463ad254d304"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_right/case_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 2059,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-e4c8-7fb3-9d90-38307c98c92c"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_right/masked_value/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 1765,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-ed8d-7706-a12e-048b7b4e9e29"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_right/shared_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 1655,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-f301-7558-81f9-62ccf8c7c71e"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.semantics_right/isolated_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 1898,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956a-f98f-765a-972d-c8b80c051b93"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.open_reference/reference_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "open_reference"
+      },
+      "status": "passed",
+      "durationMs": 1634,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-0148-7f67-82f0-8e0524e76db4"
+      }
+    },
+    {
+      "id": "pool0/v01.soak_recoveries.open_reference/description/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "open_reference"
+      },
+      "status": "passed",
+      "durationMs": 1278,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-0718-7de0-80d1-9562e1999464"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 2192,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-0c54-7e86-9792-9b607f8baa63"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 1755,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-1545-704b-92c2-533e79262331"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/insured_name/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 1756,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-1c1f-7cf5-908b-229b9bdadc3e"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/treaty_ref/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 1694,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-235a-7050-9d2a-d352b73eb6bd"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/line_of_business/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 1874,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-29a7-7274-8505-26a73ad9f2b1"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/underwriter_note/withheld",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "element_withheld",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 408,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "element_withheld"
+      },
+      "actual": {
+        "outcome": "element_withheld",
+        "cause": "withheld",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-300f-7d38-a5be-dec92f72b4a2"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/broker_reference/custody/credential/pool1-agent1",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent1",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 2420,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-3297-76bd-a47f-f25dab7add15"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/broker_reference/custody/credential/pool1-agent2",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent2",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 2194,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-3bc0-7e8d-835b-05f09d8567e6"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/broker_reference/custody/credential/pool1-agent3",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent3",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 2603,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-449c-7a25-ae84-ebfadca1a473"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/broker_reference/custody/credential/pool1-agent4",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent4",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 6040,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-5180-7fd4-96ab-ea0ea66f84a9"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/broker_reference/custody/credential/pool1-agent5",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent5",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 5922,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-6b45-7ed3-90cf-a62bc968e259"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.policies/risk_code/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 1491,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-7d9f-75e3-becf-1c96860e5323"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_claims.claims/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 1348,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-8399-7af7-9bf8-160749e7c7cb"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_claims.claims/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 2332,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-893b-7060-af04-7f5ec30f583e"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_claims.claims/claim_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 2596,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-9228-78b4-98cd-10f0a2a42d16"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_claims.claims/loss_date/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 1607,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-9c82-78a6-bdf2-9f8df4e44221"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_claims.claims/claim_amount/aggregate_only",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "unsupported_on_aggregate_only",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 291,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "unsupported_on_aggregate_only"
+      },
+      "actual": {
+        "outcome": "unsupported_on_aggregate_only",
+        "cause": "row_access",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-a137-7e68-8329-d39cfe3805b3"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_claims.claims/claim_amount/aggregate",
+      "capability": "aggregates",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared aggregate",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "claims"
+      },
+      "status": "passed",
+      "durationMs": 1411,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-a3be-71fe-804d-457e67b218b3"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_policies.treaty_reference/treaty_ref/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "treaty_reference"
+      },
+      "status": "passed",
+      "durationMs": 1321,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 0
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 0,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-a8d1-73f1-9fe4-bd1400460148"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1387,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-adc5-7567-95dd-8e18b344a0c0"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2529,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-b40e-72d9-9f0e-20c9f8c21d85"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/recovery_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 3796,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-c565-7aa3-a186-8927399d762a"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/insured_name/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1342,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-cc4d-7537-a4d6-74715b3b9bab"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/pool_only/undecided",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "entitlement_missing",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 377,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "entitlement_missing"
+      },
+      "actual": {
+        "outcome": "entitlement_missing",
+        "cause": "undecided",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-d0d6-7431-a3bb-1becb038b8b9"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/undecided_note/undecided",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "entitlement_missing",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 400,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "entitlement_missing"
+      },
+      "actual": {
+        "outcome": "entitlement_missing",
+        "cause": "undecided",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-d238-7285-9fc9-da65e615f3ab"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/recovery_secret/custody/credential/pool1-agent1",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent1",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 2315,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-d4ac-7446-85bb-58d6f5b2ef83"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/recovery_secret/custody/credential/pool1-agent2",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent2",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 3243,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-df07-7518-a026-58f3a0c244a1"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/recovery_secret/custody/credential/pool1-agent3",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent3",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 3740,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-eb6e-7f31-be60-4900b4bb0a1d"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/recovery_secret/custody/credential/pool1-agent4",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent4",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 4440,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956b-fd14-7bc4-bccf-691fe8e6f846"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/recovery_secret/custody/credential/pool1-agent5",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "agent": "pool1-agent5",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 15605,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-0a93-72cc-9607-f3dc2d89d765"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.recoveries/shape_value/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 4166,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-4e7b-774e-a1ee-e13b92c25f34"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.unmatched/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "unmatched"
+      },
+      "status": "passed",
+      "durationMs": 2094,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-5898-71ef-8748-918b17f63b69"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.unmatched/policy_id/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "unmatched"
+      },
+      "status": "passed",
+      "durationMs": 2796,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-605d-767c-be64-4996c63231a4"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.unmatched/reference_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "unmatched"
+      },
+      "status": "passed",
+      "durationMs": 2118,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-6cab-71d2-801b-2ac215bf062a"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_left/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2558,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-7366-799f-a6b4-67fd41309b64"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_left/case_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 1641,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-7d74-742f-b49f-76a5611d7acf"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_left/masked_value/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 1654,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-83ff-7b57-a126-71786d2722fe"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_left/shared_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2334,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-8a32-741a-9451-121e06d38805"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_left/isolated_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 1644,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-940f-7e85-8170-4eb223cc0265"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_right/cedant/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 3087,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-99ca-776d-bce3-00ebdc1e44c4"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_right/case_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 2295,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-a92e-739d-b036-831bbf4121e2"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_right/masked_value/masked",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 2211,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-afd7-7e58-baf0-4ad2b5d85949"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_right/shared_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 6858,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-b87e-7ba1-9bf3-8af8c9ff2388"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.semantics_right/isolated_key/tokenized",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 2051,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-d2d6-775d-8572-73578f3112ad"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.open_reference/reference_id/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "open_reference"
+      },
+      "status": "passed",
+      "durationMs": 2166,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-daf7-7369-81e9-dbdcc26ab943"
+      }
+    },
+    {
+      "id": "pool1/v01.soak_recoveries.open_reference/description/clear",
+      "capability": "treatments",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared column",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "open_reference"
+      },
+      "status": "passed",
+      "durationMs": 1587,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-e2ae-7c9f-b323-65bfe396fb2a"
+      }
+    },
+    {
+      "id": "pool0/join/policies-unmatched",
+      "capability": "joins",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared join",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies,unmatched"
+      },
+      "status": "passed",
+      "durationMs": 2566,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 0
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 0,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-ea6e-7018-bb90-6d1a8fe41d76"
+      }
+    },
+    {
+      "id": "pool0/join/policies-claims-recoveries",
+      "capability": "joins",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared join",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies,claims,recoveries"
+      },
+      "status": "passed",
+      "durationMs": 3015,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 4
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 4,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956c-f432-724c-8b76-70c1fabc7a0d"
+      }
+    },
+    {
+      "id": "pool1/join/policies-unmatched",
+      "capability": "joins",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared join",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies,unmatched"
+      },
+      "status": "passed",
+      "durationMs": 3596,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 0
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 0,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-0056-757e-af30-304e50d12bbd"
+      }
+    },
+    {
+      "id": "pool1/join/policies-claims-recoveries",
+      "capability": "joins",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared join",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies,claims,recoveries"
+      },
+      "status": "passed",
+      "durationMs": 3572,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-0f26-77e4-87e2-cc1a5ced042f"
+      }
+    },
+    {
+      "id": "pool0/shape/null",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2943,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-1caa-763a-9349-63302e0a2c64"
+      }
+    },
+    {
+      "id": "pool0/shape/empty",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1889,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-26b0-7902-980f-7df5880d66da"
+      }
+    },
+    {
+      "id": "pool0/shape/unicode",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2514,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-2e79-77d0-9020-be92079a79bc"
+      }
+    },
+    {
+      "id": "pool0/shape/long",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2162,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-3896-740e-b660-372cd5492019"
+      }
+    },
+    {
+      "id": "pool0/shape/token-looking literal",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2060,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-4058-71eb-a996-2d8fef9d699b"
+      }
+    },
+    {
+      "id": "pool0/shape/duplicate",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 4029,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-4a88-79a6-b8aa-2a800951f2d4"
+      }
+    },
+    {
+      "id": "pool1/shape/null",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2309,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-595d-7d11-aad5-f1b6fa0f9e13"
+      }
+    },
+    {
+      "id": "pool1/shape/empty",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 2146,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-621a-7322-a63e-a64eb9f4d40d"
+      }
+    },
+    {
+      "id": "pool1/shape/unicode",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1793,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-6a73-7af6-adbd-7c0893c2abf4"
+      }
+    },
+    {
+      "id": "pool1/shape/long",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1853,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-70ca-77b7-a586-575cb2eefd31"
+      }
+    },
+    {
+      "id": "pool1/shape/token-looking literal",
+      "capability": "shapes",
+      "dimensions": {
+        "pool": "1",
+        "kind": "declared shape",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "recoveries"
+      },
+      "status": "passed",
+      "durationMs": 1651,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 1
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 1,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-78f0-76c6-852c-5a9751123c53"
+      }
+    },
+    {
+      "id": "pool0/semantics/masked-group",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "0",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 1782,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "resultColumns": [
+          "masked_value",
+          "n"
+        ],
+        "resultRows": [
+          [
+            "\u2022\u2022\u2022\u20221111",
+            3
+          ],
+          [
+            "\u2022\u2022\u2022\u20222222",
+            1
+          ],
+          [
+            null,
+            1
+          ]
+        ],
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-7f59-7cf9-9322-be21e2d4904f"
+      }
+    },
+    {
+      "id": "pool0/semantics/masked-distinct",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "0",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2445,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "resultColumns": [
+          "masked_value"
+        ],
+        "resultRows": [
+          [
+            "\u2022\u2022\u2022\u20221111"
+          ],
+          [
+            "\u2022\u2022\u2022\u20222222"
+          ],
+          [
+            null
+          ]
+        ],
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-8576-7da4-a4db-4976c7e22cab"
+      }
+    },
+    {
+      "id": "pool0/semantics/union",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "0",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "sql_not_permitted",
+        "sourcePath": "postgres",
+        "tables": "semantics_left,semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 333,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "sql_not_permitted"
+      },
+      "actual": {
+        "outcome": "sql_not_permitted",
+        "cause": "prohibited_construct",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true,
+          "refusalEvidence": true
+        },
+        "receiptId": "01a1956d-8e1a-7232-b180-b0820579f952"
+      }
+    },
+    {
+      "id": "pool0/semantics/isolated-join",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "0",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "unsupported_on_token",
+        "sourcePath": "postgres",
+        "tables": "semantics_left,semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 397,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "unsupported_on_token",
+        "cause": "unsatisfiable_token_join",
+        "suggestionCandidate": true
+      },
+      "actual": {
+        "outcome": "unsupported_on_token",
+        "cause": "unsatisfiable_token_join",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true,
+          "refusalEvidence": true
+        },
+        "receiptId": "01a1956d-8f4e-7dac-aba7-1b129ef004e1"
+      }
+    },
+    {
+      "id": "pool0/semantics/token-domains",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "0",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left,semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 1707,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "tokenRelations": [
+          {
+            "left": "a_shared_key",
+            "right": "b_shared_key",
+            "equal": true
+          },
+          {
+            "left": "a_isolated_key",
+            "right": "b_isolated_key",
+            "equal": false
+          }
+        ],
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-922b-7eb5-b974-e3d9da364a26"
+      }
+    },
+    {
+      "id": "pool1/semantics/masked-group",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "1",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2486,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "resultColumns": [
+          "masked_value",
+          "n"
+        ],
+        "resultRows": [
+          [
+            "\u2022\u2022\u2022\u20221111",
+            3
+          ],
+          [
+            "\u2022\u2022\u2022\u20222222",
+            1
+          ],
+          [
+            null,
+            1
+          ]
+        ],
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-9879-7169-98fc-4205c695c0d1"
+      }
+    },
+    {
+      "id": "pool1/semantics/masked-distinct",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "1",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left"
+      },
+      "status": "passed",
+      "durationMs": 2174,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "resultColumns": [
+          "masked_value"
+        ],
+        "resultRows": [
+          [
+            "\u2022\u2022\u2022\u20221111"
+          ],
+          [
+            "\u2022\u2022\u2022\u20222222"
+          ],
+          [
+            null
+          ]
+        ],
+        "rowCount": 3
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 3,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-a2bf-777e-8cb5-7afbb0d8eedb"
+      }
+    },
+    {
+      "id": "pool1/semantics/union",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "1",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "sql_not_permitted",
+        "sourcePath": "postgres",
+        "tables": "semantics_left,semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 356,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "sql_not_permitted"
+      },
+      "actual": {
+        "outcome": "sql_not_permitted",
+        "cause": "prohibited_construct",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true,
+          "refusalEvidence": true
+        },
+        "receiptId": "01a1956d-a9fc-7ae0-b98c-38dcd98113f1"
+      }
+    },
+    {
+      "id": "pool1/semantics/isolated-join",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "1",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "unsupported_on_token",
+        "sourcePath": "postgres",
+        "tables": "semantics_left,semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 517,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "unsupported_on_token",
+        "cause": "unsatisfiable_token_join",
+        "suggestionCandidate": true
+      },
+      "actual": {
+        "outcome": "unsupported_on_token",
+        "cause": "unsatisfiable_token_join",
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "receipt": true,
+          "caller": true,
+          "noLiterals": true,
+          "refusalEvidence": true
+        },
+        "receiptId": "01a1956d-aba6-7e59-aa78-194bc8dd7166"
+      }
+    },
+    {
+      "id": "pool1/semantics/token-domains",
+      "capability": "treatment-semantics",
+      "dimensions": {
+        "pool": "1",
+        "kind": "treatment semantics",
+        "credential": "normal",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "semantics_left,semantics_right"
+      },
+      "status": "passed",
+      "durationMs": 2536,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "tokenRelations": [
+          {
+            "left": "a_shared_key",
+            "right": "b_shared_key",
+            "equal": true
+          },
+          {
+            "left": "a_isolated_key",
+            "right": "b_isolated_key",
+            "equal": false
+          }
+        ],
+        "rowCount": 5
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 5,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-af0c-7dc7-bd9e-e2e3f77b052d"
+      }
+    },
+    {
+      "id": "credential/retiring/custody",
+      "capability": "custody",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "retiring",
+        "outcome": "success",
+        "sourcePath": "postgres",
+        "tables": "policies",
+        "treatment": "custody"
+      },
+      "status": "passed",
+      "durationMs": 3020,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "success",
+        "rowCount": 6
+      },
+      "actual": {
+        "outcome": "success",
+        "rowCount": 6,
+        "checks": {
+          "discovery": true,
+          "metadata": true,
+          "escrow": true,
+          "responseContract": true,
+          "values": true,
+          "truncated": true,
+          "rowScopes": true,
+          "custody": true,
+          "custodyNoSkipped": true,
+          "receipt": true,
+          "receiptScopes": true,
+          "caller": true,
+          "noLiterals": true
+        },
+        "receiptId": "01a1956d-b861-7dc7-a70c-ad5f1aaf2562"
+      }
+    },
+    {
+      "id": "credential/revoked",
+      "capability": "credentials",
+      "dimensions": {
+        "pool": "0",
+        "kind": "declared column",
+        "credential": "revoked",
+        "outcome": "unauthenticated",
+        "sourcePath": "postgres",
+        "tables": "policies"
+      },
+      "status": "passed",
+      "durationMs": 9,
+      "diagnostics": [],
+      "expected": {
+        "outcome": "unauthenticated"
+      },
+      "actual": {
+        "outcome": "unauthenticated",
+        "checks": {
+          "unauthenticated": true
+        }
+      }
+    }
+  ]
+}
