@@ -1,3 +1,4 @@
+import {startRunCapture} from '../run-capture.mjs';
 import {URL} from 'node:url';
 const {fetch,AbortSignal}=globalThis;
 import process from 'node:process';
@@ -51,6 +52,7 @@ const resultFile=join(directory,'result.json');write(resultFile,result);
 const unique=Date.now().toString(),daemon='opintel-stage5-daemon-'+unique,mail='opintel-stage5-mail-'+unique;
 const daemonVolume=daemon+'-data',nested={...process.env,DOCKER_HOST:'tcp://127.0.0.1:12375',DOCKER_CONTEXT:'',DOCKER_TLS_VERIFY:'',DOCKER_CERT_PATH:'',DOCKER_CLI_HINTS:'false'};
 const outer={...process.env,DOCKER_CLI_HINTS:'false'};
+const captures=[];
 let phase='preflight',sequence=0,child,childDone;
 function advance(name){phase=name;result.phase=name;write(resultFile,result);console.log('Phase: '+name);}
 process.once('beforeExit',()=>{if(result.status==='running'){result.status='failed';result.failure={phase,message:'Acceptance driver ended with an unfinished await.'};write(resultFile,result);console.error('Acceptance driver incomplete: '+resultFile);process.exitCode=1;}});
@@ -82,6 +84,7 @@ function browserCheck(restore=false){
  return JSON.parse(readFileSync(join(directory,'browser-'+(restore?'restored':'initial')+'.json')));
 }
 try{
+ captures.push(await startRunCapture(join(directory,'observations','outer'),{env:outer}));
  console.log('Stage 5 acceptance directory: '+directory);
  result.checks.dockerMemory=acceptanceMemoryPreflight({env:outer});write(resultFile,result);
  console.log('Docker memory allocation: '+(result.checks.dockerMemory.allocatedBytes/1024**3).toFixed(2)+' GiB');
@@ -93,6 +96,7 @@ try{
  advance('empty-docker-daemon');write(join(directory,'daemon.json'),{features:{'containerd-snapshotter':true}});
  run('docker',['run','--detach','--privileged','--name',daemon,'--platform',platform,'--env','DOCKER_TLS_CERTDIR=','--publish','127.0.0.1:12375:2375',...['443','3100','3101','3102','3103','5434'].flatMap(port=>['--publish','0.0.0.0:'+port+':'+port]),'--volume',daemonVolume+':/var/lib/docker','--volume',directory+':'+directory,'--volume',join(directory,'daemon.json')+':/etc/docker/daemon.json:ro',upstream['x-acceptance-images'].dockerDaemon,'--tls=false']);
  await wait(()=>run('docker',['info'],{env:nested,log:false}),'Empty daemon startup');
+ captures.push(await startRunCapture(join(directory,'observations','installed'),{env:nested}));
  assert.equal(run('docker',['image','ls','-q'],{env:nested}),'');assert.equal(run('docker',['ps','-aq'],{env:nested}),'');
  result.checks.emptyDocker={imageCount:0,containerCount:0,daemon,volume:daemonVolume};
  advance('package-inputs');
@@ -188,6 +192,7 @@ finally{
   try{captureProcessLog('docker',composeArgs(kind,'logs','--no-color'),join(directory,kind+'-services.log'),{env:nested});}catch(error){cleanupFailure('retain-'+kind+'-logs',error);}
   try{phase='stop-'+kind;command(kind,'stop');}catch(error){cleanupFailure(phase,error);}
  }
+ for(const capture of captures.reverse()){try{await capture.stop();}catch(error){cleanupFailure('retain-observations',error);}}
  for(const name of [mail,daemon]){const found=spawnSync('docker',['inspect',name],{encoding:'utf8',env:outer});if(found.status===0){
   try{captureProcessLog('docker',['logs',name],join(directory,name+'.log'),{env:outer});}catch(error){cleanupFailure('retain-fixture-logs',error);}
   const stopped=spawnSync('docker',['stop',name],{stdio:'ignore',env:outer,timeout:60000});if(stopped.error||stopped.status!==0)cleanupFailure('stop-fixture',new Error('Fixture stop failed: '+name));

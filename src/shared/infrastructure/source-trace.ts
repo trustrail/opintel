@@ -11,3 +11,8 @@ export type SourcePhaseRecord={failure:SourceFailure;state:'start'|'end'|'failed
 const sourceContext=new AsyncLocalStorage<{last?:SourcePhaseRecord}>();
 export const withSourceTrace=<T>(work:()=>T):T=>sourceContext.run({},work);
 export const lastSourcePhase=():SourcePhaseRecord|undefined=>sourceContext.getStore()?.last;
+
+/** Lease occupancy, not an assertion that PostgreSQL authentication has completed. */
+export function sourceConnectionsEvent(sourceId:string,activeLeases:number,limit:number):void{
+ console.info({event:'engine.source_connections',timestamp:new Date().toISOString(),sourceId,activeLeases,limit});
+}

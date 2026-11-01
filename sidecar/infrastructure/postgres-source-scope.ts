@@ -1,7 +1,7 @@
 import {DEFAULT_SOURCE_CONNECT_TIMEOUT_MS} from '../application/source-connector.js';
 import { Client,types } from 'pg';
 import {retainSourceFailure,type SourceOperation} from '../../src/shared/source-failure.js';
-import {sourceOperationEvent} from '../../src/shared/infrastructure/source-trace.js';
+import {sourceOperationEvent,sourceConnectionsEvent} from '../../src/shared/infrastructure/source-trace.js';
 import { randomUUID } from 'node:crypto';
 import type { SourceCredentialResolver } from '../application/source-connector.js';
 import type { SecretRef } from '../../src/platform/secrets/types.js';
@@ -61,7 +61,7 @@ export class PostgresSourceScope {
     const signal=controller.signal;
     if(parent.aborted)throw new SourceCancelled();
     const count=this.active.get(sourceKey)??0;if(count>=this.limits.maxConnectionsPerSource)throw new SourceBusy();
-    this.active.set(sourceKey,count+1);
+    this.active.set(sourceKey,count+1);sourceConnectionsEvent(sourceKey,count+1,this.limits.maxConnectionsPerSource);
     parent.addEventListener('abort',abort,{once:true});
     const deadline=performance.now()+this.limits.operationTimeoutMs;
     const stop=this.deadlineClock.after(this.limits.operationTimeoutMs,()=>{timedOut=true;abort();});
@@ -82,14 +82,14 @@ export class PostgresSourceScope {
       const connect={sourceId:sourceKey,connectAllowanceMs:seconds*1000};
       sourceOperationEvent(requestId,'scanner','start',1,undefined,connect);
       try{const result=await work(connection,signal);if(signal.aborted)throw new SourceCancelled();sourceOperationEvent(requestId,'scanner','end',1,undefined,connect);return result;}catch(error){sourceOperationEvent(requestId,'scanner','failed',1,retainSourceFailure(error,'scanner',1),connect);if(timedOut)throw new SourceTimeout();throw error;}
-    }finally{stop();parent.removeEventListener('abort',abort);if(cancel)signal.removeEventListener('abort',cancel);await cancellation;const left=(this.active.get(sourceKey)??1)-1;if(left)this.active.set(sourceKey,left);else this.active.delete(sourceKey);}
+    }finally{stop();parent.removeEventListener('abort',abort);if(cancel)signal.removeEventListener('abort',cancel);await cancellation;const left=(this.active.get(sourceKey)??1)-1;if(left)this.active.set(sourceKey,left);else this.active.delete(sourceKey);sourceConnectionsEvent(sourceKey,left,this.limits.maxConnectionsPerSource);}
   }
 
   async run<T>(sourceKey: string, ref: SecretRef, work: (session: SourceSession) => Promise<T>, signal?: AbortSignal, requestId?: string): Promise<T> {
     if (signal?.aborted) throw new SourceCancelled();
     const count = this.active.get(sourceKey) ?? 0;
     if (count >= this.limits.maxConnectionsPerSource) throw new SourceBusy();
-    this.active.set(sourceKey, count + 1);
+    this.active.set(sourceKey, count + 1);sourceConnectionsEvent(sourceKey,count+1,this.limits.maxConnectionsPerSource);
     let client: Client | undefined;
     let expired = false;
     let operation:SourceOperation='credentials';
@@ -189,6 +189,7 @@ export class PostgresSourceScope {
       finally {
         const remaining = (this.active.get(sourceKey) ?? 1) - 1;
         if (remaining === 0) this.active.delete(sourceKey); else this.active.set(sourceKey, remaining);
+        sourceConnectionsEvent(sourceKey,remaining,this.limits.maxConnectionsPerSource);
       }
     }
   }

@@ -269,3 +269,100 @@ source-connect correction has targeted-test, strict-typecheck and lint evidence,
 but this candidate is not verified for release. There is no green native handoff
 revision yet. The earlier native command in this report is historical, not an
 assertion that this correction passed.
+
+
+## Gateway transport observability round (after c967006 / eb8e8ab)
+
+### Step 0 — retained receipts, no diagnostic rerun
+
+A read-only forensic transaction over retained `run_stage.detail` records found
+the same exact message in all five diagnostic refusals:
+“Engine Paired engine is not healthy. Verify its readiness before querying.”
+
+| Diagnostic | Receipt |
+|---|---|
+| Single 1 | 01a19791-769f-74e2-9ffa-1ce107966f0b |
+| Single 2 | 01a19791-7a5f-73fa-87ef-47561fddcd65 |
+| Single 3 | 01a19791-7be9-7927-ab69-c036958c06e3 |
+| Full: cedant/clear | 01a19791-7d6d-78f2-83e7-30f4c03ab44a |
+| Full: policy_id/tokenized | 01a19791-8055-7119-b7c1-3686376efc96 |
+
+Each is the `queryReadyLoaded` condition at
+`src/modules/engines/application/registry.ts:62`: health is not healthy **or**
+verifiedAt is absent. They do not match “has not passed verification” at line 142
+or “no current acknowledged heartbeat” at lines 65/75. The message does not
+identify which side of the line-62 condition held. Refusal stages preserve the
+original message (`src/modules/evidence/infrastructure/write.ts:46`); the public
+receipt view substitutes a generic source-unavailable sentence
+(`src/modules/evidence/infrastructure/read.ts:97–98`). Prior inspection of only
+that view could not make this distinction. Retained read output:
+`/private/tmp/verify01-telemetry-step0-receipts.txt`. No receipt was edited.
+
+### Changes and resolution path
+
+`src/shared/infrastructure/engine-transport.ts` records a generated call ID, path
+without address/query, attempt number, attempt start, observed socket lookup
+completion/address-returned boolean, TCP connection, TLS completion, request
+write invocation, failure and completion timestamps. Successful and failed
+attempts have monotonic DNS/TCP/TLS/write/total durations where observable.
+Unobserved phases remain null; literal IPs explicitly skip DNS. “Written” retains
+its existing meaning: the request has been handed to `req.end`, not proof that a
+peer received it. No address, credential, certificate or body is logged.
+
+DNS-versus-TCP is an observational phase only. `EngineTransportError.phase`, the
+retry predicate, first-three one-second timers, four-attempt maximum, caller
+budgets, agent:false, and the pre-write-only rule remain unchanged. Source and
+admission timing/limits are unchanged from c967006. Source telemetry adds lease
+occupancy without changing acquisition/release logic; leases are distinguished
+from authenticated PostgreSQL sockets.
+
+The phase fixture registers the hostname `host.docker.internal` through
+`scripts/images/verify-installation.mjs` and the existing public engine editor;
+`scripts/verification/verifier/infrastructure/engine.ts:6` takes that override.
+Other installations may register a hostname or literal IP. `EngineRegistry.endpoint`
+passes the registered address (`registry.ts:109`), the probe calls `engineConnect`
+(`src/modules/engines/infrastructure/probe.ts:23`), and transport uses Node HTTPS
+without replacing the default lookup (see `engine-transport.ts`, request call).
+Production construction in `src/platform/http/start.ts:237` supplies no custom
+lookup. Node's hostname path uses `dns.lookup` / `getaddrinfo` on the libuv
+threadpool; IP literals bypass lookup. See the primary
+[Node DNS documentation](https://nodejs.org/download/release/latest-jod/docs/api/dns.html).
+
+The retained gateway container has `UV_THREADPOOL_SIZE` unset, as do the gateway
+service definition (`deploy/gateway/services/api.json`) and installer branch.
+Its effective default is **4**, per the
+[Node CLI documentation](https://nodejs.org/download/release/v22.23.0/docs/api/cli.html#uv_threadpool_sizesize).
+The **16** at `scripts/operator/customer-install.ts:157` is engine-only. Neither
+setting is changed in this round.
+
+### Harness retention
+
+`scripts/run-capture.mjs` runs an independent observer process, including while
+parents block in spawnSync. It retains full timestamped Docker stats for every
+container at five-second intervals, container lifecycle events, safe Docker
+capacity metadata and timestamped service log streams. Samples are appended,
+not reduced to a minimum; collection failures are explicit. Private raw logs stay
+in the run directory and are not copied into review docs. Gate tier stdout/stderr
+(including in-process API/engine events) is also retained in that gate's directory.
+
+Gate runs use `test-results/gate-runs/RUN_ID`; packaged runs use their fresh run's
+`observations` directory. Stage 5 collects both the outer daemon and its nested
+installed daemon. The phase-specific fresh-install driver is now versioned as
+`scripts/images/verify-installation.mjs`, using the approved advertised-address
+pairing flow rather than the obsolete temporary harness alias.
+
+Gate PostgreSQL connection/disconnection logging is enabled for the run, with
+prior settings restored afterward by `scripts/gate-postgres-logging.mjs`. The
+ordinary packaged source fixture also enables those logs, allowing authenticated
+source socket peaks to be correlated with source lease occupancy. This implements
+and replaces the previous gate-correlation backlog note.
+
+### Candidate results
+
+Targeted tests: **151 passed in 19 files**, 196.28 seconds. This includes the new
+DNS/TCP phase cases, existing no-replay/pin/TLS/recovery assertions, source scope,
+engine, V-01, independent observer, retention, package and provisioning contracts.
+Strict typecheck and lint pass. Lint required explicit Node/global imports in
+the new harness files; no application behavior changed. Fresh packaged verification
+and the conditional single full gate are pending. No full gate has run for this
+telemetry candidate.

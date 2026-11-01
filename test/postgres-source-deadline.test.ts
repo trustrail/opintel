@@ -115,7 +115,10 @@ it('the connector maps the timeout response without logging the raw error',async
   clock.advance(100);
   expect(await response).toEqual({ok:true,value:{reachable:false,reason:'Source operation timed out.'}});
   for(const index of [0,2,3])expect(logs[index]).not.toHaveBeenCalled();
-  expect(logs[1]!.mock.calls).toEqual([[{event:'engine.source_operation',timestamp:expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u),requestId:'deadline',operation:'credentials',state:'start',attempt:1}]]);
+  const timestamp=expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u);
+  expect(logs[1]!.mock.calls[0]?.[0]).toMatchObject({event:'engine.source_connections',timestamp,activeLeases:1,limit:1});
+  expect(logs[1]!.mock.calls.at(-1)?.[0]).toMatchObject({event:'engine.source_connections',timestamp,activeLeases:0,limit:1});
+  expect(logs[1]!.mock.calls.filter(([entry])=>entry.event!=='engine.source_connections')).toEqual([[{event:'engine.source_operation',timestamp:expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u),requestId:'deadline',operation:'credentials',state:'start',attempt:1}]]);
   credential.resolve('must-not-be-opened');await new Promise<void>(resolve=>setImmediate(resolve));
   expect(driver.clients).toHaveLength(0);expect(JSON.stringify(logs.map(log=>log.mock.calls))).not.toMatch(/must-not-be-opened|secret:\/\/|Source operation exceeded/u);
  }finally{for(const log of logs)log.mockRestore();}
