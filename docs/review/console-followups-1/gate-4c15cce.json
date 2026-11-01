@@ -1,0 +1,25 @@
+{
+  "commit": "4c15cce343e8ef9866ba0b8f37b9f8145ac70ce5",
+  "runId": "52263ce7-6cec-4eee-bb44-afca5f04eda1",
+  "preflight": {
+    "seconds": 12.910855048,
+    "exitCode": 1,
+    "message": "PostgreSQL did not accept connections within 5 seconds; Redis did not accept connections within 5 seconds"
+  },
+  "memory": {
+    "startAvailableBytes": 1939550208,
+    "minimumAvailableBytes": 1490898944,
+    "minimumAt": "2026-11-01T20:40:22.697Z",
+    "lastSampleAt": "2026-11-01T20:40:22.697Z",
+    "samples": 4,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [],
+  "cleanup": {
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 12.944259900999999,
+  "complete": false
+}

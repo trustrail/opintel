@@ -292,3 +292,28 @@ not a gate-green candidate. All feature commits and this result are pushed to
 MacBook Air follow-up, after checking out the final report revision reported in
 chat: `scripts/release/native.sh REVISION`. This command has not been run here
 and does not represent a passing release verification.
+
+
+## Authorized gate invocation on 4c15cce (2026-11-02)
+
+The user confirmed the missing Playwright image had been pulled and authorized
+one gate invocation on `4c15cce343e8ef9866ba0b8f37b9f8145ac70ce5`.
+Before starting, local `docker image inspect` confirmed
+`mcr.microsoft.com/playwright:v1.63.0-noble` was present with image ID
+`sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27`.
+
+`npm run check` ran once and exited **1**, wall time **12.95 s**:
+
+```text
+Gate memory preflight: 1.81 GiB available RAM; minimum 1 GiB.
+Docker info: 2.570s elapsed; timeout 30s.
+Docker memory: 7.75 GiB; minimum 7 GiB usable.
+Gate failed: PostgreSQL did not accept connections within 5 seconds; Redis did not accept connections within 5 seconds
+```
+
+Log: `/private/tmp/console-followups-full-gate-4c15cce.log`.
+[Structured result](console-followups-1/gate-4c15cce.json).
+No test tier ran (`tiers: []`). The underlying cause of the readiness failures
+was not established by this run. Per the full-gate stop rule, there was no
+retry, fix, packaged acceptance or screenshot run. No merge. This result was
+committed and pushed; the feature code is unchanged from the tested candidate.
