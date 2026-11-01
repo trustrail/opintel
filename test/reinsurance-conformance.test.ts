@@ -111,7 +111,7 @@ it('V-01: ten credentialed agents, two cedants, real MCP and Engine; expectation
   check('Exactly one Needs You finding, for B',findings.map(finding=>finding.poolId),[f.pools[1]]);
  }finally{
   await mkdir('test-results/v01',{recursive:true});
-  await writeFile('test-results/v01/report.json',JSON.stringify({fixture:'src/modules/sources/demo/reinsurance.json#conformance',agents:10,pools:2,expected:{policies:policies.map(r=>r.length),claims:claims.map(r=>r.length),joins:matched.map(r=>r.length),sums:claims.map(rows=>rows.reduce((sum,r)=>sum+r.claim_amount,0))},checks},null,2)+'\n');
+  await writeFile('test-results/v01/report.json',JSON.stringify({fixture:'scripts/verification/reinsurance.json#conformance',agents:10,pools:2,expected:{policies:policies.map(r=>r.length),claims:claims.map(r=>r.length),joins:matched.map(r=>r.length),sums:claims.map(rows=>rows.reduce((sum,r)=>sum+r.claim_amount,0))},checks},null,2)+'\n');
   await f.close();
  }
 },180000);

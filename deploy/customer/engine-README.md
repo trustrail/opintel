@@ -39,15 +39,23 @@ closed. Backups include this private state. Automation uses
 FILE must be mode 600 and contain the exact password bytes, with no newline.
 No password appears in arguments or environment variables. No host Node is needed.
 
-LAN firewall: gateway → engine TCP 3100 (pinned engine API), 3103 (pairing/recovery), and 5434 (demo source);
+LAN firewall: gateway → engine TCP 3100 (pinned engine API), 3103 (pairing/recovery), and 5434 (private readiness Postgres; never seed synthetic data here);
 engine → gateway TCP 3102 (pinned heartbeat) and 3101 (optional ingest receipt).
 No shared Docker network, filesystem or source checkout connects the hosts. Open
 these ports only between the two laptops. External customer databases need their
 own explicit source configuration and network authorization. The bundled empty
-readiness/demo database is durable and is never removed by stop or acceptance.
+readiness database is durable and is never removed by stop or acceptance.
 
 No XQ device bundle belongs in this package: the gateway's demo job alone mounts
 team-issued agent identities. No hosted model is enabled or called by default.
 Queries run against sources in place; result values are held in memory, not
 persisted after the response. Optional spreadsheet ingest writes into the
 customer's own Postgres inside their network. Retain logs and every failed result.
+
+For optional workbook ingest, create `state/ingest/scratch` owned by the operator
+(mode 700) and set `TMPDIR=/ingest/scratch` in `state/runtime.env`, as in the
+existing optional ingest configuration. Keep `/tmp` and `/dev/shm` read-only.
+Configure watched directories, rule snapshots and durable registers separately
+under `/ingest`; restart the engine after changing its configuration. Stop the
+engine before using the packaged local register's `retry` command. These settings
+and commands are identical for generated files and customer submissions.

@@ -15,7 +15,7 @@ import type {ExchangeState,custodyAgents} from './custody.js';
 import type {externalTarget} from './external.js';
 import {RunId} from '../../src/shared/kernel/index.js';
 import type {reinsuranceConformance} from '../../test/fixtures/reinsurance/conformance.js';
-import pack from '../../src/modules/sources/demo/reinsurance.json' with {type:'json'};
+import pack from '../verification/reinsurance.json' with {type:'json'};
 const definition=pack.conformance;
 import type {z} from 'zod';
 

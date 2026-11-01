@@ -10,14 +10,14 @@ import {exportFixture,type ExportFixture} from './fixtures/evidence-export/fixtu
 import {EvidenceExportDescriptor,EvidenceExportRecord,evidenceExportOpenApiDocument} from '../src/shared/api/evidence-export.js';
 resetDatabaseBeforeEach('company');let f:ExportFixture;
 beforeEach(async()=>{f=await exportFixture();});afterEach(async()=>{await f.close();});
-it('M-009/M-010: export filters runs, excludes demo runs and derived deliveries, preserves incomplete provenance and refusal facts',async()=>{
+it('M-009/M-010: export filters runs, includes historically synthetic runs and excludes derived deliveries, preserves incomplete provenance and refusal facts',async()=>{
  const real=await f.run(false),demo=await f.run(true),incomplete=await f.run(null);await f.run(false,'other','prompt','other-agent');
  const link=await f.link({format:'ndjson',filters:{poolId:f.pool,agentId:'export-agent',mode:'query',from:new Date(Date.now()-60000).toISOString(),to:new Date(Date.now()+60000).toISOString()}});
  const response=await fetch(f.base+link.downloadUrl);expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('no-store');expect(response.headers.get('content-type')).toContain('application/x-ndjson');
- const records=(await response.text()).trim().split('\n').map(line=>EvidenceExportRecord.parse(JSON.parse(line)));expect(records.map(r=>r.id).sort()).toEqual([real.id,incomplete.id].sort());expect(records.some(r=>r.id===demo.id)).toBe(false);
- expect(records.find(r=>r.id===incomplete.id)).toMatchObject({status:'incomplete',demoProvenance:'unknown',synthetic:null});
- const completed=records.find(r=>r.id===real.id)!;expect(completed.demoProvenance).toBe('none');expect(completed.elements.map(e=>e.exposedName)).toEqual(['field_1','unknown_field']);expect(completed.versions.policy).toBe(19);
- const filtered=await f.link({format:'ndjson',filters:{outcome:'answered',elementId:f.ids[0]}});expect((await (await fetch(f.base+filtered.downloadUrl)).text()).trim().split('\n')).toHaveLength(2);
+ const records=(await response.text()).trim().split('\n').map(line=>EvidenceExportRecord.parse(JSON.parse(line)));expect(records.map(r=>r.id).sort()).toEqual([real.id,demo.id,incomplete.id].sort());expect(records.find(r=>r.id===demo.id)).toMatchObject({synthetic:true});
+ expect(records.find(r=>r.id===incomplete.id)).toMatchObject({status:'incomplete',synthetic:null});
+ const completed=records.find(r=>r.id===real.id)!;expect(completed.elements.map(e=>e.exposedName)).toEqual(['field_1','unknown_field']);expect(completed.versions.policy).toBe(19);
+ const filtered=await f.link({format:'ndjson',filters:{outcome:'answered',elementId:f.ids[0]}});expect((await (await fetch(f.base+filtered.downloadUrl)).text()).trim().split('\n')).toHaveLength(3);
  const empty=await f.link({format:'ndjson',filters:{poolId:randomUUID()}});expect(await (await fetch(f.base+empty.downloadUrl)).text()).toBe('');
 });
 it('redaction is evaluated at download for both formats; CSV quotes embedded delimiters, newlines and quotes',async()=>{
@@ -44,7 +44,7 @@ it('page boundaries recheck export permission and redaction, and stop without fe
  f.permissions.unredacted=false;expect((await rows.next()).value).toMatchObject({ok:true,value:{request:null,argumentVisibility:'hidden'}});expect(pages).toBe(2);controller.abort();expect((await rows.next()).done).toBe(true);expect(pages).toBe(2);
  pages=0;f.permissions.export=true;const next=f.service.records(f.ctx,link,new AbortController().signal);for(let i=0;i<100;i++)await next.next();f.permissions.export=false;expect((await next.next()).value).toMatchObject({ok:false,error:{code:'forbidden'}});expect(pages).toBe(1);expect((await next.next()).done).toBe(true);
 });
-it('CSV neutralizes spreadsheet formulas in observational identifiers; filters cannot opt into synthetic runs',async()=>{
+it('CSV neutralizes spreadsheet formulas in observational identifiers; unsupported filters remain rejected',async()=>{
  await f.run(false,'SELECT 1','query','=HYPERLINK("https://example.invalid")');const link=await f.link({format:'csv',filters:{}});const rows:unknown=parse(await (await fetch(f.base+link.downloadUrl)).text(),{columns:true});expect(rows).toMatchObject([{agentId:'\'=HYPERLINK("https://example.invalid")'}]);
  const bad=await fetch(`${f.base}/api/v1/projects/${f.ctx.projectId}/exports`,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({format:'ndjson',filters:{includeSynthetic:true}})});expect(bad.status).toBe(400);
 });

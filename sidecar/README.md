@@ -374,96 +374,19 @@ event, UTC timestamp, source/project/filing UUIDs, fixed error category and atte
 Raw reasons, filenames, column names, file contents and cell values are never logged.
 Delivery attempt counts track consecutive failures, reset on success and restart;
 scan failure counts are cumulative for the running register. Retry state resets on restart.
-Demo preparation uses the normal one-second file scan interval and upgrades its
+File discovery uses the normal one-second file scan interval and upgrades its
 legacy 25 ms setting when preparation is rerun; it does not alter other custom intervals.
 
 Receipt and source clients validate and preserve the peer’s error category and
 retryable flag. Invalid envelopes remain transport/protocol failures. Introspection
-records and demo CLI diagnostics retain the category without logging raw peer messages.
+records and operator CLI diagnostics retain the category without logging raw peer messages.
 
-### Reinsurance demo pack (3.11)
+### Synthetic workbook verification
 
-Migration 024 publishes **Bordereaux Store** for `reinsurance-treaty`. The reviewed
-pack data is `src/modules/sources/demo/reinsurance.json`; its SchemaSpec and
-GeneratorSpec match the database seed. It contains twelve synthetic filing parties
-with twelve initial XLSX files and one restatement. Sheets, header rows, decimal
-separators, date formats and premium headers vary. The twelfth file intentionally
-has a merged header and quarantines. Shared treaty references join across the
-landed tables. The fixed seed produces reproducible cell values; these are
-synthetic evaluation files, not customer submissions or the later full evaluation
-fixture with pools and entitlements.
-
-`POST /provision-demo` uses the existing pinned-mTLS envelope and returns the
-configured Secret reference and database name. It accepts only a configured demo
-reference and a landing zone bound to the request's project/source. It neither
-creates databases nor calls `SecretStorePort.store`. For spreadsheet templates it only
-publishes files: the unchanged watcher, identification, extraction and landing
-ports do the rest. A `dependsOn` file is withheld until the predecessor's filename
-appears in the durable register. `supersedes` must reference that same dependency
-and the same party/kind/period. The producer never assigns a filing ID or inserts
-landing rows.
-
-File IDs are safe filename components; delivery names are `id_period.xlsx`.
-The corresponding declared SchemaSpec table is `party_kind`; its name indexes
-`rows` and `columns`. The pack helper exports exact identification rules using
-these names, declared sheet/header/locale and `month_end` period interpretation.
-The helper's month-end convention belongs to this pack's deployment metadata,
-not a default added to ingest. The generator refuses missing/ambiguous objects,
-unknown dependencies and cycles before publishing. A template signature and
-prepared workbooks are cached outside the zone; these are delivery artifacts,
-not arrival history. Retries reuse the bytes and never overwrite an existing
-file. Changed templates require a new zone/source. Stale `.provision-lock` recovery
-uses the same operator procedure as the register lock after an unclean shutdown.
-
-The operator configures the demo target in `service.json`:
-
-```json
-"demo": {
-  "database": "opintel_demo",
-  "credentialRef": "secret://demo/postgres"
-}
-```
-
-Prepare its matching landing zone, reserved source identity and tenant rules before requesting
-files. Keep staging and the zone on the same filesystem for atomic no-replace
-publication. PostgreSQL writes use the zone's declared strategy; there is no
-strategy default in the connector. The development pack setup deliberately
-selects `append_as_at` to demonstrate both versions of the restatement.
-
-For the local development workflow, first run `npm run dev:up`; it creates
-`opintel_demo` without application migrations and passes its URL to Opintel Engine's
-read-only environment secret store. Start with an existing reinsurance project:
-
-```sh
-npm run demo:pack -- prepare PROJECT_ID USER_ID
-# dev:up stops the recorded Opintel Engine before loading the prepared configuration.
-npm run dev:up
-npm run dev:api
-# Open the project’s Data sources screen and click Connect on its demo card.
-# Alternatively, in a second terminal:
-npm run demo:pack -- provision PROJECT_ID USER_ID SOURCE_ID
-```
-
-Preparation creates tenant rules and an empty zone, reserves the source UUID,
-and publishes `demo_source_template.deployment_ref[projectId]` through the operator
-scope. It inserts no `data_source` row and writes no spreadsheet. Repeating prepare
-reuses the reserved identity. Connect inserts the source and queued run atomically.
-The browser and optional provision command use the same registration service,
-which delivers the declared files, waits for ordinary arrival notices, then invokes
-the ordinary `IntrospectionJob` through `SidecarSourceConnector`. The API must run for arrival notices and receipts.
-The intentional merged-header quarantine remains visible in the local register.
-A corrected workbook is a new arrival; changed bytes cannot rewrite its history.
-Use the ordinary local retry command for rule corrections, without changing
-attribution. No entitlement is granted by preparation, delivery or introspection;
-the persisted undecided assertion belongs to item 4.1.
-
-Migration 023 refuses to proceed if legacy credential-less demo rows exist. Back
-up the source metadata and provision the real reference, then backfill during a
-maintenance transaction: drop `credential_matches_origin`, update only the
-identified demo rows to their configured references, add the new non-null check
-from 023, and commit. Run migrations normally afterwards. Never invent a reference
-or clear a live credential to make a migration pass. Rolling 023 down while demo
-sources retain real references intentionally refuses rather than erasing them.
+The engine has no demo configuration or provisioning endpoint. The internal
+`scripts/verification/workbooks` tool writes ordinary files. Connect the database
+with `./sources add`, register through the public API or console, and use ordinary
+landing zones and filing rules. See `deploy/customer/gateway-DEMO.md`.
 
 ### Recovering a failed source
 
@@ -471,9 +394,7 @@ The Data sources screen displays the saved failure message unchanged and offers
 Retry to project administrators. Retry uses `POST /api/v1/sources/:id/introspect`
 with `{ "projectId": "..." }`, authorized by `project#bind_source`. It creates a
 new run on the existing source and preserves prior runs and schema selection.
-For demos, it resumes prepared delivery before introspection. Operators may also
-repeat `demo:pack provision` with the same project, user and reserved source ID.
-An active run is reused; a completed connection is not provisioned again.
+An active run prevents a second scan; previous runs remain readable.
 Do not delete a source to recover a failed run. Existing register IDs, hashes,
 landed rows and supersession links remain authoritative. Fix any reported
 preparation mismatch before retrying. The command returns failure if background
@@ -486,8 +407,8 @@ port names the HTTPS listener; a stale state lock names its file and asks the
 operator to confirm the old process has stopped. Unknown errors do not expose
 raw exception text or customer values.
 
-`dev:up` also checks local landing-zone project/source identities. A prepared demo
-reservation is valid before Connect creates the source row. After a development
+`dev:up` also checks local landing-zone project/source identities against ordinary
+registered sources. After a development
 database reset, an orphaned zone reports its path and project/source IDs; removing
 `tmp/sidecar` and rerunning `npm run dev:up` resolves that development state. This
 is a development reset, not a production recovery procedure. The standalone

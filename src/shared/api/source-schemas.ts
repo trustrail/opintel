@@ -1,19 +1,13 @@
 import { z } from 'zod';
 import {TypeObservationPage} from './type-observations.js';
-import { DemoSourceId, SourceId, RunId, EngineId, PoolId } from '../kernel/value-objects.js';
-import type { SecretRef } from '../../platform/secrets/types.js';
+import { SourceId, RunId, EngineId, PoolId } from '../kernel/value-objects.js';
 import { landingStrategySchema } from '../landing-contract.js';
 export const TestSourceBody = z.strictObject({ engineId:z.uuid().transform(EngineId), kind: z.literal('postgres'), credentialRef: z.string().startsWith('secret://').min(10) });
 export const TestSourceResponse = z.object({ reachable: z.boolean(), reason: z.string().nullable(), schemas: z.array(z.string()) });
 export const CreateSourceBody = TestSourceBody.extend({ name: z.string().trim().min(1).max(80), includeSchemas: z.array(z.string().min(1)), samplingConsent: z.boolean(), receivesLandings: z.boolean(), landingStrategy: landingStrategySchema.nullable() }).refine(v=>v.receivesLandings ? v.landingStrategy!==null : v.landingStrategy===null,{message:'Choose a landing strategy only for a source receiving landings.',path:['landingStrategy']});
-export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),engineId:z.uuid().transform(EngineId).nullable().optional(),name:z.string(),exposedAlias:z.string(),kind:z.string(),origin:z.enum(['customer','demo']),status:z.string(),error:z.string().nullable(),landingStrategy:landingStrategySchema.nullable(),objectCount:z.number().int().nonnegative().optional(),lastLandedAt:z.iso.datetime({offset:true}).nullable().optional(),quarantinedCount:z.number().int().nonnegative().optional(),exposure:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided', 'custody']),count:z.number().int().nonnegative()})).optional(),decisionPools:z.array(z.object({id:z.uuid().transform(PoolId),name:z.string(),undecidedCount:z.number().int().nonnegative(),decisions:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided', 'custody']),count:z.number().int().nonnegative()}))})).optional(),filingCount:z.number().int().nullable(),elementCount:z.number().int(),unsupportedCount:z.number().int().nonnegative(),undecidedCount:z.number().int(),latestIntrospectionId:z.uuid().transform(RunId).nullable(),lastIntrospectedAt:z.iso.datetime({offset:true}).nullable() });
+export const SourceListItem = z.object({ id:z.uuid().transform(SourceId),engineId:z.uuid().transform(EngineId).nullable().optional(),name:z.string(),exposedAlias:z.string(),kind:z.string(),origin:z.literal('customer'),status:z.string(),error:z.string().nullable(),landingStrategy:landingStrategySchema.nullable(),objectCount:z.number().int().nonnegative().optional(),lastLandedAt:z.iso.datetime({offset:true}).nullable().optional(),quarantinedCount:z.number().int().nonnegative().optional(),exposure:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided', 'custody']),count:z.number().int().nonnegative()})).optional(),decisionPools:z.array(z.object({id:z.uuid().transform(PoolId),name:z.string(),undecidedCount:z.number().int().nonnegative(),decisions:z.array(z.object({value:z.enum(['clear','masked','aggregate_only','tokenized','withheld','undecided', 'custody']),count:z.number().int().nonnegative()}))})).optional(),filingCount:z.number().int().nullable(),elementCount:z.number().int(),unsupportedCount:z.number().int().nonnegative(),undecidedCount:z.number().int(),latestIntrospectionId:z.uuid().transform(RunId).nullable(),lastIntrospectedAt:z.iso.datetime({offset:true}).nullable() });
 export const SourceListResponse=z.object({items:z.array(SourceListItem),nextCursor:z.string().nullable()});
 export const IntrospectSourceBody=z.strictObject({projectId:z.uuid()});
-export const FromDemoBody=z.strictObject({demoTemplateId:z.uuid().transform(DemoSourceId)});
-export const Deployment=z.strictObject({sourceId:z.uuid().transform(SourceId),credentialRef:z.string().startsWith('secret://').min(10).transform(value=>value as SecretRef),landingZone:z.string().min(1).nullable(),engineId:z.uuid().transform(EngineId).optional(),sourceName:z.string().min(1).max(80),registrationName:z.string().min(1).max(80).optional()});
-export const DeploymentRef=z.record(z.uuid(),Deployment);
-export const DemoTemplateItem=z.object({id:z.uuid().transform(DemoSourceId),name:z.string(),narrative:z.string().nullable(),prepared:z.boolean(),connected:z.boolean()});
-export const DemoTemplateList=z.array(DemoTemplateItem);
 export type SourceItem=z.infer<typeof SourceListItem>;
 export type NewSource=Omit<z.infer<typeof CreateSourceBody>,'engineId'>&{engineId?:import('../kernel/value-objects.js').EngineId};
 
@@ -28,8 +22,6 @@ export function sourceOpenApiDocument(){
   '/api/v1/sources/{id}':{parameters:[id],delete:{description:'Requires project#bind_source. Archives and retains all historical rows. Conflicts list dependent pools and counts until confirmed with the source name.',...request(ArchiveSourceBody,SourceListItem,'200')}},
   '/api/v1/sources/{id}/introspect':{parameters:[id],post:{description:'Requires project#bind_source. Source must belong to the submitted project. Reuses stored schema selection.',...request(IntrospectSourceBody,SourceListItem,'202')}},
   '/api/v1/projects/{id}/sources/test':{parameters:[id],post:{description:'Requires project#bind_source.',...request(TestSourceBody,TestSourceResponse,'200')}},
-  '/api/v1/projects/{id}/sources/from-demo':{parameters:[id],post:{description:'Requires project#bind_source.',...request(FromDemoBody,SourceListItem,'201'),responses:{'201':response(SourceListItem),'202':response(SourceListItem),'200':response(SourceListItem),default:failure}}},
-  '/api/v1/industries/{id}/demo-sources':{parameters:[id],get:{description:'Requires project#view. Industry must match this project. Deployment secrets are omitted.',parameters:[{name:'projectId',in:'query',required:true,schema:{type:'string',format:'uuid'}}],responses:{'200':response(DemoTemplateList),default:failure}}},
  }};
 }
 

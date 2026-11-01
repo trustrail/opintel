@@ -1,9 +1,9 @@
 import {it,expect} from 'vitest';
-import {migrationDatabase} from './fixtures/migration-database.js';
-import {migrateDown,migrateUp} from '../src/platform/db/migrate.js';
+import {migrationDatabase,migrateDownToVersion} from './fixtures/migration-database.js';
+import {migrateUp} from '../src/platform/db/migrate.js';
 const connection=migrationDatabase();
 it('backfills the earliest retained receipt; new receipts set once, survive deletion/retention, and reject edits',async()=>{
- const db=connection();await migrateDown(db);await db.query("SELECT ensure_evidence_month('2026-01-01'),ensure_evidence_month('2026-02-01')");
+ const db=connection();await migrateDownToVersion(db,'088');await db.query("SELECT ensure_evidence_month('2026-01-01'),ensure_evidence_month('2026-02-01')");
  const industry=(await db.query("INSERT INTO industry(slug,name) VALUES('first-receipt','Industry') RETURNING id")).rows[0].id;
  const company=(await db.query("INSERT INTO company(name,default_region) VALUES('Company','us-east-1') RETURNING id")).rows[0].id;
  const project=(await db.query("INSERT INTO project(company_id,name,industry_id,region) VALUES($1,'Project',$2,'us-east-1') RETURNING id",[company,industry])).rows[0].id;

@@ -1,4 +1,4 @@
-import {issuePairingCode,servePairing,claimEngine} from './engine-pairing.js';
+import {issuePairingCode,servePairing,claimEngine,pairingIdentity} from './engine-pairing.js';
 import {importIdentity} from './identity-import.js';
 import {operatorDiagnostic} from './diagnostics.js';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync,chmodSync,appendFileSync,openSync,readSync,closeSync,lstatSync,renameSync,copyFileSync} from 'node:fs';
@@ -154,7 +154,7 @@ function initialize(){
   mkdirSync(join(state,'sources'),{mode:0o700});chmodSync(join(state,'sources'),0o700);
   const database=secret();runtime.OPINTEL_SECRET_INSTALL_READINESS=`postgresql://readiness:${database}@readiness:5432/readiness`;
   runtime.UV_THREADPOOL_SIZE='16';
-  write('state/gateway-registration.json',{version:1,kind:'engine',address:`https://${address}:3100`,certificate:readFileSync(join(state,'engine.pem'),'utf8'),ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(readFileSync(join(state,'engine.pem'))).fingerprint256,demoSourceUrl:`postgresql://readiness:${database}@${address}:5434/readiness`});
+  write('state/gateway-registration.json',{version:1,kind:'engine',address:`https://${address}:3100`,certificate:readFileSync(join(state,'engine.pem'),'utf8'),ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(readFileSync(join(state,'engine.pem'))).fingerprint256});
   write('state/application.pem',readFileSync(join(state,'engine.pem'),'utf8'),0o600);
   write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000}},0o600);
   Object.assign(vars,{ENGINE_CONFIG_DIRECTORY:host+'/state',ENGINE_STATE_DIRECTORY:host+'/state',ENGINE_ENV_FILE:host+'/state/runtime.env',ENGINE_AUDIT_DIRECTORY:host+'/state/audit',ENGINE_CUSTODY_DIRECTORY:host+'/state/custody',ENGINE_INGEST_DIRECTORY:host+'/state/ingest',ENGINE_XQ_DIRECTORY:host+'/state/xq',ENGINE_BIND_ADDRESS:'0.0.0.0',ENGINE_PORT:'3100'});
@@ -182,7 +182,7 @@ function initialize(){
    service.env_file=[...files,{path:host+'/state/smtp-password.env',format:'raw'}];
   }
  }
- env('state/runtime.env',runtime);env('state/operator.env',{...runtime,...operator,OPINTEL_DEPLOYMENT_PACKAGE:'gateway',OPINTEL_CUSTOMER_JOB:'1',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_DIAGNOSTIC_DISPLAY_DIRECTORY:host+'/state/output',OPINTEL_SOAK_OUTPUT_DIRECTORY:'/output/soak',OPINTEL_DEMO_FIXTURE:'V-01',OPINTEL_DEMO_SEED:'1',OPINTEL_DEMO_SCHEMAS:'soak_policies,soak_claims,soak_recoveries',OPINTEL_SOAK_DURATION:'1800',OPINTEL_SOAK_RATE:'10000'});env('state/package.env',vars);
+ env('state/runtime.env',runtime);env('state/operator.env',{...runtime,...operator,OPINTEL_DEPLOYMENT_PACKAGE:'gateway',OPINTEL_CUSTOMER_JOB:'1',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_DIAGNOSTIC_DISPLAY_DIRECTORY:host+'/state/output',OPINTEL_SOAK_OUTPUT_DIRECTORY:'/output/soak',OPINTEL_SOAK_DURATION:'1800',OPINTEL_SOAK_RATE:'10000'});env('state/package.env',vars);
  for(const name of Object.keys(volumes))volumes[name]={name:installId+'-'+name};
  write('state/project-name',installId+'\n');
  write('state/volumes.list',Object.keys(volumes).map(n=>installId+'-'+n).join('\n')+'\n');
@@ -199,7 +199,7 @@ function auditPermissions(){
 }
 function status(){const value=z.object({kind:z.string(),installId:z.string(),baseUrl:z.string().optional()}).parse(json(join(state,'installed.json')));console.info('Install: '+value.installId);if(value.baseUrl)console.info('Console and owner sign-in: '+value.baseUrl+'/sign-in');console.info('Public identity: trust.json');const identity=z.object({pin:z.string(),address:z.string()}).parse(json(join(root,'trust.json')));console.info('Pinned service address: '+identity.address);console.info('Certificate pin: '+identity.pin);}
 function pair(expectedPin=process.argv[4]){
- const peer=z.object({version:z.literal(1),kind:z.enum(['gateway','engine']),address:z.url(),certificate:z.string().max(32768),ca:z.string().max(32768),pin:z.string(),demoSourceUrl:z.string().optional()}).parse(json(join(state,'incoming.json')));
+ const peer=z.object({version:z.literal(1),kind:z.enum(['gateway','engine']),address:z.url(),certificate:z.string().max(32768),ca:z.string().max(32768),pin:z.string()}).parse(json(join(state,'incoming.json')));
  if(peer.kind===kind)throw new InstallError('Supply the other package identity.');
  const certificate=new X509Certificate(peer.certificate),ca=new X509Certificate(peer.ca);
  if(certificate.fingerprint256!==expectedPin||peer.pin!==certificate.fingerprint256||!certificate.verify(ca.publicKey)||!ca.ca)throw new InstallError('Peer certificate or pin verification failed.');
@@ -208,7 +208,6 @@ function pair(expectedPin=process.argv[4]){
  if(existsSync(join(state,'peer.json'))){const existing=z.object({pin:z.string(),address:z.string()}).parse(json(join(state,'peer.json')));if(existing.pin!==peer.pin||existing.address!==peer.address)throw new InstallError('Peer conflict; existing trust is unchanged.');console.info('Matching peer trust retained.');return;}
  const installed=z.object({address:z.string()}).parse(json(join(state,'installed.json')));
  const localPeer=kind==='gateway'&&endpoint.hostname===installed.address;
- if(kind==='gateway'){const source=new URL(z.string().parse(peer.demoSourceUrl));if(source.protocol!=='postgresql:'||source.hostname!==endpoint.hostname)throw new InstallError('Demo source identity differs from the paired engine.');}
  writeFileSync(join(state,'peer-ca.pem'),peer.ca,{mode:0o600});chmodSync(join(state,'peer-ca.pem'),0o600);
  appendFileSync(join(state,'ca.pem'),'\n'+peer.ca);
  if(kind==='engine'){
@@ -217,9 +216,7 @@ function pair(expectedPin=process.argv[4]){
   config.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
   writeFileSync(join(state,'service.json'),JSON.stringify(config,null,2)+'\n');
  }else{
-  const url=new URL(z.string().parse(peer.demoSourceUrl));if(url.protocol!=='postgresql:'||url.hostname!==endpoint.hostname)throw new InstallError('Demo source identity differs from the paired engine.');
-  if(localPeer){url.hostname='host.docker.internal';const vars=parse(readFileSync(join(state,'package.env'))),heartbeat=new URL(z.string().parse(vars.GATEWAY_HEARTBEAT_URL));heartbeat.hostname='host.docker.internal';writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replace("GATEWAY_HEARTBEAT_URL='"+vars.GATEWAY_HEARTBEAT_URL+"'","GATEWAY_HEARTBEAT_URL='"+heartbeat.href+"'"));}
-  appendFileSync(join(state,'operator.env'),`OPINTEL_SECRET_INSTALL_READINESS='${url.href}'\nOPINTEL_DEMO_DATABASE_URL='${url.href}'\n`);
+  if(localPeer){const vars=parse(readFileSync(join(state,'package.env'))),heartbeat=new URL(z.string().parse(vars.GATEWAY_HEARTBEAT_URL));heartbeat.hostname='host.docker.internal';writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replace("GATEWAY_HEARTBEAT_URL='"+vars.GATEWAY_HEARTBEAT_URL+"'","GATEWAY_HEARTBEAT_URL='"+heartbeat.href+"'"));}
  }
  write('state/peer.json',peer);if(kind==='gateway'){write('state/output/peer.json',{...peer,address:localPeer?'https://host.docker.internal:'+endpoint.port:peer.address});writePairedMetadata();}console.info('Peer identity paired by certificate pin.');
 }
@@ -257,9 +254,21 @@ function rebase(){
  writeFileSync(join(state,'package.env'),readFileSync(join(state,'package.env'),'utf8').replaceAll(saved.hostDirectory+'/',host+'/'));
  writeFileSync(join(state,'installed.json'),JSON.stringify({...saved,hostDirectory:host},null,2)+'\n');
 }
+function removeRetiredConfiguration(){
+ // Project local identity files onto the current public wire shape. Keep trust
+ // material verbatim; unknown retired metadata is not part of that identity.
+ const identity=z.object(pairingIdentity.shape);
+ for(const file of [join(root,'trust.json'),join(state,'gateway-registration.json'),join(state,'peer.json')]){
+  if(!existsSync(file))continue;const saved=json(file),projected=identity.parse(saved);
+  if(JSON.stringify(saved)!==JSON.stringify(projected))writeFileSync(file,JSON.stringify(projected,null,2)+'\n');
+ }
+ const retired=new Set(['OPINTEL_DEMO_DATABASE_URL','OPINTEL_DEMO_FIXTURE','OPINTEL_DEMO_SEED','OPINTEL_DEMO_SCHEMAS']);
+ for(const file of ['runtime.env','operator.env']){const path=join(state,file);if(!existsSync(path))continue;const saved=readFileSync(path,'utf8'),clean=saved.split('\n').filter(line=>!retired.has(line.split('=',1)[0]??'')).join('\n');if(clean!==saved)writeFileSync(path,clean);}
+}
 function hardenConfiguration(config:{services:Record<string,Service>}){
  const uid=process.getuid?.()??65534,gid=process.getgid?.()??65534;
  if(uid===0)throw new InstallError('Run the upgrade as the original non-root operator.');
+ removeRetiredConfiguration();
  let peerCa=readFileSync(join(state,'ca.pem'),'utf8');
  const paired=existsSync(join(state,'peer.json'));
  if(paired){const peer=z.object({ca:z.string(),certificate:z.string(),pin:z.string()}).parse(json(join(state,'peer.json')));const certificate=new X509Certificate(peer.certificate),ca=new X509Certificate(peer.ca);if(!ca.ca||!certificate.verify(ca.publicKey)||certificate.fingerprint256!==peer.pin)throw new InstallError('Saved peer trust is invalid; upgrade retained all credentials.');peerCa=peer.ca;}
@@ -278,7 +287,7 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   writeFileSync(join(state,'application-tls.json'),JSON.stringify({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'})+'\n');
   writeFileSync(join(state,'nginx.conf'),readFileSync(join(state,'nginx.conf'),'utf8').replace(/^user nginx;\n/u,''));
  }else{
-  const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
+  const service=z.record(z.string(),z.unknown()).parse(json(join(state,'service.json')));delete service.demo;service.tls={caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'};
   mkdirSync(join(state,'sources'),{recursive:true,mode:0o700});
   for(const name of ['engine','egress','prepare']){const entry=config.services[name]!;entry.environment={...entry.environment,ENGINE_SOURCE_SECRETS_DIRECTORY:'/source-secrets'};if(!entry.volumes?.some(v=>v.includes(':/source-secrets:')))entry.volumes=[...entry.volumes??[],host+'/state/sources:/source-secrets:ro'];}
   writeFileSync(join(state,'service.json'),JSON.stringify(service,null,2)+'\n');

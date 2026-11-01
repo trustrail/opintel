@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineRoute,errorEnvelopeSchema,cursorPagination } from '../../../platform/http/index.js';
-import { ArchiveSourceBody,IntrospectSourceBody,CreateSourceBody,TestSourceBody,TestSourceResponse,SourceListItem,SourceListResponse,FromDemoBody,DemoTemplateList } from '../../../shared/api/source-schemas.js';
-import { DomainError,ProjectId,SourceId,IndustryId } from '../../../shared/kernel/index.js';
+import { ArchiveSourceBody,IntrospectSourceBody,CreateSourceBody,TestSourceBody,TestSourceResponse,SourceListItem,SourceListResponse } from '../../../shared/api/source-schemas.js';
+import { DomainError,ProjectId,SourceId } from '../../../shared/kernel/index.js';
 import type { SourceRegistrationService } from '../application/source-registration.js';
 const params=z.object({id:z.uuid()});
 const cursor=z.string().max(1024).transform((value,ctx)=>{try{if(!/^[\w-]+$/.test(value))throw new Error();return z.object({project:z.uuid(),source:z.uuid().transform(SourceId)}).parse(JSON.parse(Buffer.from(value,'base64url').toString('utf8')));}catch{ctx.addIssue({code:'custom',message:'Invalid source cursor.'});return z.NEVER;}});
@@ -15,6 +15,4 @@ export function sourceRoutes(service:SourceRegistrationService){return [
  }}),
  defineRoute({method:'POST',path:'/api/v1/projects/:id/sources/test',params,request:TestSourceBody,permission:{resource:'project',id:r=>r.params.id,permission:'bind_source'},response:z.union([TestSourceResponse,errorEnvelopeSchema]),handle:async r=>{const result=await service.test({projectId:ProjectId(r.params.id),userId:r.actor.id},r.body.credentialRef,r.body.engineId);if(!result.ok)throw result.error;return {body:result.value};}}),
  defineRoute({method:'POST',path:'/api/v1/projects/:id/sources',params,request:CreateSourceBody,permission:{resource:'project',id:r=>r.params.id,permission:'bind_source'},response:z.union([SourceListItem,errorEnvelopeSchema]),handle:async r=>{const result=await service.create({projectId:ProjectId(r.params.id),userId:r.actor.id},r.body);if(!result.ok)throw result.error;return {status:201,body:result.value};}}),
- defineRoute({method:'POST',path:'/api/v1/projects/:id/sources/from-demo',params,request:FromDemoBody,permission:{resource:'project',id:r=>r.params.id,permission:'bind_source'},response:z.union([SourceListItem,errorEnvelopeSchema]),handle:async r=>{const result=await service.demo({projectId:ProjectId(r.params.id),userId:r.actor.id},r.body.demoTemplateId);if(!result.ok)throw result.error;return {status:result.value.created?201:result.value.source.status==='pending'?202:200,body:result.value.source};}}),
- defineRoute({method:'GET',path:'/api/v1/industries/:id/demo-sources',params,request:z.undefined(),query:z.object({projectId:z.uuid()}),permission:{resource:'project',id:r=>r.query.projectId,permission:'view'},response:z.union([DemoTemplateList,errorEnvelopeSchema]),handle:async r=>{const result=await service.templates({projectId:ProjectId(r.query.projectId),userId:r.actor.id},IndustryId(r.params.id));if(!result.ok)throw result.error;return {body:result.value};}}),
 ];}

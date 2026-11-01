@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { GeneratorSpec } from '../../src/shared/demo-contract.js';
+import type { GeneratorSpec } from './contract.js';
 import type { DemoFile, DemoObject } from './workbook-port.js';
 
 export function generateRows(spec: GeneratorSpec, file: DemoFile, object: DemoObject): Array<Array<string | null>> {

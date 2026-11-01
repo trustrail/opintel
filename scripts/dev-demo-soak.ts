@@ -18,7 +18,7 @@ import {custodyAvailability} from '../src/modules/release-custody/index.js';
 import {createSourceRuntime} from '../src/modules/sources/infrastructure/source-runtime.js';
 import {PoolKeyCreationResponse} from '../src/shared/api/pool-keys.js';
 import {demoManifest,certificateMapping,certificateForAgent,type DemoManifest} from './soak/manifest.js';
-import pack from '../src/modules/sources/demo/reinsurance.json' with {type:'json'};
+import pack from './verification/reinsurance.json' with {type:'json'};
 import {demoTables,declaredTokenDomain,declaredContributorKey,declaredTreatment,declaredFilter,generateSpecification} from './demo-soak-definition.js';
 import {PostgresRowDecisions} from '../src/modules/entitlements/infrastructure/row-decisions.js';
 import type {Result} from '../src/shared/kernel/index.js';

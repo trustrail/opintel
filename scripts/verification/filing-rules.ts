@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { identificationRulesSchema } from '../../ingest/index.js';
-import type { ProjectId, SourceId } from '../../../shared/kernel/index.js';
-import type { GeneratorSpec } from '../../../shared/demo-contract.js';
+import { identificationRulesSchema } from '../../src/modules/ingest/index.js';
+import type { ProjectId, SourceId } from '../../src/shared/kernel/index.js';
+import type { GeneratorSpec } from './workbooks/contract.js';
 
 function stableId(value: string): string {
   const hex = createHash('sha256').update(value).digest('hex');

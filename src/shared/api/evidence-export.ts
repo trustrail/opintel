@@ -5,7 +5,7 @@ export const ExportFilters=ActivityFilters.extend({elementId:z.uuid().optional()
 export const CreateEvidenceExport=z.object({format:z.enum(['ndjson','csv']),filters:ExportFilters.default({})}).strict().refine(v=>!v.filters.from||!v.filters.to||Date.parse(v.filters.from)<Date.parse(v.filters.to),'The end must be after the start.');
 export const EvidenceExportDescriptor=z.object({id:z.uuid(),projectId:z.uuid(),format:z.enum(['ndjson','csv']),filters:ExportFilters,createdAt:z.iso.datetime({offset:true})});
 export const EvidenceExportStatus=EvidenceExportDescriptor.extend({status:z.literal('ready'),downloadUrl:z.string(),expiresAt:z.iso.datetime({offset:true})});
-export const EvidenceExportRecord=EvidenceDetail.extend({demoProvenance:z.enum(['none','unknown'])});
+export const EvidenceExportRecord=EvidenceDetail;
 export const ExportScope=z.object({projectId:z.uuid()});
 export const ExportDownloadQuery=ExportScope.extend({expires:z.coerce.number().int().positive(),signature:z.string().regex(/^[a-f0-9]{64}$/)});
 export type ExportFilters=z.infer<typeof ExportFilters>;

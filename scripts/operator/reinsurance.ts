@@ -6,7 +6,9 @@ import {setTimeout as pause} from 'node:timers/promises';
 import {privateWrite,privateRead} from './common.js';
 import {PostgresElementDeclarations} from '../../src/modules/catalog/index.js';
 import {RegistryCustodyClient} from '../../src/modules/engines/index.js';
-import {EnvironmentSecretStore,SecretRef} from '../../src/platform/secrets/index.js';
+import {api} from './common.js';
+import {SourceListItem} from '../../src/shared/api/source-schemas.js';
+import {seedOptions} from './seed-options.js';
 import {syntheticSource} from './infrastructure/synthetic-source.js';
 
 
@@ -41,9 +43,9 @@ export async function provisionReinsurance(ctx:{projectId:ProjectId;userId:UserI
  try{manifest=demoManifest.parse(JSON.parse(await privateRead(file)));if(manifest.projectId!==ctx.projectId||manifest.definitionHash!==hash)throw new OperatorConflict('Existing soak manifest is for another project or fixture version');}catch(error){if(!(error instanceof Error&&'code' in error&&error.code==='ENOENT'))throw error;}
  await mkdir(dirname(file),{recursive:true,mode:0o700});
  const persist=async()=>privateWrite(file,manifest);
- const sourceTarget=new URL(await new EnvironmentSecretStore().resolve(SecretRef(credentialRef))),demoTarget=new URL(process.env.OPINTEL_DEMO_DATABASE_URL??'');
- if(sourceTarget.hostname!==demoTarget.hostname||(sourceTarget.port||'5432')!==(demoTarget.port||'5432')||sourceTarget.pathname!==demoTarget.pathname)throw new OperatorConflict('Configured source and explicit demo target differ');
- await syntheticSource(false);
+ const options=await seedOptions();
+ if(!credentialRef.startsWith('secret://sources/'))throw new OperatorConflict('Store the source through ./sources add on the engine first');
+ await syntheticSource(false,options);
  const runtime=createSourceRuntime(registry),outbox=new RelationshipOutbox();
  const declarations=new PostgresElementDeclarations(new RegistryCustodyClient(registry));
  const keys=new PoolKeyService(new PostgresPoolKeys(),new PostgresAgentPresence({publish:async()=>{}}));
@@ -52,10 +54,10 @@ export async function provisionReinsurance(ctx:{projectId:ProjectId;userId:UserI
   const sources:Array<{id:SourceId;exposed_alias:string;status:string}>=[];
   for(const [schema,name] of [['soak_policies','Reinsurance Policies'],['soak_claims','Reinsurance Claims'],['soak_recoveries','Reinsurance Recoveries']] as const){
    let [item]=await withTenant(ctx,tx=>tx.query<{id:import('../../src/shared/kernel/index.js').SourceId;exposed_alias:string;status:string;credential_ref:string;engine_id:string;include_schemas:string[];kind:string;sampling_consent:boolean;receives_landings:boolean}>("SELECT id,exposed_alias,status,credential_ref,engine_id,kind,sampling_consent,receives_landings,(SELECT include_schemas FROM introspection_run WHERE source_id=data_source.id ORDER BY created_at DESC,id DESC LIMIT 1) AS include_schemas FROM data_source WHERE name=$1",[name]));
-   if(!item){const created=unwrap(await runtime.create(ctx,{name,kind:'postgres',credentialRef:credentialRef,engineId,includeSchemas:[schema],samplingConsent:false,receivesLandings:false,landingStrategy:null}));unwrap(await runtime.idle());item={id:created.id,exposed_alias:created.exposedAlias,status:created.status,credential_ref:credentialRef,engine_id:engineId,include_schemas:[schema],kind:'postgres',sampling_consent:false,receives_landings:false};}
+   if(!item){const created=SourceListItem.parse(await api(`/api/v1/projects/${ctx.projectId}/sources`,'POST',{name,kind:'postgres',credentialRef,engineId,includeSchemas:[schema],samplingConsent:false,receivesLandings:false,landingStrategy:null},options.sessionFile));item={id:created.id,exposed_alias:created.exposedAlias,status:created.status,credential_ref:credentialRef,engine_id:engineId,include_schemas:[schema],kind:'postgres',sampling_consent:false,receives_landings:false};}
    if(item.status==='archived'||item.kind!=='postgres'||item.sampling_consent||item.receives_landings||item.credential_ref!==credentialRef||item.engine_id!==engineId||JSON.stringify(item.include_schemas)!==JSON.stringify([schema]))throw new OperatorConflict(name+' is not the declared reinsurance source; refusing to modify it');
    const deadline=Date.now()+120000;
-   for(;;){const [state]=await withTenant(ctx,tx=>tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1',[item!.id]));if(state?.status==='connected')break;if(!state||state.status==='unreachable'||Date.now()>deadline)throw new OperatorConflict('Remote source is not ready; inspect introspection and egress acknowledgment');await pause(1000);}
+   for(;;){await api(`/api/v1/projects/${ctx.projectId}/sources`,'GET',undefined,options.sessionFile);const [state]=await withTenant(ctx,tx=>tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1',[item!.id]));if(state?.status==='connected')break;if(!state||state.status==='unreachable'||Date.now()>deadline)throw new OperatorConflict('Remote source is not ready; inspect introspection and egress acknowledgment');await pause(1000);}
    const [connected]=await withTenant(ctx,tx=>tx.query<{status:string}>('SELECT status FROM data_source WHERE id=$1',[item!.id]));
    if(connected?.status!=='connected')throw new OperatorConflict(name+' is not connected; inspect the source in the console');
    item.status=connected.status;

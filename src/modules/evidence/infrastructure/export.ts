@@ -32,7 +32,7 @@ export class PostgresEvidenceExports implements ExportRepository {
   const a=Buffer.from(expected.value,'hex'),b=Buffer.from(signature,'hex');return a.length===b.length&&timingSafeEqual(a,b)?ok(undefined):err(new DomainError('forbidden','This export download signature is invalid.'));
  }
  async page(ctx:EvidenceContext,descriptor:EvidenceExportDescriptor,after:EvidencePosition|null,limit:number){
-  const {params,where}=activityScope(ctx.projectId,descriptor.filters);params.push(descriptor.createdAt);where.push(`r.started_at<=$${params.length}::timestamptz`,'c.synthetic IS DISTINCT FROM TRUE');
+  const {params,where}=activityScope(ctx.projectId,descriptor.filters);params.push(descriptor.createdAt);where.push(`r.started_at<=$${params.length}::timestamptz`);
   const add=(sql:string,value:unknown)=>{params.push(value);where.push(sql.replace('?',`$${params.length}`));};const f=descriptor.filters;
   if(f.elementId)add('EXISTS(SELECT 1 FROM run_element e WHERE e.run_id=r.id AND e.started_at=r.started_at AND e.element_id=?)',f.elementId);
   if(after){params.push(after.at,after.id);where.push(`(r.started_at,r.id)<($${params.length-1}::timestamptz,$${params.length}::uuid)`);}params.push(limit);

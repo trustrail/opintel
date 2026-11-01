@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   CompanyId,
-  DemoSourceId,
   DomainError,
   ExposedName,
   ElementId,
@@ -38,7 +37,7 @@ describe('shared kernel value objects', () => {
   it('rejects malformed input through every branded factory', () => {
     const factories = [
       CompanyId, ProjectId, UserId, SourceId, ObjectId, ElementId, PoolId,
-      RunId, IndustryId, TermId, RuleId, DemoSourceId, FilingId, SessionId, InviteId,
+      RunId, IndustryId, TermId, RuleId, FilingId, SessionId, InviteId,
     ];
     for (const factory of factories) {
       expect(() => factory('not-a-uuid')).toThrow(InvariantViolation);

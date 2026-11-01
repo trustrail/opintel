@@ -38,12 +38,7 @@ async function main(): Promise<void> {
     try{return await checkQueryReadiness(config,scope);}
     catch(error){if(process.connected)await new Promise<void>(resolve=>process.send?.({event:'engine.readiness_failed',reason:error instanceof QueryReadinessError?error.reason:'engine_process_stopped'},()=>resolve()));throw error;}
   });
-  // Synthetic workbook generation is an operator/development concern, not a
-  // shipping engine payload. Production bundling removes these imports.
-  const demo = config.demo && process.env.NODE_ENV !== 'production'
-    ? new (await import('./demo/provision.js')).SpreadsheetDemoProvisioner(config.landingZones ?? [],config.demo,new (await import('./demo/infrastructure/workbook-writer.js')).DemoWorkbookWriter())
-    : undefined;
-  const host = createSidecarServer({config,tls,custody,execution,...(process.env.ENGINE_EGRESS_CONTROL==='1'?{registerEgress}:{}),build:{...sidecarBuild,queryEngineVersion},demo,connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
+  const host = createSidecarServer({config,tls,custody,execution,...(process.env.ENGINE_EGRESS_CONTROL==='1'?{registerEgress}:{}),build:{...sidecarBuild,queryEngineVersion},connector:createPostgresConnector({secrets,scope,audit,limits:config.limits})});
   let reloadingTrust=false;
   const pairingTrustTimer=process.env.ENGINE_PAIRING_TRUST_RELOAD==='1'?setInterval(()=>{
     if(reloadingTrust)return;reloadingTrust=true;

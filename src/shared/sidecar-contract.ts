@@ -2,7 +2,6 @@ import {egressRegistration,egressRegistered} from './engine-egress-contract.js';
 import {numericProjectSetting} from './project-settings.js';
 import { executionRequest,validationRequest,executionResponse,validationResponse } from './execution-contract.js';
 import { custodyEnvelope,custodyOperations } from './custody-contract.js';
-import { provisionDemoPayload, provisionDemoResponse } from './demo-contract.js';
 import { z } from 'zod';
 import { Timestamp } from './kernel/index.js';
 import {rowPreviewRequest,rowPreviewResponse} from './row-preview-contract.js';
@@ -53,7 +52,6 @@ export function sidecarOpenApiDocument() {
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
     ['/sample', envelope.extend({payload:samplePayload}), sampleResponse],
-    ['/provision-demo', envelope.extend({payload:provisionDemoPayload}), provisionDemoResponse],
     ['/estimate', envelope.extend({payload:estimatePayload}), estimateResponse],
   ] as const;
   const error = z.strictObject({error:z.strictObject({code:z.string(),message:z.string(),requestId:z.string(),retryable:z.boolean(),details:z.record(z.string(),z.unknown()).optional()})});

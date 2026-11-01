@@ -71,20 +71,8 @@ class Industry {
   description: string;
   active: boolean;
   vocabularyVersion: number;           // bumped on any publish
-  demoPackVersion: number;
 }
 
-class DemoSourceTemplate {
-  readonly id: DemoSourceId;
-  readonly industryId: IndustryId;
-  name: string;                        // 'Bordereaux Store'
-  kind: DemoTemplateKind;              // how the demo is produced, not what
-                                       // the resulting source is. Both end up
-                                       // as a data_source of kind 'demo'.
-  schemaSpec: SchemaSpec;              // objects, elements, types, keys
-  generatorSpec: GeneratorSpec;        // seed, row counts, distributions, join keys
-  narrative: string;                   // what this source is for, shown when connecting
-}
 
 class VocabularyTerm {
   readonly id: TermId;
@@ -121,24 +109,26 @@ class VocabularyTerm {
 
 **Four kinds, not one entity.** A metric carries a formula, required columns and a grain rule. A parameter carries a type, enumerated values and a column hint. Collapsing them into one `term` entity would produce a lowest common denominator that helps nobody.
 
-### Demo sources, and why there is no sandbox mode
+### Generated and customer data use ordinary sources (DEMO-01)
 
-**There is no sandbox project, no sandbox mode, and no flag on `Project`.** Every project is real.
+Every project is real. Product behavior never depends on whether its data was
+generated or supplied by a customer. There is no template registration API,
+industry demo availability, engine generator/configuration or provisioning route.
 
-An industry ships a **demo pack** alongside its vocabulary: a set of source templates with realistic schemas, generated data, and cross-source join keys that actually join. A person connects one through the same flow as a customer database. It is tested, introspected, catalogued, entitled, queried and recorded by **the same code**, with no branch anywhere that asks whether a source is real.
+Generate an ordinary database explicitly with `./demo seed --target-file ...`,
+store its connection through the engine's `./sources add`, and register it through
+the normal console or public API. Never seed the readiness database. Internal
+`scripts/verification/workbooks` generates ordinary files; the unchanged landing
+zones and ingest tool land them into customer-owned Postgres exactly like other
+files. The V-01 definition is in `scripts/verification/reinsurance.json`.
 
-What this buys:
+Migrations 090 and 091 convert existing source metadata in place and remove the
+template table and obsolete source values. Catalogue, decisions, pools, landing
+history and issued receipts are preserved. Historical receipt classification
+remains readable but has no behavioral effect. All retained receipts export,
+including historical synthetic records; new writes do not classify data synthetic.
 
-- **Onboarding and evaluation with no database access.** Create a project, connect the demo source for your industry, and the product works end to end on the first day
-- **A demo source and a customer source side by side in one project**, which is what someone evaluating actually wants and which a boolean forbade
-- **No destructive mode transition.** Leaving the demo behind is deleting a source, an ordinary operation with the confirmation we already have
-- **The demo exercises the real introspection path**, so a bug in it is a bug in the product rather than in a special case
-
-**Synthetic is a property of data, derived at write time.** A run is marked synthetic when any source it touched was a demo source, computed from what it actually reached, not from a flag that could disagree with reality. Synthetic runs are excluded from evidence exports and from metering.
-
-**The demo pack is versioned with the industry**, so improving it improves evaluation for every future project in that vertical, exactly as vocabulary does.
-
-**An industry pack therefore has three parts:** the vocabulary, the demo sources, and the discovery question set (§11.2). Slice 3 adds a fourth, fragments and protocols.
+Industry vocabulary and discovery questions remain independent of data generation.
 
 ### EffectiveVocabulary (a read model, not an aggregate)
 
@@ -160,11 +150,10 @@ type EffectiveVocabulary = {
 class DataSource {
   readonly id: SourceId;
   readonly projectId: ProjectId;
-  readonly kind: SourceKind;         // postgres | demo
-  readonly origin: 'customer' | 'demo';
-  readonly demoTemplateId: DemoSourceId | null;   // set when origin is demo
+  readonly kind: SourceKind;         // postgres
+  readonly origin: 'customer';
   name: SourceName;
-  credentialRef: SecretRef;           // required for every source, including demo
+  credentialRef: SecretRef;           // required for every source
   samplingConsent: boolean;
   status: SourceStatus;
   freshness: Freshness;
@@ -173,7 +162,7 @@ class DataSource {
 
 **Invariants**
 - `credentialRef` is a non-null secret reference for every origin. A literal secret fails construction
-- `origin` is immutable. A demo source never becomes a customer source, and the reverse is meaningless
+- `origin` is read-only and always customer after the in-place legacy conversion in migration 090.
 - Deleting a source requires that its dependent entitlements be enumerated to the caller first
 - `samplingConsent` defaults false and can only be set by an explicit command with an audit entry
 
@@ -284,7 +273,6 @@ type RunId        = string & { readonly __brand: 'RunId' };
 type IndustryId   = string & { readonly __brand: 'IndustryId' };
 type TermId       = string & { readonly __brand: 'TermId' };
 type RuleId       = string & { readonly __brand: 'RuleId' };
-type DemoSourceId = string & { readonly __brand: 'DemoSourceId' };
 type FilingId     = string & { readonly __brand: 'FilingId' };
 type SessionId   = string & { readonly __brand: 'SessionId' };
 
@@ -344,7 +332,7 @@ Published in-process after the transaction commits, via an outbox. Handlers are 
 | `EntitlementChanged` | entitlements | pools (recompile view), evidence (audit) |
 | `PoolKeyRotated` | pools | evidence (audit) |
 | `AgentPresenceChanged` | pools | (stream only) |
-| `IndustryPackPublished` | vocabulary (platform) | vocabulary (invalidate effective, re-embed), sources (new demo templates available) |
+| `IndustryPackPublished` | vocabulary (platform) | vocabulary (invalidate effective, re-embed) |
 | `TermChanged` | vocabulary | vocabulary (re-embed), evidence (audit) |
 | `QueryExecuted` | evidence | (Slice 3: knowledge) |
 
@@ -426,18 +414,13 @@ interface Tx {
 }
 
 // modules/sources/domain
-type SourceKind   = 'postgres' | 'demo';
+type SourceKind   = 'postgres';
 
-// How a demo template produces its data. Distinct from SourceKind: a template
-// of either kind yields a data_source whose kind is 'demo'. A 'spreadsheet'
-// template generates files and lands them, exercising the ingest path.
-type DemoTemplateKind = 'postgres' | 'spreadsheet';
-type SourceOrigin = 'customer' | 'demo';
+type SourceOrigin = 'customer';
 type SourceStatus = 'pending' | 'testing' | 'connected' | 'unreachable' | 'archived';
 type Freshness    =
   | { mode: 'live' }
-  | { mode: 'cached'; asOf: Timestamp; maxAgeSeconds: number }
-  | { mode: 'generated' };                       // demo sources
+  | { mode: 'cached'; asOf: Timestamp; maxAgeSeconds: number };
 type LandingStrategy = 'append_as_at' | 'table_per_filing';
 
 // modules/pools/domain
@@ -888,8 +871,8 @@ interface SourceConnector {
 }
 type TopValue = { value: string; frequency: number };
 
-// modules/sources: what a demo source template declares. Both are data, not
-// code: a template is published with an industry pack and never executes.
+// Internal verification inputs, outside application/engine code.
+// See scripts/verification/workbooks/contract.ts; no product API accepts these.
 type SchemaSpec = {
   schemas: Array<{
     name: string;
@@ -1278,7 +1261,6 @@ const IndustryListItem = z.object({
   name: z.string(),
   description: z.string().nullable(),
   inheritedTermCount: z.number().int(),
-  hasDemoPack: z.boolean(),
 });
 ```
 
@@ -1296,7 +1278,6 @@ const IndustryListItem = z.object({
 
 **GET /industries is platform scope and needs only authentication**. Industries are shared across every customer, so there is nothing tenant-specific to authorize. It is not paginated: the list is short by construction, and a vertical Opintel has not built a pack for should not be in it.
 
-**hasDemoPack tells the create screen whether evaluation is possible without a database**. An industry with no pack is still a legitimate choice, and the screen says so rather than hiding it.
 
 ### Invitation payloads
 
@@ -1405,7 +1386,6 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 | Method | Path |
 |---|---|
 | POST | `/projects/:id/sources` |
-| POST | `/projects/:id/sources/from-demo` | `{ demoTemplateId }`. Provisions and introspects. Same downstream path as any source |
 | POST | `/projects/:id/sources/test` (returns assignment-first guidance; no pre-save source contact) |
 | GET / PATCH / DELETE | `/sources/:id` |
 | POST | `/sources/:id/introspect` |
@@ -1423,7 +1403,6 @@ GET /projects/:id/members returns `{ items: ProjectMemberListItem[], nextCursor:
 |---|---|---|
 | GET | `/industries` | Platform scope. Name, slug, and inherited counts for the create-project picker |
 | GET | `/industries/:id` | Includes example terms, so the picker can show what the choice brings |
-| GET | `/industries/:id/demo-sources` | The demo pack for an industry. Name, narrative, what it demonstrates |
 | GET | `/projects/:id/vocabulary` | **The effective merge.** Every term with `source: inherited \| project` |
 | POST | `/projects/:id/vocabulary/terms` | Creates a project-scope term, overriding an inherited one if names collide |
 | PATCH / DELETE | `/vocabulary/terms/:termId` | Project scope only. Industry terms are not writable here |
@@ -1564,8 +1543,8 @@ redaction policy. NDJSON has one object per line; CSV has one run per row with
 the same fields, fixed header columns, empty cells for null, and nested evidence
 as JSON cells. CSV quotes cells and doubles embedded quotes; text that could be
 interpreted as a spreadsheet formula receives a leading apostrophe. NDJSON
-retains that text exactly when authorised. Both use the redacted detail schema
-plus `demoProvenance: 'none'|'unknown'` described in §4.6.
+retains that text exactly when authorised. Both use the redacted detail schema. Historical recorded synthetic fields remain
+readable and do not exclude receipts from exports.
 
 The HTTP writer awaits backpressure and stops database paging on disconnect.
 An error before output uses the standard error envelope; an error after output
@@ -1670,7 +1649,7 @@ const SourceListItem = z.object({
 
 **Source re-introspection and recovery.** `POST /sources/:id/introspect` accepts `{ projectId }` and returns 202 with SourceListItem. The project identifies the tenant scope; `project#bind_source` is checked before the source is read, and a source outside that project returns 404. The source is locked while checking for an active run and enqueueing a new one. Archived sources and duplicate active runs return conflict. Retry keeps the existing schema selection and sampling consent. Queued/active runs appear as pending; a new run clears the displayed error without changing earlier runs.
 
-Every non-archived source row offers Re-introspect to administrators, in every state. The failed-source Retry action also uses this endpoint. Re-introspection is ordinary catalogue maintenance, not only error recovery. An active run does not hide or disable the action: the server refuses with conflict, naming the active run in its message and `details.runId`; the console links to that run. Archived sources offer no action and remain refused at the server. For a demo source it resumes the prepared delivery before introspection. Repeating `POST /projects/:id/sources/from-demo` (or `demo:pack provision`) reuses the reserved source, verifies its project/template/credential/name/strategy binding and preserves prior runs and arrivals. A new source returns 201; resumed or already active work returns 202; an already completed connection returns 200. No deletion is part of recovery. Only one new run is queued. The worker claims the run in Postgres before provisioning, so API and CLI workers cannot prepare the same run concurrently. Sidecar replay keeps file bytes, filing IDs, hashes and provenance unchanged.
+Every non-archived source row offers Re-introspect to administrators, in every state. The failed-source Retry action also uses this endpoint. Re-introspection is ordinary catalogue maintenance, not only error recovery. An active run does not hide or disable the action: the server refuses with conflict, naming the active run in its message and `details.runId`; the console links to that run. Archived sources offer no action and remain refused at the server. No template preparation runs. The worker claims an ordinary introspection run in Postgres before source contact; failed scans retain identity and history.
 
 **DELETE /sources/:id archives**. Requires project#bind_source. The source leaves every pool's view immediately and its catalogue and entitlement rows are retained, because historical evidence records reference them and must stay explainable.
 
@@ -1764,22 +1743,9 @@ const IntrospectionRunView = z.object({
 
 **landingStrategy is required when receivesLandings is true**, refused otherwise.
 
-**`demo_source_template.deployment_ref` is a map keyed by project id:**
-
-```ts
-type DeploymentRef = Record<string, {
-  sourceId: SourceId;        // reserved at prepare, inserted at Connect
-  credentialRef: SecretRef;
-  landingZone: string | null;
-  sourceName: string;
-}>;
-```
-
-**Preparation reserves the source id and inserts nothing into `data_source`.** The sidecar binds its landing zone to that project and source at prepare time, because it needs them before any file arrives. The application creates the `data_source` row only when someone clicks Connect.
-
-**A project with a prepared template therefore still has no sources.** The offer is visible, nothing is provisioned, and E2-013 holds. Preparation is deployment work; connection is a decision someone makes.
-
-**A template with no entry for this project is not connectable there.** `POST /sources/from-demo` returns `dependency_unavailable`, and the card says the pack is not provisioned for this project rather than failing on click.
+**Sources have one registration path.** A source is saved and assigned before
+connection/introspection. Source IDs are not reserved through templates. Files
+use a normally registered source and ordinary landing configuration.
 
 Source listing uses `{ items: SourceListItem[], nextCursor: string | null }`,
 with the standard `cursor` and `limit` query parameters. Counts exclude removed
@@ -1788,19 +1754,11 @@ catalogue objects/elements; filing counts include every registered outcome.
 run without presenting it as still pending. The source’s durable reachability
 status remains separate.
 
-`GET /industries/:id/demo-sources?projectId=...` checks `project#view` and that the
-industry matches the project. It returns `{ id, name, narrative, prepared,
-connected }[]`; deployment references are never sent to the browser. Both connect
-mutations invalidate `dataSource.lists` and `project.stats`.
-
-Source and initial introspection run are saved in one transaction. The run keeps
-the initiating user and explicit sampling-consent decision in its progress
-metadata. The application dispatches it after commit; listing sources resumes
-queued registration work after an application restart. Demo introspection waits
-for ordinary landed/quarantined/duplicate arrival notices so it cannot catalogue
-an empty database before the watcher has processed the pack. Failed preparation
-is recorded on the run; the source row and any landed files remain available.
-
+Source creation invalidates `dataSource.lists` and `project.stats`. Source and
+initial introspection run are saved in one transaction, retaining the initiating
+user, schema selection and explicit sampling consent. Dispatch follows commit;
+listing sources resumes queued ordinary introspection after a restart. There is
+no generator dispatch, reservation or template retry branch.
 
 ### Catalogue tree
 
@@ -2200,10 +2158,9 @@ raw driver errors, configuration values and credentials are not logged. Rule
 snapshots, landing paths/state/locks, TLS components and the listener have distinct
 diagnostics. Cleanup preserves the initial failure. Development `dev:up` checks
 landing-zone identities against the application database before starting the
-sidecar: the project must exist, and the source must either be connected or
-reserved in `demo_source_template.deployment_ref` under that project (E2-013).
+sidecar: the project and its normally registered source must exist.
 A failure names the zone, project and source IDs, distinguishes a missing project
-from a missing source/reservation, and explains that removing `tmp/sidecar` and
+from a missing source, and explains that removing `tmp/sidecar` and
 rerunning `npm run dev:up` resolves stale development state after a database reset.
 This check runs only in development bootstrap; the standalone sidecar has no
 application startup dependency.
@@ -2378,19 +2335,9 @@ The console's source expansion selectors are absent from the master stylesheet. 
 
 
 
-// POST /provision-demo
-```ts
-type ProvisionDemoPayload = {
-  templateId: DemoSourceId;
-  schemaSpec: SchemaSpec;
-  generatorSpec: GeneratorSpec;
-  landingZone: string | null;      // set for spreadsheet templates
-};
-type ProvisionDemoResponse = { credentialRef: SecretRef; database: string };
-```
-
-**The sidecar provisions demo data because demo data is still the customer's environment**. A spreadsheet template writes files into the landing zone and stops: the watcher picks them up through the ordinary path, with no special provisioning route
-
+There is no engine provisioning operation for generated data. Internal tools
+produce ordinary databases or workbook files; registration and ingest use the
+same operations as customer sources.
 
 ### Custody payloads
 
@@ -2433,25 +2380,22 @@ type StatusResponse = { currentVersion: number | null;
 
 **Rotate and restore are prepare, then commit.** Prepare stages an immutable candidate and returns its sentinel. The application compares it, then commits that exact candidate by id. For a restore, the sentinel must equal the one stored for that version, or the application does not commit. For a rotation, there is no earlier sentinel to compare against, so the application records the new one at commit and immediately runs a rehearsal against it. A candidate is single-use and expires after 10 minutes; committing an expired or unknown candidate returns `conflict`. An uncommitted rotation candidate is deleted from store and escrow. That doesn't breach K4, because a key that never became current never produced a token.
 
-### Bootstrap. Pre-provisioned, not a writable secret store.
+### Bootstrap: ordinary source credentials
 
-**The sidecar does not create databases**. /provision-demo writes schema and rows into a database that already exists, whose credential the operator configured at the same time as everything else in service.json. Creating databases would need an administrative credential in the sidecar, which is a larger privilege than anything else it holds, for a convenience.
+The engine resolves operator-provisioned references from its source secret store.
+The internal seed tool writes to an explicitly named ordinary database. It does
+not configure an engine database or invoke an engine provisioning route. Connect
+that database with `./sources add`, then register it through the public source API.
 
-**In development the demo database is a second database on the Compose Postgres**, created by dev:up, with its reference in the environment secret store. In a deployment it is whatever the customer provisions, and the six-week engagement configures it.
+### Item 3.11 replacement: internal workbook inputs (DEMO-01)
 
-### Item 3.11 implementation: demo delivery
-
-The reinsurance template is published by migration 024 from
-`src/modules/sources/demo/reinsurance.json`: twelve initial filing-party workbooks
-and a thirteenth restatement. The sidecar demo target declares `database` and
-`credentialRef`; only zones using that reference can receive demo files.
-Files are named `id_period.xlsx`; the SchemaSpec object named `party_kind` supplies
-columns and GeneratorSpec row counts. Dependencies reference earlier file IDs,
-not filenames or periods. Prepared workbooks and their template signature stay
-outside the zone; retries publish the same bytes without replacement. Arrival
-authority remains the ordinary register. See `sidecar/README.md` for bootstrap,
-local commands and migration rollback/backfill constraints.
-
+`npm run demo:pack -- OUTPUT_DIRECTORY` writes the versioned ordinary workbooks.
+It has no landing, registration, reservation or provisioning logic. Generate files
+outside the engine and deliver them through ordinary landing zones and filing
+rules. The engine holds merged headers and retains restatements through the same
+register, extraction and landing code as customer files. Generator determinism,
+header/locale variations, held merged headers and restatement preservation remain
+tested. See `deploy/customer/gateway-DEMO.md` for the ordinary source/seed workflow.
 
 
 ---
@@ -2796,7 +2740,7 @@ Every route in §2.5 carries one of these. Public routes declare `public` explic
 
 **A tenant table is one whose rows belong to exactly one project**. The inventory is: data_source, introspection_run, catalog_object, catalog_element, element_stats, pool, pool_key, pool_source_binding, entitlement, bulk_decision, bulk_entitlement_request, pattern_rule, introspection_completed, pattern_rule_application, agent_presence, query_run, run_completion, run_element, run_stage, synonym_candidate.
 
-**Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, demo_source_template, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp, company_idp_sign_in.
+**Not tenant tables**, and therefore not covered: industry, vocabulary_term at industry scope, user_account, user_identity, magic_link_token, user_session, mail_outbox, schema_migration, company_idp, company_idp_sign_in.
 
 **term_synonym inherits its vocabulary_term's scope**, so it carries no project_id. Its own forced RLS policies consult the parent: reads require a visible term, tenant writes require a term in app.project_id, and platform-admin writes require an industry term. This also protects direct writes and reparenting. Dedicated integration tests cover it because project_id-based discovery cannot find it.
 
@@ -3162,18 +3106,7 @@ create unique index term_unique_industry on vocabulary_term (industry_id, kind, 
 create unique index term_unique_project  on vocabulary_term (project_id, kind, lower(name))
   where scope = 'project' and active;
 
-create table demo_source_template (
-  id             uuid primary key default gen_random_uuid(),
-  industry_id    uuid not null references industry(id) on delete cascade,
-  name           text not null,
-  kind           text not null check (kind in ('postgres','spreadsheet')),
-  narrative      text,
-  schema_spec    jsonb not null,      -- objects, elements, types, keys
-  generator_spec jsonb not null,      -- seed, row counts, distributions, join keys
-  pack_version   integer not null default 1,
-  active         boolean not null default true,
-  unique (industry_id, lower(name))
-);
+-- Template metadata was removed by migration 091 after in-place conversion in 090.
 
 create table term_synonym (
   id         uuid primary key default gen_random_uuid(),
@@ -3247,11 +3180,10 @@ create index embedding_scope on embedding (owner_type, scope_type, industry_id, 
 create table data_source (
   id             uuid primary key default gen_random_uuid(),
   project_id     uuid not null references project(id) on delete cascade,
-  kind           text not null check (kind in ('postgres','demo')),
-  origin         text not null default 'customer' check (origin in ('customer','demo')),
-  demo_template_id uuid references demo_source_template(id) on delete restrict,
+  kind           text not null check (kind = 'postgres'),
+  origin         text not null default 'customer' check (origin = 'customer'),
   name           text not null,
-  credential_ref text,                             -- required secret://... for every origin
+  credential_ref text not null,                    -- ordinary secret://... reference
   sampling_consent boolean not null default false,
   receives_landings boolean not null default false,
   landing_strategy text check (landing_strategy in ('append_as_at','table_per_filing')),
@@ -3261,9 +3193,8 @@ create table data_source (
   last_introspected_at timestamptz,
   created_at     timestamptz not null default now(),
   unique (project_id, lower(name)),
-  constraint credential_matches_origin check (
-    credential_ref is not null and credential_ref like 'secret://%' and
-    (origin = 'customer' or (origin = 'demo' and demo_template_id is not null))
+  constraint source_credential_reference check (
+    credential_ref is not null and credential_ref like 'secret://%'
   ),
   exposed_alias  text not null,        -- assigned once at creation, immutable
   unique (project_id, exposed_alias),
@@ -4298,25 +4229,19 @@ leaves the header incomplete, rather than inventing a null key usage fact.
 `source_plan` captures the prepared object/element declarations and per-source
 origin, freshness mode, landing strategy and last introspection timestamp.
 `freshness.sources` contains those captured facts for sources the sidecar reports
-contacting. `synthetic` is derived from demo origin among those sources, never
-from a project flag or merely a bound source. Stages retain refusal code and
+contacting. New completions omit synthetic classification; historical recorded
+classification remains read-only and does not affect behavior. Stages retain refusal code and
 human reason, and execution path, engine version and aggregate inspection facts.
 Neither result rows nor credentials enter the writer. Query mode leaves CIL and
 generated SQL null; prompt composition remains the later prompt items.
 
-**Exports exclude known demo-touching runs, but include incomplete runs with
-unknown provenance.** A completed record with `synthetic = true` is excluded
-as a whole, based on recorded source contact rather than today's source or
-project configuration. A header without completion remains in the export with
-`status: 'incomplete'`, `synthetic: null` and `demoProvenance: 'unknown'`. It is
-not known to have touched a demo source. The header proves that a question was
-asked and did not reach a recorded completion; omitting it would hide that audit
-fact and create an unexplained discrepancy with Activity. Unknown provenance
-must not be changed into an assertion of no demo contact, or filtered out as
-though demo contact were known. Completed non-synthetic rows carry
-`demoProvenance: 'none'`.
+**Exports include every retained receipt.** Neither SQL nor application code
+filters receipts by historical synthetic/origin fields. A header without completion
+remains incomplete, with `synthetic: null`; no completion is invented. Historical
+`synthetic: true` and recorded source origins remain readable without updating any
+issued record. The former computed `demoProvenance` export field is removed.
 
-Synthetic derived element deliveries (released/aggregated entries with no source
+Derived output-column deliveries (released/aggregated entries with no source
 element ID) are omitted from exports, including null-ID object declarations.
 They were not fields read from a source. Null-ID withheld/undecided refusal facts
 remain, explicitly stating non-delivery. This projection never changes stored
@@ -5106,7 +5031,7 @@ models. Host/hypervisor swap, dumps and collectors remain operator controls.
 
 **The grain rule test.** A metric whose formula aggregates and which has no grain rule refuses composition rather than warning. A warning on a wrong number is not a fix.
 
-**The demo source tests.** A demo source connects, introspects and catalogues through exactly the same code path as a Postgres source, asserted by spying on the connector port rather than by inspecting output. A project holds a demo source and a customer source at once and queries across both. A run touching a demo source is marked synthetic from the sources it reached, and a run touching only customer sources is not. Synthetic runs never appear in an export. Deleting a demo source is the ordinary source deletion, with no special path.
+**The ordinary-source parity tests.** Explicit database seeding preserves unrelated data and refuses conflicting tables. Generated workbooks land through ordinary ingest; merged headers are held and restatements retain their original. Forward conversion preserves source IDs, credentials, engine assignment, catalogue, decisions, pools, landings and issued receipts. Historical synthetic receipts export normally. V-01 expectations and its treatment, custody, lifecycle and receipt oracle remain unchanged.
 
 **The determinism test.** The same prompt with the same vocabulary version produces identical classification across ten runs.
 

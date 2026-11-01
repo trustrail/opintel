@@ -115,14 +115,11 @@ describe('5.11 durable evidence writer',{timeout:60000},()=>{
   expect((await f.query('SELECT field_2 FROM warehouse.public.records')).isError).not.toBe(true);
   expect((await records(f))[2]).toMatchObject({versions:{policy:first.versions.policy+1,tokenKeyVersionSelected:null},used:null});
  });
- it('ING-24: persists the landing strategy in force; synthetic follows reached source origin',async()=>{
+ it('ING-24: persists the landing strategy in force; new receipts do not classify data as synthetic',async()=>{
   const f=await fixture();
   await withTenant(f.ctx,tx=>tx.query("UPDATE data_source SET landing_strategy='append_as_at' WHERE id=$1",[f.source]));
-  const [p]=await withPlatform(tx=>tx.query<{industry_id:string}>('SELECT industry_id FROM project WHERE id=$1',[f.ctx.projectId]));
-  const [t]=await withPlatformAdmin({actor:{kind:'system',id:'evidence-test'}},tx=>tx.query<{id:string}>("INSERT INTO demo_source_template(industry_id,name,kind,schema_spec,generator_spec) VALUES($1,$2,'postgres','{}','{}') RETURNING id",[p!.industry_id,'Evidence demo '+f.ctx.projectId]));
-  await withTenant(f.ctx,tx=>tx.query("UPDATE data_source SET origin='demo',demo_template_id=$2 WHERE id=$1",[f.source,t!.id]));
   const response=await f.query('SELECT field_1 FROM warehouse.public.records');expect(response.isError,JSON.stringify(response)).not.toBe(true);
-  expect((await records(f))[0]).toMatchObject({synthetic:true,source_plan:{sources:[{id:f.source,landingStrategy:'append_as_at'}]},freshness:{sources:[{landingStrategy:'append_as_at'}]}});
+  expect((await records(f))[0]).toMatchObject({synthetic:false,source_plan:{sources:[{id:f.source,landingStrategy:'append_as_at'}]},freshness:{sources:[{landingStrategy:'append_as_at'}]}});
   expect((await f.query('SELECT 1')).isError).not.toBe(true);expect((await records(f))[1]).toMatchObject({synthetic:false,used:null,versions:{tokenKeyVersionSelected:null}});
  });
 });

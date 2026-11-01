@@ -59,7 +59,7 @@ and `soak`. Invoke them through this same wrapper and project name:
 
 ```sh
 ./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway provision
-./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway demo-tools seed
+./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway demo-tools seed --target-file /output/source-uri --fixture V-01 --seed 1 --schemas soak_policies,soak_claims,soak_recoveries
 ```
 
 They use `GATEWAY_OPERATOR_ENV_FILE`, the migration job's network/database

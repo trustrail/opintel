@@ -11,13 +11,13 @@ two cedant B identities.
 From the gateway package directory, run:
 
 ```sh
-./demo soak 1800
+./demo soak 1800 --target-file /output/source-uri --source-ref secret://sources/v01 --session-file /output/owner.cookie
 ```
 
 The duration is seconds; 1800 is the shipped acceptance duration. Preparation
 requires the credential grace window to cover the requested run. This command runs the
 shipped demo-tools image. It verifies existing owner authority and XQ connectivity,
-provisions the demonstration without overwriting decisions or rotating keys,
+registers ordinary sources through the public API after ./sources add, without overwriting decisions or rotating keys,
 then seeds, renews the pool-key grace window, prepares and soaks, in that order.
 It reads settings and targets from the installation's private configuration.
 It requires no checkout, host Node, Compose command, browser-session export or
@@ -44,3 +44,5 @@ an old redemption capability, and callers may need a fresh governed query.
 The lower-level `./demo seed` and `./demo prepare` remain available after the
 first successful configuration. Use `./demo soak DURATION` for a complete later
 soak so lifecycle renewal cannot be accidentally omitted.
+
+Seed only an explicitly named ordinary database with `./demo seed --target-file /output/source-uri --fixture V-01 --seed 1 --schemas soak_policies,soak_claims,soak_recoveries`. The engine readiness database is excluded. The private URI and normal owner-session files live under `state/output` (mode 600). No installer demo settings or pairing connection URLs exist.

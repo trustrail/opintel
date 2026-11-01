@@ -1,5 +1,5 @@
 /** Seeder-owned generator and expectations. Never imports a database or a query reader. */
-import pack from '../src/modules/sources/demo/reinsurance.json' with {type:'json'};
+import pack from './verification/reinsurance.json' with {type:'json'};
 import {specification,type Specification,type Scenario} from './soak/specification.js';
 const base=pack.conformance;
 type Row=Record<string,string|number|boolean|null>;
