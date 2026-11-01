@@ -519,9 +519,232 @@ Targeted validation: **11 tests passed in three files**, including fixture setup
 cause reporting, HTTP context/redaction, standalone artifact and DEP-008. Strict
 typecheck and lint passed. An initial direct Vitest invocation was refused before
 tests by datastore safety; validation used the repository normal-test bootstrap.
-The one existing-install run is pending. The original run
+The one existing-install run failed at session setup, as recorded below. The original run
 reports remain intact; new reports will have a separate directory. The prior
 harness stopped the installed services and removed its ephemeral source fixture.
 Restarting the same installed packages and recreating that ordinary external
 fixture at its retained target is environment setup, not a fresh archive install.
 Only the internal verifier artifact will be rebuilt.
+
+
+### Existing-install result — stopped at session prerequisite
+
+Verifier-only implementation commit: **8a1ffc8d550012ddb6e130f088e9a7799d712fcd**.
+Only the internal verifier artifact was rebuilt:
+`tmp/verify01-errors-8a1ffc8-verifier.tar.gz`. Installed product images and archives
+remain **e31e596**; the new JSON records both identities. No product code changed.
+The same gateway and engine packages were restarted. The prior harness had
+removed its ordinary external PostgreSQL fixture; it was recreated using the
+retained name, port, environment file, SQL fixture and pinned image. Its stopped
+container is preserved after this run for diagnosis.
+
+The single verifier run exited **1**. At **2026-11-01 16:41:30.606 UTC**, its
+session setup request failed:
+
+```json
+{
+  "step": "session",
+  "route": "/api/v1/auth/me",
+  "httpStatus": 401,
+  "refusalCode": "unauthenticated",
+  "cause": null,
+  "errorClass": "Error",
+  "errorCode": null,
+  "message": "Public API GET refused HTTP 401: Sign in is required."
+}
+```
+
+This diagnostic is present in **both** `all/result.json` and `all/matrix.md` at
+`tmp/verify01-packaged-oOsQB0/error-reporting-94xIUk`. The administrator cookie
+retained from the earlier run was rejected. **Why it was rejected (expiry,
+revocation or another session condition) is not established by this response.**
+No replacement login, fix or verifier rerun followed.
+
+Counts: **115 selected; 0 passed; 0 failed; 115 not exercised**; report complete,
+not interrupted, overall failed. Fixture setup was not reached, so the earlier
+fixture exception remains undiagnosed. Custody-only, missing-session, optional
+traffic and the full gate were **not run**. There was no cell execution or
+corresponding gateway-to-engine connection failure to diagnose in this selection.
+
+The existing-install harness captured container logs, events and stats throughout
+startup and verification in `error-reporting-94xIUk/observations`. Its manifest
+records 23 successful sampling cycles and zero failed cycles (scheduled interval
+5 seconds; actual command windows remain in the raw series). Services were
+stopped after the failed run without deleting their state or this external source.
+
+The requested stop rule applies. The implementation commit is local; there was
+**no push, merge or full gate**. This final result updates the review report only.
+
+## Existing-install round with a fresh owner sign-in (8a1ffc8 verifier)
+
+### Step 0 — session settings from code only
+
+Default console session **idle lifetime: 8 hours**; **absolute lifetime: 30 days**
+(`src/modules/identity/infrastructure/redis-session-store.ts:19–20`). Expiration
+compares lastSeenAt against the stored idle policy and createdAt against the
+absolute lifetime (`:45–48`). Activity refreshes lastSeenAt (`:100–104`), and Redis
+TTL is the smaller of idle lifetime and remaining absolute lifetime (`:188–197`).
+The cookie itself has no Max-Age/Expires (`src/modules/identity/api/session-cookie.ts:5–6`).
+
+Production supplies `sessionIdlePolicy` (`src/platform/http/start.ts:218`). This
+uses the shortest company `idle_timeout_mins` among the user's direct company and
+project memberships, falling back to 480 minutes
+(`src/modules/identity/infrastructure/session-policy.ts:4–6`). Company default is
+480 minutes (`migrations/003_tenancy_vocabulary.up.sql:11`); the API allows a
+configured 1–43,200 minutes (`src/shared/api/settings.ts:6`). From code alone, **21
+minutes is not an expiry under the defaults**. A shorter configured company
+policy could expire it; this code-only answer does not assert an installed value.
+
+An **API-process-only restart** does not revoke sessions: they are read/written
+in Redis (`redis-session-store.ts:169–197`), not an API process map. However, the
+**packaged full gateway stop/start loses sessions**: `gateway/stop:132` executes
+`compose stop`, including Redis, and the installer writes Redis with `save ""`
+and `appendonly no` (`scripts/operator/customer-install.ts:113`). Redis data has
+no persistence volume in `deploy/gateway/services/redis.json:13–15`. Thus a
+retained cookie being rejected after the earlier harness's full gateway stop/start
+is expected independently of its age. Missing session becomes 401 on auth/me
+(`src/modules/identity/api/current-user-routes.ts:40–50`). No setting was changed.
+
+### Run
+
+The sequence stopped during fresh sign-in, before invoking the verifier. Product
+archives/images remain e31e596;
+internal verifier artifact remains the existing 8a1ffc8 artifact (no rebuild).
+The owner will request a new magic link through the installation's SMTP fixture
+and complete its callback with a new device nonce. Its cookie is written to a
+new private file; no retained cookie/session file is reused. Original run reports
+remain untouched. No application, test, configuration or verifier code changes
+are part of this round.
+
+
+### Result — fresh sign-in setup failed; no verifier selection ran
+
+The existing gateway, engine and ordinary external PostgreSQL fixture were
+started without changing their configuration or rebuilding their images.
+The existing internal artifact is still **8a1ffc8**. No retained cookie was read
+or reused, and no fresh cookie was successfully created.
+
+The temporary Node preparation harness stalled before creating a fresh session.
+The SMTP catcher was healthy and its messages endpoint returned HTTP 200 on a
+read-only check. Live inspection found no active network request; no verifier
+report existed. That temporary harness was terminated, leaving the installation
+running. The precise cause of its unresolved wait was not established.
+
+I then used a temporary Python system-HTTP helper to complete the intended SMTP
+flow. This introduced a stricter certificate-validation policy than the normal
+Node flow and was an operational mistake in this round. It failed **during TLS
+certificate verification**, before an HTTP response or successful sign-in:
+
+| Field | Recorded result |
+|---|---|
+| Step | `fresh-owner-SMTP-login` |
+| Intended route | `POST /api/v1/auth/request-link` |
+| HTTP status | None: TLS failed before HTTP response |
+| API/refusal code | None recorded |
+| Domain cause | None recorded |
+| Error class | `urllib.error.URLError`, caused by `ssl.SSLCertVerificationError` |
+| Native error | `CERTIFICATE_VERIFY_FAILED` |
+| Sanitized message | `certificate verify failed: CA cert does not include key usage extension` |
+
+Evidence: `tmp/verify01-packaged-oOsQB0/fresh-session-U3Q03b/fresh-login.log`
+(full traceback), `acceptance.json` (failed phase), and
+`fresh-signin-failure.json` (sanitized extraction). The error log was written at
+**2026-11-01 17:14:32.981538 UTC**; that is a host file timestamp, not a measured
+transport-phase timestamp. The helper exited 1 and the wrapper exited 1.
+
+The stop rule applies. No certificate setting, helper workaround or product fix
+was applied after the recorded TLS failure. **All 115 cells, custody-only,
+missing-session and optional traffic were not run.** There is no verifier
+`all/result.json`; the absence is not claimed as 115 evaluated cells or a cell
+failure. No gateway-to-engine cell failure occurred, so there are no cell connect
+phase measurements to report.
+
+Stats, events and installed service logs for the failed sign-in are retained in
+`fresh-session-U3Q03b/observations`; its capture manifest records six successful
+sampling cycles, zero failed cycles. The earlier preparation capture is retained
+separately in `fresh-signin-P0IshL/observations`. Installed services and the source
+were stopped after the failure, preserving their state/container.
+
+**No repository code changes, artifact rebuild, validation test run, full gate,
+commit, push or merge occurred in this round.** The review report is updated
+locally. The normal Node-based sign-in flow and verifier have not been verified
+by this attempt; the Python validation failure is not evidence of a verifier or
+query-path defect.
+
+## Standard fresh-packaged run with the 8a1ffc8 verifier
+
+Before this run, `feat/verify-01-frame` was pushed unchanged to origin at
+**8a1ffc8d550012ddb6e130f088e9a7799d712fcd** (including c967006, eb8e8ab,
+e31e596 and 8a1ffc8). `git ls-remote` confirmed that exact remote branch revision.
+No working-tree documentation was committed as part of that push.
+
+The exact unchanged standard harness ran once:
+
+```sh
+node scripts/images/verify-installation.mjs tmp/verify01-transport-e31e596-packages e31e596bff4121a2504df01632474c8894e58663 tmp/verify01-errors-8a1ffc8-verifier
+```
+
+Fresh run directory: `tmp/verify01-packaged-0uW3OV`; command output:
+`/private/tmp/verify01-standard-8a1ffc8.log`. This uses the same e31e596 archives
+as the earlier standard run and the existing 8a1ffc8 internal verifier artifact.
+No existing install, retained cookie or session file is reused. No sign-in/HTTP/TLS
+client has been written or substituted for this run. No product, verifier or
+harness code changes, and no artifact/image rebuild, are part of this round.
+
+The two requested session-persistence and CA key-usage issues were added to
+`docs/master-backlog.md` without implementation.
+
+### Result — gateway installation failed while loading the authorization schema
+
+The standard command exited **1**. Fresh archive extraction passed; gateway
+installation failed before engine installation, pairing, identity import, owner
+SMTP sign-in or invocation of the internal verifier. No existing installation,
+cookie or session was reused. No client or harness was substituted.
+
+`install-result.json` records phase **gateway-install** and message
+`gateway-install: gateway-install failed; private log retained`.
+`gateway-install.log:1–4` identifies the startup log:
+`gateway/state/operations/start-20261101T172801Z-94828.log`.
+
+That log shows application migrations through **091_remove_source_templates**
+applied, SpiceDB datastore migrations completed and the SpiceDB service became
+healthy. The next **schema-load** job failed at line **159** with
+`schema_load.failed`, error class **Error**. Its exception message is withheld by
+the shipped product's CLI exception logger; this failure occurs before the new
+internal-verifier diagnostics can run.
+
+The retained SpiceDB server log supplies the native RPC result:
+
+| Field | Evidence |
+|---|---|
+| Step | `gateway-install` → schema-load job |
+| Route/service | gRPC `authzed.api.v1.SchemaService/WriteSchema` |
+| HTTP status | Not applicable/not recorded; this is a gRPC call |
+| API refusal code / domain cause | None recorded |
+| Native RPC code | `Canceled` |
+| Native error | `rpc error: code = Canceled desc = context canceled` |
+| Server call start | 2026-11-01 **17:29:48.703321196 UTC** |
+| Request deadline | **17:29:52.990619131 UTC** |
+| Server completion log | **17:29:53.093347902 UTC** |
+| Server-reported duration | **4389 ms** |
+
+Source: `observations/containers/e36426a687b519ca763dd070286a14da853719581d064cdfb68f28cb7caa7760-10.log:27`
+in `tmp/verify01-packaged-0uW3OV`. The client sets its schema-write deadline to
+**5 seconds** (`src/modules/authz/infrastructure/load-schema.ts:30`) and logs the
+failure/sets exit 1 at lines 38–40. The native log establishes cancellation near
+the request deadline; the retained evidence does **not** expose the client error
+code or establish the underlying reason that the operation did not finish in
+time. No assertion that the schema text was invalid is supported by this log.
+
+**No verifier selection ran**, so no `all/result.json` exists, and these are not
+115 failed or evaluated cells. All 115, custody-only, missing-session and optional
+traffic were not run. There was no gateway-to-engine cell call from which to
+report DNS/TCP/TLS timestamps or a slowest successful connect.
+
+The standard harness completed its cleanup and retained the installer logs,
+service logs, container events and full raw stats series. Its capture manifest
+records **26 successful sampling cycles, zero failed cycles**, from
+17:26:58.560 to 17:30:37.537 UTC (scheduled interval 5 seconds; actual sample
+windows are retained). No fix, harness rerun, full gate, commit or merge followed.
+The branch remains pushed at **8a1ffc8**; the requested backlog/report additions
+are local documentation changes.

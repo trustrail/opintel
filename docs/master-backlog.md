@@ -135,6 +135,35 @@ Full measurements, settings, source paths, version ancestry and limits are retai
 results clear the tested construction paths, not the original sustained mixed workload;
 X-01 remains open. Documentation only; no product or runtime-setting change.
 
+### X-09 · Require gateway-wide DuckDB resource sizing
+**Customer** Independent in-memory instances multiply per-instance budgets; pool limits
+alone do not bound the gateway across projects and pools. Startup readiness currently
+inherits DuckDB memory/thread defaults, even though query and validation sessions do not.
+**What** Require explicit memory and thread budgets for every production instance path,
+including readiness, plus a deployment-wide admission/memory budget sized to the host or
+container allocation. Account for two instances per execution, validation, Node/native
+allocations and co-resident services. Retain explicit `temp_directory=''` and
+`max_temp_directory_size='0B'`; sizing must not introduce spill. Reject missing or
+inconsistent deployment sizing before ready and report effective settings without values.
+**Proposed local profile, not applied** On this 8 GiB/four-logical-CPU shared laptop:
+256 MB and one thread per query instance; 128 MB and one thread for validation/readiness;
+at most two active executions gateway-wide initially (four query instances, 1.024 GB of
+nominal buffer budgets), with separately bounded validation and measured native overhead.
+Customer deployments must size against their own allocation rather than inherit this profile.
+DuckDB memory_limit is not a whole-process RSS ceiling.
+**Evidence** Checked 21 October 2026: `sidecar/start.ts:37` passes request limits at
+creation; `sidecar/session/infrastructure/duckdb.ts:23` applies them and disables spill;
+`sidecar/session/infrastructure/validation.ts:8` fixes validation at 128 MB/one thread;
+`sidecar/readiness.ts:21` omits initial limits; `sidecar/execution/application/queue.ts:8`
+admits by project/pool, not an aggregate host limit. Disposable same-runtime inspection
+returned readiness 6.3 GiB/four threads, query 256 MB as 244.1 MiB/one thread, and
+validation 128 MB as 122.0 MiB/one thread; all returned empty temp directory/zero spill.
+The live tenant-budget read was unavailable after reboot, so 256 MB/one thread is the
+seeded demo profile, not a verified current database setting. X-01's 18 October crash
+capture has no system-pressure/RSS sample; its 42.3 GB virtual map does not establish
+physical-memory exhaustion. This sizing requirement does not diagnose or close X-01.
+**Status** Open · Requirement recorded only; no runtime changes or gate
+
 ### X-02 · Nothing supervises the Engine
 **Customer** The Engine stayed dead for 38 minutes. No restart, no alert, no notice. A
 customer would discover it from their agents, not from us. This is the Engine half of A3 and
@@ -371,6 +400,7 @@ guard and log its measured duration on success and failure; preserve all other
 preflight limits and checks. The migration fixture guard is now 60 s and logs
 its setup duration. These are hang guards, not performance assertions.
 
+
 ### GATE-03 · Distinguish stopped PostgreSQL from missing CREATEDB
 **Status** Resolved · 29 October 2026; `scripts/gate-preflight.mjs`,
 `scripts/gate-probe.ts`, and `scripts/gate-database.mjs`; targeted error-code
@@ -408,6 +438,7 @@ pre-branch main `ade0d2d` before fixture seeding.
 pulls a missing pinned image or fails with a clear message naming the exact image
 and remediation. Preserve isolation, image pinning and telemetry protections;
 do not expose arbitrary exception contents. Cover the missing-image path.
+
 
 ### G-10 · HAVING acts as an outcome oracle
 **Customer** For a filtered singleton group, a HAVING clause that removes the group returns
@@ -859,3 +890,5 @@ Soak reports passed without checking scenario coverage completeness (reinsurance
 - rowsPerDay is accepted and stored but not enforced: enforce it or remove it from the API and console.
 - Settings has no mail-test or TLS-expiry state.
 - Installed reachability map for the 66 refusal causes.
+- Gateway restart drops all sessions: Redis persistence is disabled (`scripts/operator/customer-install.ts:113`). Decide whether sessions must survive a restart or upgrade.
+- The install's self-generated CA certificate lacks the key usage extension, and strict TLS clients (e.g. newer Python) reject it with "CA cert does not include key usage extension". Generate the CA with `keyUsage keyCertSign` and `cRLSign`, plus `basicConstraints CA:true` marked critical.
