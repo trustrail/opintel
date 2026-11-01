@@ -294,7 +294,7 @@ chat: `scripts/release/native.sh REVISION`. This command has not been run here
 and does not represent a passing release verification.
 
 
-## Authorized gate invocation on 4c15cce (2026-11-02)
+## Authorized gate invocation on 4c15cce (2026-11-01 UTC)
 
 The user confirmed the missing Playwright image had been pulled and authorized
 one gate invocation on `4c15cce343e8ef9866ba0b8f37b9f8145ac70ce5`.
