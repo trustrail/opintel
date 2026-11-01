@@ -10,12 +10,12 @@ import { executionRequest } from '../src/shared/execution-contract.js';
 import type { EngineSession } from '../sidecar/session/index.js';
 
 type FakeConnection={ended:boolean;statements:string[]};
-const driver=vi.hoisted(()=>({clients:[] as FakeConnection[],connectFailures:[] as Error[],statementFailure:undefined as Error|undefined}));
+const driver=vi.hoisted(()=>({clients:[] as FakeConnection[],connectFailures:[] as Error[],connectDelays:[] as number[],statementFailure:undefined as Error|undefined}));
 vi.mock('pg',async importOriginal=>({...await importOriginal<typeof import('pg')>(),Client:class {
  ended=false;statements:string[]=[];
  constructor(){driver.clients.push(this);}
  on(){return this;}
- async connect(){const failure=driver.connectFailures.shift();if(failure)throw failure;}
+ async connect(){const delay=driver.connectDelays.shift();if(delay!==undefined)await new Promise<void>(resolve=>{if(Number.isFinite(delay))setTimeout(resolve,delay);});const failure=driver.connectFailures.shift();if(failure)throw failure;}
  async query(sql:string){this.statements.push(sql);if(driver.statementFailure)throw driver.statementFailure;return {rows:sql.includes('pg_backend_pid')?[{pid:123}]:sql==='SELECT 1 AS ok'?[{ok:1}]:[]};}
  async end(){this.ended=true;}
 }}));
@@ -28,8 +28,8 @@ class ManualDeadlineClock implements SourceDeadlineClock {
 }
 function deferred<T>(){let resolve!:(value:T)=>void,reject!:(reason:unknown)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const ref=SecretRef('secret://test/source');
-const limits={maxConnectionsPerSource:1,statementTimeoutMs:5000,operationTimeoutMs:100};
-beforeEach(()=>{driver.clients.length=0;driver.connectFailures=[];driver.statementFailure=undefined;});
+const limits={maxConnectionsPerSource:1,statementTimeoutMs:5000,operationTimeoutMs:100,connectTimeoutMs:10};
+beforeEach(()=>{driver.clients.length=0;driver.connectFailures=[];driver.connectDelays=[];driver.statementFailure=undefined;});
 
 for(const first of ['connector','staging'] as const)it(`S3: introspection and staged queries share one source ceiling with ${first} admitted first`,async()=>{
  const projectId=randomUUID(),sourceId=randomUUID(),elementId=randomUUID();
@@ -162,4 +162,51 @@ it('source authentication refusals are never retried and retain SQLSTATE without
  const error=await scope.run('source',ref,async()=>{}).catch((error:unknown)=>error);
  expect(driver.clients).toHaveLength(1);
  expect(getSourceFailure(error)).toEqual({operation:'connect',attempt:1,nativeCode:null,sqlState:'28P01'});
+});
+
+
+it('source connect may take 1.5 seconds and succeeds on the first attempt',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']});
+ const logs=vi.spyOn(console,'info').mockImplementation(()=>{});
+ try{
+  driver.connectDelays=[1500];
+  const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},{...limits,operationTimeoutMs:30000,connectTimeoutMs:10000});
+  const running=scope.run('source-id',ref,session=>session.query('SELECT 1 AS ok'),undefined,'slow-connect');
+  await vi.advanceTimersByTimeAsync(1500);
+  expect(await running).toEqual([{ok:1}]);expect(driver.clients).toHaveLength(1);
+  const events=logs.mock.calls.map(([event])=>event).filter(event=>event.operation==='connect');
+  expect(events).toHaveLength(2);for(const event of events)expect(event).toMatchObject({sourceId:'source-id',connectAllowanceMs:10000,attempt:1});
+  expect(JSON.stringify(events)).not.toContain('test-only-credential');
+ }finally{logs.mockRestore();vi.useRealTimers();}
+});
+it('a source that never accepts exhausts two connect attempts within the shared deadline',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']});
+ try{
+  driver.connectDelays=[Infinity,Infinity];
+  const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},{...limits,operationTimeoutMs:30000,connectTimeoutMs:10000});
+  const sourceId=randomUUID(),elementId=randomUUID();
+  const request=executionRequest.parse({requestId:'never-accepts',tokenKeyVersionSelected:null,projectId:randomUUID(),poolId:randomUUID(),policyVersion:1,sql:'SELECT id FROM orders',namespace:{catalog:'memory',schema:'main'},sources:[{sourceId,credentialRef:ref}],entitlements:[{elementId,treatment:'clear'}],objects:[{catalog:'warehouse',schema:'public',name:'orders',sourceId,readPlan:{catalog:'warehouse',schema:'public',object:'orders',columns:[{sourceIdentifier:'id',exposedName:'id',exposedType:'INTEGER',elementId,treatment:'clear',readAs:'native'}]}}],aggregateMinGroupSize:5,limits:{memoryMb:64,threads:1,timeoutMs:30000,rowLimit:2,concurrency:1},entitlementContext:null});
+  const reader=new PostgresStagingSource(scope,new SidecarTokenizer({resolve:async()=>''},new IanaZoneResolver()));
+  const running=reader.estimate({request,object:request.objects[0]!},new AbortController().signal);
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(await running).toMatchObject({ok:false,error:{code:'source_unavailable',details:{cause:'source_read_failed',sourceFailure:{operation:'connect',attempt:2,nativeCode:'ETIMEDOUT',sqlState:null}}}});
+  expect(driver.clients).toHaveLength(2);expect(driver.clients.every(client=>client.ended&&client.statements.length===0)).toBe(true);
+  expect(performance.now()).toBeLessThan(30000);
+ }finally{vi.useRealTimers();}
+});
+it('a failed connect does not retry when a full second allowance cannot fit',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']});
+ try{
+  driver.connectDelays=[6000];driver.connectFailures=[Object.assign(new Error('private diagnostic'),{code:'ECONNRESET'})];
+  const scope=new PostgresSourceScope({resolve:async()=> 'test-only-credential'},{...limits,operationTimeoutMs:15000,connectTimeoutMs:10000});
+  const running=scope.run('source',ref,async()=>{}).catch((error:unknown)=>error);
+  await vi.advanceTimersByTimeAsync(6000);
+  expect(getSourceFailure(await running)).toMatchObject({operation:'connect',attempt:1,nativeCode:'ECONNRESET'});expect(driver.clients).toHaveLength(1);
+ }finally{vi.useRealTimers();}
+});
+it.each([ [1500,30000,2], [2100,30000,3], [10000,2500,3] ])('native scanner rounds allowance %i within operation %i to %i seconds',async(connectTimeoutMs,operationTimeoutMs,seconds)=>{
+ const scope=new PostgresSourceScope({resolve:async()=> 'postgresql://fixture/db'},{...limits,connectTimeoutMs,operationTimeoutMs});
+ await scope.external('source',ref,async(connection)=>{
+  expect(new URL(connection).searchParams.get('connect_timeout')).toBe(String(seconds));
+ },new AbortController().signal);
 });

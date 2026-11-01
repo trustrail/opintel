@@ -1,3 +1,4 @@
+import {DEFAULT_SOURCE_CONNECT_TIMEOUT_MS} from '../application/source-connector.js';
 import { Client,types } from 'pg';
 import {retainSourceFailure,type SourceOperation} from '../../src/shared/source-failure.js';
 import {sourceOperationEvent} from '../../src/shared/infrastructure/source-trace.js';
@@ -12,6 +13,7 @@ export interface SourceLimits {
   maxConnectionsPerSource: number;
   statementTimeoutMs: number;
   operationTimeoutMs: number;
+  connectTimeoutMs?: number;
 }
 export class SourceBusy extends Error {}
 export class SourceTimeout extends Error {
@@ -37,22 +39,31 @@ export class SourceCancelled extends Error {}
  * Share one instance across the sidecar host to enforce its per-source ceiling. */
 export class PostgresSourceScope {
   private readonly active = new Map<string, number>();
+  private readonly connectTimeoutMs:number;
   constructor(private readonly credentials: SourceCredentialResolver, private readonly limits: SourceLimits, private readonly deadlineClock: SourceDeadlineClock = realDeadlineClock) {
+    this.connectTimeoutMs=limits.connectTimeoutMs??DEFAULT_SOURCE_CONNECT_TIMEOUT_MS;
     for (const value of Object.values(limits)) {
       if (!Number.isSafeInteger(value) || value < 1 || value > 2_147_483_647) throw new Error('Source limits must be positive bounded integers.');
     }
   }
 
+  private connectAllowance(deadline:number):number {
+    const remaining=Math.floor(deadline-performance.now());
+    if(remaining<1)throw new SourceTimeout();
+    return Math.min(this.connectTimeoutMs,remaining);
+  }
+
   /** Lease for a native scanner: shares the connector's per-source ceiling.
    * The scanner is configured for one connection, and a bounded cancellation
    * connection targets only this lease's unique application name. */
-  async external<T>(sourceKey:string,ref:SecretRef,work:(connection:string,signal:AbortSignal)=>Promise<T>,parent:AbortSignal):Promise<T>{
+  async external<T>(sourceKey:string,ref:SecretRef,work:(connection:string,signal:AbortSignal)=>Promise<T>,parent:AbortSignal,requestId?:string):Promise<T>{
     const controller=new AbortController(),abort=()=>controller.abort();let timedOut=false;
     const signal=controller.signal;
     if(parent.aborted)throw new SourceCancelled();
     const count=this.active.get(sourceKey)??0;if(count>=this.limits.maxConnectionsPerSource)throw new SourceBusy();
     this.active.set(sourceKey,count+1);
     parent.addEventListener('abort',abort,{once:true});
+    const deadline=performance.now()+this.limits.operationTimeoutMs;
     const stop=this.deadlineClock.after(this.limits.operationTimeoutMs,()=>{timedOut=true;abort();});
     const tag='opintel-scan-'+randomUUID();let cancellation:Promise<void>|undefined;let cancel:(()=>void)|undefined;
     try{
@@ -62,12 +73,15 @@ export class PostgresSourceScope {
       try{credential=await Promise.race([this.credentials.resolve(ref),interrupted]);}finally{detach();}
       if(signal.aborted)throw new SourceCancelled();
       const options=`-c statement_timeout=${this.limits.statementTimeoutMs} -c timezone=UTC -c datestyle=ISO,YMD`;
+      const allowance=this.connectAllowance(deadline),seconds=Math.max(2,Math.ceil(allowance/1000));
       let connection:string;
-      try{const url=new URL(credential);if(!['postgres:','postgresql:'].includes(url.protocol))throw new Error();url.searchParams.set('options',options);url.searchParams.set('application_name',tag);url.searchParams.set('connect_timeout','1');connection=url.toString().replaceAll('+','%20');}
-      catch{connection=credential+` options='${options}' application_name='${tag}' connect_timeout=1`;}
+      try{const url=new URL(credential);if(!['postgres:','postgresql:'].includes(url.protocol))throw new Error();url.searchParams.set('options',options);url.searchParams.set('application_name',tag);url.searchParams.set('connect_timeout',String(seconds));connection=url.toString().replaceAll('+','%20');}
+      catch{connection=credential+` options='${options}' application_name='${tag}' connect_timeout=${seconds}`;}
       cancel=()=>{cancellation=(async()=>{const control=new Client({connectionString:credential,connectionTimeoutMillis:1000,statement_timeout:1000,query_timeout:1000});control.on('error',()=>{});try{await control.connect();await control.query('SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE application_name=$1',[tag]);}catch{/* Scanner timeout and detach are still mandatory. */}finally{await control.end().catch(()=>{});}})();};
       signal.addEventListener('abort',cancel,{once:true});if(signal.aborted)throw new SourceCancelled();
-      try{const result=await work(connection,signal);if(signal.aborted)throw new SourceCancelled();return result;}catch(error){if(timedOut)throw new SourceTimeout();throw error;}
+      const connect={sourceId:sourceKey,connectAllowanceMs:seconds*1000};
+      sourceOperationEvent(requestId,'scanner','start',1,undefined,connect);
+      try{const result=await work(connection,signal);if(signal.aborted)throw new SourceCancelled();sourceOperationEvent(requestId,'scanner','end',1,undefined,connect);return result;}catch(error){sourceOperationEvent(requestId,'scanner','failed',1,retainSourceFailure(error,'scanner',1),connect);if(timedOut)throw new SourceTimeout();throw error;}
     }finally{stop();parent.removeEventListener('abort',abort);if(cancel)signal.removeEventListener('abort',cancel);await cancellation;const left=(this.active.get(sourceKey)??1)-1;if(left)this.active.set(sourceKey,left);else this.active.delete(sourceKey);}
   }
 
@@ -80,10 +94,13 @@ export class PostgresSourceScope {
     let expired = false;
     let operation:SourceOperation='credentials';
     let attempt=1;
+    let connectAllowanceMs=0;
+    const deadlineAt=performance.now()+this.limits.operationTimeoutMs;
     const perform=async<R>(phase:SourceOperation,work:()=>Promise<R>):Promise<R>=>{
-      operation=phase;sourceOperationEvent(requestId,phase,'start',attempt);
-      try{const result=await work();sourceOperationEvent(requestId,phase,'end',attempt);return result;}
-      catch(error){sourceOperationEvent(requestId,phase,'failed',attempt,retainSourceFailure(error,phase,attempt));throw error;}
+      const connect=phase==='connect'?{sourceId:sourceKey,connectAllowanceMs}:undefined;
+      operation=phase;sourceOperationEvent(requestId,phase,'start',attempt,undefined,connect);
+      try{const result=await work();sourceOperationEvent(requestId,phase,'end',attempt,undefined,connect);return result;}
+      catch(error){sourceOperationEvent(requestId,phase,'failed',attempt,retainSourceFailure(error,phase,attempt),connect);throw error;}
     };
     let backendPid: number | undefined;
     let credential: string | undefined;
@@ -103,6 +120,7 @@ export class PostgresSourceScope {
       // Only connect is retried. No SQL (including backend identity and BEGIN)
       // is sent until this loop has completed; the overall deadline is shared.
       for(;;){
+      connectAllowanceMs=this.connectAllowance(deadlineAt);
       client = new Client({ connectionString, connectionTimeoutMillis: this.limits.operationTimeoutMs,
         statement_timeout: this.limits.statementTimeoutMs, query_timeout: this.limits.operationTimeoutMs,
         types:{getTypeParser:(oid,format)=>[1082,1114,1184].includes(oid)?(value:string)=>value:types.getTypeParser(oid,format)},
@@ -114,14 +132,14 @@ export class PostgresSourceScope {
       let connectTimer:ReturnType<typeof setTimeout>|undefined;
       try{
         await perform('connect',()=>Promise.race([connecting.connect(),new Promise<never>((_resolve,reject)=>{
-          connectTimer=setTimeout(()=>reject(Object.assign(new Error('Source connection setup timed out.'),{code:'ETIMEDOUT'})),Math.max(1,Math.min(1000,Math.floor(this.limits.operationTimeoutMs/2))));
+          connectTimer=setTimeout(()=>reject(Object.assign(new Error('Source connection setup timed out.'),{code:'ETIMEDOUT'})),connectAllowanceMs);
         })]));connected=true;break;
       }
       catch(error){
         await connecting.end().catch(()=>{});
         const code=typeof error==='object'&&error!==null&&'code' in error?error.code:undefined;
         const retryable=typeof code==='string'&&['ECONNREFUSED','ECONNRESET','ETIMEDOUT','EHOSTUNREACH','ENETUNREACH','EAI_AGAIN'].includes(code);
-        if(expired||signal?.aborted||attempt===2||!retryable)throw error;
+        if(expired||signal?.aborted||attempt===2||!retryable||deadlineAt-performance.now()<(this.connectTimeoutMs))throw error;
         attempt=2;
       }finally{if(connectTimer)clearTimeout(connectTimer);}
       }

@@ -27,7 +27,7 @@ function packageRoot(kind){
  return {directory,run};
 }
 it.each(['gateway','engine'])('DEP-018: %s initializes private resumable state and one warning-free project',kind=>{
- const {directory,run}=packageRoot(kind);run('initialize');const before=readFileSync(join(directory,'state/runtime.env'),'utf8');run('initialize');expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(before);
+ const {directory,run}=packageRoot(kind);run('initialize');if(kind==='engine')expect(JSON.parse(readFileSync(join(directory,'state/service.json'),'utf8')).limits.connectTimeoutMs).toBe(10000);const before=readFileSync(join(directory,'state/runtime.env'),'utf8');run('initialize');expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(before);
  expect(statSync(join(directory,'state')).mode&0o077).toBe(0);expect(statSync(join(directory,'state/runtime.env')).mode&0o077).toBe(0);expect(statSync(join(directory,'state',kind==='gateway'?'application-tls.json':'service.json')).mode&0o777).toBe(0o600);expect(statSync(join(directory,'state/xq')).mode&0o777).toBe(0o700);
  const result=spawnSync('docker',['compose','--profile','jobs','--project-name',readFileSync(join(directory,'state/project-name'),'utf8').trim(),'--env-file',join(directory,'state/package.env'),'-f',join(directory,'state/compose.json'),'config','--format','json'],{encoding:'utf8',stdio:'pipe',env:{...process.env,COMPOSE_PROJECT_NAME:'foreign-project'}});
  expect(result.status).toBe(0);expect(result.stderr).toBe('');

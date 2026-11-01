@@ -1,3 +1,4 @@
+import {DEFAULT_SOURCE_CONNECT_TIMEOUT_MS} from '../../sidecar/application/source-connector.js';
 import {issuePairingCode,servePairing,claimEngine,pairingIdentity} from './engine-pairing.js';
 import {importIdentity} from './identity-import.js';
 import {operatorDiagnostic} from './diagnostics.js';
@@ -156,7 +157,7 @@ function initialize(){
   runtime.UV_THREADPOOL_SIZE='16';
   write('state/gateway-registration.json',{version:1,kind:'engine',address:`https://${address}:3100`,certificate:readFileSync(join(state,'engine.pem'),'utf8'),ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(readFileSync(join(state,'engine.pem'))).fingerprint256});
   write('state/application.pem',readFileSync(join(state,'engine.pem'),'utf8'),0o600);
-  write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000}},0o600);
+  write('state/service.json',{host:'0.0.0.0',port:3100,tls:{caFile:'/config/peer-ca.pem',certFile:'/config/engine.pem',keyFile:'/config/engine.key',clientPinFile:'/config/application.pem'},auditFile:'/audit/sampling.jsonl',custody:{keyStore:'/custody/keys',keyEscrow:'/custody/escrow'},postgresExtension:'/work/tmp/duckdb-extensions/postgres_scanner.duckdb_extension',postgresReadinessSource:'secret://install/readiness',limits:{maxConnectionsPerSource:8,statementTimeoutMs:30000,operationTimeoutMs:35000,connectTimeoutMs:DEFAULT_SOURCE_CONNECT_TIMEOUT_MS}},0o600);
   Object.assign(vars,{ENGINE_CONFIG_DIRECTORY:host+'/state',ENGINE_STATE_DIRECTORY:host+'/state',ENGINE_ENV_FILE:host+'/state/runtime.env',ENGINE_AUDIT_DIRECTORY:host+'/state/audit',ENGINE_CUSTODY_DIRECTORY:host+'/state/custody',ENGINE_INGEST_DIRECTORY:host+'/state/ingest',ENGINE_XQ_DIRECTORY:host+'/state/xq',ENGINE_BIND_ADDRESS:'0.0.0.0',ENGINE_PORT:'3100'});
   services.engine!.environment={...services.engine!.environment,ENGINE_PAIRING_TRUST_RELOAD:'1'};
   for(const name of ['engine','egress','prepare']){services[name]!.environment={...services[name]!.environment,ENGINE_SOURCE_SECRETS_DIRECTORY:'/source-secrets'};services[name]!.volumes=[...services[name]!.volumes??[],host+'/state/sources:/source-secrets:ro'];}

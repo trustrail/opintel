@@ -171,3 +171,51 @@ been executed in this Intel verification round. Internal artifact 1.0.0 built at
 `7f2fa37` is retained separately as
 `tmp/opintel-installation-verifier-1.0.0-7f2fa37.tar.gz`; no verifier is inside the
 customer archives. Final report-only changes do not alter the tested executables.
+
+
+## Approved source-connect correction (from d1fb550)
+
+The single gate failure is a product connection-cutoff defect, superseding the
+initial unclassified diagnosis above. Attempt 1 ran 02:42:34.166–35.167Z and
+attempt 2 ran 02:42:35.356–36.364Z. All nine peer executions remained in flight.
+A peer timed out at 02:42:36.311Z; Postgres logged “expected SASL response, got
+message type 88” at 02:42:36.315Z (Terminate during authentication). This temporal
+correlation supports the approved diagnosis that our one-second timer interrupted
+healthy authentication. The server line has no request ID, so correlation is not
+an independently proven request-to-backend mapping. Retained logs:
+`/private/tmp/verify01-full-gate-7f2fa37.log:70599` and
+`/private/tmp/verify01-postgres-failure-window.log:1`.
+
+Step 0: `84b9503bd3723f243806f79f4b4213c13860e842` is “fix(stage5): bound
+recovery and pair customer installs with one code”, dated 2026-10-27. It is an
+ancestor of `5300c82` (`git merge-base --is-ancestor` exit 0). Its Stage 5 recovery
+requirement is at most one connect-only retry before SQL with bounded diagnostics
+(`docs/review/stage5-install.md:296`). Its source-scope tests require two attempts,
+no SQL replay and no retry for authentication refusals; none requires the one-second
+cap. The existing G-018 2.5-second abort-cleanup assertion starts after connecting;
+its control-connection limits are unchanged. No conflicting requirement was found.
+
+The approved correction centralizes the per-attempt allowance, default 10,000 ms,
+bounded by remaining operation time. A full second allowance must fit before a
+retry starts; retryable codes and the two-attempt maximum remain unchanged. Native
+scanner configuration uses the same allowance rounded up to seconds, at least two,
+with shared operation cancellation still active. Installation `limits.connectTimeoutMs`
+is adjacent to existing source operation/statement limits; legacy configs use the
+same default. Connect records include non-secret source ID and allowance; scanner
+records identify its configured allowance without pretending native connect timing
+is separately observable. Cancellation and cleanup limits are unchanged.
+
+Three earlier diagnostic isolated V-01 runs passed; their slowest logged source
+connects were 361, 494 and 471 ms. Those runs did not establish historical resource
+load. The original gate failure and reports remain retained.
+
+Correction checks: 128 tests in 12 targeted files passed (137.03 seconds), including
+source-scope timing/refusal cases, source connector and staging, engine transport,
+readiness/admission, V-01, installer defaults and provisioning-runtime. Strict
+typecheck passed. Lint passed after removing the import made unused by centralizing
+scanner telemetry. The first test-launch attempt was blocked by sandbox IPC before
+any test ran; the actual targeted run used normal Docker/socket access.
+
+Fresh archive verification and the single new-candidate gate are pending. At this
+point host disk free space was below the image builder's 4 GiB minimum; regenerable
+unused Docker cache is being reclaimed. No gate has been started for this correction.

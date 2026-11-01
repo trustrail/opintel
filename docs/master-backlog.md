@@ -859,3 +859,11 @@ Soak reports passed without checking scenario coverage completeness (reinsurance
 - rowsPerDay is accepted and stored but not enforced: enforce it or remove it from the API and console.
 - Settings has no mail-test or TLS-expiry state.
 - Installed reachability map for the 66 refusal causes.
+
+
+### Gate source-connect correlation evidence
+
+Retain timestamped Docker stats and enable/retain Postgres `log_connections` for
+the test database during gate runs, so future source-connect failures can be
+correlated with container load and server authentication events. Diagnostic only;
+no customer values or connection strings in retained reports.

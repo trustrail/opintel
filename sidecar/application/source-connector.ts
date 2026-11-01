@@ -20,3 +20,6 @@ export interface SidecarConnector {
   sampleTopValues(request: unknown, signal?: AbortSignal): Promise<Result<{ values: Record<string, TopValue[]> }, DomainError>>;
   estimateRowCount(request: unknown, signal?: AbortSignal): Promise<Result<{ rows: number | null }, DomainError>>;
 }
+
+/** Per-attempt customer-source connection allowance; the operation deadline still wins. */
+export const DEFAULT_SOURCE_CONNECT_TIMEOUT_MS = 10000;

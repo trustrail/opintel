@@ -1,3 +1,4 @@
+import {DEFAULT_SOURCE_CONNECT_TIMEOUT_MS} from './application/source-connector.js';
 import { startupCheck, StartupCheckError } from './startup-check.js';
 import { SecretRef } from '../src/platform/secrets/types.js';
 import { readFile } from 'node:fs/promises';
@@ -15,7 +16,7 @@ export const sidecarConfigSchema = z.strictObject({
   postgresExtension:z.string().min(1).optional(),
   postgresReadinessSource:z.string().startsWith('secret://').min(10).transform(SecretRef).optional(),
   custody:z.strictObject({keyStore:z.string().min(1),keyEscrow:z.string().min(1)}).optional(),
-  limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds }),
+  limits: z.strictObject({ maxConnectionsPerSource: z.number().int().min(1).max(1000), statementTimeoutMs: milliseconds, operationTimeoutMs: milliseconds, connectTimeoutMs: milliseconds.default(DEFAULT_SOURCE_CONNECT_TIMEOUT_MS) }),
   receiptUrl: z.url().refine((value) => new URL(value).protocol === 'https:').optional(),
   landingZones: z.array(landingZoneSchema).optional(),
   maxRequestBytes: z.number().int().min(1).max(16 * 1024 * 1024).default(1024 * 1024),
