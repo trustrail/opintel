@@ -58,3 +58,20 @@ it('uses the existing engine edit API for an auto-attached paired engine and ref
  expect(result).toBe(id);expect(calls.filter(c=>c.method==='PATCH')).toEqual([{path:`/api/v1/projects/${project}/engines/${id}`,method:'PATCH',body:{name:'Paired engine',address:'https://host.docker.internal:3100',certificatePin:pin}}]);expect(calls.some(c=>c.method==='POST')).toBe(false);
  await expect(verificationEngine(async()=>({items:[row()],nextCursor:null}),project,{address,pin:'B'.repeat(64)})).rejects.toThrow('pin differs');
 });
+it('reports fixture setup failure with its precise step and native cause in JSON and Markdown, without secrets',async()=>{
+ const {setupStep,diagnostic}=await import('../scripts/verification/verifier/diagnostics.js');
+ const directory=await mkdtemp(join(tmpdir(),'verifier-fixture-failure-'));try{
+ let detail:ReturnType<typeof diagnostic>|undefined;
+ try{await setupStep('fixture',()=>setupStep('fixture.seed',async()=>{throw new Error('Failed to connect postgresql://operator:SECRET@private/db',{cause:Object.assign(new Error('connect ECONNREFUSED'),{code:'ECONNREFUSED'})});}));}catch(error){detail=diagnostic(error,'fixture');}
+ expect(detail).toMatchObject({step:'fixture.seed',route:null,httpStatus:null,refusalCode:null,cause:null,errorClass:'Error',causes:[{errorCode:'ECONNREFUSED',message:'connect ECONNREFUSED'}]});
+ const failed=await schedule([cells[0]!],async()=>{throw new Error('must not run');},{unavailable:new Map([['fixture','unavailable']])});
+ const value=await report(directory,[cells[0]!],failed.results,null,true,{errors:[detail]});expect(value.status).toBe('failed');expect(value.counts.notExercised).toBe(1);
+ for(const file of ['result.json','matrix.md']){const text=await readFile(join(directory,file),'utf8');expect(text).toContain('fixture.seed');expect(text).toContain('ECONNREFUSED');expect(text).not.toContain('SECRET');expect(text).not.toContain('private/db');}
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+it('retains failed public request context and redacts secrets and returned values in cell diagnostics',async()=>{
+ const {setupStep,requestContext,sanitizedMessage}=await import('../scripts/verification/verifier/diagnostics.js');
+ const result=await schedule([cells[0]!],()=>setupStep('public-api',async()=>{requestContext('/api/v1/runs/receipt?token=SECRET',503,{error:{code:'source_unavailable',details:{cause:'engine_registry'}}});throw Object.assign(new Error('connect ETIMEDOUT'),{code:'ETIMEDOUT'});}));
+ expect(result.status).toBe('failed');expect(result.results[0]!.errors?.[0]).toMatchObject({step:'cell',cellId:cells[0]!.id,route:'/api/v1/runs/receipt',httpStatus:503,refusalCode:'source_unavailable',cause:'engine_registry',errorCode:'ETIMEDOUT'});
+ expect(sanitizedMessage('password=SECRET cookie=SECRET postgresql://user:SECRET@host/db row: CUSTOMER-VALUE')).not.toMatch(/SECRET|CUSTOMER-VALUE/u);
+});

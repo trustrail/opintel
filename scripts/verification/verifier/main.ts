@@ -1,3 +1,4 @@
+import {diagnostic,diagnosticText,setupStep,type Diagnostic} from './diagnostics.js';
 import {privateRead} from '../../operator/private-input.js';
 import {randomUUID} from 'node:crypto';
 import {parseArgs} from 'node:util';
@@ -22,14 +23,15 @@ const {values}=parseArgs({options:{config:{type:'string'},output:{type:'string'}
 if(values.help){console.info('Internal installation verifier '+verifierVersion+'\nverify --config PRIVATE_JSON --output DIRECTORY (--all | --capability NAME | --cell ID | --where DIMENSION=VALUE) [--random-seconds N]\nverify --list');process.exit(0);}
 if(values.list){await new Promise<void>((resolve,reject)=>process.stdout.write(JSON.stringify(cells.map(({scenario:_scenario,...cell})=>cell),null,2)+'\n',error=>error?reject(error):resolve()));process.exit(0);}
 let selected:Cell[];
-try{selected=selectCells(values);}catch{console.error('Invalid cell selection; use --list.');process.exit(2);}
+try{selected=selectCells(values);}catch(error){const detail=diagnostic(error,'selection');console.error(diagnosticText(detail));if(values.output){const directory=resolve(values.output);await mkdir(directory,{recursive:true,mode:0o700});await report(directory,[],[],null,true,{errors:[detail]});}process.exit(2);}
 if(!values.config||!values.output){console.error('--config and --output are required');process.exit(2);}
 const seconds=Number(values['random-seconds']??0);if(!Number.isSafeInteger(seconds)||seconds<0||seconds>86400)throw new Error('Random duration must be 0–86400 seconds');
 const directory=resolve(values.output);await mkdir(directory,{recursive:true,mode:0o700});
 const stop=new AbortController();process.on('SIGINT',()=>stop.abort());process.on('SIGTERM',()=>stop.abort());
+const errors:Diagnostic[]=[];
 const unavailable=new Map<string,string>();let installation:unknown=null,results:CellResult[]=[],devices:ReturnType<typeof custodyAgents>|undefined,executor:Awaited<ReturnType<typeof cellExecutor>>|undefined;
 const record=async(value:unknown)=>appendFile(join(directory,'events.jsonl'),JSON.stringify(value)+'\n',{mode:0o600});
-const checkpoint=async(current:CellResult[])=>{results=current;await report(directory,selected,results,installation,false);};
+const checkpoint=async(current:CellResult[])=>{results=current;await report(directory,selected,results,installation,false,{errors});};
 let boundary='installation',randomTraffic:{attempted:number;failed:number;seconds:number}|undefined;
 try{
  await checkpoint([]);
@@ -39,12 +41,13 @@ try{
  if(!/^[a-f0-9]{40}$/u.test(gateway.revision)||gateway.revision!==engine.revision)throw new MissingPrerequisite('archive revisions differ');
  installation={verifier:{version:artifact.version,revision:artifact.revision,sourceHashes:artifact.sourceHashes},revision:gateway.revision,images:{gateway:gateway.images,engine:engine.images},platform:gateway.platform,identitySource:'installed archive release manifests'};
  boundary='session';
- const {call,fetcher}=await installationHttp(config.base,config.cookieFile,join(config.gatewayDirectory,'state/ca.pem'),config.connectAddress);
+ const {call:rawCall,fetcher}=await installationHttp(config.base,config.cookieFile,join(config.gatewayDirectory,'state/ca.pem'),config.connectAddress);
+ const call:typeof rawCall=(...args)=>setupStep(boundary,()=>rawCall(...args));
  await call('/api/v1/auth/me');
  boundary='fixture';
- const credentialRef=await customerSource(config.engineDirectory,config.targetFile,config.sourceName,directory,config.sourceHost);
+ const credentialRef=await setupStep('fixture',()=>customerSource(config.engineDirectory,config.targetFile,config.sourceName,directory,config.sourceHost));
  boundary='governance';
- let saved:{projectId:string;engineId:string}|undefined;try{saved=z.object({projectId:z.uuid(),engineId:z.uuid()}).parse(JSON.parse(await readFile(join(directory,'setup.json'),'utf8')));}catch(e){if(!(e instanceof Error&&'code'in e&&e.code==='ENOENT'))throw e;}
+ let saved:{projectId:string;engineId:string}|undefined;try{saved=z.object({projectId:z.uuid(),engineId:z.uuid()}).parse(JSON.parse(await readFile(join(directory,'setup.json'),'utf8')));}catch(e){if(!(e instanceof Error&&'code'in e&&e.code==='ENOENT'))throw e;errors.push(diagnostic(e,'governance.resume',{severity:'info'}));}
  if(!saved){
   const companies=CompanyListResponse.parse(await call('/api/v1/companies?limit=100')).items.filter(c=>c.role==='admin'&&(!config.companyId||c.id===config.companyId));if(companies.length!==1)throw new MissingPrerequisite('choose one administered company');
   const industries=z.array(z.object({id:z.uuid(),slug:z.string()})).parse(await call('/api/v1/industries')),industry=industries.find(i=>i.slug==='reinsurance-treaty');if(!industry)throw new MissingPrerequisite('V-01 industry missing');
@@ -68,19 +71,18 @@ try{
  const manifestFile=join(directory,'v01.json');await setupV01({projectId:p,engineId:saved.engineId,credentialRef,manifestFile,associations,call,lifecycle:true});
  executor=await cellExecutor({base:config.base,manifestFile,call,devices,exchanges,fetcher});
 }catch(error){
- // Raw infrastructure errors may contain secrets or source values. Reports name
- // the failed boundary; individual cell diagnostics contain only safe checks.
- unavailable.set(boundary,'unavailable');
- console.error('Setup prerequisite unavailable: '+boundary);
- if(error instanceof MissingPrerequisite||error instanceof Error&&/^(Public API |V-01 |Catalogue |Four authorized )/u.test(error.message))console.error(error.message);
- if(error instanceof z.ZodError)console.error(JSON.stringify(error.issues.map(i=>({path:i.path,code:i.code}))));
+ const detail=diagnostic(error,boundary);errors.push(detail);unavailable.set(boundary,'unavailable');console.error(diagnosticText(detail));
 }
 try{
  await record({type:'start',selected:selected.map(c=>c.id)});
  const run=async(cell:Cell)=>{if(!executor)throw new MissingPrerequisite('setup incomplete');const actual=await executor.run(cell);await record({type:'query',cell:cell.id,outcome:actual.outcome,receiptId:actual.receiptId});if(actual.receiptId)await record({type:'receipt',cell:cell.id,id:actual.receiptId});return actual;};
  const outcome=await schedule(selected,run,{signal:stop.signal,unavailable,checkpoint});results=outcome.results;
- if(outcome.status==='passed'&&seconds>0){const start=Date.now();randomTraffic={attempted:0,failed:0,seconds};while(Date.now()-start<seconds*1000&&!stop.signal.aborted){const cell=selected[Math.floor(Math.random()*selected.length)]!;randomTraffic.attempted++;try{const result=await schedule([cell],run);if(result.status!=='passed')randomTraffic.failed++;}catch{randomTraffic.failed++;}}}
- const final=await report(directory,selected,results,installation,true,{...(randomTraffic?{randomTraffic}:{}),interrupted:stop.signal.aborted});
+ if(outcome.status==='passed'&&seconds>0){const start=Date.now();randomTraffic={attempted:0,failed:0,seconds};while(Date.now()-start<seconds*1000&&!stop.signal.aborted){const cell=selected[Math.floor(Math.random()*selected.length)]!;randomTraffic.attempted++;try{const result=await schedule([cell],run);if(result.status!=='passed'){randomTraffic.failed++;for(const item of result.results)errors.push(...(item.errors??[diagnostic(new Error(item.diagnostics.join('; ')),'optional-traffic',{cellId:item.id})]));}}catch(error){randomTraffic.failed++;errors.push(diagnostic(error,'optional-traffic',{cellId:cell.id}));}}}
+ const final=await report(directory,selected,results,installation,true,{errors,...(randomTraffic?{randomTraffic}:{}),interrupted:stop.signal.aborted});
  console.info(`Selected ${final.counts.selected}: ${final.counts.passed} passed, ${final.counts.failed} failed, ${final.counts.notExercised} not exercised`);
  process.exitCode=final.status==='passed'&&!stop.signal.aborted&&!randomTraffic?.failed?0:1;
-}finally{await executor?.close();await devices?.close();}
+}catch(error){errors.push(diagnostic(error,'execution'));process.exitCode=1;
+}finally{
+ for(const [step,close]of [['cleanup.executor',()=>executor?.close()],['cleanup.devices',()=>devices?.close()]] as const){try{await close();}catch(error){errors.push(diagnostic(error,step));process.exitCode=1;}}
+ await report(directory,selected,results,installation,true,{errors,...(randomTraffic?{randomTraffic}:{}),interrupted:stop.signal.aborted});
+}

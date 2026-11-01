@@ -364,5 +364,164 @@ DNS/TCP phase cases, existing no-replay/pin/TLS/recovery assertions, source scop
 engine, V-01, independent observer, retention, package and provisioning contracts.
 Strict typecheck and lint pass. Lint required explicit Node/global imports in
 the new harness files; no application behavior changed. Fresh packaged verification
-and the conditional single full gate are pending. No full gate has run for this
-telemetry candidate.
+failed as recorded below. The conditional full gate was not run.
+
+
+### Fresh packaged verification — stopped at fixture setup
+
+Candidate: **e31e596bff4121a2504df01632474c8894e58663**, new amd64 images,
+new gateway and engine archives, and verifier artifact 1.0.0 built from this
+revision. Image manifest:
+`tmp/images/releases/candidate-verify01-e31e596-api-engine-console-egress-migrations-provisioning-demo-tools.json`.
+Run directory: `tmp/verify01-packaged-oOsQB0`.
+
+The single fresh-install command exited **1**. Archive extraction, gateway install,
+engine install, one-code pairing, customer identity import and normal owner SMTP
+login passed. The all-cells verifier then exited **1** with:
+
+```
+Setup prerequisite unavailable: fixture
+Selected 115: 0 passed, 0 failed, 115 not exercised
+```
+
+Evidence: `all.log:1–2`, `all/result.json` and `install-result.json` in that run.
+The report is complete and failed, not interrupted. Optional traffic, the
+missing-session check, custody-only and the full gate were **not run**. No
+verification rerun or corrective application change was made after this failure.
+
+The boundary is assigned immediately before `customerSource`
+(`scripts/verification/verifier/main.ts:44–45`). That operation seeds the ordinary
+source, lists engine source references and adds the reference through the
+packaged `sources` tool (`infrastructure/source.ts:13–18`). No
+`all/source-registration.json` or `all/setup.json` was written. The catch at
+`main.ts:70–76` deliberately suppresses most raw exceptions; this run retained
+no exception code or message beyond the boundary. **The exact failing operation
+within customerSource and its underlying cause cannot be established.**
+
+#### Phase timestamps and source concurrency
+
+There are **zero** `engine.transport_*` records in the complete retained gateway
+and engine log streams. No gateway-to-engine failure timestamps, phase breakdown
+or slowest successful connection exist for this run: setup stopped before
+project registration/verification and the query cells. This is not evidence of a
+DNS, TCP or TLS failure on that path.
+
+The all-cells report was written at **2026-11-01 16:20:14.397952 UTC**, and
+`all.log` at **16:20:14.583204 UTC** (host filesystem timestamps, not transport
+phase timestamps). Source PostgreSQL's retained log shows final readiness at
+**16:20:13.396 UTC**, following the entrypoint's temporary-server shutdown. Its
+connection records show only local initialization `psql` sessions, not an
+external seed or engine query connection; this does not establish what failed
+on the client. Source log:
+`observations/containers/a2aa9f55f8e7159137dbda74d2c20943235df0873138f7c2cbd53ac7940ed361-29.log:31–72`.
+
+The only engine source lease occupancy was **1**, for `sourceId:
+startup-readiness`, at **16:17:37.874 UTC**, released at **16:17:38.951 UTC**.
+There were no V-01 engine source-connect attempt records or authenticated engine
+query backends. The readiness lease is not a V-01 query connection, and lease
+counts are not counts of authenticated sockets. These observations cannot
+measure the failed fixture client's connect duration. Sanitized extraction:
+`transport-analysis.json` in the run directory.
+
+#### Docker stats around the setup failure
+
+Docker capacity: **7.754 GiB / 4 CPUs / x86_64** (`observations/docker-capacity.json`).
+The full raw series is `observations/docker-stats.jsonl`; selected measurements
+below retain their sampling windows rather than assigning a point timestamp.
+CPU percentages are Docker container percentages, summed across the listed
+running containers (four CPUs can total 400%).
+
+| UTC sample window | Containers with positive PIDs | Sum CPU | Gateway API CPU / memory | Engine CPU / memory | Ordinary source CPU / memory |
+|---|---:|---:|---|---|---|
+| 16:19:57.168–16:20:02.106 | 15 | 167.87% | 1.20% / 124 MiB | 4.48% / 56.08 MiB | 58.72% / 5.266 MiB |
+| 16:20:07.169–16:20:10.784 | 15 | 215.00% | 1.55% / 124.5 MiB | 4.12% / 56.09 MiB | 103.50% / 7.352 MiB |
+| 16:20:12.169–16:20:15.870 | 14 + 1 unknown | 104.25% | 6.40% / 128.6 MiB | 16.33% / 56.09 MiB | Docker returned `--`, unavailable |
+| 16:20:22.171–16:20:25.641 | 13 | 118.34% | 1.26% / 128.6 MiB | 17.32% / 56.11 MiB | Removed by cleanup |
+
+Raw-series lines **57–60** contain these windows and every other container's
+measurements. This is observational load evidence, not proof of a root cause.
+
+Retention limitation: `observations/capture.json` reports **62 successful samples,
+2 failed sampling cycles, complete:false**. Stats/discovery commands timed out
+during installation (raw-series lines 40–41). Five seconds is the scheduled
+interval; commands taking longer cause gaps, not fabricated samples. Sampling
+also contains one unavailable source-container measurement at the failure.
+The retained series therefore cannot honestly be described as complete five-second
+coverage. Gateway/engine lifecycle logs and container events remain retained.
+
+The requested stop condition applies. **No full gate, push or merge followed the
+packaged failure.** Implementation commit remains local at `e31e596`; this result
+updates the report without applying a fix or running further verification.
+
+## Verifier diagnostic round after e31e596
+
+### Step 0 — retained evidence only
+
+At 2026-11-01 **16:20:14 UTC**, the verifier was in `customerSource`, under
+`boundary='fixture'` (pre-change `main.ts:44–45`, `infrastructure/source.ts:13–18`).
+`all.log:1–2` names fixture setup; the report was written at
+16:20:14.397952 UTC. It cannot identify whether seed, source-list or source-add
+was the failing substep. There is no retained exception establishing the cause.
+
+The last gateway request indicated by control flow is **GET /api/v1/auth/me**,
+which returned successfully before that boundary was entered. Its exact status,
+time, refusal code and cause are **not retained** in the access logs. This is a
+control-flow observation, not a measured HTTP trace. The preceding owner login
+**POST /api/v1/auth/callback** was asserted **200** by the acceptance driver
+(`scripts/images/verify-installation.mjs:38`); its gateway `auth.link_accepted`
+event is at **16:20:07.525 UTC**, captured in
+`observations/containers/517c9aa33cadeb4c3dd260a47321e14d0536cc64ee93b12952b94e4dedb0aa26-27.log:15–19`.
+The preceding request-link event is at 16:20:04.289 UTC (lines 3–7).
+No refusal code, cause or request error was recorded for these successful
+operations. The later idle database error at 16:20:32 (lines 20–23) follows the
+failure and cleanup; it does not establish the setup failure's cause.
+
+The last engine HTTP route and status are **not found** in the retained logs.
+`engine.paired_trust_loaded` at 16:18:21.052 UTC is the last engine operational
+event before the failure, not an HTTP access record:
+`observations/containers/19d35266e43d41fd2245c8c8cf6c8e37f2f1bffcba433975c8b7934637016c72-24.log:21–25`.
+No gateway-to-engine transport events, refusal or error were recorded in this
+window. Source PostgreSQL's temporary init server and final readiness are recorded
+in the previous section; they alone do not establish the client exception.
+All paths in this Step 0 refer to `tmp/verify01-packaged-oOsQB0`.
+
+### Catch inventory and change
+
+All five pre-change catches in `scripts/verification/verifier/` that swallowed or
+replaced errors were reviewed:
+
+| Original location at e31e596 | Previous handling | New report handling |
+|---|---|---|
+| `main.ts:25` | Replaced selector exception with generic text, exit 2 | Sanitized selection diagnostic in JSON/Markdown when an output directory is supplied; exit 2 |
+| `main.ts:47` | Ignored ENOENT for an absent resume file | Recorded informational `governance.resume` diagnostic; this expected first-run absence remains nonfatal; other errors still fail setup |
+| `main.ts:70–76` | Replaced most setup errors with boundary only | Structured setup error, native/recursive causes, route/status/refusal context when applicable; nonzero exit |
+| `main.ts:82` | Optional traffic catch incremented count only | Records the failing cell diagnostic as well as the failure count; failed scheduled traffic is retained too |
+| `scheduler.ts:13` | Replaced ordinary cell exceptions with generic text | Structured per-cell exception plus a sanitized readable diagnostic; failure/not-exercised distinction preserved |
+
+`infrastructure/http.ts:28` was not a catch, but discarded failed response bodies.
+It now retains only refusal code/cause and a sanitized message, alongside route
+without query and HTTP status. It does not store response bodies or cookies.
+The new diagnostic boundary wrapper catches and rethrows with context; execution
+and cleanup catches also record their errors before returning a failing report.
+A native error code and nested causes are separate from a domain refusal cause;
+null explicitly means unavailable/not applicable, not an invented value.
+
+Fixture operations have distinct `fixture.seed`, `fixture.sources-list` and
+`fixture.sources-add` labels. Reports include error class/code and sanitized
+message; argv, stacks, database detail/hint/query and response payloads are not
+copied. Credentials, URLs, cookies, quoted values, SQL and opaque values are
+redacted. No file under `src/` or `sidecar/` is changed, and no installed image,
+timeout, retry, reuse or admission behavior changes.
+
+### Validation and installed run
+
+Targeted validation: **11 tests passed in three files**, including fixture setup
+cause reporting, HTTP context/redaction, standalone artifact and DEP-008. Strict
+typecheck and lint passed. An initial direct Vitest invocation was refused before
+tests by datastore safety; validation used the repository normal-test bootstrap.
+The one existing-install run is pending. The original run
+reports remain intact; new reports will have a separate directory. The prior
+harness stopped the installed services and removed its ephemeral source fixture.
+Restarting the same installed packages and recreating that ordinary external
+fixture at its retained target is environment setup, not a fresh archive install.
+Only the internal verifier artifact will be rebuilt.
