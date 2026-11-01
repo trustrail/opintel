@@ -167,3 +167,16 @@ explicit-list inventory and separate-file baseline/candidate results are in
 relaxed and no grant is widened.
 
 Console-next uses its approved tokens and shared primitives. Its unit tests and the fresh packaged-install acceptance cover the five root screens, Select interactions, translated links and actual Inter rendering; the legacy conformance report does not claim coverage of console-next controls.
+
+VERIFY-01 phase 1 extends the existing normal-test tier with finite-selection,
+missing-prerequisite, lifecycle-expiry and standalone internal-artifact checks.
+Its defect class is a false verification pass from incomplete coverage or a
+truncated registry: the old timed soak could pass with unhit scenarios, and the
+new artifact test caught `--list` exiting before its 115-cell JSON finished
+writing to a pipe (16 KiB truncation). The internal verifier now schedules each
+selected V-01 cell exactly once and fails missing/interrupted coverage. Native
+release acceptance builds it separately from customer archives and requires all
+115 cells passed, real custody unsealing, active receipt checks, then the timed
+traffic. A missing-session run must fail as not exercised; custody-only selection
+claims only its 16 cells. Existing Stage 4 egress and unchanged-rerun proofs remain;
+its final browser/outage/soak check uses the same fresh-archive acceptance.

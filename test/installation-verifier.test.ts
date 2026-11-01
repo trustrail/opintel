@@ -51,3 +51,10 @@ it('resumes through the cursor-paginated console project list without assuming a
  expect(found.id).toBe(id);expect(paths).toEqual(['/api/v1/projects?limit=100','/api/v1/projects?limit=100&cursor=opaque-cursor']);
  await expect(publicProject(async()=>({items:[],nextCursor:null}),id)).rejects.toThrow('missing or inaccessible');
 });
+it('uses the existing engine edit API for an auto-attached paired engine and refuses a different pin',async()=>{
+ const {verificationEngine}=await import('../scripts/verification/verifier/infrastructure/engine.js');const project=randomUUID(),id=randomUUID(),pin='A'.repeat(64),calls:Array<{path:string;method:string;body:unknown}>=[];
+ let address='https://192.0.2.1:3100';const row=()=>({id,name:'Paired engine',address,certificatePin:pin,contractVersion:1,verifiedAt:null,lastSeenAt:null,health:'unverified',healthMessage:null,custody:false,sources:[]});
+ const result=await verificationEngine(async(path,method='GET',body)=>{calls.push({path,method,body});if(method==='PATCH'){address='https://host.docker.internal:3100';return {ok:true};}return {items:[row()],nextCursor:null};},project,{address,pin},'https://host.docker.internal:3100');
+ expect(result).toBe(id);expect(calls.filter(c=>c.method==='PATCH')).toEqual([{path:`/api/v1/projects/${project}/engines/${id}`,method:'PATCH',body:{name:'Paired engine',address:'https://host.docker.internal:3100',certificatePin:pin}}]);expect(calls.some(c=>c.method==='POST')).toBe(false);
+ await expect(verificationEngine(async()=>({items:[row()],nextCursor:null}),project,{address,pin:'B'.repeat(64)})).rejects.toThrow('pin differs');
+});

@@ -12,7 +12,7 @@ import {customerSource} from './infrastructure/source.js';
 import {setupV01} from '../../soak/public-setup.js';
 import {custodyAgents} from '../../soak/custody.js';
 import {cellExecutor} from './execute.js';
-import {EnginePage} from '../../../src/shared/api/engines.js';
+import {verificationEngine} from './infrastructure/engine.js';
 import {CompanyListResponse,ProjectView} from '../../../src/shared/api/tenancy-schemas.js';
 import {CustodyCheckResult} from '../../../src/shared/api/release-custody.js';
 import {TokenKeyView} from '../../../src/shared/custody-contract.js';
@@ -50,11 +50,8 @@ try{
   const industries=z.array(z.object({id:z.uuid(),slug:z.string()})).parse(await call('/api/v1/industries')),industry=industries.find(i=>i.slug==='reinsurance-treaty');if(!industry)throw new MissingPrerequisite('V-01 industry missing');
   const project=ProjectView.parse(await call('/api/v1/projects','POST',{companyId:companies[0]!.id,name:'Installation verification V-01 '+randomUUID().slice(0,8),industryId:industry.id,region:'us-east-1'}));
   const trust=z.object({address:z.url(),pin:z.string()}).parse(JSON.parse(await readFile(join(config.engineDirectory,'trust.json'),'utf8')));
-  if(config.engineAddress)trust.address=config.engineAddress;
-  let engines=EnginePage.parse(await call(`/api/v1/projects/${project.id}/engines?limit=100`)).items;
-  if(!engines.length){await call(`/api/v1/projects/${project.id}/engines`,'POST',{name:'V-01 engine',address:trust.address,certificatePin:trust.pin});engines=EnginePage.parse(await call(`/api/v1/projects/${project.id}/engines?limit=100`)).items;}
-  const registered=engines.find(e=>e.address===new URL(trust.address).origin);if(!registered)throw new MissingPrerequisite('paired engine unavailable');
-  saved={projectId:project.id,engineId:registered.id};await writeFile(join(directory,'setup.json'),JSON.stringify(saved),{mode:0o600,flag:'wx'});
+  const engineId=await verificationEngine(call,project.id,trust,config.engineAddress);
+  saved={projectId:project.id,engineId};await writeFile(join(directory,'setup.json'),JSON.stringify(saved),{mode:0o600,flag:'wx'});
  }
  const p=saved.projectId;
  await call(`/api/v1/projects/${p}/engines/${saved.engineId}/verify`,'POST',{});await call(`/api/v1/projects/${p}/engines/${saved.engineId}/custody`,'POST',{});
