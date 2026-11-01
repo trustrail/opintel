@@ -859,3 +859,12 @@ Worktree setup must run `npm run sidecar:prepare-scanner` (or the gate must chec
 for the scanner first and say exactly which command to run), so a fresh checkout
 cannot fail six tests with an opaque error. Do not weaken signature, native LOAD
 or build/platform checks; use `scripts/prepare-duckdb-scanner.ts`.
+
+
+### Gate preflight Compose project and timeout audit
+
+Gate preflight in a worktree must use the main checkout's Compose project (or
+say exactly how, for example `COMPOSE_PROJECT_NAME=opintel npm run check` after
+checking the running project's identity). Its hard-coded five-second Compose
+start limit belongs in the hard-coded-timeout audit. Do not weaken isolated gate
+databases or reuse development data for tests.

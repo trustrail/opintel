@@ -317,3 +317,72 @@ No test tier ran (`tiers: []`). The underlying cause of the readiness failures
 was not established by this run. Per the full-gate stop rule, there was no
 retry, fix, packaged acceptance or screenshot run. No merge. This result was
 committed and pushed; the feature code is unchanged from the tested candidate.
+
+
+## Gate with the running development Compose project (2026-11-01 UTC)
+
+Before acting, `docker compose ls --all` reported:
+
+```text
+opintel                       running(2)   /Users/rzarita/opintel/docker-compose.yml
+opintel-console-followups-1    created(2)   /private/tmp/opintel-console-followups-1/docker-compose.yml
+```
+
+`docker ps -a` with project/service labels confirmed:
+
+```text
+opintel-postgres-1                     Up 25 hours (healthy)  opintel                     postgres
+opintel-redis-1                        Up 25 hours (healthy)  opintel                     redis
+opintel-console-followups-1-postgres-1  Created                opintel-console-followups-1  postgres
+opintel-console-followups-1-redis-1     Created                opintel-console-followups-1  redis
+```
+
+No development service was restarted. As authorized, the gate ran once on
+`dbd8188f7c64d9982ab4c5975632b7ea618a819a` using:
+
+```sh
+COMPOSE_PROJECT_NAME=opintel npm run check
+```
+
+Log: `/private/tmp/console-followups-full-gate-dbd8188-opintel.log`.
+[Structured result](console-followups-1/gate-dbd8188-opintel.json).
+Preflight passed with `started: []`, PostgreSQL/Redis reachable and fresh isolated
+database `opintel_test_gate_9f8099d42100_6523ab50e994`, migrated from zero.
+Docker: 7.75 GiB; `docker info` took 4.045 s. The gate still used isolated data.
+
+| Tier | Exit | Seconds |
+|---|---:|---:|
+| Strict typecheck | 0 | 60.31 |
+| Conformance typecheck | 0 | 8.11 |
+| Lint | 0 | 25.24 |
+| Production artifact | 0 | 6.44 |
+| UI/control conformance | 0 | 419.99 |
+| Normal tests | 1 | 28.35 |
+| Browser/MCP smoke | Not run | — |
+
+Conformance: **36 passed**, **28/28 routes**, **0 distinct findings**.
+The normal test tier failed during Vitest startup, before any test ran:
+
+```text
+Error: Cannot find native binding. npm has a bug related to optional dependencies ...
+cause: Error: Cannot find module '@rolldown/binding-wasm32-wasi'
+cause: Error: Cannot find module './rolldown-binding.wasi.cjs'
+```
+
+Observed dependency state after failure: the feature worktree's `node_modules`
+is now an ordinary directory (owner rzarita:wheel), whereas it was an untracked
+symlink before the gate. `ls node_modules/@rolldown` reports only
+`binding-linux-x64-gnu`, `binding-linux-x64-musl`, and `pluginutils`. The main
+checkout's node_modules remains a separate directory. The conformance log
+contains `npm warn reify Removing non-directory /work/node_modules`.
+The standard `scripts/visual-docker.mjs` bind-mounts the worktree, mounts an
+anonymous `/work/node_modules` volume, and runs `npm ci` before Playwright.
+These observations establish an unusable native dependency setup for host
+Vitest; the mount/symlink interaction was not repaired or rerun in this round.
+
+Overall gate exit **1**, **569.46 s**. Cleanup succeeded and removed its isolated
+database. Per the full-gate stop rule: no fix, no rerun, no packaged image build
+or screenshots, no merge. A separate disk-space warning was raised while the
+gate ran (the image build requires at least 4 GiB); no cleanup or guard bypass
+was performed. The requested Compose-project/start-timeout backlog item was
+added. This result and backlog are committed and pushed.
