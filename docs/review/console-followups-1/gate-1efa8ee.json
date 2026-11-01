@@ -1,0 +1,25 @@
+{
+  "commit": "1efa8ee5afb3a881a6fe54338d5b3afeac26286f",
+  "runId": "52560637-2d40-4a99-9bea-433db73faa02",
+  "preflight": {
+    "seconds": 133.02774302600002,
+    "exitCode": 1,
+    "message": "Image mcr.microsoft.com/playwright:v1.63.0-noble missing and could not be pulled; run docker pull mcr.microsoft.com/playwright:v1.63.0-noble"
+  },
+  "memory": {
+    "startAvailableBytes": 2402783232,
+    "minimumAvailableBytes": 868347904,
+    "minimumAt": "2026-11-01T20:24:48.054Z",
+    "lastSampleAt": "2026-11-01T20:26:10.945Z",
+    "samples": 27,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [],
+  "cleanup": {
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 133.363776029,
+  "complete": false
+}

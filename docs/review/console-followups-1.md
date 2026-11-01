@@ -259,3 +259,36 @@ Packaging targets rerun after the acceptance-script extension:
 `npm test -- test/provisioning-runtime.test.mjs test/first-hour-contract.test.mjs test/image-console.test.mjs`
 — **8 passed, 3 files**, exit 0, 13.44 s. Log:
 `/private/tmp/console-followups-packaging-contracts.log`.
+
+
+## Single completed-candidate gate — stopped in preflight
+
+Candidate: `1efa8ee5afb3a881a6fe54338d5b3afeac26286f` (already pushed).
+Command: `npm run check`, once. Exit **1**, wall time **133.36 s**.
+Log: `/private/tmp/console-followups-full-gate-1efa8ee.log`.
+The structured result is retained in
+[gate-1efa8ee.json](console-followups-1/gate-1efa8ee.json).
+
+```text
+Gate memory preflight: 2.24 GiB available RAM; minimum 1 GiB.
+Docker info: 9.420s elapsed; timeout 30s.
+Docker memory: 7.75 GiB; minimum 7 GiB usable.
+Gate failed: Image mcr.microsoft.com/playwright:v1.63.0-noble missing and could not be pulled; run docker pull mcr.microsoft.com/playwright:v1.63.0-noble
+```
+
+Evidence: the gate result has `tiers: []`, `complete: false`, preflight exit 1,
+and cleanup exit 0 with zero containers removed. A process snapshot during the
+run showed the standard preflight's `docker pull` for that exact image still
+running at 1 minute 52 seconds. The preflight bounds its image pull at 120 s.
+No retained command output establishes why the registry pull did not finish;
+network failure, registry availability and disk pressure are **not established**.
+
+Per the stop rule, no fix, image-pull retry, full-gate rerun, fresh archive build
+or packaged screenshot run followed. The screenshot script is committed, but
+there are **no new screenshots and no verified packaged logo result**. This is
+not a gate-green candidate. All feature commits and this result are pushed to
+`feat/console-followups-1`; no merge.
+
+MacBook Air follow-up, after checking out the final report revision reported in
+chat: `scripts/release/native.sh REVISION`. This command has not been run here
+and does not represent a passing release verification.
