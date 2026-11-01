@@ -1,0 +1,96 @@
+{
+  "commit": "7f2fa37af61c1ea98ea0876ff4fe0c3bafd726b0",
+  "runId": "3264565e-ed0d-46c8-a59d-175b39079d4b",
+  "tiers": [
+    {
+      "tier": "typecheck",
+      "seconds": 82.792842796,
+      "exitCode": 0
+    },
+    {
+      "tier": "typecheck:conformance",
+      "seconds": 5.985783261999997,
+      "exitCode": 0
+    },
+    {
+      "tier": "lint",
+      "seconds": 22.235623905,
+      "exitCode": 0
+    },
+    {
+      "tier": "build:production",
+      "seconds": 2.5084833780000046,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:conformance",
+      "seconds": 340.15025540700003,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 1790.1203568729998,
+      "exitCode": 1
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_5ceba61c9149",
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 2259.8550198709995,
+  "complete": false,
+  "conformance": {
+    "passed": 36
+  },
+  "normalTests": {
+    "filesPassed": 265,
+    "filesFailed": 1,
+    "testsPassed": 2206,
+    "testsFailed": 1
+  },
+  "smoke": "not run: stopped after failed normal-test tier",
+  "failedChecks": [
+    {
+      "assertion": "tokenized cross-source join / v01-cedant-1-agent-5: status",
+      "expected": false,
+      "actual": true,
+      "pass": false
+    },
+    {
+      "assertion": "tokenized cross-source join / v01-cedant-1-agent-5: unexpected refusal",
+      "expected": "success",
+      "actual": {
+        "queueWaitMs": 0.09746399999858113,
+        "sourceFailure": {
+          "operation": "connect",
+          "nativeCode": "ETIMEDOUT",
+          "sqlState": null,
+          "attempt": 2
+        },
+        "evidenceId": "01a194fc-b4de-7ee9-b3e3-af32c1ee22d1",
+        "code": "source_unavailable",
+        "cause": "source_read_failed",
+        "retryable": false
+      },
+      "pass": false
+    },
+    {
+      "assertion": "tokenized cross-source join / v01-cedant-1-agent-5: response contract",
+      "expected": true,
+      "actual": false,
+      "pass": false
+    },
+    {
+      "assertion": "tokenized cross-source join/v01-cedant-1-agent-5: persisted returned counts",
+      "expected": {},
+      "actual": {
+        "5aeccd27-4592-4d82-870e-82b2fa7d5d7f": null,
+        "4c717f44-96c6-434e-ba68-45e12e4082f1": null
+      },
+      "pass": false
+    }
+  ],
+  "attempts": 1,
+  "underlyingCause": "not established; source connect ETIMEDOUT observed"
+}

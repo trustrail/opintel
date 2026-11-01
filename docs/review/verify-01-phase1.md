@@ -78,13 +78,96 @@ Stage 4 step requires CUSTOMER_ARCHIVES, RELEASE_MANIFEST and INTERNAL_VERIFIER.
 - A preserved lab's self-advertised LAN engine address was unreachable from Docker;
   a certificate-valid `engineAddress` override used the normal registration API.
   No engine validation was changed. Original authorised XQ exports were used.
-- Targeted checks, fresh final archive verification and the one completed-candidate
-  full gate: pending at the time of this draft; updated below before delivery.
+- Targeted checks: 41 distinct tests across the verifier, standalone artifact,
+  provisioning isolation, deployment contracts, native release preconditions,
+  first-hour contract and existing V-01 oracle/workflow files pass. Strict
+  typecheck and lint pass on verifier candidate `7f2fa37`.
+- All seven amd64 images at `80c42a3` pass layer/secret/runtime audits; fresh
+  offline gateway and engine archives install successfully. The independently
+  versioned verifier is `7f2fa37`. The intervening change touches only the
+  internal verifier, its test and gate-tier documentation; customer payload
+  source inputs are unchanged.
+- Fresh archive verification: all 115 selected cells passed, zero failed and
+  zero not exercised. All 114 admitted-query receipts passed caller, literal
+  exclusion and scope checks. The revoked credential cell correctly refuses
+  authentication before opening a receipt. All 16 custody cells perform real
+  unsealing. Optional 120-second traffic completes 54 requests with zero failures.
+- Deliberately missing normal session: exit 1, 115 not exercised, zero passed.
+- Custody-only selection: exit 0, exactly 16 selected/passed cells, no extra
+  claimed coverage. It resumes the owned public setup with its private source
+  registration record; unrelated engine source references are never adopted.
+- Fresh install run: `tmp/verify01-packaged-DDHKJM/install-result.json`.
+  Compact review copies and complete matrices are committed beside this report
+  in `verify-01-phase1/{all,missing,custody}.{json,md}`. Compact copies omit
+  fixture row bodies, not outcomes or checks; full local reports remain in the
+  run directory. No credentials, team identifier or receipt bodies are copied.
+- The first fresh-install harness attempt incorrectly used a Docker alias for
+  one-code pairing. The unchanged installer correctly refused its mismatch with
+  the advertised registration address. Documented recovery with the advertised
+  address succeeds through the already recorded gateway identity. Public engine
+  editing then applies the certificate-valid reachable address to the fixture's
+  auto-attached engine. The internal verifier now tests that path and refuses a
+  different pin. The original harness failure record/log remains in the lab.
+- The owned fresh lab is stopped after verification. Its expanded image-cache
+  tar files were removed after retaining the compressed archives; state, volumes
+  and verification records remain.
+- The single completed-candidate full gate on `7f2fa37` **failed**. Typecheck,
+  conformance typecheck, lint, production exclusion and all 36 console conformance
+  checks passed. Normal tests: 265 files / 2,206 tests passed; one test failed.
+  The browser/MCP smoke tier did not run. Cleanup passed. Total wall time:
+  2,259.86 seconds. No gate retry, test rerun or code correction followed.
+
+### Full-gate failure
+
+`test/reinsurance-conformance.test.ts:45`, tokenized cross-source join for
+`v01-cedant-1-agent-5`, expected success (`isError: false`) but received
+`isError: true`. Its retained diagnostic is:
+
+```json
+{
+  "code": "source_unavailable",
+  "cause": "source_read_failed",
+  "sourceFailure": {
+    "operation": "connect",
+    "nativeCode": "ETIMEDOUT",
+    "sqlState": null,
+    "attempt": 2
+  },
+  "evidenceId": "01a194fc-b4de-7ee9-b3e3-af32c1ee22d1"
+}
+```
+
+The response-contract assertion at line 54 consequently expected true and
+received false. The persisted-count assertion at line 107 expected an empty
+count map (no successful response decoded) and received two object IDs with
+null counts. These are follow-on assertions in the same test. The retained
+`test-results/v01/report.json` also marks the unexpected refusal check failed.
+The timeout's underlying cause is not established by this run; it is not
+classified as a branch or environment defect. No application backend file or
+migration changed. Fresh packaged finite V-01 verification passed, but does not
+replace this failing concurrent ten-agent normal test.
+
+Compact gate/failure evidence is in `verify-01-phase1/gate.json`; full local log:
+`/private/tmp/verify01-full-gate-7f2fa37.log`. The phase is **not gate-green** and
+is not merged.
 
 No migration is touched, so no migration-test exemption or applied-migration edit
 is involved. No issued evidence is edited. The four requested backlog follow-ups
 are recorded in `docs/master-backlog.md`.
 
 Native release must be run by hand on the arm64 MacBook Air; this Intel host cannot
-execute the native-arm64 script. Final command is recorded with the pushed revision
-in the completed verification record.
+execute the native-arm64 script. Fetch and switch to the pushed branch so the
+updated release driver is used, then run the immutable revision from the handoff:
+
+```sh
+git fetch origin
+git switch feat/verify-01-frame
+scripts/release/native.sh "$(git rev-parse origin/feat/verify-01-frame)"
+```
+
+The default timed traffic remains 120 seconds, after finite coverage. The native
+release path, including the updated Stage 5 browser/outage integration, has not
+been executed in this Intel verification round. Internal artifact 1.0.0 built at
+`7f2fa37` is retained separately as
+`tmp/opintel-installation-verifier-1.0.0-7f2fa37.tar.gz`; no verifier is inside the
+customer archives. Final report-only changes do not alter the tested executables.
