@@ -1,4 +1,4 @@
-# Console follow-ups 1 — stopped at targeted validation
+# Console follow-ups 1 — validation record
 
 Branch: `feat/console-followups-1`, based on main `ac91c4c51ab6d9a63aeb3f000bcb0ae68f565de8`.
 Worktree: `/private/tmp/opintel-console-followups-1`. The VERIFY-01 checkout and
@@ -214,3 +214,48 @@ typecheck, lint, full gate, packaged check and screenshots remain **not run**;
 no native release command is represented as validated. The three corrected
 contracts/status behavior and this comparison are committed together and pushed
 immediately. No merge.
+
+
+## Standard scanner setup and completed-candidate checks (2026-11-01)
+
+The user identified the missing scanner as worktree setup and authorized the
+standard setup command. `npm run sidecar:prepare-scanner` completed with exit 0
+in the feature worktree, downloading the pinned signed extension and successfully
+performing the script's native DuckDB `LOAD` verification. No product workaround
+was applied. Log: `/private/tmp/console-followups-prepare-scanner.log`.
+
+The six prior scanner/read-path failures plus the new compound test were rerun:
+
+```sh
+npm test -- test/pool-row-access.test.ts test/row-entitlement-migration.test.ts test/row-entitlements-console.test.ts test/sidecar-http.test.ts -t 'ROW-SCALE no-default override|ROW-007|ROW-2B catalogue tags|ROW-2B composition, default|ROW-2B existing override|SIGTERM to the real sidecar process|compound pool rules enforce AND/OR'
+```
+
+**7 passed, 21 skipped, 4 files passed**, exit 0, 28.28 s.
+Log: `/private/tmp/console-followups-scanner-seven.log`.
+This resolves every scanner-related failure in the original 51-file selection,
+including ROW-007 and the new compound read-plan/immutable-receipt regression.
+Together with the focused correction run above, every original targeted failure
+has now passed. This does not claim the entire 51-file selection was run again.
+
+`npm run typecheck` passed (strict, exit 0). Lint's first run found two unused
+test bindings; those bindings were removed. The console suite then passed again:
+**136 tests, 13 files**, exit 0. Log:
+`/private/tmp/console-followups-console-final.log`.
+
+The existing packaged first-run browser script now captures sign-in and rail
+logos, the saved-source schema picker, AND and OR rules, and separate table
+editors. It checks all three PNG URLs return 200 and the rendered image decodes.
+Its real first-agent assertion still requires six returned rows; the compound
+rule `id >= 5 AND id <= 10` has the same six permitted fixture rows. Per-table
+editor inspection opens a second dialog without saving another pool. These
+captures are not claimed as executed until the packaged acceptance result below.
+The script passes `node --check`. No ad-hoc acceptance client or CSS was added.
+
+The scanner-worktree setup item was added to `docs/master-backlog.md`.
+
+Final lint: `npm run lint` — exit 0, no dependency violations (578 modules,
+1,915 dependencies). Log: `/private/tmp/console-followups-lint-final.log`.
+Packaging targets rerun after the acceptance-script extension:
+`npm test -- test/provisioning-runtime.test.mjs test/first-hour-contract.test.mjs test/image-console.test.mjs`
+— **8 passed, 3 files**, exit 0, 13.44 s. Log:
+`/private/tmp/console-followups-packaging-contracts.log`.

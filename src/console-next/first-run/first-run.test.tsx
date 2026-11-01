@@ -1,7 +1,7 @@
 import {selectOption} from '../test-select.js';
 import type {ReactNode} from 'react';
 import {afterEach,it,expect,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {render,screen,fireEvent} from '@testing-library/react';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {Tooltip} from '../components/primitives.js';
 import type {Project} from '../home/data.js';
