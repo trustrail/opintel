@@ -109,3 +109,108 @@ substitute standard step was written. The current scripts, code, tests and this
 red result are preserved together in a WIP commit and pushed immediately, as
 required. No native release command is presented as validated; this phase is
 unfinished.
+
+## Follow-on correction and unchanged-main comparison
+
+The revised standing rule supersedes the earlier stop interpretation: failures
+in targeted development tests are fixed; a full gate, packaged check or blocker
+outside the task is a stop. This round implements the three explicitly requested
+follow-on corrections, then stops at the requested baseline environmental finding.
+
+### Corrections and focused validation
+
+- The empty-schema destination recovery test now expects **no queued scan**, no
+  introspection record, and `choose_schemas` with an empty selection. The separate
+  selected-schema policy/queue assertions remain unchanged.
+- The sidecar's exact OpenAPI route-list assertion includes `/schemas`; its
+  pinned application-certificate requirement is also asserted.
+- A source-unavailable error from schema listing becomes the standard HTTP
+  dependency failure (**503**), preserving the engine's message and details.
+  F-011 asserts status, `dependency_unavailable`, the exact engine reason and
+  retryability, then verifies the reason is saved on the source and no scan exists.
+  No scanner, read-plan, timeout or startup behavior changed for these corrections.
+
+Final focused command:
+
+```sh
+npm test -- test/engine-egress.test.ts test/source-registration.test.ts test/sidecar-http.test.ts -t 'DEP-006|policy|unresolvable destinations|applied heartbeat|reassignment waits|F-011|bounds request bodies'
+```
+
+**11 passed, 29 skipped, three files passed**, exit 0, 17.94 seconds. Includes
+F-001, F-010 and F-011. Local log:
+`/private/tmp/console-followups-corrections-final.log`. An earlier focused
+three-case development invocation had two passes and a failure because the test
+edit matched the wrong occurrence; that edit was corrected and the untouched
+selected-schema assertions restored before the final selection above. This was
+a targeted development correction, not a gate or packaged-check retry.
+
+### Baseline evidence — no branch code copied into main
+
+A new detached worktree was created at
+`/private/tmp/opintel-followups-baseline-ac91c4c` with exact HEAD
+**ac91c4c51ab6d9a63aeb3f000bcb0ae68f565de8**. Before and after the comparison,
+`git status --porcelain` produced no output and `git diff --exit-code ac91c4c -- .`
+returned 0. Dependencies/configuration were provided as ignored local environment
+inputs; no tracked baseline file was changed and no scanner was prepared.
+
+The following standard command ran **once** on that unchanged checkout:
+
+```sh
+npm test -- test/pool-row-access.test.ts test/row-entitlement-migration.test.ts test/row-entitlements-console.test.ts test/sidecar-http.test.ts -t 'ROW-SCALE no-default override|ROW-007|ROW-2B catalogue tags|ROW-2B composition, default|ROW-2B existing override|SIGTERM to the real sidecar process'
+```
+
+**Six failed, 21 skipped, four files failed**, exit 1, 29.09 seconds. Local log:
+`/private/tmp/console-followups-main-scanner-comparison.log:780–868`.
+
+| Existing failing case | Feature branch, previous run | Unchanged main | Main evidence |
+|---|---|---|---|
+| ROW-SCALE no-default override | Fail | **Fail** | `pool-row-access.test.ts:45`: expected object, received undefined structuredContent |
+| ROW-007 seeded forward/revert | Fail | **Fail** | `row-entitlement-migration.test.ts:19`: prerequisite query isError true, before migration assertions |
+| ROW-2B catalogue tags | Fail | **Fail** | `row-entitlements-console.test.ts:14`: expected object, received undefined |
+| ROW-2B composition/default inheritance | Fail | **Fail** | `row-entitlements-console.test.ts:20`: expected object, received undefined |
+| ROW-2B missing pool stays scoped | Fail | **Fail** | `row-entitlements-console.test.ts:35`: expected object, received undefined |
+| SIGTERM real sidecar process | Fail | **Fail** | `sidecar-http.test.ts:244`: process never reaches ready; scanner load failure below |
+
+The new compound read-plan/receipt test is **not found on main**. It was not
+copied there or presented as an unchanged-main test. Its individual result is
+not inferred from the six baseline cases.
+
+The baseline startup test reported exactly:
+
+```
+Opintel Engine startup failed: query engine readiness: Error: The configured signed PostgreSQL scanner could not be loaded.
+```
+
+Expected extension locations are explicit in the unchanged code:
+
+- `test/fixtures/query/fixture.ts:95` passes
+  `resolve('tmp/duckdb-extensions/postgres_scanner.duckdb_extension')` to the query
+  engine.
+- `test/sidecar-http.test.ts:239` sets the same resolved file as postgresExtension
+  for its spawned engine.
+- `sidecar/session/infrastructure/duckdb.ts:32–33` loads the configured extension
+  when opening the privileged session; `sidecar/readiness.ts:24–27` classifies
+  the startup load failure.
+- The existing preparation script writes the file at
+  `scripts/prepare-duckdb-scanner.ts:23–27`, including a native LOAD verification.
+
+`ls -l` reports **No such file or directory** for both:
+
+```
+/private/tmp/opintel-followups-baseline-ac91c4c/tmp/duckdb-extensions/postgres_scanner.duckdb_extension
+/private/tmp/opintel-console-followups-1/tmp/duckdb-extensions/postgres_scanner.duckdb_extension
+```
+
+### Conclusion and stop
+
+The existing scanner/read-path failures reproduce on unchanged main: this is an
+**environmental blocker**, not a failure unique to the feature branch. The signed
+PostgreSQL scanner file required by both fixtures is absent. No product change
+was made to bypass or compensate for it; the extension was not downloaded,
+replaced or prepared in this round.
+
+Per the explicit conditional instruction, work stops here. Final strict
+typecheck, lint, full gate, packaged check and screenshots remain **not run**;
+no native release command is represented as validated. The three corrected
+contracts/status behavior and this comparison are committed together and pushed
+immediately. No merge.

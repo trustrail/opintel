@@ -30,7 +30,7 @@ export class SourceRegistrationService {
   const source=await this.repository.schemaTarget(ctx,id);if(!source.ok)return source;
   const result=await this.connector(ctx,id).listSchemas(source.value.ref);
   await this.repository.schemaError(ctx,id,result.ok?null:result.error.message);
-  if(!result.ok)return result;
+  if(!result.ok)return result.error.code==='source_unavailable'?err(new DomainError('dependency_unavailable',result.error.message,result.error.details,true)):result;
   return ok({schemas:[...new Set(result.value)].filter(name=>!['pg_catalog','information_schema','pg_toast'].includes(name)&&!/^pg_(?:toast_)?temp/u.test(name)).sort((a,b)=>a.localeCompare(b)),included:source.value.included});
  }
  async selectSchemas(ctx:SourceContext,id:SourceId,schemas:string[]){
