@@ -852,3 +852,10 @@ No backend, migration, grant, export or runtime generator change is part of this
 ### VERIFY-01 — Soak coverage completeness
 
 Soak reports passed without checking scenario coverage completeness (reinsurance.ts:220/225 vs gateway-DEMO.md:34). Address in VERIFY-01, not DEMO-01; preserve the current V-01 oracle and expected answers in DEMO-01.
+
+## VERIFY-01 follow-ups
+
+- Implicit-table pools (whole-source binding without row decisions) can only be created by the internal seeder. Determine whether any exist outside tests; if so, migrate them to explicit bindings with explicit all-rows decisions, then remove the implicit mode.
+- rowsPerDay is accepted and stored but not enforced: enforce it or remove it from the API and console.
+- Settings has no mail-test or TLS-expiry state.
+- Installed reachability map for the 66 refusal causes.

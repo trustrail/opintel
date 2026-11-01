@@ -1,4 +1,4 @@
-import {OperatorConflict} from '../common.js';
+import {OperatorConflict} from '../conflict.js';
 /** Explicit synthetic source writer; never uses the application's metadata pool. */
 import {Client} from 'pg';
 import {z} from 'zod';

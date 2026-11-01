@@ -1574,3 +1574,15 @@ operator packet, reset treatment and shared token domain confirmation. Capture
 1440 light designs 20–23/26–29 and 390 light design 25 side by side with the approved
 images, documenting differences. Run one full gate on the completed tip, then
 commit/push feat/console-auth-source-panel; do not merge.
+
+### VERIFY-01 phase 1 — internal installed-system verifier
+
+Build a separately versioned artifact excluded from customer images and archives.
+Port the 115 versioned V-01 query expectations unchanged into a stable registry.
+Use public console APIs and engine `./sources add` for setup, explicit table
+bindings and explicit all-rows decisions on open_reference. Only those four cells'
+row-scope evidence changes from unscoped to a recorded all-rows decision. No new
+capability cells or application behavior. Run finite selected coverage before
+optional timed traffic; missing, interrupted or expired prerequisites fail as
+not exercised. Record every selected cell and sanitized evidence in JSON and a
+readable matrix. Native release acceptance invokes the separate internal artifact.

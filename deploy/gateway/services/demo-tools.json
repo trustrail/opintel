@@ -17,7 +17,6 @@
         "HOME": "/home/operator",
         "OPINTEL_OUTPUT_DIRECTORY": "/output",
         "OPINTEL_SOAK_OUTPUT_DIRECTORY": "/output/soak",
-        "OPINTEL_PACKAGED_SOAK": "1",
         "ENGINE_HEARTBEAT_URL": "${GATEWAY_HEARTBEAT_URL:?set explicit gateway HTTPS heartbeat address}"
       },
       "volumes": [

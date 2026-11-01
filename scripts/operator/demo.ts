@@ -2,10 +2,8 @@ import {customerSoak,customerPrepare} from './customer-demo.js';
 import {xqRoundTripCheck} from './xq-roundtrip.js';
 import {runSoak} from './run-soak.js';
 import {OperatorConflict,operatorFailure} from './common.js';
-import {EngineId} from '../../src/shared/kernel/index.js';
-import {EngineRegistry,PostgresEngineRepository,HttpsEngineProbe,loadApplicationTls} from '../../src/modules/engines/index.js';
 import {CustodyCheckResult} from '../../src/shared/api/release-custody.js';
-import {context,operatorApiTarget,required,privateRead,privateWrite,provisionManifest,locked,api} from './common.js';
+import {operatorConfig,operatorApiTarget,required,privateRead,privateWrite,provisionManifest,locked,api} from './common.js';
 import {seedOptions} from './seed-options.js';
 import {syntheticSource} from './infrastructure/synthetic-source.js';
 import {provisionReinsurance} from './reinsurance.js';
@@ -20,9 +18,7 @@ async function main(){
  process.argv=[process.argv[0]!,process.argv[1]!, '--target',operatorApiTarget(),'--manifest',required('OPINTEL_SOAK_MANIFEST'),'--observer-cookie',required('OPINTEL_OBSERVER_COOKIE'),'--custody','--certs',required('OPINTEL_CERTIFICATES'),'--duration',required('OPINTEL_SOAK_DURATION'),'--agents','10','--rate',process.env.OPINTEL_SOAK_RATE??'750','--seed','1'];
  await import('../soak/reinsurance.js');}return;}
  if(command!=='governance'&&command!=='lifecycle'&&command!=='lifecycle-renew')throw new OperatorConflict('Unknown operator command');
- const c=await context();try{await c.authorize('project',provision.projectId);await c.authorize('project',provision.projectId,'set_entitlement');
- const registry=new EngineRegistry(new PostgresEngineRepository(),new HttpsEngineProbe(required('ENGINE_HEARTBEAT_URL')),await loadApplicationTls(required('APPLICATION_TLS_CONFIG')));
- await locked(required('OPINTEL_SOAK_MANIFEST'),()=>provisionReinsurance({projectId:provision.projectId,userId:c.userId},registry,EngineId(provision.engineId),c.auth,required('OPINTEL_CERTIFICATES'),required('OPINTEL_SOAK_MANIFEST'),c.config.sourceCredentialRef,command==='lifecycle'||command==='lifecycle-renew',command==='lifecycle-renew'));
- }finally{c.auth.close();}
+ const config=operatorConfig.parse(JSON.parse(await privateRead(required('OPINTEL_OPERATOR_CONFIG'))));
+ await locked(required('OPINTEL_SOAK_MANIFEST'),()=>provisionReinsurance(provision.projectId,provision.engineId,required('OPINTEL_CERTIFICATES'),required('OPINTEL_SOAK_MANIFEST'),config.sourceCredentialRef,command==='lifecycle'||command==='lifecycle-renew',command==='lifecycle-renew'));
 }
 void main().then(()=>process.exit(0)).catch((e:unknown)=>{operatorFailure(e);process.exit(1);});

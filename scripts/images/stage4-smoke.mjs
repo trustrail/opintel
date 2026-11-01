@@ -4,7 +4,7 @@ import {homedir} from 'node:os';
 import process from 'node:process';
 import console from 'node:console';
 import assert from 'node:assert/strict';
-import {spawnSync,spawn} from 'node:child_process';
+import {spawnSync} from 'node:child_process';
 import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,chmodSync,appendFileSync,readdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {randomBytes,X509Certificate,createHash} from 'node:crypto';
@@ -77,10 +77,10 @@ write(join(engineDirectory,'service.json'),{host:'0.0.0.0',port:3100,tls:{caFile
 write(join(gatewayDirectory,'postgres-password'),password+'\n',0o644);
 write(join(gatewayDirectory,'redis.conf'),`bind 0.0.0.0\nprotected-mode yes\nsave ""\nappendonly no\nrequirepass ${password}\n`,0o644);
 const runtimeEnv=join(gatewayDirectory,'runtime.env'),operatorEnv=join(gatewayDirectory,'operator.env'),spiceEnv=join(gatewayDirectory,'spicedb.env'),engineEnv=join(engineDirectory,'runtime.env');
-const outputDirectory=join(directory,'output');mkdirSync(outputDirectory,{mode:0o700});
+const outputDirectory=join(directory,'output');mkdirSync(outputDirectory,{mode:0o700});write(join(outputDirectory,'source-uri'),sourceUrl);
 const provider=Object.fromEntries(Object.entries(xq).filter(([key])=>key.startsWith('OPINTEL_XQ_')&&!key.startsWith('OPINTEL_XQ_TEST_')||key==='OPINTEL_CUSTODY_MASTER_KEY'));
 const common={...provider,OPINTEL_API_BASE_URL:`https://${hostAddress}:14873`,DATABASE_URL:`postgresql://opintel_gateway:${runtimePassword}@postgres:5432/opintel`,REDIS_URL:`redis://:${password}@redis:6379`,SPICEDB_ENDPOINT:'spicedb:50051',SPICEDB_TOKEN:spiceToken,APP_BASE_URL:'https://127.0.0.1:14873',OPINTEL_STAGE4_SMOKE:'synthetic-only',OPINTEL_SECRET_ACCEPTANCE_SOURCE:sourceUrl};
-envFile(runtimeEnv,common);envFile(operatorEnv,{...common,MIGRATION_DATABASE_URL:`postgresql://opintel:${password}@postgres:5432/opintel`,APPLICATION_TLS_CONFIG:'/config/application-tls.json',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_OBSERVER_COOKIE:'/output/observer.cookie',OPINTEL_API_BASE_URL:`https://${hostAddress}:14873`,OPINTEL_DEMO_DATABASE_URL:sourceUrl,OPINTEL_DEMO_FIXTURE:'V-01',OPINTEL_DEMO_SEED:'1',OPINTEL_DEMO_SCHEMAS:'soak_policies,soak_claims,soak_recoveries',OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_SOAK_DURATION:'120',OPINTEL_SOAK_RATE:String(soakRateMs)});
+envFile(runtimeEnv,common);envFile(operatorEnv,{...common,MIGRATION_DATABASE_URL:`postgresql://opintel:${password}@postgres:5432/opintel`,APPLICATION_TLS_CONFIG:'/config/application-tls.json',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_OBSERVER_COOKIE:'/output/observer.cookie',OPINTEL_API_BASE_URL:`https://${hostAddress}:14873`,OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_SOAK_DURATION:'120',OPINTEL_SOAK_RATE:String(soakRateMs)});
 envFile(spiceEnv,{SPICEDB_GRPC_PRESHARED_KEY:spiceToken,SPICEDB_DATASTORE_CONN_URI:`postgres://spicedb:${password}@spicedb-postgres:5432/spicedb?sslmode=disable`,SPICEDB_GRPC_TLS_CERT_PATH:'/config/tls/spicedb.pem',SPICEDB_GRPC_TLS_KEY_PATH:'/config/tls/spicedb.key'});
 envFile(engineEnv,{OPINTEL_SECRET_ACCEPTANCE_SOURCE:sourceUrl,UV_THREADPOOL_SIZE:String(engineWorkers)});
 const gatewayFile=join(gatewayDirectory,'package.env'),engineFile=join(engineDirectory,'package.env');
@@ -142,7 +142,7 @@ try{
  engine('prepare',join(engineDirectory,'state','readiness-egress.json'));engine('start','egress');engine('start','engine');await wait(health,'Packaged engine');
  write(join(outputDirectory,'operator.json'),{ownerEmail:'stage4-owner@example.invalid',companyId:companies.items[0].id,projectName:'Stage4 reinsurance',region:'eu-west-1',engine:{name:'Acceptance engine',address:`https://${hostAddress}:14810`,certificatePin:new X509Certificate(readFileSync(join(engineDirectory,'tls','engine.pem'))).fingerprint256.replaceAll(':','')},sourceCredentialRef:'secret://acceptance/source',settings:{query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5},custody:{provider:'xq',tenant:xq.OPINTEL_XQ_TEAM_ID,region:'eu-west-1'},poolKeyGraceSeconds:3600}});
  write(join(outputDirectory,'certificates.json'),[{certificateId:223,deviceName:'opintelprobe'},{certificateId:224,deviceName:'opintelpoola'},{certificateId:225,deviceName:'opintelpoolb2'},{certificateId:226,deviceName:'opintelpoolb'}].map(v=>({...v,bundlePath:'/home/operator/.xq/v02/'+v.certificateId})));
- const job=(command,...args)=>{const text=gateway(command,...args);write(join(directory,command+'-'+args.join('-')+'-'+Date.now()+'.log'),text);return text;};
+ const job=(command,...args)=>{if(command==='demo-tools'&&['seed','governance','lifecycle','prepare'].includes(args[0]))args.push('--target-file','/output/source-uri','--source-ref','secret://acceptance/source','--session-file','/output/observer.cookie');const text=gateway(command,...args);write(join(directory,command+'-'+args.join('-')+'-'+Date.now()+'.log'),text);return text;};
  job('provision');result.checks.provision=true;
  const provision=JSON.parse(readFileSync(join(outputDirectory,'provision.json'),'utf8')),email='browser-acceptance@example.invalid';
  const beforeInvitation=new Set((await mailMessages()).map(m=>m.ID));
@@ -165,40 +165,15 @@ try{
  const before=snapshot(),keysBefore=readFileSync(join(outputDirectory,'soak.json'),'utf8');
  job('provision');job('demo-tools','seed');job('demo-tools','governance');assert.equal(snapshot(),before);assert.equal(readFileSync(join(outputDirectory,'soak.json'),'utf8'),keysBefore);result.checks.unchangedRerun={stateHash:createHash('sha256').update(before).digest('hex'),privateManifestHash:createHash('sha256').update(keysBefore).digest('hex'),identical:true};
  job('demo-tools','lifecycle');job('demo-tools','prepare');const preparation=JSON.parse(readFileSync(join(outputDirectory,readdirSync(outputDirectory).find(name=>name.startsWith('prepare-'))),'utf8'));assert.equal(preparation.status,'passed');result.checks.certificateExchangeAndEscrowRedeem={certificates:preparation.certificates,verifiedValues:preparation.verifiedValues,receiptIds:preparation.receiptIds};result.checks.prepare=true;
- // Keep the timer and verification live while the static console is stopped.
- const soakLog=join(directory,'demo-tools-soak.log');
- const soakDirectory=()=>join(outputDirectory,readdirSync(outputDirectory).find(n=>n.startsWith('soak-run-'))??'not-started','soak');
- const child=spawn('bash',[join(packages,'gateway','gateway.sh'),'--env-file',gatewayFile,'--project-name',gatewayProject,'demo-tools','run-soak','120'],{stdio:['ignore','pipe','pipe']});
- child.stdout.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));child.stderr.on('data',chunk=>appendFileSync(soakLog,chunk,{mode:0o600}));
- let soakExitCode=null;
- const finished=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',code=>resolve(code));});
- try{
-  await wait(()=>{const paths=readdirSync(soakDirectory()).filter(n=>n.endsWith('.jsonl'));assert.equal(paths.length,1);assert.ok(readFileSync(join(soakDirectory(),paths[0]),'utf8').includes('"type":"start"'));},'Timed soak start',300000);
-  await setTimeout(15000);gateway('stop','console');const stoppedAt=new Date().toISOString();
-  assert.equal((await https('https://127.0.0.1:14873/sign-in')).status,502);
-  const readEvents=()=>{const name=readdirSync(soakDirectory()).find(n=>n.endsWith('.jsonl'));const text=readFileSync(join(soakDirectory(),name),'utf8');return text.slice(0,text.lastIndexOf('\n')).split('\n').filter(Boolean).map(line=>JSON.parse(line));};
-  const baseline=readEvents(),oldQueries=new Set(baseline.filter(e=>e.type==='query').map(e=>e.response?.structuredContent?.evidenceId)),oldReceipts=new Set(baseline.filter(e=>e.type==='receipt').map(e=>e.id)),verifiedDuringOutage=new Set();
-  const probes=[];for(let n=0;n<4;n++){
-   await api('/healthz');await api('/api/v1/projects/'+provision.projectId+'/runs?limit=1');
-   const events=readEvents(),newQueries=new Set(events.filter(e=>e.type==='query'&&e.outcome==='success'&&!oldQueries.has(e.response?.structuredContent?.evidenceId)).map(e=>e.response?.structuredContent?.evidenceId));
-   for(const event of events)if(event.type==='receipt'&&!oldReceipts.has(event.id)&&newQueries.has(event.id))verifiedDuringOutage.add(event.id);
-   probes.push({at:new Date().toISOString(),newVerifiedQueries:verifiedDuringOutage.size});await setTimeout(5000);
-  }
-  const resumedAt=new Date().toISOString();gateway('start','console');await wait(async()=>assert.equal((await https('https://127.0.0.1:14873/sign-in')).status,200),'Console recovery');
-  result.checks.consoleIsolation={stoppedAt,resumedAt,apiAndReceiptProbes:probes,queryAndReceiptDuringOutage:verifiedDuringOutage.size,uiUnavailableOnly:true};
-  result.checks.packagedBrowserRestored=browserCheck(true);
-  soakExitCode=await finished;
- }finally{if(child.exitCode===null){child.kill('SIGTERM');await finished;}}
-
- const logs=readdirSync(soakDirectory()).filter(n=>n.endsWith('.jsonl'));assert.equal(logs.length,1);const events=readFileSync(join(soakDirectory(),logs[0]),'utf8').trim().split('\n').map(v=>JSON.parse(v));const start=events.find(v=>v.type==='start'),summary=events.at(-1);
+ // Keep the extra Stage 4 egress and unchanged-rerun proofs above. The timed
+ // acceptance now uses the same fresh customer archives and finite internal
+ // verifier as native release, rather than a second timed coverage/pass rule.
+ assert.ok(process.env.CUSTOMER_ARCHIVES&&process.env.RELEASE_MANIFEST&&process.env.INTERNAL_VERIFIER,'Stage 4 final acceptance requires CUSTOMER_ARCHIVES, RELEASE_MANIFEST and the separately built INTERNAL_VERIFIER');
+ const acceptance=spawnSync(process.execPath,['scripts/images/stage5-smoke.mjs',resolve(process.env.CUSTOMER_ARCHIVES),...(published?.candidate?['--candidate']:[]),'--duration-seconds','120'],{encoding:'utf8',timeout:1800000,maxBuffer:16*1024*1024,env:process.env});
+ write(join(directory,'customer-archive-acceptance.log'),(acceptance.stdout??'')+(acceptance.stderr??''));assert.equal(acceptance.status,0,'Fresh archive finite V-01/browser/outage acceptance failed');
+ const acceptanceFile=/Stage 5 acceptance passed: (.+)/u.exec(acceptance.stdout)?.[1];assert.ok(acceptanceFile,'Retain the archive acceptance report');const accepted=JSON.parse(readFileSync(acceptanceFile,'utf8'));assert.equal(accepted.status,'passed');assert.equal(accepted.checks.packagedSoak.coverage.passed,115);assert.equal(accepted.checks.packagedSoak.coverage.notExercised,0);assert.ok(accepted.checks.consoleIsolation.verifiedQueriesDuringOutage>0);assert.equal(accepted.checks.packagedSoak.receiptChecksSkipped,0);assert.equal(accepted.checks.packagedSoak.custodyVerified,true);
+ result.checks.archiveAcceptance=acceptanceFile;result.checks.twoMinuteSoak=accepted.checks.packagedSoak;result.checks.consoleIsolation=accepted.checks.consoleIsolation;result.checks.packagedBrowserRestored=accepted.checks.browserRestored;
  const apiLog=gatewayCompose('api','logs','--no-color','api');result.checks.engineProbeRecovery={connectRetries:[...apiLog.matchAll(/engine\.probe_connect_retry/gu)].length,verificationRefusals:[...apiLog.matchAll(/engine\.verification_refused/gu)].length};
- result.checks.twoMinuteSoak={outcomes:summary.outcomes,refusals:summary.refusals,durationSeconds:start.duration,status:summary.status,invariantBreaches:summary.invariantBreaches,operationalErrors:summary.operationalErrors,receiptChecksSkipped:summary.receiptInvariants.checksSkipped,custodyVerifiedValues:summary.custody.verifiedValues,coverage:{declared:summary.coverage.declared,exercised:summary.coverage.exercised}};
- result.checks.packagedSoakWorkflow=JSON.parse(readFileSync(join(soakDirectory(),'..','result.json'),'utf8')).steps;
- const outage=result.checks.consoleIsolation;
- const receipts=events.filter(e=>e.type==='receipt'&&e.detail&&Date.parse(e.detail.startedAt)>=Date.parse(outage.stoppedAt)&&Date.parse(e.detail.startedAt)<Date.parse(outage.resumedAt));
- assert.ok(receipts.length,'No verified query receipts during console outage');outage.verifiedQueryReceipts=receipts.length;
- assert.ok(outage.queryAndReceiptDuringOutage>0,'No new successful query and receipt verified while console was stopped');
- assert.equal(soakExitCode,0,'Packaged soak failed');assert.equal(start.duration,120);assert.ok(Date.now()-Date.parse(start.startedAt)>=120000);assert.equal(summary.status,'PASSED');assert.equal(summary.invariantBreaches,0);assert.equal(summary.operationalErrors,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
  result.status='passed';write(join(directory,'result.json'),result);console.log('Stage4 package acceptance passed: '+join(directory,'result.json'));
 }catch(error){result.status='failed';result.failure=error instanceof Error?error.message:'Acceptance failed';write(join(directory,'result.json'),result);throw error;}
 finally{

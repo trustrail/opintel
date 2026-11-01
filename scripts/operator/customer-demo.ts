@@ -5,10 +5,10 @@ import {createRedisConnection} from '../../src/platform/redis/index.js';
 import {prepare} from './prepare.js';
 import {join,resolve,relative} from 'node:path';
 import {z} from 'zod';
-import {withPlatform} from '../../src/platform/db/scope.js';
-import {ReleaseRuntime} from '../../src/modules/release-custody/index.js';
+import {CompanyListResponse} from '../../src/shared/api/tenancy-schemas.js';
+import {CustodyCheckResult} from '../../src/shared/api/release-custody.js';
 import {certificateMapping} from '../soak/manifest.js';
-import {context,privateRead,privateWrite,required,OperatorConflict,provisionManifest} from './common.js';
+import {api,privateRead,privateWrite,required,OperatorConflict,provisionManifest} from './common.js';
 import {provision} from './provision-service.js';
 import {runSoak} from './run-soak.js';
 async function matching(file:string,value:unknown){
@@ -21,8 +21,7 @@ export async function customerSoak(duration:string|undefined,args:readonly strin
  const options=await seedOptions(args);if(!options.sourceRef?.startsWith('secret://sources/')||!options.sessionFile)throw new OperatorConflict('Use ./sources add on the engine, then supply --source-ref and --session-file from normal owner login');
  process.env.OPINTEL_OBSERVER_COOKIE=options.sessionFile;
  const ownerEmail=required('OWNER_EMAIL');
- const users=await withPlatform(tx=>tx.query<{company_id:string}>("SELECT m.company_id FROM company_member m JOIN user_account u ON u.id=m.user_id WHERE u.email=$1 AND m.role='admin' AND u.last_login_at IS NOT NULL",[ownerEmail]));
- if(users.length!==1)throw new OperatorConflict('Complete normal owner email login before running the demo.');
+ const companies=CompanyListResponse.parse(await api('/api/v1/companies?limit=100')).items.filter(c=>c.role==='admin');if(companies.length!==1)throw new OperatorConflict('Choose an administered company with the explicit operator configuration');
  let peerText:string;try{peerText=await privateRead(join(required('OPINTEL_OUTPUT_DIRECTORY'),'peer.json'));}catch(error){if(error instanceof Error&&'code'in error&&error.code==='ENOENT')throw new OperatorConflict('No engine registered. Run ./register-engine ENGINE_ADDRESS CODE first.');throw error;}
  const peer=z.object({address:z.url(),pin:z.string()}).parse(JSON.parse(peerText));
  const root='/home/operator/.xq';
@@ -30,11 +29,10 @@ export async function customerSoak(duration:string|undefined,args:readonly strin
   const path=resolve(root,item.bundlePath);if(item.bundlePath.startsWith('/')||relative(root,path).startsWith('..'))throw new OperatorConflict('Device bundle paths must be relative to identities.');return {...item,bundlePath:path};
  });
  await matching(required('OPINTEL_CERTIFICATES'),mapping);
- await matching(required('OPINTEL_OPERATOR_CONFIG'),{ownerEmail,companyId:users[0]!.company_id,projectName:'Reinsurance demonstration',region:'us-east-1',engine:{name:'Customer engine',address:peer.address,certificatePin:peer.pin.replaceAll(':','')},sourceCredentialRef:options.sourceRef,settings:{query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5},custody:{provider:'xq',tenant:required('OPINTEL_XQ_TEAM_ID'),region:'us-east-1'},poolKeyGraceSeconds:3600}});
+ await matching(required('OPINTEL_OPERATOR_CONFIG'),{ownerEmail,companyId:companies[0]!.id,projectName:'Reinsurance demonstration',region:'us-east-1',engine:{name:'Customer engine',address:peer.address,certificatePin:peer.pin.replaceAll(':','')},sourceCredentialRef:options.sourceRef,settings:{query:{rowLimit:1000,timeoutSeconds:30,memoryLimitMb:256,concurrencyPerPool:2,aggregateMinGroupSize:5},custody:{provider:'xq',tenant:required('OPINTEL_XQ_TEAM_ID'),region:'us-east-1'},poolKeyGraceSeconds:3600}});
  await provision();
- const manifest=provisionManifest.parse(JSON.parse(await privateRead(required('OPINTEL_PROVISION_MANIFEST')))),c=await context(),runtime=new ReleaseRuntime();
- try{const check=await runtime.checkConnection({projectId:manifest.projectId,userId:c.userId});if(!check.reachable||!check.authenticated||check.failure)throw new OperatorConflict('XQ connection check failed; demo was not started.');}
- finally{runtime.close();c.auth.close();}
+ const manifest=provisionManifest.parse(JSON.parse(await privateRead(required('OPINTEL_PROVISION_MANIFEST'))));
+ const check=CustodyCheckResult.parse(await api(`/api/v1/projects/${manifest.projectId}/custody-provider/check`,'POST',{}));if(!check.reachable||!check.authenticated||check.failure)throw new OperatorConflict('XQ connection check failed; soak was not started.');
  await runSoak(duration,args);
 }
 

@@ -41,7 +41,7 @@ for(const [name,source] of Object.entries(entries[target])){
    builder.onLoad({filter:/\/platform\/http\/development-migrations\.ts$/},()=>({contents:'export async function checkDevelopmentMigrations() {}',loader:'js'}));
   }}],
  });
- const forbidden=Object.keys(result.metafile.inputs).filter(file=>/^(?:test|e2e|reference|scripts\/verification\/workbooks)\//u.test(file)||(target!=='demo-tools'&&/^scripts\/soak\//u.test(file)));
+ const forbidden=Object.keys(result.metafile.inputs).filter(file=>/^(?:test|e2e|reference|scripts\/verification\/(?:workbooks|verifier))\//u.test(file)||(target!=='demo-tools'&&/^scripts\/soak\//u.test(file)));
  if(forbidden.length)throw new Error('Runtime bundle contains excluded build inputs: '+forbidden.join(', '));
  await record(name);
 }

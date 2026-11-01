@@ -132,6 +132,11 @@ printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/publish.log"
 node scripts/images/publish.mjs "tmp/images/releases/$TAG-api-engine-console-egress-migrations-provisioning-demo-tools.json" "$run_directory/published-arm64.json" >"$phase_log" 2>&1
 
+phase='build separate internal installation verifier'
+printf 'Phase: %s\n' "$phase"
+phase_log="$run_directory/verifier-build.log"
+node scripts/verification/verifier/package.mjs "$run_directory/internal-verifier" >"$phase_log" 2>&1
+
 phase='create offline customer archives'
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/package.log"
@@ -140,4 +145,4 @@ node scripts/images/customer-package.mjs "$run_directory/published-arm64.json" "
 phase="published-digest acceptance including XQ and ${soak_seconds}-second soak"
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/acceptance.log"
-RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 node scripts/images/stage5-smoke.mjs "$run_directory/packages" --duration-seconds "$soak_seconds" >"$phase_log" 2>&1
+RELEASE_MANIFEST="$run_directory/published-arm64.json" STAGE4_PROVIDER_ENV="$provider_file" STAGE4_KEEP_RUNNING=0 INTERNAL_VERIFIER="$run_directory/internal-verifier" node scripts/images/stage5-smoke.mjs "$run_directory/packages" --duration-seconds "$soak_seconds" >"$phase_log" 2>&1

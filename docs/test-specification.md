@@ -1927,3 +1927,16 @@ actions fit, and all six titles fit at 390/1440. Its six deterministic endpoint
 fixture captures are manual design evidence, outside retired pixel tiers.
 
 The execution timezone boundary regression in `staging-source.test.ts` compiles a tokenized TIMESTAMP with a declared IANA zone, serializes its read plan, and compares its real source-read token with the equivalent UTC instant through staged execution. `execution-token-contract.test.ts` asserts `declaredZone` on the wire, absence of `sourceTimezone`, and rejection of unknown fields.
+
+**VERIFY-01 phase 1:** `installation-verifier.test.ts` preserves all 115 V-01
+expected query answers across installation-specific names and IDs, proves exact
+finite selection/execution, interruption and missing/expired prerequisites, and
+report sanitization. `installation-verifier-artifact.test.mjs` runs the standalone
+internal artifact without the repository or node_modules and proves missing
+prerequisites cannot pass. Artifact inputs exclude installed application modules;
+customer runtime bundles exclude the internal verifier. DEP-008 provisioning
+isolation, deployment package contracts, native release preconditions and the
+existing soak semantics/oracle tests remain targeted checks. Fresh archive
+acceptance runs all 115 cells, a deliberately missing normal session (115 not
+exercised, nonzero exit), and custody-only selection. The finite all-cells pass is
+required before optional two-minute traffic; timed traffic never fills coverage.

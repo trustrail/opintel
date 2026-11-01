@@ -216,8 +216,9 @@ try{
 finally{
  await observer?.close();
  const receiptInvariants=observer?.summary()??{enabled:!values.target,failed:Boolean(values.target),reason:values.target?'Observer preflight did not complete':null,checksSkipped:0};
- const requiredCustody=process.env.OPINTEL_PACKAGED_SOAK==='1';
- const passed=!breaches&&!errors&&!receiptInvariants.failed&&receiptInvariants.checksSkipped===0&&(!requiredCustody||(custodyVerified>0&&custodyRefused===0&&custodySkipped===0&&exchanges.size===4&&[...exchanges.values()].every(s=>s.ok)));
+ const requiredCustody=spec?.scenarios.some(s=>s.requiresCustody)??false;
+ const complete=!coverage||coverage.summary().scenarios.every(s=>s.status==='PASS');
+ const passed=complete&&!breaches&&!errors&&!receiptInvariants.failed&&receiptInvariants.checksSkipped===0&&(!requiredCustody||(custodyVerified>0&&custodyRefused===0&&custodySkipped===0&&exchanges.size===4&&[...exchanges.values()].every(s=>s.ok)));
  terminalError(`${passed?'SOAK PASSED':'!!! SOAK FAILED'}: receipt checks skipped=${receiptInvariants.checksSkipped}; receipt verification=${receiptInvariants.failed?'FAILED':'active'}${receiptInvariants.reason?'; '+receiptInvariants.reason:''}; invariant breaches=${breaches}; operational errors=${errors}`);
  const sorted=[...latencies].sort((a,b)=>a[0]-b[0]),total=sorted.reduce((n,[,c])=>n+c,0);
  const percentile=(p:number)=>{let n=0;for(const [ms,c] of sorted){n+=c;if(n>=Math.ceil(total*p))return ms;}return null;};
