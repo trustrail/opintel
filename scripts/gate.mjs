@@ -1,4 +1,4 @@
-import {startRunCapture} from './run-capture.mjs';
+import {startRunCapture,gateRunDirectory} from './run-capture.mjs';
 import {gatePostgresLogging} from './gate-postgres-logging.mjs';
 import console from 'node:console';
 import process from 'node:process';
@@ -26,7 +26,7 @@ async function isolation(tier){
 const commit=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
 const runId=randomUUID();process.env.OPINTEL_GATE_RUN_ID=runId;
 const start=performance.now(),tiers=[];
-const directory=`test-results/gate-runs/${runId}`;mkdirSync(directory,{recursive:true,mode:0o700});
+const directory=gateRunDirectory(runId);mkdirSync(directory,{recursive:true,mode:0o700});
 let capture,postgresLogging;
 let preflight,database,cleanup,interrupted,child,killTimer;
 const memory=gateMemoryMonitor();

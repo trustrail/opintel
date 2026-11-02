@@ -117,3 +117,75 @@ Strict `npm run typecheck`: **exit 0**.
 Log: `/private/tmp/connect-reliability-typecheck.log`.
 `npm run lint`: **exit 0**, no dependency violations (580 modules, 1,919 dependencies).
 Log: `/private/tmp/connect-reliability-lint.log`.
+
+
+## Porting defect found by the first candidate gate
+
+Implementation candidate **adaf97df0c8bb9aa3495ce88efbe00d83b5435ff** was pushed,
+then ran `COMPOSE_PROJECT_NAME=opintel npm run check` once. It exited **1**.
+Preflight, both typechecks, lint, production-artifact exclusion and **36
+conformance tests (28/28 routes, zero findings)** passed. Before any normal-test
+result was produced, the parent failed with an unhandled WriteStream error:
+
+```text
+ENOENT: no such file or directory, open
+  test-results/gate-runs/4acd19ec-34f5-41f4-9bb2-2b89d65f3d67/test.log
+```
+
+Log: `/private/tmp/connect-reliability-full-gate-adaf97d.log`.
+[Last structured state](connect-reliability/gate-adaf97d-incomplete.json) is
+incomplete: it records five passed tiers and a last wall time of 688.17 seconds,
+not a final completed result. No normal-tier result or smoke result is claimed.
+
+**Established cause:** the selected e31e596 gate code placed its new evidence
+under `test-results/gate-runs`. Playwright's default output directory is
+`test-results` (`node_modules/playwright/lib/common/index.js:587` in the pinned
+1.63.0 installation). Its `createRemoveOutputDirsTask` removes that whole root
+before tests (`node_modules/playwright/lib/runner/index.js:6398–6406`). The
+repository Playwright config does not override that root. The directory was
+observed missing, the capture worker had exited, and advancing to the normal tier
+then produced the recorded ENOENT. This is a ported harness defect, not a source
+connect or installed-product failure. The previously observed 51 successful
+Docker samples were subsequently lost with the directory; a complete retained
+series is **not** claimed for that invocation.
+
+The unhandled stream error bypassed normal gate cleanup. Necessary environment
+cleanup, before further validation:
+
+- Verified no surviving normal-test process, then restored the two prior inherited
+  PostgreSQL settings with the same ALTER SYSTEM RESET/pg_reload_conf operations
+  the imported restore closure uses. Exact local commands were
+  `COMPOSE_PROJECT_NAME=opintel docker compose exec -T postgres psql -U opintel -d postgres -v ON_ERROR_STOP=1 -c 'ALTER SYSTEM RESET log_connections' -c 'ALTER SYSTEM RESET log_disconnections' -c 'SELECT pg_reload_conf()' -c 'DROP DATABASE IF EXISTS "opintel_test_gate_64cadc497d02_70e45e757e40" WITH (FORCE)'`.
+- A fresh settings read confirmed `log_connections|off|default` and
+  `log_disconnections|off|default`, matching the saved pre-run settings. Only that
+  run's generated isolated database was dropped.
+- Called the existing `cleanupGateContainers` with the failed run ID; it removed
+  **2** run-labelled fixture containers. Other installations and dev services
+  were preserved. No replacement install/sign-in/HTTP/TLS harness was used.
+
+### Correction under the instruction to fix own defects
+
+A shared `gateRunDirectory` path factory in the existing capture module now uses
+`tmp/gate-runs/<runId>`, outside the browser output root. The gate uses that
+factory. No Playwright cleanup, assertion, timeout or gate tier is weakened.
+The new test in the existing `run-capture.test.mjs` starts real capture in a
+fixture checkout root, deletes its browser output directory, writes the later
+normal-tier log, stops capture, and verifies the samples and completion manifest
+survive. It would fail with the original nested evidence path.
+
+Focused validation:
+`npm test -- test/run-capture.test.mjs test/gate-postgres-logging.test.mjs test/provisioning-runtime.test.mjs`
+— **5 passed, 3 files, exit 0**, 47.35 seconds. Includes the existing independent
+sampling test, the new output-cleanup regression, Postgres restoration contract
+and DEP-008. Log: `/private/tmp/connect-reliability-capture-path-targeted.log`.
+Syntax checks on the gate and capture scripts passed. The failed candidate is
+preserved, not amended or relabelled. The corrected candidate gets its own
+commit, targeted/type/lint checks and gate invocation; the unchanged failed
+candidate is not rerun to obtain a green record. This is within the user's
+explicit authority to fix defects in the assigned observability work.
+
+
+Capture-path correction: strict `npm run typecheck` **exit 0** and
+`npm run lint` **exit 0**, no dependency violations (580 modules, 1,919 dependencies).
+Logs: `/private/tmp/connect-reliability-capture-path-typecheck.log` and
+`/private/tmp/connect-reliability-capture-path-lint.log`.

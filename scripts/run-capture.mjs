@@ -13,6 +13,8 @@ export function recordStats(file,output,startedAt,finishedAt=at()){
  const containers=output.trim()?output.trim().split('\n').map(line=>JSON.parse(line)):[];
  append(file,{startedAt,finishedAt,containers});return containers.length;
 }
+// Playwright removes its test-results output root before browser tiers.
+export function gateRunDirectory(runId,root=process.cwd()){return resolve(root,'tmp','gate-runs',runId);}
 /** An independent process keeps observing during spawnSync/CPU-heavy harness work. */
 export async function startRunCapture(directory,{env=process.env}={}){
  directory=resolve(directory);mkdirSync(directory,{recursive:true,mode:0o700});
