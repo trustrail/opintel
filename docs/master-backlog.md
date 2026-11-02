@@ -151,6 +151,17 @@ src/modules/engines/application/registry.ts:33
 **Status** Open · Small
 **Note** Same class as E-07. Consider fixing them together.
 
+### Gateway → engine connection stalls — performance phase
+**Status** Open. Connection-phase telemetry and retained run evidence are being
+ported from VERIFY-01. Gateway API `UV_THREADPOOL_SIZE=16` is an installer
+**mitigation for the hypothesis** that hostname lookups queue behind other libuv
+thread-pool work. The engine already uses sixteen workers. Neither the hypothesis
+nor the cause of the gateway-to-engine stalls is established by this change.
+Keep this item open for the performance phase: correlate DNS/TCP/TLS timings,
+source lease occupancy, container load and failures under the customer workload.
+The gateway-to-engine timeout, retry count, connection reuse and admission behavior
+are unchanged. Do not describe the worker setting as a proven stall fix.
+
 ### X-05 · Console unusable while agents are running
 **Customer** With ten agents running, the operator cannot see the system they are meant to be
 governing. Screens load, wait, then show "The service could not be reached".
@@ -875,3 +886,21 @@ SpiceDB schema write: hard-coded **5 s, single attempt**
 retry only UNAVAILABLE, DEADLINE_EXCEEDED and CANCELED, bounded to 5 s per RPC
 and 120 s overall, with short backoff and sanitized retry/final code diagnostics.
 Invalid schema and authentication/authorization failures still fail immediately.
+
+
+### VERIFY-01 rebuild — retain a valid owner session throughout verification
+**Status** Open; backlog only. The operator reports that the arm64 native soak
+on `c1e1c38` lost its owner session mid-run: Receipt API HTTP 401 at about 90 s,
+zero invariant breaches, and Redis did not restart. The cause is **not
+established**; this is the operator's retained-run report, not a new diagnosis
+performed on the Intel host. The VERIFY-01 rebuild must keep a valid session for
+the whole run and report exactly why a session ends. Do not turn an unauthenticated
+receipt check into a pass or weaken receipt/invariant assertions. No session or
+verifier behavior is changed in the connection-reliability branch.
+
+### Console polish — pending an approved design board
+**Status** Open; backlog only, no UI implementation in this branch.
+- Condition builder: one line per condition, labels once, remove icon, a single
+  “+ Add condition”, AND/OR toggle.
+- Schema picker: one heading and no stray status line.
+- Per-table rules: use that same condition builder.
