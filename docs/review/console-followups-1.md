@@ -386,3 +386,83 @@ or screenshots, no merge. A separate disk-space warning was raised while the
 gate ran (the image build requires at least 4 GiB); no cleanup or guard bypass
 was performed. The requested Compose-project/start-timeout backlog item was
 added. This result and backlog are committed and pushed.
+
+
+## Main checkout gate on 626a402 (2026-11-01/02 UTC)
+
+As requested, all work moved to `/Users/rzarita/opintel`. Before switching,
+existing tracked VERIFY-01 backlog/report changes were committed as **2bd15dc**
+and pushed to `feat/verify-01-frame`. Those changes passed `npm run lint`
+(log: `/private/tmp/verify01-preserve-docs-lint.log`). Unrelated untracked
+main-checkout documents and Python cache files were not committed or deleted.
+
+The main checkout switched to `feat/console-followups-1` at
+`626a402907356a438912d3df477dc0a9708dad11`. `package.json` and `package-lock.json`
+are identical between this revision and the prior VERIFY-01 checkout. Comparing
+the wanted package versions with `node_modules/.package-lock.json`, excluding
+inapplicable platform/CPU packages, found **zero differences** on **darwin/x64**.
+The main checkout's node_modules was a real host directory, not a symlink.
+Thus the requested conditional `npm ci` was unnecessary. The signed scanner file
+`tmp/duckdb-extensions/postgres_scanner.duckdb_extension` was already present,
+so the conditional scanner preparation was also unnecessary. No dependency,
+scanner, environment, application, test or configuration changes were made.
+
+The full gate ran once from the main checkout:
+
+```sh
+COMPOSE_PROJECT_NAME=opintel npm run check
+```
+
+Log: `/private/tmp/console-followups-main-checkout-gate-626a402.log`.
+[Structured result](console-followups-1/gate-626a402-main-checkout.json).
+Preflight passed, using existing healthy development services and a fresh
+isolated database migrated from zero. Cleanup succeeded.
+
+| Tier | Exit | Seconds |
+|---|---:|---:|
+| Strict typecheck | 0 | 40.83 |
+| Conformance typecheck | 0 | 5.17 |
+| Lint | 0 | 21.18 |
+| Production artifact | 0 | 2.65 |
+| UI/control conformance | 0 | 375.21 |
+| Normal tests | 0 | 1978.21 |
+| Browser/MCP smoke | 1 | 88.73 |
+
+**Normal suite: 2,206 passed in 265 files.** The prior native-binding startup
+failure did not recur. This includes the full migration selection, source schema
+flow and compound row-rule read-plan/receipt regression. **Conformance: 36 passed,
+28/28 routes visited, zero findings.** Overall gate exit **1**, **2537.15 s**.
+
+The final smoke test failed in `e2e/smoke.spec.ts:64`:
+
+```text
+Error: locator.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element
+waiting for locator('[data-inline-rows]').getByLabel('Row rule column')
+locator resolved to <button ... role="combobox" ... aria-label="Row rule column">…</button>
+fill("field_1")
+```
+
+The smoke script still fills the old free-text column control and, at line 66,
+expects the removed `Value type` control. The revised editor uses a Radix Select
+for the column and derives the value control from its type. This is a stale
+smoke interaction; no claim is made that its later authenticated MCP and persisted
+receipt assertions passed, because they were not reached. Minimum proposed test
+correction: select the typed column through the combobox and remove the manual
+Value-type selection, preserving all query/row-filter/receipt assertions. **Not
+applied**, and no targeted or gate rerun followed.
+
+Failure evidence remains in the main checkout under
+`test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/`
+(error context and trace). Raw traces are not committed because they may contain
+session material. Per the full-gate stop rule, packaged image builds and the
+requested new screenshots did not run; no new screenshots or packaged logo
+verification is claimed.
+
+After the gate, the three existing `/private/tmp` worktrees were clean according
+to `git status --short`. As explicitly requested, they were removed with
+`git worktree remove --force` (discarding ignored local dependencies/build output),
+and `git worktree prune` removed the stale missing worktree registration.
+`git worktree list --porcelain` now lists **only `/Users/rzarita/opintel`** on
+`feat/console-followups-1`. Committed feature/report content remains in Git;
+main-checkout untracked files and retained installations/evidence were preserved.
+No merge. This result is committed and pushed on the feature branch.
