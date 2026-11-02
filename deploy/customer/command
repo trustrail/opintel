@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-exec </dev/null
 umask 077
 export LC_ALL=C DOCKER_CLI_HINTS=false
 root="$(cd "$(dirname "$0")" && pwd)"
 command="$(basename "$0")"
 [[ "$command" != command ]] || { command="${1:?command required}"; shift; }
+if [[ "$command" == steps ]]; then exec 3<&0; fi
+exec </dev/null
 cd "$root"
 fail(){ echo "$*" >&2; exit 1; }
 [[ -f release.json && -f images.list && -f bootstrap.image ]] || fail 'This is not a complete Opintel package.'
@@ -17,6 +18,15 @@ bootstrap="$(cat bootstrap.image)"
 job(){ docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -e PACKAGE_HOST_ADDRESS="${host_address:-}" -v "$root:/package" "$bootstrap" node scripts/operator/customer-install.js "$@"; }
 compose(){ docker compose --ansi never --project-name "$(cat "$root/state/project-name")" --project-directory "$root" --env-file "$root/state/package.env" -f "$root/state/compose.json" "$@"; }
 run(){ compose run --rm --no-deps --interactive=false -T "$@"; }
+agent_api_temp=""; steps_tty=""
+agent_cleanup(){
+ if [[ -n "$steps_tty" ]]; then stty "$steps_tty" <&3 || true; fi
+ if [[ -n "$agent_api_temp" ]]; then rm -f "$agent_api_temp/api-key"; rmdir "$agent_api_temp" || true; fi
+}
+agent_api_key(){
+ agent_api_temp="$(mktemp -d "${TMPDIR:-/tmp}/opintel-agent-api-XXXXXX")"; chmod 700 "$agent_api_temp"
+ docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -v "$root/package.env:/input/package.env:ro" -v "$agent_api_temp:/output" "$bootstrap" node scripts/operator/customer-install.js agent-api-key gateway
+}
 load_images(){
  [[ -f images.tar ]] || fail 'The offline image archive is missing.'
  echo 'Loading packaged images...'
@@ -75,6 +85,9 @@ resume_backup(){
  services=(); while IFS= read -r service; do [[ -z "$service" ]] || services+=("$service"); done < "$backup_directory/running-services"
  if [[ ${#services[@]} -gt 0 ]]; then compose up --detach --no-deps --pull never --wait "${services[@]}"; fi
 }
+if [[ "$command" == steps || "$command" == identities ]]; then
+ if ! docker image inspect "$bootstrap" >/dev/null 2>&1; then load_images; fi
+fi
 case "$command" in
  backup) backup_install; resume_backup;;
  restore)
@@ -110,7 +123,7 @@ case "$command" in
   [[ "$next_directory" != "$root" && "$(cat "$next_directory/package-kind")" == "$(cat package-kind)" && "$(cat "$next_directory/platform")" == "$platform" ]] || fail 'Upgrade needs a separate matching package.'
   backup_install
   for file in "$next_directory"/*; do
-   case "$(basename "$file")" in state|backups|package.env|identity-bundles|trust.json|*.log) continue;; esac
+   case "$(basename "$file")" in state|backups|package.env|identity-bundles|public-identities|trust.json|*.log) continue;; esac
    [[ "$(basename "$file")" == identities && -d "$root/identities" ]] && continue
    cp -pR "$file" "$root/"
   done
@@ -177,10 +190,62 @@ case "$command" in
   rm -f state/incoming.json
   compose up --detach --no-deps --pull never --force-recreate --wait api;;
  identities)
-  [[ "$(cat package-kind)" == gateway && ${1:-} == add && ( $# == 2 || ( $# == 4 && ${3:-} == --device ) ) && -f "${2:-}" ]] || fail 'Usage: ./identities add EXPORT.zip [--device NAME]'
-  export_directory="$(cd "$(dirname "$2")" && pwd)"; export_name="$(basename "$2")"
-  identity_args=(identities gateway "$export_name"); if [[ $# == 4 ]]; then identity_args+=("$4"); fi
-  docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -v "$root:/package" -v "$export_directory/$export_name:/import/export.zip:ro" "$bootstrap" node scripts/operator/customer-install.js "${identity_args[@]}";;
+  [[ "$(cat package-kind)" == gateway && ${1:-} == add ]] || fail 'Usage: ./identities add EXPORT.zip [--device NAME] [--api-key-file FILE] | add --public-file FILE'
+  shift
+  public_identity_root="$root/public-identities"; if [[ -f state/installed.json ]]; then public_identity_root="$root/state/public-identities"; fi
+  mkdir -p "$public_identity_root"; chmod 700 "$public_identity_root"
+  if [[ ${1:-} == --public-file && $# == 2 ]]; then
+   public_input="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+   docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -v "$public_input:/input/public.json:ro" -v "$public_identity_root:/public" "$bootstrap" node scripts/steps/identity-exchange.js public /input/public.json /public/associations.json
+  else
+   [[ -f "${1:-}" ]] || fail 'Supply the original XQ export ZIP.'
+   export_directory="$(cd "$(dirname "$1")" && pwd)"; export_name="$(basename "$1")"; shift
+   identity_args=(identities gateway "$export_name"); device_name=""; api_key_file=""; trap agent_cleanup EXIT
+   while [[ $# -gt 0 ]]; do
+    case "$1" in --device) [[ $# -ge 2 ]] || fail 'Missing device name.'; device_name="$2"; identity_args+=("$2"); shift 2;; --api-key-file) [[ $# -ge 2 ]] || fail 'Missing XQ API key file.'; api_key_file="$2"; shift 2;; *) fail 'Unknown identities flag.';; esac
+   done
+   mkdir -p identity-bundles; chmod 700 identity-bundles
+   docker run --rm --pull never --network none --platform "$platform" --user "$(id -u):$(id -g)" -e PACKAGE_HOST_DIRECTORY="$root" -v "$root/identity-bundles:/package/identity-bundles" -v "$export_directory/$export_name:/import/export.zip:ro" "$bootstrap" node scripts/operator/customer-install.js "${identity_args[@]}"
+   if [[ -z "$device_name" ]]; then [[ "$export_name" =~ -([0-9]+)\.[zZ][iI][pP]$ ]] || fail 'Original XQ export filename required.'; device_name="opintel-${BASH_REMATCH[1]}"; fi
+   if [[ -z "$api_key_file" ]]; then agent_api_key; api_key_file="$agent_api_temp/api-key"; fi
+   api_key_file="$(cd "$(dirname "$api_key_file")" && pwd)/$(basename "$api_key_file")"
+   # Isolated agent job: no Compose service, database, gateway runtime env or keys.
+   docker run --rm --pull never --platform "$platform" --user "$(id -u):$(id -g)" --read-only --cap-drop ALL --security-opt no-new-privileges -v "$root/identity-bundles:/identity" -v "$public_identity_root:/public" -v "$api_key_file:/input/api-key:ro" "$bootstrap" node scripts/steps/identity-exchange.js exchange /identity "$device_name" /input/api-key /public/associations.json
+  fi;;
+ steps)
+  [[ "$(cat package-kind)" == gateway ]] || fail 'Run ./steps from the gateway archive on the agent host.'
+  # File flags cross the agent-job boundary as file mounts, never secret arguments.
+  steps_args=(); steps_mounts=(); steps_environment=(); steps_interactive=(); steps_outputs=(); steps_destinations=(); steps_operation="${1:-}"; steps_index=0
+  while [[ $# -gt 0 ]]; do
+   case "$1" in
+    --key-file|--session-file|--result|--xq-identity)
+     if [[ "$1" == --xq-identity && "$steps_operation" == grant-access ]]; then [[ $# -ge 2 ]] || fail 'Missing device name.'; steps_args+=("$1" "$2"); shift 2; continue; fi
+     [[ $# -ge 2 && -e "$2" && ! -L "$2" ]] || fail 'Input must be an existing file or identity directory, not a link.'
+     steps_path="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; steps_index=$((steps_index+1)); steps_target="/input/$steps_index"
+     steps_mounts+=(--volume "$steps_path:$steps_target:ro"); steps_args+=("$1" "$steps_target"); shift 2;;
+    --out|--key-out|--session-out)
+     [[ $# -ge 2 ]] || fail 'Output file path is missing.'
+     steps_parent="$(dirname "$2")"; mkdir -p "$steps_parent"; steps_parent="$(cd "$steps_parent" && pwd)"; steps_index=$((steps_index+1)); steps_target="/output/$steps_index"
+     steps_destination="$steps_parent/$(basename "$2")"; [[ ! -e "$steps_destination" && ! -L "$steps_destination" ]] || fail 'Output file already exists; choose a new file.'
+     steps_temporary="$(mktemp -d "$steps_parent/.steps-output-XXXXXX")"; chmod 700 "$steps_temporary"
+     steps_outputs+=("$steps_temporary"); steps_destinations+=("$steps_destination")
+     steps_mounts+=(--volume "$steps_temporary:$steps_target"); steps_args+=("$1" "$steps_target/result"); shift 2;;
+    *) steps_args+=("$1"); shift;;
+   esac
+  done
+  if [[ -f gateway-ca.pem ]]; then steps_mounts+=(--volume "$root/gateway-ca.pem:/trust/ca.pem:ro"); steps_environment+=(-e NODE_EXTRA_CA_CERTS=/trust/ca.pem)
+  elif [[ -f state/ca.pem ]]; then steps_mounts+=(--volume "$root/state/ca.pem:/trust/ca.pem:ro"); steps_environment+=(-e NODE_EXTRA_CA_CERTS=/trust/ca.pem); fi
+  if [[ "$steps_operation" == redeem-and-unseal ]]; then
+   trap agent_cleanup EXIT
+   steps_api_key="${STEPS_XQ_API_KEY_FILE:-}"; if [[ -z "$steps_api_key" ]]; then agent_api_key; steps_api_key="$agent_api_temp/api-key"; fi; steps_api_key="$(cd "$(dirname "$steps_api_key")" && pwd)/$(basename "$steps_api_key")"
+   steps_mounts+=(--volume "$steps_api_key:/input/api-key:ro"); steps_environment+=(-e STEPS_XQ_API_KEY_FILE=/input/api-key)
+  fi
+  steps_tty=""; if [[ "$steps_operation" == sign-in ]]; then steps_interactive+=(--interactive); if [[ -t 3 ]]; then steps_tty="$(stty -g <&3)"; stty -echo <&3; trap agent_cleanup EXIT; fi; fi
+  docker run --rm --pull never --add-host host.docker.internal:host-gateway --platform "$platform" --user "$(id -u):$(id -g)" --read-only --cap-drop ALL --security-opt no-new-privileges "${steps_interactive[@]}" "${steps_mounts[@]}" "${steps_environment[@]}" "$bootstrap" node scripts/steps/main.js "${steps_args[@]}" <&3
+  for (( steps_i=0; steps_i<${#steps_outputs[@]}; steps_i++ )); do
+   ln "${steps_outputs[$steps_i]}/result" "${steps_destinations[$steps_i]}" || fail 'Output could not be published; the private staging directory was retained.'
+   rm "${steps_outputs[$steps_i]}/result"; rmdir "${steps_outputs[$steps_i]}"
+  done;;
  xq-check)
   if [[ $# == 0 ]]; then run operator node scripts/operator/customer-operator.js xq-check
   elif [[ $# == 2 && "$1" == --roundtrips && "$2" == 200 ]]; then

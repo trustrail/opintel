@@ -1932,3 +1932,15 @@ actions fit, and all six titles fit at 390/1440. Its six deterministic endpoint
 fixture captures are manual design evidence, outside retired pixel tiers.
 
 The execution timezone boundary regression in `staging-source.test.ts` compiles a tokenized TIMESTAMP with a declared IANA zone, serializes its read plan, and compares its real source-read token with the equivalent UTC instant through staged execution. `execution-token-contract.test.ts` asserts `declaredZone` on the wire, absence of `sourceTimezone`, and rejection of unknown fields.
+
+## Agent custody steps (VERIFY-01 pull-forward)
+
+| ID | Case | Expected |
+|---|---|---|
+| STEPS-001 | Query display and private result file | Clear, tokenized and masked values preserved; custody cells shortened only on screen; complete sealed values/grants saved with mode 600; quiet prints only summary. Exact direct-column treatment metadata uses describe; unresolved expressions/aliases say “not reported”. |
+| STEPS-002 | Redeem and locally unseal | Existing split-key/AES-GCM construction and associated data; all shares obtained before any cell is decrypted; plaintext printed only with show, optional plaintext file mode 600; receipt meaning remains K2 release. |
+| STEPS-003 | Revoked, replayed or wrong-credential grant | Refused share named with the server's safe cause; no plaintext or output file; no claim to recall previously obtained plaintext. Test revocation on a fresh unredeemed grant independently of replay. |
+| STEPS-004 | Credential association and listing | Optional association persists on credential; absence preserves ordinary issuance; device and certificate metadata visible, private/token/bundle fields refused; project administrator permission, cursor pagination, no manifest read after denied authorization. |
+| STEPS-005 | Grant access and sign-in commands | Normal nonce-bound SMTP/callback/session and existing admin issuance API only; session and key written to create-only mode-600 files, never stdout or arguments; no administrator bypass. |
+| STEPS-006 | Agent identity boundary and packaging | Separate short-lived XQ process; XQ-issued subject used verbatim; gateway mounts public associations only; original files private; standalone compiled steps work without source files/node_modules/native runtime; existing soak custody checks unchanged. |
+| STEPS-007 | Fresh packaged live XQ acceptance | Standard archive first-run acceptance plus shipped steps, separate agent archive, public-only handoff, real SMTP sign-in and XQ K1 retrieval, independent fixture plaintext, recorded API revocation, replay/refusal, redacted terminal report and no key/session/grant material in terminal output. |

@@ -1,3 +1,4 @@
+import {PostgresPoolReader} from '../src/modules/pools/index.js';
 import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
 import {afterEach,expect,it,vi} from 'vitest';
@@ -52,6 +53,7 @@ it('stores the supplied association verbatim, warns durably on mismatch, replays
  const issued=PoolKeyCreationResponse.parse(unwrap(await service.execute(f.ctx,command,request)));
  expect(issued.custodyAlias).toBe(`agent:${f.ctx.projectId}:${issued.credentialId}`);
  expect(await credentialCustodyRecipient(f.ctx,issued.custodyAlias!)).toBe(association.recipientIdentifier);
+ const detail=await new PostgresPoolReader().detail(f.ctx,f.pool);if(!detail.ok)throw detail.error;expect(detail.value.credentials?.find(c=>c.id===issued.credentialId)?.xqIdentity).toEqual({certificateId:association.certificateId,deviceName:association.deviceName});
  const [row]=await withTenant(f.ctx,tx=>tx.query('SELECT certificate_id,device_name,recipient_identifier,identity_kind,association_status,association_recorded_at FROM pool_credential WHERE id=$1',[issued.credentialId]));
  expect(row).toMatchObject({certificate_id:223,device_name:'testdevice',recipient_identifier:association.recipientIdentifier,identity_kind:'certificate',association_status:'associated',association_recorded_at:expect.any(Date)});
  expect(unwrap(await service.execute(f.ctx,command,request))).toMatchObject({keyShown:false,credentialId:issued.credentialId});

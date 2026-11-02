@@ -42,6 +42,7 @@ it('gateway API receives sixteen libuv workers from the installed runtime enviro
  const config=spawnSync('docker',['compose','--profile','jobs','--project-name',readFileSync(join(directory,'state/project-name'),'utf8').trim(),'--env-file',join(directory,'state/package.env'),'-f',join(directory,'state/compose.json'),'config','--format','json'],{encoding:'utf8',stdio:'pipe'});
  expect(config.status).toBe(0);expect(config.stderr).toBe('');
  expect(JSON.parse(config.stdout).services.api.environment.UV_THREADPOOL_SIZE).toBe('16');
+ const api=JSON.parse(config.stdout).services.api;expect(api.environment.CUSTODY_IDENTITIES_FILE).toBe('/public-identities/associations.json');expect(api.volumes.some(v=>v.target==='/public-identities'&&v.read_only)).toBe(true);expect(api.volumes.some(v=>String(v.source).includes('identity-bundles'))).toBe(false);
 },30000);
 it('DEP-018: wrong pairing pin refuses before changing trust',()=>{
  const {directory,run}=packageRoot('gateway');run('initialize');const ca=readFileSync(join(directory,'state/ca.pem'),'utf8');
