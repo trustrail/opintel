@@ -501,3 +501,68 @@ identity/count, recorded-decision permalink and historical expression. No timeou
 assertion or product behavior was changed. No full gate was rerun. This result
 complements the passing non-smoke tiers on `626a402`; it does not relabel the
 historical full-gate result as a passing invocation.
+
+
+## Fresh packaged screenshot attempt — stopped during gateway install
+
+Product code remains unchanged in this round; only `e2e/smoke.spec.ts` and
+validation reports changed. The corrected smoke passed on **af9bf12**; build
+revision **d77ed8239f536d8373f0b50e91e86a65a9fb6812** differs only by its smoke
+result report. No full-gate invocation followed the prior `626a402` gate.
+
+The existing standard commands ran sequentially:
+
+```sh
+BUILD_CANDIDATE=1 TAG=candidate-console-followups-d77ed82 PLATFORM=linux/amd64 IMAGE=all node scripts/images/build.mjs
+PLATFORM=linux/amd64 node scripts/images/customer-package.mjs tmp/images/releases/candidate-console-followups-d77ed82-api-engine-console-egress-migrations-provisioning-demo-tools.json tmp/console-followups-d77ed82-packages --candidate
+node scripts/images/console-first-run-install.mjs tmp/console-followups-d77ed82-packages d77ed8239f536d8373f0b50e91e86a65a9fb6812
+```
+
+- Image build: **exit 0**, all **7 amd64 images** verified, including secret/layer,
+  runtime allowlist and runtime-user readability checks. Engine scanner preparation
+  passed, including native LOAD. Console runtime bundle recorded 11 files.
+- Customer archives: **exit 0**, fresh gateway and engine amd64 archives created.
+- Fresh-install acceptance: **exit 1** at **gateway-install**; extraction passed,
+  but no engine install, pairing, owner SMTP sign-in or browser capture ran.
+
+Logs: `/private/tmp/console-followups-image-build-d77ed82.log`,
+`/private/tmp/console-followups-archives-d77ed82.log`, and
+`/private/tmp/console-followups-packaged-d77ed82.log`.
+Run directory: `tmp/console-first-run-acceptance-zG8LxJ`.
+[Structured install result](console-followups-1/install-d77ed82.json).
+The image manifest and offline archives remain in `tmp/images/releases` and
+`tmp/console-followups-d77ed82-packages`; no customer archives are committed.
+
+The startup log
+`gateway/state/operations/start-20261102T004443Z-25263.log` in that run shows:
+**line 116:** migration `092_source_schema_listing` applied; **line 159:** SpiceDB
+healthy; **line 160:** `schema_load.failed`, type `Error`, exception message
+withheld by the shipped logger. Gateway install exited before browser execution.
+
+Read-only retained SpiceDB logs identify the schema RPC result:
+
+| Field | Recorded value |
+|---|---|
+| Method | `authzed.api.v1.SchemaService/WriteSchema` |
+| Server call start | `2026-11-02T00:45:37.854574117Z` |
+| Request deadline | `2026-11-02T00:45:41.630661288Z` |
+| Completion log timestamp | `2026-11-02T00:45:42.078125262Z` |
+| Native code | `Canceled` |
+| Native error | `rpc error: code = Canceled desc = context canceled` |
+| Server-reported call duration | `4223 ms` |
+
+The existing schema loader sets `deadline: Date.now()+5000` in
+`src/modules/authz/infrastructure/load-schema.ts:30`, and its catch at lines
+38–40 redacts the exception and exits 1. The retained server log establishes
+cancellation near that deadline; it does **not** establish the underlying reason
+for the delay or expose the client's original error code. No assertion that the
+schema itself was invalid is supported. No timeout or product change was made.
+
+Per the packaged-check stop rule, no fix, retry, replacement harness, browser-only
+substitute, or full-gate run followed. **No requested new screenshots were
+captured**, and serving/appearance of the logo in the installed console remains
+unverified. The standard harness stopped its services and retained installation
+state/logs. Existing main-checkout untracked documents were untouched; only the
+main checkout remains registered as a worktree. This result is pushed to
+`feat/console-followups-1`; no merge. The MacBook Air `native.sh REVISION` command
+in the final response is a follow-up, not a claim of validated native release.

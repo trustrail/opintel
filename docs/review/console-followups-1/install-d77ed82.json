@@ -1,0 +1,15 @@
+{
+  "status": "failed",
+  "revision": "d77ed8239f536d8373f0b50e91e86a65a9fb6812",
+  "directory": "/Users/rzarita/opintel/tmp/console-first-run-acceptance-zG8LxJ",
+  "steps": [
+    {
+      "name": "fresh-archives-extracted",
+      "status": "passed"
+    }
+  ],
+  "failure": {
+    "phase": "gateway-install",
+    "message": "gateway-install: gateway-install failed; private log retained"
+  }
+}
