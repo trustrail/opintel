@@ -1,0 +1,48 @@
+{
+  "commit": "bad97aa7b5a8ef7c8516b76830e257e1f8e1ab46",
+  "runId": "f8851221-3a65-4293-9ebe-ae9dc5e97c26",
+  "complete": true,
+  "tiers": [
+    {
+      "tier": "typecheck",
+      "seconds": 38.495600337,
+      "exitCode": 0
+    },
+    {
+      "tier": "typecheck:conformance",
+      "seconds": 4.840522114,
+      "exitCode": 0
+    },
+    {
+      "tier": "lint",
+      "seconds": 23.573282433999992,
+      "exitCode": 0
+    },
+    {
+      "tier": "build:production",
+      "seconds": 2.7313794369999957,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:conformance",
+      "seconds": 423.591268218,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 1730.438670563,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:smoke",
+      "seconds": 68.94758439899981,
+      "exitCode": 0
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_321e96cba9e6",
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 2309.7086939210003
+}
