@@ -82,4 +82,50 @@ Only `npm run test:smoke`, the exact smoke command invoked by the gate, is run o
 
 Before smoke replaces `test-results`, the failed gate JSON and smoke trace/context were copied to `tmp/row-rule-conditions-gate-426e987/`. The full-conformance JSON had already been removed by the failed smoke; its 28/28-route, zero-finding result remains in the retained full-gate log.
 
-Smoke result, fresh amd64 build/archives and the standard packaged first-receipt acceptance are pending.
+### Completed results
+
+Validated executable candidate: `2856515992b0855286681b83bddc4a5b02c2299e`. Relative to `426e987`, the only executable change is the approved checkbox interaction in `e2e/smoke.spec.ts`; the other changes are this report and recorded results. No product code changed in this follow-up.
+
+- `npm run test:smoke`: **exit 0**, one passed (51.0 seconds total; continuous browser/MCP path 18.4 seconds). Sign-in → prefilled All rows → explicit condition → authenticated MCP query → persisted receipt and historical decision link all passed. Assertions, 30-second path deadline and zero retries are unchanged. Log: `/private/tmp/row-rule-conditions-smoke-2856515.log`.
+- Standard amd64 build: **exit 0**, all seven selected images audited. [Image identities and build manifest](row-rule-conditions/images-2856515.json). Log: `/private/tmp/row-rule-conditions-images-2856515.log`. This is an explicitly marked candidate build because unrelated untracked review documents remain in the checkout; no such document was staged or changed.
+- Standard customer archive creation: **exit 0**. Fresh artifacts under `tmp/row-rule-conditions-2856515-packages/` (gateway 365 MiB, engine 285 MiB). Log: `/private/tmp/row-rule-conditions-archives-2856515.log`.
+- One standard fresh packaged installation: **exit 0**, [full recorded result](row-rule-conditions/install-2856515.json). Run directory: `tmp/console-first-run-acceptance-BJE0VB/`; log: `/private/tmp/row-rule-conditions-packaged-2856515.log`.
+
+| Packaged step | Result |
+|---|---|
+| Extract fresh amd64 archives, gateway install, engine install | Passed |
+| One-code pairing, Engine `./sources add` | Passed |
+| Owner SMTP magic-link sign-in | Passed |
+| Create project and attach/verify paired engine | Passed |
+| Save source, choose schemas and scan | Passed; 2 tables, 8 columns, ~11 rows |
+| Project limits and pool with compound row rule | Passed |
+| Explicit clear treatment and credential issuance | Passed |
+| Authenticated agent request | Answered |
+| Receipt in Activity | **Answered · 6 rows from table records** |
+| Permanent first-receipt marker and tracker removal | Passed |
+| Per-table creation editors | Passed |
+| Browser page errors | **0** |
+| Harness cleanup | Completed; only development Postgres and Redis remained running, both healthy |
+
+Exact standard commands:
+
+```sh
+npm run test:smoke
+BUILD_CANDIDATE=1 TAG=candidate-row-rule-2856515 PLATFORM=linux/amd64 IMAGE=all node scripts/images/build.mjs
+PLATFORM=linux/amd64 node scripts/images/customer-package.mjs tmp/images/releases/candidate-row-rule-2856515-api-engine-console-egress-migrations-provisioning-demo-tools.json tmp/row-rule-conditions-2856515-packages --candidate
+node scripts/images/console-first-run-install.mjs tmp/row-rule-conditions-2856515-packages 2856515992b0855286681b83bddc4a5b02c2299e
+```
+
+Archive SHA-256:
+
+- Gateway: `88a6790f1e8acbf53dd48abc74dae6bdcda3930c99de79ffa1b7f2555fa7da88`.
+- Engine: `e72b281b02bab6ae54db913c50937e676d32052c72ef3237bd48d6e1486265b4`.
+
+The full gate was **not rerun**. Its original exit-1 record remains unchanged; accepted validation is the six passing tiers on `426e987` plus the passing smoke correction on `2856515`, exactly as approved. No merge and no native arm64 run on this Intel host.
+
+MacBook Air command for the exact verified candidate (default two-minute soak):
+
+```sh
+scripts/release/native.sh 2856515992b0855286681b83bddc4a5b02c2299e
+```
+
