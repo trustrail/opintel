@@ -260,3 +260,34 @@ new targeted output-cleanup regression supplies that check.
   immediately. The native.sh command in chat targets that final revision but is
   an unverified follow-up, not a release certification. Intel packaged validation
   remains pending because the corrected candidate stopped in preflight.
+
+## Resumed after the priority row-rule correction — preflight stopped
+
+The user directed that `fix/connect-reliability` resume after the priority compound-row-rule fix. That priority work is complete on **fix/row-rule-conditions**, pushed at **f29dd9e** without a merge. Its source candidate **2856515992b0855286681b83bddc4a5b02c2299e** passed the approved smoke-only correction and one fresh amd64 archived install through the first receipt (zero browser errors). Those archives contain the row-rule fix, **not** the reliability changes; they are not reliability validation. The row-rule native command is:
+
+```sh
+scripts/release/native.sh 2856515992b0855286681b83bddc4a5b02c2299e
+```
+
+Resumed in the main checkout on unchanged reliability revision **20618f7071842eb02a1c71dd3582124f8e7541d0**. `docker compose ps postgres redis` before the gate showed both `opintel-postgres-1` and `opintel-redis-1` **Up 45 hours (healthy)**. No service was restarted and no code, setting, timeout or environment file was changed.
+
+The resumed command was:
+
+```sh
+COMPOSE_PROJECT_NAME=opintel npm run check
+```
+
+It exited **1**, stopping in preflight after **17.18 s**, total wall time **22.98 s**:
+
+```text
+Gate memory preflight: 1.69 GiB available RAM; minimum 1 GiB.
+Docker info: 1.014s elapsed; timeout 30s.
+Docker memory: 7.75 GiB; minimum 7 GiB usable.
+Gate failed: Redis did not accept connections within 5 seconds
+```
+
+[Structured result](connect-reliability/gate-20618f7-resumed-preflight.json): `tiers: []`, `complete: false`, cleanup exit 0, zero containers removed. Gate database preparation and the Postgres logging override were not reached. After exit, the same two development services still reported **Up 45 hours (healthy)**. This establishes the failed five-second probe and before/after container health, **not its underlying cause**.
+
+[Capture record](connect-reliability/capture-20618f7-resumed.json) retains **3 complete collector samples, zero failed samples**, from `2026-11-02T15:50:47.133Z` to `15:51:09.973Z`; configured interval 5 seconds. This is separate from the gate memory monitor's four samples. [Docker capacity](connect-reliability/docker-capacity-20618f7-resumed.json): four CPUs, 8,325,943,296 memory bytes, x86_64. Full private stats/events/container logs remain in `tmp/gate-runs/3a551038-3334-48ac-b46a-8258174d79f8/observations/`. Console log: `/private/tmp/connect-reliability-resumed-full-gate-20618f7.log`.
+
+Stopped without another probe/gate, code or limit change, archive build or packaged run for reliability. The report and sanitized metadata alone are committed and pushed. No merge; reliability still has no green full gate or packaged first-receipt result.
