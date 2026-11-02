@@ -1,5 +1,10 @@
 # Connection reliability product extraction
 
+Current status: fixes and backlog committed/pushed; **not gate-green**.
+The porting defect found in the first gate was fixed and regression-tested.
+The corrected candidate's gate stopped in Redis preflight before any test tier.
+No fresh archives or packaged verification followed that external setup blocker.
+
 Branch: `fix/connect-reliability`, created in the main checkout from
 `770174d29025b4f94a983685bfde7f2761d0b912`. That approved merge was pushed to main
 with the exact title “Merge feat/console-followups-1 after amd64 packaged and arm64
@@ -189,3 +194,69 @@ Capture-path correction: strict `npm run typecheck` **exit 0** and
 `npm run lint` **exit 0**, no dependency violations (580 modules, 1,919 dependencies).
 Logs: `/private/tmp/connect-reliability-capture-path-typecheck.log` and
 `/private/tmp/connect-reliability-capture-path-lint.log`.
+
+
+## Corrected candidate — external preflight blocker
+
+Correction **33668d270ced64784095667d01d10be0bdda64fa** was committed separately
+and pushed immediately (`fix(gate): retain capture outside Playwright output
+cleanup`). It changes only the evidence directory factory/gate integration, the
+new regression test and the preserved failed-candidate report. Product code and
+the source/transport tests remain as in the targeted passing selection.
+
+`COMPOSE_PROJECT_NAME=opintel npm run check` ran once on that corrected tip and
+exited **1**, total wall time **60.61 s**, preflight record **49.03 s**:
+
+```text
+Gate memory preflight: 1.89 GiB available RAM; minimum 1 GiB.
+Docker info: 8.592s elapsed; timeout 30s.
+Docker memory: 7.75 GiB; minimum 7 GiB usable.
+Gate failed: Redis did not accept connections within 5 seconds
+```
+
+Log: `/private/tmp/connect-reliability-corrected-full-gate.log`.
+[Structured result](connect-reliability/gate-33668d2-preflight.json) has
+`tiers: []`, `complete: false`, cleanup exit 0 and zero containers removed.
+Postgres logging overrides and isolated gate database creation were not reached
+in this invocation. The first failed invocation's owned database and settings
+had already been cleaned/restored as recorded above.
+
+After exit, read-only `docker ps` for project `opintel` reported both development
+services **Up 33 hours (healthy)**. A healthy container after the failure does
+not establish why the five-second Redis readiness probe failed. The underlying
+cause is **not established**; no claim of a Redis restart or a product-connect
+regression is made. This is an environment/setup blocker outside the requested
+product changes. Per the user's stop rule, there was no fix, preflight retry,
+additional gate, image/archive build or packaged install after this failure.
+
+The corrected capture path retained its evidence and completed shutdown:
+[capture manifest](connect-reliability/capture-33668d2.json),
+[Docker capacity](connect-reliability/docker-capacity-33668d2.json).
+It records **4 successful sampling cycles, 0 failed**, from
+`2026-11-02T04:45:46.371Z` to `04:46:46.492Z`, scheduled interval 5 seconds.
+These are the actual completed samples; Docker command duration can make actual
+sample windows longer than the scheduled interval. Capacity: **4 CPUs**, Docker
+**8,325,943,296 bytes** (~7.75 GiB), **x86_64**. Full stats/events and private
+container logs remain under
+`tmp/gate-runs/876f618f-df77-4ea5-9e19-a8e1f9a9bbe5/observations` and are not
+committed. This preflight stop does not itself exercise Playwright cleanup; the
+new targeted output-cleanup regression supplies that check.
+
+## Handoff
+
+- Console merge **770174d** is on main and pushed, as approved. Main was not
+  advanced again after branching.
+- Reliability implementation **adaf97d** and capture correction **33668d2** are
+  pushed on `fix/connect-reliability`. All requested exclusions remain untouched.
+- Targeted source/transport/engine/V-01/installer/provisioning tests passed
+  (**135**); capture correction tests passed (**5**); strict typecheck and lint
+  passed for both candidates. A full green gate and fresh packaged first receipt
+  are **not claimed**.
+- The gateway worker setting remains labelled a hypothesis mitigation; performance
+  investigation and session/design-board backlog entries remain open.
+- Work remains in `/Users/rzarita/opintel`, with no worktrees and unrelated
+  untracked documents preserved. No reliability merge.
+- This final evidence/report commit is documentation only and is pushed
+  immediately. The native.sh command in chat targets that final revision but is
+  an unverified follow-up, not a release certification. Intel packaged validation
+  remains pending because the corrected candidate stopped in preflight.
