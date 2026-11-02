@@ -47,4 +47,28 @@ Targeted validation completed so far:
 - Strict application typecheck, conformance typecheck and lint passed. Typecheck caught unsupported Testing Library options and a missing optional-column narrowing in the implementation round; both were corrected before the gate.
 - `git diff --check` passed.
 
-Completed-candidate full gate and fresh packaged first-receipt install are pending. No full gate has run for this branch.
+## Single full gate: stopped at smoke
+
+Candidate `426e987c2300c32b1035058dd70996d34307a34d` was committed and pushed before its one full gate. `npm run check` exited 1 after 2052.08 seconds. No rerun.
+
+| Tier | Result |
+|---|---|
+| Environment / fresh migration | Passed: Postgres and Redis reachable; no service started; fresh database migrated from zero |
+| Strict application typecheck | Passed |
+| Conformance typecheck | Passed |
+| Lint / boundaries | Passed |
+| Production artifact | Passed |
+| Browser control conformance | 38 passed; 28/28 routes, zero findings |
+| Normal tests | 2,219 passed in 265 files, including all 16 table-rule cases, the mixed numeric/date receipt case and DEP-008 |
+| Browser/MCP smoke | Failed: unchanged 30,000 ms test deadline while waiting for the row-column picker at `e2e/smoke.spec.ts:66` |
+
+Evidence:
+
+- `/private/tmp/row-rule-conditions-full-gate-426e987.log`.
+- `test-results/gate.json`: commit above, run ID `bba2260d-8503-4146-89b1-1cdbc4baef49`; first six tier exit codes 0, smoke exit code 1; cleanup exit code 0, gate database removed.
+- `test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/trace.zip` and its `error-context.md`.
+- Final retained screencast frame extracted read-only to `/private/tmp/row-rule-smoke-final.jpeg`: replacement expression is `("field_1" IS NULL OR "field_1" IS NOT NULL)`, and **All rows · explicit decision is checked**. The condition controls are therefore absent.
+
+The smoke fixture creates an All rows decision at `e2e/smoke.spec.ts:36`. Its existing sequence at lines 65–68 assumes a blank editor. That assumption conflicts with the requested current-rule prefill: an existing All rows rule now correctly opens checked, hiding the column picker. Proposed test correction, **not applied**: explicitly uncheck All rows before selecting `field_1`, preserving every subsequent MCP and immutable receipt assertion and the existing deadline.
+
+No application/test changes or validation reruns followed this failure. Fresh amd64 archives and packaged first-receipt acceptance were **not run**, because the gate failed. No merge. `fix/connect-reliability` remains paused at `20618f7` until this priority task can complete.
