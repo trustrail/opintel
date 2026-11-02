@@ -904,3 +904,12 @@ verifier behavior is changed in the connection-reliability branch.
   “+ Add condition”, AND/OR toggle.
 - Schema picker: one heading and no stray status line.
 - Per-table rules: use that same condition builder.
+
+### ARCH-01: Standard transport between gateway and engine (decision pending owner approval).
+
+Problem: gateway->engine calls are hand-built (src/shared/infrastructure/engine-transport.ts): a new pinned-TLS connection per call (agent:false), an address lookup per call, hard-coded 1 s connect limits and a custom retry loop. Most connection failures found during VERIFY-01 trace to this layer.
+
+Proposal: replace it with a standard transport that keeps certificate pinning and mutual TLS: either a pooled keep-alive HTTP/2 client, or gRPC (as SpiceDB already uses). Long-lived reused connections, multiplexing, standard deadlines, retries and health checks. Same request/response semantics; no message broker on the query path.
+Not in scope: pub/sub. Asynchronous flows (engine heartbeats and health, scan and ingest progress, landings, console live updates, receipt export) may later move to a message broker, decided separately.
+Later, when the gateway runs in the cloud and engines at customer sites: the engine opens the connection outward to the gateway, so customers open no inbound ports. Evaluate a broker at that point as the channel for both requests and events.
+Supersedes the per-limit fixes for gateway->engine timeouts in the hard-coded timeout audit.
