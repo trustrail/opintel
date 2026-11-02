@@ -1,6 +1,6 @@
 # Connection reliability product extraction
 
-Current status: product fixes preserved, diagnostic gate behavior removed, and branch rebased onto main **4e82a73**. Rebased targeted checks passed; the new completed-candidate gate and fresh packaged verification are pending. Earlier failures and their evidence remain recorded below.
+Current status: product fixes preserved, diagnostic gate behavior removed, and branch rebased onto main **4e82a73**. The single new gate passed preflight and all six earlier tiers, then failed smoke while waiting for the editor to close after a successful row-rule PUT. No gate retry or fresh reliability archives/install followed that failure; not gate-green. Earlier failures and their evidence remain recorded below.
 
 Branch: `fix/connect-reliability`, created in the main checkout from
 `770174d29025b4f94a983685bfde7f2761d0b912`. That approved merge was pushed to main
@@ -326,4 +326,58 @@ Log: `/private/tmp/connect-reliability-rebased-targeted-8e483e5.log`. Strict `np
 
 The requested `docker compose ps postgres redis` check immediately before gate preparation showed both services **Up 45 hours (healthy)**. No start, restart, reconfiguration or persistent environment change was needed.
 
-The one gate on the new completed candidate, then fresh amd64 archives and one standard first-receipt packaged installation, are pending.
+The single new completed-candidate gate and its stop result are recorded below.
+### Single new gate: preflight passed, smoke stopped
+
+Completed candidate **1c81fbe778b72f2fd8999f7048623c59f6e1dc05** was committed and pushed before `COMPOSE_PROJECT_NAME=opintel npm run check`. It ran **once**, exited **1**, wall time **2830.10 s**. [Structured result](connect-reliability/gate-1c81fbe.json). Log: `/private/tmp/connect-reliability-main-gate-1c81fbe.log`.
+
+| Stage | Result |
+|---|---|
+| Main's unmodified preflight | Passed in 14.64 s: Postgres/Redis reachable, no services started, fresh database migrated from zero |
+| Strict typecheck | Passed |
+| Conformance typecheck | Passed |
+| Lint / boundaries | Passed |
+| Production artifact | Passed |
+| Full control conformance | 38 passed; 28/28 screen routes, zero findings |
+| Normal domain/integration tests | **2,228 passed in 265 files**; source allowance/transport, V-01, row-rule/receipt and DEP-008 tests included |
+| Browser/MCP smoke | **Failed**, unchanged 30,000 ms test deadline; editor still present at `e2e/smoke.spec.ts:69` after Apply |
+| Cleanup | Exit 0; isolated gate database removed, zero containers removed by final cleanup |
+
+Both development services remained **Up 46 hours (healthy)** after the run. There was no development service restart or logging reconfiguration. The restored preflight now passed; that observation alone does **not** prove the old collector caused the earlier Redis failures.
+
+#### Retained smoke evidence, no new run
+
+The approved checkbox correction is present at `e2e/smoke.spec.ts:66`; this failure did **not** wait for a missing column picker. The path selected `field_1 >= 3` and clicked Apply at line 68, then timed out waiting for the editor count to become zero at line 69. The assertions that read the stored decision and execute authenticated MCP at lines 70–74 were not reached.
+
+The final screencast shows All rows unchecked, column `field_1`, operator `>=`, value `3`, and **Saving…**. It was extracted read-only to `/private/tmp/connect-reliability-smoke-1c81fbe.jpeg`. The retained trace/context were copied without modification to `tmp/connect-reliability-gate-1c81fbe/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/` so a later Playwright output cleanup cannot remove them.
+
+Redacted trace network metadata:
+
+| UTC start | Request | Recorded result |
+|---|---|---|
+| 17:27:51.708 | PUT `/api/v1/pools/…/tables/…/rows` | **200**, 632.871 ms; no recorded transport failure |
+| 17:27:52.389 | GET `/api/v1/projects/…/pools` | No completed response recorded (`status: -1`, `time: -1` in Playwright trace) |
+| 17:27:52.395 | GET `/api/v1/pools/…/row-entitlements` | No completed response recorded |
+| 17:27:52.400 | GET current row decision | No completed response recorded |
+| 17:27:52.412 | GET row decision history | No completed response recorded |
+
+`-1` is trace metadata for an incomplete request, **not an HTTP response status**. The sequence is consistent with awaiting the post-save refresh: `src/console-next/pools/commands.tsx:21–22` awaits `refresh()` before `onClose()`, and `src/console-next/pools/data.ts:42–47` awaits query invalidations. It does not establish why those refresh requests had not completed before the test deadline. No engine-connect failure or refusal is established by this smoke evidence; its MCP query was not reached. No timeout, application behavior, test or configuration was changed to obtain a pass.
+
+The read-only extraction script used for the recorded network metadata is included here with its result. It makes no requests and emits only route, timing and status metadata, excluding headers, credentials and bodies:
+
+```python
+import json, zipfile
+from urllib.parse import urlsplit
+with zipfile.ZipFile('test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/trace.zip') as z:
+    rows = [json.loads(x).get('snapshot', {}) for x in z.read('1-trace.network').decode().splitlines()]
+    cutoff = next(s['startedDateTime'] for s in rows if s.get('request', {}).get('method') == 'PUT')
+    for s in rows:
+        if s.get('startedDateTime', '') >= cutoff:
+            r = s.get('request', {})
+            print(json.dumps({'at': s.get('startedDateTime'), 'method': r.get('method'),
+                              'path': urlsplit(r.get('url', '')).path,
+                              'status': s.get('response', {}).get('status'),
+                              'timeMs': s.get('time'), 'failure': s.get('_failureText')}))
+```
+
+**Stopped.** No gate retry, no new reliability image/archive build and no packaged reliability install after this failure. The earlier row-rule amd64/arm64 verification does not include these connection changes and is not reused as reliability evidence. Only this report and the gate result are committed/pushed after failure; main stays at approved merge **4e82a73** and reliability stays unmerged. Native verification remains pending.
