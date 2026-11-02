@@ -1,9 +1,9 @@
 import * as React from 'react';
 import {selectOption} from '../test-select.js';
-import {columnChoices,typedDraft,compatible,CreationRows} from './rows.js';
+import {columnChoices,typedDraft,compatible,CreationRows,draftFromExpression} from './rows.js';
 import type {ReactNode} from 'react';
 import {afterEach,it,expect,vi} from 'vitest';
-import {cleanup,render,screen,fireEvent,waitFor,within} from '@testing-library/react';
+import {act,cleanup,render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {TableIcon} from '../components/kind.js';
 import {Tooltip} from '../components/primitives.js';
@@ -22,7 +22,7 @@ const member={id,group:'field',name:'field',qualifiedName:'warehouse.public.clai
 const table={objectId:object,sourceId:id,name:'claims',needsRows:true,reason:'rule_required'};
 const agent={poolId,authenticatedWith:{kind:'credential',label:'Analyst key',alias:'agent:analyst'},agentId:'claims-agent',client:'Notebook',verified:false,keyVersion:credential,firstSeen:now,lastSeen:now,lastRequestAt:now,lastHeartbeatAt:now,staleAt:null,reconnects:0,state:'idle'};
 const calls:Array<{path:string;body:unknown;method:string}>=[];
-function response(path:string){const url=new URL(path,'http://test');if(url.pathname.endsWith('/needs-you'))return {items:[],nextCursor:null};if(url.pathname.endsWith('/pools'))return {items:[summary],nextCursor:null};if(url.pathname===`/api/v1/pools/${poolId}`)return detail;if(url.pathname.endsWith('/tables'))return {items:[table],nextCursor:null};if(url.pathname.endsWith('/entitlement-members'))return {items:[member,{...member,id:object,name:'hidden',treatment:null}],nextCursor:null};if(url.pathname.endsWith('/agents'))return {items:[agent,{...agent,agentId:'old-agent',state:'stale'}],nextCursor:null};if(url.pathname.endsWith('/row-entitlements'))return {items:[],nextCursor:null,projectHasDefault:false,counts:{missing:1,overridden:0,inherited:0,unscoped:0}};if(url.pathname.endsWith('/catalog')&&url.searchParams.get('parent')===object)return {nodes:[{kind:'element',id,label:'field',childCount:null,exposedType:'VARCHAR',state:'clear'},{kind:'element',id:credential,label:'enabled',childCount:null,exposedType:'BOOLEAN',state:null}],nextCursor:null};if(url.pathname.endsWith('/catalog'))return {nodes:url.searchParams.has('parent')?[{kind:'object',id:object,label:'claims',childCount:2,exposedType:null,state:null}]:[{kind:'source',id,label:'Warehouse',childCount:1,exposedType:null,state:null}],nextCursor:null};throw new Error('Unexpected read '+path);}
+function response(path:string){const url=new URL(path,'http://test');if(url.pathname.endsWith('/history'))return {items:[],nextCursor:null};if(url.pathname.includes('/row-entitlements/'))return {objectId:object,objectName:'claims',poolId,scoped:false,columns:[],current:null};if(url.pathname.endsWith('/needs-you'))return {items:[],nextCursor:null};if(url.pathname.endsWith('/pools'))return {items:[summary],nextCursor:null};if(url.pathname===`/api/v1/pools/${poolId}`)return detail;if(url.pathname.endsWith('/tables'))return {items:[table],nextCursor:null};if(url.pathname.endsWith('/entitlement-members'))return {items:[member,{...member,id:object,name:'hidden',treatment:null}],nextCursor:null};if(url.pathname.endsWith('/agents'))return {items:[agent,{...agent,agentId:'old-agent',state:'stale'}],nextCursor:null};if(url.pathname.endsWith('/row-entitlements'))return {items:[],nextCursor:null,projectHasDefault:false,counts:{missing:1,overridden:0,inherited:0,unscoped:0}};if(url.pathname.endsWith('/catalog')&&url.searchParams.get('parent')===object)return {nodes:[{kind:'element',id,label:'field',childCount:null,exposedType:'VARCHAR',state:'clear'},{kind:'element',id:credential,label:'enabled',childCount:null,exposedType:'BOOLEAN',state:null}],nextCursor:null};if(url.pathname.endsWith('/catalog'))return {nodes:url.searchParams.has('parent')?[{kind:'object',id:object,label:'claims',childCount:2,exposedType:null,state:null}]:[{kind:'source',id,label:'Warehouse',childCount:1,exposedType:null,state:null}],nextCursor:null};throw new Error('Unexpected read '+path);}
 function install(){vi.stubGlobal('fetch',vi.fn(async(path:string,init:{method:string;body?:string})=>{calls.push({path,method:init.method,body:init.body?JSON.parse(init.body) as unknown:null});return {ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify(response(path))};}));}
 function wrapper({children}:{children:ReactNode}){return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}})}><Tooltip.Provider>{children}</Tooltip.Provider></QueryClientProvider>;}
 afterEach(()=>{cleanup();vi.unstubAllGlobals();calls.length=0;usePoolsState.setState({pool:null,tab:'access',filter:null,createOpen:false});});
@@ -91,4 +91,123 @@ it('per-table creation sends each table’s own rule through the existing create
  render(<CreatePool project={id} pools={[]} onClose={()=>{}} onCreated={created}/>,{wrapper});fireEvent.change(screen.getByLabelText('Pool name'),{target:{value:'Specific rules'}});fireEvent.click(await screen.findByRole('button',{name:/Warehouse/}));fireEvent.click(await screen.findByRole('checkbox',{name:'Choose claims'}));fireEvent.click(screen.getByRole('checkbox',{name:'Choose policies'}));fireEvent.click(screen.getByRole('button',{name:'Done'}));fireEvent.click(screen.getByRole('checkbox',{name:'Set a rule per table'}));
  const claims=await screen.findByRole('region',{name:'Row rule for claims'}),policies=await screen.findByRole('region',{name:'Row rule for policies'});fireEvent.click(within(claims).getByRole('checkbox'));fireEvent.keyDown(within(policies).getByRole('combobox',{name:'Row rule column'}),{key:'ArrowDown'});fireEvent.click(await screen.findByRole('option',{name:/^account · VARCHAR/}));fireEvent.change(within(policies).getByLabelText('Row rule value'),{target:{value:'cedant_02'}});fireEvent.click(screen.getByRole('button',{name:'Create pool'}));await waitFor(()=>expect(created).toHaveBeenCalledTimes(1));
  const writes=calls.filter(c=>c.method==='POST');expect(writes).toHaveLength(2);expect(writes[0]?.body).toMatchObject({tableSetup:{tables:[object],rowRule:{allRows:true}}});expect(writes[1]?.body).toEqual({projectId:id,tables:[second],rowRule:{column:'account',operator:'=',value:'cedant_02'}});
+});
+
+
+const mixedConditions=[{column:'claim_amount',operator:'>' as const,value:1000},{column:'loss_date',operator:'<=' as const,value:'2026-11-01'}];
+function mixedApi(expression?:string,dateType='DATE',twoTables=false){
+ install();vi.mocked(fetch).mockImplementation(async(input,init)=>{
+  const path=String(input),method=init?.method??'GET',url=new URL(path,'http://test');calls.push({path,method,body:typeof init?.body==='string'?JSON.parse(init.body):null});
+  const columns=[{kind:'element',id,label:'claim_amount',childCount:null,exposedType:'DECIMAL(18,2)',state:null},{kind:'element',id:credential,label:'loss_date',childCount:null,exposedType:dateType,state:null}];let value:unknown;
+  if(method==='POST'&&url.pathname.endsWith('/pools'))value={poolId,keyVersion:credential,prefix:'opk_live_first',createdAt:now,state:'current',graceUntil:null,keyShown:false,tables:[{...table,needsRows:false,reason:null}]};
+  else if(method==='POST'&&url.pathname.endsWith('/tables'))value={poolId,tables:[{...table,objectId:credential,name:'policies',needsRows:false,reason:null}]};
+  else if(method==='PUT')value={...table,needsRows:false,reason:null};
+  else if(url.pathname.endsWith('/history'))value={items:[],nextCursor:null};
+  else if(url.pathname.includes('/row-entitlements/'))value={objectId:object,objectName:'claims',poolId,scoped:!!expression,columns:columns.map(c=>({id:c.id,name:c.label,sourceIdentifier:c.label,type:c.exposedType})),current:expression?{id:credential,expression,hash:'stored',actorId:id,decidedAt:now,firstScoping:false}:null};
+  else if(url.pathname.endsWith('/catalog')&&[object,credential].includes(url.searchParams.get('parent')??''))value={nodes:columns,nextCursor:null};
+  else if(twoTables&&url.pathname.endsWith('/catalog')&&url.searchParams.get('parent')==='objects:'+id)value={nodes:[{kind:'object',id:object,label:'claims',childCount:2,exposedType:null,state:null},{kind:'object',id:credential,label:'policies',childCount:2,exposedType:null,state:null}],nextCursor:null};
+  else value=response(path);
+  return new Response(JSON.stringify(value),{status:200});
+ });
+}
+async function fillMixedConditions(combine:'and'|'or'){
+ await selectOption('Row rule column',/^claim_amount ·/);await selectOption('Row rule operator','>');fireEvent.change(screen.getByLabelText('Row rule value',{exact:true}),{target:{value:'1000'}});
+ fireEvent.click(screen.getByRole('button',{name:'Add condition'}));
+ await selectOption('Row rule column 2',/^loss_date ·/);await selectOption('Row rule operator 2','<=');fireEvent.change(screen.getByLabelText('Row rule value 2',{exact:true}),{target:{value:'2026-11-01'}});
+ if(combine==='or')await selectOption('Combine conditions',/^OR/);
+}
+it.each(['and','or'] as const)('per-table mixed numeric/date %s rule enables submission and sends every typed condition',async combine=>{
+ mixedApi();const closed=vi.fn();render(<SetRows project={id} pool={poolId} table={{objectId:object,name:'claims'}} onClose={closed}/>,{wrapper});
+ await fillMixedConditions(combine);
+ expect(screen.getByRole('combobox',{name:'Row rule column'}).textContent).toContain('claim_amount');
+ expect((screen.getByLabelText('Row rule value',{exact:true}) as HTMLInputElement).value).toBe('1000');
+ const apply=screen.getByRole('button',{name:'Apply'});expect(apply.hasAttribute('disabled')).toBe(false);
+ const form=apply.closest('form')!;for(const input of form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input[required],select[required]'))expect(input.checkValidity(),input.outerHTML).toBe(true);
+ fireEvent.submit(form);await waitFor(()=>expect(closed).toHaveBeenCalledTimes(1));
+ expect(calls.filter(c=>c.method==='PUT').map(c=>c.body)).toEqual([{projectId:id,rowRule:{combine,conditions:mixedConditions}}]);
+});
+it.each(['and','or'] as const)('creation mixed numeric/date %s rule preserves every condition',async combine=>{
+ mixedApi();render(<CreatePool project={id} pools={[]} onClose={()=>{}} onCreated={()=>{}}/>,{wrapper});
+ fireEvent.change(screen.getByLabelText('Pool name'),{target:{value:'Mixed types'}});fireEvent.click(await screen.findByRole('button',{name:/Warehouse/}));fireEvent.click(await screen.findByRole('checkbox',{name:'Choose claims'}));fireEvent.click(screen.getByRole('button',{name:'Done'}));
+ await fillMixedConditions(combine);expect(screen.getByRole('button',{name:'Create pool'}).hasAttribute('disabled')).toBe(false);
+ const form=screen.getByRole('button',{name:'Create pool'}).closest('form')!;for(const input of form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input[required],select[required]'))expect(input.checkValidity(),input.outerHTML).toBe(true);
+ fireEvent.submit(form);await waitFor(()=>expect(calls.some(c=>c.method==='POST')).toBe(true));
+ expect(calls.find(c=>c.method==='POST')?.body).toMatchObject({tableSetup:{rowRule:{combine,conditions:mixedConditions}}});
+});
+
+it.each(['and','or'] as const)('current mixed %s rule is prefilled and identifies an incomplete condition',async combine=>{
+ const expression=`("claim_amount" > 1000 ${combine.toUpperCase()} "loss_date" <= '2026-11-01')`;
+ mixedApi(expression);render(<SetRows project={id} pool={poolId} table={{objectId:object,name:'claims'}} onClose={()=>{}}/>,{wrapper});
+ expect(await screen.findByText('Saving replaces the current rule: '+expression)).toBeTruthy();
+ expect(screen.getByRole('combobox',{name:'Combine conditions'}).textContent).toContain(combine.toUpperCase());
+ expect((screen.getByLabelText('Row rule value') as HTMLInputElement).value).toBe('1000');expect((screen.getByLabelText('Row rule value 2') as HTMLInputElement).value).toBe('2026-11-01');
+ expect(screen.getByRole('button',{name:'Apply'}).hasAttribute('disabled')).toBe(false);
+ fireEvent.change(screen.getByLabelText('Row rule value 2'),{target:{value:''}});
+ expect(screen.getByRole('button',{name:'Apply'}).hasAttribute('disabled')).toBe(true);
+ expect(screen.getByText(/Condition 2.*loss_date.*required/i)).toBeTruthy();
+});
+
+it.each(['and','or'] as const)('mixed %s timestamp input accepts the minute precision supplied by the browser',async combine=>{
+ mixedApi(undefined,'TIMESTAMP');render(<SetRows project={id} pool={poolId} table={{objectId:object,name:'claims'}} onClose={()=>{}}/>,{wrapper});
+ await fillMixedConditions(combine);fireEvent.change(screen.getByLabelText('Row rule value 2'),{target:{value:'2026-11-01T00:00'}});
+ expect(screen.getByRole('button',{name:'Apply'}).hasAttribute('disabled')).toBe(false);
+ fireEvent.click(screen.getByRole('button',{name:'Apply'}));await waitFor(()=>expect(calls.some(c=>c.method==='PUT')).toBe(true));
+ expect(calls.find(c=>c.method==='PUT')?.body).toMatchObject({rowRule:{combine,conditions:[mixedConditions[0],{...mixedConditions[1],value:'2026-11-01T00:00:00'}]}});
+});
+
+it.each(['and','or'] as const)('batched %s condition edits do not overwrite another condition',async combine=>{
+ mixedApi();render(<SetRows project={id} pool={poolId} table={{objectId:object,name:'claims'}} onClose={()=>{}}/>,{wrapper});await fillMixedConditions(combine);
+ act(()=>{fireEvent.change(screen.getByLabelText('Row rule value'),{target:{value:'2000'}});fireEvent.change(screen.getByLabelText('Row rule value 2'),{target:{value:'2026-10-31'}});});
+ expect((screen.getByLabelText('Row rule value') as HTMLInputElement).value).toBe('2000');
+ expect((screen.getByLabelText('Row rule value 2') as HTMLInputElement).value).toBe('2026-10-31');
+ fireEvent.click(screen.getByRole('button',{name:'Apply'}));await waitFor(()=>expect(calls.some(c=>c.method==='PUT')).toBe(true));
+ expect(calls.find(c=>c.method==='PUT')?.body).toMatchObject({rowRule:{combine,conditions:[{...mixedConditions[0],value:2000},{...mixedConditions[1],value:'2026-10-31'}]}});
+});
+
+it('condition callbacks from one render compose without reverting another field',()=>{
+ let latest={...newRule(),column:'claim_amount',operator:'>' as const,value:'1000',type:'number' as const,combine:'and' as const,extra:[{column:'loss_date',operator:'<=' as const,value:'2026-11-01',type:'text' as const}]} as import('./rows.js').RuleDraft;
+ render(<CreationRows draft={latest} choices={[{name:'claim_amount',type:'DECIMAL(18,2)',tables:1},{name:'loss_date',type:'DATE',tables:1}]} tables={[]} kinds={{}} onChange={update=>{latest=typeof update==='function'?update(latest):update;}}/>,{wrapper});
+ fireEvent.change(screen.getByLabelText('Row rule value'),{target:{value:'2000'}});fireEvent.change(screen.getByLabelText('Row rule value 2'),{target:{value:'2026-10-31'}});
+ expect(latest.value).toBe('2000');expect(latest.extra?.[0]?.value).toBe('2026-10-31');
+});
+
+it.each(['and','or'] as const)('per-table creation retains mixed %s rules separately for two tables',async combine=>{
+ mixedApi(undefined,'DATE',true);const created=vi.fn();render(<CreatePool project={id} pools={[]} onClose={()=>{}} onCreated={created}/>,{wrapper});
+ fireEvent.change(screen.getByLabelText('Pool name'),{target:{value:'Mixed per table'}});fireEvent.click(await screen.findByRole('button',{name:/Warehouse/}));
+ fireEvent.click(await screen.findByRole('checkbox',{name:'Choose claims'}));fireEvent.click(screen.getByRole('checkbox',{name:'Choose policies'}));fireEvent.click(screen.getByRole('button',{name:'Done'}));fireEvent.click(screen.getByRole('checkbox',{name:'Set a rule per table'}));
+ for(const name of ['claims','policies']){
+  const region=await screen.findByRole('region',{name:'Row rule for '+name}),local=within(region);
+  const select=async(label:string,option:RegExp)=>{fireEvent.keyDown(local.getByRole('combobox',{name:label}),{key:'ArrowDown'});fireEvent.click(await screen.findByRole('option',{name:option}));};
+  fireEvent.click(local.getByRole('button',{name:'Add condition'}));await select('Row rule column',/^claim_amount ·/);await select('Row rule operator',/^>$/);fireEvent.change(local.getByLabelText('Row rule value'),{target:{value:name==='claims'?'1000':'2000'}});
+  await select('Row rule column 2',/^loss_date ·/);await select('Row rule operator 2',/^<=$/);fireEvent.change(local.getByLabelText('Row rule value 2'),{target:{value:'2026-11-01'}});if(combine==='or')await select('Combine conditions',/^OR/);
+ }
+ const save=screen.getByRole('button',{name:'Create pool'});expect(save.hasAttribute('disabled')).toBe(false);fireEvent.click(save);await waitFor(()=>expect(created).toHaveBeenCalled());
+ const writes=calls.filter(c=>c.method==='POST');expect(writes).toHaveLength(2);
+ expect(writes[0]?.body).toMatchObject({tableSetup:{tables:[object],rowRule:{combine,conditions:mixedConditions}}});
+ expect(writes[1]?.body).toEqual({projectId:id,tables:[credential],rowRule:{combine,conditions:[{...mixedConditions[0],value:2000},mixedConditions[1]]}});
+});
+it('a retained condition callback cannot discard a condition added by a later callback',()=>{
+ const initial={...newRule(),column:'claim_amount',operator:'>' as const,value:'1000',type:'number' as const};
+ const updates:Array<(current:import('./rows.js').RuleDraft)=>import('./rows.js').RuleDraft>=[];
+ render(<CreationRows draft={initial} choices={[{name:'claim_amount',type:'DECIMAL(18,2)',tables:1}]} tables={[]} kinds={{}} onChange={update=>updates.push(update)}/>,{wrapper});
+ fireEvent.change(screen.getByLabelText('Row rule value'),{target:{value:'2000'}});fireEvent.click(screen.getByRole('button',{name:'Add condition'}));
+ const added=updates[1]!(initial),edited=updates[0]!(added);expect(edited.value).toBe('2000');expect(edited.extra).toHaveLength(1);
+});
+it('prefill retains All rows and refuses to silently flatten nested or unsupported stored expressions',()=>{
+ const columns=[{id,name:'claim_amount',sourceIdentifier:'claim_amount',type:'DECIMAL(18,2)'},{id:credential,name:'loss_date',sourceIdentifier:'loss_date',type:'DATE'}];
+ expect(draftFromExpression('("claim_amount" IS NULL OR "claim_amount" IS NOT NULL)',columns)?.all).toBe(true);
+ expect(draftFromExpression('(claim_amount > 1 AND (loss_date < \'2026-11-01\' OR loss_date > \'2026-12-01\'))',columns)).toBeNull();
+ expect(draftFromExpression('claim_amount IN (1,2)',columns)).toBeNull();
+});
+it.each(['and','or'] as const)('adding a date condition to the current numeric rule saves both with %s',async combine=>{
+ const expression='"claim_amount" > 1000';mixedApi(expression);const closed=vi.fn();render(<SetRows project={id} pool={poolId} table={{objectId:object,name:'claims'}} onClose={closed}/>,{wrapper});
+ await screen.findByText('Saving replaces the current rule: '+expression);expect((screen.getByLabelText('Row rule value') as HTMLInputElement).value).toBe('1000');expect(screen.getByRole('combobox',{name:'Row rule column'}).textContent).toContain('claim_amount');
+ fireEvent.click(screen.getByRole('button',{name:'Add condition'}));await selectOption('Row rule column 2',/^loss_date ·/);await selectOption('Row rule operator 2',/^<=$/);fireEvent.change(screen.getByLabelText('Row rule value 2'),{target:{value:'2026-11-01'}});if(combine==='or')await selectOption('Combine conditions',/^OR/);
+ expect(screen.getByRole('button',{name:'Apply'}).hasAttribute('disabled')).toBe(false);fireEvent.click(screen.getByRole('button',{name:'Apply'}));await waitFor(()=>expect(closed).toHaveBeenCalled());
+ expect(calls.find(c=>c.method==='PUT')?.body).toEqual({projectId:id,rowRule:{combine,conditions:mixedConditions}});
+});
+it('minute precision conversion keeps invalid dates and missing zones invalid',()=>{
+ const column={name:'when',type:'TIME',tables:1},draft=typedDraft({...newRule(),column:'when',value:'12:30'},column);
+ expect(draft.value).toBe('12:30:00');expect(compatible([{kind:'element',id,label:'when',childCount:null,exposedType:'TIME',state:null}],draft)).toBe(true);
+ for(const [type,value] of [['DATE','2026-02-31'],['TIMESTAMPTZ','2026-11-01T12:30'],['TIME','12:']] as const){const invalid=typedDraft({...newRule(),column:'when',value},{...column,type});expect(compatible([{kind:'element',id,label:'when',childCount:null,exposedType:type,state:null}],invalid)).toBe(false);}
 });

@@ -1784,6 +1784,10 @@ Both development and packaged seeders declare the same eight-table fixture.
 | PT-007 | S | Table and row mutations enforce their declared project permissions |
 | PT-008 | S | An existing source-wide pool removes a table directly while retaining its decisions |
 | PT-009 | S | Same-name counterparts that include an undecided member never make a new column readable through copy |
+| PT-013 | S | Existing numeric table rule prefills; adding a DATE condition with AND/OR enables save, sends both conditions and stores the complete expression; unknown/incompatible input appends no decision |
+| PT-014 | S | Condition callbacks compose against current state and cannot revert another condition or discard an added condition; shared and per-table creation retain mixed-type rules |
+| PT-015 | S | Compound compiler refuses a predicate missing any requested condition; typed read results and immutable receipt decision links retain both numeric/date conditions |
+| PT-016 | D | Current rule and combinator prefill; replacement text is explicit; blocked conditions explain their own error; native TIME/TIMESTAMP minute precision receives explicit seconds; no hidden required input blocks a valid save |
 | FH-001/002 | S | Workflow imports only transport tooling, rejects readiness references and cannot silently skip Engine source import |
 | FH-003 | D | Real archived install, external fixture, Engine source import, public source/catalogue/pool/table/decisions/credential APIs, MCP governed query and completed receipt all pass; no seeder or direct Opintel-store writes |
 | FH-004 | D | Acceptance transport frames DELETE JSON explicitly, including UTF-8 byte lengths |

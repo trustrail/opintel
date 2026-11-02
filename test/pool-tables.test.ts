@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
-import {beforeEach,afterEach,it,expect} from 'vitest';
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {resetDatabaseBeforeEach} from './database-fixture.js';
 import {bulkFixture} from './fixtures/bulk-entitlements/fixture.js';
 import {unwrap} from './fixtures/policy-version/fixture.js';
@@ -17,6 +17,7 @@ import {PostgresRowDecisions} from '../src/modules/entitlements/infrastructure/r
 import {PostgresDescribeReader} from '../src/modules/mcp/index.js';
 import {PostgresNeedsYouReader} from '../src/modules/tenancy/index.js';
 import {compilePoolRowRule} from '../src/modules/pools/application/row-rule.js';
+import * as rowGrammar from '../src/shared/row-predicate-syntax.js';
 import {evaluatePredicate} from '../src/shared/row-predicate.js';
 import {CreatePoolBody} from '../src/shared/api/pool-keys.js';
 resetDatabaseBeforeEach('company','user_account');
@@ -39,7 +40,7 @@ beforeEach(async()=>{
  server=createHttpServer([...poolKeyRoutes(keys),...poolTableRoutes(tables),...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements()))],{authorization:{currentUser:async()=>f.actor,port:authorization},logger:{error:()=>{}}});
  server.listen(0,'127.0.0.1');await once(server,'listening');const a=server.address();if(!a||typeof a==='string')throw new Error('Missing test address');base='http://127.0.0.1:'+a.port;
 });
-afterEach(async()=>{server?.closeAllConnections();if(server)await new Promise<void>(resolve=>server.close(()=>resolve()));authorization?.close();});
+afterEach(async()=>{vi.restoreAllMocks();server?.closeAllConnections();if(server)await new Promise<void>(resolve=>server.close(()=>resolve()));authorization?.close();});
 const create=async(name='Table pool',selected=[object,second],rowRule:unknown={column:'field_1',operator:'=',value:'allowed'},startingMode:unknown={kind:'nothing_yet'})=>{
  const response=await post(`/api/v1/projects/${f.ctx.projectId}/pools`,{name,tableSetup:{tables:selected,rowRule,startingMode}});expect(response.status,await response.clone().text()).toBe(200);return response.json() as Promise<{poolId:string;tables:Array<{objectId:string;needsRows:boolean;reason:string|null;copiedColumns:number}>}>;
 };
@@ -137,4 +138,38 @@ it('PT-012: row-rule wire contracts retain legacy shapes and allow only two to s
  for(const combine of ['and','or'])expect(PoolRowRule.safeParse({combine,conditions:[condition,condition]}).success).toBe(true);
  for(const conditions of [[condition],Array(17).fill(condition),[{combine:'and',conditions:[condition,condition]},condition]])expect(PoolRowRule.safeParse({combine:'and',conditions}).success).toBe(false);
  const paths=poolTablesOpenApiDocument().paths;expect(JSON.stringify(paths['/api/v1/pools/{id}/tables/{objectId}/rows'].put)).toContain('conditions');expect(JSON.stringify(paths['/api/v1/pools/{id}/tables'].post)).toContain('conditions');
+});
+
+
+it.each(['and','or'] as const)('mixed numeric/date %s table rows API stores every condition and preserves an existing decision on invalid input',async combine=>{
+ await withTenant(f.ctx,async tx=>{
+  const [table]=await tx.query<{id:string}>("INSERT INTO catalog_object(project_id,source_id,schema_name,object_name,object_kind,exposed_schema,exposed_name) VALUES($1,$2,'public','claims','table','public','claims') RETURNING id",[f.ctx.projectId,secondSource]);second=table!.id;
+  await tx.query("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,ordinal) VALUES($1,$2,'claim_amount','numeric','claim_amount','DECIMAL(18,2)',1)",[f.ctx.projectId,second]);
+  await tx.query("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,ordinal) VALUES($1,$2,'loss_date','date','loss_date','DATE',2)",[f.ctx.projectId,second]);
+ });
+ const pool=await create('Mixed',[second],{column:'claim_amount',operator:'>',value:1000}),conditions=[{column:'claim_amount',operator:'>',value:1000},{column:'loss_date',operator:'<=',value:'2026-11-01'}];
+ const response=await post(`/api/v1/pools/${pool.poolId}/tables/${second}/rows`,{projectId:f.ctx.projectId,rowRule:{combine,conditions}},'PUT');expect(response.status,await response.clone().text()).toBe(200);
+ const rows=await withTenant(f.ctx,tx=>tx.query<{expression:string;predicate:unknown}>('SELECT expression,predicate FROM row_entitlement WHERE pool_id=$1 AND object_id=$2 ORDER BY sequence',[pool.poolId,second]));
+ expect(rows.at(-1)?.expression).toBe(`("claim_amount" > 1000 ${combine.toUpperCase()} "loss_date" <= '2026-11-01')`);
+ expect(rows.at(-1)?.predicate).toMatchObject({kind:combine,terms:expect.arrayContaining([expect.objectContaining({kind:'compare',operator:'>',value:'1000'}),expect.objectContaining({kind:'compare',operator:'<=',value:'2026-11-01'})])});
+ const created=await create('Created with mixed rule',[second],{combine,conditions});
+ const [initial]=await withTenant(f.ctx,tx=>tx.query<{expression:string}>('SELECT expression FROM row_entitlement WHERE pool_id=$1',[created.poolId]));expect(initial?.expression).toBe(rows.at(-1)?.expression);
+ const [stored]=rows.slice(-1);const columns=await withTenant(f.ctx,tx=>tx.query<{id:string;name:string;sourceIdentifier:string;type:string}>('SELECT id,exposed_name AS name,source_identifier AS "sourceIdentifier",exposed_type AS type FROM catalog_element WHERE object_id=$1',[second]));
+ const numeric=columns.find(c=>c.name==='claim_amount')!,date=columns.find(c=>c.name==='loss_date')!;
+ for(const [amount,day,and,or] of [[500,'2026-10-31',false,true],[1500,'2026-11-01',true,true],[1500,'2026-11-02',false,true],[500,'2026-11-02',false,false]] as const)expect(evaluatePredicate(stored!.predicate as import('../src/shared/row-scope-contract.js').Predicate,columns,{[numeric.id]:amount,[date.id]:day})).toBe(combine==='and'?and:or);
+ const invalid=await post(`/api/v1/pools/${pool.poolId}/tables/${second}/rows`,{projectId:f.ctx.projectId,rowRule:{combine,conditions:[conditions[0],{...conditions[1],value:'not-a-date'}]}},'PUT');expect(invalid.status).toBe(400);
+ expect(await withTenant(f.ctx,tx=>tx.query('SELECT expression,predicate FROM row_entitlement WHERE pool_id=$1 AND object_id=$2 ORDER BY sequence',[pool.poolId,second]))).toEqual(rows);
+});
+
+it.each(['and','or'] as const)('refuses %s compound save if compiled predicate loses a requested condition',async combine=>{
+ const pool=await create('Completeness',[second],{allRows:true}),before=await withTenant(f.ctx,tx=>tx.query('SELECT expression FROM row_entitlement WHERE pool_id=$1',[pool.poolId]));
+ const original=rowGrammar.parsePredicate;
+ vi.spyOn(rowGrammar,'parsePredicate').mockImplementation((text,columns)=>{
+  const parsed=original(text,columns);
+  return text.includes(combine.toUpperCase())&&parsed.ok&&(parsed.value.kind==='and'||parsed.value.kind==='or')?{ok:true,value:parsed.value.terms[1]!}:parsed;
+ });
+ const result=await post(`/api/v1/pools/${pool.poolId}/tables/${second}/rows`,{projectId:f.ctx.projectId,rowRule:{combine,conditions:[{column:'own_column',operator:'>',value:2},{column:'own_column',operator:'<',value:4}]}},'PUT');
+ expect(result.status,await result.clone().text()).toBe(400);
+ expect((await result.json()).error.message).toMatch(/every condition/i);
+ expect(await withTenant(f.ctx,tx=>tx.query('SELECT expression FROM row_entitlement WHERE pool_id=$1',[pool.poolId]))).toEqual(before);
 });

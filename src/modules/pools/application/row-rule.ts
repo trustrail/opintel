@@ -1,10 +1,11 @@
 import {parsePredicate,referencedColumns,predicateHash,family} from '../../../shared/row-predicate.js';
-import type {PredicateColumn} from '../../../shared/row-scope-contract.js';
+import type {Predicate,PredicateColumn} from '../../../shared/row-scope-contract.js';
 import type {PoolRowRule} from '../../../shared/api/pool-tables.js';
 /** Compile through the existing typed row grammar; never concatenate into agent SQL. */
 export function compilePoolRowRule(rule:PoolRowRule,columns:readonly PredicateColumn[]){
  const quote=(v:string)=>'"'+v.replaceAll('"','""')+'"';
  let expression:string;
+ const expected:Predicate[]=[];
  if('allRows'in rule){
   const column=columns.find(c=>family(c.type)!=='unsupported');
   if(!column)return {ok:false as const,reason:'incompatible_type' as const,message:'This table has no supported column for an All rows decision.'};
@@ -17,11 +18,12 @@ export function compilePoolRowRule(rule:PoolRowRule,columns:readonly PredicateCo
    const value=condition.value,literal=value===null?'NULL':typeof value==='string'?"'"+value.replaceAll("'","''")+"'":typeof value==='boolean'?String(value).toUpperCase():String(value);
    const text=`${quote(column.name)} ${condition.operator} ${literal}`,checked=parsePredicate(text,columns);
    if(!checked.ok)return {ok:false as const,reason:'incompatible_type' as const,message:`Column “${condition.column}”: ${checked.error.message}`};
-   parts.push(text);
+   parts.push(text);expected.push(checked.value);
   }
   expression='combine'in rule?'('+parts.join(rule.combine==='and'?' AND ':' OR ')+')':parts[0]!;
  }
  const parsed=parsePredicate(expression,columns);
  if(!parsed.ok)return {ok:false as const,reason:'incompatible_type' as const,message:parsed.error.message};
+ if('combine'in rule&&predicateHash(parsed.value)!==predicateHash({kind:rule.combine,terms:expected}))return {ok:false as const,reason:'incompatible_type' as const,message:'The row rule could not preserve every condition. Nothing was saved.'};
  return {ok:true as const,expression,predicate:parsed.value,hash:predicateHash(parsed.value),columns:columns.filter(c=>referencedColumns(parsed.value).includes(c.id))};
 }
