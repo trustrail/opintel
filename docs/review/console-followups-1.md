@@ -466,3 +466,25 @@ and `git worktree prune` removed the stale missing worktree registration.
 `feat/console-followups-1`. Committed feature/report content remains in Git;
 main-checkout untracked files and retained installations/evidence were preserved.
 No merge. This result is committed and pushed on the feature branch.
+
+
+## Smoke-only test correction decision
+
+The user explicitly approved a smoke-only validation round: `626a402` passed
+all full-gate tiers except the outdated smoke interaction, so the full gate is
+not repeated. The only implementation file changed in this round is
+`e2e/smoke.spec.ts`; no product code, configuration, limits or assertions change.
+The smoke selects the typed `field_1 · INTEGER` option through the Radix
+combobox, derives its numeric value type from the column, and removes the
+obsolete manual Value-type interaction. Its real fixture HTTP server now serves
+the existing catalogue route/reader so this picker reads the real catalogue,
+rather than receiving a missing-route fixture response. All row-filter,
+authenticated MCP, persisted receipt and historical-decision assertions remain.
+
+There is no schema-input interaction in this smoke file to convert. The already
+committed standard packaged first-run script uses the saved-source schema
+checkboxes and `Save schemas and scan` (not comma-separated names).
+
+Validation command for this new candidate: `npm run test:smoke`, exactly the
+same script invoked by the gate. No full gate will run in this round. Packaged
+screenshots follow only after smoke passes. Results are recorded below.
