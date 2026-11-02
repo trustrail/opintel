@@ -63,7 +63,7 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
   await expect(page.getByRole('heading',{name:'Check your email'})).toBeVisible();
   await page.goto('/auth/callback?token=fixture-mail-link');await expect(page).toHaveURL(url=>url.pathname==='/'&&url.searchParams.get('pool')===f.pool);await page.goto(poolPath);
   await page.getByRole('button',{name:'Set rows',exact:true}).click();
-  const editor=page.locator('[data-inline-rows]');await editor.getByRole('combobox',{name:'Row rule column',exact:true}).click();await page.getByRole('option',{name:/^field_1 · INTEGER ·/u}).click();
+  const editor=page.locator('[data-inline-rows]');await editor.getByRole('checkbox',{name:'All rows · explicit decision',exact:true}).uncheck();await editor.getByRole('combobox',{name:'Row rule column',exact:true}).click();await page.getByRole('option',{name:/^field_1 · INTEGER ·/u}).click();
   await editor.getByRole('combobox',{name:'Row rule operator'}).click();await page.getByRole('option',{name:'>=',exact:true}).click();
   await editor.getByLabel('Row rule value').fill('3');await editor.getByRole('button',{name:'Apply',exact:true}).click();
   await expect(editor).toHaveCount(0);

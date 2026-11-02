@@ -72,3 +72,14 @@ Evidence:
 The smoke fixture creates an All rows decision at `e2e/smoke.spec.ts:36`. Its existing sequence at lines 65–68 assumes a blank editor. That assumption conflicts with the requested current-rule prefill: an existing All rows rule now correctly opens checked, hiding the column picker. Proposed test correction, **not applied**: explicitly uncheck All rows before selecting `field_1`, preserving every subsequent MCP and immutable receipt assertion and the existing deadline.
 
 No application/test changes or validation reruns followed this failure. Fresh amd64 archives and packaged first-receipt acceptance were **not run**, because the gate failed. No merge. `fix/connect-reliability` remains paused at `20618f7` until this priority task can complete.
+
+
+## Approved smoke-only correction
+
+The user approved changing `e2e/smoke.spec.ts` only: uncheck the prefilled **All rows · explicit decision** checkbox before selecting the condition column. No product code, assertion, timeout or retry changed.
+
+Only `npm run test:smoke`, the exact smoke command invoked by the gate, is run on this candidate. The full gate on `426e987` already passed every other tier; its only failure was the smoke sequence assuming a blank editor. The user explicitly authorized smoke-only validation for this test correction, so the full gate will not be rerun.
+
+Before smoke replaces `test-results`, the failed gate JSON and smoke trace/context were copied to `tmp/row-rule-conditions-gate-426e987/`. The full-conformance JSON had already been removed by the failed smoke; its 28/28-route, zero-finding result remains in the retained full-gate log.
+
+Smoke result, fresh amd64 build/archives and the standard packaged first-receipt acceptance are pending.
