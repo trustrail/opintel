@@ -1,0 +1,100 @@
+{
+  "status": "passed",
+  "revision": "aa867ec1385d1d6a8dbd164f7f8964f8fd84c5c0",
+  "directory": "/Users/rzarita/opintel/tmp/console-first-run-acceptance-5krzJU",
+  "steps": [
+    {
+      "name": "fresh-archives-extracted",
+      "status": "passed"
+    },
+    {
+      "name": "gateway-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "engine-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "one-code-pairing",
+      "status": "passed"
+    },
+    {
+      "name": "engine-sources-add",
+      "status": "passed"
+    }
+  ],
+  "browser": {
+    "status": "passed",
+    "steps": [
+      {
+        "name": "owner-sign-in",
+        "status": "passed"
+      },
+      {
+        "name": "1-create-project",
+        "status": "passed"
+      },
+      {
+        "name": "2-engine-registered-verified",
+        "status": "passed"
+      },
+      {
+        "name": "3-source-connected-scanned",
+        "status": "passed"
+      },
+      {
+        "name": "project-query-limits",
+        "status": "passed"
+      },
+      {
+        "name": "4-pool-created",
+        "status": "passed"
+      },
+      {
+        "name": "explicit-clear-decision",
+        "status": "passed"
+      },
+      {
+        "name": "5-credential-issued",
+        "status": "passed"
+      },
+      {
+        "name": "agent-request-answered",
+        "status": "passed"
+      },
+      {
+        "name": "6-receipt-visible-in-activity",
+        "status": "passed"
+      },
+      {
+        "name": "per-table-editors-visible",
+        "status": "passed"
+      }
+    ],
+    "screenshots": [
+      "1440-light-sign-in-logo.png",
+      "1440-light-welcome.png",
+      "390-light-welcome.png",
+      "1440-light-rail-logo.png",
+      "1440-light-first-hour-step3.png",
+      "390-light-first-hour-step3.png",
+      "1440-light-schema-picker.png",
+      "1440-light-connect-source.png",
+      "1440-light-compound-and.png",
+      "1440-light-compound-or.png",
+      "1440-light-per-table-rules.png"
+    ],
+    "browserErrors": 0,
+    "projectId": "2a46df68-849d-4b8b-8c43-92b375b5f520",
+    "atomicEngineRegistration": true,
+    "scanSummary": [
+      "2",
+      "8",
+      "~11"
+    ],
+    "poolId": "3bfba0a6-b213-400f-a414-3de81022f2f8",
+    "receiptTitle": "Answered · 6 rows from table records",
+    "permanentMarkerRecorded": true
+  }
+}

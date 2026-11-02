@@ -1,6 +1,6 @@
 # Connection reliability product extraction
 
-Current status: **gate validation accepted by the owner**, using the completed gate's six passing tiers plus the approved smoke-only comparison evidence. Product fixes and telemetry remain unchanged; diagnostic gate hooks were removed and the branch is rebased onto main **4e82a73**. Fresh amd64 archives and one standard packaged first-receipt verification are now authorized and pending. The original failed gate record is preserved unchanged below.
+Current status: **gate validation accepted by the owner**, using the completed gate's six passing tiers plus the approved smoke-only comparison evidence. Product fixes and telemetry remain unchanged; diagnostic gate hooks were removed and the branch is rebased onto main **4e82a73**. Fresh amd64 images/archives and one standard packaged first-receipt verification **passed** on the accepted executable code; native arm64 verification is handed off below. The original failed gate record is preserved unchanged below.
 
 Branch: `fix/connect-reliability`, created in the main checkout from
 `770174d29025b4f94a983685bfde7f2761d0b912`. That approved merge was pushed to main
@@ -395,4 +395,52 @@ The user explicitly accepted the gate on **a421507** with the later smoke eviden
 
 The requested HTTP/2 ingress backlog hypothesis was added as text only. No existing ingress item was found in the checked-out backlog, so a new heading was added. It records the owner's six-pending-GET/per-host-limit hypothesis, while retaining the evidence limitation about older font entries and unmeasured connection occupancy/HTTP version. It is not an established cause or an implemented change.
 
-Fresh image/archive and packaged first-receipt results will be appended after the standard steps finish. Reliability remains unmerged; native arm64 verification will be performed on the MacBook Air using the supplied revision command.
+## Fresh amd64 archives and packaged first receipt — passed
+
+Verified source/artifact revision: **aa867ec1385d1d6a8dbd164f7f8964f8fd84c5c0**. This commit records the owner acceptance and HTTP/2 hypothesis; executable code is unchanged from **a421507/1c81fbe**. No full gate or smoke was rerun in this round, and no product, test, timeout, retry, ingress or transport implementation changed.
+
+- Standard image build: **exit 0**, all seven amd64 images passed layer, secret and runtime allowlist/readability audits. [Immutable image identities and build metadata](connect-reliability/images-aa867ec.json). Log: `/private/tmp/connect-reliability-images-aa867ec.log`.
+- Standard customer archive creation: **exit 0**, fresh independent offline gateway and engine archives. Log: `/private/tmp/connect-reliability-archives-aa867ec.log`.
+- One fresh install using the unchanged `scripts/images/console-first-run-install.mjs` harness: **exit 0**. [Recorded installation/browser result](connect-reliability/install-aa867ec.json). Run directory `tmp/console-first-run-acceptance-5krzJU/`; log `/private/tmp/connect-reliability-packaged-aa867ec.log`.
+
+| Standard packaged step | Result |
+|---|---|
+| Extract fresh archives; gateway install; engine install | Passed |
+| One-code pairing; Engine `./sources add` | Passed |
+| Owner SMTP magic-link sign-in | Passed |
+| Create project; attach and verify paired engine | Passed |
+| Connect source, choose schemas and scan | Passed; 2 tables, 8 columns, ~11 rows |
+| Project limits; pool and compound row rule | Passed |
+| Explicit clear decision; issue credential | Passed |
+| Authenticated MCP request | Answered |
+| First receipt in Activity | **Answered · 6 rows from table records** |
+| Permanent first-receipt marker / first-hour tracker removal | Passed |
+| Per-table creation editors | Passed |
+| Browser page errors | **0** |
+| Standard harness cleanup | Completed; only development Postgres and Redis remained running, both healthy |
+
+All installation/sign-in/HTTP/TLS steps were the committed standard harness; no substitute client or workflow was written. The image build was explicitly marked as a candidate because pre-existing unrelated untracked review documents remain in the checkout. They were preserved and not staged. No image was published to a registry by this run.
+
+Exact standard commands:
+
+```sh
+BUILD_CANDIDATE=1 TAG=candidate-connect-aa867ec PLATFORM=linux/amd64 IMAGE=all node scripts/images/build.mjs
+PLATFORM=linux/amd64 node scripts/images/customer-package.mjs tmp/images/releases/candidate-connect-aa867ec-api-engine-console-egress-migrations-provisioning-demo-tools.json tmp/connect-reliability-aa867ec-packages --candidate
+node scripts/images/console-first-run-install.mjs tmp/connect-reliability-aa867ec-packages aa867ec1385d1d6a8dbd164f7f8964f8fd84c5c0
+```
+
+Archives (created in this run, not reused from the row-rule verification):
+
+- `tmp/connect-reliability-aa867ec-packages/gateway-aa867ec-amd64.tar.gz`, 365 MiB. SHA-256: `e63e33a7c835922df97cde73820194b24fd493d9758ecd49ff824b0e973bcd4d`.
+- `tmp/connect-reliability-aa867ec-packages/engine-aa867ec-amd64.tar.gz`, 285 MiB. SHA-256: `bd9fadfebda5ae97e84c6f7900344aa994cf69b555035f1bd24d1737e1e67820`.
+
+Hashes were recorded using `openssl dgst -sha256` on those two fresh files. Gate runner/preflight remain byte-identical to main, the diagnostic Postgres/capture hooks remain removed, and the retained product/telemetry/worker fixes are unchanged.
+
+Reliability remains **unmerged**. Main remains the approved row-rule merge **4e82a736dafbd67b5856fd9f9741a2566a08e4db**. Native arm64 execution was not attempted on the Intel host. MacBook Air command for the exact amd64-verified source revision (default two-minute soak):
+
+```sh
+git fetch origin fix/connect-reliability
+scripts/release/native.sh aa867ec1385d1d6a8dbd164f7f8964f8fd84c5c0
+```
+
+The final evidence/report commit after this verification is documentation only and is pushed immediately; the command intentionally targets the exact source revision used by the fresh amd64 images and archives.
