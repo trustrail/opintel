@@ -488,3 +488,16 @@ checkboxes and `Save schemas and scan` (not comma-separated names).
 Validation command for this new candidate: `npm run test:smoke`, exactly the
 same script invoked by the gate. No full gate will run in this round. Packaged
 screenshots follow only after smoke passes. Results are recorded below.
+
+
+### Smoke result on af9bf12
+
+`COMPOSE_PROJECT_NAME=opintel npm run test:smoke` — **exit 0**, **1 passed**,
+reported total 1.7 minutes; continuous browser/MCP scenario 24.5 seconds.
+Log: `/private/tmp/console-followups-smoke-af9bf12.log`.
+All original assertions passed: actual stored `field_1 >= 3` decision, exact
+rows 3–7, decision IDs in both MCP response and persisted receipt, receipt
+identity/count, recorded-decision permalink and historical expression. No timeout,
+assertion or product behavior was changed. No full gate was rerun. This result
+complements the passing non-smoke tiers on `626a402`; it does not relabel the
+historical full-gate result as a passing invocation.
