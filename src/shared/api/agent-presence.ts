@@ -2,6 +2,7 @@ import {numericProjectSetting} from '../project-settings.js';
 import { z } from 'zod';
 import { createApiClient } from './client.js';
 export const AgentIdHeader = z.string().min(1).refine(value=>value.trim().length>0,'X-Opintel-Agent-Id is required.');
+export const agentIdRequirement='Supply the X-Opintel-Agent-Id header or the agentId query parameter. Each supplied value must be a non-blank string; if both are supplied, they must match.';
 export const PresenceSettings = z.object({agentHeartbeatSeconds:numericProjectSetting('agentHeartbeatSeconds'),agentDisconnectGraceSeconds:numericProjectSetting('agentDisconnectGraceSeconds')});
 export const AgentPresenceState = z.enum(['connecting','active','idle','stale','disconnected']);
 export const PresenceSignal = z.strictObject({agentId:AgentIdHeader,client:z.string().nullable().default(null),kind:z.enum(['connect','request','heartbeat'])});

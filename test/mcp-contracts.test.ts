@@ -1,6 +1,7 @@
+import {AgentIdHeader,agentIdRequirement} from '../src/shared/api/agent-presence.js';
 import { expect,it } from 'vitest';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
-import { DescribeInput,DescribeOutput,ExplainInput,ExplainOutput,QueryInput,QueryOutput,mcpTools,toolDescriptor } from '../src/shared/api/mcp.js';
+import { DescribeInput,DescribeOutput,ExplainInput,ExplainOutput,QueryInput,QueryOutput,mcpTools,toolDescriptor,mcpOpenApiDocument } from '../src/shared/api/mcp.js';
 const validator=new AjvJsonSchemaValidator();
 it('I-023: producer Zod schemas and independent consumer JSON Schema validation agree in both directions',()=>{
  const examples=[
@@ -24,4 +25,18 @@ it('I-023: producer Zod schemas and independent consumer JSON Schema validation 
  expect(DescribeOutput.safeParse({objects:[],undecided:['secret']}).success).toBe(false);
  expect(QueryInput.safeParse({sql:'SELECT 1',unexpected:true}).success).toBe(false);
  expect(ExplainInput.safeParse({}).success).toBe(false);expect(QueryOutput.safeParse({}).success).toBe(false);
+});
+
+it('MCP route contract permits either agent ID source on every method, with the same non-blank validation and pool-key permission',()=>{
+ const operations=mcpOpenApiDocument().paths['/mcp/v1/p/{projectId}'];
+ for(const method of ['get','post','delete']){
+  const operation=operations[method]!;
+  expect(operation['x-permission']).toBe('pool-key');expect(operation.security).toEqual([{poolKey:[]}]);expect(operation.description).toContain(agentIdRequirement);expect(operation.description).toContain('never authorizes');
+  for(const [name,source] of [['X-Opintel-Agent-Id','header'],['agentId','query']]){
+   const parameter=operation.parameters.find(p=>p.name===name)!;
+   expect(parameter).toMatchObject({in:source,required:false,description:agentIdRequirement});
+   const validate=validator.getValidator(parameter.schema);
+   for(const value of ['agent-1','name with spaces','', '   ', '\t',null,17,['agent-1']])expect(validate(value).valid).toBe(AgentIdHeader.safeParse(value).success);
+  }
+ }
 });

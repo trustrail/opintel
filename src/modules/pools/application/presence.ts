@@ -1,5 +1,5 @@
 import { DomainError,err,type PoolId,type Result } from '../../../shared/kernel/index.js';
-import { PresenceSignal } from '../../../shared/api/agent-presence.js';
+import { PresenceSignal,agentIdRequirement } from '../../../shared/api/agent-presence.js';
 import type { AgentPresence } from '../domain/presence.js';
 import type { PoolKeyId } from '../domain/pool.js';
 import type { PoolKeyContext } from './keys.js';
@@ -18,7 +18,7 @@ export class AgentPresenceService {
   const signal=PresenceSignal.safeParse(input);
   if(!signal.success){
    console.info({event:'agent.presence_refused',poolId:authenticated.poolId,reason:'invalid_presence_signal'});
-   return err(new DomainError('validation_failed','Supply the X-Opintel-Agent-Id header and a valid presence signal.'));
+   return err(new DomainError('validation_failed',agentIdRequirement+' Supply a valid presence signal.'));
   }
   const result=await this.repository.observe(ctx,authenticated,signal.data);
   if(!result.ok)console.info({event:'agent.presence_refused',poolId:authenticated.poolId,reason:result.error.code});

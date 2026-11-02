@@ -1,3 +1,4 @@
+import {agentIdRequirement} from '../src/shared/api/agent-presence.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -28,9 +29,9 @@ async function fixture(){
  cleanups.push(async()=>{await mcp.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const url=new URL(`http://127.0.0.1:${address.port}/mcp/v1/p/${f.ctx.projectId}`);
  const headers={authorization:`Bearer ${key}`,'x-opintel-agent-id':'agent-1'};
- const connect=async()=>{
+ const connect=async(override:Record<string,string>=headers,target=url)=>{
   let opened!:()=>void;const streamOpened=new Promise<void>(resolve=>{opened=resolve;});
-  const client=new Client({name:'contract-agent',version:'1'}),transport=new StreamableHTTPClientTransport(url,{requestInit:{headers},fetch:async(input,init)=>{const response=await fetch(input,init);if(init?.method==='GET'&&response.status===200)opened();return response;}});
+  const client=new Client({name:'contract-agent',version:'1'}),transport=new StreamableHTTPClientTransport(target,{requestInit:{headers:override},fetch:async(input,init)=>{const response=await fetch(input,init);if(init?.method==='GET'&&response.status===200)opened();return response;}});
   cleanups.push(()=>client.close());await client.connect(transport);return {client,transport,streamOpened};
  };
  const post=async(body:unknown,session?:string,override:Record<string,string>=headers,target=url)=>{
@@ -53,6 +54,35 @@ describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
   const agents=unwrap(await f.service.list(f.ctx,f.pool,null,10));expect(agents).toHaveLength(1);
   expect(agents[0]).toMatchObject({agentId:'agent-1',verified:false,keyVersion:f.created.keyVersion,state:'active'});
   expect(f.events.publish).toHaveBeenCalled();
+ });
+ it.each([
+  ['header only','agent-1',undefined,200],
+  ['parameter only',undefined,'agent-1',200],
+  ['both equal','agent-1','agent-1',200],
+  ['both different','agent-1','agent-2',400],
+  ['neither',undefined,undefined,400],
+  ['blank parameter',undefined,'   ',400],
+  ['blank header with valid parameter',' ','agent-1',400],
+ ] as const)('agent ID: %s',async(_name,header,parameter,status)=>{
+  const f=await fixture(),target=new URL(f.url),headers:Record<string,string>={authorization:f.headers.authorization};
+  if(header!==undefined)headers['x-opintel-agent-id']=header;
+  if(parameter!==undefined)target.searchParams.set('agentId',parameter);
+  const response=await f.post({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'contract-agent',version:'1'}}},undefined,headers,target);
+  expect(response.status).toBe(status);
+  if(status===400){expect(response.body).toMatchObject({error:{code:'validation_failed',message:expect.stringContaining('X-Opintel-Agent-Id')}});expect(response.body).toMatchObject({error:{message:expect.stringContaining('agentId')}});expect(unwrap(await f.service.list(f.ctx,f.pool,null,10))).toEqual([]);}
+  else expect(unwrap(await f.service.list(f.ctx,f.pool,null,10))).toMatchObject([{agentId:'agent-1',verified:false,keyVersion:f.created.keyVersion}]);
+ });
+ it('query-only SDK requests and heartbeat presence use the same identity; ambiguous query values are refused',async()=>{
+  const f=await fixture(),target=new URL(f.url);target.searchParams.set('agentId','parameter-agent');
+  const headers={authorization:f.headers.authorization},{client,transport}=await f.connect(headers,target);
+  await client.listTools();const before=unwrap(await f.service.list(f.ctx,f.pool,null,10))[0]!;
+  await client.ping();const after=unwrap(await f.service.list(f.ctx,f.pool,null,10))[0]!;
+  expect(after).toMatchObject({agentId:'parameter-agent',verified:false,keyVersion:f.created.keyVersion,state:'active'});expect(after.lastRequestAt).toBe(before.lastRequestAt);
+  const body={jsonrpc:'2.0',id:4,method:'tools/list'};
+  expect((await f.post(body,transport.sessionId,headers,target)).status).toBe(200);
+  target.searchParams.append('agentId','another-agent');
+  expect((await f.post(body,transport.sessionId,headers,target)).status).toBe(400);
+  expect((await f.post(body,transport.sessionId,{...headers,authorization:'Bearer malformed'},target)).status).toBe(401);
  });
  it('I-013: query gating applies to listing and calling; prompt tools are absent in Slice 1a',async()=>{
   const f=await fixture();await f.modes(false,true);const {client,transport}=await f.connect();
@@ -86,14 +116,14 @@ describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
  it('requires the claimed id on every request and never uses it to authorize; ping only updates liveness',async()=>{
   const f=await fixture(),{client,transport}=await f.connect();
   const body={jsonrpc:'2.0',id:4,method:'tools/list'};
-  expect(await f.post(body,transport.sessionId,{authorization:f.headers.authorization})).toMatchObject({status:400,body:{error:{message:'Supply the X-Opintel-Agent-Id header.'}}});
+  expect(await f.post(body,transport.sessionId,{authorization:f.headers.authorization})).toMatchObject({status:400,body:{error:{message:agentIdRequirement}}});
   expect(await f.post(body,transport.sessionId,{...f.headers,'x-opintel-agent-id':'claimed-someone-else'})).toEqual(await f.post(body,transport.sessionId));
   const before=unwrap(await f.service.list(f.ctx,f.pool,null,10)).find(a=>a.agentId==='agent-1')!;
   await client.ping();
   const after=unwrap(await f.service.list(f.ctx,f.pool,null,10)).find(a=>a.agentId==='agent-1')!;
   expect(after.lastRequestAt).toBe(before.lastRequestAt);expect(after.verified).toBe(false);
  });
- it('a session cannot cross pools; rotation can reuse it with the new key, and every HTTP method requires the agent header',async()=>{
+ it('a session cannot cross pools; rotation can reuse it with the new key, and every HTTP method requires an agent ID',async()=>{
   const f=await fixture(),{transport}=await f.connect();
   const other=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'create',name:'Another MCP pool'},randomUUID())));if(!other.keyShown)throw new Error('No key');
   const body={jsonrpc:'2.0',id:7,method:'tools/list'};
@@ -104,7 +134,7 @@ describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
   expect(unwrap(await f.service.list(f.ctx,f.pool,null,10))[0]?.keyVersion).toBe(rotated.keyVersion);
   for(const method of ['GET','DELETE']){
    const response=await fetch(f.url,{method,headers:{authorization:`Bearer ${rotated.key}`,accept:'text/event-stream','mcp-session-id':transport.sessionId!}});
-   expect(response.status).toBe(400);expect(await response.json()).toMatchObject({error:{message:'Supply the X-Opintel-Agent-Id header.'}});
+   expect(response.status).toBe(400);expect(await response.json()).toMatchObject({error:{message:agentIdRequirement}});
   }
   const ended=await fetch(f.url,{method:'DELETE',headers:{...f.headers,'mcp-session-id':transport.sessionId!,'mcp-protocol-version':'2025-11-25'}});
   expect(ended.status).toBe(200);await ended.text();
