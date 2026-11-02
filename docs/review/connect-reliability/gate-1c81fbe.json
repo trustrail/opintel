@@ -1,0 +1,80 @@
+{
+  "commit": "1c81fbe778b72f2fd8999f7048623c59f6e1dc05",
+  "runId": "4f167411-2774-4eed-af4f-e28729c8915b",
+  "preflight": {
+    "memory": {
+      "availableBytes": 2104135680,
+      "minimumAvailableBytes": 1073741824
+    },
+    "docker": {
+      "bytes": 8325943296,
+      "minimumBytes": 7516192768
+    },
+    "images": {
+      "postgres": "pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a",
+      "redis": "redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541",
+      "spicedb": "authzed/spicedb:latest@sha256:a170d372c9f6b921bb6849064df6ca3566dd5b174882c1a2c4300c2ae1d60efd",
+      "browser": "mcr.microsoft.com/playwright:v1.63.0-noble"
+    },
+    "started": [],
+    "postgres": "reachable",
+    "redis": "reachable",
+    "database": "opintel_test_gate_64cadc497d02_e5f7a3e62d4e",
+    "migratedFromZero": true,
+    "seconds": 14.637130680999999,
+    "exitCode": 0
+  },
+  "memory": {
+    "startAvailableBytes": 2104135680,
+    "minimumAvailableBytes": 841342976,
+    "minimumAt": "2026-11-02T16:48:32.738Z",
+    "lastSampleAt": "2026-11-02T17:28:04.669Z",
+    "samples": 566,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [
+    {
+      "tier": "typecheck",
+      "seconds": 48.679195322,
+      "exitCode": 0
+    },
+    {
+      "tier": "typecheck:conformance",
+      "seconds": 5.677811929000003,
+      "exitCode": 0
+    },
+    {
+      "tier": "lint",
+      "seconds": 25.540750151,
+      "exitCode": 0
+    },
+    {
+      "tier": "build:production",
+      "seconds": 2.974718915999998,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:conformance",
+      "seconds": 536.525102558,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 2107.1192050829995,
+      "exitCode": 0
+    },
+    {
+      "tier": "test:smoke",
+      "seconds": 83.23676341899997,
+      "exitCode": 1
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_e5f7a3e62d4e",
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 2830.1038863090002,
+  "complete": false
+}

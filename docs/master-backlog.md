@@ -151,6 +151,17 @@ src/modules/engines/application/registry.ts:33
 **Status** Open · Small
 **Note** Same class as E-07. Consider fixing them together.
 
+### Gateway → engine connection stalls — performance phase
+**Status** Open. Connection-phase telemetry and retained run evidence are being
+ported from VERIFY-01. Gateway API `UV_THREADPOOL_SIZE=16` is an installer
+**mitigation for the hypothesis** that hostname lookups queue behind other libuv
+thread-pool work. The engine already uses sixteen workers. Neither the hypothesis
+nor the cause of the gateway-to-engine stalls is established by this change.
+Keep this item open for the performance phase: correlate DNS/TCP/TLS timings,
+source lease occupancy, container load and failures under the customer workload.
+The gateway-to-engine timeout, retry count, connection reuse and admission behavior
+are unchanged. Do not describe the worker setting as a proven stall fix.
+
 ### X-05 · Console unusable while agents are running
 **Customer** With ten agents running, the operator cannot see the system they are meant to be
 governing. Screens load, wait, then show "The service could not be reached".
@@ -875,3 +886,35 @@ SpiceDB schema write: hard-coded **5 s, single attempt**
 retry only UNAVAILABLE, DEADLINE_EXCEEDED and CANCELED, bounded to 5 s per RPC
 and 120 s overall, with short backoff and sanitized retry/final code diagnostics.
 Invalid schema and authentication/authorization failures still fail immediately.
+
+
+### VERIFY-01 rebuild — retain a valid owner session throughout verification
+**Status** Open; backlog only. The operator reports that the arm64 native soak
+on `c1e1c38` lost its owner session mid-run: Receipt API HTTP 401 at about 90 s,
+zero invariant breaches, and Redis did not restart. The cause is **not
+established**; this is the operator's retained-run report, not a new diagnosis
+performed on the Intel host. The VERIFY-01 rebuild must keep a valid session for
+the whole run and report exactly why a session ends. Do not turn an unauthenticated
+receipt check into a pass or weaken receipt/invariant assertions. No session or
+verifier behavior is changed in the connection-reliability branch.
+
+### Console polish — pending an approved design board
+**Status** Open; backlog only, no UI implementation in this branch.
+- Condition builder: one line per condition, labels once, remove icon, a single
+  “+ Add condition”, AND/OR toggle.
+- Schema picker: one heading and no stray status line.
+- Per-table rules: use that same condition builder.
+
+### ARCH-01: Standard transport between gateway and engine (decision pending owner approval).
+
+Problem: gateway->engine calls are hand-built (src/shared/infrastructure/engine-transport.ts): a new pinned-TLS connection per call (agent:false), an address lookup per call, hard-coded 1 s connect limits and a custom retry loop. Most connection failures found during VERIFY-01 trace to this layer.
+
+Proposal: replace it with a standard transport that keeps certificate pinning and mutual TLS: either a pooled keep-alive HTTP/2 client, or gRPC (as SpiceDB already uses). Long-lived reused connections, multiplexing, standard deadlines, retries and health checks. Same request/response semantics; no message broker on the query path.
+Not in scope: pub/sub. Asynchronous flows (engine heartbeats and health, scan and ingest progress, landings, console live updates, receipt export) may later move to a message broker, decided separately.
+Later, when the gateway runs in the cloud and engines at customer sites: the engine opens the connection outward to the gateway, so customers open no inbound ports. Evaluate a broker at that point as the channel for both requests and events.
+Supersedes the per-limit fixes for gateway->engine timeouts in the hard-coded timeout audit.
+
+### HTTP/2 ingress — browser connection-limit hypothesis
+
+**Status** Backlog; hypothesis only, no implementation in this branch.
+The original smoke failure showed six pending GET requests at once (two fonts and three row-entitlement reads among them), consistent with the browser's HTTP/1.1 per-host connection limit; **hypothesis only**. The sixth entry was the project-pools request. The retained trace records six requests without completion; it does not establish that both older font requests were still active at the deadline, the actual connection occupancy, or the negotiated HTTP version. Do not treat this as an established root cause. This browser-to-ingress hypothesis is separate from ARCH-01's gateway-to-engine transport proposal.

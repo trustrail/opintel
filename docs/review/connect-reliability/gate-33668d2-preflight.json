@@ -1,0 +1,26 @@
+{
+  "commit": "33668d270ced64784095667d01d10be0bdda64fa",
+  "runId": "876f618f-df77-4ea5-9e19-a8e1f9a9bbe5",
+  "directory": "/Users/rzarita/opintel/tmp/gate-runs/876f618f-df77-4ea5-9e19-a8e1f9a9bbe5",
+  "preflight": {
+    "seconds": 49.034453542,
+    "exitCode": 1,
+    "message": "Redis did not accept connections within 5 seconds"
+  },
+  "memory": {
+    "startAvailableBytes": 2030809088,
+    "minimumAvailableBytes": 1888403456,
+    "minimumAt": "2026-11-02T04:46:32.487Z",
+    "lastSampleAt": "2026-11-02T04:46:46.527Z",
+    "samples": 7,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [],
+  "cleanup": {
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 60.609483274000006,
+  "complete": false
+}

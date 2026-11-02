@@ -1,5 +1,4 @@
-import {getSourceFailure,retainSourceFailure} from '../../../src/shared/source-failure.js';
-import {sourceOperationEvent} from '../../../src/shared/infrastructure/source-trace.js';
+import {getSourceFailure} from '../../../src/shared/source-failure.js';
 import {enginePhase} from '../../../src/shared/engine-phase.js';
 import {createHmac,randomBytes} from 'node:crypto';
 import {stagedColumns} from '../../../src/shared/execution-contract.js';
@@ -79,8 +78,8 @@ export class PostgresStagingSource implements StagingSource {
   return this.safe(()=>this.scope.external(key(s),credential(s),async (connection,sourceSignal)=>{
    if(!privileged.staging)throw new Error('Staging unavailable');
    const abort=()=>privileged.interrupt?.();sourceSignal.addEventListener('abort',abort,{once:true});
-   try{sourceOperationEvent(s.request.requestId,'scanner','start',1);enginePhase(s.request.requestId,'scan','start');await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));enginePhase(s.request.requestId,'scan','end');sourceOperationEvent(s.request.requestId,'scanner','end',1);return ok(undefined);}catch(error){sourceOperationEvent(s.request.requestId,'scanner','failed',1,retainSourceFailure(error,'scanner',1));throw error;}finally{sourceSignal.removeEventListener('abort',abort);}
-  },signal));
+   try{enginePhase(s.request.requestId,'scan','start');await privileged.staging.materialize(connection,select(s)+` LIMIT ${s.request.settings.maxStagingRows+1}`,table,stagedColumns(s.object.readPlan));enginePhase(s.request.requestId,'scan','end');return ok(undefined);}finally{sourceSignal.removeEventListener('abort',abort);}
+  },signal,s.request.requestId));
  }
  treated(s:Scan,consume:(rows:unknown[][])=>Promise<Result<void>>,signal:AbortSignal):Promise<Result<void>>{
   // Private proof labels preserve only equality within this staged relation.

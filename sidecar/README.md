@@ -24,7 +24,7 @@ credential, or caches one between operations. A missing reference refuses with
 
 The factory constructs one `PostgresSourceScope` with the secret store's read capability
 and explicit `maxConnectionsPerSource`, `statementTimeoutMs`, and
-`operationTimeoutMs` limits. Share the connector across requests so calls for
+`operationTimeoutMs` limits, with optional `connectTimeoutMs` (10,000 ms by default). Share the connector across requests so calls for
 the same project/source share a connection ceiling. Excess calls are refused
 with `budget_exceeded`; connections are never pooled or left open after a call.
 The scope owns a repeatable-read, read-only transaction and closes the source
@@ -413,3 +413,19 @@ database reset, an orphaned zone reports its path and project/source IDs; removi
 `tmp/sidecar` and rerunning `npm run dev:up` resolves that development state. This
 is a development reset, not a production recovery procedure. The standalone
 Opintel Engine does not query the application's database or wait for its API.
+
+
+### Customer-source connection limits
+
+Engine `service.json` configures `limits.maxConnectionsPerSource`,
+`limits.statementTimeoutMs` and `limits.operationTimeoutMs`. Packaged defaults are
+8 connections per source, 30,000 ms per statement and 35,000 ms per operation.
+The adjacent install-time `limits.connectTimeoutMs` defaults to 10,000 ms per
+connect attempt. It is capped by the operation time remaining. A second attempt
+starts only when its full configured allowance fits; only connection setup can
+retry, at most once, before any SQL. Native scanner `connect_timeout` uses the
+same allowance rounded up to whole seconds, at least two; the shared operation
+cancellation deadline still bounds the work. Cancellation/control connections
+retain their separate one-second limits. Set these limits in the engine's
+`state/service.json` before starting the installation; they are not project UI
+settings. Connect telemetry includes the source ID and allowance, never credentials.
