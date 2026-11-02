@@ -852,3 +852,26 @@ No backend, migration, grant, export or runtime generator change is part of this
 ### VERIFY-01 — Soak coverage completeness
 
 Soak reports passed without checking scenario coverage completeness (reinsurance.ts:220/225 vs gateway-DEMO.md:34). Address in VERIFY-01, not DEMO-01; preserve the current V-01 oracle and expected answers in DEMO-01.
+
+### Worktree scanner setup
+
+Worktree setup must run `npm run sidecar:prepare-scanner` (or the gate must check
+for the scanner first and say exactly which command to run), so a fresh checkout
+cannot fail six tests with an opaque error. Do not weaken signature, native LOAD
+or build/platform checks; use `scripts/prepare-duckdb-scanner.ts`.
+
+
+### Gate preflight Compose project and timeout audit
+
+Gate preflight in a worktree must use the main checkout's Compose project (or
+say exactly how, for example `COMPOSE_PROJECT_NAME=opintel npm run check` after
+checking the running project's identity). Its hard-coded five-second Compose
+start limit belongs in the hard-coded-timeout audit. Do not weaken isolated gate
+databases or reuse development data for tests.
+
+
+SpiceDB schema write: hard-coded **5 s, single attempt**
+(`src/modules/authz/infrastructure/load-schema.ts`). **Fixed in this branch**:
+retry only UNAVAILABLE, DEADLINE_EXCEEDED and CANCELED, bounded to 5 s per RPC
+and 120 s overall, with short backoff and sanitized retry/final code diagnostics.
+Invalid schema and authentication/authorization failures still fail immediately.

@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { v1 } from '@authzed/authzed-node';
 import { CompanyId, ProjectId, TestClock, UserId } from '../src/shared/kernel/index.js';
 import type { CheckRequest } from '../src/modules/authz/index.js';
+import {writeSchemaWithRetry} from '../src/modules/authz/infrastructure/load-schema.js';
 import { SpiceDbAuthorizationPort } from '../src/modules/authz/infrastructure/spicedb-authorization-port.js';
 
 const endpoint = process.env.SPICEDB_ENDPOINT;
@@ -191,5 +192,59 @@ integration.sequential('SpiceDB authorization port', () => {
     const stale = await port?.check(adminCheck);
 
     expect(stale).toMatchObject({ allowed: false, token: fresh?.token, snapshotAgeMs: 1_001 });
+  });
+});
+
+
+describe('packaged SpiceDB schema writes', () => {
+  afterEach(() => {vi.restoreAllMocks();});
+  it('retries only transient failures and succeeds with the same bounded RPC allowance', async () => {
+    const messages: string[] = [];
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {messages.push(String(chunk));return true;});
+    let elapsed = 0, calls = 0;
+    const allowances: number[] = [];
+    await writeSchemaWithRetry(async allowance => {
+      allowances.push(allowance);
+      const code = [14,4,1][calls++];
+      if (code !== undefined) throw Object.assign(new Error('private token and schema text must never be logged'), {code});
+    }, {now:()=>elapsed,sleep:async ms=>{elapsed+=ms;}});
+    expect(calls).toBe(4);
+    expect(allowances).toEqual([5000,5000,5000,5000]);
+    expect(elapsed).toBe(750);
+    expect(messages.map(message=>JSON.parse(message))).toEqual([
+      {event:'schema_load.retry',attempt:2,code:'UNAVAILABLE'},
+      {event:'schema_load.retry',attempt:3,code:'DEADLINE_EXCEEDED'},
+      {event:'schema_load.retry',attempt:4,code:'CANCELED'},
+    ]);
+    expect(messages.join('')).not.toContain('private token');
+    expect(messages.join('')).not.toContain('schema text');
+  });
+  it.each([
+    [3,'INVALID_ARGUMENT'],[7,'PERMISSION_DENIED'],[16,'UNAUTHENTICATED'],
+    [8,'RESOURCE_EXHAUSTED'],[2,'UNKNOWN'],['private-token','UNKNOWN'],
+  ])('fails immediately without retry on non-transient code %s', async (nativeCode, code) => {
+    const logged = vi.spyOn(process.stderr, 'write').mockImplementation(()=>true);
+    const write = vi.fn(async()=>{throw Object.assign(new Error('private-token'),{code:nativeCode});});
+    const sleep = vi.fn(async()=>{});
+    const failure = await writeSchemaWithRetry(write,{now:()=>0,sleep}).catch((error:unknown)=>error);
+    expect(failure).toMatchObject({code,attempts:1,message:`SpiceDB schema write failed after 1 attempt; last code: ${code}.`});
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(logged).not.toHaveBeenCalled();
+    expect(String(failure)).not.toContain('private-token');
+  });
+  it('stops at 120 seconds, caps the final RPC to the remaining budget and retains the last code', async () => {
+    const logged = vi.spyOn(process.stderr, 'write').mockImplementation(()=>true);
+    let elapsed = 0;
+    const allowances: number[] = [], sleeps: number[] = [];
+    const failure = await writeSchemaWithRetry(async allowance=>{
+      allowances.push(allowance);elapsed+=allowance;
+      throw Object.assign(new Error('private schema'),{code:14});
+    },{now:()=>elapsed,sleep:async ms=>{sleeps.push(ms);elapsed+=ms;}}).catch((error:unknown)=>error);
+    expect(elapsed).toBe(120000);
+    expect(allowances).toEqual([...Array.from({length:22},()=>5000),4500]);
+    expect(sleeps).toEqual(Array.from({length:22},()=>250));
+    expect(logged).toHaveBeenCalledTimes(22);
+    expect(failure).toMatchObject({code:'UNAVAILABLE',attempts:23,message:'SpiceDB schema write failed after 23 attempts; last code: UNAVAILABLE.'});
   });
 });

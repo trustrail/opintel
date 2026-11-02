@@ -19,6 +19,13 @@ const quote = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 export class PostgresConnector implements SidecarConnector {
   constructor(private readonly scope: PostgresSourceScope, private readonly audit: SamplingAuditPort) {}
 
+  async listSchemas(request:unknown,signal?:AbortSignal){
+    return this.run(request,z.strictObject({}),async session=>{
+      const rows=z.array(z.object({name:z.string()})).parse(await session.query("SELECT nspname AS name FROM pg_catalog.pg_namespace WHERE has_schema_privilege(oid,'USAGE') ORDER BY nspname"));
+      return {schemas:rows.map(row=>row.name).filter(name=>!['pg_catalog','information_schema','pg_toast'].includes(name)&&!/^pg_(?:toast_)?temp/u.test(name))};
+    },signal);
+  }
+
   async testConnection(request: unknown, signal?: AbortSignal) {
     const result = await this.run(request, z.strictObject({}), async (session) => {
       await session.query('SELECT 1');

@@ -56,4 +56,4 @@ export function Tip({label,children}:{label:string;children:ReactElement}){retur
 export function TableIcon({kind}:{kind:'table'|'view'|undefined}){return kind?<KindIcon kind={kind}/>:null;}
 
 /** Product brand artwork, distinct from the regular-weight icon set. */
-export function BrandMark({size=32}:{size?:number}){return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false" data-brand-mark><rect x="2" y="16" width="8" height="16" rx="2" fill="currentColor"/><rect x="12" y="8" width="8" height="24" rx="2" fill="currentColor" opacity=".7"/><rect x="22" y="0" width="8" height="32" rx="2" fill="currentColor" opacity=".4"/></svg>;}
+export function BrandMark({size=32,decorative=false}:{size?:number;decorative?:boolean}){return <img src="/opintel-logo.png" srcSet="/opintel-logo.png 1x, /opintel-logo@2x.png 2x, /opintel-logo@3x.png 3x" width={Math.round(size*321/240)} height={size} alt={decorative?'':'Opintel'} aria-hidden={decorative||undefined} data-brand-mark/>;}

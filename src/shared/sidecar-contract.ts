@@ -14,6 +14,7 @@ export const connectionResponse = z.union([
   z.strictObject({ reachable: z.literal(true) }),
   z.strictObject({ reachable: z.literal(false), reason: z.string().min(1) }),
 ]);
+export const schemaListResponse=z.strictObject({schemas:z.array(z.string())});
 export const snapshotResponse = z.strictObject({ snapshot: z.strictObject({
   takenAt: z.iso.datetime().transform((value) => Timestamp(new Date(value))),
   objects: z.array(z.strictObject({
@@ -50,6 +51,7 @@ export function sidecarOpenApiDocument() {
     ['/health', null, healthResponse],
     ['/egress/register',egressRegistration,egressRegistered],
     ['/test-connection', envelope.extend({payload:z.strictObject({})}), connectionResponse],
+    ['/schemas', envelope.extend({payload:z.strictObject({})}), schemaListResponse],
     ['/introspect', envelope.extend({payload:introspectPayload}), snapshotResponse],
     ['/sample', envelope.extend({payload:samplePayload}), sampleResponse],
     ['/estimate', envelope.extend({payload:estimatePayload}), estimateResponse],

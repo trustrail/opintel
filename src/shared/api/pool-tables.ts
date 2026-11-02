@@ -1,8 +1,10 @@
 import {z} from 'zod';
 import {createApiClient} from './client.js';
+export const PoolRowCondition=z.strictObject({column:z.string().min(1).max(63),operator:z.enum(['=','<>','<','<=','>','>=']),value:z.union([z.string().max(1024),z.number().finite().refine(v=>!Number.isInteger(v)||Number.isSafeInteger(v),'Integer rule values must be exactly representable.'),z.boolean(),z.null()])});
 export const PoolRowRule=z.union([
- z.strictObject({column:z.string().min(1).max(63),operator:z.enum(['=','<>','<','<=','>','>=']),value:z.union([z.string().max(1024),z.number().finite().refine(v=>!Number.isInteger(v)||Number.isSafeInteger(v),'Integer rule values must be exactly representable.'),z.boolean(),z.null()])}),
+ PoolRowCondition,
  z.strictObject({allRows:z.literal(true)}),
+ z.strictObject({combine:z.enum(['and','or']),conditions:z.array(PoolRowCondition).min(2).max(16)}),
 ]);
 export type PoolRowRule=z.infer<typeof PoolRowRule>;
 export const PoolStartingMode=z.discriminatedUnion('kind',[z.strictObject({kind:z.literal('nothing_yet')}),z.strictObject({kind:z.literal('copy_from'),poolId:z.uuid()})]);

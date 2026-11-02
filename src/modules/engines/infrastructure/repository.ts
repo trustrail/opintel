@@ -36,7 +36,7 @@ export class PostgresEngineRepository implements EngineRepository {
   // The normal worker consumes this same queued record after the policy acknowledgment.
   if(!active.length){
    const [latest]=await tx.query<{include_schemas:string[]}>('SELECT include_schemas FROM introspection_run WHERE source_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[source]);
-   await tx.query('INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)',[randomUUID(),source,ctx.projectId,latest?.include_schemas??[],JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:current.sampling_consent})]);
+   if(latest?.include_schemas.length)await tx.query('INSERT INTO introspection_run(id,source_id,project_id,include_schemas,progress) VALUES($1,$2,$3,$4,$5::jsonb)',[randomUUID(),source,ctx.projectId,latest?.include_schemas??[],JSON.stringify({phase:'queued',userId:ctx.userId,samplingConsent:current.sampling_consent})]);
   }
   return ok(undefined);
  });}

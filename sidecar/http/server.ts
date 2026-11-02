@@ -42,6 +42,7 @@ export function createSidecarServer(options: {
     ...(options.execution?.preview?{'/preview-rows':{permission:'pinned_application_certificate' as const,response:rowPreviewResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.preview!(body,signal)}}:{}),
     '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:{...build,...(options.execution?.health?{queue:options.execution.health()}: {})}}) },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
+    '/schemas': { permission:'pinned_application_certificate', response:wire.schemaListResponse, invoke:(body,signal)=>options.connector.listSchemas(body,signal) },
     '/introspect': { permission:'pinned_application_certificate', response:wire.snapshotResponse, invoke:(body,signal)=>options.connector.introspect(body,signal) },
     '/sample': { permission:'pinned_application_certificate', response:wire.sampleResponse, invoke:(body,signal)=>options.connector.sampleTopValues(body,signal) },
     '/estimate': { permission:'pinned_application_certificate', response:wire.estimateResponse, invoke:(body,signal)=>options.connector.estimateRowCount(body,signal) },

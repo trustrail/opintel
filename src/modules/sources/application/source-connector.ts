@@ -19,6 +19,7 @@ export type CatalogSnapshot = {
 
 export interface SourceConnector {
   readonly kind: SourceKind;
+  listSchemas(ref: SecretRef, signal?: AbortSignal): Promise<Result<string[], DomainError>>;
   testConnection(ref: SecretRef, signal?: AbortSignal): Promise<Result<void, DomainError>>;
   introspect(ref: SecretRef, include: string[], signal?: AbortSignal): Promise<Result<CatalogSnapshot, DomainError>>;
   sampleTopValues(ref: SecretRef, elements: ElementId[], limit: number, signal?: AbortSignal): Promise<Result<Map<ElementId, TopValue[]>, DomainError>>;

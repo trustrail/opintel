@@ -45,7 +45,7 @@ it('assignment changes invalidate old acknowledgments and archived sources leave
  await withTenant(f.ctx,tx=>tx.query("UPDATE data_source SET status='archived' WHERE id=$1",[f.source]));
  const archived=unwrap(await f.service.heartbeat(pin,{...input,appliedVersion:next.version}));expect(archived.assignments).toEqual([]);expect(f.resume).not.toHaveBeenCalled();
 });
-it('unresolvable assigned destinations stay saved as unreachable and retry after resolution recovers',async()=>{
+it('unresolvable destinations recover to choose schemas without queuing a scan for an empty selection',async()=>{
  const f=await fixture(),sources=new PostgresSourceRegistrationRepository(),id=SourceId(randomUUID());
  unwrap(await sources.create(f.ctx,id,RunId(randomUUID()),{engineId:f.engine.id,name:'Missing credential',kind:'postgres',credentialRef:'secret://test/missing',includeSchemas:[],samplingConsent:false,receivesLandings:false,landingStrategy:null},null));
  const input={projectId:f.ctx.projectId,engineId:f.engine.id,appliedVersion:null};
@@ -54,7 +54,9 @@ it('unresolvable assigned destinations stay saved as unreachable and retry after
  expect(unwrap(await sources.list(f.ctx,null,100)).find(row=>row.id===id)?.status).toBe('unreachable');
  expect(await sources.queued(f.ctx)).toEqual([]);
  unwrap(await f.service.heartbeat(pin,{...input,appliedVersion:policy.version,unreachableSourceIds:[]}));
- expect((await sources.queued(f.ctx)).map(row=>row.sourceId)).toEqual([id]);
+ expect(await sources.queued(f.ctx)).toEqual([]);
+ expect(unwrap(await sources.list(f.ctx,null,100)).find(row=>row.id===id)).toMatchObject({status:'choose_schemas',includeSchemas:[]});
+ expect(await withTenant(f.ctx,tx=>tx.query('SELECT id FROM introspection_run WHERE source_id=$1',[id]))).toEqual([]);
 });
 it('applied heartbeat automatically tests a saved source; connection failure preserves unreachable status',async()=>{
  const {SourceRegistrationService}=await import('../src/modules/sources/application/source-registration.js');

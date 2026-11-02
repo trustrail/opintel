@@ -15,7 +15,7 @@ export class PostgresRowDecisions implements RowDecisionRepository{
    SELECT o.id,o.exposed_name AS name,s.id AS "sourceId",s.name AS "sourceName",
     CASE WHEN own.id IS NOT NULL THEN 'overridden' WHEN EXISTS(SELECT 1 FROM pool p WHERE p.id=$1 AND p.tables_explicit) THEN 'missing' WHEN def.id IS NOT NULL THEN 'inherited'
      WHEN EXISTS(SELECT 1 FROM row_entitlement d WHERE d.object_id=o.id) THEN 'missing' ELSE 'unscoped' END AS status,
-    (def.id IS NOT NULL) AS "hasDefault",own.id AS "decisionId",own.predicate,own.columns,own.actor_id,own.decided_at
+    (def.id IS NOT NULL) AS "hasDefault",own.id AS "decisionId",own.expression,own.predicate,own.columns,own.actor_id,own.decided_at
    FROM catalog_object o JOIN data_source s ON s.id=o.source_id JOIN pool_source_binding b ON b.source_id=o.source_id
    LEFT JOIN LATERAL(SELECT d.* FROM row_entitlement d WHERE d.object_id=o.id AND d.pool_id=$1 ORDER BY sequence DESC LIMIT 1) own ON true
    LEFT JOIN LATERAL(SELECT d.id FROM row_entitlement d WHERE d.object_id=o.id AND d.level='object_default' ORDER BY sequence DESC LIMIT 1) def ON true
@@ -26,8 +26,8 @@ export class PostgresRowDecisions implements RowDecisionRepository{
   const projectHasDefault=defaults!.present;
   // "all" is the bounded picker only. Unscoped is count-only on the pool page.
   if(filter.status==='unscoped')return ok(PoolRowObjects.parse({projectHasDefault,counts,items:[],nextCursor:null}));
-  const rows=await tx.query<{id:string;name:string;sourceId:string;sourceName:string;status:string;decisionId:string|null;predicate:unknown;columns:unknown;actorName:string;decidedAt:string}>(base+` SELECT o.*,o.actor_id::text AS "actorName",o.decided_at::text AS "decidedAt" FROM objects o WHERE ($2='all' OR o.status=$2) AND strpos(lower(o.name),lower($3))>0 AND ($4::uuid IS NULL OR o.id>$4) ORDER BY o.id LIMIT 51`,[pool,filter.status,filter.search,filter.cursor??null]);
-  return ok(PoolRowObjects.parse({projectHasDefault,counts,items:rows.slice(0,50).map(o=>({...o,decision:o.decisionId?{id:o.decisionId,words:predicateWords(predicate.parse(o.predicate),predicateColumn.array().parse(o.columns)),actorName:o.actorName,decidedAt:o.decidedAt}:null})),nextCursor:rows.length>50?rows[49]!.id:null}));
+  const rows=await tx.query<{id:string;name:string;sourceId:string;sourceName:string;status:string;decisionId:string|null;expression:string;predicate:unknown;columns:unknown;actorName:string;decidedAt:string}>(base+` SELECT o.*,o.actor_id::text AS "actorName",o.decided_at::text AS "decidedAt" FROM objects o WHERE ($2='all' OR o.status=$2) AND strpos(lower(o.name),lower($3))>0 AND ($4::uuid IS NULL OR o.id>$4) ORDER BY o.id LIMIT 51`,[pool,filter.status,filter.search,filter.cursor??null]);
+  return ok(PoolRowObjects.parse({projectHasDefault,counts,items:rows.slice(0,50).map(o=>({...o,decision:o.decisionId?{id:o.decisionId,expression:o.expression,words:predicateWords(predicate.parse(o.predicate),predicateColumn.array().parse(o.columns)),actorName:o.actorName,decidedAt:o.decidedAt}:null})),nextCursor:rows.length>50?rows[49]!.id:null}));
  });
   if(!result.ok)return result;
   const ids=[...new Set(result.value.items.flatMap(o=>o.decision?[o.decision.actorName]:[]))];

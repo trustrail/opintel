@@ -1,0 +1,74 @@
+{
+  "revision": "efd5f207c9a9149ba7503a4eddd1864d7727956f",
+  "candidate": true,
+  "dirty": true,
+  "tag": "candidate-console-followups-efd5f20",
+  "platforms": [
+    "linux/amd64"
+  ],
+  "artifacts": [
+    {
+      "target": "api",
+      "platform": "linux/amd64",
+      "image": "opintel-api:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:36b018b084fb24be095d256fce0e6ff252ec2c2beb9d9b576d4e056a655b0e96",
+      "repoDigests": [
+        "opintel-api@sha256:32acc2535aae8234a28af42eb87f85c551c44606b89c735d8d05b4507f54e03a"
+      ]
+    },
+    {
+      "target": "engine",
+      "platform": "linux/amd64",
+      "image": "opintel-engine:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:db79292831b63cc3df7200908c25becd17f29264513155525c97800785b30bad",
+      "repoDigests": [
+        "opintel-engine@sha256:7f823054c489bc3da0ba9027042e1fef56fb16a8e6c2eb740006664f60cbb8b4"
+      ]
+    },
+    {
+      "target": "console",
+      "platform": "linux/amd64",
+      "image": "opintel-console:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:7d55f69785b9272bdcbcd3fc5c95b94100dc501d09066e8d5b137b61bd829f3a",
+      "repoDigests": [
+        "opintel-console@sha256:e13adcfc84051ec83ac23314a055b8a8c0da3400a3fed5f83137f985c8c5ce44"
+      ]
+    },
+    {
+      "target": "egress",
+      "platform": "linux/amd64",
+      "image": "opintel-egress:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:1172020f40253cafba260939a02ae6a1ba77db9c504c671c2e7a439362aece97",
+      "repoDigests": [
+        "opintel-egress@sha256:307b85fc3d2a8d4cda897f1e122c6b7e0766e3d5066ac24d5fbd5f4a9aaabd6c"
+      ]
+    },
+    {
+      "target": "migrations",
+      "platform": "linux/amd64",
+      "image": "opintel-migrations:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:17d1c91722a71ec1794c4984207a96863da108449bad4e97f8aa99bd3b6e97c5",
+      "repoDigests": [
+        "opintel-migrations@sha256:887a4410675dcaa9879f5c7a3d4e332f06977325a4867ca5b6df0c919859e19f"
+      ]
+    },
+    {
+      "target": "provisioning",
+      "platform": "linux/amd64",
+      "image": "opintel-provisioning:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:9aff5e50940e54257c771abc42ec870ac96120dc2290963c5dea67b743657c75",
+      "repoDigests": [
+        "opintel-provisioning@sha256:414f257e1f165c48e8f0ba38838bdb7a182a7a604646961b603387683a5794e5"
+      ]
+    },
+    {
+      "target": "demo-tools",
+      "platform": "linux/amd64",
+      "image": "opintel-demo-tools:candidate-console-followups-efd5f20-linux-amd64",
+      "id": "sha256:feab023cdd996f15daa1495d235335ad06bd6ffbaad9cf1c1a7d3c41d9a6487f",
+      "repoDigests": [
+        "opintel-demo-tools@sha256:e9463d118f3b16918181841768c40b94b93fd7ac68991fc9d89711b7c6c01501"
+      ]
+    }
+  ]
+}

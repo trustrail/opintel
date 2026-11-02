@@ -15,6 +15,7 @@ export interface SamplingAuditPort {
 /** The S1 HTTP host validates/authenticates its caller and maps errors to HTTP.
  * In particular, forbidden maps to 403. No listener is constructed here. */
 export interface SidecarConnector {
+  listSchemas(request: unknown, signal?: AbortSignal): Promise<Result<{schemas:string[]}, DomainError>>;
   testConnection(request: unknown, signal?: AbortSignal): Promise<Result<{ reachable: true } | { reachable: false; reason: string }, DomainError>>;
   introspect(request: unknown, signal?: AbortSignal): Promise<Result<{ snapshot: CatalogSnapshot }, DomainError>>;
   sampleTopValues(request: unknown, signal?: AbortSignal): Promise<Result<{ values: Record<string, TopValue[]> }, DomainError>>;

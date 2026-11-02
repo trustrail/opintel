@@ -54,3 +54,15 @@ it('ROW-2B internal preview is absent from MCP tools and describe and cannot be 
   await expect(f.client.callTool({name:'opintel.preview-rows',arguments:{}})).rejects.toThrow();
  }finally{await f.close();}
 });
+it('compound pool rules enforce AND/OR through the read plan and receipts retain the immutable expression after later edits',async()=>{
+ const {PostgresPoolTables}=await import('../src/modules/pools/index.js');const f=await queryFixture(new PostgresEvidenceWriter());try{
+ const o=await object(f),tables=new PostgresPoolTables(),condition=(operator:'>='|'<='|'=',value:number)=>({column:'field_1',operator,value});
+ unwrap(await tables.add(f.ctx,f.pool,[o],{combine:'and',conditions:[condition('>=',3),condition('<=',5)]}));
+ const and=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records ORDER BY field_1')).structuredContent);expect(and.rows).toEqual([[3],[4],[5]]);
+ const id=and.rowScopes![0]!.decisionId!;
+ unwrap(await tables.rows(f.ctx,f.pool,o,{combine:'or',conditions:[condition('=',1),condition('>=',6)]}));
+ const or=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records ORDER BY field_1')).structuredContent);expect(or.rows).toEqual([[1],[6],[7]]);
+ const [receipt]=await withTenant(f.ctx,tx=>tx.query<{plan:{rowScopes:Array<{decisionId:string}>}}>('SELECT source_plan AS plan FROM run_completion WHERE run_id=$1',[and.evidenceId]));expect(receipt!.plan.rowScopes[0]!.decisionId).toBe(id);
+ const recorded=unwrap(await new PostgresRowDecisions().decision(f.ctx,id));expect(recorded.expression).toBe('("field_1" >= 3 AND "field_1" <= 5)');
+ }finally{await f.close();}
+});

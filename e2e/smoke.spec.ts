@@ -12,6 +12,8 @@ import {QueryOutput} from '../src/shared/api/mcp.js';
 import {poolDetail as poolTemplate,summary as emptySummary} from './console-fixture.js';
 import {PostgresPoolTables} from '../src/modules/pools/index.js';
 import {poolTableRoutes} from '../src/modules/pools/api/table-routes.js';
+import {catalogRoutes} from '../src/modules/catalog/api/tree-routes.js';
+import {PostgresCatalogTreeReader} from '../src/modules/catalog/infrastructure/tree.js';
 
 // One continuous path. Identity delivery/session is a fixture boundary; decisions,
 // permission checks, database, MCP authentication, Engine and evidence are real.
@@ -24,7 +26,7 @@ test.afterAll(async()=>{await prepared?.close();});
 test('sign in → pool → row filter → authenticated MCP query → persisted receipt decision',async({page})=>{
  const f=prepared;if(!f)throw new Error('Smoke backend infrastructure was not prepared.');
  const repo=new PostgresRowDecisions(),tables=new PostgresPoolTables(undefined,f.authorization);let signedIn=false;
- const server=createHttpServer([...rowDecisionRoutes(repo),...poolTableRoutes(tables)],{authorization:{currentUser:async()=>signedIn?f.actor:null,port:f.authorization}});
+ const server=createHttpServer([...rowDecisionRoutes(repo),...poolTableRoutes(tables),...catalogRoutes(new PostgresCatalogTreeReader())],{authorization:{currentUser:async()=>signedIn?f.actor:null,port:f.authorization}});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();
  if(!address||typeof address==='string')throw new Error('Missing smoke API listener');
  const backend=`http://127.0.0.1:${address.port}`;
@@ -39,7 +41,7 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
    if(path.endsWith('/auth/request-link'))return route.fulfill({status:204});
    if(path.endsWith('/auth/callback')){signedIn=true;return route.fulfill({json:{deviceMismatch:false}});}
    if(path.endsWith('/auth/me'))return signedIn?route.fulfill({json:f.actor}):route.fulfill({status:401,json:{error:{code:'unauthenticated',message:'Sign in is required.',requestId:'smoke',retryable:false}}});
-   if(path.includes('/row-entitlements')||path.includes('/row-decisions/')||path.includes('/tables')){
+   if(path.includes('/row-entitlements')||path.includes('/row-decisions/')||path.includes('/tables')||path.endsWith('/catalog')){
     const response=await fetch(backend+path+url.search,{method:request.method(),headers:{'content-type':'application/json'},...(request.postData()?{body:request.postData()!}:{})});
     return route.fulfill({status:response.status,body:await response.text(),contentType:'application/json'});
    }
@@ -61,9 +63,8 @@ test('sign in → pool → row filter → authenticated MCP query → persisted 
   await expect(page.getByRole('heading',{name:'Check your email'})).toBeVisible();
   await page.goto('/auth/callback?token=fixture-mail-link');await expect(page).toHaveURL(url=>url.pathname==='/'&&url.searchParams.get('pool')===f.pool);await page.goto(poolPath);
   await page.getByRole('button',{name:'Set rows',exact:true}).click();
-  const editor=page.locator('[data-inline-rows]');await editor.getByLabel('Row rule column').fill('field_1');
+  const editor=page.locator('[data-inline-rows]');await editor.getByRole('combobox',{name:'Row rule column',exact:true}).click();await page.getByRole('option',{name:/^field_1 · INTEGER ·/u}).click();
   await editor.getByRole('combobox',{name:'Row rule operator'}).click();await page.getByRole('option',{name:'>=',exact:true}).click();
-  await editor.getByRole('combobox',{name:'Value type'}).click();await page.getByRole('option',{name:'Number',exact:true}).click();
   await editor.getByLabel('Row rule value').fill('3');await editor.getByRole('button',{name:'Apply',exact:true}).click();
   await expect(editor).toHaveCount(0);
   const decision=unwrap(await repo.read(f.ctx,f.pool,objectId)).current!;
