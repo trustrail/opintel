@@ -101,3 +101,7 @@ with zipfile.ZipFile(path) as archive:
                         'failure': snapshot.get('_failureText') or response.get('_failureText')
                     }))
 ```
+
+## Subsequent owner decision
+
+After this report, the owner accepted the gate on `a421507` with the passing smoke comparison: the failure did not reproduce on either revision, and the unfinished requests did not call the engine. The original gate failure and this report's evidence remain unchanged. Fresh amd64 packaging and one standard first-receipt installation are authorized; no product, test or timeout change and no new gate run. The HTTP/2 ingress connection-limit explanation is recorded in the backlog as **hypothesis only**, not as this report's established conclusion.

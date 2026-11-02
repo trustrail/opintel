@@ -1,6 +1,6 @@
 # Connection reliability product extraction
 
-Current status: product fixes preserved, diagnostic gate behavior removed, and branch rebased onto main **4e82a73**. The single new gate passed preflight and all six earlier tiers, then failed smoke while waiting for the editor to close after a successful row-rule PUT. No gate retry or fresh reliability archives/install followed that failure; not gate-green. Earlier failures and their evidence remain recorded below.
+Current status: **gate validation accepted by the owner**, using the completed gate's six passing tiers plus the approved smoke-only comparison evidence. Product fixes and telemetry remain unchanged; diagnostic gate hooks were removed and the branch is rebased onto main **4e82a73**. Fresh amd64 archives and one standard packaged first-receipt verification are now authorized and pending. The original failed gate record is preserved unchanged below.
 
 Branch: `fix/connect-reliability`, created in the main checkout from
 `770174d29025b4f94a983685bfde7f2761d0b912`. That approved merge was pushed to main
@@ -381,3 +381,18 @@ with zipfile.ZipFile('test-results/smoke-sign-in-→-pool-→-row-9001e--persist
 ```
 
 **Stopped.** No gate retry, no new reliability image/archive build and no packaged reliability install after this failure. The earlier row-rule amd64/arm64 verification does not include these connection changes and is not reused as reliability evidence. Only this report and the gate result are committed/pushed after failure; main stays at approved merge **4e82a73** and reliability stays unmerged. Native verification remains pending.
+
+## Owner acceptance and packaged verification authorization
+
+The user explicitly accepted the gate on **a421507** with the later smoke evidence. This is an owner acceptance decision, not a rewritten test result:
+
+- The actual full gate ran at **1c81fbe**; **a421507** has identical executable code and adds only the report/result. Preflight, both typechecks, lint, production-artifact exclusion, 38 control-conformance tests (28/28 routes, zero findings), and **2,228 normal tests** passed.
+- The original smoke timed out after a successful row-rule PUT. Its unfinished refresh paths made no gateway-to-engine call; the MCP query had not been reached.
+- The requested unchanged, back-to-back standard smoke comparison passed on main **4e82a73** (14.0 s path; 35.9 s overall) and branch **a421507** (18.1 s path; 40.8 s overall). The failure did not reproduce.
+- Therefore the owner accepts the existing gate with that smoke evidence and authorizes fresh amd64 archives and one standard packaged installation through the first receipt. No new gate/smoke rerun or timeout/product change is needed in this round.
+
+[Smoke diagnosis and all pending-request evidence](connect-reliability-smoke-diagnosis.md). The raw `gate-1c81fbe.json` still records exit 1 and `complete: false`; no historical evidence is edited to claim that invocation exited 0. **4d4218a** is documentation/backlog only and has the same executable code.
+
+The requested HTTP/2 ingress backlog hypothesis was added as text only. No existing ingress item was found in the checked-out backlog, so a new heading was added. It records the owner's six-pending-GET/per-host-limit hypothesis, while retaining the evidence limitation about older font entries and unmeasured connection occupancy/HTTP version. It is not an established cause or an implemented change.
+
+Fresh image/archive and packaged first-receipt results will be appended after the standard steps finish. Reliability remains unmerged; native arm64 verification will be performed on the MacBook Air using the supplied revision command.

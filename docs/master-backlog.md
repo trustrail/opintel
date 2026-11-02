@@ -913,3 +913,8 @@ Proposal: replace it with a standard transport that keeps certificate pinning an
 Not in scope: pub/sub. Asynchronous flows (engine heartbeats and health, scan and ingest progress, landings, console live updates, receipt export) may later move to a message broker, decided separately.
 Later, when the gateway runs in the cloud and engines at customer sites: the engine opens the connection outward to the gateway, so customers open no inbound ports. Evaluate a broker at that point as the channel for both requests and events.
 Supersedes the per-limit fixes for gateway->engine timeouts in the hard-coded timeout audit.
+
+### HTTP/2 ingress — browser connection-limit hypothesis
+
+**Status** Backlog; hypothesis only, no implementation in this branch.
+The original smoke failure showed six pending GET requests at once (two fonts and three row-entitlement reads among them), consistent with the browser's HTTP/1.1 per-host connection limit; **hypothesis only**. The sixth entry was the project-pools request. The retained trace records six requests without completion; it does not establish that both older font requests were still active at the deadline, the actual connection occupancy, or the negotiated HTTP version. Do not treat this as an established root cause. This browser-to-ingress hypothesis is separate from ARCH-01's gateway-to-engine transport proposal.
