@@ -1,9 +1,6 @@
 # Connection reliability product extraction
 
-Current status: fixes and backlog committed/pushed; **not gate-green**.
-The porting defect found in the first gate was fixed and regression-tested.
-The corrected candidate's gate stopped in Redis preflight before any test tier.
-No fresh archives or packaged verification followed that external setup blocker.
+Current status: product fixes preserved, diagnostic gate behavior removed, and branch rebased onto main **4e82a73**. Rebased targeted checks passed; the new completed-candidate gate and fresh packaged verification are pending. Earlier failures and their evidence remain recorded below.
 
 Branch: `fix/connect-reliability`, created in the main checkout from
 `770174d29025b4f94a983685bfde7f2761d0b912`. That approved merge was pushed to main
@@ -315,4 +312,18 @@ Restore `scripts/gate.mjs` **exactly to main**, removing all automatic capture/t
 
 Product source-connect allowances/configuration/native scanner behavior, source and engine-transport telemetry, the gateway `UV_THREADPOOL_SIZE=16` mitigation and the engine's existing setting remain untouched. Verifier/release-wiring exclusions remain untouched. No governance assertion is weakened: only tests of the removed diagnostic tools are removed; source/transport/refusal/receipt tests are retained.
 
-Rebase onto the new main, health check, targeted checks, the one completed-candidate gate and fresh amd64 packaged verification are pending.
+### Rebase and targeted results
+
+Rebased without conflicts onto **4e82a736dafbd67b5856fd9f9741a2566a08e4db**. Rebased implementation/removal tip **8e483e518b810ec8fd46eaf57f4b8d51767bdc95** was pushed with a lease. The former gate-removal commit was **00546d9b7188bfbb1bb39447f987f60245b45687**; its rebased identity is **8e483e5**. `git merge-base main HEAD` returned the new main. `git diff --exit-code main -- scripts/gate.mjs scripts/gate-preflight.mjs` returned 0. All excluded verifier/release paths remain unchanged relative to main.
+
+Post-rebase targeted validation: **173 passed in 18 files, exit 0**, 205.06 seconds. It includes the retained product/source/transport/installer/V-01 tests, DEP-008, existing gate prerequisite/database/memory/container tests, and the merged row-rule/receipt tests. No migration was touched. Diagnostic helper tests were removed with the deleted helpers; no source/refusal/receipt assertions were removed.
+
+```sh
+npm test -- test/postgres-source-deadline.test.ts test/staging-source.test.ts test/engine-connect-transport.test.ts test/customer-install.test.mjs test/provisioning-runtime.test.mjs test/source-trace.test.ts test/sidecar-http.test.ts test/sidecar-startup.test.ts test/sidecar-validation.test.ts test/postgres-connector.test.ts test/source-connector.test.ts test/reinsurance-conformance.test.ts test/first-hour-contract.test.mjs test/gate-preflight.test.mjs test/gate-memory.test.mjs test/gate-containers.test.mjs test/gate-database.test.mjs test/row-entitlements-console.test.ts
+```
+
+Log: `/private/tmp/connect-reliability-rebased-targeted-8e483e5.log`. Strict `npm run typecheck` and `npm run lint` passed, with zero dependency violations; logs `/private/tmp/connect-reliability-rebased-typecheck.log` and `/private/tmp/connect-reliability-rebased-lint.log`. `node --check` passed for restored `scripts/gate.mjs` and retained `scripts/images/first-hour-source.mjs`.
+
+The requested `docker compose ps postgres redis` check immediately before gate preparation showed both services **Up 45 hours (healthy)**. No start, restart, reconfiguration or persistent environment change was needed.
+
+The one gate on the new completed candidate, then fresh amd64 archives and one standard first-receipt packaged installation, are pending.
