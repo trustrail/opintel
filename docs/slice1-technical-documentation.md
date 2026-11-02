@@ -1983,7 +1983,7 @@ type QueryOutput = {
 **Item 5.5 implementation.** The MCP SDK's stateful Streamable HTTP transport is
 mounted separately from console routes at `/mcp/v1/p/:projectId`, with an explicit
 `pool-key` permission declaration. Every POST, GET and DELETE authenticates the
-bearer against current committed state and requires `X-Opintel-Agent-Id`.
+bearer against current committed state and requires an agent ID from `X-Opintel-Agent-Id` or the `agentId` query parameter. Both sources use `AgentIdHeader` validation; if both are present they must match exactly.
 Malformed, unknown, revoked, expired and wrong-project credentials all return
 401 with `unauthenticated`, `The pool key is not valid.`, the request id and
 `retryable: false`. Sessions are bound to project and pool, never to a claimed
@@ -3744,7 +3744,7 @@ create table agent_presence (
 ```
 **The heartbeat interval is 20 seconds**. Stale follows three missed heartbeats, so an agent that stops responding is stale within about 60 seconds. **The disconnect grace window is 5 minutes, measured from entering stale**, so a network interruption or a restart does not remove an agent that returns. Both are project settings, bounded to 5 to 60 seconds and 1 to 60 minutes.
 
-**A request with no agent id is refused**, not given a generated one. The agent_id is supplied by the caller and is how a reviewer follows one agent across requests, so inventing one would fill the list with identities nobody can trace and make the twin useless. The refusal names the missing header. The id is unverified by design: it identifies, the pool key authorises, and presence records what was claimed rather than what was proven.
+**A request with no agent id is refused**, not given a generated one. The agent_id is supplied by the caller and is how a reviewer follows one agent across requests, so inventing one would fill the list with identities nobody can trace and make the twin useless. The refusal names both supported sources: the `X-Opintel-Agent-Id` header and the `agentId` query parameter. Each supplied ID uses the same non-blank string validation; if both are supplied, they must match exactly. MCP initialization, requests and heartbeat presence use the same resolved ID. The id is unverified by design: it identifies, the pool key authorises, and presence records what was claimed rather than what was proven.
 
 **The Pools list clear ratio** is clear elements divided by all active elements in the pool’s bound, non-archived sources, including undecided elements. Removed objects and elements are excluded. Display n/a when there are no active elements.
 
@@ -3774,7 +3774,7 @@ on the same twin. All claimed identities remain explicitly unverified.
 `AgentPresenceService.observeAuthenticated` accepts `connect`, `request` and
 `heartbeat` signals from the authenticated transport, with the resolved pool and
 key version supplied separately from the claimed agent id. It refuses a missing
-or empty id, naming `X-Opintel-Agent-Id`; it never invents one. The repository also
+or empty id, naming the header and URL parameter options; it never invents one. The repository also
 checks the key belongs to the pool and is still usable. MCP transport wiring
 remains item 5.5. Presence observations share-lock the pool before writing, so
 key revocation's exclusive pool lock stabilizes the last-authenticated key

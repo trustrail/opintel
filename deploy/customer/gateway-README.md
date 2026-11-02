@@ -40,3 +40,18 @@ for heartbeat and 3101 for optional ingest receipts; gateway → engine TCP 3100
 XQ and configured SMTP are required external destinations. PAL_PROVIDER, PAL_MODEL
 and EMBEDDING_MODEL are disabled: hosted models require future explicit opt-in.
 No checkout, host Node or Compose command is needed. Retain failure logs/results.
+
+## Connect an agent
+
+Send the issued credential as `Authorization: Bearer CREDENTIAL`. Supply the
+self-declared agent name in either of these ways:
+
+- Header: `X-Opintel-Agent-Id: NAME`, with endpoint
+  `https://GATEWAY/mcp/v1/p/PROJECT`.
+- URL parameter: `https://GATEWAY/mcp/v1/p/PROJECT?agentId=NAME`.
+  This works with clients that can send only the credential header. URL-encode
+  the name when building the URL; keep the credential in the header.
+
+At least one agent ID is required. Each supplied ID must be non-blank; when both
+are supplied they must match exactly. The agent ID is self-declared and recorded
+for presence and receipts only. It never grants access: the credential does that.

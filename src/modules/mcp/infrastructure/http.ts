@@ -158,16 +158,17 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
  async handle(request: IncomingMessage, response: ServerResponse, requestId: string): Promise<void> {
   let created: Session | undefined;
   try {
-   const rawProject = new URL(request.url ?? '/', 'http://localhost').pathname.match(/^\/mcp\/v1\/p\/([^/]+)(?:\/custody\/local)?$/u)?.[1];
+   const url=new URL(request.url??'/','http://localhost'),agentIds=url.searchParams.getAll('agentId');
+   const rawProject = url.pathname.match(/^\/mcp\/v1\/p\/([^/]+)(?:\/custody\/local)?$/u)?.[1];
    const project = z.uuid().safeParse(rawProject);
    if (!project.success) { this.failure(response,requestId,401,'unauthenticated','The pool key is not valid.'); return; }
-   const auth = await this.access.authenticate(ProjectId(project.data),request.headers.authorization,request.headers['x-opintel-agent-id']);
+   const auth = await this.access.authenticate(ProjectId(project.data),request.headers.authorization,request.headers['x-opintel-agent-id'],agentIds.length===0?undefined:agentIds.length===1?agentIds[0]:agentIds);
    if (!auth.ok) { this.failure(response,requestId,auth.error.code==='unauthenticated'?401:400,auth.error.code,auth.error.message); return; }
    // Browser origins are never needed by this bearer-authenticated agent endpoint.
    // Reject them rather than accepting a cross-origin request by default.
    if (request.headers.origin) { this.failure(response,requestId,403,'forbidden','Browser origins are not accepted by the agent interface.'); return; }
    const principal = auth.value;
-   if(new URL(request.url??'/','http://localhost').pathname.endsWith('/custody/local')){
+   if(url.pathname.endsWith('/custody/local')){
     if(request.method!=='POST'||!this.custody){this.failure(response,requestId,404,'not_found','The local custody provider is unavailable.');return;}
     const chunks:Buffer[]=[];let size=0;for await(const chunk of request){const b=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);size+=b.length;if(size>16384){this.failure(response,requestId,413,'validation_failed','The release grant is too large.');return;}chunks.push(b);}
     let input;try{input=releaseRedeemInput.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);}catch{this.failure(response,requestId,400,'validation_failed','Invalid release grant request.');return;}

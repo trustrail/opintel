@@ -1,3 +1,4 @@
+import {agentIdRequirement} from './agent-presence.js';
 import {rowScopeReceipt} from '../row-scope-contract.js';
 import {QueryRefusalMetadata} from './query-refusal.js';
 import { z } from 'zod';
@@ -38,10 +39,12 @@ export function mcpOpenApiDocument() {
    QueryInput: z.toJSONSchema(QueryInput), QueryOutput: z.toJSONSchema(QueryOutput),
   } },
   paths: { '/mcp/v1/p/{projectId}': Object.fromEntries(['get','post','delete'].map(method => [method, {
+   description:agentIdRequirement+' The agent ID is self-declared, used for presence and evidence only, and never authorizes access.',
    'x-permission': 'pool-key', security: [{ poolKey: [] }], parameters: [
     { name: 'projectId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
-    { name: 'X-Opintel-Agent-Id', in: 'header', required: true, schema: { type: 'string', minLength: 1 } },
-   ], responses: { 200: { description: 'MCP JSON-RPC or event stream' }, 202: { description: 'Notification accepted' }, 401: { description: 'The pool key is not valid.' } },
+    { name: 'X-Opintel-Agent-Id', in: 'header', required: false, description:agentIdRequirement,schema: { type: 'string', minLength: 1,pattern:/\S/u.source } },
+    { name: 'agentId', in: 'query', required: false, description:agentIdRequirement,schema: { type: 'string', minLength: 1,pattern:/\S/u.source } },
+   ], responses: { 200: { description: 'MCP JSON-RPC or event stream' }, 202: { description: 'Notification accepted' }, 400:{description:agentIdRequirement}, 401: { description: 'The pool key is not valid.' } },
   }])) },
  };
 }

@@ -1,3 +1,4 @@
+import {PostgresEvidenceWriter} from '../src/modules/evidence/index.js';
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {QueryOutput} from '../src/shared/api/mcp.js';
 import {RunId,DomainError,err} from '../src/shared/kernel/index.js';
@@ -9,6 +10,17 @@ const cleanup:Array<()=>Promise<void>>=[];
 afterEach(async()=>{vi.restoreAllMocks();for(const close of cleanup.splice(0).reverse())await close();});
 async function fixture(writer=new TestEvidenceWriter()){const f=await queryFixture(writer);cleanup.push(f.close);return {...f,writer};}
 describe('5.7 authenticated query through authoritative sidecar',{timeout:60000},()=>{
+ it('a query-only agent ID initializes a full MCP session and is persisted unchanged on the receipt and presence',async()=>{
+  const f=await queryFixture(new PostgresEvidenceWriter());cleanup.push(f.close);
+  const agent=await f.connect(f.issued.key,'parameter-agent','query');
+  const result=QueryOutput.parse((await agent.query('SELECT field_1 FROM warehouse.public.records ORDER BY field_1')).structuredContent);
+  expect(result.rows).toHaveLength(7);
+  const receipts=await withTenant(f.ctx,tx=>tx.query<{agent_id:string;pool_id:string}>('SELECT agent_id,pool_id FROM query_run WHERE id=$1',[result.evidenceId]));
+  expect(receipts).toEqual([{agent_id:'parameter-agent',pool_id:f.pool}]);
+  await agent.client.ping();
+  const presence=await withTenant(f.ctx,tx=>tx.query<{agent_id:string;verified:boolean;key_version:string}>('SELECT agent_id,verified,key_version FROM agent_presence WHERE pool_id=$1 AND agent_id=$2',[f.pool,'parameter-agent']));
+  expect(presence).toEqual([{agent_id:'parameter-agent',verified:false,key_version:f.issued.keyVersion}]);
+ });
  it('X-03: registry outage is an infrastructure refusal in MCP and its evidence, with no values delivered',async()=>{
   const f=await fixture();vi.spyOn(f.execution,'health').mockResolvedValue(err(new DomainError('source_unavailable','Engine unavailable.',{cause:'engine_registry'},true)));
   for(let attempt=0;attempt<3;attempt++){

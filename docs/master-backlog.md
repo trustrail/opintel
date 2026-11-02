@@ -898,6 +898,23 @@ the whole run and report exactly why a session ends. Do not turn an unauthentica
 receipt check into a pass or weaken receipt/invariant assertions. No session or
 verifier behavior is changed in the connection-reliability branch.
 
+### VERIFY-01 rebuild — record source readiness when connect-source gives up
+
+**Status** Open; backlog only. The operator reports that the first arm64 native
+run on `bad97aa` failed in the old soak's setup at **21:04:08 UTC** with
+“Remote source is not ready; inspect introspection and egress acknowledgment”.
+Before that moment there were no gateway-to-engine transport failures: all
+**36 egress registrations completed**. There were also no egress sync failures
+before the failure; the four recorded sync failures occurred after **21:06:47
+UTC**, during shutdown. The source's actual status when setup gave up was not
+recorded, so the cause is not established. These are the operator's retained-run
+findings, not a new diagnosis on this host.
+
+The second arm64 native run passed; its retained run directory is
+`stage5-arm64-bad97aa.uLnY5x`. The VERIFY-01 rebuild's connect-source step must
+record the source's status and last introspection result whenever it gives up
+waiting. No verifier or product behavior is changed by this backlog entry.
+
 ### Console polish — pending an approved design board
 **Status** Open; backlog only, no UI implementation in this branch.
 - Condition builder: one line per condition, labels once, remove icon, a single
