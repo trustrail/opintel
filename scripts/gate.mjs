@@ -1,11 +1,9 @@
-import {startRunCapture,gateRunDirectory} from './run-capture.mjs';
-import {gatePostgresLogging} from './gate-postgres-logging.mjs';
 import console from 'node:console';
 import process from 'node:process';
 import {performance} from 'node:perf_hooks';
 import {spawn,spawnSync} from 'node:child_process';
 import {setTimeout,clearTimeout} from 'node:timers';
-import {mkdirSync,writeFileSync,createWriteStream} from 'node:fs';
+import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from 'node:net';
 import {gatePreflight} from './gate-preflight.mjs';
 import {gateDatabase} from './gate-database.mjs';
@@ -26,8 +24,6 @@ async function isolation(tier){
 const commit=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
 const runId=randomUUID();process.env.OPINTEL_GATE_RUN_ID=runId;
 const start=performance.now(),tiers=[];
-const directory=gateRunDirectory(runId);mkdirSync(directory,{recursive:true,mode:0o700});
-let capture,postgresLogging;
 let preflight,database,cleanup,interrupted,child,killTimer;
 const memory=gateMemoryMonitor();
 function stop(signal){
@@ -42,23 +38,18 @@ const interrupt=()=>stop('SIGINT'),terminate=()=>stop('SIGTERM');
 process.on('SIGINT',interrupt);process.on('SIGTERM',terminate);
 function record(){
  mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,runId,directory,postgresLogging:postgresLogging?.previous,preflight,memory:memory.snapshot(),tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===7&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted},null,2)+'\n');
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,runId,preflight,memory:memory.snapshot(),tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===7&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted},null,2)+'\n');
 }
 async function tier(script){
  return new Promise(resolve=>{
-  const log=createWriteStream(`${directory}/${script.replaceAll(':','-')}.log`,{mode:0o600});
-  child=spawn('npm',['run',script],{stdio:['inherit','pipe','pipe'],detached:true});
-  child.stdout.on('data',chunk=>{log.write(chunk);process.stdout.write(chunk);});
-  child.stderr.on('data',chunk=>{log.write(chunk);process.stderr.write(chunk);});
+  child=spawn('npm',['run',script],{stdio:'inherit',detached:true});
   child.once('error',()=>resolve(1));
-  child.once('exit',code=>{log.end();clearTimeout(killTimer);child=undefined;resolve(code??1);});
+  child.once('exit',code=>{clearTimeout(killTimer);child=undefined;resolve(code??1);});
  });
 }
 try{
- capture=await startRunCapture(`${directory}/observations`);
  await memory.start(record);
  const services=await gatePreflight({memory:()=>memory.snapshot().startAvailableBytes});
- postgresLogging=await gatePostgresLogging();
  database=gateDatabase();
  await database.prepare();
  process.env.TEST_DATABASE_URL=database.url;
@@ -86,8 +77,6 @@ try{
  catch(error){cleanup={database:database?.name,exitCode:1,message:error.message};console.error(error.message);process.exitCode=1;}
  try{const owned=tiers.length?await cleanupGateContainers(runId):{removed:0};cleanup.containersRemoved=owned.removed;}
  catch{cleanup.exitCode=1;cleanup.containerCleanup='failed';console.error('Gate-owned container cleanup failed; preserve the run-labelled fixtures for inspection.');process.exitCode=1;}
- try{await postgresLogging?.restore();}catch{cleanup.exitCode=1;cleanup.postgresLoggingRestore='failed';process.exitCode=1;}
- await capture?.stop();
  await memory.stop();
  clearTimeout(killTimer);
  process.removeListener('SIGINT',interrupt);process.removeListener('SIGTERM',terminate);

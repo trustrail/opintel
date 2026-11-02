@@ -291,3 +291,28 @@ Gate failed: Redis did not accept connections within 5 seconds
 [Capture record](connect-reliability/capture-20618f7-resumed.json) retains **3 complete collector samples, zero failed samples**, from `2026-11-02T15:50:47.133Z` to `15:51:09.973Z`; configured interval 5 seconds. This is separate from the gate memory monitor's four samples. [Docker capacity](connect-reliability/docker-capacity-20618f7-resumed.json): four CPUs, 8,325,943,296 memory bytes, x86_64. Full private stats/events/container logs remain in `tmp/gate-runs/3a551038-3334-48ac-b46a-8258174d79f8/observations/`. Console log: `/private/tmp/connect-reliability-resumed-full-gate-20618f7.log`.
 
 Stopped without another probe/gate, code or limit change, archive build or packaged run for reliability. The report and sanitized metadata alone are committed and pushed. No merge; reliability still has no green full gate or packaged first-receipt result.
+## Gate comparison and diagnostic removal (approved follow-up)
+
+Main now contains the approved row-rule merge **4e82a736dafbd67b5856fd9f9741a2566a08e4db**, pushed with the exact title `Merge fix/row-rule-conditions after amd64 packaged and arm64 native verification`. Basis supplied by the user includes the arm64 native pass on `2856515`; no verification was rerun for that merge.
+
+### Evidence: behavior before removal
+
+References for reliability below are at **a9028659e911ed03eff70b6780a1c9e8f1f0e136**, so deleted diagnostic code remains inspectable in history. Main references are at **4e82a73**.
+
+| File | Main / successful row-rule gate | Reliability before removal |
+|---|---|---|
+| `scripts/gate.mjs` | Lines 50–54: memory monitoring, preflight, then isolated database preparation. Lines 43–47 inherit child stdio. | Lines 29–30 create a separate run directory; lines 58–60 start and await a Docker collector **before** memory/preflight. Lines 49–54 tee tier output into files. Lines 61–63 reconfigure Postgres **after** preflight; lines 89–90 restore settings and stop capture during cleanup. |
+| `scripts/gate-preflight.mjs` | **Byte-identical on both branches.** Lines 21–25 run each `node --import tsx` probe under a five-second process deadline. Lines 113–118 inspect services and start only missing services with `--no-recreate --no-deps --pull never`. Lines 120–126 run the two probes and report failures. | No difference, including timeouts, start behavior, image checks and readiness criteria. |
+| `scripts/gate-probe.ts` | **Unchanged.** Lines 12–14 load only the needed driver, then establish a three-second retry window. Redis uses a 500 ms socket connect timeout, no reconnect, and PING at lines 27–31. | No difference. The outer five-second deadline includes Node/tsx/driver startup; it is not exclusively a Redis-server handshake measurement. |
+| `scripts/gate-postgres-logging.mjs` | File absent. | Lines 5–7 inspect development Postgres settings using `docker compose exec`; lines 11–12 `ALTER SYSTEM SET log_connections/log_disconnections='on'` and `pg_reload_conf()`. Line 9 restores prior settings/reset provenance and reloads. This **reconfigures** the development server; it does not restart it. |
+| `scripts/run-capture.mjs` | File absent; no collector invoked. | Lines 19–23 fork/await the collector; lines 27–60 issue Docker info, stats, discovery, events and followed logs, including ongoing work during preflight. These commands observe containers; they do not restart or reconfigure services. |
+
+The Postgres logging helper could not have caused the reported Redis failures: `gatePreflight` rejected at gate line 60 before the helper call at line 61. Its diagnostic reconfiguration is nevertheless outside the now-approved scope. The additional preflight-time collector is an established behavioral difference, but the retained evidence does **not** establish it as the root cause of the five-second probe failures.
+
+### Change
+
+Restore `scripts/gate.mjs` **exactly to main**, removing all automatic capture/tee/logging integration. Delete the now-unused, branch-only Postgres logging and capture helpers and their diagnostic-only tests. Keep historical reports, stats and traces intact. `scripts/gate-preflight.mjs` and every readiness/timeout criterion remain unchanged. Thus the gate itself now behaves exactly like the successful main/row-rule path; it does not automatically change Postgres logging.
+
+Product source-connect allowances/configuration/native scanner behavior, source and engine-transport telemetry, the gateway `UV_THREADPOOL_SIZE=16` mitigation and the engine's existing setting remain untouched. Verifier/release-wiring exclusions remain untouched. No governance assertion is weakened: only tests of the removed diagnostic tools are removed; source/transport/refusal/receipt tests are retained.
+
+Rebase onto the new main, health check, targeted checks, the one completed-candidate gate and fresh amd64 packaged verification are pending.
