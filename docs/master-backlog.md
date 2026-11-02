@@ -868,3 +868,10 @@ say exactly how, for example `COMPOSE_PROJECT_NAME=opintel npm run check` after
 checking the running project's identity). Its hard-coded five-second Compose
 start limit belongs in the hard-coded-timeout audit. Do not weaken isolated gate
 databases or reuse development data for tests.
+
+
+SpiceDB schema write: hard-coded **5 s, single attempt**
+(`src/modules/authz/infrastructure/load-schema.ts`). **Fixed in this branch**:
+retry only UNAVAILABLE, DEADLINE_EXCEEDED and CANCELED, bounded to 5 s per RPC
+and 120 s overall, with short backoff and sanitized retry/final code diagnostics.
+Invalid schema and authentication/authorization failures still fail immediately.
