@@ -128,4 +128,3 @@ MacBook Air command for the exact verified candidate (default two-minute soak):
 ```sh
 scripts/release/native.sh 2856515992b0855286681b83bddc4a5b02c2299e
 ```
-
