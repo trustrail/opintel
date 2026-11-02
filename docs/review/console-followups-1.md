@@ -1,11 +1,17 @@
 # Console follow-ups 1 — validation record
 
 Branch: `feat/console-followups-1`, based on main `ac91c4c51ab6d9a63aeb3f000bcb0ae68f565de8`.
-Worktree: `/private/tmp/opintel-console-followups-1`. The VERIFY-01 checkout and
-its local documentation were left untouched. This is a work in progress,
-**not a completed or gate-green candidate**. No merge.
+Final product candidate: **efd5f20** — full gate passed, fresh amd64 archives
+built, and fresh packaged verification passed through the first receipt with zero
+browser errors. Eleven packaged screenshots are linked in the final section.
+The separate schema-loader fix is documented in [its report](spicedb-schema-load.md).
+No merge; native arm64 release verification remains to run by hand.
 
-## Changes prepared
+All work now uses `/Users/rzarita/opintel`; the temporary worktrees were removed.
+Earlier rounds and failures below are retained as historical evidence and are
+superseded by the final packaged result, rather than relabelled as passing runs.
+
+## Initial changes prepared (historical record)
 
 1. **Logo:** BrandMark renders the three existing PNGs with srcset. Their bytes
    are unchanged. Decorative uses have empty alt; the nondecorative default is
@@ -566,3 +572,72 @@ state/logs. Existing main-checkout untracked documents were untouched; only the
 main checkout remains registered as a worktree. This result is pushed to
 `feat/console-followups-1`; no merge. The MacBook Air `native.sh REVISION` command
 in the final response is a follow-up, not a claim of validated native release.
+
+
+## Final packaged result after the separate schema-load fix
+
+The installer defect was fixed in its own product commit **efd5f20**, with
+Step 0 startup ordering, implementation and validation recorded in
+[SpiceDB schema-load recovery](spicedb-schema-load.md). The previously recorded
+failures remain historical evidence; they are not relabelled as passing runs.
+
+The full gate ran once on that new product candidate and **passed all tiers**:
+strict and conformance typechecks, lint, production-artifact exclusion,
+**36 UI conformance tests**, **2,214 normal tests in 265 files**, and the real
+browser/MCP smoke. Cleanup passed; wall time **2119.97 seconds**.
+Fresh amd64 images and archives built successfully. A **single fresh packaged
+acceptance** then passed through owner SMTP sign-in, project/engine/source/pool/
+credential setup and the first MCP receipt, with **zero browser errors**.
+No substitute harness, client, sign-in or TLS step was written.
+
+### Packaged screenshots (1440 light unless noted)
+
+| View | Screenshot |
+|---|---|
+| Approved PNG logo in sign-in | [Sign-in](console-followups-1/screenshots-efd5f20/1440-light-sign-in-logo.png) |
+| Approved PNG logo in navigation rail | [Rail/Home](console-followups-1/screenshots-efd5f20/1440-light-rail-logo.png) |
+| Saved-source schema checkboxes | [Schema picker](console-followups-1/screenshots-efd5f20/1440-light-schema-picker.png) |
+| Source scan summary | [Scan complete](console-followups-1/screenshots-efd5f20/1440-light-connect-source.png) |
+| Compound AND rule | [AND](console-followups-1/screenshots-efd5f20/1440-light-compound-and.png) |
+| Compound OR rule | [OR](console-followups-1/screenshots-efd5f20/1440-light-compound-or.png) |
+| Separate rule per table | [Per-table rules](console-followups-1/screenshots-efd5f20/1440-light-per-table-rules.png) |
+| Welcome | [Desktop](console-followups-1/screenshots-efd5f20/1440-light-welcome.png), [390 px](console-followups-1/screenshots-efd5f20/390-light-welcome.png) |
+| First-hour step 3 | [Desktop](console-followups-1/screenshots-efd5f20/1440-light-first-hour-step3.png), [390 px](console-followups-1/screenshots-efd5f20/390-light-first-hour-step3.png) |
+
+All three approved PNG asset URLs returned **HTTP 200** from the packaged
+console; the rendered sign-in and rail images decoded successfully. Combined
+with the existing runtime policy's `work/dist` entries, this confirms the
+packaged paths match the console server. The images were copied unchanged;
+no brand artwork was redrawn. The scan summary reported **2 tables, 8 columns,
+~11 rows**, and the first receipt reported **6 rows from records**. The permanent
+first-receipt flag was recorded and the tracker disappeared.
+
+The six requested views plus the two phone captures and scan summary were
+visually inspected. No new CSS class or stylesheet was introduced. Human design
+review remains necessary. Remaining differences/verification limits:
+
+- The new Add/Remove condition actions use compact existing button rendering;
+  these captures do not establish 44 px phone targets for those actions. Compound
+  and per-table editors were captured at 1440, not on the phone.
+- Home's existing first-hour helper copy still says “test it, then register and
+  scan”; the actual saved-source flow correctly saves/applies policy first, then
+  lists schema checkboxes and scans the saved selection. The source dialog itself
+  has no pre-save Test or comma-separated schema input. This stale helper copy
+  was observed and left unchanged in the isolated schema-loader fix.
+- Desktop first-hour subtitles use existing one-line ellipsis; step titles are
+  visible in the inspected desktop/phone captures.
+- The AND/OR captures use the same `id` column twice to preserve the standard
+  fixture's six permitted rows. The OR state is captured, then changed back to
+  AND before creating the pool. Full targeted tests cover OR evaluation.
+- The packaged per-table capture opens two editors without saving a second pool;
+  separate per-table endpoint bodies and save behavior remain covered by the
+  previously passing console tests. The normal compound read-plan/receipt
+  regression also passed in this gate.
+- This round did not capture dark mode or the Custody Signing-key row; the exact
+  explanation is implemented and covered by the prior console suite, but no
+  additional screenshot is claimed for that row.
+
+The standard packaged harness and its screenshot additions are already committed.
+Only reports, sanitized result JSON and PNG evidence are added after the passing
+candidate. No further validation run, product change, merge or worktree followed.
+Final branch/report revision and MacBook Air `native.sh` command are in chat.
