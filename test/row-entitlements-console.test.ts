@@ -66,3 +66,21 @@ it('compound pool rules enforce AND/OR through the read plan and receipts retain
  const recorded=unwrap(await new PostgresRowDecisions().decision(f.ctx,id));expect(recorded.expression).toBe('("field_1" >= 3 AND "field_1" <= 5)');
  }finally{await f.close();}
 });
+it('mixed numeric/date compound rules constrain reads and their receipt decision keeps both conditions',async()=>{
+ const {PostgresPoolTables}=await import('../src/modules/pools/index.js'),f=await queryFixture(new PostgresEvidenceWriter());try{
+  const o=await object(f),tables=new PostgresPoolTables();
+  await f.db(`ALTER TABLE ${f.schema}.records ADD COLUMN loss_date date; UPDATE ${f.schema}.records SET loss_date=DATE '2026-10-28'+field_1-1`);
+  await withTenant(f.ctx,tx=>tx.query("INSERT INTO catalog_element(project_id,object_id,source_identifier,source_type,exposed_name,exposed_type,ordinal) VALUES($1,$2,'loss_date','date','loss_date','DATE',7)",[f.ctx.projectId,o]));
+  unwrap(await tables.add(f.ctx,f.pool,[o],{combine:'and',conditions:[{column:'field_1',operator:'>=',value:3},{column:'loss_date',operator:'<=',value:'2026-11-01'}]}));
+  const and=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records ORDER BY field_1')).structuredContent);expect(and.rows).toEqual([[3],[4],[5]]);
+  const andId=and.rowScopes![0]!.decisionId!;
+  unwrap(await tables.rows(f.ctx,f.pool,o,{combine:'or',conditions:[{column:'field_1',operator:'>=',value:6},{column:'loss_date',operator:'<=',value:'2026-10-29'}]}));
+  const or=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records ORDER BY field_1')).structuredContent);expect(or.rows).toEqual([[1],[2],[6],[7]]);
+  for(const [answer,expression] of [[and,'("field_1" >= 3 AND "loss_date" <= \'2026-11-01\')'],[or,'("field_1" >= 6 OR "loss_date" <= \'2026-10-29\')']] as const){
+   const id=answer.rowScopes![0]!.decisionId!;
+   const [receipt]=await withTenant(f.ctx,tx=>tx.query<{plan:{rowScopes:Array<{decisionId:string}>}}>('SELECT source_plan AS plan FROM run_completion WHERE run_id=$1',[answer.evidenceId]));expect(receipt!.plan.rowScopes[0]!.decisionId).toBe(id);
+   expect(unwrap(await new PostgresRowDecisions().decision(f.ctx,id)).expression).toBe(expression);
+  }
+  expect(andId).not.toBe(or.rowScopes![0]!.decisionId);expect(and.rowScopes?.[0]?.columns.toSorted()).toEqual(['field_1','loss_date']);
+ }finally{await f.close();}
+});

@@ -28,6 +28,7 @@ export async function mockConsole(page:Page,{welcome=false}:{welcome?:boolean}={
   else if(path.endsWith('/tables'))value={items:[{objectId:object,sourceId:project,name:'records',needsRows:true,reason:'rule_required'}],nextCursor:null};
   else if(path.endsWith('/entitlement-members'))value={items:[{id:credential,group:'field',name:'field_1',qualifiedName:'warehouse.public.records.field_1',objectId:object,objectName:'records',objectLabel:'records',sourceId:project,exposedType:'INTEGER',sourceType:'integer',treatment:'clear',maskKind:null,justification:null}],nextCursor:null};
   else if(path.endsWith('/row-entitlements'))value={...empty,projectHasDefault:false,counts:{missing:1,overridden:0,inherited:0,unscoped:0}};
+  else if(path.includes('/row-entitlements/')&&!path.endsWith('/history'))value={objectId:object,objectName:'records',poolId:pool,scoped:false,columns:[],current:null};
   else if(path.endsWith('/catalog'))value={nodes:[],nextCursor:null};
   else if(path.endsWith('/needs-you'))value={items:Array.from({length:8},(_,i)=>({id:'check:'+i,kind:'check_required',title:'Check engine '+(i+1),count:1,targetRoute:`/projects/${project}/settings-engines`,roles:['admin']})),nextCursor:null};
   else if(path.endsWith('/health'))value={items:[{kind:'engine',status:'warning',checked_at:null,reason:'Not verified',next_action:null},{kind:'tls',status:'warning',checked_at:null,reason:'Self-signed TLS',next_action:null}]};
