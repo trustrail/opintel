@@ -363,6 +363,11 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### Gate preflight · Identify occupied engine ports before the gate starts
+**Status** Open · Backlog only · 3 November 2026
+**Detail** Check that ports 3100 and 3103 are free and name the holding process
+when either is occupied, instead of failing mid-run with `EADDRINUSE`.
+
 ### GATE-04 · contributor-key-migration setup hook exceeds 10 s on the Intel Mac gate; raise the hook timeout with a diagnostic, as done for the native-release test
 **Status** Open · Backlog only · 31 October 2026
 **Evidence** Full gate on `ca747c0` exhausted the existing 10,000 ms setup hook
