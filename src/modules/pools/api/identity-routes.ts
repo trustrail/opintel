@@ -1,5 +1,0 @@
-import {z} from 'zod';
-import {defineRoute} from '../../../platform/http/index.js';
-import {CustodyIdentityPage} from '../../../shared/api/custody-identities.js';
-import type {CustodyIdentitiesReader} from '../application/identities.js';
-export function custodyIdentityRoutes(reader:CustodyIdentitiesReader){return [defineRoute({method:'GET',path:'/api/v1/projects/:id/custody-identities',params:z.object({id:z.uuid()}),query:z.object({cursor:z.string().optional(),limit:z.coerce.number().int().positive().max(100).default(50)}),request:z.undefined(),response:CustodyIdentityPage,permission:{resource:'project',id:r=>r.params.id,permission:'administer'},handle:async r=>{const result=await reader.list();if(!result.ok)throw result.error;const items=result.value.items.toSorted((a,b)=>a.deviceName<b.deviceName?-1:a.deviceName>b.deviceName?1:0).filter(i=>!r.query.cursor||i.deviceName>r.query.cursor).slice(0,r.query.limit+1),more=items.length>r.query.limit,page=items.slice(0,r.query.limit);return {body:{items:page,nextCursor:more?page.at(-1)!.deviceName:null},headers:{'cache-control':'no-store'}};}})];}

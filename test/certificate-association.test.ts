@@ -1,4 +1,4 @@
-import {PostgresPoolReader} from '../src/modules/pools/index.js';
+import {PostgresPoolReader,PostgresCredentialBindings,CredentialId} from '../src/modules/pools/index.js';
 import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
 import {afterEach,expect,it,vi} from 'vitest';
@@ -46,18 +46,19 @@ it('registration HTTP boundary rejects key material with a clear non-echoing err
  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
 
-it('stores the supplied association verbatim, warns durably on mismatch, replays idempotently and keeps the internal identity',async()=>{
+it('binds the supplied public association after possession proof, replays issuance idempotently and keeps the internal identity',async()=>{
  const f=await bulkFixture(0);await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
  const service=new PoolKeyService(new PostgresPoolKeys(),presence),request=randomUUID();
- const command={kind:'issue' as const,poolId:f.pool,label:'Device',certificateAssociation:association};
+ const command={kind:'issue' as const,poolId:f.pool,label:'Device'};
  const issued=PoolKeyCreationResponse.parse(unwrap(await service.execute(f.ctx,command,request)));
+ unwrap(await new PostgresCredentialBindings().authenticate(f.ctx,f.pool,CredentialId(issued.credentialId!),{fingerprint:'a'.repeat(64),subject:'CN=Fixture'},association));
  expect(issued.custodyAlias).toBe(`agent:${f.ctx.projectId}:${issued.credentialId}`);
  expect(await credentialCustodyRecipient(f.ctx,issued.custodyAlias!)).toBe(association.recipientIdentifier);
  const detail=await new PostgresPoolReader().detail(f.ctx,f.pool);if(!detail.ok)throw detail.error;expect(detail.value.credentials?.find(c=>c.id===issued.credentialId)?.xqIdentity).toEqual({certificateId:association.certificateId,deviceName:association.deviceName});
  const [row]=await withTenant(f.ctx,tx=>tx.query('SELECT certificate_id,device_name,recipient_identifier,identity_kind,association_status,association_recorded_at FROM pool_credential WHERE id=$1',[issued.credentialId]));
  expect(row).toMatchObject({certificate_id:223,device_name:'testdevice',recipient_identifier:association.recipientIdentifier,identity_kind:'certificate',association_status:'associated',association_recorded_at:expect.any(Date)});
  expect(unwrap(await service.execute(f.ctx,command,request))).toMatchObject({keyShown:false,credentialId:issued.credentialId});
- expect(await withTenant(f.ctx,tx=>tx.query("SELECT action,after FROM audit_entry WHERE action='CredentialCertificateRecipientWarning'"))).toEqual([{action:'CredentialCertificateRecipientWarning',after:{severity:'warning',reason:'observed_pattern_mismatch',accepted:true}}]);
+ expect(await withTenant(f.ctx,tx=>tx.query("SELECT action FROM audit_entry WHERE action='CredentialIdentityBound'"))).toEqual([{action:'CredentialIdentityBound'}]);
  const other=await bulkFixture(0);expect(await credentialCustodyRecipient(other.ctx,issued.custodyAlias!)).toBeNull();
  await withTenant(f.ctx,tx=>tx.query("UPDATE pool_credential SET association_status='revoked' WHERE id=$1",[issued.credentialId]));
  expect(await credentialCustodyRecipient(f.ctx,issued.custodyAlias!)).toBeNull();
@@ -67,7 +68,7 @@ it('XQ association addresses escrow only; grant subject and receipt remain the i
  const f=await queryFixture(new PostgresEvidenceWriter(),{releaseCustody:true});
  try{
   const service=new PoolKeyService(new PostgresPoolKeys(),presence);
-  const issued=PoolKeyCreationResponse.parse(unwrap(await service.execute(f.ctx,{kind:'issue',poolId:f.pool,label:'Device',certificateAssociation:association},randomUUID())));
+  const issued=PoolKeyCreationResponse.parse(unwrap(await service.execute(f.ctx,{kind:'issue',poolId:f.pool,label:'Device'},randomUUID())));
   if(!issued.keyShown)throw new Error('Expected issued key');
   const escrow=vi.fn(async()=> 'opaque-locator');
   const provider:ReleaseProvider={id:'xq',tenant:'test',redeemAt:'https://provider.invalid/key',escrow,revoke:async()=>{},redemptions:async()=>({status:'unsupported'})};
@@ -79,7 +80,7 @@ it('XQ association addresses escrow only; grant subject and receipt remain the i
   // grant persistence and evidence. No live XQ call is made.
   vi.spyOn(f.release!,'seal').mockImplementation((...args)=>query.seal(...args));
   await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='custody' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[0]]));
-  const client=await f.connect(issued.key);
+  const client=await f.connect(issued.key,'fixture-agent','header',association);
   const answer=await client.query('SELECT field_1 FROM warehouse.public.records LIMIT 1');
   expect(answer.isError).not.toBe(true);expect(escrow).toHaveBeenCalledOnce();
   expect(escrow.mock.calls[0]).toEqual([expect.any(Uint8Array),association.recipientIdentifier,expect.any(Number),true,expect.any(String)]);
@@ -87,6 +88,7 @@ it('XQ association addresses escrow only; grant subject and receipt remain the i
   expect(grants).toHaveLength(1);expect(grants[0]!.claims.sub).toBe(issued.custodyAlias);
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT custody_alias FROM query_run WHERE id=$1',[grants[0]!.claims.rcpt]))).toEqual([{custody_alias:issued.custodyAlias}]);
   escrow.mockClear();
+  await withTenant(f.ctx,tx=>tx.query("UPDATE pool_credential SET association_status='revoked' WHERE id=$1",[f.issued.credentialId]));
   const refused=await f.query('SELECT field_1 FROM warehouse.public.records LIMIT 1');
   expect(refused).toMatchObject({isError:true,content:[{type:'text',text:'This credential has no active XQ certificate association. No result was released. Ask an administrator to register its public certificate association.'}],_meta:{cause:'release_prepare_failed',reason:'certificate_association_missing',evidenceId:expect.any(String)}});expect(refused).not.toHaveProperty('structuredContent');expect(escrow).not.toHaveBeenCalled();
   expect(await withTenant(f.ctx,tx=>tx.query("SELECT c.outcome->>'kind' AS kind FROM run_completion c JOIN query_run r ON r.id=c.run_id AND r.started_at=c.started_at WHERE r.credential_id=$1",[f.issued.credentialId]))).toEqual([{kind:'refused'}]);

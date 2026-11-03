@@ -1,3 +1,4 @@
+import {custodyCredentialGuard} from './custody-credential-guard.js';
 import {missingContributorKey} from '../application/contributor-declaration.js';
 import {custodyAvailability} from '../../release-custody/index.js';
 import { createHash } from 'node:crypto';
@@ -26,6 +27,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
       const [prior] = await tx.query<{body_hash:string;response:unknown}>(`SELECT body_hash,response FROM bulk_entitlement_request
         WHERE actor_id=$1 AND route=$2 AND request_key=$3 AND expires_at>clock_timestamp()`,[ctx.userId,route,key]);
       if (prior) return prior.body_hash === hash ? ok(BulkStoredResponse.parse(prior.response)) : err(new DomainError('idempotency_key_reused','This Idempotency-Key was used with a different bulk decision.'));
+      if(input.treatment==='custody'){const guard=await custodyCredentialGuard(tx,pool);if(!guard.ok)return guard;}
       if(input.treatment==='custody'&&!(await custodyAvailability(ctx.projectId)).available)return err(new DomainError('dependency_unavailable','Configure a custody provider in Settings and pass its connection check before selecting Released under custody.',{cause:'release_configuration'}));
       const ids = input.elementIds.map(ElementId);
       // Same source-first order as manual decisions, declarations and introspection.

@@ -11,11 +11,11 @@ const manifest=JSON.parse(readFileSync(manifestFile,'utf8')),platform=process.en
 if(!manifest.publishedAt&&!candidate)throw new Error('Customer archives require a published manifest.');
 const output=resolve(destination);packageDeployment(manifest,output,platform,{candidate});
 function docker(args){const r=spawnSync('docker',args,{encoding:'utf8',timeout:600000,maxBuffer:4*1024*1024});if(r.status!==0)throw new Error('Offline archive Docker step failed: '+args[0]);return r.stdout.trim();}
-for(const kind of ['gateway','engine']){
- const directory=join(output,kind);rmSync(join(directory,kind+'.sh'));if(kind==='gateway')rmSync(join(directory,'run-soak.md'));const release=JSON.parse(readFileSync(join(directory,'release.json'),'utf8'));release.customerPackageVersion=1;writeFileSync(join(directory,'release.json'),JSON.stringify(release,null,2)+'\n');
- const provisioning=manifest.artifacts.find(a=>a.target==='provisioning'&&a.platform===platform)?.repoDigests[0];
+for(const kind of ['gateway','engine','agent-kit','verification']){
+ const application=kind==='gateway'||kind==='engine';const directory=join(output,kind);if(application)rmSync(join(directory,kind+'.sh'));const release=JSON.parse(readFileSync(join(directory,'release.json'),'utf8'));release.customerPackageVersion=1;writeFileSync(join(directory,'release.json'),JSON.stringify(release,null,2)+'\n');
+ const provisioning=manifest.artifacts.find(a=>a.target===(application?'provisioning':kind==='agent-kit'?'agent-kit':'demo-tools')&&a.platform===platform)?.repoDigests[0];
  if(!provisioning)throw new Error('Installer image missing.');
- const upstream=Object.fromEntries(Object.entries(manifest.upstream.services).filter(([name])=>kind==='gateway'||name==='postgres'));
+ const upstream=Object.fromEntries(Object.entries(manifest.upstream.services).filter(([name])=>application&&(kind==='gateway'||name==='postgres')));
  writeFileSync(join(directory,'upstream.json'),JSON.stringify({services:upstream},null,2)+'\n');
  const refs=[...new Set([...Object.values(release.images),provisioning,...Object.values(upstream).map(s=>s.image)])];
  const map={},inventory=[];
@@ -29,15 +29,15 @@ for(const kind of ['gateway','engine']){
  writeFileSync(join(directory,'images.list'),inventory.map(i=>i.image+' '+i.id).join('\n')+'\n');
  writeFileSync(join(directory,'image-provenance.json'),JSON.stringify({platform,revision:manifest.revision,images:inventory},null,2)+'\n');
  writeFileSync(join(directory,'bootstrap.image'),map[provisioning]+'\n');writeFileSync(join(directory,'platform'),platform+'\n');writeFileSync(join(directory,'package-kind'),kind+'\n');
- for(const command of ['install','start','stop','status','upgrade','backup','restore',...(kind==='gateway'?['owner-claim','invite','users','xq-check','mail-test','demo','identities','register-engine','steps']:['pairing-code','sources'])]){
-  copyFileSync('deploy/customer/command',join(directory,command));chmodSync(join(directory,command),0o755);
+ for(const command of application?['install','start','stop','status','upgrade','backup','restore',...(kind==='gateway'?['owner-claim','invite','users','xq-check','mail-test','register-engine']:['pairing-code','sources'])]:kind==='agent-kit'?['identities','steps']:['steps','demo','provision']){
+  copyFileSync(application?'deploy/customer/command':`deploy/${kind}/command`,join(directory,command));chmodSync(join(directory,command),0o755);
  }
- copyFileSync('deploy/customer/'+kind+'-README.md',join(directory,'README.md'));
- if(kind==='gateway'){copyFileSync('deploy/customer/gateway-DEMO.md',join(directory,'DEMO.md'));copyFileSync('deploy/customer/package.env.example',join(directory,'package.env'));chmodSync(join(directory,'package.env'),0o600);}
- auditPackage(directory);
+ copyFileSync(application?'deploy/customer/'+kind+'-README.md':`deploy/${kind}/README.md`,join(directory,'README.md'));
+ if(kind==='gateway'){copyFileSync('deploy/customer/package.env.example',join(directory,'package.env'));chmodSync(join(directory,'package.env'),0o600);}
+ if(application)auditPackage(directory);
  docker(['image','save','--platform',platform,'--output',join(directory,'images.tar'),...inventory.map(i=>i.image)]);
- auditPackage(directory);
- const archive=join(output,kind+'-'+manifest.revision.slice(0,7)+'-'+platform.split('/')[1]+'.tar.gz');
+ if(application)auditPackage(directory);
+ const archive=join(output,(kind==='agent-kit'?'agent-KIT':kind)+'-'+manifest.revision.slice(0,7)+'-'+platform.split('/')[1]+'.tar.gz');
  const tar=spawnSync('tar',['-czf',archive,'-C',output,kind],{stdio:'inherit',timeout:600000,env:{...process.env,LC_ALL:'C'}});if(tar.status!==0)throw new Error('Package archive failed.');
  if(kind==='gateway'){const packed=spawnSync('tar',['-xOf',archive,'gateway/package.env'],{encoding:'utf8',timeout:60000});if(packed.status!==0)throw new Error('Cannot audit archived customer environment.');auditCustomerEnvironment(packed.stdout);}
  console.log('Customer archive: '+archive);

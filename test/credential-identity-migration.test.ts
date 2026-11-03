@@ -1,0 +1,23 @@
+import {expect,it} from 'vitest';
+import {migrationDatabase,migrateDownToVersion} from './fixtures/migration-database.js';
+import {migrateUp,migrateDown} from '../src/platform/db/migrate.js';
+const connection=migrationDatabase();
+it('093 preserves existing recipient associations and leaves custody credentials unbound; ordinary credentials remain bearer-only',async()=>{
+ const db=connection();await migrateDownToVersion(db,'092');
+ const industry=(await db.query('SELECT id FROM industry LIMIT 1')).rows[0].id;
+ const company=(await db.query("INSERT INTO company(name,default_region) VALUES('Binding migration','us-east-1') RETURNING id")).rows[0].id;
+ const project=(await db.query("INSERT INTO project(company_id,name,industry_id,region) VALUES($1,'Binding',$2,'us-east-1') RETURNING id",[company,industry])).rows[0].id;
+ const pool=(await db.query("INSERT INTO pool(project_id,name) VALUES($1,'Existing pool') RETURNING id",[project])).rows[0].id;
+ const ordinary=(await db.query("INSERT INTO pool_credential(project_id,pool_id,label,custody_alias) VALUES($1,$2,'Ordinary','trigger') RETURNING id",[project,pool])).rows[0].id;
+ const custody=(await db.query("INSERT INTO pool_credential(project_id,pool_id,label,custody_alias,certificate_id,device_name,recipient_identifier,identity_kind,association_status,association_recorded_at) VALUES($1,$2,'Custody','trigger',223,'Agent label','existing-xq-recipient','certificate','associated',now()) RETURNING id",[project,pool])).rows[0].id;
+ const oldColumns='id,pool_id,project_id,label,custody_alias,certificate_id,device_name,recipient_identifier,identity_kind,association_status,association_recorded_at';
+ const before=(await db.query(`SELECT ${oldColumns} FROM pool_credential ORDER BY id`)).rows;
+ await migrateUp(db);
+ expect((await db.query(`SELECT ${oldColumns} FROM pool_credential ORDER BY id`)).rows).toEqual(before);
+ expect((await db.query('SELECT credential_kind,binding_status,certificate_fingerprint,bound_at,enrollment_recipient_identifier FROM pool_credential WHERE id=$1',[custody])).rows[0]).toEqual({credential_kind:'identity-bound',binding_status:'unbound',certificate_fingerprint:null,bound_at:null,enrollment_recipient_identifier:'existing-xq-recipient'});
+ expect((await db.query('SELECT credential_kind,binding_status,enrollment_recipient_identifier FROM pool_credential WHERE id=$1',[ordinary])).rows[0]).toEqual({credential_kind:'bearer-only',binding_status:'unbound',enrollment_recipient_identifier:null});
+ await migrateDown(db);
+ expect((await db.query(`SELECT ${oldColumns} FROM pool_credential ORDER BY id`)).rows).toEqual(before);
+ await migrateUp(db);
+ expect((await db.query('SELECT enrollment_recipient_identifier FROM pool_credential WHERE id=$1',[custody])).rows[0].enrollment_recipient_identifier).toBe('existing-xq-recipient');
+});

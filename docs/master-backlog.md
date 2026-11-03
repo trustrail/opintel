@@ -951,3 +951,8 @@ decision, including expressions and aliases. Design this together with the pool
 resource field planned for OAP's leakage gate. Until then, the query step uses
 describe metadata for exact direct-column matches and says “not reported” for
 outputs whose treatment cannot be established; it never guesses from values.
+
+- **OAP companion from the agent kit:** reuse the kit's mutual-TLS identity,
+  query and local custody redemption implementation.
+- **Bearer-only credentials through IdP-issued tokens:** pools as protected
+  resources; design authorization and token lifecycle before implementation.

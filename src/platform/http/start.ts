@@ -1,5 +1,5 @@
-import {custodyIdentityRoutes} from '../../modules/pools/api/identity-routes.js';
-import {FileCustodyIdentities} from '../../modules/pools/index.js';
+import {identityBindingRoutes} from '../../modules/pools/api/identity-binding-routes.js';
+import {PostgresCredentialBindings} from '../../modules/pools/index.js';
 import {pairedEngineRoutes} from '../../modules/tenancy/api/project-routes.js';
 import {PostgresPairedEngineCandidates} from '../../modules/tenancy/infrastructure/paired-engines.js';
 import {projectHealthRoutes} from '../../modules/tenancy/api/project-health-routes.js';
@@ -288,7 +288,7 @@ async function start(): Promise<void> {
     ...needsYouRoutes(new PostgresNeedsYouReader(),authorization),
     ...projectHealthRoutes(new PostgresProjectHealthReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
-    ...custodyIdentityRoutes(new FileCustodyIdentities()),
+    ...identityBindingRoutes(new PostgresCredentialBindings()),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody,new PostgresPoolTables(relationshipOutbox,authorization)), presence)),
     ...poolTableRoutes(new PostgresPoolTables(relationshipOutbox,authorization)),
     ...poolBudgetRoutes(new PostgresPoolBudgets()),
@@ -327,12 +327,13 @@ async function start(): Promise<void> {
   const execution=new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),filter=new QueryPreFilter(new DuckDBQueryParser());
   const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence,releaseCustody);
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),new PostgresExplainJoinCandidates());
-  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization,releaseCustody),query,explain,releaseCustody);
+  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence),new PostgresCredentialBindings()), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization,releaseCustody),query,explain,releaseCustody);
   mcp.start();
   const operatorObserver=operatorObserverReader(redis.client);
   let observerSweepPending=false;
   const observerSweep=setInterval(()=>{if(observerSweepPending)return;observerSweepPending=true;void operatorObserver.sweep().catch(()=>{console.warn({event:'auth.operator_observer_sweep_failed',timestamp:new Date().toISOString()});}).finally(()=>{observerSweepPending=false;});},1000);observerSweep.unref();
   const server = createHttpServer(routes, {
+    ingressCertificateProof: process.env.OPINTEL_INGRESS_CERTIFICATE_PROOF,
     agentInterface: mcp,
     authorization: {
       port: authorization,

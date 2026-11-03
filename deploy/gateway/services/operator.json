@@ -1,11 +1,11 @@
 {
   "services": {
-    "provision": {
+    "operator": {
       "image": "${GATEWAY_PROVISIONING_IMAGE:?set image digest}",
       "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
       "command": [
         "node",
-        "scripts/operator/provision.js",
+        "scripts/operator/customer-operator.js",
         "--help"
       ],
       "env_file": [
@@ -16,7 +16,6 @@
         "NODE_EXTRA_CA_CERTS": "/config/tls/ca.pem",
         "HOME": "/home/operator",
         "OPINTEL_OUTPUT_DIRECTORY": "/output",
-        "OPINTEL_SOAK_OUTPUT_DIRECTORY": "/output/soak",
         "ENGINE_HEARTBEAT_URL": "${GATEWAY_HEARTBEAT_URL:?set explicit gateway HTTPS heartbeat address}"
       },
       "volumes": [

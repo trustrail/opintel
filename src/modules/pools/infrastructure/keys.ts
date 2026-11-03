@@ -1,5 +1,5 @@
+import type {CredentialKind} from '../../../shared/api/credential-identity.js';
 import {auditPoolBudgets} from './budgets.js';
-import {matchesObservedRecipient,type CertificateAssociation} from '../../../shared/api/certificate-association.js';
 import {PostgresPoolTables} from './tables.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { withPlatform, withTenant, type Tx } from '../../../platform/db/scope.js';
@@ -49,7 +49,7 @@ export class PostgresPoolKeys implements PoolKeyRepository {
     let boundTables:PoolKeyMetadata['tables'];
     if(prepared?.ok){await tx.query('UPDATE pool SET tables_explicit=true,table_setup=$2 WHERE id=$1',[pool,JSON.stringify({rowRule:prepared.value.setup.rowRule,startingMode:prepared.value.setup.startingMode})]);const bound=await this.tables.apply(tx,ctx,pool,prepared.value);boundTables=bound.tables;bindingOutbox.push(...bound.outbox);}
     plaintext=generatePoolKey();
-    stored={...await this.insert(tx,ctx,pool,plaintext,undefined,command.name,command.certificateAssociation),...boundTables?{tables:boundTables}:{},keyShown:false};
+    stored={...await this.insert(tx,ctx,pool,plaintext,undefined,command.name,command.credentialKind),...boundTables?{tables:boundTables}:{},keyShown:false};
    }else{
     pool=command.poolId;
     const [record]=await tx.query<{name:string}>('SELECT name FROM pool WHERE id=$1 FOR UPDATE',[pool]);
@@ -58,7 +58,8 @@ export class PostgresPoolKeys implements PoolKeyRepository {
     const now=new Date(this.clock.now());
     if(command.kind==='issue'){
      if(!command.label.trim()||command.label.length>80)return err(new DomainError('validation_failed','A credential label must contain 1 to 80 characters.'));
-     plaintext=generatePoolKey();stored={...await this.insert(tx,ctx,pool,plaintext,undefined,command.label.trim(),command.certificateAssociation),keyShown:false};
+     if(command.credentialKind==='bearer-only'&&(await tx.query("SELECT 1 FROM entitlement WHERE pool_id=$1 AND treatment='custody' LIMIT 1",[pool])).length)return err(new DomainError('validation_failed','Bearer-only credentials cannot be issued for a pool with custody columns.'));
+     plaintext=generatePoolKey();stored={...await this.insert(tx,ctx,pool,plaintext,undefined,command.label.trim(),command.credentialKind),keyShown:false};
     }else if(command.kind==='revokeCredential'){
      const [credential]=await tx.query<{id:CredentialId;label:string;custody_alias:string;revoked_at:Date|null}>('SELECT * FROM pool_credential WHERE id=$1 AND pool_id=$2 FOR UPDATE',[command.credentialId,pool]);
      if(!credential)return err(new DomainError('not_found','The credential was not found in this pool.'));
@@ -110,14 +111,10 @@ export class PostgresPoolKeys implements PoolKeyRepository {
   await this.tables.dispatch(bindingOutbox);
   return result;
  }
- private async insert(tx:Tx,ctx:PoolKeyContext,pool:PoolId,plaintext:string,credentialId?:CredentialId,label='Agent',association?:CertificateAssociation):Promise<PoolKeyMetadata>{
+ private async insert(tx:Tx,ctx:PoolKeyContext,pool:PoolId,plaintext:string,credentialId?:CredentialId,label='Agent',kind:CredentialKind='identity-bound'):Promise<PoolKeyMetadata>{
   const now=new Date(this.clock.now()),id=randomUUID();
   let created=false;
-  if(!credentialId){credentialId=CredentialId(id);await tx.query('INSERT INTO pool_credential(id,pool_id,project_id,label,custody_alias) VALUES($1,$2,$3,$4,$5)',[credentialId,pool,ctx.projectId,label,`agent:${ctx.projectId}:${credentialId}`]);created=true;}
-  if(created&&association){
-   await tx.query("UPDATE pool_credential SET certificate_id=$2,device_name=$3,recipient_identifier=$4,identity_kind='certificate',association_status='associated',association_recorded_at=clock_timestamp() WHERE id=$1",[credentialId,association.certificateId,association.deviceName,association.recipientIdentifier]);
-   if(!matchesObservedRecipient(association))await tx.query("INSERT INTO audit_entry(project_id,actor_id,actor_kind,action,target,after) VALUES($1,$2,'user','CredentialCertificateRecipientWarning',$3,$4)",[ctx.projectId,ctx.userId,{credentialId},{severity:'warning',reason:'observed_pattern_mismatch',accepted:true}]);
-  }
+  if(!credentialId){credentialId=CredentialId(id);await tx.query('INSERT INTO pool_credential(id,pool_id,project_id,label,custody_alias,credential_kind) VALUES($1,$2,$3,$4,$5,$6)',[credentialId,pool,ctx.projectId,label,`agent:${ctx.projectId}:${credentialId}`,kind]);created=true;}
   const [row]=await tx.query<KeyRow>(`INSERT INTO pool_key(id,pool_id,project_id,key_hash,key_prefix,state,created_at,created_by,credential_id)
    VALUES($7,$1,$2,$3,$4,'current',$5,$6,$8) RETURNING ${columns}`,[pool,ctx.projectId,hashPoolKey(plaintext),plaintext.slice(0,16),now,ctx.userId,id,credentialId]);
   if(!row)throw new Error('Key insert returned no row.');

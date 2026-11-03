@@ -325,3 +325,13 @@ describe('HTTP server boundaries', () => {
     expect(calls).toBe(0);
   });
 });
+
+it('ID-01: direct API callers cannot spoof the ingress certificate header',async()=>{
+ const endpoint={permission:'pool-key' as const,handle:vi.fn((_request:import('node:http').IncomingMessage,response:import('node:http').ServerResponse)=>{response.end('served');return Promise.resolve();})};
+ const server=createHttpServer([],{agentInterface:endpoint,ingressCertificateProof:'a'.repeat(64)});servers.push(server);server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address() as AddressInfo;
+ for(const headers of [{'x-opintel-client-certificate':'forged'},{'x-opintel-client-certificate':'forged','x-opintel-ingress-proof':'b'.repeat(64)}]){
+  const response=await fetch(`http://127.0.0.1:${address.port}/mcp/v1/p/example`,{headers});expect(response.status).toBe(403);expect(await response.text()).toContain('trusted ingress');
+ }
+ expect(endpoint.handle).not.toHaveBeenCalled();
+ const ordinary=await fetch(`http://127.0.0.1:${address.port}/mcp/v1/p/example`);expect(ordinary.status).toBe(200);expect(endpoint.handle).toHaveBeenCalledTimes(1);
+});

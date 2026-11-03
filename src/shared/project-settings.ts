@@ -5,6 +5,7 @@ export type SettingDefinition={path:string;label:string;kind:'integer'|'number'|
 const required='Not configured; queries refused until this limit is set.';
 const discovery='Uses the safe discovery default when unset; project creation persists it explicitly.';
 export const projectSettingDefinitions:readonly SettingDefinition[]=[
+ {path:'approveIdentityBindings',label:'Approve identity bindings',kind:'boolean',default:false,effect:'Hold first certificate bindings until a project administrator approves them.',unset:'First certificate bindings are accepted without manual approval.'},
  {path:'discovery.newElements',default:'rules_only',label:'New elements',kind:'enum',options:['hold','rules_only'],effect:'Hold leaves new fields undecided. Rules only applies matching rules; unmatched fields stay undecided.',unset:discovery},
  {path:'discovery.typeFamilyChange',default:'revert',label:'Type-family changes',kind:'enum',options:['revert','carry'],effect:'Revert makes changed fields undecided; carry retains decisions. Both record the change.',unset:discovery},
  {path:'discovery.renameHandling',default:'carry',label:'Detected renames',kind:'enum',options:['carry','new'],effect:'Carry preserves identity and decisions. New creates a new identity and derived token domain, so tokens change. Without a stable reference, a rename is removal plus addition even under Carry. Table/schema renames also create new identities.',unset:discovery},

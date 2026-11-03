@@ -1,3 +1,6 @@
+import {isInitializeRequest} from '@modelcontextprotocol/sdk/types.js';
+import type {IdentityEnrollment} from '../../../src/shared/api/credential-identity.js';
+import {PostgresCredentialBindings} from '../../../src/modules/pools/index.js';
 import {ReleaseRuntime,sealResult} from '../../../src/modules/release-custody/index.js';
 import {PostgresExplainJoinCandidates} from '../../../src/modules/evidence/index.js';
 import {developmentEngineOptions} from '../../../scripts/development-engine.js';
@@ -54,7 +57,8 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  await authorization.write([{operation:'touch',resource:{type:'project',id:f.ctx.projectId},relation:'admin',subject:{type:'user',id:f.ctx.userId}}]);
  await withPlatform(async tx=>{await tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]);await tx.query('UPDATE project SET settings=$2,token_key_version=1 WHERE id=$1',[f.ctx.projectId,JSON.stringify({query:{rowLimit:100,timeoutSeconds:fixtureOptions.queryTimeoutSeconds??15,memoryLimitMb:128,concurrencyPerPool:2,aggregateMinGroupSize:5}})]);});
  let mcp:McpHttpServer|undefined;
- const server=createHttpServer([],{agentInterface:{permission:'pool-key',handle:(request,response,requestId)=>{if(!mcp)throw new Error('Fixture interface is not ready.');return mcp.handle(request,response,requestId);}}});
+ const ingressProof=randomUUID()+randomUUID();
+ const server=createHttpServer([],{ingressCertificateProof:ingressProof,agentInterface:{permission:'pool-key',handle:(request,response,requestId)=>{if(!mcp)throw new Error('Fixture interface is not ready.');return mcp.handle(request,response,requestId);}}});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
  cleanup.push(async()=>{await mcp?.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const applicationUrl=`http://127.0.0.1:${address.port}`;
@@ -63,7 +67,7 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const release=fixtureOptions.releaseCustody||fixtureOptions.liveXqCustody?new ReleaseRuntime(JSON.stringify({[f.ctx.projectId]:configuration}),fixtureOptions.liveXqCustody?process.env.OPINTEL_CUSTODY_MASTER_KEY:process.env.OPINTEL_S4_CUSTODY_MASTER??'11'.repeat(32)):undefined;
  if(release){await withPlatform(async tx=>{await tx.query("INSERT INTO project_member(project_id,user_id,role) VALUES($1,$2,'admin')",[f.ctx.projectId,f.ctx.userId]);await tx.query("UPDATE project SET settings=settings||jsonb_build_object('custody',$2::jsonb) WHERE id=$1",[f.ctx.projectId,JSON.stringify(custody)]);});const health=await release.checkConnection(f.ctx);cleanup.push(async()=>release.close());if(fixtureOptions.liveXqCustody&&!health.authenticated)throw new Error('Live XQ custody health check failed');}
  const presence=new PostgresAgentPresence({publish:async()=>{}}),keys=new PoolKeyService(new PostgresPoolKeys(undefined,release?(ctx,alias)=>release.provision(ctx,alias):undefined),presence),outbox=new RelationshipOutbox(),bindings=new PoolBindingService(new PostgresPoolBindings(outbox),outbox,authorization);
- const issue=async(name:string)=>{const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name},randomUUID())));if(!issued.keyShown)throw new Error('Missing key');await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[issued.poolId,JSON.stringify({threads:1})]));return issued;};
+ const issue=async(name:string)=>{const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name,credentialKind:release?'identity-bound':'bearer-only'},randomUUID())));if(!issued.keyShown)throw new Error('Missing key');await withTenant(f.ctx,tx=>tx.query('UPDATE pool SET budgets=$2 WHERE id=$1',[issued.poolId,JSON.stringify({threads:1})]));return issued;};
  const issued=await issue('Query pool'),pool=PoolId(issued.poolId);
  unwrap(await bindings.set(f.ctx,pool,f.source,true));
  await withTenant(f.ctx,async tx=>{
@@ -98,10 +102,10 @@ export async function queryFixture(writer:EvidenceWriterPort=new TestEvidenceWri
  const reader=new PostgresQueryReader(),filter=new QueryPreFilter(new DuckDBQueryParser()),service=new QueryService(reader,filter,execution,authorization,writer,release);
  const candidates=new PostgresExplainJoinCandidates();
  const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),candidates);
- mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),new DescribeService(new PostgresDescribeReader(),authorization,release),service,explain,release);
+ mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence),new PostgresCredentialBindings()),new PostgresMcpConfiguration(),new DescribeService(new PostgresDescribeReader(),authorization,release),service,explain,release);
 
  const url=new URL(`http://127.0.0.1:${address.port}/mcp/v1/p/${f.ctx.projectId}`);
- const connect=async(key:string,agentId='unverified-agent',agentIdSource:'header'|'query'='header')=>{const target=new URL(url);if(agentIdSource==='query')target.searchParams.set('agentId',agentId);const headers:Record<string,string>={authorization:`Bearer ${key}`};if(agentIdSource==='header')headers['x-opintel-agent-id']=agentId;const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(target,{requestInit:{headers}});await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};
+ const connect=async(key:string,agentId='unverified-agent',agentIdSource:'header'|'query'='header',enrollment:IdentityEnrollment={certificateId:1,deviceName:'Fixture agent',recipientIdentifier:'fixture-recipient'})=>{const target=new URL(url);if(agentIdSource==='query')target.searchParams.set('agentId',agentId);const headers:Record<string,string>={authorization:`Bearer ${key}`};if(release){headers['x-opintel-ingress-proof']=ingressProof;headers['x-opintel-client-certificate']=encodeURIComponent(await readFile(join(directory,'tls/client.pem'),'utf8'));}if(agentIdSource==='header')headers['x-opintel-agent-id']=agentId;const client=new Client({name:'query-test',version:'1'});cleanup.push(()=>client.close());const transport=new StreamableHTTPClientTransport(target,{requestInit:{headers}});if(release){const send=transport.send.bind(transport);transport.send=(message,options)=>send(isInitializeRequest(message)?{...message,params:{...message.params,_meta:{'opintel.identity':enrollment}}}:message,options);}await client.connect(transport);return {client,transport,query:(sql:string,maxRows?:number)=>client.callTool({name:'opintel.query',arguments:{sql,...(maxRows===undefined?{}:{maxRows})}})};};
  const agent=await connect(issued.key);
  return {...f,release,pool,schema,db,issued,issue,keys,bindings,authorization,writer,reader,filter,execution,service,secrets,tokenSecrets,stagingSource:source,sourceScope:scope,boundary,candidates,addSource,host,engineConfig:config,engineTls:tls,connect,url,...agent,close};
  }catch(error){await close();throw error;}

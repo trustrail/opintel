@@ -1,3 +1,4 @@
+import {acceptIngressIdentity} from './ingress-identity.js';
 import {diagnostic,withDiagnosticRequest} from '../telemetry/diagnostics.js';
 import {publicAssociationOnly} from '../../shared/api/certificate-association.js';
 import { randomUUID } from 'node:crypto';
@@ -91,6 +92,7 @@ export interface HttpLogger {
 }
 
 export interface HttpServerOptions {
+  readonly ingressCertificateProof?: string;
   readonly agentInterface?: PoolKeyHttpEndpoint;
   readonly requestIdFactory?: () => string;
   readonly logger?: HttpLogger;
@@ -241,6 +243,7 @@ export function createHttpServer(
     const requestId = requestIdFactory();
     return withDiagnosticRequest(request,response,requestId,async()=>{
     try {
+      acceptIngressIdentity(request,options.ingressCertificateProof);
       const url = new URL(request.url ?? '/', 'http://localhost');
       const path = url.pathname;
       if (options.agentInterface && path.startsWith('/mcp/')) {

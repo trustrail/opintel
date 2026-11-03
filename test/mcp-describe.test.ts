@@ -1,3 +1,4 @@
+import {PostgresCredentialBindings} from '../src/modules/pools/index.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
@@ -24,7 +25,7 @@ async function fixture(){
  await authorization.write([{operation:'touch',resource:{type:'project',id:f.ctx.projectId},relation:'admin',subject:{type:'user',id:f.ctx.userId}}]);
  await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
  const presence=new PostgresAgentPresence({publish:async()=>{}}),keys=new PoolKeyService(new PostgresPoolKeys(),presence);
- const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name:'Describe pool'},randomUUID())));if(!issued.keyShown)throw new Error('No key');
+ const issued=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',credentialKind:'bearer-only',name:'Describe pool'},randomUUID())));if(!issued.keyShown)throw new Error('No key');
  const pool=PoolId(issued.poolId),outbox=new RelationshipOutbox(),bindings=new PoolBindingService(new PostgresPoolBindings(outbox),outbox,authorization);
  unwrap(await bindings.set(f.ctx,pool,f.source,true));
  await withTenant(f.ctx,async tx=>{
@@ -37,7 +38,7 @@ async function fixture(){
   }
  });
  const reader=new PostgresDescribeReader(),service=new DescribeService(reader,authorization);
- const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence)),new PostgresMcpConfiguration(),service);
+ const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),new AgentPresenceService(presence),new PostgresCredentialBindings()),new PostgresMcpConfiguration(),service);
  const server=createHttpServer([],{agentInterface:mcp});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');
  cleanup.push(async()=>{await mcp.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
  const client=new Client({name:'describe-test',version:'1'});cleanup.push(()=>client.close());

@@ -1,3 +1,4 @@
+import {custodyCredentialGuard} from './custody-credential-guard.js';
 import {missingContributorKey} from '../application/contributor-declaration.js';
 import {custodyAvailability} from '../../release-custody/index.js';
 import { validateCanonicaliserType } from '../application/canonicalisers.js';
@@ -18,6 +19,7 @@ export class PostgresEntitlements implements EntitlementRepository {
   if(s.projectId!==ctx.projectId)return Promise.resolve(err(new DomainError('forbidden','The entitlement belongs to another project.')));
   if(s.treatment==='custody'&&!(await custodyAvailability(ctx.projectId)).available)return err(new DomainError('dependency_unavailable','Configure a custody provider in Settings and pass its connection check before selecting Released under custody.',{cause:'release_configuration'}));
   return withTenant(ctx,async tx=>{
+   if(s.treatment==='custody'){const guard=await custodyCredentialGuard(tx,s.poolId);if(!guard.ok)return guard;}
    // Share the source/element locks used by archive and introspection so an
    // old decision cannot race a type-family invalidation or source archive.
    const source=await tx.query(`SELECT s.id FROM data_source s JOIN catalog_object o ON o.source_id=s.id JOIN catalog_element e ON e.object_id=o.id WHERE e.id=$1 AND s.status<>'archived' FOR UPDATE OF s`,[s.elementId]);

@@ -1592,3 +1592,16 @@ one completed-candidate gate, then fresh amd64 archive first-run acceptance with
 its custody-steps extension against live XQ. ARM native verification remains an
 operator command. Per-output treatment metadata (including expressions/aliases)
 is backlog work to design with OAP's pool resource/leakage gate field.
+
+## ID-01 — Agent certificate binding and package ownership
+
+Pool key admits once; the agent's certificate fingerprint is its identity; XQ
+enforces release to the bound recipient. Labels never authorize. Identity-bound
+credentials enroll via mutual TLS, optionally await project-admin approval, and
+require the same fingerprint on every subsequent request. Existing custody
+credentials retain their associated XQ recipient as an enrollment constraint.
+Bearer-only credentials remain available only without custody columns.
+
+Application, agent kit and internal verification archives have separate command
+ownership enforced by bundle-input contracts. Agent private/transport keys stay
+on the agent host. No manual public-identity import into the gateway remains.

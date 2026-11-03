@@ -1,3 +1,4 @@
+import {PostgresCredentialBindings} from '../src/modules/pools/index.js';
 import {agentIdRequirement} from '../src/shared/api/agent-presence.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -20,10 +21,10 @@ async function fixture(){
  await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
  const events={publish:vi.fn(async()=>{})},presence=new PostgresAgentPresence(events),service=new AgentPresenceService(presence);
  const keys=new PoolKeyService(new PostgresPoolKeys(),presence);
- const created=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',name:'MCP pool'},randomUUID())));if(!created.keyShown)throw new Error('No key');
+ const created=PoolKeyCreationResponse.parse(unwrap(await keys.execute(f.ctx,{kind:'create',credentialKind:'bearer-only',name:'MCP pool'},randomUUID())));if(!created.keyShown)throw new Error('No key');
  const pool=PoolId(created.poolId),key=created.key;
  const configuration=new PostgresMcpConfiguration();
- const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),service),configuration);
+ const mcp=new McpHttpServer(new McpAccess(new PostgresKeyVerifier(),service,new PostgresCredentialBindings()),configuration);
  const server=createHttpServer([],{agentInterface:mcp,requestIdFactory:()=> 'fixed-request'});
  server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');
  cleanups.push(async()=>{await mcp.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
@@ -125,7 +126,7 @@ describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
  });
  it('a session cannot cross pools; rotation can reuse it with the new key, and every HTTP method requires an agent ID',async()=>{
   const f=await fixture(),{transport}=await f.connect();
-  const other=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'create',name:'Another MCP pool'},randomUUID())));if(!other.keyShown)throw new Error('No key');
+  const other=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'create',credentialKind:'bearer-only',name:'Another MCP pool'},randomUUID())));if(!other.keyShown)throw new Error('No key');
   const body={jsonrpc:'2.0',id:7,method:'tools/list'};
   expect(await f.post(body,transport.sessionId,{...f.headers,authorization:`Bearer ${other.key}`})).toMatchObject({status:404});
   const rotated=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'rotate',poolId:f.pool},randomUUID())));if(!rotated.keyShown)throw new Error('No key');

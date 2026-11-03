@@ -48,6 +48,12 @@ COPY --chmod=0755 scripts/steps ./scripts/steps
 COPY --chmod=0755 scripts/infrastructure ./scripts/infrastructure
 RUN node scripts/engine-package/bundle.mjs provisioning /artifacts
 
+FROM toolchain AS agent-kit-build
+COPY --chmod=0755 scripts/agent ./scripts/agent
+COPY --chmod=0755 scripts/steps ./scripts/steps
+COPY --chmod=0755 scripts/operator/identity-import.ts ./scripts/operator/identity-import.ts
+RUN node scripts/engine-package/bundle.mjs agent-kit /artifacts
+
 FROM toolchain AS demo-tools-build
 COPY --chmod=0755 scripts/operator ./scripts/operator
 COPY --chmod=0755 scripts/soak ./scripts/soak
@@ -55,6 +61,7 @@ COPY --chmod=0755 scripts/steps ./scripts/steps
 COPY --chmod=0755 scripts/infrastructure ./scripts/infrastructure
 COPY --chmod=0755 scripts/demo-soak-definition.ts ./scripts/
 COPY --chmod=0755 scripts/verification/reinsurance.json ./scripts/verification/
+COPY --chmod=0755 scripts/verification/steps ./scripts/verification/steps
 RUN node scripts/engine-package/bundle.mjs demo-tools /artifacts
 
 # These bases never COPY --chmod=0755 a repository input. Final image policy separately
@@ -140,3 +147,8 @@ FROM runtime-base AS demo-tools
 COPY --chmod=0755 --from=demo-tools-build /artifacts/ ./
 USER 65534:65534
 CMD ["node","scripts/operator/demo.js","--help"]
+
+FROM runtime-base AS agent-kit
+COPY --chmod=0755 --from=agent-kit-build /artifacts/ ./
+USER 65534:65534
+CMD ["node","scripts/agent/main.js","--help"]

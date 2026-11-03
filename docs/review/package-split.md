@@ -1,8 +1,8 @@
-# Package split and identity binding — prerequisite stopped
+# Package split and identity binding — implementation in progress
 
 Branch: `feat/package-split`, from main `933c4ec` (the approved documentation
-merge, already pushed). No application, bundle, ingress or migration change has
-been made.
+merge, already pushed). The initial sections below retain the historical probe
+results. Current draft implementation and validation are recorded at the end.
 
 ## Approved identity semantics
 
@@ -84,3 +84,41 @@ overwritten, including its removal for the certificate-less request.
 No failure phase or error occurred in this completed repeat. The original
 ECONNRESET's exact cause cannot be recovered from its missing logs; the corrected
 probe establishes readiness and certificate compatibility without inferring it.
+
+## Existing custody enrollment decision and proof gap
+
+The owner chose: existing non-custody credentials remain bearer-only; existing
+custody credentials become identity-bound/unbound and must retain their previously
+associated XQ recipient. Migration 093 preserves the original association fields
+and copies the recipient into an enrollment constraint. It has been applied by
+`npm run dev:up` to the local development and test databases; its applied bytes
+must not be edited.
+
+The draft guard compares the initialize recipient with that retained value and
+records `identity_mismatch` when they differ. **This is not yet proof that the
+presented certificate belongs to that recipient.** MCP initialize accepts public
+metadata supplied by the client (`src/modules/mcp/infrastructure/http.ts:201`).
+The guard compares that string (`src/modules/pools/infrastructure/identity-binding.ts:30`).
+TLS proves possession of the certificate key; the retained XQ certificate has a
+generic subject, not an authenticated recipient claim. The real XQ association
+is learned inside the agent process after certificate authorization and private
+response/token decryption (`scripts/steps/infrastructure/xq-device.mjs:37–41`).
+The gateway receives neither that token nor a verifiable provider attestation.
+
+A different certificate could therefore claim the old public recipient string.
+The equality test alone must not be reported as enforcing the owner's stronger
+requirement. Approval requested for an XQ-backed, one-time enrollment proof for
+migrated custody credentials, before binding the fingerprint. No gate or packaged
+acceptance has been run for this draft, and the draft is not committed or pushed.
+
+Targeted progress (not completed-candidate acceptance):
+- `test/credential-identity-binding.test.ts` plus `test/http-server.test.ts`:
+  19 passed, including claim mismatch and direct-ingress-header spoof rejection.
+- `test/credential-identity-migration.test.ts`: up/down/up passed; measured
+  fixture setup 8,511 ms; original association metadata preserved.
+- MCP describe, protocol and binding: 27 passed.
+- Query and agent-local metadata tests: 29 passed.
+- Pools console: 42 passed after correcting the draft query-key factory removal.
+- Intermediate strict typecheck and lint passed; later edits still require final
+  validation. All migration tests, packaging contracts, full gate and packaged
+  live-XQ verification remain outstanding.
