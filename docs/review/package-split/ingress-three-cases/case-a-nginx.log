@@ -1,0 +1,2 @@
+2026-11-03T03:52:07.508145479Z {"connection":"2","case":"a","status":200,"tls":"TLSv1.3","verify":"NONE"}
+2026-11-03T03:52:07.507719189Z 2026/11/03 03:52:07 [info] 36#36: *4 client 127.0.0.1 closed keepalive connection

@@ -51,3 +51,36 @@ handshake prerequisite remains unproven.
 Before any new authorized probe, retain its current phase and nginx logs and
 establish nginx readiness separately from the certificate test. Do not change
 certificate permissions or TLS verification to conceal the failed result.
+
+## Corrected three-case ingress proof: passed
+
+The earlier stop is historical. The owner authorized a corrected probe that
+establishes nginx readiness inside the container over plain HTTP, retains info
+level nginx logs, and records client TCP, TLS and HTTP phases per case. The
+probe never substitutes its echo upstream for a product acceptance test.
+
+The first corrected attempt (`tmp/agent-ingress-handshake-3BxoKo`) passed cases
+a and b, then failed locally while decoding the XQ private key as PEM text:
+`ERR_OSSL_UNSUPPORTED`, `DECODER routines::unsupported`. No XQ handshake was
+attempted. The actual export is base64-encoded DER PKCS#8. The probe now uses
+the same PEM-or-DER parsing as `scripts/operator/identity-import.ts:42–44`,
+converting to PEM only in agent process memory; no private material is mounted
+into ingress or published in evidence.
+
+The completed repeat is `tmp/agent-ingress-handshake-l0JPQ3`, using the same
+command as above. All three requests used the same ingress, in order:
+
+| Case | Negotiated TLS | Handshake | HTTP | nginx ssl_client_verify |
+|---|---|---|---|---|
+| a: no certificate | TLSv1.3 | completed | 200 | NONE |
+| b: fresh self-signed client certificate | TLSv1.3 | completed | 200 | FAILED:self-signed certificate |
+| c: actual XQ client certificate | TLSv1.3 | completed | 200 | FAILED:unable to verify the first certificate |
+
+The latter two verification strings describe the intentionally untrusted CA
+chain; `optional_no_ca` accepted both requests. Both forwarded certificates
+matched the client certificate fingerprint. The injected caller header was
+overwritten, including its removal for the certificate-less request.
+[Client traces, per-case nginx lines and full nginx log](package-split/ingress-three-cases/).
+No failure phase or error occurred in this completed repeat. The original
+ECONNRESET's exact cause cannot be recovered from its missing logs; the corrected
+probe establishes readiness and certificate compatibility without inferring it.

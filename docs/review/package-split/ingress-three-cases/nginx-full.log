@@ -1,0 +1,25 @@
+2026-11-03T03:52:06.419328860Z /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+2026-11-03T03:52:06.419384840Z /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+2026-11-03T03:52:06.433249973Z /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+2026-11-03T03:52:06.530403975Z 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+2026-11-03T03:52:06.615280509Z 10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+2026-11-03T03:52:06.615322946Z /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+2026-11-03T03:52:06.615330934Z /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+2026-11-03T03:52:06.626965938Z /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+2026-11-03T03:52:06.633462975Z /docker-entrypoint.sh: Configuration complete; ready for start up
+2026-11-03T03:52:07.508145479Z {"connection":"2","case":"a","status":200,"tls":"TLSv1.3","verify":"NONE"}
+2026-11-03T03:52:07.889063508Z {"connection":"5","case":"b","status":200,"tls":"TLSv1.3","verify":"FAILED:self-signed certificate"}
+2026-11-03T03:52:08.189840452Z {"connection":"8","case":"c","status":200,"tls":"TLSv1.3","verify":"FAILED:unable to verify the first certificate"}
+2026-11-03T03:52:06.686405682Z 2026/11/03 03:52:06 [notice] 1#1: using the "epoll" event method
+2026-11-03T03:52:06.686427298Z 2026/11/03 03:52:06 [notice] 1#1: nginx/1.30.6
+2026-11-03T03:52:06.686430952Z 2026/11/03 03:52:06 [notice] 1#1: built by gcc 15.2.0 (Alpine 15.2.0) 
+2026-11-03T03:52:06.686433792Z 2026/11/03 03:52:06 [notice] 1#1: OS: Linux 6.10.14-linuxkit
+2026-11-03T03:52:06.686436279Z 2026/11/03 03:52:06 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
+2026-11-03T03:52:06.687473561Z 2026/11/03 03:52:06 [notice] 1#1: start worker processes
+2026-11-03T03:52:06.687490807Z 2026/11/03 03:52:06 [notice] 1#1: start worker process 36
+2026-11-03T03:52:06.687494000Z 2026/11/03 03:52:06 [notice] 1#1: start worker process 37
+2026-11-03T03:52:06.687918621Z 2026/11/03 03:52:06 [notice] 1#1: start worker process 38
+2026-11-03T03:52:06.691433773Z 2026/11/03 03:52:06 [notice] 1#1: start worker process 39
+2026-11-03T03:52:07.507719189Z 2026/11/03 03:52:07 [info] 36#36: *4 client 127.0.0.1 closed keepalive connection
+2026-11-03T03:52:07.889154508Z 2026/11/03 03:52:07 [info] 39#39: *7 client 127.0.0.1 closed keepalive connection
+2026-11-03T03:52:08.189801010Z 2026/11/03 03:52:08 [info] 39#39: *10 client 127.0.0.1 closed keepalive connection

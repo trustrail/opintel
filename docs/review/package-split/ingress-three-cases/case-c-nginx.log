@@ -1,0 +1,2 @@
+2026-11-03T03:52:08.189840452Z {"connection":"8","case":"c","status":200,"tls":"TLSv1.3","verify":"FAILED:unable to verify the first certificate"}
+2026-11-03T03:52:08.189801010Z 2026/11/03 03:52:08 [info] 39#39: *10 client 127.0.0.1 closed keepalive connection

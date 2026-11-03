@@ -1,0 +1,32 @@
+{
+  "id": "b",
+  "name": "fresh self-signed client certificate",
+  "startedAt": "2026-11-03T03:52:07.827Z",
+  "events": [
+    {
+      "phase": "connect",
+      "at": "2026-11-03T03:52:07.830Z"
+    },
+    {
+      "phase": "tcp-connected",
+      "at": "2026-11-03T03:52:07.831Z"
+    },
+    {
+      "phase": "tls-complete",
+      "at": "2026-11-03T03:52:07.846Z",
+      "protocol": "TLSv1.3"
+    },
+    {
+      "phase": "http-response",
+      "at": "2026-11-03T03:52:07.891Z",
+      "status": 200
+    }
+  ],
+  "handshakeCompleted": true,
+  "tlsVersion": "TLSv1.3",
+  "sslClientVerify": "FAILED:self-signed certificate",
+  "status": "passed",
+  "httpStatus": 200,
+  "nginxConnection": "5",
+  "forwardedCertificateMatches": true
+}

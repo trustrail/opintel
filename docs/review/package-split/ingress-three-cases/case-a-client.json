@@ -1,0 +1,32 @@
+{
+  "id": "a",
+  "name": "no client certificate",
+  "startedAt": "2026-11-03T03:52:07.424Z",
+  "events": [
+    {
+      "phase": "connect",
+      "at": "2026-11-03T03:52:07.486Z"
+    },
+    {
+      "phase": "tcp-connected",
+      "at": "2026-11-03T03:52:07.488Z"
+    },
+    {
+      "phase": "tls-complete",
+      "at": "2026-11-03T03:52:07.504Z",
+      "protocol": "TLSv1.3"
+    },
+    {
+      "phase": "http-response",
+      "at": "2026-11-03T03:52:07.510Z",
+      "status": 200
+    }
+  ],
+  "handshakeCompleted": true,
+  "tlsVersion": "TLSv1.3",
+  "sslClientVerify": "NONE",
+  "status": "passed",
+  "httpStatus": 200,
+  "nginxConnection": "2",
+  "forwardedCertificateMatches": true
+}
