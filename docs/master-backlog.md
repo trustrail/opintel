@@ -902,6 +902,9 @@ times on the Intel development Mac and passed on immediate rerun twice. Review
 the deadline in the hard-coded-timeout audit, on proper hardware. Do not infer
 a product defect or change the deadline from these observations alone.
 
+Include the test harness's one-second cleanup control connection limit in the
+hard-coded timeout audit (`scripts/testing/database-deadline.ts:154`).
+
 
 SpiceDB schema write: hard-coded **5 s, single attempt**
 (`src/modules/authz/infrastructure/load-schema.ts`). **Fixed in this branch**:
