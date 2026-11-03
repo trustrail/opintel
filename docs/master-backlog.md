@@ -368,6 +368,18 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 **Detail** Check that ports 3100 and 3103 are free and name the holding process
 when either is occupied, instead of failing mid-run with `EADDRINUSE`.
 
+### Gate diagnostics · Preserve the original database abort and cleanup failure
+**Status** Open · Backlog only · 3 November 2026
+**Detail** On gate candidate `b3099b1`, Activity X-06 stopped because the
+test database cleanup control connection timed out while connecting; its
+one-second connect limit is in `scripts/testing/database-deadline.ts`. The
+retained diagnostic did not identify what initiated cleanup or preserve the
+original failure. Preserve both the original abort and each cleanup failure,
+including connection phase and timing, while retaining the fail-closed barrier.
+An isolated Activity run passed all ten tests with test-database statement
+logging and recorded no lock-wait, deadlock or PostgreSQL error; that later run
+does not establish what occurred during the gate.
+
 ### GATE-04 · contributor-key-migration setup hook exceeds 10 s on the Intel Mac gate; raise the hook timeout with a diagnostic, as done for the native-release test
 **Status** Open · Backlog only · 31 October 2026
 **Evidence** Full gate on `ca747c0` exhausted the existing 10,000 ms setup hook
