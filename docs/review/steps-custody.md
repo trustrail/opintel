@@ -132,3 +132,29 @@ Gate database cleanup succeeded; development Postgres and Redis remained
 healthy. Per the stop rule, no gate or smoke retry, fresh archive build,
 packaged install, or live-XQ demo was run after this failure. The requested
 packaged terminal-output proof and native verification remain unverified.
+
+## Authorized smoke comparison and gate acceptance
+
+After the stop report, the owner authorized only the standard browser/MCP smoke
+tier on main `f744476`, followed immediately by candidate `5ead8ae`, in the same
+main checkout on the same Intel Mac. No code, timeout, test or dependency was
+changed between these runs. Development Postgres and Redis were healthy.
+
+Both commands were `COMPOSE_PROJECT_NAME=opintel npm run test:smoke`:
+
+| Revision | Result | Test body | Playwright total |
+|---|---|---|---|
+| Main `f744476` | 1 passed; exit 0 | 14.7 s | 35.4 s |
+| Candidate `5ead8ae` | 1 passed; exit 0 | 11.7 s | 29.0 s |
+
+Retained logs: `/private/tmp/steps-custody-smoke-main-f744476.log` and
+`/private/tmp/steps-custody-smoke-branch-5ead8ae.log`. The test-body deadline
+remained 30 seconds; Playwright total includes setup/teardown outside that body.
+
+**Decision:** accept the full gate on `5ead8ae` with this smoke evidence, exactly
+as authorized: all earlier tiers passed in the original single gate, and smoke
+then passed on both revisions back to back. No second full gate was run. The
+earlier timeout did not reproduce; its underlying cause remains unestablished.
+The Intel smoke-deadline review is recorded in the master backlog without an
+implementation change. Continue with fresh amd64 archives and the existing
+packaged first-run harness with its committed live-XQ custody extension.

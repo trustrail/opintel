@@ -880,6 +880,11 @@ checking the running project's identity). Its hard-coded five-second Compose
 start limit belongs in the hard-coded-timeout audit. Do not weaken isolated gate
 databases or reuse development data for tests.
 
+The browser/MCP smoke test's hard-coded 30-second deadline has failed three
+times on the Intel development Mac and passed on immediate rerun twice. Review
+the deadline in the hard-coded-timeout audit, on proper hardware. Do not infer
+a product defect or change the deadline from these observations alone.
+
 
 SpiceDB schema write: hard-coded **5 s, single attempt**
 (`src/modules/authz/infrastructure/load-schema.ts`). **Fixed in this branch**:
