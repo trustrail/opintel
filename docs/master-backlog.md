@@ -369,7 +369,9 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 with a clear message when there is insufficient space. Delete the harness's own
 labs and archives from previous runs once their results are committed. Remove
 the Docker networks it creates at the end of each run, and check in preflight
-that a network can still be allocated.
+that a network can still be allocated. Timestamp every Docker stats sample and
+capture host free memory and memory pressure so browser or container exits can
+be correlated with memory conditions.
 
 ### Gate preflight · Identify occupied engine ports before the gate starts
 **Status** Open · Backlog only · 3 November 2026
