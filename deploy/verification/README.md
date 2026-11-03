@@ -16,7 +16,26 @@ the agent host; never print it or put its value in arguments.
 The synthetic fixture loader and soak remain `./demo seed` and `./demo soak`.
 Their explicit target configuration belongs in a mode-600 `verification.env` on
 this host, and their output in `output/`. The release harness prepares that
-configuration. For a Docker installation it also writes three private path files:
+configuration independently of the gateway operator job. Supply the installation's
+`DATABASE_URL`, `REDIS_URL`, `SPICEDB_ENDPOINT`, `SPICEDB_TOKEN`,
+`OPINTEL_CUSTODY_MASTER_KEY`, `OWNER_EMAIL`, `APP_BASE_URL`,
+`OPINTEL_API_BASE_URL`, `OPINTEL_OPERATOR_API_TARGET`, `ENGINE_HEARTBEAT_URL`,
+`APPLICATION_TLS_CONFIG`, `OPINTEL_XQ_REDEEM_URL`, `OPINTEL_XQ_API_KEY`,
+`OPINTEL_XQ_DASHBOARD_API_KEY`, `OPINTEL_XQ_SENDER_ALIAS`,
+`OPINTEL_XQ_SENDER_ACCESS_TOKEN` and `OPINTEL_XQ_TEAM_ID`. The heartbeat URL is
+the gateway's HTTPS heartbeat endpoint as reachable from the engine. Set
+`OPINTEL_DEPLOYMENT_PACKAGE=gateway`, `OPINTEL_CUSTOMER_JOB=1`,
+`OPINTEL_PACKAGED_SOAK=1`, `NODE_EXTRA_CA_CERTS=/config/ca.pem`,
+`APPLICATION_TLS_CONFIG=/config/application-tls.json`, and `HOME=/home/operator`.
+Set private output paths `OPINTEL_OPERATOR_CONFIG=/output/operator.json`,
+`OPINTEL_PROVISION_MANIFEST=/output/provision.json`,
+`OPINTEL_SOAK_MANIFEST=/output/soak.json`, `OPINTEL_SEED_MANIFEST=/output/seed.json`,
+`OPINTEL_CERTIFICATES=/output/certificates.json`, `OPINTEL_OUTPUT_DIRECTORY=/output`,
+`OPINTEL_SOAK_OUTPUT_DIRECTORY=/output/soak`, and
+`STEPS_XQ_API_KEY_FILE=/input/xq-api-key`. `OPINTEL_SOAK_DURATION` and
+`OPINTEL_SOAK_RATE` configure the soak; the duration argument overrides the former.
+Keep credentials in the private configuration or key file, never in command arguments.
+For a Docker installation it also writes private path files:
 `network` names the installation's Docker network; `configuration-directory`
 points to the installation's configuration directory; only the required TLS files are mounted read-only; and
 `identities-directory` points to the agent kit's identity bundles, mounted

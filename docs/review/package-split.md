@@ -180,3 +180,48 @@ same Intel Mac then timed out on main `933c4ec` and passed on `b15b4e1` in
 14.4 seconds. The owner approved accepting the `b15b4e1` gate on this evidence,
 attributing the deadline failure to the environment. The exact cause of the
 delay was not established. The fresh packaged live-XQ run remains pending.
+
+## Verification package configuration correction
+
+Arm64 native acceptance of `0559922` stopped at `customer-demo-soak` with
+`Missing operator setting: ENGINE_HEARTBEAT_URL`. The old Compose verification
+job supplied that setting, but the separate verification wrapper reads only its
+private `verification.env`. Stage 5 had copied the gateway operator environment
+without the Compose-only additions. It also failed to provide the Compose-only
+`OPINTEL_PACKAGED_SOAK=1` stronger custody criterion and explicit CA/HOME values.
+
+The verification configuration now explicitly includes:
+
+- `ENGINE_HEARTBEAT_URL` and `APPLICATION_TLS_CONFIG` for engine registration
+  and governance (`scripts/operator/provision-service.ts:32`,
+  `scripts/operator/demo.ts:24`); `NODE_EXTRA_CA_CERTS` for TLS trust.
+- `DATABASE_URL`, `REDIS_URL`, `SPICEDB_ENDPOINT` and `SPICEDB_TOKEN` for the
+  current provisioner, observer and authorization (`src/platform/db/scope.ts:10`,
+  `scripts/operator/run-soak.ts:21`, `scripts/operator/common.ts:24`).
+- `OPINTEL_CUSTODY_MASTER_KEY`, the XQ API, dashboard, sender, team and redeem
+  settings, `OPINTEL_API_BASE_URL` and `APP_BASE_URL` for custody setup
+  (`src/modules/release-custody/infrastructure/availability.ts:8`,
+  `scripts/operator/customer-demo.ts:33`, `scripts/operator/xq-roundtrip.ts:41`).
+- `OWNER_EMAIL`, `OPINTEL_DEPLOYMENT_PACKAGE`, `OPINTEL_CUSTOMER_JOB`, private
+  operator/provision/soak/seed/certificate/output paths, duration and rate, and
+  the normal signed-in session file (`scripts/operator/customer-demo.ts:19`,
+  `scripts/operator/common.ts:16`, `scripts/operator/demo.ts:15`,
+  `scripts/operator/run-soak.ts:11`, `scripts/operator/seed-options.ts:5`).
+- `OPINTEL_OPERATOR_API_TARGET`, `HOME`, `STEPS_XQ_API_KEY_FILE` and
+  `OPINTEL_PACKAGED_SOAK=1` for API access, private agent identity lookup and
+  the existing mandatory custody pass criterion (`scripts/operator/common.ts:30`,
+  `scripts/soak/external.ts:19`, `scripts/soak/reinsurance.ts:219`).
+
+The release harness constructs its own mode-600 verification config from an
+explicit allowlist of installation connection credentials and the supplied XQ
+settings, rather than copying `operator.env`. The old verification Compose
+descriptors now point to verification-specific configuration. The moved
+`sign-in` and `grant-access` steps use explicit flags, a private session file and
+the package's optional gateway CA (`scripts/verification/steps/main.ts:24`,
+`deploy/verification/command:27`); seed uses an explicit private target file.
+No secret is printed or passed as a command argument. Package-entrypoint tests
+use a simulated Docker command to verify the soak launch receives only its
+config and signed-in session; they do not claim a live or packaged soak.
+
+Targeted packaging, provisioning and workflow contracts passed: 4 files,
+21 tests. Syntax checks and lint passed. No packaged install was run on this host.

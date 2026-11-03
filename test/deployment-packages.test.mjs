@@ -68,8 +68,12 @@ it('DEP-009/011: application operator jobs receive no agent bundles; verificatio
  const provision=JSON.parse(readFileSync('deploy/gateway/services/operator.json','utf8')).services.operator;
  const demo=JSON.parse(readFileSync('deploy/verification/services/demo-tools.json','utf8')).services['demo-tools'];
  expect(provision.volumes.some(v=>v.includes('.xq'))).toBe(false);
- expect(demo.volumes).toContain('${GATEWAY_AGENT_CERTIFICATES_DIRECTORY:?set agent certificate directory}:/home/operator/.xq:ro');
- for(const job of [provision,demo]){expect(job.env_file).toEqual(['${GATEWAY_OPERATOR_ENV_FILE:?set operator job environment}']);expect(job.read_only).toBe(true);expect(job.restart).toBe('no');expect(job.volumes).toContain('${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output');}
+ expect(demo.volumes).toContain('${VERIFICATION_IDENTITIES_DIRECTORY:?set agent certificate directory}:/home/operator/.xq:ro');
+ expect(provision.env_file).toEqual(['${GATEWAY_OPERATOR_ENV_FILE:?set operator job environment}']);
+ expect(demo.env_file).toEqual(['${VERIFICATION_ENV_FILE:?set private verification configuration}']);
+ for(const job of [provision,demo]){expect(job.read_only).toBe(true);expect(job.restart).toBe('no');}
+ expect(provision.volumes).toContain('${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output');
+ expect(demo.volumes).toContain('${VERIFICATION_OUTPUT_DIRECTORY:?set private output directory}:/output');
  expect(demo.tmpfs[0]).toMatch(/^\/tmp:rw,noexec,nosuid,nodev,/u);
 });
 

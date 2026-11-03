@@ -19,6 +19,7 @@ import {auditPackage} from './package-audit.mjs';
 import {firstHour} from './first-hour.mjs';
 import {firstHourSource} from './first-hour-source.mjs';
 import {acceptanceRequest,acceptanceDeadlineMs} from './acceptance-json.mjs';
+import {verificationConfig} from './verification-config.mjs';
 
 // External acceptance only. It never alters generated package configuration.
 const archives=resolve(process.argv[2]??''),manifest=JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8'));
@@ -149,7 +150,9 @@ try{
  cpSync(join(gateway,'state/output/peer.json'),join(output,'peer.json'));chmodSync(join(output,'peer.json'),0o600);
  writeFileSync(join(verification,'network'),readFileSync(join(gateway,'state/project-name'),'utf8').trim()+'_default\n',{mode:0o600});
  writeFileSync(join(verification,'configuration-directory'),join(gateway,'state')+'\n',{mode:0o600});writeFileSync(join(verification,'identities-directory'),join(agent,'identity-bundles')+'\n',{mode:0o600});writeFileSync(join(verification,'agent-api-key-file'),agentApiKey+'\n',{mode:0o600});
- const vars={...parse(readFileSync(join(gateway,'state/operator.env'),'utf8')),OPINTEL_CUSTOMER_JOB:'1',OPINTEL_OPERATOR_CONFIG:'/output/operator.json',OPINTEL_PROVISION_MANIFEST:'/output/provision.json',OPINTEL_SOAK_MANIFEST:'/output/soak.json',OPINTEL_SEED_MANIFEST:'/output/seed.json',OPINTEL_CERTIFICATES:'/output/certificates.json',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_SOAK_OUTPUT_DIRECTORY:'/output/soak',OPINTEL_SOAK_DURATION:'1800',OPINTEL_SOAK_RATE:'10000',NODE_EXTRA_CA_CERTS:'/config/ca.pem',STEPS_XQ_API_KEY_FILE:'/input/xq-api-key'};
+ const runtime=parse(readFileSync(join(gateway,'state/runtime.env'),'utf8'));
+ const heartbeat=new URL(settings.APP_BASE_URL);heartbeat.port='3102';
+ const vars=verificationConfig({runtime,provider,ownerEmail:settings.OWNER_EMAIL,applicationUrl:settings.APP_BASE_URL,heartbeatUrl:heartbeat.origin});
  assert.ok(Object.values(vars).every(v=>!/[\r\n\0]/u.test(v)),'Verification environment values must be single line');writeFileSync(join(verification,'verification.env'),Object.entries(vars).map(([key,value])=>key+'='+value).join('\n')+'\n',{mode:0o600});
  run(join(verification,'demo'),['xq-roundtrip','200'],{env:nested});
  const xqDirectory=join(output,readdirSync(output).filter(name=>name.startsWith('xq-roundtrip-')).sort().at(-1));
