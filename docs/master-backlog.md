@@ -363,6 +363,12 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### Packaged harness · Check disk space and clean up completed runs
+**Status** Open · Backlog only · 3 November 2026
+**Detail** Check available disk space before building and installing; fail early
+with a clear message when there is insufficient space. Delete the harness's own
+labs and archives from previous runs once their results are committed.
+
 ### Gate preflight · Identify occupied engine ports before the gate starts
 **Status** Open · Backlog only · 3 November 2026
 **Detail** Check that ports 3100 and 3103 are free and name the holding process
