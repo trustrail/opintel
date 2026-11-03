@@ -964,6 +964,8 @@ waiting. No verifier or product behavior is changed by this backlog entry.
 
 Problem: gateway->engine calls are hand-built (src/shared/infrastructure/engine-transport.ts): a new pinned-TLS connection per call (agent:false), an address lookup per call, hard-coded 1 s connect limits and a custom retry loop. Most connection failures found during VERIFY-01 trace to this layer.
 
+Arm64 native run `stage5-arm64-6e74199.8GIJ1K` hit this limit again under post-build load: first-hour engine verification failed after three 1-second connect timeouts and an `ABORT_ERR` at the 9-second overall deadline. The engine had reported ready and paired 27 seconds earlier.
+
 Proposal: replace it with a standard transport that keeps certificate pinning and mutual TLS: either a pooled keep-alive HTTP/2 client, or gRPC (as SpiceDB already uses). Long-lived reused connections, multiplexing, standard deadlines, retries and health checks. Same request/response semantics; no message broker on the query path.
 Not in scope: pub/sub. Asynchronous flows (engine heartbeats and health, scan and ingest progress, landings, console live updates, receipt export) may later move to a message broker, decided separately.
 Later, when the gateway runs in the cloud and engines at customer sites: the engine opens the connection outward to the gateway, so customers open no inbound ports. Evaluate a broker at that point as the channel for both requests and events.
