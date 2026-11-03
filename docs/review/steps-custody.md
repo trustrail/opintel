@@ -2,6 +2,12 @@
 
 Branch `feat/steps-custody`, from main `f744476`.
 
+Final status: gate on `5ead8ae` accepted by the owner with the back-to-back
+smoke evidence below. Corrected packaging candidate
+`79d667f746459ec011c3dd2761eb09b1327bf657` passed fresh amd64 archive installation
+through first receipt and the complete live-XQ custody sequence. Not merged.
+Earlier failed candidates remain documented below; they are not green results.
+
 ## Scope and decisions
 
 The gateway archive ships `./steps sign-in`, `grant-access`, `query`, and
@@ -238,3 +244,104 @@ command tests then passed. Provisioning-runtime and the unchanged unwrap test
 also passed; Bash/Node syntax checks and unchanged lint passed. These are
 packaged script corrections; no second full gate is run under the standing
 script-only validation rule.
+
+## Final packaged result: passed
+
+Tested revision: `79d667f746459ec011c3dd2761eb09b1327bf657`. These standard
+commands completed successfully:
+
+```sh
+BUILD_CANDIDATE=1 TAG=candidate-steps-custody-79d667f PLATFORM=linux/amd64 IMAGE=all node scripts/images/build.mjs
+PLATFORM=linux/amd64 node scripts/images/customer-package.mjs tmp/images/releases/candidate-steps-custody-79d667f-api-engine-console-egress-migrations-provisioning-demo-tools.json tmp/steps-custody-79d667f-packages --candidate
+node scripts/images/console-first-run-install.mjs tmp/steps-custody-79d667f-packages 79d667f746459ec011c3dd2761eb09b1327bf657 --custody
+```
+
+Candidate mode preserves unrelated untracked user documents; all task code and
+scripts were committed and pushed before the build. Seven amd64 images passed
+secret-layer, runtime allowlist and runtime-user readability checks. Both
+offline customer archives passed packaging audits. No substitute login, HTTP,
+TLS, MCP or installation step was used.
+
+Run directory: `tmp/console-first-run-acceptance-ix8Qn4`. Overall harness exit 0.
+Its fresh installation passed each first-run step: gateway/engine archives,
+one-code pairing, ordinary `./sources add`, normal owner SMTP sign-in, project
+creation, engine registration/verification, source connection/scan, query
+limits, pool creation, explicit clear decision, credential issuance, answered
+agent request, receipt visible in Activity, and per-table editor visibility.
+
+The live-XQ extension passed all ten checks:
+
+| Operation | Observed result |
+|---|---|
+| Agent-host device import and exchange | Public association published; only that public file imported by gateway |
+| `./steps sign-in` | Fresh normal SMTP magic link completed; private session file written |
+| Provider, engine and column setup | XQ check passed; custody engine designated; custody decision saved through console APIs |
+| `./steps grant-access` | Credential associated with imported device `opintelprobe` |
+| `./steps query` | Six rows, all six custody cells sealed; full private result saved |
+| `./steps redeem-and-unseal --show` | K2 and live XQ K1 obtained; six local values matched the independent fixture |
+| Same grant redeemed again | K2 refused; no output file or plaintext |
+| New query and console-API revoke | New grant revoked; immutable revoked event read back on its receipt |
+| Revoked grant redemption | K2 refused; no output file or plaintext |
+| Secret/output checks | Session, credential and result files mode 600; no key, cookie or full grant material in terminal output |
+
+The refusal deliberately preserves the server's existing combined explanation
+(expired, revoked, already redeemed, or another credential); it does not invent
+a more specific server message. The separate revoke response and recorded
+event establish revocation in this run. The unseal check compared local rows
+with independent fixture expectations, not values returned by the system as
+its own oracle. The fixture plaintext is redacted from the published terminal
+output. All required shares were obtained before decryption.
+
+First custody receipt: `01a19eef-a9f3-7376-b05f-9af6c9276ca9`.
+Revoked receipt: `01a19ef0-0181-76a4-ab7f-f8fa0fde6fce`.
+The console API returned HTTP 200 for
+`POST /api/v1/projects/:projectId/releases/4680f301-3401-4577-a836-cbbabeda2994/revoke`;
+the receipt then contained that grant's `revoked` release event.
+
+Actual terminal excerpt (data values redacted; full output linked below):
+
+```text
+$ ./steps sign-in [normal SMTP link pasted; values redacted]
+Open the email and paste its sign-in link here (hidden): sign-in: signed in; session saved privately.
+
+$ ./steps grant-access [flags supplied; values redacted]
+grant-access: credential 5e79ed9e-1fbd-4751-9a89-3321e66aeaa6 issued; key saved privately; XQ identity opintelprobe linked.
+
+$ ./steps query [flags supplied; values redacted]
+id: clear · custody_label: custody
+query: 6 rows; evidence 01a19eef-a9f3-7376-b05f-9af6c9276ca9.
+Grant 30bfada9-d524-474b-926a-82983505c3d4 · custody_label · expires 2026-11-03T01:14:33.000Z
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+id: clear · custody_label: custody (unsealed locally)
+Grant 30bfada9-d524-474b-926a-82983505c3d4 · custody_label · 6 rows unsealed
+redeem-and-unseal: receipt state: redeemed (Opintel released K2); local unsealing succeeded.
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+redeem-and-unseal: K2 refused: forbidden / release_refused: the grant is expired, revoked, already redeemed, or belongs to another credential; the server does not distinguish these causes. No key material was printed.
+```
+
+The full transcript includes the replay refusal, second query and final
+post-revocation refusal with all table cells redacted. Published evidence:
+
+- [Complete redacted terminal output](steps-custody/terminal-redacted.txt).
+- [Live-XQ check results and receipt IDs](steps-custody/custody-result-79d667f.json).
+- [Fresh installation results](steps-custody/install-result-79d667f.json).
+- [Image identities and runtime manifests](steps-custody/images-79d667f.json).
+- [Archive SHA-256 hashes](steps-custody/archives-79d667f.sha256).
+
+Harness cleanup completed. Only development Postgres and Redis remained
+running, both healthy. No second full gate was run: the owner's gate acceptance
+is recorded above, and subsequent corrections affected packaged build inputs,
+the agent command wrapper and their tests. Their targeted checks, strict
+typecheck, lint and syntax results are recorded alongside those corrections.
+
+ARM native verification remains an operator action on the MacBook Air:
+
+```sh
+git fetch origin feat/steps-custody
+scripts/release/native.sh 79d667f746459ec011c3dd2761eb09b1327bf657
+```
+
+This uses the default two-minute soak. The Intel run does not claim an ARM
+native result. Final evidence-only commits do not change the tested runtime.
