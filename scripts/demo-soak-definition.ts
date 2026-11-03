@@ -26,6 +26,10 @@ export function declaredTreatment(object:string,column:string,pool:number){
  if(object==='policies'&&column==='broker_reference'&&pool===1)return 'custody' as const;
  return 'clear' as const;
 }
+/** Credential admission follows the fixture's actual pool treatments. */
+export function soakCredentialKind(pool:number,tables=demoTables):'identity-bound'|'bearer-only'{
+ return tables.some(table=>Object.keys(table.rows[0]??{}).some(column=>declaredTreatment(table.name,column,pool)==='custody'))?'identity-bound':'bearer-only';
+}
 export function declaredRows(name:string,pool:number){const rows=demoTables.find(t=>t.name===name)!.rows;return name==='open_reference'?rows:name==='treaty_reference'?[]:rows.filter(r=>r.cedant===base.cedants[pool]);}
 export function declaredFilter(name:string,pool:number){return name==='open_reference'||name==='treaty_reference'&&pool===1?null:name==='treaty_reference'?"treaty_ref = 'NO_SUCH_TREATY'":`cedant = '${base.cedants[pool]}'`;}
 const q=(s:string)=>'"'+s.replaceAll('"','""')+'"',table=(s:string)=>s.split('.').map(q).join('.');

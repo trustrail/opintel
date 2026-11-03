@@ -19,6 +19,7 @@ export async function externalTarget(target:string,file:string,identitiesFile?:s
   async connect(key:string,agentId:string){
    const credential=[...manifest.agents,...Object.values(manifest.lifecycle??{})].find(a=>a.key===key||('replacementKey'in a&&a.replacementKey===key));
    const entry=mapping.find(e=>e.certificateId===credential?.association?.certificateId);
+   if(credential?.association&&!entry)throw new Error('Soak identity mapping is missing for an identity-bound credential.');
    const directory=entry?.bundlePath.startsWith('~/')?join(homedir(),entry.bundlePath.slice(2)):entry?.bundlePath;
    const identity=directory?await enrollmentIdentity(directory,process.env.STEPS_XQ_API_KEY_FILE,credential?.association):undefined;
    const connection=await mcpAgent(base,manifest.projectId,key,agentId,identity);clients.push(connection.client);
