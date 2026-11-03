@@ -2,7 +2,7 @@
 import {readFile,stat} from 'node:fs/promises';
 import type {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {mcpAgent} from '../steps/infrastructure/mcp.js';
-import {clientIdentity} from '../steps/infrastructure/identity.js';
+import {enrollmentIdentity} from '../steps/infrastructure/identity.js';
 import {homedir} from 'node:os';
 import {join} from 'node:path';
 import {demoManifest,certificateMapping} from './manifest.js';
@@ -20,7 +20,7 @@ export async function externalTarget(target:string,file:string,identitiesFile?:s
    const credential=[...manifest.agents,...Object.values(manifest.lifecycle??{})].find(a=>a.key===key||('replacementKey'in a&&a.replacementKey===key));
    const entry=mapping.find(e=>e.certificateId===credential?.association?.certificateId);
    const directory=entry?.bundlePath.startsWith('~/')?join(homedir(),entry.bundlePath.slice(2)):entry?.bundlePath;
-   const identity=directory?await clientIdentity(directory,credential?.association):undefined;
+   const identity=directory?await enrollmentIdentity(directory,process.env.STEPS_XQ_API_KEY_FILE,credential?.association):undefined;
    const connection=await mcpAgent(base,manifest.projectId,key,agentId,identity);clients.push(connection.client);
    return {client:connection.client,query:(sql:string)=>connection.client.callTool({name:'opintel.query',arguments:{sql}})};
   },

@@ -67,6 +67,15 @@ ID are self-declared labels and never authorize access. The ingress always
 overwrites the certificate header; the API accepts it only with the installation's
 private ingress proof. Requests that spoof this header outside ingress are refused.
 
+Before recording any supplied recipient and fingerprint, Opintel escrows a random
+32-byte nonce through the existing XQ escrow path to that recipient. The agent
+redeems it with its own XQ identity and returns it during initialize. Opintel
+stores only a hash, tied to the credential, recipient and presented fingerprint,
+with a two-minute enrollment deadline. A successful proof is consumed atomically
+with binding (or pending approval). Wrong, expired, replayed or absent proofs
+serve nothing and are audited with `identity_unproven`. This is enrollment only;
+ordinary queries never trigger XQ challenges. No new XQ API is introduced.
+
 The agent kit exchanges the device identity with XQ on the agent host. Its public
 recipient identifier travels in MCP initialize, and K1 is escrowed to the bound
 recipient. No private or transport key enters the gateway. Existing custody

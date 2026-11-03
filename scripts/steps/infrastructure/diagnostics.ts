@@ -4,7 +4,7 @@ import {QueryRefusalMetadata} from '../../../src/shared/api/query-refusal.js';
 // merely because it looks like an identifier.
 const codes:readonly ErrorCode[]=['unauthenticated','forbidden','not_found','validation_failed','conflict','idempotency_key_reused','rate_limited','dependency_unavailable','entitlement_missing','element_withheld','object_unavailable','unsupported_on_token','unsupported_on_aggregate_only','term_unresolved','clarification_required','domain_knowledge_gap','sources_cannot_be_joined','large_result_confirmation','budget_exceeded','engine_saturated','source_unavailable','sql_not_permitted','unsupported_pushdown'];
 export function publicCode(value:unknown){return typeof value==='string'&&codes.some(code=>code===value)?value:'not_reported';}
-export function publicCause(value:unknown){const parsed=QueryRefusalMetadata.shape.cause.safeParse(value);return parsed.success?parsed.data:'not_reported';}
+export function publicCause(value:unknown){if(value==='identity_unproven'||value==='identity_mismatch'||value==='identity_pending')return value;const parsed=QueryRefusalMetadata.shape.cause.safeParse(value);return parsed.success?parsed.data:'not_reported';}
 export function transportFailure(error:unknown){
  const names=new Set(['Error','TypeError','SyntaxError','TimeoutError','AbortError','McpError','StreamableHTTPError']);
  const native=new Set(['ENOTFOUND','ECONNREFUSED','ECONNRESET','ETIMEDOUT','EHOSTUNREACH','EPIPE','ENOENT','EACCES','EPERM','ELOOP','EISDIR','ENOTDIR','CERT_HAS_EXPIRED','DEPTH_ZERO_SELF_SIGNED_CERT','SELF_SIGNED_CERT_IN_CHAIN','UNABLE_TO_VERIFY_LEAF_SIGNATURE','ERR_TLS_CERT_ALTNAME_INVALID','UND_ERR_CONNECT_TIMEOUT','UND_ERR_SOCKET']);

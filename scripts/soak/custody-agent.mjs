@@ -56,7 +56,7 @@ async function command(m){
   const state=await ensure(m.association);if(!state.ok)return {ok:false,exchange:state};
   const root=realpathSync(entry.bundlePath.startsWith('~/')?join(homedir(),entry.bundlePath.slice(2)):entry.bundlePath);
   const identity=await clientIdentity(root,identities.get(entry.certificateId).association),url=new globalThis.URL(m.url);
-  const project=url.pathname.split('/').at(-1),connection=await mcpAgent(new globalThis.URL(url.origin),project,m.key,m.agentId,identity);
+  const project=url.pathname.split('/').at(-1),connection=await mcpAgent(new globalThis.URL(url.origin),project,m.key,m.agentId,{...identity,proveEnrollment:async locator=>(await device.fetchShare(entry.certificateId,locator)).share});
   clients.set(m.id,{client:connection.client,association:entry,stored:m.stored});return {ok:true,exchange:state};
  }
  if(m.op==='poll'){for(const {association} of clients.values())await ensure(association);return {ok:true};}

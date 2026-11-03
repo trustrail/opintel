@@ -65,6 +65,11 @@ export class ReleaseRuntime {
   const environment=custodyEnvironment();return new XqReleaseProvider({apiKey:environment.apiKey,dashboardApiKey:environment.dashboardApiKey,dashboardAccessToken:environment.dashboardAccessToken,senderAlias:environment.senderAlias,senderAccessToken:environment.senderAccessToken},claims.custody.tenant,claims.custody.provider_redeem_at);
  }
  private originalService(project:string,claims:z.infer<typeof releaseClaims>){const provider=this.originalProvider(project,claims);return new ReleaseService(new PostgresReleaseRepository(project),new PostgresGrantSignatures(provider,this.master),provider);}
+ async escrowEnrollment(ctx:ReleaseContext,nonce:Uint8Array,recipient:string,ttlSeconds:number):Promise<string>{
+  const project=await this.ensure(ctx);
+  if(!project||project.provider.id!=='xq')throw new DomainError('dependency_unavailable','XQ must be configured for identity enrollment.');
+  return project.provider.escrow(nonce,recipient,ttlSeconds,true);
+ }
  async saveProjectSettings(ctx:ReleaseContext,settings:z.infer<typeof ProjectSettings>,confirmedLiveGrants?:number,expectedSettings?:Record<string,unknown>){
   return withTenant(ctx,async tx=>{
    // Exclusive against every grant creation/redemption transaction. A confirmed

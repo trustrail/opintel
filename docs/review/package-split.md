@@ -122,3 +122,15 @@ Targeted progress (not completed-candidate acceptance):
 - Intermediate strict typecheck and lint passed; later edits still require final
   validation. All migration tests, packaging contracts, full gate and packaged
   live-XQ verification remain outstanding.
+
+## Approved XQ-backed proof
+
+The owner approved a one-time escrowed nonce for every identity-bound enrollment
+that supplies a recipient, not just migration cases. Draft `1066d37` was committed
+and pushed before implementation, as requested. Migration 094 adds an ephemeral
+challenge verifier to the credential (hash only, never the nonce). It was applied
+through `npm run dev:up`; migration 093 was not edited. The implementation reuses
+`ReleaseRuntime` / `ReleaseProvider.escrow` and the agent's existing device share
+redemption. Proof binds the credential, certificate fingerprint and recipient;
+failed proof is consumed, refused and audited. No query is replayed. Validation
+of this addition is in progress; the completed-candidate gate remains unrun.

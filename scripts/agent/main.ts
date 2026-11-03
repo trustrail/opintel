@@ -1,6 +1,6 @@
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
-import {clientIdentity} from '../steps/infrastructure/identity.js';
+import {enrollmentIdentity} from '../steps/infrastructure/identity.js';
 import {transportFailure} from '../steps/infrastructure/diagnostics.js';
 import {parseArgs} from 'node:util';
 import {stdout} from 'node:process';
@@ -34,7 +34,7 @@ export async function run(args:readonly string[],write:(text:string)=>void=text=
  if(prepared&&!grantClaims(prepared.result).length)throw new Error('The result has no custody grants.');
  if(prepared&&grantClaims(prepared.result).some(g=>g.claims.custody.provider!=='xq'))throw new Error('This command requires XQ custody grants.');
  const identityDirectory=typeof values['xq-identity']==='string'?values['xq-identity']:process.env.OPINTEL_AGENT_IDENTITY;
- const identity=identityDirectory?await clientIdentity(identityDirectory):undefined;
+ const identity=identityDirectory?await enrollmentIdentity(identityDirectory,process.env.STEPS_XQ_API_KEY_FILE):undefined;
  const client=await mcpAgent(base,project,key,agentId,identity);
  try{
   if(step==='query'){

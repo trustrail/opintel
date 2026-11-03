@@ -1,3 +1,4 @@
+import {EnrollmentChallenge} from '../src/shared/api/credential-identity.js';
 import {PostgresPoolReader,PostgresCredentialBindings,CredentialId} from '../src/modules/pools/index.js';
 import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
@@ -51,7 +52,10 @@ it('binds the supplied public association after possession proof, replays issuan
  const service=new PoolKeyService(new PostgresPoolKeys(),presence),request=randomUUID();
  const command={kind:'issue' as const,poolId:f.pool,label:'Device'};
  const issued=PoolKeyCreationResponse.parse(unwrap(await service.execute(f.ctx,command,request)));
- unwrap(await new PostgresCredentialBindings().authenticate(f.ctx,f.pool,CredentialId(issued.credentialId!),{fingerprint:'a'.repeat(64),subject:'CN=Fixture'},association));
+ let proofNonce='';const enrollmentBindings=new PostgresCredentialBindings({escrowEnrollment:async(_ctx,nonce)=>{proofNonce=Buffer.from(nonce).toString('base64url');return 'fixture-locator';}});
+ const challengeResult=await enrollmentBindings.authenticate(f.ctx,f.pool,CredentialId(issued.credentialId!),{fingerprint:'a'.repeat(64),subject:'CN=Fixture'},association);if(challengeResult.ok)throw new Error('Missing enrollment challenge');
+ const challenge=EnrollmentChallenge.parse(challengeResult.error.details?.challenge);
+ unwrap(await enrollmentBindings.authenticate(f.ctx,f.pool,CredentialId(issued.credentialId!),{fingerprint:'a'.repeat(64),subject:'CN=Fixture'},{...association,proof:{id:challenge.id,nonce:proofNonce}}));
  expect(issued.custodyAlias).toBe(`agent:${f.ctx.projectId}:${issued.credentialId}`);
  expect(await credentialCustodyRecipient(f.ctx,issued.custodyAlias!)).toBe(association.recipientIdentifier);
  const detail=await new PostgresPoolReader().detail(f.ctx,f.pool);if(!detail.ok)throw detail.error;expect(detail.value.credentials?.find(c=>c.id===issued.credentialId)?.xqIdentity).toEqual({certificateId:association.certificateId,deviceName:association.deviceName});

@@ -40,3 +40,13 @@ it('MCP route contract permits either agent ID source on every method, with the 
   }
  }
 });
+
+it('MCP contract declares public enrollment proof and challenge wire shapes without private keys',()=>{
+ for(const operation of Object.values(mcpOpenApiDocument().paths['/mcp/v1/p/{projectId}'])){
+  expect(operation.description).toContain('identity_unproven');expect(operation.description).toContain('No query is served before binding');
+  const enrollment=validator.getValidator(operation['x-identity-enrollment']),challenge=validator.getValidator(operation['x-enrollment-challenge']);
+  const metadata={certificateId:223,deviceName:'Label',recipientIdentifier:'recipient',proof:{id:'00000000-0000-4000-8000-000000000001',nonce:'A'.repeat(43)}};
+  expect(enrollment(metadata).valid).toBe(true);expect(enrollment({...metadata,privateKey:'secret'}).valid).toBe(false);
+  expect(challenge({id:metadata.proof.id,locator:'locator',expiresAt:'2026-11-03T01:00:00.000Z'}).valid).toBe(true);
+ }
+});

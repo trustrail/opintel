@@ -288,7 +288,7 @@ async function start(): Promise<void> {
     ...needsYouRoutes(new PostgresNeedsYouReader(),authorization),
     ...projectHealthRoutes(new PostgresProjectHealthReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
-    ...identityBindingRoutes(new PostgresCredentialBindings()),
+    ...identityBindingRoutes(new PostgresCredentialBindings(releaseCustody)),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody,new PostgresPoolTables(relationshipOutbox,authorization)), presence)),
     ...poolTableRoutes(new PostgresPoolTables(relationshipOutbox,authorization)),
     ...poolBudgetRoutes(new PostgresPoolBudgets()),
@@ -327,7 +327,7 @@ async function start(): Promise<void> {
   const execution=new engines.RegistryQueryExecution(engineRegistry,new engines.PostgresEngineRepository()),filter=new QueryPreFilter(new DuckDBQueryParser());
   const query=new QueryService(new PostgresQueryReader(),filter,execution,authorization,evidence,releaseCustody);
   const explain=new ExplainService(new PostgresQueryReader(false),filter,execution,authorization,new UuidV7IdFactory(),new PostgresExplainJoinCandidates());
-  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence),new PostgresCredentialBindings()), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization,releaseCustody),query,explain,releaseCustody);
+  const mcp = new McpHttpServer(new McpAccess(new PostgresKeyVerifier(), new AgentPresenceService(presence),new PostgresCredentialBindings(releaseCustody)), new PostgresMcpConfiguration(), new DescribeService(new PostgresDescribeReader(), authorization,releaseCustody),query,explain,releaseCustody);
   mcp.start();
   const operatorObserver=operatorObserverReader(redis.client);
   let observerSweepPending=false;
