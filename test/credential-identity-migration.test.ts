@@ -39,3 +39,15 @@ it('096 keeps the custody guard on compatibility changes, not presence timestamp
  const definition=await trigger();expect(definition).toContain('UPDATE OF credential_kind, revoked_at, pool_id');expect(definition).not.toContain('last_used_at');
  await migrateDownToVersion(db,'095');expect(await trigger()).not.toContain('UPDATE OF');await migrateUp(db);expect(await trigger()).toContain('UPDATE OF credential_kind, revoked_at, pool_id');
 });
+
+it('097 qualifies custody guard tables and restores the previous function on downgrade',async()=>{
+ const db=connection();await migrateDownToVersion(db,'096');
+ const definition=async()=>(await db.query("SELECT pg_get_functiondef('public.enforce_credential_custody()'::regprocedure) AS definition")).rows[0].definition as string;
+ expect(await definition()).toContain('FROM pool WHERE');
+ await migrateUp(db);
+ expect(await definition()).toContain('FROM public.pool WHERE');
+ expect(await definition()).toContain('FROM public.entitlement WHERE');
+ expect(await definition()).toContain('FROM public.pool_credential WHERE');
+ await migrateDownToVersion(db,'096');expect(await definition()).toContain('FROM pool WHERE');
+ await migrateUp(db);expect(await definition()).toContain('FROM public.pool WHERE');
+});

@@ -4766,6 +4766,7 @@ Accessibility is WCAG 2.2 AA: keyboard operable throughout, visible focus, `pref
 | `evidence.captureSamplingPercent` | number, percent | None — required before use | Finite, greater than 0 and at most 100 | Percentage of successful runs retaining detailed stages/source plans; refusals and failures remain 100% | Capture full detail until configured. Selection and percentage are pinned at open; header, completion and element facts are always captured. |
 | `poolKeyGraceSeconds` | integer seconds | 86,400 (24 hours) | 3,600–604,800 (1 hour–7 days) | Grace assigned on future pool-key rotations | Use 86,400. Changing it does not rewrite an already issued key's grace expiry. |
 | `agentHeartbeatSeconds` | integer seconds | 20 | 5–60 | Advertised heartbeat cadence; stale after three missed intervals | Use 20. This does not alter the separate fixed idle threshold of 60 seconds without a request. |
+| `approveIdentityBindings` | boolean | false | true or false | Require a project administrator to approve a first certificate binding | Accept first bindings without manual approval. |
 | `agentDisconnectGraceSeconds` | integer seconds | 300 (5 minutes) | 60–3,600 (1–60 minutes) | Time from entering stale to disconnected | Use 300. Disconnected twins remain visible. |
 
 | `custody.provider` | enum | None | local, xq | Custody provider; local is development only | Custody unavailable until configured and checked. |
