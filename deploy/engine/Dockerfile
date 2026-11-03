@@ -44,11 +44,13 @@ RUN node scripts/engine-package/bundle.mjs migrations /artifacts
 
 FROM toolchain AS provisioning-build
 COPY --chmod=0755 scripts/operator ./scripts/operator
+COPY --chmod=0755 scripts/steps ./scripts/steps
 RUN node scripts/engine-package/bundle.mjs provisioning /artifacts
 
 FROM toolchain AS demo-tools-build
 COPY --chmod=0755 scripts/operator ./scripts/operator
 COPY --chmod=0755 scripts/soak ./scripts/soak
+COPY --chmod=0755 scripts/steps ./scripts/steps
 COPY --chmod=0755 scripts/infrastructure ./scripts/infrastructure
 COPY --chmod=0755 scripts/demo-soak-definition.ts ./scripts/
 COPY --chmod=0755 scripts/verification/reinsurance.json ./scripts/verification/

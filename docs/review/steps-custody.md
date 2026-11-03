@@ -158,3 +158,24 @@ earlier timeout did not reproduce; its underlying cause remains unestablished.
 The Intel smoke-deadline review is recorded in the master backlog without an
 implementation change. Continue with fresh amd64 archives and the existing
 packaged first-run harness with its committed live-XQ custody extension.
+
+## Fresh image build input correction
+
+The first fresh amd64 build at `f833d8d` stopped before archive creation or
+packaged acceptance: `provisioning-build` could not resolve
+`scripts/steps/main.ts`. Its Docker stage copied `scripts/operator/` but omitted
+the new `scripts/steps/` input (`deploy/engine/Dockerfile:45–47`). The host
+provisioning-runtime test had the full checkout available and therefore did not
+exercise this Docker build context boundary.
+
+Corrected the build inputs only: copy `scripts/steps/` into provisioning-build
+and demo-tools-build, the latter because the existing soak now imports the
+shared custody implementation there. No product behavior, timeout, retry,
+credential boundary or smoke test changed. Run the existing provisioning,
+image-build and package contracts, strict typecheck and lint before committing
+this packaging correction and rebuilding through the standard harness.
+
+These checks passed: 22 tests across four files (provisioning-runtime,
+image-build, image-build-plan, deployment-packages), strict typecheck and
+unchanged lint/dependency checks. No additional full gate was run for this
+Docker build-input correction.
