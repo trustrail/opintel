@@ -179,3 +179,13 @@ These checks passed: 22 tests across four files (provisioning-runtime,
 image-build, image-build-plan, deployment-packages), strict typecheck and
 unchanged lint/dependency checks. No additional full gate was run for this
 Docker build-input correction.
+
+The next build, `c57b774`, exposed a second missing transitive input:
+`scripts/infrastructure/xq-token-unwrap.mjs` and
+`xq-device-certificate-envelope.mjs`. Added the existing infrastructure folder
+to provisioning-build as well. Strengthened the existing provisioning-runtime
+test to construct its build context from the actual toolchain and provisioning
+Docker COPY inputs, rather than the full checkout; it removes that context
+before checking isolated command startup. The four targeted contract files
+passed all 22 tests with this isolated build context. These are build-input and
+test corrections only; packaged acceptance has still not started.

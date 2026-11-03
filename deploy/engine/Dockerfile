@@ -45,6 +45,7 @@ RUN node scripts/engine-package/bundle.mjs migrations /artifacts
 FROM toolchain AS provisioning-build
 COPY --chmod=0755 scripts/operator ./scripts/operator
 COPY --chmod=0755 scripts/steps ./scripts/steps
+COPY --chmod=0755 scripts/infrastructure ./scripts/infrastructure
 RUN node scripts/engine-package/bundle.mjs provisioning /artifacts
 
 FROM toolchain AS demo-tools-build
