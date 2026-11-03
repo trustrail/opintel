@@ -77,3 +77,57 @@ and the standard packaged first-run plus live-XQ results will be recorded here.
 This is packaged-script/test work;
 no additional full gate is requested or run. ARM native verification remains
 an operator run on the MacBook Air.
+
+## Packaged result: passed
+
+Tested revision `ba8d6596f9573a15dc35d9b56316c1c78cb05fa3` was committed and
+pushed before the standard build. All seven fresh amd64 images passed secret,
+runtime-allowlist and readability checks. Both offline archives built and
+passed their packaging audits. Standard commands:
+
+```sh
+BUILD_CANDIDATE=1 TAG=candidate-steps-custody-ba8d659 PLATFORM=linux/amd64 IMAGE=all node scripts/images/build.mjs
+PLATFORM=linux/amd64 node scripts/images/customer-package.mjs tmp/images/releases/candidate-steps-custody-ba8d659-api-engine-console-egress-migrations-provisioning-demo-tools.json tmp/steps-custody-ba8d659-packages --candidate
+node scripts/images/console-first-run-install.mjs tmp/steps-custody-ba8d659-packages ba8d6596f9573a15dc35d9b56316c1c78cb05fa3 --custody
+```
+
+The standard harness exited 0. Evidence directory:
+`tmp/console-first-run-acceptance-lZjNj0`. Fresh archive install, one-code
+pairing, ordinary source reference, SMTP owner sign-in, all six first-run steps
+and a receipt visible in Activity passed.
+
+The separate agent archive's `./identities add` used **no** `--api-key-file`:
+default key extraction, device exchange and temporary-key cleanup passed. Only
+its public association was handed to the gateway. Then normal `./steps sign-in`,
+identity-linked `grant-access`, sealed `query`, and live-XQ
+`redeem-and-unseal --show` passed. All six locally unsealed rows matched the
+independent fixture. A second redemption was refused without plaintext. A fresh
+grant was revoked through the console API, its revoked event read from the
+receipt, and redemption was refused without plaintext or an output file.
+All ten custody checks passed, including mode-600 output files and absence of
+key, session-cookie or full-grant material from terminal output.
+
+- First custody receipt: `01a19f1a-8e06-7359-b157-ff8222166065`.
+- Revoked receipt: `01a19f1b-a2df-7eed-949a-f263939d82c2`.
+- Revoked grant: `b4b46137-5107-402d-aff4-5f99be1146d2`.
+
+Published evidence:
+
+- [Actual terminal output, values redacted](steps-custody/key-handoff-ba8d659/terminal-redacted.txt).
+- [Custody results](steps-custody/key-handoff-ba8d659/custody-result.json).
+- [Fresh installation results](steps-custody/key-handoff-ba8d659/install-result.json).
+- [Image identities](steps-custody/key-handoff-ba8d659/images.json).
+- [Archive SHA-256 hashes](steps-custody/key-handoff-ba8d659/archives.sha256).
+
+Cleanup completed; only development Postgres and Redis remained running, both
+healthy. No full gate rerun or merge. The MacBook Air run directory was not
+available here, and this Intel repeat is not a claim that native ARM Stage 5
+has passed. Run the native command there for this tested code revision:
+
+```sh
+git fetch origin feat/steps-custody
+scripts/release/native.sh ba8d6596f9573a15dc35d9b56316c1c78cb05fa3
+```
+
+Default soak: two minutes. Subsequent report-only commits do not change the
+tested scripts or runtime.

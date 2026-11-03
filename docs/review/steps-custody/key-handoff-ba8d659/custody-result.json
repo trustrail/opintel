@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "revision": "ba8d6596f9573a15dc35d9b56316c1c78cb05fa3",
+  "checks": [
+    "agent-host-exchange-public-only-handoff",
+    "steps-normal-smtp-sign-in",
+    "provider-check-custody-engine-column-decision",
+    "steps-grant-access",
+    "steps-query-sealed-cells",
+    "live-xq-local-unseal-independent-fixture",
+    "second-redemption-refused-no-plaintext",
+    "console-api-grant-revocation-recorded",
+    "revoked-redemption-refused-no-plaintext",
+    "private-files-and-no-key-material-in-output"
+  ],
+  "firstReceipt": "01a19f1a-8e06-7359-b157-ff8222166065",
+  "revokedReceipt": "01a19f1b-a2df-7eed-949a-f263939d82c2",
+  "revokedGrant": "b4b46137-5107-402d-aff4-5f99be1146d2",
+  "revocationRecorded": true,
+  "rowsUnsealed": 6,
+  "terminal": "custody-steps/terminal-redacted.txt"
+}

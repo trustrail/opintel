@@ -2,6 +2,11 @@
 
 Branch `feat/steps-custody`, from main `f744476`.
 
+Latest follow-up: the ARM native identity-import key-handoff failure on
+`79d667f` is corrected in `ba8d659`; targeted tests, fresh amd64 archives,
+first receipt and the repeated live-XQ sequence passed. See the
+[cause, permissions proof and new native command](steps-custody-key-handoff.md).
+
 Final status: gate on `5ead8ae` accepted by the owner with the back-to-back
 smoke evidence below. Corrected packaging candidate
 `79d667f746459ec011c3dd2761eb09b1327bf657` passed fresh amd64 archive installation
