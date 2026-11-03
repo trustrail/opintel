@@ -3,8 +3,9 @@ import type {IdentityEnrollment} from '../../../shared/api/credential-identity.j
 import type {CredentialId} from '../domain/pool.js';
 import type {PoolKeyContext} from './keys.js';
 export type PresentedIdentity={fingerprint:string;subject:string};
+export type IdentityDiagnostic={boundFingerprintPrefix:string|null;challengeState:'escrowed'|'redeemed'|'expired'|'not returned'|null};
 export interface CredentialBindings{
- authenticate(ctx:PoolKeyContext,pool:PoolId,credential:CredentialId,certificate:PresentedIdentity|undefined,enrollment:IdentityEnrollment|undefined):Promise<Result<void>>;
+ authenticate(ctx:PoolKeyContext,pool:PoolId,credential:CredentialId,certificate:PresentedIdentity|undefined,enrollment:IdentityEnrollment|undefined,diagnostic?:(value:IdentityDiagnostic)=>void):Promise<Result<void>>;
  change(ctx:PoolKeyContext,pool:PoolId,credential:CredentialId,action:'approve'|'reset',confirmation:string):Promise<Result<void>>;
 }
 

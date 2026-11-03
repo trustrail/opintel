@@ -22,4 +22,4 @@ export type {PoolBudgetPort} from './application/budgets.js';
 
 
 export {PostgresCredentialBindings} from './infrastructure/identity-binding.js';
-export type {CredentialBindings,PresentedIdentity} from './application/identity-binding.js';
+export type {CredentialBindings,PresentedIdentity,IdentityDiagnostic} from './application/identity-binding.js';

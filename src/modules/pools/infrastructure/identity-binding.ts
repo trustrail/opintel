@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {withTenant,type Tx} from '../../../platform/db/scope.js';
 import {DomainError,err,ok,type PoolId,type Result} from '../../../shared/kernel/index.js';
 import type {IdentityEnrollment} from '../../../shared/api/credential-identity.js';
-import type {CredentialBindings,PresentedIdentity,EnrollmentEscrow} from '../application/identity-binding.js';
+import type {CredentialBindings,PresentedIdentity,EnrollmentEscrow,IdentityDiagnostic} from '../application/identity-binding.js';
 import type {PoolKeyContext} from '../application/keys.js';
 import type {CredentialId} from '../domain/pool.js';
 type Binding={label:string;credential_kind:'identity-bound'|'bearer-only';binding_status:'unbound'|'pending'|'bound'|'reset';certificate_fingerprint:string|null;enrollment_recipient_identifier:string|null;recipient_identifier:string|null;revoked_at:Date|null;enrollment_challenge:unknown};
@@ -15,13 +15,13 @@ const nonceDigest=(nonce:Uint8Array)=>createHash('sha256').update(nonce).digest(
 export class PostgresCredentialBindings implements CredentialBindings{
  constructor(private readonly escrow?:EnrollmentEscrow){}
 
- async authenticate(ctx:PoolKeyContext,pool:PoolId,id:CredentialId,certificate:PresentedIdentity|undefined,enrollment:IdentityEnrollment|undefined):Promise<Result<void>>{
+ async authenticate(ctx:PoolKeyContext,pool:PoolId,id:CredentialId,certificate:PresentedIdentity|undefined,enrollment:IdentityEnrollment|undefined,diagnostic?:(value:IdentityDiagnostic)=>void):Promise<Result<void>>{
   // Established credentials need no pool-wide lock or XQ call. Lock only their
   // own row while checking, so independent agents do not serialize on a pool.
   const established=await withTenant(ctx,async tx=>{
    const [row]=await tx.query<Binding>('SELECT * FROM pool_credential WHERE id=$1 AND pool_id=$2 FOR SHARE',[id,pool]);
    if(!row||row.revoked_at)return err(new DomainError('unauthenticated','This credential is not active.'));
-   const refuse=async(message:string,cause='identity_mismatch')=>{await audit(tx,ctx,id,'CredentialIdentityRefused',{cause},'system');return err(new DomainError('unauthenticated',message,{cause}));};
+   const refuse=async(message:string,cause='identity_mismatch')=>{const stored=StoredChallenge.safeParse(row.enrollment_challenge);diagnostic?.({boundFingerprintPrefix:row.certificate_fingerprint?.slice(0,12)??null,challengeState:stored.success?(Date.parse(stored.data.expiresAt)<=Date.now()?'expired':'not returned'):null});await audit(tx,ctx,id,'CredentialIdentityRefused',{cause},'system');return err(new DomainError('unauthenticated',message,{cause}));};
    if(row.credential_kind==='bearer-only'){
     if((await tx.query("SELECT 1 FROM entitlement WHERE pool_id=$1 AND treatment='custody' LIMIT 1",[pool])).length)return refuse('Bearer-only credentials cannot access a pool with custody columns.');
     return ok(undefined);
@@ -48,7 +48,7 @@ export class PostgresCredentialBindings implements CredentialBindings{
    await tx.query('SELECT id FROM pool WHERE id=$1 FOR UPDATE',[pool]);
    const [row]=await tx.query<Binding>('SELECT * FROM pool_credential WHERE id=$1 AND pool_id=$2 FOR UPDATE',[id,pool]);
    if(!row||row.revoked_at)return err(new DomainError('unauthenticated','This credential is not active.'));
-   const refuse=async(message:string,cause='identity_mismatch')=>{await audit(tx,ctx,id,'CredentialIdentityRefused',{cause},'system');return err(new DomainError('unauthenticated',message,{cause}));};
+   const refuse=async(message:string,cause='identity_mismatch',state?:IdentityDiagnostic['challengeState'])=>{const stored=StoredChallenge.safeParse(row.enrollment_challenge);diagnostic?.({boundFingerprintPrefix:row.certificate_fingerprint?.slice(0,12)??null,challengeState:state!==undefined?state:(stored.success?(Date.parse(stored.data.expiresAt)<=Date.now()?'expired':'not returned'):null)});await audit(tx,ctx,id,'CredentialIdentityRefused',{cause},'system');return err(new DomainError('unauthenticated',message,{cause}));};
    if(row.credential_kind==='bearer-only'){
     if((await tx.query("SELECT 1 FROM entitlement WHERE pool_id=$1 AND treatment='custody' LIMIT 1",[pool])).length)return refuse('Bearer-only credentials cannot access a pool with custody columns.');
     return ok(undefined);
@@ -69,14 +69,14 @@ export class PostgresCredentialBindings implements CredentialBindings{
     await tx.query('UPDATE pool_credential SET enrollment_challenge=NULL WHERE id=$1',[id]);
     const nonce=Buffer.from(proof.nonce,'base64url');
     const valid=stored.success&&stored.data.id===proof.id&&stored.data.fingerprint===certificate.fingerprint&&stored.data.recipient===enrollment.recipientIdentifier&&Date.parse(stored.data.expiresAt)>Date.now()&&timingSafeEqual(Buffer.from(stored.data.digest,'hex'),nonceDigest(nonce));nonce.fill(0);
-    if(!valid)return refuse('The XQ enrollment challenge was not proven. No identity was bound.','identity_unproven');
+    if(!valid)return refuse('The XQ enrollment challenge was not proven. No identity was bound.','identity_unproven',stored.success&&Date.parse(stored.data.expiresAt)<=Date.now()?'expired':null);
    }else{
     // Every unanswered challenge is a refused enrollment, including a caller
     // that never comes back. Only a hash persists; the nonce exists at XQ.
     if(stored.success&&Date.parse(stored.data.expiresAt)>Date.now())return refuse('The outstanding XQ enrollment challenge has not been proven.','identity_unproven');
     if(!prepared)return refuse('XQ enrollment escrow failed or is unavailable. No identity was bound.','identity_unproven');
     await tx.query('UPDATE pool_credential SET enrollment_challenge=$2 WHERE id=$1',[id,{id:prepared.id,fingerprint:certificate.fingerprint,recipient:enrollment.recipientIdentifier,digest:nonceDigest(prepared.nonce).toString('hex'),expiresAt:prepared.expiresAt}]);
-    await audit(tx,ctx,id,'CredentialIdentityRefused',{cause:'identity_unproven',challengeId:prepared.id},'system');retained=true;
+    diagnostic?.({boundFingerprintPrefix:null,challengeState:'escrowed'});await audit(tx,ctx,id,'CredentialIdentityRefused',{cause:'identity_unproven',challengeId:prepared.id},'system');retained=true;
     return err(new DomainError('unauthenticated','Redeem the one-time XQ enrollment challenge before this identity can bind.',{cause:'identity_unproven',challenge:{id:prepared.id,locator:prepared.locator,expiresAt:prepared.expiresAt}}));
    }
    const [project]=await tx.query<{approval:boolean|null}>('SELECT identity_binding_requires_approval() AS approval');
@@ -86,7 +86,7 @@ export class PostgresCredentialBindings implements CredentialBindings{
     certificate_id=$5,device_name=$6,recipient_identifier=$7,identity_kind='certificate',association_status='associated',association_recorded_at=clock_timestamp()
     WHERE id=$1`,[id,certificate.fingerprint,certificate.subject,status,enrollment.certificateId,enrollment.deviceName,enrollment.recipientIdentifier]);
    await audit(tx,ctx,id,pending?'CredentialIdentityPending':'CredentialIdentityBound',{fingerprint:certificate.fingerprint,status},'system');
-   return pending?refuse('An administrator must approve this identity binding.','identity_pending'):ok(undefined);
+   return pending?refuse('An administrator must approve this identity binding.','identity_pending','redeemed'):ok(undefined);
   });}finally{if(prepared){prepared.nonce.fill(0);if(!retained&&this.escrow?.revokeEnrollment)await this.escrow.revokeEnrollment(ctx,prepared.locator).catch(()=>{});}}
  }
  change(ctx:PoolKeyContext,pool:PoolId,id:CredentialId,action:'approve'|'reset',confirmation:string):Promise<Result<void>>{

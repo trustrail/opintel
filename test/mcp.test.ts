@@ -43,6 +43,14 @@ async function fixture(){
  return {...f,pool,keys,created,presence,service,events,mcp,configuration,url,headers,connect,post,modes,key};
 }
 describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
+ it('logs identity refusal diagnostics without exposing credential secrets',async()=>{
+  const f=await fixture(),issued=PoolKeyCreationResponse.parse(unwrap(await f.keys.execute(f.ctx,{kind:'issue',poolId:f.pool,label:'Identity',credentialKind:'identity-bound'},randomUUID())));if(!issued.keyShown)throw new Error('No key');
+  const logs=vi.spyOn(console,'info');try{
+   const response=await f.post({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'1'}}},undefined,{authorization:`Bearer ${issued.key}`,'x-opintel-agent-id':'agent-1'});
+   expect(response.status).toBe(401);const event=logs.mock.calls.map(call=>call[0]).find(value=>value?.event==='mcp.transport_refused');
+   expect(event).toMatchObject({reason:'unauthenticated',cause:'identity_mismatch',credentialId:issued.credentialId,presentedFingerprintPrefix:null,boundFingerprintPrefix:null,presentedRecipientIdentifier:null,challengeState:null});expect(JSON.stringify(event)).not.toContain(issued.key);
+  }finally{logs.mockRestore();}
+ });
  it('I-004 / I-023: an SDK client initializes, lists schemas and gets unavailable results; presence uses the authenticated key',async()=>{
   const f=await fixture(),{client}=await f.connect();
   const result=await client.listTools();

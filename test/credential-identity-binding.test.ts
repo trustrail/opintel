@@ -30,6 +30,7 @@ it('ID-01 first connection binds fingerprint and records audit; later certificat
  const f=await fixture();expect((await f.authenticate()).ok).toBe(true);expect(await f.row()).toMatchObject({binding_status:'bound',certificate_fingerprint:certificate.fingerprint,recipient_identifier:enrollment.recipientIdentifier});
  expect((await f.bindings.authenticate(f.ctx,f.pool,f.id,certificate,undefined)).ok).toBe(true);
  const mismatch=await f.authenticate(other);expect(mismatch).toMatchObject({ok:false,error:{details:{cause:'identity_mismatch'}}});
+ const diagnostic=vi.fn();expect((await f.bindings.authenticate(f.ctx,f.pool,f.id,other,enrollment,diagnostic)).ok).toBe(false);expect(diagnostic).toHaveBeenCalledWith({boundFingerprintPrefix:certificate.fingerprint.slice(0,12),challengeState:null});
  const events=await withTenant(f.ctx,tx=>tx.query<{action:string;after:{cause?:string}}>('SELECT action,after FROM audit_entry WHERE target->>\'credentialId\'=$1 ORDER BY occurred_at,id',[f.id]));
  expect(events.map(e=>e.action)).toContain('CredentialIdentityBound');expect(events.some(e=>e.action==='CredentialIdentityRefused'&&e.after.cause==='identity_mismatch')).toBe(true);
 });
@@ -52,11 +53,11 @@ it('ID-01 migrated custody enrollment must match the previously associated XQ re
 });
 
 it('ID-01 unreturned challenge serves nothing, stores only a hash and records identity_unproven',async()=>{
- const f=await fixture(),result=await f.rawAuthenticate();expect(result).toMatchObject({ok:false,error:{details:{cause:'identity_unproven'}}});
+ const f=await fixture(),diagnostic=vi.fn(),result=await f.bindings.authenticate(f.ctx,f.pool,f.id,certificate,enrollment,diagnostic);expect(result).toMatchObject({ok:false,error:{details:{cause:'identity_unproven'}}});expect(diagnostic).toHaveBeenLastCalledWith({boundFingerprintPrefix:null,challengeState:'escrowed'});
  expect(await f.row()).toMatchObject({binding_status:'unbound',certificate_fingerprint:null,recipient_identifier:null});
  const stored=await withTenant(f.ctx,tx=>tx.query('SELECT enrollment_challenge FROM pool_credential WHERE id=$1',[f.id]));
  expect(JSON.stringify(stored)).not.toContain([...f.packets.values()][0]!.nonce);
- expect(await f.rawAuthenticate()).toMatchObject({ok:false,error:{details:{cause:'identity_unproven'}}});expect(f.escrow).toHaveBeenCalledTimes(1);
+ expect(await f.bindings.authenticate(f.ctx,f.pool,f.id,certificate,enrollment,diagnostic)).toMatchObject({ok:false,error:{details:{cause:'identity_unproven'}}});expect(diagnostic).toHaveBeenLastCalledWith({boundFingerprintPrefix:null,challengeState:'not returned'});expect(f.escrow).toHaveBeenCalledTimes(1);
  expect(await withTenant(f.ctx,tx=>tx.query("SELECT after->>'cause' AS cause FROM audit_entry WHERE action='CredentialIdentityRefused'"))).toEqual([{cause:'identity_unproven'},{cause:'identity_unproven'}]);
 });
 it.each(['wrong-recipient','wrong-certificate','wrong-nonce','expired'] as const)('ID-01 challenge refuses %s without binding and cannot be replayed',async fault=>{

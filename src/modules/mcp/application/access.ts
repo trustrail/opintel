@@ -1,5 +1,5 @@
 import type {IdentityEnrollment} from '../../../shared/api/credential-identity.js';
-import type {CredentialBindings,PresentedIdentity} from '../../pools/index.js';
+import type {CredentialBindings,PresentedIdentity,IdentityDiagnostic} from '../../pools/index.js';
 import { DomainError, err, ok, type Result, type ProjectId } from '../../../shared/kernel/index.js';
 import { AgentIdHeader,agentIdRequirement } from '../../../shared/api/agent-presence.js';
 import type { KeyVerifier, KeyVerdict, AgentPresenceService } from '../../pools/index.js';
@@ -32,9 +32,9 @@ export class McpAccess {
   if(claimed===undefined)return refuse();
   return ok({ ...key, agentId: claimed });
  }
- async identity(principal:McpPrincipal,certificate:PresentedIdentity|undefined,enrollment:IdentityEnrollment|undefined){
+ async identity(principal:McpPrincipal,certificate:PresentedIdentity|undefined,enrollment:IdentityEnrollment|undefined,diagnostic?:(value:IdentityDiagnostic)=>void){
   if(!principal.credentialId)return err(new DomainError('unauthenticated','This key has no credential identity.'));
-  return this.bindings.authenticate({projectId:principal.pool.projectId,userId:principal.scopeUserId},principal.pool.id,principal.credentialId,certificate,enrollment);
+  return this.bindings.authenticate({projectId:principal.pool.projectId,userId:principal.scopeUserId},principal.pool.id,principal.credentialId,certificate,enrollment,diagnostic);
  }
  async observe(principal: McpPrincipal, kind: 'connect'|'request'|'heartbeat', client: string|null) {
   return this.presence.observeAuthenticated({projectId:principal.pool.projectId,userId:principal.scopeUserId},
