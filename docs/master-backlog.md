@@ -880,6 +880,11 @@ checking the running project's identity). Its hard-coded five-second Compose
 start limit belongs in the hard-coded-timeout audit. Do not weaken isolated gate
 databases or reuse development data for tests.
 
+The browser/MCP smoke test's hard-coded 30-second deadline has failed three
+times on the Intel development Mac and passed on immediate rerun twice. Review
+the deadline in the hard-coded-timeout audit, on proper hardware. Do not infer
+a product defect or change the deadline from these observations alone.
+
 
 SpiceDB schema write: hard-coded **5 s, single attempt**
 (`src/modules/authz/infrastructure/load-schema.ts`). **Fixed in this branch**:
@@ -935,3 +940,11 @@ Supersedes the per-limit fixes for gateway->engine timeouts in the hard-coded ti
 
 **Status** Backlog; hypothesis only, no implementation in this branch.
 The original smoke failure showed six pending GET requests at once (two fonts and three row-entitlement reads among them), consistent with the browser's HTTP/1.1 per-host connection limit; **hypothesis only**. The sixth entry was the project-pools request. The retained trace records six requests without completion; it does not establish that both older font requests were still active at the deadline, the actual connection occupancy, or the negotiated HTTP version. Do not treat this as an established root cause. This browser-to-ingress hypothesis is separate from ARCH-01's gateway-to-engine transport proposal.
+
+### MCP output treatments and OAP leakage gate
+
+MCP query results should carry each output column's treatment from the recorded
+decision, including expressions and aliases. Design this together with the pool
+resource field planned for OAP's leakage gate. Until then, the query step uses
+describe metadata for exact direct-column matches and says “not reported” for
+outputs whose treatment cannot be established; it never guesses from values.

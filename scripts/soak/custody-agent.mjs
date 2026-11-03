@@ -2,113 +2,53 @@
 // material or device tokens. Spawn with an explicit environment, not process.env.
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
-import {readFileSync,readdirSync,realpathSync,statSync} from 'node:fs';
+import {readFileSync,realpathSync} from 'node:fs';
 import {join,relative,isAbsolute} from 'node:path';
 import {homedir} from 'node:os';
 import {exchangeDue,exchangeRetryMs} from './exchange-policy.ts';
-import {deviceAssociation} from './device-subject.ts';
 import {certificateMapping} from './manifest.ts';
-import {unwrapDeviceToken} from '../infrastructure/xq-token-unwrap.mjs';
 import {webcrypto,createHash,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {encryptCertificatePayload,decryptCertificateResponse} from '../infrastructure/xq-device-certificate-envelope.mjs';
 import {verifyCustodyCells} from './custody-check.ts';
-import {decodeXqShare} from '../../src/shared/xq-share-codec.mjs';
-
+import {xqDevice,DeviceFailure} from '../steps/infrastructure/xq-device.mjs';
+// The SDK and all secret-bearing operations stay in this agent subprocess.
 globalThis.window={navigator:{platform:'Node'},crypto:webcrypto};
 for(const name of ['log','info','warn','error','debug'])globalThis.console[name]=()=>{};
-const {XQSDK,FetchKey,ServerResponse}=await import('@xqmsg/jssdk-core');
-const apiKey=process.env.OPINTEL_XQ_API_KEY??'';
 if(process.env.OPINTEL_XQ_SENDER_ACCESS_TOKEN)throw new Error('Agent credential boundary invalid');
-const endpoints=new XQSDK({XQ_API_KEY:apiKey||'missing-key'});
-const base=endpoints.SUBSCRIPTION_SERVER_URL.replace(/\/$/u,'');
-const validationBase=endpoints.VALIDATION_SERVER_URL.replace(/\/$/u,'');
-if(base!=='https://subscription.xqmsg.net/v2')throw new Error('Unexpected XQ endpoint');
-const sensitive=apiKey?[apiKey]:[];
-const redact=body=>sensitive.filter(Boolean).reduce((s,v)=>s.split(v).join('[redacted]'),body).replace(/[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+/gu,'[address redacted]').replace(/[A-Za-z0-9+/_-]{43,}={0,2}/gu,'[opaque value redacted]');
 const identities=new Map(),clients=new Map(),calls=[];
+let device;
 const mapping=certificateMapping.parse(JSON.parse(readFileSync(process.argv[2],'utf8')));
 const outside=p=>{const rel=relative(process.cwd(),p);return rel==='..'||rel.startsWith('../')||isAbsolute(rel);};
 const states=new Map();
-function files(directory){const actual=realpathSync(directory);if(!outside(actual))throw new Error('Certificate path enters repository');return readdirSync(actual,{withFileTypes:true}).flatMap(entry=>entry.isSymbolicLink()?[]:entry.isDirectory()?files(join(actual,entry.name)):[join(actual,entry.name)]);}
-const request=async(path,method,headers,body)=>{
- const target=path.startsWith('/')?base+path:path;
- if(!target.startsWith(base+'/')&&!target.startsWith(validationBase+'/key/'))throw new Error('Unexpected XQ request endpoint');
- const entry={operation:target.startsWith(validationBase+'/key/')?'fetch':path,at:new Date().toISOString()};calls.splice(0,calls.length,entry);
- const response=await globalThis.fetch(target,{method,headers:{'api-key':apiKey,...headers},body,signal:globalThis.AbortSignal.timeout(15000),redirect:'error'});
- entry.status=response.status;const raw=await response.text();entry.body=response.ok&&path!=='/time'?'[successful secret-bearing body redacted]':redact(raw);return {status:response.status,ok:response.ok,body:raw};
-};
-let exchangePhase='bundle';
 async function exchange(certificateId,deviceName){
- exchangePhase='bundle';calls.length=0;
- if(identities.has(certificateId))throw new Error('Certificate exchange already attempted');
- identities.set(certificateId,null);
  const entry=mapping.find(m=>m.certificateId===certificateId&&m.deviceName===deviceName);if(!entry)throw new Error('Certificate mapping mismatch');
  const root=realpathSync(entry.bundlePath.startsWith('~/')?join(homedir(),entry.bundlePath.slice(2)):entry.bundlePath);
- if(!outside(root)||statSync(root).mode&0o077)throw new Error('Bundle must be outside repository with directory mode 700');
- const paths=files(root);
- if(['client.crt','transport.key','client.key'].some(name=>paths.filter(p=>p.endsWith('/'+name)).length!==1))throw new Error('Ambiguous or missing bundle file');
- const certPath=paths.find(p=>p.endsWith('/client.crt')),transportPath=paths.find(p=>p.endsWith('/transport.key')),privatePath=paths.find(p=>p.endsWith('/client.key'));
- if(!certPath||!transportPath||!privatePath)throw new Error('Bundle file names do not match expected public format');
- for(const file of [certPath,transportPath,privatePath])if(statSync(file).mode&0o077)throw new Error('Bundle files must have mode 600');
- const cert=readFileSync(certPath,'utf8');const pem=cert.includes('-----BEGIN CERTIFICATE-----')?cert:Buffer.from(cert.trim(),'base64').toString('utf8');
- if(!pem.startsWith('-----BEGIN CERTIFICATE-----'))throw new Error('Certificate format invalid');
- const privateText=readFileSync(privatePath,'utf8'),privateBytes=privateText.includes('-----BEGIN')?Buffer.from(privateText):Buffer.from(privateText.trim(),'base64');
- const transport=readFileSync(transportPath,'utf8').trim();sensitive.push(transport,pem,cert,privateText);
- exchangePhase='server_time';
- const time=await request('/time','GET',{});
- if(!time.ok)return {ok:false,status:time.status,body:redact(time.body),reason:'time_refused'};
- if(!/^\d+$/u.test(time.body.trim()))return {ok:false,reason:'invalid_server_time'};
- exchangePhase='certificate_authorization';
- const r=await request('/authorize/certificate/'+certificateId,'POST',{'content-type':'application/json'},encryptCertificatePayload({crt:Buffer.from(pem).toString('base64'),device:deviceName,ver:3,ts:Number(time.body.trim())},transport));
- if(!r.ok)return {ok:false,status:r.status,body:redact(r.body),reason:'certificate_exchange_refused'};
- exchangePhase='response_decryption';
- const decoded=decryptCertificateResponse(r.body,transport),response=JSON.parse(decoded.toString());decoded.fill(0);
- exchangePhase='token_unwrap';
- const unwrapped=await unwrapDeviceToken(privateBytes,Buffer.from(response.access_token,'base64'));
- if(!unwrapped.length)throw new Error('Empty device token');
- const token=unwrapped.toString().trim();unwrapped.fill(0);// Token never crosses IPC or enters the log.
-sensitive.push(token);
- const payload=JSON.parse(Buffer.from(token.split('.')[1],'base64url').toString());
- const association=deviceAssociation(payload,certificateId,deviceName);
- sensitive.push(association.recipientIdentifier);const team=/@([^@]+)\.trusted\.local$/u.exec(association.recipientIdentifier)?.[1];if(team)sensitive.push(team);
- identities.set(certificateId,{token,association,expires:payload.exp});
- return {ok:true,status:r.status,association};
+ if(!outside(root))throw new Error('Certificate path enters repository');
+ const result=await device.exchange(certificateId,deviceName,root);identities.set(certificateId,result);return {ok:true,status:result.status,association:result.association};
 }
-
-const announce=(id,event,status)=>process.send?.({event,agent:id,status});
 async function ensure(association){
  const id=association.certificateId,prior=states.get(id),identity=identities.get(id);
  if(!exchangeDue(prior,identity?.expires,Date.now()))return prior;
- if(identity){const old=sensitive.indexOf(identity.token);if(old>=0)sensitive.splice(old,1);}identities.delete(id);
- let state;
- try{const result=apiKey?await exchange(id,association.deviceName):{ok:false,reason:'general_api_key_missing',body:'OPINTEL_XQ_API_KEY is missing; governed MCP queries remain available.'};
-  if(!result.ok)state={ok:false,reason:result.reason??'certificate_exchange_refused',status:result.status??null,body:result.body??null};
-  else state={ok:true,reason:null,status:result.status,body:null};
- }catch(error){const code=error&&['ENOENT','EACCES','EPERM'].includes(error.code)?' ('+error.code+')':'';state={ok:false,reason:exchangePhase+'_failed',status:calls.at(-1)?.status??null,body:'Local '+exchangePhase+' operation failed'+code+'; no printable HTTP failure body. Secret-bearing diagnostics suppressed.'};}
- if(!state.ok)identities.delete(id);
- state={...state,certificateId:id,deviceName:association.deviceName,nextAttempt:Date.now()+exchangeRetryMs};states.set(id,state);
- process.send?.({exchange:state,startup:!prior});return state;
+ identities.delete(id);let state;
+ try{const result=await exchange(id,association.deviceName);state={ok:true,reason:null,status:result.status,body:null};}
+ catch(error){state={ok:false,reason:error instanceof DeviceFailure?error.phase+'_failed':'bundle_failed',status:error instanceof DeviceFailure?error.status:null,body:'Agent certificate exchange failed; no secret-bearing body was reported.'};}
+ state={...state,certificateId:id,deviceName:association.deviceName,nextAttempt:Date.now()+exchangeRetryMs};states.set(id,state);process.send?.({exchange:state,startup:!prior});return state;
 }
+
+const announce=(id,event,status)=>process.send?.({event,agent:id,status});
 async function command(m){
+ if(m.op==='configure'){device=await xqDevice(m.apiKey,event=>{calls.splice(0,calls.length,event);});return {ok:true};}
  if(m.op==='associations'){const result=[];for(const entry of mapping){const state=await ensure(entry);if(state.ok)result.push(identities.get(entry.certificateId).association);}return result;}
  if(m.op==='verify-share'){
   const input=z.object({association:z.object({certificateId:z.number().int(),deviceName:z.string()}),locator:z.string().min(1).max(4096),expectedDigest:z.string().regex(/^[a-f0-9]{64}$/u)}).parse(m);
   const entry=mapping.find(value=>value.certificateId===input.association.certificateId&&value.deviceName===input.association.deviceName);
   if(!entry)throw new Error('Certificate mapping mismatch');
   const state=await ensure(entry);if(!state.ok)return {ok:false,status:state.status};
-  const identity=identities.get(entry.certificateId),sdk=new XQSDK({XQ_API_KEY:apiKey});
-  sdk.getCache().putActiveProfile(identity.association.recipientIdentifier);sdk.getCache().putXQAccess(identity.association.recipientIdentifier,identity.token);
-  let status=null,share;
-  try{
-   sdk.makeRequest=async(url,method,_service,headers)=>{if(headers.Authorization!=='Bearer '+identity.token||!url.startsWith(validationBase+'/key/'))throw new Error('Fetch boundary violation');const r=await request(url,method,headers);status=r.status;let payload;try{payload=JSON.parse(r.body);}catch{payload=r.body;}return new ServerResponse(r.ok?ServerResponse.OK:ServerResponse.ERROR,r.status,payload);};
-   const fetched=await new FetchKey(sdk).supplyAsync({locatorKey:input.locator});
-   if(fetched.status!==ServerResponse.OK||typeof fetched.payload!=='string')return {ok:false,status};
-   share=decodeXqShare(fetched.payload);
-   return {ok:share.length===32&&timingSafeEqual(createHash('sha256').update(share).digest(),Buffer.from(input.expectedDigest,'hex')),status};
-  }finally{share?.fill(0);sdk.getCache().clearAllProfiles();}
+  let share;
+  try{const fetched=await device.fetchShare(entry.certificateId,input.locator);share=fetched.share;return {ok:share.length===32&&timingSafeEqual(createHash('sha256').update(share).digest(),Buffer.from(input.expectedDigest,'hex')),status:fetched.status};}
+  catch(error){return {ok:false,status:error instanceof DeviceFailure?error.status:null};}finally{share?.fill(0);}
  }
  if(m.op==='connect'){
   const entry=mapping.find(a=>a.certificateId===m.association.certificateId);
@@ -132,19 +72,15 @@ async function command(m){
    const second=Buffer.from(reply.structuredContent.share,'base64url');announce(m.id,'Opintel share released',200);
    let first;
    try{
-    const sdk=new XQSDK({XQ_API_KEY:apiKey});sdk.getCache().putActiveProfile(identity.association.recipientIdentifier);sdk.getCache().putXQAccess(identity.association.recipientIdentifier,identity.token);
-    let status;
-    sdk.makeRequest=async(url,method,_service,headers)=>{if(headers.Authorization!=='Bearer '+identity.token||!url.startsWith(validationBase+'/key/'))throw new Error('Fetch boundary violation');const r=await request(url,method,headers);status=r.status;let payload;try{payload=JSON.parse(r.body);}catch{payload=r.body;}return new ServerResponse(r.ok?ServerResponse.OK:ServerResponse.ERROR,r.status,payload);};
-    const fetched=await new FetchKey(sdk).supplyAsync({locatorKey:claims.custody.locator});sdk.getCache().clearAllProfiles();announce(m.id,'XQ share retrieval',status);
-    if(fetched.status!==ServerResponse.OK||typeof fetched.payload!=='string')return {ok:false,stage:'fetch',status};
-    first=decodeXqShare(fetched.payload);
+    let fetched;try{fetched=await device.fetchShare(agent.association.certificateId,claims.custody.locator);}catch(error){return {ok:false,stage:'fetch',status:error instanceof DeviceFailure?error.status:undefined};}
+    first=fetched.share;announce(m.id,'XQ share retrieval',fetched.status);
     const checked=verifyCustodyCells(m.output,bundle.columns,m.expected,first,second);if(!checked.matches)return {ok:false,stage:'unseal',mismatch:true};verified+=checked.verified;
     announce(m.id,'local unseal verified',200);
    }finally{first?.fill(0);second.fill(0);}
   }
   return {ok:true,verified};
  }
- if(m.op==='close'){for(const {client} of clients.values())await client.close();identities.clear();sensitive.length=0;return {ok:true};}
+ if(m.op==='close'){for(const {client} of clients.values())await client.close();identities.clear();device.clear();return {ok:true};}
  throw new Error('Unknown agent command');
 }
 // Serialize certificate exchanges and custody completions; no cache mutation races.

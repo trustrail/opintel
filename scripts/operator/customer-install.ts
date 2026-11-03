@@ -42,6 +42,11 @@ function mountPairedMetadata(service:Service){
  writePairedMetadata();service.environment={...service.environment,INSTALLATION_PAIRING_FILE:'/installation-pairing/peer.json'};
  if(!service.volumes?.some(v=>v.endsWith(':/installation-pairing:ro')))service.volumes=[...service.volumes??[],host+'/state/paired-engines:/installation-pairing:ro'];
 }
+function mountPublicIdentities(service:Service){
+ const directory=join(state,'public-identities');mkdirSync(directory,{recursive:true,mode:0o700});chmodSync(directory,0o700);
+ service.environment={...service.environment,CUSTODY_IDENTITIES_FILE:'/public-identities/associations.json'};
+ if(!service.volumes?.some(v=>v.endsWith(':/public-identities:ro')))service.volumes=[...service.volumes??[],host+'/state/public-identities:/public-identities:ro'];
+}
 function prepareIdentityDirectory(){
  const directory=join(root,'identity-bundles'),legacy=join(root,'identities');
  if(existsSync(legacy)&&lstatSync(legacy).isSymbolicLink())throw new InstallError('Identity command or legacy directory must not be a link.');
@@ -189,7 +194,7 @@ function initialize(){
  for(const name of Object.keys(volumes))volumes[name]={name:installId+'-'+name};
  write('state/project-name',installId+'\n');
  write('state/volumes.list',Object.keys(volumes).map(n=>installId+'-'+n).join('\n')+'\n');
- if(kind==='gateway')mountPairedMetadata(services.api!);
+ if(kind==='gateway'){mountPairedMetadata(services.api!);mountPublicIdentities(services.api!);}
  write('state/compose.json',{name:installId,services,volumes});
  const pem=readFileSync(join(state,kind==='gateway'?'application.pem':'engine.pem'),'utf8');
  write('trust.json',{version:1,kind,address:kind==='gateway'?`https://${app!.hostname}:3102`:`https://${address}:3100`,certificate:pem,ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(pem).fingerprint256},0o600);
@@ -283,7 +288,7 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   if(kind==='gateway'&&tlsServices.includes(name))service.environment={...service.environment,APPLICATION_TLS_CONFIG:'/config/application-tls.json'};
  }
  if(kind==='gateway'){
-  mountPairedMetadata(config.services.api!);
+  mountPairedMetadata(config.services.api!);mountPublicIdentities(config.services.api!);
   prepareIdentityDirectory();
   const packageEnvironment=join(state,'package.env');
   writeFileSync(packageEnvironment,readFileSync(packageEnvironment,'utf8').replace(/^GATEWAY_AGENT_CERTIFICATES_DIRECTORY=.*$/mu,"GATEWAY_AGENT_CERTIFICATES_DIRECTORY='"+(host+'/identity-bundles').replaceAll("'","\\'")+"'"));
@@ -325,6 +330,9 @@ try{
   if(kind!=='gateway')throw new InstallError('Register engines from the gateway host.');
   const peer=await claimEngine(root,z.string().parse(process.argv[4]),z.string().parse(process.argv[5]));
   writeFileSync(join(state,'incoming.json'),JSON.stringify(peer),{mode:0o600});pair(peer.pin);
+ }else if(process.argv[2]==='agent-api-key'){
+  const info=lstatSync('/input/package.env');if(!info.isFile()||(info.mode&0o777)!==0o600)throw new InstallError('XQ configuration must be a mode-600 file.');
+  const key=z.string().min(1).parse(parse(readFileSync('/input/package.env','utf8')).OPINTEL_XQ_API_KEY);writeFileSync('/output/api-key',key+'\n',{mode:0o600,flag:'wx'});
  }else if(process.argv[2]==='identities')await importIdentity(root,'/import/export.zip',z.string().parse(process.argv[4]),process.argv[5]);
  else if(process.argv[2]==='initialize')initialize();
  else if(process.argv[2]==='installed'){

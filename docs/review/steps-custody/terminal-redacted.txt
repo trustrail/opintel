@@ -1,0 +1,65 @@
+$ ./identities add [flags supplied; values redacted]
+Team-issued identity imported. Manifest: identity-bundles/certificates.json
+identities add: device exchanged; public association saved. Device keys stayed on the agent host.
+
+
+$ ./identities add [flags supplied; values redacted]
+identities add: public associations imported; no device keys received.
+
+
+$ ./steps sign-in [normal SMTP link pasted; values redacted]
+Open the email and paste its sign-in link here (hidden): sign-in: signed in; session saved privately.
+
+
+$ ./steps grant-access [flags supplied; values redacted]
+grant-access: credential 5e79ed9e-1fbd-4751-9a89-3321e66aeaa6 issued; key saved privately; XQ identity opintelprobe linked.
+
+
+$ ./steps query [flags supplied; values redacted]
+id: clear · custody_label: custody
+id | custody_label         
+---+-----------------------
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+query: 6 rows; evidence 01a19eef-a9f3-7376-b05f-9af6c9276ca9.
+Grant 30bfada9-d524-474b-926a-82983505c3d4 · custody_label · expires 2026-11-03T01:14:33.000Z
+
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+id: clear · custody_label: custody (unsealed locally)
+id | custody_label
+---+--------------
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+Grant 30bfada9-d524-474b-926a-82983505c3d4 · custody_label · 6 rows unsealed
+redeem-and-unseal: receipt state: redeemed (Opintel released K2); local unsealing succeeded.
+
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+redeem-and-unseal: K2 refused: forbidden / release_refused: the grant is expired, revoked, already redeemed, or belongs to another credential; the server does not distinguish these causes. No key material was printed.
+
+
+$ ./steps query [flags supplied; values redacted]
+id: clear · custody_label: custody
+id | custody_label         
+---+-----------------------
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+[redacted] | [redacted]
+query: 6 rows; evidence 01a19ef0-0181-76a4-ab7f-f8fa0fde6fce.
+Grant 4680f301-3401-4577-a836-cbbabeda2994 · custody_label · expires 2026-11-03T01:14:53.000Z
+
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+redeem-and-unseal: K2 refused: forbidden / release_refused: the grant is expired, revoked, already redeemed, or belongs to another credential; the server does not distinguish these causes. No key material was printed.

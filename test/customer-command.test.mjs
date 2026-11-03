@@ -3,6 +3,36 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {it,expect} from 'vitest';
+it('default identity key handoff uses only the package-shared tree and writable private diagnostics',()=>{
+ const root=mkdtempSync(join(tmpdir(),'customer-agent-default-key-'));
+ try{
+  mkdirSync(join(root,'bin'));mkdirSync(join(root,'host-only-tmp'));
+  for(const name of ['release.json','images.list'])writeFileSync(join(root,name),'');
+  writeFileSync(join(root,'bootstrap.image'),'synthetic-bootstrap');writeFileSync(join(root,'package-kind'),'gateway');writeFileSync(join(root,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
+  copyFileSync('deploy/customer/command',join(root,'identities'));chmodSync(join(root,'identities'),0o755);
+  writeFileSync(join(root,'package.env'),'OPINTEL_XQ_API_KEY=fixture-key\n',{mode:0o600});const zip=join(root,'device-223.zip');writeFileSync(zip,'fixture');
+  writeFileSync(join(root,'bin/docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nexit 0\n',{mode:0o755});
+  const result=spawnSync(join(root,'identities'),['add',zip,'--device','fixture-device'],{encoding:'utf8',env:{...process.env,TMPDIR:join(root,'host-only-tmp'),PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls')}});
+  expect(result.status,result.stderr).toBe(0);const calls=readFileSync(join(root,'calls'),'utf8').split('\n'),extract=calls.find(line=>line.includes('customer-install.js agent-api-key gateway')),exchange=calls.find(line=>line.includes('identity-exchange.js exchange'));
+  expect(extract).toContain(`--user ${process.getuid()}:${process.getgid()}`);expect(exchange).toContain(`--user ${process.getuid()}:${process.getgid()}`);
+  expect(extract).toContain(`-v ${root}/.agent-api-`);expect(extract).toContain(`-v ${root}/diagnostics:/package/diagnostics`);expect(extract).not.toContain('/host-only-tmp/');
+  expect(statSync(join(root,'diagnostics')).mode&0o777).toBe(0o700);expect(readdirSync(root).some(name=>name.startsWith('.agent-api-'))).toBe(false);expect(calls.join('\n')).not.toContain('fixture-key');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+it.each(['identities','steps'])('agent %s job gives device unwrap private memory-backed temporary storage',command=>{
+ const root=mkdtempSync(join(tmpdir(),'customer-agent-memory-'));
+ try{
+  mkdirSync(join(root,'bin'));for(const name of ['release.json','images.list'])writeFileSync(join(root,name),'');
+  writeFileSync(join(root,'bootstrap.image'),'synthetic-bootstrap');writeFileSync(join(root,'package-kind'),'gateway');writeFileSync(join(root,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
+  copyFileSync('deploy/customer/command',join(root,command));chmodSync(join(root,command),0o755);
+  writeFileSync(join(root,'bin/docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nexit 0\n',{mode:0o755});
+  const zip=join(root,'device-223.zip'),key=join(root,'api-key');writeFileSync(zip,'fixture');writeFileSync(key,'private-fixture-key',{mode:0o600});
+  const result=spawnSync(join(root,command),command==='identities'?['add',zip,'--device','fixture-device','--api-key-file',key]:['query','--help'],{encoding:'utf8',input:'',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls')}});
+  expect(result.status,result.stderr).toBe(0);const calls=readFileSync(join(root,'calls'),'utf8').split('\n'),agent=calls.find(line=>line.includes(command==='identities'?'identity-exchange.js exchange':'scripts/steps/main.js query'));
+  expect(agent).toContain(`--read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=${process.getuid()},gid=${process.getgid()}`);
+  expect(agent).toContain('--cap-drop ALL --security-opt no-new-privileges');expect(calls.join('\n')).not.toContain('private-fixture-key');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
 it('DEP-018: startup stops at a failed migration and retains private diagnostics',()=>{
  const root=mkdtempSync(join(tmpdir(),'customer-command-'));
  try{

@@ -1,0 +1,352 @@
+# Agent custody steps
+
+Branch `feat/steps-custody`, from main `f744476`.
+
+Latest follow-up: the ARM native identity-import key-handoff failure on
+`79d667f` is corrected in `ba8d659`; targeted tests, fresh amd64 archives,
+first receipt and the repeated live-XQ sequence passed. See the
+[cause, permissions proof and new native command](steps-custody-key-handoff.md).
+
+Final status: gate on `5ead8ae` accepted by the owner with the back-to-back
+smoke evidence below. Corrected packaging candidate
+`79d667f746459ec011c3dd2761eb09b1327bf657` passed fresh amd64 archive installation
+through first receipt and the complete live-XQ custody sequence. Not merged.
+Earlier failed candidates remain documented below; they are not green results.
+
+## Scope and decisions
+
+The gateway archive ships `./steps sign-in`, `grant-access`, `query`, and
+`redeem-and-unseal`, each performing one job with explicit flags and help.
+Sign-in uses the normal nonce-bound magic-link request/callback and verifies
+the created session. Grant access requires that normal session file and calls
+the existing administrator credential-issuance API. It never creates an
+administrator bypass. Query and redemption use one authenticated MCP session
+per invocation and the self-declared agent ID URL parameter; the pool credential
+remains the authorization identity.
+
+The optional console XQ choice lists device names and certificate IDs from a
+new cursor-paginated, project-administrator-only read endpoint. The public
+association is sent through the existing issuance API. Credential rows and
+agent detail show the linked device; unlinked credentials retain their previous
+behavior and agent names remain self-declared.
+
+The approved identity-import exchange runs in a separate short-lived agent
+process. Only certificate ID, device name and the exact XQ-issued recipient
+identifier are published. Gateway API services mount that public manifest only;
+no device private/transport key is mounted there or stored in the database.
+Production import/exchange runs on the agent's host. The gateway accepts only
+the resulting public association. The new packaged acceptance reproduces that
+boundary with a separate agent archive, without installing gateway services in
+it. API-key extraction is an offline job with no device files; the agent receives
+only the general XQ API key file, never gateway database or sender credentials.
+
+The XQ exchange/fetch and local-unseal implementations were moved from the soak
+into shared agent infrastructure. The soak still calls those implementations;
+its fixture expectations and checks remain. The retained VERIFY-01 executor
+already consumes the same soak custody-agent interface, so no parallel verifier
+crypto implementation was introduced.
+
+Output files are mode 600 and create-only; inputs reject non-private modes and
+symlinks. Device keys and device access tokens stay in the isolated agent
+process. Shares are transient, never output or persisted. Every required share
+is obtained before any cell is decrypted. Query displays custody cells shortened
+but saves complete sealed values/grants when requested. Redemption prints
+plaintext only with `--show`; the explicit plaintext output file is private.
+Receipt state `redeemed` retains the existing meaning: Opintel released K2. It
+alone does not prove XQ retrieval or local decryption. Revocation is demonstrated
+on a fresh unredeemed grant separately from the anti-replay check; previously
+obtained plaintext cannot be recalled.
+
+Per the approved interim choice, treatment labels use describe only for exact,
+direct-column matches. Unresolved expressions/aliases say “not reported”. The
+recorded-output-treatment/OAP leakage-gate design is in the master backlog.
+
+## Validation
+
+Targeted validation passed:
+
+- 61 tests across 13 backend, command, credential, release, installer and package
+  contract files; subsequent final command/identity/runtime regressions passed
+  19 tests across 4 files, and the final diagnostic tests passed 15 across 2.
+- All 156 console tests; a final 48-test Pools/workflow run after the display
+  adjustment also passed.
+- All six existing standalone soak custody-agent/oracle tests passed unchanged.
+- Strict typecheck, unchanged lint/dependency checks, Node syntax checks and
+  Bash syntax checks passed.
+
+During development, a permission-test mock incorrectly expected administration
+before the HTTP framework's prerequisite view check; the test now exercises both
+checks and verifies the denied administrator check cannot read the manifest.
+A callback union narrowing error and seven ordinary lint diagnostics were fixed
+without changing typecheck/lint rules or governance assertions.
+Targeted checks include the new command/permission/manifest tests, existing
+credential and release contracts, unchanged agent custody oracle tests,
+provisioning runtime exclusion, installer and package contracts, console tests,
+strict typecheck and unchanged lint. A single completed-candidate full gate is
+required, followed by fresh amd64 archives and the standard first-run acceptance
+with `--custody` against the live XQ tenant. ARM native verification is a separate
+operator run; no merge is authorized.
+
+## Completed-candidate gate: stopped
+
+Candidate `5ead8ae530446d041b6d81043eacbf349fe11252` was committed and
+pushed before its single gate run:
+
+```sh
+COMPOSE_PROJECT_NAME=opintel npm run check
+```
+
+The gate exited 1 after 2322.58 seconds. Both typechecks, unchanged lint,
+production-artifact exclusion, all 38 conformance checks (28/28 screen routes,
+zero findings), and all 2253 normal tests across 267 files passed. This includes
+the 12 step-command regressions, three identity-listing tests, provisioning
+runtime, certificate association and V-01 conformance.
+
+The final browser/MCP smoke test exceeded its unchanged 30000 ms test timeout:
+
+```text
+e2e/smoke.spec.ts:26:1
+sign in → pool → row filter → authenticated MCP query → persisted receipt decision
+Test timeout of 30000ms exceeded.
+McpError: MCP error -32000: Connection closed
+```
+
+The connection-closed stack points to the MCP fixture's cleanup
+(`test/fixtures/query/fixture.ts:104`, `e2e/smoke.spec.ts:25`). Retained logs show
+the query had reached the engine; they do not establish the cause of the
+whole-test deadline overrun:
+
+| Event, UTC 2026-11-02 | Time |
+|---|---|
+| `/execute` attempt 1 started | 23:58:16.555 |
+| TCP connected (DNS skipped) | 23:58:16.559 |
+| TLS completed | 23:58:16.564 |
+| Request written | 23:58:16.566 |
+| Engine admitted request | 23:58:16.587 |
+| Response-phase abort, `ABORT_ERR`, written=true | 23:58:17.143 |
+| MCP refusal `source_unavailable`, cause `parent_cancelled` | 23:58:17.147 |
+| Engine respond phase aborted | 23:58:17.155 |
+| Engine validation ended; `execution.refused` logged `budget_exceeded` | 23:58:17.369 |
+
+Call ID: `ac84c387-10ff-48a2-ab5a-2517bee0cc81`. Evidence ID:
+`01a19eb3-0b49-7088-9373-85df6ac4b782`. TCP took 4.28 ms and TLS 5.42 ms;
+the attempt lasted 588.00 ms. These records show cancellation after the request
+was written, not a connect timeout. No product cause is inferred from them.
+
+Gate summary: [gate-5ead8ae.json](steps-custody/gate-5ead8ae.json).
+Full local log: `/private/tmp/steps-custody-full-gate-5ead8ae.log`, especially
+lines 222069–222072 (normal results), 222320–222419 (cancellation), and
+222422–222459 (smoke failure). Playwright retained its trace under
+`test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/`.
+
+Gate database cleanup succeeded; development Postgres and Redis remained
+healthy. Per the stop rule, no gate or smoke retry, fresh archive build,
+packaged install, or live-XQ demo was run after this failure. The requested
+packaged terminal-output proof and native verification remain unverified.
+
+## Authorized smoke comparison and gate acceptance
+
+After the stop report, the owner authorized only the standard browser/MCP smoke
+tier on main `f744476`, followed immediately by candidate `5ead8ae`, in the same
+main checkout on the same Intel Mac. No code, timeout, test or dependency was
+changed between these runs. Development Postgres and Redis were healthy.
+
+Both commands were `COMPOSE_PROJECT_NAME=opintel npm run test:smoke`:
+
+| Revision | Result | Test body | Playwright total |
+|---|---|---|---|
+| Main `f744476` | 1 passed; exit 0 | 14.7 s | 35.4 s |
+| Candidate `5ead8ae` | 1 passed; exit 0 | 11.7 s | 29.0 s |
+
+Retained logs: `/private/tmp/steps-custody-smoke-main-f744476.log` and
+`/private/tmp/steps-custody-smoke-branch-5ead8ae.log`. The test-body deadline
+remained 30 seconds; Playwright total includes setup/teardown outside that body.
+
+**Decision:** accept the full gate on `5ead8ae` with this smoke evidence, exactly
+as authorized: all earlier tiers passed in the original single gate, and smoke
+then passed on both revisions back to back. No second full gate was run. The
+earlier timeout did not reproduce; its underlying cause remains unestablished.
+The Intel smoke-deadline review is recorded in the master backlog without an
+implementation change. Continue with fresh amd64 archives and the existing
+packaged first-run harness with its committed live-XQ custody extension.
+
+## Fresh image build input correction
+
+The first fresh amd64 build at `f833d8d` stopped before archive creation or
+packaged acceptance: `provisioning-build` could not resolve
+`scripts/steps/main.ts`. Its Docker stage copied `scripts/operator/` but omitted
+the new `scripts/steps/` input (`deploy/engine/Dockerfile:45–47`). The host
+provisioning-runtime test had the full checkout available and therefore did not
+exercise this Docker build context boundary.
+
+Corrected the build inputs only: copy `scripts/steps/` into provisioning-build
+and demo-tools-build, the latter because the existing soak now imports the
+shared custody implementation there. No product behavior, timeout, retry,
+credential boundary or smoke test changed. Run the existing provisioning,
+image-build and package contracts, strict typecheck and lint before committing
+this packaging correction and rebuilding through the standard harness.
+
+These checks passed: 22 tests across four files (provisioning-runtime,
+image-build, image-build-plan, deployment-packages), strict typecheck and
+unchanged lint/dependency checks. No additional full gate was run for this
+Docker build-input correction.
+
+The next build, `c57b774`, exposed a second missing transitive input:
+`scripts/infrastructure/xq-token-unwrap.mjs` and
+`xq-device-certificate-envelope.mjs`. Added the existing infrastructure folder
+to provisioning-build as well. Strengthened the existing provisioning-runtime
+test to construct its build context from the actual toolchain and provisioning
+Docker COPY inputs, rather than the full checkout; it removes that context
+before checking isolated command startup. The four targeted contract files
+passed all 22 tests with this isolated build context. These are build-input and
+test corrections only; packaged acceptance has still not started.
+
+## First packaged acceptance and agent temporary storage
+
+All seven amd64 images at `b3c3aeab39152503d5da4305ab38d88c070aeb76`
+passed the standard image checks; both offline customer archives built. The
+standard `console-first-run-install.mjs ARCHIVES REVISION --custody` run retained
+its evidence in `tmp/console-first-run-acceptance-aeWcKV`.
+
+The original first-run browser acceptance passed: normal SMTP owner sign-in,
+project creation, engine registration/verification, source scan, query limits,
+pool creation, explicit column decision, credential issuance, answered request
+and receipt in Activity. It also checked the per-table editors.
+
+The custody extension then failed during its isolated agent-host identity
+import, before any public association was handed to the gateway:
+
+```text
+Team-issued identity imported. Manifest: identity-bundles/certificates.json
+identities add: XQ token_unwrap. No key material was logged.
+```
+
+The harness exited 1 with `agent-identity-import exit status mismatch` in phase
+`packaged-custody-steps`. No custody sign-in, grant, query, redemption or revoke
+was run in that candidate. Its services were stopped; the development Postgres
+and Redis remained healthy. No successful live-XQ sequence is claimed for it.
+
+Code evidence: Linux unwrap requires memory-backed `tmpdir()` and otherwise
+throws before OpenSSL (`scripts/infrastructure/xq-token-unwrap.mjs:13–16`). The
+two new isolated agent invocations used `--read-only` without a tmpfs mount
+(`deploy/customer/command:213,244` at that revision). They therefore omitted a
+required environment boundary for the existing agent unwrap implementation;
+the retained sanitized error identifies the phase but not its original inner
+exception. The failed candidate was not rerun unchanged.
+
+Corrected this task's wrapper defect: both agent jobs get the same bounded
+64 MiB `/tmp` tmpfs, mode 0700 with the agent UID/GID, `noexec,nosuid,nodev`.
+The read-only root, dropped capabilities and no-new-privileges stay enforced.
+Device-key bytes remain transient on the agent host, never on a persistent
+volume or in a gateway service. Added regressions to the existing command tests
+checking the actual Docker arguments for identity import and steps; retained
+the existing unwrap memory/cleanup test and isolated provisioning checks.
+
+The new wrapper test also reproduced macOS Bash 3.2 rejecting an empty
+`steps_interactive` array under `set -u`, before Docker was invoked. Corrected
+the three optional array expansions using Bash's guarded-array form. The six
+command tests then passed. Provisioning-runtime and the unchanged unwrap test
+also passed; Bash/Node syntax checks and unchanged lint passed. These are
+packaged script corrections; no second full gate is run under the standing
+script-only validation rule.
+
+## Final packaged result: passed
+
+Tested revision: `79d667f746459ec011c3dd2761eb09b1327bf657`. These standard
+commands completed successfully:
+
+```sh
+BUILD_CANDIDATE=1 TAG=candidate-steps-custody-79d667f PLATFORM=linux/amd64 IMAGE=all node scripts/images/build.mjs
+PLATFORM=linux/amd64 node scripts/images/customer-package.mjs tmp/images/releases/candidate-steps-custody-79d667f-api-engine-console-egress-migrations-provisioning-demo-tools.json tmp/steps-custody-79d667f-packages --candidate
+node scripts/images/console-first-run-install.mjs tmp/steps-custody-79d667f-packages 79d667f746459ec011c3dd2761eb09b1327bf657 --custody
+```
+
+Candidate mode preserves unrelated untracked user documents; all task code and
+scripts were committed and pushed before the build. Seven amd64 images passed
+secret-layer, runtime allowlist and runtime-user readability checks. Both
+offline customer archives passed packaging audits. No substitute login, HTTP,
+TLS, MCP or installation step was used.
+
+Run directory: `tmp/console-first-run-acceptance-ix8Qn4`. Overall harness exit 0.
+Its fresh installation passed each first-run step: gateway/engine archives,
+one-code pairing, ordinary `./sources add`, normal owner SMTP sign-in, project
+creation, engine registration/verification, source connection/scan, query
+limits, pool creation, explicit clear decision, credential issuance, answered
+agent request, receipt visible in Activity, and per-table editor visibility.
+
+The live-XQ extension passed all ten checks:
+
+| Operation | Observed result |
+|---|---|
+| Agent-host device import and exchange | Public association published; only that public file imported by gateway |
+| `./steps sign-in` | Fresh normal SMTP magic link completed; private session file written |
+| Provider, engine and column setup | XQ check passed; custody engine designated; custody decision saved through console APIs |
+| `./steps grant-access` | Credential associated with imported device `opintelprobe` |
+| `./steps query` | Six rows, all six custody cells sealed; full private result saved |
+| `./steps redeem-and-unseal --show` | K2 and live XQ K1 obtained; six local values matched the independent fixture |
+| Same grant redeemed again | K2 refused; no output file or plaintext |
+| New query and console-API revoke | New grant revoked; immutable revoked event read back on its receipt |
+| Revoked grant redemption | K2 refused; no output file or plaintext |
+| Secret/output checks | Session, credential and result files mode 600; no key, cookie or full grant material in terminal output |
+
+The refusal deliberately preserves the server's existing combined explanation
+(expired, revoked, already redeemed, or another credential); it does not invent
+a more specific server message. The separate revoke response and recorded
+event establish revocation in this run. The unseal check compared local rows
+with independent fixture expectations, not values returned by the system as
+its own oracle. The fixture plaintext is redacted from the published terminal
+output. All required shares were obtained before decryption.
+
+First custody receipt: `01a19eef-a9f3-7376-b05f-9af6c9276ca9`.
+Revoked receipt: `01a19ef0-0181-76a4-ab7f-f8fa0fde6fce`.
+The console API returned HTTP 200 for
+`POST /api/v1/projects/:projectId/releases/4680f301-3401-4577-a836-cbbabeda2994/revoke`;
+the receipt then contained that grant's `revoked` release event.
+
+Actual terminal excerpt (data values redacted; full output linked below):
+
+```text
+$ ./steps sign-in [normal SMTP link pasted; values redacted]
+Open the email and paste its sign-in link here (hidden): sign-in: signed in; session saved privately.
+
+$ ./steps grant-access [flags supplied; values redacted]
+grant-access: credential 5e79ed9e-1fbd-4751-9a89-3321e66aeaa6 issued; key saved privately; XQ identity opintelprobe linked.
+
+$ ./steps query [flags supplied; values redacted]
+id: clear · custody_label: custody
+query: 6 rows; evidence 01a19eef-a9f3-7376-b05f-9af6c9276ca9.
+Grant 30bfada9-d524-474b-926a-82983505c3d4 · custody_label · expires 2026-11-03T01:14:33.000Z
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+id: clear · custody_label: custody (unsealed locally)
+Grant 30bfada9-d524-474b-926a-82983505c3d4 · custody_label · 6 rows unsealed
+redeem-and-unseal: receipt state: redeemed (Opintel released K2); local unsealing succeeded.
+
+$ ./steps redeem-and-unseal [flags supplied; values redacted]
+redeem-and-unseal: K2 refused: forbidden / release_refused: the grant is expired, revoked, already redeemed, or belongs to another credential; the server does not distinguish these causes. No key material was printed.
+```
+
+The full transcript includes the replay refusal, second query and final
+post-revocation refusal with all table cells redacted. Published evidence:
+
+- [Complete redacted terminal output](steps-custody/terminal-redacted.txt).
+- [Live-XQ check results and receipt IDs](steps-custody/custody-result-79d667f.json).
+- [Fresh installation results](steps-custody/install-result-79d667f.json).
+- [Image identities and runtime manifests](steps-custody/images-79d667f.json).
+- [Archive SHA-256 hashes](steps-custody/archives-79d667f.sha256).
+
+Harness cleanup completed. Only development Postgres and Redis remained
+running, both healthy. No second full gate was run: the owner's gate acceptance
+is recorded above, and subsequent corrections affected packaged build inputs,
+the agent command wrapper and their tests. Their targeted checks, strict
+typecheck, lint and syntax results are recorded alongside those corrections.
+
+ARM native verification remains an operator action on the MacBook Air:
+
+```sh
+git fetch origin feat/steps-custody
+scripts/release/native.sh 79d667f746459ec011c3dd2761eb09b1327bf657
+```
+
+This uses the default two-minute soak. The Intel run does not claim an ARM
+native result. Final evidence-only commits do not change the tested runtime.

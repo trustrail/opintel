@@ -1,0 +1,122 @@
+{
+  "status": "passed",
+  "revision": "79d667f746459ec011c3dd2761eb09b1327bf657",
+  "directory": "/Users/rzarita/opintel/tmp/console-first-run-acceptance-ix8Qn4",
+  "steps": [
+    {
+      "name": "fresh-archives-extracted",
+      "status": "passed"
+    },
+    {
+      "name": "gateway-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "engine-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "one-code-pairing",
+      "status": "passed"
+    },
+    {
+      "name": "engine-sources-add",
+      "status": "passed"
+    }
+  ],
+  "browser": {
+    "status": "passed",
+    "steps": [
+      {
+        "name": "owner-sign-in",
+        "status": "passed"
+      },
+      {
+        "name": "1-create-project",
+        "status": "passed"
+      },
+      {
+        "name": "2-engine-registered-verified",
+        "status": "passed"
+      },
+      {
+        "name": "3-source-connected-scanned",
+        "status": "passed"
+      },
+      {
+        "name": "project-query-limits",
+        "status": "passed"
+      },
+      {
+        "name": "4-pool-created",
+        "status": "passed"
+      },
+      {
+        "name": "explicit-clear-decision",
+        "status": "passed"
+      },
+      {
+        "name": "5-credential-issued",
+        "status": "passed"
+      },
+      {
+        "name": "agent-request-answered",
+        "status": "passed"
+      },
+      {
+        "name": "6-receipt-visible-in-activity",
+        "status": "passed"
+      },
+      {
+        "name": "per-table-editors-visible",
+        "status": "passed"
+      }
+    ],
+    "screenshots": [
+      "1440-light-sign-in-logo.png",
+      "1440-light-welcome.png",
+      "390-light-welcome.png",
+      "1440-light-rail-logo.png",
+      "1440-light-first-hour-step3.png",
+      "390-light-first-hour-step3.png",
+      "1440-light-schema-picker.png",
+      "1440-light-connect-source.png",
+      "1440-light-compound-and.png",
+      "1440-light-compound-or.png",
+      "1440-light-per-table-rules.png"
+    ],
+    "browserErrors": 0,
+    "projectId": "b796cd7c-4128-4e1d-84c6-2c8d1dc070b7",
+    "atomicEngineRegistration": true,
+    "scanSummary": [
+      "2",
+      "8",
+      "~11"
+    ],
+    "poolId": "c2d98a3f-4489-4670-a395-426af5bd8bf8",
+    "receiptTitle": "Answered · 6 rows from table records",
+    "permanentMarkerRecorded": true
+  },
+  "custody": {
+    "status": "passed",
+    "revision": "79d667f746459ec011c3dd2761eb09b1327bf657",
+    "checks": [
+      "agent-host-exchange-public-only-handoff",
+      "steps-normal-smtp-sign-in",
+      "provider-check-custody-engine-column-decision",
+      "steps-grant-access",
+      "steps-query-sealed-cells",
+      "live-xq-local-unseal-independent-fixture",
+      "second-redemption-refused-no-plaintext",
+      "console-api-grant-revocation-recorded",
+      "revoked-redemption-refused-no-plaintext",
+      "private-files-and-no-key-material-in-output"
+    ],
+    "firstReceipt": "01a19eef-a9f3-7376-b05f-9af6c9276ca9",
+    "revokedReceipt": "01a19ef0-0181-76a4-ab7f-f8fa0fde6fce",
+    "revokedGrant": "4680f301-3401-4577-a836-cbbabeda2994",
+    "revocationRecorded": true,
+    "rowsUnsealed": 6,
+    "terminal": "custody-steps/terminal-redacted.txt"
+  }
+}

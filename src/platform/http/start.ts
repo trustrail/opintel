@@ -1,3 +1,5 @@
+import {custodyIdentityRoutes} from '../../modules/pools/api/identity-routes.js';
+import {FileCustodyIdentities} from '../../modules/pools/index.js';
 import {pairedEngineRoutes} from '../../modules/tenancy/api/project-routes.js';
 import {PostgresPairedEngineCandidates} from '../../modules/tenancy/infrastructure/paired-engines.js';
 import {projectHealthRoutes} from '../../modules/tenancy/api/project-health-routes.js';
@@ -286,6 +288,7 @@ async function start(): Promise<void> {
     ...needsYouRoutes(new PostgresNeedsYouReader(),authorization),
     ...projectHealthRoutes(new PostgresProjectHealthReader()),
     ...poolReadRoutes(new PostgresPoolReader()),
+    ...custodyIdentityRoutes(new FileCustodyIdentities()),
     ...poolKeyRoutes(new PoolKeyService(new PostgresPoolKeys(undefined,(ctx,alias)=>releaseCustody.provision(ctx,alias),releaseCustody,new PostgresPoolTables(relationshipOutbox,authorization)), presence)),
     ...poolTableRoutes(new PostgresPoolTables(relationshipOutbox,authorization)),
     ...poolBudgetRoutes(new PostgresPoolBudgets()),

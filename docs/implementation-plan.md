@@ -1574,3 +1574,21 @@ operator packet, reset treatment and shared token domain confirmation. Capture
 1440 light designs 20–23/26–29 and 390 light design 25 side by side with the approved
 images, documenting differences. Run one full gate on the completed tip, then
 commit/push feat/console-auth-source-panel; do not merge.
+
+## Agent-side custody steps (VERIFY-01 pull-forward)
+
+Ship `./steps sign-in`, `grant-access`, `query` and `redeem-and-unseal` as single-job
+commands in the gateway archive. Reuse the soak's device exchange, XQ retrieval,
+subject parsing and local unseal code; do not fork its oracle or expected answers.
+Only public imported XQ associations reach the project-admin read endpoint and
+credential issuance API. The production device import/exchange runs on the agent
+host; gateway services receive no agent private or transport keys. Existing
+custody signing, grants, authorization, receipt events and one-time release
+semantics remain unchanged. A normal session file authorizes grant issuance.
+
+Tests: STEPS-001 through STEPS-007 in the test specification; matching route,
+credential-read, runtime allowlist and DEP-008 contracts. Strict typecheck, lint,
+one completed-candidate gate, then fresh amd64 archive first-run acceptance with
+its custody-steps extension against live XQ. ARM native verification remains an
+operator command. Per-output treatment metadata (including expressions/aliases)
+is backlog work to design with OAP's pool resource/leakage gate field.
