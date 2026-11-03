@@ -16,7 +16,11 @@ export async function custodyStepsAcceptance({directory,archives,revision,gatewa
  function record(command,text){rawOutputs.push(text);const lines=text.split('\n');let table=false;const safe=lines.map(line=>{if(line.includes(' | ')){if(!table){table=true;return line;}if(/^[\s|+-]+$/u.test(line))return line;return line.split('|').map(()=> '[redacted]').join(' | ');}return line;}).join('\n');transcript.push('$ '+command+'\n'+safe);}
  function run(root,args,name,expected=0){const result=spawnSync(join(root,args[0]),args.slice(1),{encoding:'utf8',timeout:180000,maxBuffer:16*1024*1024,env:{...process.env,STEPS_XQ_API_KEY_FILE:apiKeyFile}}),text=(result.stdout??'')+(result.stderr??'');writeFileSync(join(output,name+'.private.log'),text,{mode:0o600});assert.equal(Boolean(result.error),false,name+' process failed');assert.equal(result.status===0,expected===0,name+' exit status mismatch');record('./'+args[0]+' '+args[1]+' [flags supplied; values redacted]',text);return text;}
  const exports=join(homedir(),'.xq/v02/223'),zips=readdirSync(exports).filter(name=>name.endsWith('-223.zip'));assert.equal(zips.length,1,'Original XQ device export missing or ambiguous');
- run(agent,['identities','add',join(exports,zips[0]),'--device',deviceName,'--api-key-file',apiKeyFile],'agent-identity-import');
+ // Exercise the same default-key helper as native Stage 5, on the agent host.
+ // This archive runs no gateway services and holds only the agent's general API key.
+ writeFileSync(join(agent,'package.env'),'OPINTEL_XQ_API_KEY='+JSON.stringify(apiKey)+'\n',{mode:0o600});
+ run(agent,['identities','add',join(exports,zips[0]),'--device',deviceName],'agent-identity-import');
+ assert.ok(!readdirSync(agent).some(name=>name.startsWith('.agent-api-')),'Temporary API key was not removed');
  const publicFile=join(agent,'public-identities/associations.json');run(gateway,['identities','add','--public-file',publicFile],'public-association-import');checks.push('agent-host-exchange-public-only-handoff');
  const before=await(await fetch('http://127.0.0.1:11825/api/v1/messages')).json(),seen=new Set(before.messages.map(m=>m.ID));
  const sign=spawn(join(agent,'steps'),['sign-in','--gateway',base,'--email',email,'--session-out',session],{stdio:['pipe','pipe','pipe'],timeout:180000});let signedOutput='';sign.stdout.on('data',chunk=>{signedOutput+=chunk;});sign.stderr.on('data',chunk=>{signedOutput+=chunk;});const completed=new Promise((resolve,reject)=>{sign.once('error',()=>reject(new Error('steps sign-in process failed')));sign.once('exit',code=>resolve(code));});

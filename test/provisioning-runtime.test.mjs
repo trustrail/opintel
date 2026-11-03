@@ -32,3 +32,26 @@ it('DEP-008: compiled owner-claim starts without DuckDB, source files or node_mo
   expect(result).toContain('claim expires after 24 hours');
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
+it('packaged non-root key writer and agent reader share a mode-600 key and writable private diagnostic mount',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'opintel-agent-key-runtime-'));
+ try{
+  execFileSync(process.execPath,['scripts/engine-package/bundle.mjs','provisioning',directory],{encoding:'utf8'});
+  const image=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'))['x-build-images'].nodeRuntime,uid=process.getuid(),gid=process.getgid();
+  // Linux tmpfs enforces UID ownership; macOS file sharing remaps host bind access.
+  // Root prepares the fixture only. Every writer/reader below uses the packaged UID.
+  const fixture=`const fs=require('node:fs'),assert=require('node:assert/strict'),{spawnSync}=require('node:child_process');
+   const uid=Number(process.argv[1]),gid=Number(process.argv[2]);assert.notEqual(uid,0);
+   for(const path of ['/input','/output','/package/diagnostics']){fs.mkdirSync(path,{recursive:true,mode:0o700});fs.chmodSync(path,0o700);fs.chownSync(path,uid,gid);}
+   fs.writeFileSync('/input/package.env','OPINTEL_XQ_API_KEY=synthetic-runtime-key\\n',{mode:0o600});fs.chownSync('/input/package.env',uid,gid);
+   const run=(user,args)=>spawnSync(process.execPath,args,{uid:user,gid:user===uid?gid:gid+1,encoding:'utf8',env:{...process.env,PACKAGE_HOST_DIRECTORY:'/package'}});
+   const write=['scripts/operator/customer-install.js','agent-api-key','gateway'];
+   let result=run(uid,write);assert.equal(result.status,0,result.stderr);
+   result=run(uid,['-e',"const fs=require('node:fs'),assert=require('node:assert/strict'),s=fs.statSync('/output/api-key');assert.equal(s.uid,process.getuid());assert.equal(s.mode&0o777,0o600);assert.ok(fs.readFileSync('/output/api-key').length>0);"]);assert.equal(result.status,0,result.stderr);
+   result=run(uid+1,['-e',"const fs=require('node:fs'),assert=require('node:assert/strict');assert.throws(()=>fs.readFileSync('/output/api-key'),{code:'EACCES'});"]);assert.equal(result.status,0,result.stderr);
+   result=run(uid,write);assert.equal(result.status,1);assert.ok(result.stderr.includes('Log: /package/diagnostics/'));assert.ok(!result.stderr.includes('Diagnostic log could not be written'));
+   result=run(uid,['-e',"const fs=require('node:fs'),assert=require('node:assert/strict'),logs=fs.readdirSync('/package/diagnostics');assert.equal(logs.length,1);const p='/package/diagnostics/'+logs[0],s=fs.statSync(p);assert.equal(s.uid,process.getuid());assert.equal(s.mode&0o777,0o600);const log=fs.readFileSync(p,'utf8');assert.ok(log.includes('EEXIST'));assert.ok(!log.includes('synthetic-runtime-key'));"]);assert.equal(result.status,0,result.stderr);
+   process.stdout.write('Private key and diagnostic permissions verified.');`;
+  const result=execFileSync('docker',['run','--rm','--network','none','--read-only','--user','0:0','--cap-drop','ALL','--cap-add','CHOWN','--cap-add','DAC_OVERRIDE','--cap-add','SETUID','--cap-add','SETGID','--tmpfs','/input:rw,noexec,nosuid,nodev','--tmpfs','/output:rw,noexec,nosuid,nodev','--tmpfs','/package:rw,noexec,nosuid,nodev','--volume',`${directory}:/work:ro`,'--workdir','/work',image,'node','-e',fixture,String(uid),String(gid)],{encoding:'utf8',timeout:30000});
+  expect(result).toContain('Private key and diagnostic permissions verified.');
+ }finally{rmSync(directory,{recursive:true,force:true});}
+},60000);
