@@ -62,3 +62,33 @@ it.each([null,'operator','demo-tools'])('DEP-XQ-200: packaged check propagates %
   if(failure==='operator')expect(calls).not.toContain('xq-roundtrip');else expect(calls).toContain('--interactive=false -T demo-tools node scripts/operator/demo.js xq-roundtrip 200');
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+it.each(['shorter','longer'])('upgrade survives a %s replacement of its running entrypoint',length=>{
+ const root=mkdtempSync(join(tmpdir(),'customer-upgrade-replacement-'));
+ try{
+  const install=join(root,'install'),next=join(root,'next'),bin=join(root,'bin');
+  for(const directory of [install,next,bin,join(install,'state')])mkdirSync(directory,{recursive:true});
+  const script=readFileSync('deploy/customer/command','utf8');
+  writeFileSync(join(install,'upgrade'),script,{mode:0o755});
+  const replacement=`#!/usr/bin/env bash\nprintf '%s\\n' '${'replacement '.repeat(length==='longer'?script.length:1)}'\nexit 91\n`;
+  writeFileSync(join(next,'upgrade'),replacement,{mode:0o755});
+  writeFileSync(join(next,'zzz-last-payload'),'new payload');
+  for(const directory of [install,next]){
+   for(const name of ['release.json','images.list','images.tar','trust.json'])writeFileSync(join(directory,name),'');
+   writeFileSync(join(directory,'bootstrap.image'),'synthetic-bootstrap');
+   writeFileSync(join(directory,'package-kind'),'gateway');
+   writeFileSync(join(directory,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
+  }
+  for(const name of ['compose.json','package.env','volumes.list'])writeFileSync(join(install,'state',name),'');
+  writeFileSync(join(install,'state/project-name'),'upgrade-test');
+  writeFileSync(join(bin,'docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nexit 0\n',{mode:0o755});
+  writeFileSync(join(bin,'cp'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_COPY_LOG"\nexec /bin/cp "$@"\n',{mode:0o755});
+  const result=spawnSync('/bin/bash',[join(install,'upgrade'),next],{encoding:'utf8',timeout:10000,env:{...process.env,PATH:bin+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls'),MOCK_COPY_LOG:join(root,'copies')}});
+  expect(result.status,result.stderr).toBe(0);expect(result.stderr).toBe('');
+  expect(result.stdout).toContain('Services are healthy.');expect(result.stdout).not.toMatch(/^replacement /m);
+  expect(readFileSync(join(install,'upgrade'),'utf8')).toBe(replacement);
+  expect(readFileSync(join(install,'zzz-last-payload'),'utf8')).toBe('new payload');
+  expect(readFileSync(join(root,'copies'),'utf8').trim().split('\n').at(-1)).toBe(`-p ${next}/upgrade ${install}/upgrade`);
+  const calls=readFileSync(join(root,'calls'),'utf8');
+  expect(calls).toContain('customer-install.js upgrade gateway');expect(calls).toContain('customer-install.js status gateway');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
