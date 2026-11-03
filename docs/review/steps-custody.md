@@ -75,3 +75,60 @@ strict typecheck and unchanged lint. A single completed-candidate full gate is
 required, followed by fresh amd64 archives and the standard first-run acceptance
 with `--custody` against the live XQ tenant. ARM native verification is a separate
 operator run; no merge is authorized.
+
+## Completed-candidate gate: stopped
+
+Candidate `5ead8ae530446d041b6d81043eacbf349fe11252` was committed and
+pushed before its single gate run:
+
+```sh
+COMPOSE_PROJECT_NAME=opintel npm run check
+```
+
+The gate exited 1 after 2322.58 seconds. Both typechecks, unchanged lint,
+production-artifact exclusion, all 38 conformance checks (28/28 screen routes,
+zero findings), and all 2253 normal tests across 267 files passed. This includes
+the 12 step-command regressions, three identity-listing tests, provisioning
+runtime, certificate association and V-01 conformance.
+
+The final browser/MCP smoke test exceeded its unchanged 30000 ms test timeout:
+
+```text
+e2e/smoke.spec.ts:26:1
+sign in → pool → row filter → authenticated MCP query → persisted receipt decision
+Test timeout of 30000ms exceeded.
+McpError: MCP error -32000: Connection closed
+```
+
+The connection-closed stack points to the MCP fixture's cleanup
+(`test/fixtures/query/fixture.ts:104`, `e2e/smoke.spec.ts:25`). Retained logs show
+the query had reached the engine; they do not establish the cause of the
+whole-test deadline overrun:
+
+| Event, UTC 2026-11-02 | Time |
+|---|---|
+| `/execute` attempt 1 started | 23:58:16.555 |
+| TCP connected (DNS skipped) | 23:58:16.559 |
+| TLS completed | 23:58:16.564 |
+| Request written | 23:58:16.566 |
+| Engine admitted request | 23:58:16.587 |
+| Response-phase abort, `ABORT_ERR`, written=true | 23:58:17.143 |
+| MCP refusal `source_unavailable`, cause `parent_cancelled` | 23:58:17.147 |
+| Engine respond phase aborted | 23:58:17.155 |
+| Engine validation ended; `execution.refused` logged `budget_exceeded` | 23:58:17.369 |
+
+Call ID: `ac84c387-10ff-48a2-ab5a-2517bee0cc81`. Evidence ID:
+`01a19eb3-0b49-7088-9373-85df6ac4b782`. TCP took 4.28 ms and TLS 5.42 ms;
+the attempt lasted 588.00 ms. These records show cancellation after the request
+was written, not a connect timeout. No product cause is inferred from them.
+
+Gate summary: [gate-5ead8ae.json](steps-custody/gate-5ead8ae.json).
+Full local log: `/private/tmp/steps-custody-full-gate-5ead8ae.log`, especially
+lines 222069–222072 (normal results), 222320–222419 (cancellation), and
+222422–222459 (smoke failure). Playwright retained its trace under
+`test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/`.
+
+Gate database cleanup succeeded; development Postgres and Redis remained
+healthy. Per the stop rule, no gate or smoke retry, fresh archive build,
+packaged install, or live-XQ demo was run after this failure. The requested
+packaged terminal-output proof and native verification remain unverified.
