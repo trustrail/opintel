@@ -6,6 +6,12 @@ import {enrollmentIdentity} from '../steps/infrastructure/identity.js';
 import {homedir} from 'node:os';
 import {join} from 'node:path';
 import {demoManifest,certificateMapping} from './manifest.js';
+/** MCP agents must use the public mTLS ingress, not the operator-only listener. */
+export function soakAgentTarget(environment:Record<string,string|undefined>=process.env){
+ const target=environment.OPINTEL_API_BASE_URL;
+ if(!target)throw new Error('Soak agent requires OPINTEL_API_BASE_URL for the public mTLS ingress.');
+ return target;
+}
 export async function externalTarget(target:string,file:string,identitiesFile?:string){
  const base=new URL(target);if(!['http:','https:'].includes(base.protocol)||base.username||base.password||base.search||base.hash||base.pathname!=='/')throw new Error('--target must be an HTTP(S) origin without credentials or a path');
  if(base.protocol==='http:'&&!['127.0.0.1','localhost','[::1]'].includes(base.hostname))throw new Error('Non-loopback targets require HTTPS');
