@@ -169,4 +169,14 @@ Targeted checks: V-01, credential identity, custody and migration regression:
 5 files, 21 passed; remaining custody tests: 6 files, 28 passed; complete
 console unit suite: 13 files, 157 passed. The isolated Docker-input agent bundle
 check caught missing XQ helper COPYs; after adding them, provisioning runtime
-passed 3 tests. The final installer test passed all 18 cases; strict application and conformance typechecks and lint passed. The full gate and fresh packaged live-XQ run are still pending.
+passed 3 tests. The final installer test passed all 18 cases; strict application and conformance typechecks and lint passed.
+
+## Gate decision
+
+The gate on `b15b4e1` passed both typechecks, lint, production artifact checks,
+all 38 browser conformance checks and all 2,286 normal tests. Its smoke test
+timed out at 30 seconds waiting for Set rows. Back-to-back smoke runs on the
+same Intel Mac then timed out on main `933c4ec` and passed on `b15b4e1` in
+14.4 seconds. The owner approved accepting the `b15b4e1` gate on this evidence,
+attributing the deadline failure to the environment. The exact cause of the
+delay was not established. The fresh packaged live-XQ run remains pending.
