@@ -16,7 +16,7 @@ afterEach(()=>{for(const path of clean.splice(0))rmSync(path,{force:true,recursi
 function packageRoot(kind){
  const root=mkdtempSync(join(tmpdir(),'customer-install-'));clean.push(root);
  const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
- const manifest={revision:'a'.repeat(40),upstream,artifacts:['api','console','engine','egress','migrations','provisioning','demo-tools'].map(target=>({target,platform:'linux/amd64',repoDigests:[`ghcr.io/trustrail/opintel-${target}@sha256:${'b'.repeat(64)}`]}))};
+ const manifest={revision:'a'.repeat(40),upstream,artifacts:['api','console','engine','egress','migrations','provisioning','demo-tools','agent-kit'].map(target=>({target,platform:'linux/amd64',repoDigests:[`ghcr.io/trustrail/opintel-${target}@sha256:${'b'.repeat(64)}`]}))};
  packageDeployment(manifest,join(root,'packages'),'linux/amd64');const directory=join(root,'packages',kind);
  copyFileSync('deploy/customer/command',join(directory,'install'));if(kind==='gateway')copyFileSync('deploy/customer/command',join(directory,'identities'));
  writeFileSync(join(directory,'bootstrap.image'),'opintel-package/test:5');
@@ -33,16 +33,16 @@ it.each(['gateway','engine'])('DEP-018: %s initializes private resumable state a
  expect(result.status).toBe(0);expect(result.stderr).toBe('');
  const config=JSON.parse(result.stdout);expect(config.name).toMatch(new RegExp('^opintel-'+kind+'-'));for(const service of Object.values(config.services)){expect(service.pull_policy).toBe('never');expect(service.stdin_open).not.toBe(true);}
  if(kind==='engine'){expect(statSync(join(directory,'state/sources')).mode&0o777).toBe(0o700);for(const name of ['engine','egress','prepare']){expect(config.services[name].environment.ENGINE_SOURCE_SECRETS_DIRECTORY).toBe('/source-secrets');expect(config.services[name].volumes.some(v=>v.target==='/source-secrets'&&v.read_only)).toBe(true);}}
- if(kind==='gateway'){expect(config.services.api.environment.INSTALLATION_PAIRING_FILE).toBe('/installation-pairing/peer.json');expect(config.services.api.volumes.some(v=>v.target==='/installation-pairing'&&v.read_only)).toBe(true);expect(config.services['demo-tools'].environment.APPLICATION_TLS_CONFIG).toBe('/config/application-tls.json');expect(JSON.parse(readFileSync(join(directory,'state/application-tls.json'),'utf8'))).toEqual({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'});expect(config.services.console.ports).toBeUndefined();expect(config.services.ingress.ports[0].published).toBe('443');expect(before).toContain('PAL_PROVIDER=\'disabled\'');expect(before).not.toContain('MIGRATION_DATABASE_URL');expect(readFileSync(join(directory,'state/operator.env'),'utf8')).not.toMatch(/OPINTEL_DEMO_(?:DATABASE_URL|FIXTURE|SEED|SCHEMAS)/u);expect(JSON.parse(readFileSync(join(directory,'trust.json'),'utf8'))).not.toHaveProperty('demoSourceUrl');expect(readFileSync(join(directory,'state/operator.env'),'utf8')).toContain("OPINTEL_OPERATOR_API_TARGET='https://ingress:8444'");expect(readFileSync(join(directory,'state/operator.env'),'utf8')).toContain("OPINTEL_API_BASE_URL='https://192.0.2.10'");expect(config.services.ingress.ports).toHaveLength(1);const binding=values=>checkBinding({provider:'xq',tenant:'synthetic',region:'us-east-1'},{apiKey:values.OPINTEL_XQ_API_KEY,dashboardApiKey:values.OPINTEL_XQ_DASHBOARD_API_KEY,dashboardAccessToken:'',senderAlias:values.OPINTEL_XQ_SENDER_ALIAS,senderAccessToken:values.OPINTEL_XQ_SENDER_ACCESS_TOKEN,master:values.OPINTEL_CUSTODY_MASTER_KEY,redeemAt:values.OPINTEL_XQ_REDEEM_URL,applicationUrl:values.OPINTEL_API_BASE_URL});expect(binding(parse(before))).toBe(binding(parse(readFileSync(join(directory,'state/operator.env')))));}
+ if(kind==='gateway'){expect(config.services.api.environment.INSTALLATION_PAIRING_FILE).toBe('/installation-pairing/peer.json');expect(config.services.api.volumes.some(v=>v.target==='/installation-pairing'&&v.read_only)).toBe(true);expect(config.services['demo-tools']).toBeUndefined();expect(config.services.operator.environment.APPLICATION_TLS_CONFIG).toBe('/config/application-tls.json');expect(JSON.parse(readFileSync(join(directory,'state/application-tls.json'),'utf8'))).toEqual({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'});expect(config.services.console.ports).toBeUndefined();expect(config.services.ingress.ports[0].published).toBe('443');expect(before).toContain('PAL_PROVIDER=\'disabled\'');expect(before).not.toContain('MIGRATION_DATABASE_URL');expect(readFileSync(join(directory,'state/operator.env'),'utf8')).not.toMatch(/OPINTEL_DEMO_(?:DATABASE_URL|FIXTURE|SEED|SCHEMAS)/u);expect(JSON.parse(readFileSync(join(directory,'trust.json'),'utf8'))).not.toHaveProperty('demoSourceUrl');expect(readFileSync(join(directory,'state/operator.env'),'utf8')).toContain("OPINTEL_OPERATOR_API_TARGET='https://ingress:8444'");expect(readFileSync(join(directory,'state/operator.env'),'utf8')).toContain("OPINTEL_API_BASE_URL='https://192.0.2.10'");expect(config.services.ingress.ports).toHaveLength(1);const binding=values=>checkBinding({provider:'xq',tenant:'synthetic',region:'us-east-1'},{apiKey:values.OPINTEL_XQ_API_KEY,dashboardApiKey:values.OPINTEL_XQ_DASHBOARD_API_KEY,dashboardAccessToken:'',senderAlias:values.OPINTEL_XQ_SENDER_ALIAS,senderAccessToken:values.OPINTEL_XQ_SENDER_ACCESS_TOKEN,master:values.OPINTEL_CUSTODY_MASTER_KEY,redeemAt:values.OPINTEL_XQ_REDEEM_URL,applicationUrl:values.OPINTEL_API_BASE_URL});expect(binding(parse(before))).toBe(binding(parse(readFileSync(join(directory,'state/operator.env')))));}
  else expect(config.services.engine.network_mode).toBe('service:egress');
 },30000);
 it('gateway API receives sixteen libuv workers from the installed runtime environment',()=>{
  const {directory,run}=packageRoot('gateway');run('initialize');
- expect(parse(readFileSync(join(directory,'state/runtime.env'),'utf8')).UV_THREADPOOL_SIZE).toBe('16');
+ expect(parse(readFileSync(join(directory,'state/runtime.env'),'utf8')).UV_THREADPOOL_SIZE).toBe('16');expect(parse(readFileSync(join(directory,'state/operator.env'),'utf8')).OPINTEL_INGRESS_CERTIFICATE_PROOF).toBeUndefined();
  const config=spawnSync('docker',['compose','--profile','jobs','--project-name',readFileSync(join(directory,'state/project-name'),'utf8').trim(),'--env-file',join(directory,'state/package.env'),'-f',join(directory,'state/compose.json'),'config','--format','json'],{encoding:'utf8',stdio:'pipe'});
  expect(config.status).toBe(0);expect(config.stderr).toBe('');
  expect(JSON.parse(config.stdout).services.api.environment.UV_THREADPOOL_SIZE).toBe('16');
- const api=JSON.parse(config.stdout).services.api;expect(api.environment.CUSTODY_IDENTITIES_FILE).toBe('/public-identities/associations.json');expect(api.volumes.some(v=>v.target==='/public-identities'&&v.read_only)).toBe(true);expect(api.volumes.some(v=>String(v.source).includes('identity-bundles'))).toBe(false);
+ const api=JSON.parse(config.stdout).services.api;expect(api.environment.CUSTODY_IDENTITIES_FILE).toBeUndefined();expect(api.volumes.some(v=>v.target==='/public-identities')).toBe(false);expect(api.volumes.some(v=>String(v.source).includes('identity-bundles'))).toBe(false);
 },30000);
 it('DEP-018: wrong pairing pin refuses before changing trust',()=>{
  const {directory,run}=packageRoot('gateway');run('initialize');const ca=readFileSync(join(directory,'state/ca.pem'),'utf8');
@@ -132,18 +132,12 @@ it('DEP-018: one-use engine pairing refuses wrong pins/codes, records trust, and
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 },30000);
 
-it('DEP-018: gateway upgrade preserves legacy bundles and installs the identities dispatcher without a path collision',()=>{
- const {directory,run}=packageRoot('gateway');run('initialize');
- const runtime=readFileSync(join(directory,'state/runtime.env'),'utf8');
- rmSync(join(directory,'identity-bundles'),{recursive:true});rmSync(join(directory,'identities'));
- mkdirSync(join(directory,'identities'),{mode:0o700});writeFileSync(join(directory,'identities/certificates.json'),'[]\n',{mode:0o600});
- run('upgrade');
- expect(statSync(join(directory,'identities')).isFile()).toBe(true);
- expect(readFileSync(join(directory,'identities'))).toEqual(readFileSync(join(directory,'install')));
- expect(readFileSync(join(directory,'identity-bundles/certificates.json'),'utf8')).toBe('[]\n');
- expect(statSync(join(directory,'identity-bundles')).mode&0o777).toBe(0o700);
- expect(parse(readFileSync(join(directory,'state/package.env'))).GATEWAY_AGENT_CERTIFICATES_DIRECTORY).toBe(directory+'/identity-bundles');
- expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(runtime);
+it('DEP-018: gateway upgrade retains old local identity files without mounting them in application services',()=>{
+ const {directory,run}=packageRoot('gateway');run('initialize');const runtime=readFileSync(join(directory,'state/runtime.env'),'utf8');
+ mkdirSync(join(directory,'identity-bundles'),{mode:0o700});writeFileSync(join(directory,'identity-bundles/certificates.json'),'[]\n',{mode:0o600});run('upgrade');
+ expect(readFileSync(join(directory,'identity-bundles/certificates.json'),'utf8')).toBe('[]\n');expect(statSync(join(directory,'identity-bundles')).mode&0o777).toBe(0o700);
+ expect(parse(readFileSync(join(directory,'state/package.env'))).GATEWAY_AGENT_CERTIFICATES_DIRECTORY).toBeUndefined();
+ const services=JSON.parse(readFileSync(join(directory,'state/compose.json'),'utf8')).services;expect(JSON.stringify(services)).not.toContain('/identity-bundles');expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(runtime);
 });
 
 it('SMTP password remains literal through installer and Compose for API and operator jobs',()=>{
@@ -152,7 +146,7 @@ it('SMTP password remains literal through installer and Compose for API and oper
  const file=join(directory,'package.env');writeFileSync(file,readFileSync(file,'utf8').replace('SMTP_PASSWORD=synthetic',"SMTP_PASSWORD='"+password+"'"));
  run('initialize');
  const config=JSON.parse(execFileSync('docker',['compose','--profile','jobs','--env-file',join(directory,'state/package.env'),'-f',join(directory,'state/compose.json'),'config','--format','json'],{encoding:'utf8'}));
- for(const service of ['api','operator','provision','demo-tools'])expect(config.services[service].environment.SMTP_PASSWORD).toBe(password.replaceAll('$',()=>'$$'));
+ for(const service of ['api','operator'])expect(config.services[service].environment.SMTP_PASSWORD).toBe(password.replaceAll('$',()=>'$$'));
  expect(statSync(join(directory,'state/smtp-password.env')).mode&0o077).toBe(0);
 },30000);
 

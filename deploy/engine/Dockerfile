@@ -51,7 +51,8 @@ RUN node scripts/engine-package/bundle.mjs provisioning /artifacts
 FROM toolchain AS agent-kit-build
 COPY --chmod=0755 scripts/agent ./scripts/agent
 COPY --chmod=0755 scripts/steps ./scripts/steps
-COPY --chmod=0755 scripts/operator/identity-import.ts ./scripts/operator/identity-import.ts
+COPY --chmod=0755 scripts/infrastructure ./scripts/infrastructure
+COPY --chmod=0755 scripts/operator/identity-import.ts scripts/operator/diagnostics.ts ./scripts/operator/
 RUN node scripts/engine-package/bundle.mjs agent-kit /artifacts
 
 FROM toolchain AS demo-tools-build

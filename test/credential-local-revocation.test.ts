@@ -27,7 +27,7 @@ it('credential revocation is local during provider outage; current, legacy and r
   const cleaned=QueryOutput.parse((await current.query('SELECT field_1 FROM warehouse.public.records')).structuredContent);
   expect(await current.client.callTool({name:'opintel.redeem',arguments:{grant:cleaned.custody![0]!.grant}})).not.toHaveProperty('isError',true);
   const claims=JSON.parse(Buffer.from(cleaned.custody![0]!.grant.split('.')[1]!,'base64url').toString()) as {custody:{provider_redeem_at:string}};
-  const fetched=await fetch(claims.custody.provider_redeem_at,{method:'POST',headers:{authorization:`Bearer ${rotated.key}`,'content-type':'application/json','x-opintel-agent-id':'revocation-test'},body:JSON.stringify({grant:cleaned.custody![0]!.grant})});expect(fetched.status).toBe(200);await fetched.body?.cancel();
+  const fetched=await fetch(claims.custody.provider_redeem_at,{method:'POST',headers:{...f.clientCertificateHeaders,authorization:`Bearer ${rotated.key}`,'content-type':'application/json','x-opintel-agent-id':'revocation-test'},body:JSON.stringify({grant:cleaned.custody![0]!.grant})});expect(fetched.status).toBe(200);await fetched.body?.cancel();
   await f.release!.sweep();
   expect(await current.client.callTool({name:'opintel.redeem',arguments:{grant:released.custody![0]!.grant}})).not.toHaveProperty('isError',true);
   const remote=vi.spyOn(LocalReleaseProvider.prototype,'revoke').mockRejectedValue(new Error('Provider unreachable'));

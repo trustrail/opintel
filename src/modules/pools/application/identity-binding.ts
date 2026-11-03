@@ -11,4 +11,5 @@ export interface CredentialBindings{
 /** Existing XQ escrow path; private device redemption stays agent-side. */
 export interface EnrollmentEscrow {
  escrowEnrollment(ctx:PoolKeyContext,nonce:Uint8Array,recipient:string,ttlSeconds:number):Promise<string>;
+ revokeEnrollment?(ctx:PoolKeyContext,locator:string):Promise<void>;
 }

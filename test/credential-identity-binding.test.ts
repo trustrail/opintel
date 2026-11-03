@@ -28,7 +28,7 @@ async function fixture(kind:'identity-bound'|'bearer-only'='identity-bound'){
 }
 it('ID-01 first connection binds fingerprint and records audit; later certificates must match',async()=>{
  const f=await fixture();expect((await f.authenticate()).ok).toBe(true);expect(await f.row()).toMatchObject({binding_status:'bound',certificate_fingerprint:certificate.fingerprint,recipient_identifier:enrollment.recipientIdentifier});
- expect((await f.authenticate(certificate,undefined)).ok).toBe(true);
+ expect((await f.bindings.authenticate(f.ctx,f.pool,f.id,certificate,undefined)).ok).toBe(true);
  const mismatch=await f.authenticate(other);expect(mismatch).toMatchObject({ok:false,error:{details:{cause:'identity_mismatch'}}});
  const events=await withTenant(f.ctx,tx=>tx.query<{action:string;after:{cause?:string}}>('SELECT action,after FROM audit_entry WHERE target->>\'credentialId\'=$1 ORDER BY occurred_at,id',[f.id]));
  expect(events.map(e=>e.action)).toContain('CredentialIdentityBound');expect(events.some(e=>e.action==='CredentialIdentityRefused'&&e.after.cause==='identity_mismatch')).toBe(true);
@@ -71,3 +71,21 @@ it.each(['wrong-recipient','wrong-certificate','wrong-nonce','expired'] as const
 it('ID-01 correct XQ nonce binds once; subsequent requests never escrow again',async()=>{
  const f=await fixture();expect((await f.authenticate()).ok).toBe(true);expect((await f.authenticate()).ok).toBe(true);expect(f.escrow).toHaveBeenCalledTimes(1);
 });
+it('ID-01 binding approval and reset routes require project administration',async()=>{
+ const {once}=await import('node:events'),{createHttpServer}=await import('../src/platform/http/index.js'),{identityBindingRoutes}=await import('../src/modules/pools/api/identity-binding-routes.js'),{presenceFixture}=await import('./fixtures/agent-presence/fixture.js'),{allowBulk}=await import('./fixtures/bulk-entitlements/fixture.js');
+ const f=await presenceFixture(),change=vi.fn(async()=>ok(undefined)),authenticate=vi.fn(async()=>ok(undefined));let admin=false;
+ const server=createHttpServer(identityBindingRoutes({change,authenticate}),{authorization:{currentUser:async()=>f.actor,port:{...allowBulk,check:async r=>({...await allowBulk.check(r),allowed:r.permission==='view'||admin})}}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing route test listener');
+ try{const path=`http://127.0.0.1:${address.port}/api/v1/pools/${randomUUID()}/credentials/${randomUUID()}/identity`,request=(action:string)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({projectId:f.ctx.projectId,action,confirmation:'Agent'})});
+  for(const action of ['approve','reset']){expect((await request(action)).status).toBe(403);expect(change).not.toHaveBeenCalled();}
+  admin=true;expect((await request('approve')).status).toBe(200);expect(change).toHaveBeenCalledOnce();
+ }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+it('ID-01 an XQ enrollment escrow does not hold the database pool lock',async()=>{
+ const f=await fixture();let release!:()=>void,started!:()=>void;
+ const entered=new Promise<void>(resolve=>{started=resolve;}),blocked=new Promise<void>(resolve=>{release=resolve;});
+ f.escrow.mockImplementation(async(_ctx,nonce,recipient)=>{started();await blocked;const locator=randomUUID();f.packets.set(locator,{nonce:Buffer.from(nonce).toString('base64url'),recipient});return locator;});
+ const enrollmentRequest=f.rawAuthenticate();await entered;
+ let timeout:ReturnType<typeof setTimeout>|undefined;
+ try{const result=await Promise.race([f.keys.execute(f.ctx,{kind:'issue',poolId:f.pool,label:'Concurrent agent'},randomUUID()),new Promise<never>((_,reject)=>{timeout=setTimeout(()=>reject(new Error('Credential issuance blocked behind XQ escrow')),5000);})]);expect(result.ok).toBe(true);}
+ finally{if(timeout)clearTimeout(timeout);release();await enrollmentRequest;}
+},15000);

@@ -33,6 +33,7 @@ for(const kind of ['gateway','engine','agent-kit','verification']){
   copyFileSync(application?'deploy/customer/command':`deploy/${kind}/command`,join(directory,command));chmodSync(join(directory,command),0o755);
  }
  copyFileSync(application?'deploy/customer/'+kind+'-README.md':`deploy/${kind}/README.md`,join(directory,'README.md'));
+ if(kind==='verification')copyFileSync('deploy/verification/DEMO.md',join(directory,'DEMO.md'));
  if(kind==='gateway'){copyFileSync('deploy/customer/package.env.example',join(directory,'package.env'));chmodSync(join(directory,'package.env'),0o600);}
  if(application)auditPackage(directory);
  docker(['image','save','--platform',platform,'--output',join(directory,'images.tar'),...inventory.map(i=>i.image)]);

@@ -70,6 +70,9 @@ export class ReleaseRuntime {
   if(!project||project.provider.id!=='xq')throw new DomainError('dependency_unavailable','XQ must be configured for identity enrollment.');
   return project.provider.escrow(nonce,recipient,ttlSeconds,true);
  }
+ async revokeEnrollment(ctx:ReleaseContext,locator:string):Promise<void>{
+  const project=await this.ensure(ctx);if(project?.provider.id==='xq')await project.provider.revoke(locator);
+ }
  async saveProjectSettings(ctx:ReleaseContext,settings:z.infer<typeof ProjectSettings>,confirmedLiveGrants?:number,expectedSettings?:Record<string,unknown>){
   return withTenant(ctx,async tx=>{
    // Exclusive against every grant creation/redemption transaction. A confirmed

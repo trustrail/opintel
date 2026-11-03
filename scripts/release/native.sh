@@ -5,13 +5,15 @@ run_directory=
 worktree=
 archive_gateway=
 archive_engine=
+archive_agent=
+archive_verification=
 phase_log=
 summary() {
   status=$?
   trap - EXIT
   printf '\nRelease exit status: %s\n' "$status"
   printf 'Run directory: %s\n' "${run_directory:-not created (preflight failed)}"
-  for archive in "$archive_gateway" "$archive_engine"; do
+  for archive in "$archive_gateway" "$archive_engine" "$archive_agent" "$archive_verification"; do
     if [[ -n "$archive" && -f "$archive" ]]; then printf 'Archive: %s\n' "$archive";
     else printf 'Archive: not produced\n'; fi
   done
@@ -106,6 +108,8 @@ run_directory="$(mktemp -d "$root/tmp/stage5-arm64-${resolved_revision:0:7}.XXXX
 worktree="$run_directory/source"
 archive_gateway="$run_directory/packages/gateway-${resolved_revision:0:7}-arm64.tar.gz"
 archive_engine="$run_directory/packages/engine-${resolved_revision:0:7}-arm64.tar.gz"
+archive_agent="$run_directory/packages/agent-KIT-${resolved_revision:0:7}-arm64.tar.gz"
+archive_verification="$run_directory/packages/verification-${resolved_revision:0:7}-arm64.tar.gz"
 printf 'Run directory: %s\n' "$run_directory"
 
 phase='isolated checkout'
@@ -122,7 +126,7 @@ phase_log="$run_directory/npm-ci.log"
 npm ci --no-audit --no-fund >"$phase_log" 2>&1
 [[ -z "$(git status --porcelain --untracked-files=all)" ]] || fail 'release checkout changed during dependency installation'
 export PLATFORM=linux/arm64 IMAGE=all TAG="stage5-${resolved_revision:0:12}"
-phase='build and audit all seven native arm64 images'
+phase='build and audit all eight native arm64 images'
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/build.log"
 make build >"$phase_log" 2>&1
@@ -130,7 +134,7 @@ make build >"$phase_log" 2>&1
 phase='publish audited images by digest'
 printf 'Phase: %s\n' "$phase"
 phase_log="$run_directory/publish.log"
-node scripts/images/publish.mjs "tmp/images/releases/$TAG-api-engine-console-egress-migrations-provisioning-demo-tools.json" "$run_directory/published-arm64.json" >"$phase_log" 2>&1
+node scripts/images/publish.mjs "tmp/images/releases/$TAG-api-engine-console-egress-migrations-provisioning-demo-tools-agent-kit.json" "$run_directory/published-arm64.json" >"$phase_log" 2>&1
 
 phase='create offline customer archives'
 printf 'Phase: %s\n' "$phase"

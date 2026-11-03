@@ -54,3 +54,22 @@ it('packaged non-root key writer and agent reader share a mode-600 key and writa
   expect(result).toContain('Private key and diagnostic permissions verified.');
  }finally{rmSync(directory,{recursive:true,force:true});}
 },60000);
+it('agent kit builds from its Docker COPY inputs without a full checkout',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'opintel-agent-context-'));
+ try{
+  const context=join(directory,'context'),output=join(directory,'output');mkdirSync(context);
+  const dockerfile=readFileSync('deploy/engine/Dockerfile','utf8');let stage='';
+  for(const line of dockerfile.split('\n')){
+   if(line.startsWith('FROM '))stage=line.match(/ AS (\S+)$/u)?.[1]??'';
+   if(!['toolchain','agent-kit-build'].includes(stage)||!line.startsWith('COPY '))continue;
+   const parts=line.split(/\s+/u).slice(1).filter(part=>!part.startsWith('--')),destination=parts.pop();if(!destination)throw new Error('Missing Docker COPY destination');
+   const target=join(context,destination);mkdirSync(target,{recursive:true});
+   for(const source of parts){const input=resolve(source);if(source==='tsconfig.json'||source==='package.json'||source==='package-lock.json'||destination.endsWith('/'))cpSync(input,join(target,basename(source)),{recursive:true});else cpSync(input,target,{recursive:true});}
+  }
+  symlinkSync(resolve('node_modules'),join(context,'node_modules'),'dir');
+  execFileSync(process.execPath,[join(context,'scripts/engine-package/bundle.mjs'),'agent-kit',output],{cwd:context,encoding:'utf8'});
+  rmSync(context,{recursive:true,force:true});
+  expect(execFileSync(process.execPath,[join(output,'scripts/agent/main.js'),'--help'],{cwd:output,encoding:'utf8'})).toContain('query');
+  expect(execFileSync(process.execPath,[join(output,'scripts/agent/identities.js'),'--help'],{cwd:output,encoding:'utf8'})).toContain('identities add');
+ }finally{rmSync(directory,{recursive:true,force:true});}
+},60000);

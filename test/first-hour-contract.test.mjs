@@ -6,7 +6,7 @@ it('FH-001: first-hour workflow imports only public transport tooling and cannot
  const imports=[...text.matchAll(/from '([^']+)'/gu)].map(m=>m[1]);
  expect(imports).toEqual(['node:assert/strict','node:crypto','node:timers/promises','node:url','@modelcontextprotocol/sdk/client/index.js','@modelcontextprotocol/sdk/client/streamableHttp.js']);
  expect(text).not.toMatch(/\b(?:withTenant|withPlatform|psql|provision|seed|child_process)\b/u);
- const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');expect(driver).toContain("command('engine','sources','add'");expect(driver).toContain("if(firstHourActive)assert.equal(command,join(engine,'sources')");expect(driver).not.toContain("credentialRef:'secret://install/readiness'");
+ const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');expect(driver).toContain("command('engine','sources','add'");expect(driver).toContain("if(firstHourActive)assert.ok([join(engine,'sources'),join(agent,'steps')].includes(command)");expect(driver).not.toContain("credentialRef:'secret://install/readiness'");
 });
 it('FH-002: rejects the old readiness reference and names an absent package source command',async()=>{
  await expect(firstHour({source:{credentialRef:'secret://install/readiness'}})).rejects.toThrow('Engine-host imported reference');

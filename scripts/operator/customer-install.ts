@@ -170,7 +170,8 @@ function initialize(){
    service.env_file=[...files,{path:host+'/state/smtp-password.env',format:'raw'}];
   }
  }
- env('state/runtime.env',runtime);env('state/operator.env',{...runtime,...operator,OPINTEL_DEPLOYMENT_PACKAGE:'gateway',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_DIAGNOSTIC_DISPLAY_DIRECTORY:host+'/state/output'});env('state/package.env',vars);
+ const operatorRuntime={...runtime};delete operatorRuntime.OPINTEL_INGRESS_CERTIFICATE_PROOF;
+ env('state/runtime.env',runtime);env('state/operator.env',{...operatorRuntime,...operator,OPINTEL_DEPLOYMENT_PACKAGE:'gateway',OPINTEL_OUTPUT_DIRECTORY:'/output',OPINTEL_DIAGNOSTIC_DISPLAY_DIRECTORY:host+'/state/output'});env('state/package.env',vars);
  for(const name of Object.keys(volumes))volumes[name]={name:installId+'-'+name};
  write('state/project-name',installId+'\n');
  write('state/volumes.list',Object.keys(volumes).map(n=>installId+'-'+n).join('\n')+'\n');
@@ -273,6 +274,7 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
   config.services.api!.volumes=config.services.api!.volumes?.filter(v=>!v.includes(':/public-identities:'));
   mountPairedMetadata(config.services.api!);
   writeFileSync(join(state,'application-tls.json'),JSON.stringify({caFile:'/config/peer-ca.pem',certFile:'/config/application.pem',keyFile:'/config/application.key'})+'\n');
+  const operatorFile=join(state,'operator.env');if(existsSync(operatorFile)){const saved=readFileSync(operatorFile,'utf8'),clean=saved.split('\n').filter(line=>!line.startsWith('OPINTEL_INGRESS_CERTIFICATE_PROOF=')).join('\n');if(clean!==saved)writeFileSync(operatorFile,clean);}
   const runtimeFile=join(state,'runtime.env'),runtimeText=readFileSync(runtimeFile,'utf8');
   const proof=parse(runtimeText).OPINTEL_INGRESS_CERTIFICATE_PROOF??secret();
   if(!/^[A-Za-z0-9_-]{32,}$/u.test(proof))throw new InstallError('Invalid saved ingress authentication secret.');

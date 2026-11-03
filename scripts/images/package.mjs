@@ -40,6 +40,10 @@ export function packageDeployment(manifest,destination,platform,{candidate=false
  for(const [name,target] of [['agent-kit','agent-kit'],['verification','demo-tools']]){
   const output=join(destination,name);mkdirSync(output,{recursive:true});
   writeFileSync(join(output,'release.json'),JSON.stringify({revision:manifest.revision,platform,candidate:!!(manifest.candidate||manifest.dirty),images:{[target]:images[target]}},null,2)+'\n');
+  if(name==='verification'){
+   mkdirSync(join(output,'services'),{recursive:true});
+   for(const file of readdirSync('deploy/verification/services')){const config=JSON.parse(readFileSync(join('deploy/verification/services',file),'utf8'));for(const body of Object.values(config.services)){body.platform=platform;body.image=images[target];}writeFileSync(join(output,'services',file),JSON.stringify(config,null,2)+'\n');}
+  }
  }
  return {platform,images,destination};
 }

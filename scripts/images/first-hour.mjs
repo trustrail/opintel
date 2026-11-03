@@ -15,7 +15,7 @@ export function firstHourRefusal(meta){
 /** Customer workflow only: transport is the same authenticated public HTTPS API
  * as the console. The caller supplies an Engine-local external-fixture reference, not
  * catalogue rows, a seeded project, or privileged application services. */
-export async function firstHour({request,base,engine,source,settings,certificateAssociation,addSource,onProgress=()=>{}}){
+export async function firstHour({request,base,engine,source,settings,agentQuery,addSource,onProgress=()=>{}}){
  const result={status:'running',startedAt:new Date().toISOString(),steps:[],publicCalls:[]};
  assert.match(source.credentialRef,/^secret:\/\/sources\/[A-Za-z0-9_-]+$/u,'First hour requires an Engine-host imported reference');
  async function send(path,method='GET',body,headers={}){assert.ok(path.startsWith('/api/v1/')||path.startsWith('/mcp/v1/'),'Only public API/MCP calls are allowed');assert.ok(!/postgres(?:ql)?:\/\//u.test(JSON.stringify(body)??''),'Connection material must never reach the gateway');const response=await request(path,method,body,headers);result.publicCalls.push({method,path,status:response.status});return response;}
@@ -64,8 +64,17 @@ export async function firstHour({request,base,engine,source,settings,certificate
    if(treatment==='tokenized')await run('declare-token-column',async()=>{const path=`/api/v1/projects/${p}/catalog/elements/${field.id}/declarations`,d=await api(path);await api(path,'PUT',{...d.stored,caseInsensitive:false,canonId:d.effective.canonId});});
    await run('entitlement-'+treatment,()=>api(`/api/v1/pools/${pool.poolId}/entitlements/bulk`,'POST',{projectId:p,elementIds:[field.id],treatment,maskKind:treatment==='masked'?'all':null,justification:'First-hour acceptance explicit decision'}));
   }
-  const credential=await run('issue-credential',()=>api(`/api/v1/pools/${pool.poolId}/credentials`,'POST',{projectId:p,label:'First hour caller',...(certificateAssociation?{certificateAssociation}:{})}));assert.ok(credential.keyShown,'New credential was not returned');
+  const credential=await run('issue-credential',()=>api(`/api/v1/pools/${pool.poolId}/credentials`,'POST',{projectId:p,label:'First hour caller'}));assert.ok(credential.keyShown,'New credential was not returned');
   advance('mcp-query');
+  let query;
+  if(agentQuery){
+   const qualified=members[0].qualifiedName;assert.ok(qualified,'Catalogue did not report the field name');
+   const parts=qualified.split('.');assert.equal(parts.length,4);const quote=value=>'"'+value.replaceAll('"','""')+'"';
+   const sql=`SELECT ${quote(parts[3])} FROM ${parts.slice(0,3).map(quote).join('.')} ORDER BY ${quote(parts[3])} LIMIT 1`;
+   query=await run('mcp-query',()=>agentQuery({project:p,key:credential.key,sql}));
+   assert.equal(query.structuredContent?.rows?.[0]?.[0],5,'Pool row rule was not applied');
+   assert.ok(query.structuredContent?.rowScopes?.some(scope=>scope.objectId===records.id&&!scope.missingDecision&&scope.decisionId),'Query has no row-rule evidence');
+  }else{
   client=new Client({name:'first-hour-acceptance',version:'1'});
   const transport=new StreamableHTTPClientTransport(new URL(`/mcp/v1/p/${p}`,base),{requestInit:{headers:{authorization:'Bearer '+credential.key,'x-opintel-agent-id':'first-hour'}},fetch:async(url,init)=>{
    const response=await send(new URL(url).pathname,init?.method??'GET',init?.body?JSON.parse(init.body):undefined,Object.fromEntries(new Headers(init?.headers)));
@@ -75,12 +84,13 @@ export async function firstHour({request,base,engine,source,settings,certificate
   const describe=(await client.callTool({name:'opintel.describe',arguments:{}})).structuredContent;
   const object=describe.objects.find(o=>o.columns.some(c=>c.treatment==='clear'));assert.ok(object,'Clear field is absent from MCP describe');
   const quote=value=>'"'+value.replaceAll('"','""')+'"',column=object.columns.find(c=>c.treatment==='clear');
-  const query=await run('mcp-query',async()=>{
+  query=await run('mcp-query',async()=>{
    const response=await client.callTool({name:'opintel.query',arguments:{sql:`SELECT ${quote(column.name)} FROM ${object.name.split('.').map(quote).join('.')} ORDER BY ${quote(column.name)} LIMIT 1`}});
    if(response.isError){result.refusal=firstHourRefusal(response._meta);throw new Error(`First-hour query refused: ${result.refusal.code} / ${result.refusal.cause}`);}
    assert.equal(response.structuredContent?.rows?.[0]?.[0],5,'Pool row rule was not applied');assert.ok(response.structuredContent?.rowScopes?.some(s=>s.objectId===records.id&&!s.missingDecision&&s.decisionId),'Query has no row-rule evidence');
    return response;
   });
+  }
   const evidenceId=query.structuredContent?.evidenceId;assert.ok(evidenceId,'MCP query returned no receipt');
   await run('fetch-receipt',async()=>{const runs=await all(`/api/v1/projects/${p}/runs`),run=runs.find(r=>r.id===evidenceId);assert.ok(run,'Receipt is absent from Activity');const receipt=await api(`/api/v1/runs/${evidenceId}?projectId=${p}&startedAt=${encodeURIComponent(run.startedAt)}`);assert.equal(receipt.id,evidenceId);assert.ok(receipt.completedAt);assert.equal(receipt.status,'answered');assert.equal(receipt.refusalCode,null);assert.ok(receipt.metadata?.rowScopes?.some(s=>s.objectId===records.id&&!s.missingDecision&&s.decisionId));result.receiptId=evidenceId;result.receipt={status:receipt.status,latencyMs:receipt.latencyMs,rowRuleEvidence:true};});
   result.status='passed';

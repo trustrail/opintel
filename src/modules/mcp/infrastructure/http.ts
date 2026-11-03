@@ -221,7 +221,9 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    const abort=()=>{if(!response.writableFinished)disconnected.abort();};response.once('close',abort);if(response.destroyed)disconnected.abort();
    try{await this.context.run({principal,signal:disconnected.signal,origin:request.socket.remoteAddress??null},()=>session!.transport.handleRequest(request,response,body));}
    finally{response.removeListener('close',abort);}
-  } catch {
+  } catch (error:unknown) {
+   const code=error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&/^[0-9A-Z]{5}$/u.test(error.code)?error.code:undefined;
+   console.info({event:'mcp.interface_failure',requestId,...code?{nativeCode:code}:{},exception:error instanceof Error?'Error':'unknown'});
    if (!response.headersSent) this.failure(response,requestId,503,'dependency_unavailable','The agent interface is temporarily unavailable.');
    else response.end();
   } finally {

@@ -51,24 +51,13 @@ waits for the current egress acknowledgment before normal introspection. Only
 connected sources can serve queries. A connection failure leaves the source saved
 and unreachable. No synthetic dataset is installed by this package.
 
-## Packaged operator jobs
+## Operator jobs and verification
 
-The provisioning image supplies `provision`; the separate demo-tools image
-supplies `seed`, `governance`, `lifecycle`, `lifecycle-renew`, `xq-check`, `prepare`
-and `soak`. Invoke them through this same wrapper and project name:
-
-```sh
-./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway provision
-./gateway.sh --env-file /etc/opintel/gateway.env --project-name customer-gateway demo-tools seed --target-file /output/source-uri --fixture V-01 --seed 1 --schemas soak_policies,soak_claims,soak_recoveries
-```
-
-They use `GATEWAY_OPERATOR_ENV_FILE`, the migration job's network/database
-connectivity, read-only configuration and a separate writable private output
-directory. Set `GATEWAY_OPERATOR_OUTPUT_DIRECTORY` (mode 700) and its owner in
-`GATEWAY_OPERATOR_UID`/`GATEWAY_OPERATOR_GID`. They never start dependencies.
-The package-only provisioning, certificate, observer and soak procedure is in
-`run-soak.md`, included in the generated gateway package. No checkout or host Node
-is required. Installation does not automatically seed data or configure governance.
+The application package contains only operational jobs. Agent device imports,
+query and local custody redemption run on the agent host from the separate agent
+kit. Synthetic fixture preparation and soak run from the separate internal
+verification package, outside the gateway and engine application archives. They
+are never started automatically by installation. See those archives' READMEs.
 
 ## HTTPS ingress and service isolation
 

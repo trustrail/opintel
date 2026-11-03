@@ -1,5 +1,5 @@
 import {fileURLToPath} from 'node:url';
-import {resolve} from 'node:path';
+import {realpathSync} from 'node:fs';
 import {transportFailure} from '../../steps/infrastructure/diagnostics.js';
 import {parseArgs} from 'node:util';
 import {randomBytes,randomUUID} from 'node:crypto';
@@ -41,4 +41,4 @@ export async function run(args:readonly string[],write:(text:string)=>void=text=
  }
 }
 function diagnostic(error:unknown){if(error instanceof HttpFailure)return error.message;const codes=['ENOENT','EACCES','EPERM','EEXIST','ELOOP','EISDIR'];if(error instanceof Error&&'code'in error&&codes.includes(String(error.code)))return 'File operation failed: '+String(error.code)+'. Check the private input/output files.';if(error instanceof z.ZodError)return 'Input or response did not match the expected format.';if(error instanceof Error&&error.constructor===Error&&!/https?:|opk_live_|opintel_session=|-----BEGIN|[A-Za-z0-9_-]{43}/u.test(error.message))return error.message;return transportFailure(error);}
-if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))void run(process.argv.slice(2)).catch((error:unknown)=>{console.error(`${process.argv[2]??'steps'}: ${diagnostic(error)} No key material was printed.`);process.exitCode=1;});
+if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url))void run(process.argv.slice(2)).catch((error:unknown)=>{console.error(`${process.argv[2]??'steps'}: ${diagnostic(error)} No key material was printed.`);process.exitCode=1;});

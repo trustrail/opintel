@@ -10,10 +10,14 @@ if ! docker image inspect "$image" >/dev/null 2>&1; then docker load --input "$r
 while IFS=' ' read -r ref expected; do [[ "$(docker image inspect --platform "$platform" --format '{{.Id}}' "$ref")" == "$expected" ]] || fail 'Verification image identity mismatch.'; done < images.list
 run(){ docker run --rm --pull never --platform "$platform" --user "$(id -u):$(id -g)" --read-only --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=$(id -u),gid=$(id -g)" --cap-drop ALL --security-opt no-new-privileges "$@"; }
 if [[ "$command" == demo || "$command" == provision ]]; then
+ if [[ ${1:---help} == --help ]]; then script=scripts/operator/demo.js; [[ "$command" != provision ]] || script=scripts/operator/provision.js; run "$image" node "$script" --help; exit 0; fi
  [[ -f verification.env && ! -L verification.env ]] || fail 'Create private verification.env with the target installation and fixture configuration.'
+ mode="$(stat -c '%a' verification.env 2>/dev/null || stat -f '%Lp' verification.env)"; [[ "$mode" == 600 ]] || fail 'verification.env must have mode 600.'
  mounts=(); network=(); mkdir -p "$root/output"
  if [[ -f network ]]; then network=(--network "$(cat network)"); fi
- for pair in configuration-directory:/config identities-directory:/home/operator/.xq; do file="${pair%%:*}"; target="${pair#*:}"; if [[ -f "$file" ]]; then source="$(cat "$file")"; [[ -d "$source" ]] || fail 'Verification input directory is missing.'; mounts+=(-v "$source:$target:ro"); fi; done
+ if [[ -f configuration-directory ]]; then source="$(cat configuration-directory)"; [[ -d "$source" ]] || fail 'Verification configuration directory is missing.'; for file in ca.pem peer-ca.pem application.pem application.key application-tls.json; do [[ -f "$source/$file" && ! -L "$source/$file" ]] || fail 'Verification TLS configuration is incomplete.'; mounts+=(-v "$source/$file:/config/$file:ro"); done; fi
+ if [[ -f identities-directory ]]; then source="$(cat identities-directory)"; [[ -d "$source" ]] || fail 'Agent identity directory is missing.'; mounts+=(-v "$source:/home/operator/.xq:ro"); fi
+ if [[ -f agent-api-key-file ]]; then keyfile="$(cat agent-api-key-file)"; [[ -f "$keyfile" && ! -L "$keyfile" ]] || fail 'Agent XQ API key file is missing.'; mounts+=(-v "$keyfile:/input/xq-api-key:ro"); fi
  args=("$@"); if [[ "$command" == demo && ${1:-} == soak ]]; then shift; args=(customer-soak "$@"); fi
  script=scripts/operator/demo.js; [[ "$command" != provision ]] || script=scripts/operator/provision.js
  run ${network[@]+"${network[@]}"} ${mounts[@]+"${mounts[@]}"} --add-host host.docker.internal:host-gateway --env-file "$root/verification.env" -v "$root:/verification" -v "$root/output:/output" "$image" node "$script" ${args[@]+"${args[@]}"}

@@ -9,6 +9,7 @@ import {TableIcon} from '../components/kind.js';
 import {Tooltip} from '../components/primitives.js';
 import {createApiClient} from '../../shared/api/client.js';
 import {Pools} from './screen.js';
+import {Agents} from './agent.js';
 import {CreatePool,creationBody} from './create.js';
 import {CredentialCommand,SetRows,newRule} from './commands.js';
 import {readPools,readTables,sumPools,isConnected,credentialAgents} from './data.js';
@@ -220,4 +221,9 @@ it.each(['identity-bound','bearer-only'] as const)('Grant access issues %s witho
  if(kind==='bearer-only')await selectOption('Credential kind',/^Bearer-only/);
  fireEvent.click(screen.getByRole('button',{name:'Issue credential'}));await waitFor(()=>expect(issued).toHaveBeenCalled());
  expect(calls.find(c=>c.method==='POST'&&c.path.endsWith('/credentials'))?.body).toEqual({projectId:id,label:'Analyst',credentialKind:kind});expect(calls.some(c=>c.path.includes('/custody-identities'))).toBe(false);
+});
+
+it('agent list shows the bound fingerprint and identifies the device name as a self-declared label',async()=>{
+ install();const pool=(await readPools(id)).pools[0]!;pool.detail.credentials![0]!.identity={kind:'identity-bound',status:'bound',fingerprint:'a'.repeat(64),subject:'CN=Fixture',deviceName:'Agent label',certificateId:223,boundAt:now};
+ render(<Agents project={id} pool={pool} filter={null}/>,{wrapper});expect(screen.getAllByText('Agent label').length).toBeGreaterThan(0);expect(screen.getAllByText('self-declared label').length).toBeGreaterThan(0);expect(screen.getAllByText(/aaaaaaaaaaaa · bound/).length).toBeGreaterThan(0);
 });

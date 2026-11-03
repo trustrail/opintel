@@ -134,3 +134,39 @@ through `npm run dev:up`; migration 093 was not edited. The implementation reuse
 redemption. Proof binds the credential, certificate fingerprint and recipient;
 failed proof is consumed, refused and audited. No query is replayed. Validation
 of this addition is in progress; the completed-candidate gate remains unrun.
+
+## Concurrent enrollment and presence correction
+
+The ten-agent V-01 targeted test exposed PostgreSQL deadlocks (`40P01`) after
+identity binding was introduced. The credential custody guard originally ran
+on every credential update; presence updates `last_used_at` on each request, so
+it took a pool-wide lock unnecessarily. Migration 096 limits that trigger to
+insertions and changes of credential kind, revocation or pool. It keeps the
+custody/bearer invariant while allowing unrelated presence updates to proceed.
+
+Migration 095 provides a narrowly scoped read of the current project's binding
+approval flag under a project row lock, avoiding a second pooled connection
+inside the tenant transaction. XQ escrow now runs outside database transactions;
+established credential checks lock only their credential. A regression holds an
+XQ escrow open while issuing another credential, checking it does not hold the
+pool lock. The original migration bytes 093 and 094 were not edited. The initial
+53-file migration selection passed before 095/096 and must be rerun on the final
+migration set. The corrected V-01 ten-agent test and its identity, custody and migration regressions passed (5 files, 21 tests). The complete final migration selection passed: 53 files, 199 tests.
+
+## Release harness and targeted checks
+
+The application gateway and engine, agent kit and internal verification archives
+are assembled separately. Release image publication includes the agent-kit image.
+The Stage 5 first-hour query uses the agent-kit command; its XQ identity import
+runs on the agent host. The verification job runs outside the application Compose
+services with only the required TLS files, never the ingress authentication secret.
+The custody acceptance uses agent and verification archives independently, exercises
+certificate mismatch and a bearer-only first-run credential, and revokes that
+credential before adding custody. No device private or transport key is mounted
+into an application service.
+
+Targeted checks: V-01, credential identity, custody and migration regression:
+5 files, 21 passed; remaining custody tests: 6 files, 28 passed; complete
+console unit suite: 13 files, 157 passed. The isolated Docker-input agent bundle
+check caught missing XQ helper COPYs; after adding them, provisioning runtime
+passed 3 tests. The final installer test passed all 18 cases; strict application and conformance typechecks and lint passed. The full gate and fresh packaged live-XQ run are still pending.

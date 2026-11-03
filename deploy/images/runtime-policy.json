@@ -81,6 +81,7 @@
       "files": [
         "work/scripts/operator/demo.js",
         "work/scripts/operator/custody-agent.mjs",
+        "work/scripts/operator/device-worker.mjs",
         "work/scripts/operator/xq-worker.mjs",
         "work/scripts/verification/steps/main.js",
         "work/scripts/operator/provision.js"
@@ -92,7 +93,7 @@
       "files": [
         "work/scripts/agent/main.js",
         "work/scripts/agent/identities.js",
-        "work/scripts/steps/device-worker.mjs"
+        "work/scripts/agent/device-worker.mjs"
       ],
       "patterns": []
     }

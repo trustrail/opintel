@@ -22,8 +22,8 @@ stick. Run the commands below from that directory.
    and console warn about the local fallback. Use trusted TLS for production.
 4. Install the engine using its README. Take its printed address and pairing code
    and run `./register-engine ENGINE_ADDRESS CODE` here. Then run `./xq-check`.
-5. For the shipped 30-minute demonstration, follow [DEMO.md](DEMO.md). Device imports,
-   cedant assignment and synthetic data belong to that optional demonstration.
+5. Agent device imports and custody operations run from the separate agent kit;
+   optional synthetic verification runs from the separate verification package.
 
 Lifecycle: `./start`, `./stop`, `./status`, `./upgrade /path/to/new/gateway`,
 `./backup`, `./restore /path/to/backup`. Backup/restore stop services. Restore keeps
