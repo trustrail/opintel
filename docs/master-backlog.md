@@ -921,11 +921,14 @@ record the source's status and last introspection result whenever it gives up
 waiting. No verifier or product behavior is changed by this backlog entry.
 
 ### Console polish — pending an approved design board
+
 **Status** Open; backlog only, no UI implementation in this branch.
+
 - Condition builder: one line per condition, labels once, remove icon, a single
   “+ Add condition”, AND/OR toggle.
 - Schema picker: one heading and no stray status line.
 - Per-table rules: use that same condition builder.
+- Activity custody chip: `src/console-next/activity/reasons.ts:36` counts release events and omits `redeemed` from its displayed lifecycle states. Count grants instead and show the latest state, including `redeemed`.
 
 ### ARCH-01: Standard transport between gateway and engine (decision pending owner approval).
 
