@@ -189,3 +189,52 @@ Docker COPY inputs, rather than the full checkout; it removes that context
 before checking isolated command startup. The four targeted contract files
 passed all 22 tests with this isolated build context. These are build-input and
 test corrections only; packaged acceptance has still not started.
+
+## First packaged acceptance and agent temporary storage
+
+All seven amd64 images at `b3c3aeab39152503d5da4305ab38d88c070aeb76`
+passed the standard image checks; both offline customer archives built. The
+standard `console-first-run-install.mjs ARCHIVES REVISION --custody` run retained
+its evidence in `tmp/console-first-run-acceptance-aeWcKV`.
+
+The original first-run browser acceptance passed: normal SMTP owner sign-in,
+project creation, engine registration/verification, source scan, query limits,
+pool creation, explicit column decision, credential issuance, answered request
+and receipt in Activity. It also checked the per-table editors.
+
+The custody extension then failed during its isolated agent-host identity
+import, before any public association was handed to the gateway:
+
+```text
+Team-issued identity imported. Manifest: identity-bundles/certificates.json
+identities add: XQ token_unwrap. No key material was logged.
+```
+
+The harness exited 1 with `agent-identity-import exit status mismatch` in phase
+`packaged-custody-steps`. No custody sign-in, grant, query, redemption or revoke
+was run in that candidate. Its services were stopped; the development Postgres
+and Redis remained healthy. No successful live-XQ sequence is claimed for it.
+
+Code evidence: Linux unwrap requires memory-backed `tmpdir()` and otherwise
+throws before OpenSSL (`scripts/infrastructure/xq-token-unwrap.mjs:13–16`). The
+two new isolated agent invocations used `--read-only` without a tmpfs mount
+(`deploy/customer/command:213,244` at that revision). They therefore omitted a
+required environment boundary for the existing agent unwrap implementation;
+the retained sanitized error identifies the phase but not its original inner
+exception. The failed candidate was not rerun unchanged.
+
+Corrected this task's wrapper defect: both agent jobs get the same bounded
+64 MiB `/tmp` tmpfs, mode 0700 with the agent UID/GID, `noexec,nosuid,nodev`.
+The read-only root, dropped capabilities and no-new-privileges stay enforced.
+Device-key bytes remain transient on the agent host, never on a persistent
+volume or in a gateway service. Added regressions to the existing command tests
+checking the actual Docker arguments for identity import and steps; retained
+the existing unwrap memory/cleanup test and isolated provisioning checks.
+
+The new wrapper test also reproduced macOS Bash 3.2 rejecting an empty
+`steps_interactive` array under `set -u`, before Docker was invoked. Corrected
+the three optional array expansions using Bash's guarded-array form. The six
+command tests then passed. Provisioning-runtime and the unchanged unwrap test
+also passed; Bash/Node syntax checks and unchanged lint passed. These are
+packaged script corrections; no second full gate is run under the standing
+script-only validation rule.
