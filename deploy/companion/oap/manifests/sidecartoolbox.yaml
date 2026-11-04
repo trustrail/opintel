@@ -7,7 +7,7 @@ spec:
   version: "1"
   intent: Query governed data and redeem custody grants.
   source:
-    image: ghcr.io/trustrail/opintel-companion:648ca66
+    image: ghcr.io/trustrail/opintel-companion@sha256:cfbd8b476e141927b965646b9ce3e47135909b938b5918b8b9e32cbacc0cd733
   sandbox:
     class: opintel-companion
   transport:

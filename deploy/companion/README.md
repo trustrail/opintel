@@ -1,6 +1,6 @@
 # Opintel companion for OAP
 
-The companion holds the agent's pool key, device identity and XQ API key as **one OAP credential**. Its export is private: use a protected channel, mode-600 files, and never commit or paste it into chat. The companion writes private files under `/run/opintel`, linked to OAP's writable `/tmp`. OAP may back `/tmp` with ephemeral disk rather than tmpfs; files are removed on orderly exit.
+The companion holds the agent's pool key, device identity and XQ API key as **one OAP credential**. Its export is private: use a protected channel, mode-600 files, and never commit or paste it into chat. The companion writes private files under `/run/opintel`, linked to OAP's writable `/tmp`; files are removed on orderly exit. **The published image requires `/tmp` to be tmpfs:** the reused agent-kit token unwrap rejects ordinary ephemeral disk. The requested disk-backed fallback is not yet implemented; configure a memory-backed emptyDir before using this image in OAP.
 
 ## Install the OAP provider
 

@@ -1,5 +1,15 @@
 # OAP-01 companion — candidate validation
 
+## Final status
+
+The published amd64/arm64 image is pinned by digest in the OAP manifest:
+`ghcr.io/trustrail/opintel-companion@sha256:cfbd8b476e141927b965646b9ce3e47135909b938b5918b8b9e32cbacc0cd733`.
+The live Intel container check passed. OAP deployment itself remains user-run.
+The historical entries below retain failures and subsequent evidence; their
+outstanding-work statements describe their respective times, not current status.
+The limitations in the final report at the end remain open; this is not a claim
+that every original requirement is complete.
+
 Candidate: `51650364e5f987a039f1ff7f7d36f55dbdbe5fee`, branch `feat/oap-companion`.
 This is incomplete work, not an acceptance or release claim.
 
@@ -182,3 +192,75 @@ references the tested image tag `648ca66`; that image remains local pending
 explicit approval for the first GHCR publication. OAP itself was not run, as
 requested; the Air run is still user verification. No full gate was rerun.
 Lint and the updated SidecarToolbox YAML syntax check passed.
+
+## Final report
+
+### 1. Evidence and inference
+
+Publication initially failed with registry `denied`; after the owner's explicit
+retry instruction, `docker push ghcr.io/trustrail/opintel-companion:648ca66`
+exited 0. `docker buildx imagetools inspect` confirmed the published index above,
+with linux/amd64 manifest `sha256:77cff1fa1dcf6dcb7a670003d74559d698ecfc1c7f90e4de628256b811be17a4`
+and linux/arm64 manifest `sha256:acc5f125cc2f19083d4f672c86b6673fd32201ca61f431a1315e89f77fd777fb`.
+The manifest uses the index digest, not a mutable tag.
+Final digest-pinning validation: lint passed; every manifest YAML parsed, and the
+SidecarToolbox image reference matched that exact published index digest.
+
+Live output (values and secrets never printed):
+
+```text
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+opintel_query: rows=12 evidenceId=01a1a78e-4486-7c20-9be9-2394d2569bc6
+opintel_unseal: rows=12 evidenceId=01a1a78e-4486-7c20-9be9-2394d2569bc6
+opintel_unseal repeated: refused code=forbidden
+```
+
+Targeted tests, packaging/provisioning checks, strict typecheck and lint passed
+as recorded above. The full gate was not green: its canonicaliser setup timeout
+passed in the authorized isolated test; the subsequent smoke deadline was
+accepted by the owner as environmental. No full gate retry occurred. These facts
+prove the recorded Intel container path, not an OAP deployment or arm64 runtime
+acceptance. Both architecture images built; OAP remains user verification.
+
+### 2. Provider loading
+
+OAP revision e97928b embeds provider YAML with `//go:embed *.yaml` in
+`providers/embed.go:9`; `pkg/platform/identity/provider/loader.go:47` loads
+`embedfs.FS`. Add the supplied provider to the OAP checkout's `providers/` and
+rebuild. No runtime provider-directory loader was found in the inspected code.
+The approved bundle flow uses the default whole-config JSON question followed
+by `oap agent setup-identity opintel-analyst` for credential entry.
+
+### 3. Egress hosts
+
+The manifest lists `opintel.trustrail.io:443`, `subscription.xqmsg.net:443` and
+`validation.xqmsg.net:443`. The kit checks the two XQ endpoint bases in
+`scripts/steps/infrastructure/xq-device.mjs:17`; its request boundary restricts
+requests to those bases. The gateway host comes from the approved cloud config.
+
+### 4. Limitations and unsatisfied requirements
+
+- OAP's inspected stock controller explicitly does not enforce AllowedHosts:
+  `pkg/controllers/agentsession/cosidecar/cosidecar.go:66-69` permits coarse
+  TCP 80/443. The manifest records hosts but does not supply hostname enforcement.
+- The plain ephemeral-disk fallback is not satisfied by the published image:
+  the reused kit helper `scripts/infrastructure/xq-token-unwrap.mjs:14` requires
+  Linux tmpfs. The live check used tmpfs. Earlier README wording implied disk
+  support and was incorrect; no disk-backed OAP success is claimed.
+- Tool registrations declare input schemas but omit explicit output schemas
+  (`scripts/companion/main.ts:53`). Structured tool results were verified live,
+  but this does not satisfy the requested output-schema declaration.
+- OAP lint/install, toolbox conditions and an Air agent session were not run,
+  per the instruction that the user performs OAP verification.
+
+These are disclosed gaps, not evidence of successful OAP acceptance. No runtime
+changes or further runs were made in this final digest-pinning/report step.
+
+### 5. Branch commits
+
+All changes are on `feat/oap-companion`; no merge. Implementation and tooling:
+`6ed6b65`, `5165036`, `d05046e`, `6cec8f7`, `3d83a28`, `195e7f0`, `7a7d87f`,
+`648ca66`, `61395e9`. Prior evidence/report commits: `3bcc179`, `33a1cd8`,
+`4b70288`, `0445b70`, `3784881`. The final digest-pinning/report commit is reported
+in the accompanying response.
