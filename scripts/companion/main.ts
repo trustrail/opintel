@@ -1,10 +1,11 @@
+// Initialize Zod before SDK schemas in the bundled ESM entrypoint.
+import {z} from 'zod';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {createServer} from 'node:http';
 import {mkdir,writeFile,rm} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {join} from 'node:path';
-import {z} from 'zod';
 import {Config,Credential,createTools} from './core.js';
 import {deviceAgent} from '../steps/infrastructure/device.js';
 import {enrollmentIdentity} from '../steps/infrastructure/identity.js';
