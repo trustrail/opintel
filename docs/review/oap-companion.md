@@ -2,8 +2,9 @@
 
 ## Final status
 
-The published amd64/arm64 image is pinned by digest in the OAP manifest:
-`ghcr.io/trustrail/opintel-companion@sha256:cfbd8b476e141927b965646b9ce3e47135909b938b5918b8b9e32cbacc0cd733`.
+The published amd64/arm64 image `6bce943` is pinned by digest in the OAP manifest:
+`ghcr.io/trustrail/opintel-companion@sha256:a6c99b3c72f90b2f48f5dc51de7232009a6112a2193636dce09b6ddada0d14b2`.
+Gap 1 (ordinary ephemeral disk) is corrected and verified as recorded below.
 The live Intel container check passed. OAP deployment itself remains user-run.
 The historical entries below retain failures and subsequent evidence; their
 outstanding-work statements describe their respective times, not current status.
@@ -335,3 +336,19 @@ Retained value-free live output:
 `/private/tmp/oap-companion-disk-6bce943-live.log`.
 This resolves the ordinary-disk runtime defect in the candidate; it does not
 claim an OAP deployment or change the separate output-schema gap.
+
+
+### Approved publication of disk-support revision
+
+After explicit owner approval, `docker push
+ghcr.io/trustrail/opintel-companion:6bce943` exited 0. Remote
+`docker buildx imagetools inspect` confirmed index
+`sha256:a6c99b3c72f90b2f48f5dc51de7232009a6112a2193636dce09b6ddada0d14b2`,
+linux/amd64 manifest
+`sha256:186ffa4af2624dcbf6aa8ac45c38ae985741fa7de34a00fc5ef598d4c1411a34`,
+and linux/arm64 manifest
+`sha256:df41a560c4b4696ebf7202cf492832e0a6b3dd29b33ac6726c83a2075aa59c08`.
+The OAP manifest is re-pinned to that index; the README now describes the
+published disk-backed support, private modes and cleanup limits. No runtime
+changes, additional live runs or merge were made in this publication step.
+Publication-step lint and YAML/digest validation passed.
