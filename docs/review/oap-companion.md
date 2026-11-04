@@ -296,3 +296,42 @@ helper; its explicit declaration was added. No full gate is required for this
 script-only correction under the standing rule.
 Final listener-start cleanup adjustment: bundled probe regression passed again;
 strict typecheck passed on the final source. Lint and MJS syntax checks passed.
+
+### Disk-backed image acceptance
+
+Candidate `6bce943` built for linux/amd64 and linux/arm64 with the standard
+`npm run companion:build -- 6bce943`. Local index:
+`sha256:a6c99b3c72f90b2f48f5dc51de7232009a6112a2193636dce09b6ddada0d14b2`.
+Publication and manifest replacement await approval of this new revision.
+
+The Intel container used a Docker named volume mounted at `/tmp` (not tmpfs),
+read-only image filesystem, packaged non-root user, and the existing private
+credential env file. `node scripts/companion/live-check.mjs` exited 0:
+
+```text
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+opintel_query: rows=12 evidenceId=01a1a7aa-674b-7d63-bbcf-2ed1e1d2bdf8
+opintel_unseal: rows=12 evidenceId=01a1a7aa-674b-7d63-bbcf-2ed1e1d2bdf8
+opintel_unseal repeated: refused code=forbidden
+```
+
+The committed `scripts/companion/check-private-storage.mjs`, run through Docker
+exec, checks the actual filesystem type and metadata only:
+
+```text
+Disk-backed storage: private directories mode 700; files mode 600.
+```
+
+After `docker stop`, the container exit code was 0. A new non-root check container
+mounted the same volume read-only, with CHECK_REMOVED=1, and reported:
+
+```text
+Disk-backed storage: empty after SIGTERM.
+```
+
+The container and volume were then removed. No secret or row values were logged.
+Retained value-free live output:
+`/private/tmp/oap-companion-disk-6bce943-live.log`.
+This resolves the ordinary-disk runtime defect in the candidate; it does not
+claim an OAP deployment or change the separate output-schema gap.
