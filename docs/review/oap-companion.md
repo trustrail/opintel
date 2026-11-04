@@ -264,3 +264,35 @@ All changes are on `feat/oap-companion`; no merge. Implementation and tooling:
 `648ca66`, `61395e9`. Prior evidence/report commits: `3bcc179`, `33a1cd8`,
 `4b70288`, `0445b70`, `3784881`. The final digest-pinning/report commit is reported
 in the accompanying response.
+
+## Gap 1 correction: ordinary ephemeral disk
+
+Answer for published 648ca66: **no**, it does not start successfully on a
+Linux disk-backed `/tmp`. `main.ts` starts `device.exchange`; the worker's
+`xqDevice.exchange` calls `unwrapDeviceToken`. That helper's tmpfs check rejected
+ordinary disk before OpenSSL could decrypt the XQ token. The observed startup
+stage would be XQ identity exchange / token_unwrap, not a ready MCP server.
+
+The correction accepts ordinary ephemeral disk in the shared agent-side unwrap
+helper. A fresh private directory is mode 700 and its key file is mode 600.
+Files are overwritten, fsynced and unlinked after success or failure; input key
+buffers are zeroed. Companion worker TMPDIR points inside its private session
+root, including workers used for enrollment. It waits for the device worker to
+exit before wiping that root; signal cleanup is registered before startup and
+startup failures also clean up. The existing read-only identity mounts used by
+other agent-kit commands are unchanged.
+
+The wipe guarantees apply to live files on orderly cleanup, not physical SSD,
+copy-on-write or snapshot history. SIGKILL and host failure cannot execute an
+exit handler; the ephemeral volume lifecycle remains the backstop.
+
+Targeted command:
+`npm test -- test/xq-token-unwrap.test.mjs test/companion-runtime.test.mjs test/companion.test.ts test/steps-custody.test.ts test/provisioning-runtime.test.mjs`.
+All 25 tests passed on the final worker wiring, including permissions, an open
+file descriptor proving overwrite before unlink, failure cleanup, symlink
+non-traversal, custody regressions, packaged probe and provisioning contracts.
+One intermediate typecheck found a missing declaration for the new MJS cleanup
+helper; its explicit declaration was added. No full gate is required for this
+script-only correction under the standing rule.
+Final listener-start cleanup adjustment: bundled probe regression passed again;
+strict typecheck passed on the final source. Lint and MJS syntax checks passed.

@@ -3,7 +3,8 @@ import {z} from 'zod';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {createServer} from 'node:http';
-import {mkdir,writeFile,rm} from 'node:fs/promises';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {wipePrivateDirectory} from '../infrastructure/private-cleanup.mjs';
 import {randomUUID} from 'node:crypto';
 import {join} from 'node:path';
 import {Config,Credential,createTools} from './core.js';
@@ -14,6 +15,9 @@ import {mcpAgent} from '../steps/infrastructure/mcp.js';
 
 let cleanup=async()=>{};
 let startupStage='configuration';
+let stopping=false;
+const shutdown=()=>{if(stopping)return;stopping=true;void cleanup().then(()=>process.exit(0),()=>{console.error('Companion private-file cleanup failed.');process.exit(1);});};
+process.once('SIGINT',shutdown);process.once('SIGTERM',shutdown);
 async function main(){
  const probe=process.env.AP_PROBE_MODE==='1',port=Number(process.env.MCP_PORT);
  if(!Number.isInteger(port)||port<1||port>65535)throw new Error('Invalid MCP_PORT.');
@@ -24,14 +28,15 @@ async function main(){
   const config=Config.parse(JSON.parse(process.env.AP_SIDECAR_CONFIG??''));
   startupStage='private identity files';
   root=join('/run/opintel',randomUUID());const identityDir=join(root,'identity-bundles',credential.identity.name);
-  await mkdir(identityDir,{recursive:true,mode:0o700});
-  for(const [name,value] of Object.entries({'client.crt':credential.identity.clientCert,'client.key':credential.identity.clientKey,'transport.key':credential.identity.transportKey}))await writeFile(join(identityDir,name),value,{mode:0o600,flag:'wx'});
-  await writeFile(join(root,'active-identity'),credential.identity.name+'\n',{mode:0o600,flag:'wx'});
-  await writeFile(join(root,'pool-key'),credential.poolKey,{mode:0o600,flag:'wx'});
-  await writeFile(join(root,'xq-api-key'),credential.xqApiKey,{mode:0o600,flag:'wx'});
-  cleanup=async()=>{await rm(root,{recursive:true,force:true});};
+  cleanup=async()=>{wipePrivateDirectory(root);};
+  mkdirSync(identityDir,{recursive:true,mode:0o700});
+  for(const [name,value] of Object.entries({'client.crt':credential.identity.clientCert,'client.key':credential.identity.clientKey,'transport.key':credential.identity.transportKey}))writeFileSync(join(identityDir,name),value,{mode:0o600,flag:'wx'});
+  writeFileSync(join(root,'active-identity'),credential.identity.name+'\n',{mode:0o600,flag:'wx'});
+  writeFileSync(join(root,'pool-key'),credential.poolKey,{mode:0o600,flag:'wx'});
+  writeFileSync(join(root,'xq-api-key'),credential.xqApiKey,{mode:0o600,flag:'wx'});
+  process.env.TMPDIR=root;
   const device=deviceAgent(),certificateId=Number(credential.identity.name.slice('device-'.length));
-  cleanup=async()=>{device.close();await rm(root,{recursive:true,force:true});};
+  cleanup=async()=>{await device.close();wipePrivateDirectory(root);};
   startupStage='XQ identity exchange';
   const association=await device.exchange(certificateId,credential.identity.name,identityDir,credential.xqApiKey);
   startupStage='TLS identity';
@@ -39,7 +44,7 @@ async function main(){
   startupStage='gateway MCP initialization';
   const upstream=await mcpAgent(new URL(config.gateway),config.project,credential.poolKey,config.agentId,identity);
   makeInvoke=()=>createTools(upstream.call,config,locator=>device.share(certificateId,locator));
-  close=async()=>{device.close();try{await upstream.close();}finally{await rm(root,{recursive:true,force:true});}};cleanup=close;
+  close=async()=>{try{await device.close();}finally{wipePrivateDirectory(root);}await upstream.close();};cleanup=close;
  }
  const transports=new Map<string,StreamableHTTPServerTransport>();
  const server=createServer(async(req,res)=>{
@@ -59,7 +64,7 @@ async function main(){
    if(!transport){res.writeHead(400).end();return;}await transport.handleRequest(req,res);
   }catch{if(!res.headersSent)res.writeHead(500).end();}
  });
- server.listen(port,'0.0.0.0');
- const shutdown=()=>{server.close();void Promise.all([...transports.values()].map(t=>t.close())).then(close).finally(()=>process.exit(0));};process.once('SIGINT',shutdown);process.once('SIGTERM',shutdown);
+ cleanup=async()=>{const closing=close();server.close();try{await Promise.all([...transports.values()].map(t=>t.close()));}finally{await closing;}};
+ await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(port,'0.0.0.0',resolve);});
 }
-void main().catch(async(error:unknown)=>{await cleanup();const reason=error instanceof ShareRefused?error.message:transportFailure(error);console.error(`Companion could not start at ${startupStage}: ${reason}`);process.exitCode=1;});
+void main().catch(async(error:unknown)=>{if(stopping)return;await cleanup();const reason=error instanceof ShareRefused?error.message:transportFailure(error);console.error(`Companion could not start at ${startupStage}: ${reason}`);process.exitCode=1;});
