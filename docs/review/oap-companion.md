@@ -156,3 +156,29 @@ local unseal, and repeated-redemption refusal remain unverified. No pool decisio
 was changed. The test container was stopped and removed to discard its secret
 container environment. The user must set the intended column to custody before
 continuing this acceptance. GHCR first-publication approval remains outstanding.
+
+## Live custody acceptance after the user restored the decision
+
+The user restored `claim_amount` to custody and authorized resumption. The same
+locally built image, `648ca66`, ran on Intel with the committed live check from
+0445b70. No product changes or pool-decision changes were made for this run.
+The check exited 0:
+
+```text
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+opintel_describe: custody test column treatment=custody
+opintel_query: rows=12 evidenceId=01a1a78e-4486-7c20-9be9-2394d2569bc6
+opintel_unseal: rows=12 evidenceId=01a1a78e-4486-7c20-9be9-2394d2569bc6
+opintel_unseal repeated: refused code=forbidden
+```
+
+The assertions verified that every returned amount was sealed, every locally
+unsealed amount was present and no longer sealed, and the second redemption was
+refused by the gateway. No row values or secrets were printed. Retained sanitized
+output: `/private/tmp/oap-companion-live-custody-0445b70.log`.
+The container was stopped and removed after the check. The OAP manifest now
+references the tested image tag `648ca66`; that image remains local pending
+explicit approval for the first GHCR publication. OAP itself was not run, as
+requested; the Air run is still user verification. No full gate was rerun.
+Lint and the updated SidecarToolbox YAML syntax check passed.
