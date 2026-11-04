@@ -7,11 +7,13 @@ import {mkdir,writeFile,rm} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {join} from 'node:path';
 import {Config,Credential,createTools} from './core.js';
-import {deviceAgent} from '../steps/infrastructure/device.js';
+import {transportFailure} from '../steps/infrastructure/diagnostics.js';
+import {ShareRefused,deviceAgent} from '../steps/infrastructure/device.js';
 import {enrollmentIdentity} from '../steps/infrastructure/identity.js';
 import {mcpAgent} from '../steps/infrastructure/mcp.js';
 
 let cleanup=async()=>{};
+let startupStage='configuration';
 async function main(){
  const probe=process.env.AP_PROBE_MODE==='1',port=Number(process.env.MCP_PORT);
  if(!Number.isInteger(port)||port<1||port>65535)throw new Error('Invalid MCP_PORT.');
@@ -20,6 +22,7 @@ async function main(){
  if(!probe){
   const credential=Credential.parse(JSON.parse(process.env.OPINTEL_AGENT_CREDENTIAL??''));delete process.env.OPINTEL_AGENT_CREDENTIAL;
   const config=Config.parse(JSON.parse(process.env.AP_SIDECAR_CONFIG??''));
+  startupStage='private identity files';
   root=join('/run/opintel',randomUUID());const identityDir=join(root,'identity-bundles',credential.identity.name);
   await mkdir(identityDir,{recursive:true,mode:0o700});
   for(const [name,value] of Object.entries({'client.crt':credential.identity.clientCert,'client.key':credential.identity.clientKey,'transport.key':credential.identity.transportKey}))await writeFile(join(identityDir,name),value,{mode:0o600,flag:'wx'});
@@ -29,8 +32,11 @@ async function main(){
   cleanup=async()=>{await rm(root,{recursive:true,force:true});};
   const device=deviceAgent(),certificateId=Number(credential.identity.name.slice('device-'.length));
   cleanup=async()=>{device.close();await rm(root,{recursive:true,force:true});};
+  startupStage='XQ identity exchange';
   const association=await device.exchange(certificateId,credential.identity.name,identityDir,credential.xqApiKey);
+  startupStage='TLS identity';
   const identity=await enrollmentIdentity(identityDir,join(root,'xq-api-key'),association);
+  startupStage='gateway MCP initialization';
   const upstream=await mcpAgent(new URL(config.gateway),config.project,credential.poolKey,config.agentId,identity);
   makeInvoke=()=>createTools(upstream.call,config,locator=>device.share(certificateId,locator));
   close=async()=>{device.close();try{await upstream.close();}finally{await rm(root,{recursive:true,force:true});}};cleanup=close;
@@ -56,4 +62,4 @@ async function main(){
  server.listen(port,'0.0.0.0');
  const shutdown=()=>{server.close();void Promise.all([...transports.values()].map(t=>t.close())).then(close).finally(()=>process.exit(0));};process.once('SIGINT',shutdown);process.once('SIGTERM',shutdown);
 }
-void main().catch(async()=>{await cleanup();console.error('Companion could not start: invalid configuration, credential or upstream connection.');process.exitCode=1;});
+void main().catch(async(error:unknown)=>{await cleanup();const reason=error instanceof ShareRefused?error.message:transportFailure(error);console.error(`Companion could not start at ${startupStage}: ${reason}`);process.exitCode=1;});
