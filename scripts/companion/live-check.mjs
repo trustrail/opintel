@@ -1,3 +1,5 @@
+import {URL} from 'node:url';
+const {fetch,AbortSignal}=globalThis;
 import process from 'node:process';
 import console from 'node:console';
 import {setTimeout} from 'node:timers/promises';
