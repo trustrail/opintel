@@ -1,4 +1,4 @@
-import {readFileSync,mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {readdirSync,readFileSync,mkdtempSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -86,4 +86,11 @@ it('DEP-016: ingress certificate paths take precedence and fallback is isolated'
  const other=JSON.parse(execFileSync('docker',['compose','--env-file',fallback,'-p','tls-fallback-test','-f','deploy/gateway/services/ingress.json','config','--format','json'],{encoding:'utf8'}));
  expect(other.services.ingress.volumes.map(v=>v.source)).toContain('/operator/config/ingress-tls/server.pem');
  expect(other.services.ingress.restart).toBe('unless-stopped');expect(other.services.ingress.healthcheck).toBeDefined();
+});
+
+it('agent-kit-only packaging needs only its audited image and includes no identity state',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'opintel-agent-only-'));cleanup.push(directory);const destination=join(directory,'release');
+ const manifest={revision:'a'.repeat(40),upstream:JSON.parse(readFileSync('deploy/images/upstream.json','utf8')),artifacts:[{target:'agent-kit',platform:'linux/amd64',repoDigests:['ghcr.io/trustrail/opintel-agent-kit@sha256:'+'b'.repeat(64)]}]};
+ packageDeployment(manifest,destination,'linux/amd64',{kind:'agent-kit'});
+ expect(readdirSync(destination)).toEqual(['agent-kit']);expect(readdirSync(join(destination,'agent-kit'))).toEqual(['release.json']);
 });
