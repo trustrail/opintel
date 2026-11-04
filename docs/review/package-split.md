@@ -225,3 +225,14 @@ config and signed-in session; they do not claim a live or packaged soak.
 
 Targeted packaging, provisioning and workflow contracts passed: 4 files,
 21 tests. Syntax checks and lint passed. No packaged install was run on this host.
+
+## Acceptance for merge
+
+The Intel amd64 packaged acceptance on `e1ba4c4` passed installation, pairing,
+the first receipt and the live-XQ identity-binding and custody sequence, including
+a mismatched-certificate refusal and a bearer-only non-custody request. The full
+gate on `b15b4e1` was accepted with the separately recorded smoke evidence, and
+the migration suite passed.
+
+Arm64 archives have been built, but arm64 acceptance has not been completed for
+`e1ba4c4`; it remains pending an arm64 host.
