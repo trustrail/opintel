@@ -960,6 +960,13 @@ waiting. No verifier or product behavior is changed by this backlog entry.
 - Per-table rules: use that same condition builder.
 - Activity custody chip: `src/console-next/activity/reasons.ts:36` counts release events and omits `redeemed` from its displayed lifecycle states. Count grants instead and show the latest state, including `redeemed`.
 
+### Linux same-host installation
+
+Same-host Linux installs need `host.docker.internal` declared through Docker
+`extra_hosts: host-gateway` for the API and engine services, and the engine's
+advertised address must be selectable rather than taking the first
+`hostname -I` entry. Verify both changes with the packaged gateway and engine.
+
 ### ARCH-01: Standard transport between gateway and engine (decision pending owner approval).
 
 Problem: gateway->engine calls are hand-built (src/shared/infrastructure/engine-transport.ts): a new pinned-TLS connection per call (agent:false), an address lookup per call, hard-coded 1 s connect limits and a custom retry loop. Most connection failures found during VERIFY-01 trace to this layer.
