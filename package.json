@@ -42,7 +42,8 @@
     "test:smoke": "node scripts/smoke.mjs",
     "console:dev": "vite --config src/console-next/vite.config.ts",
     "console:build": "vite build --config src/console-next/vite.config.ts",
-    "console:test": "vitest run --config src/console-next/vitest.config.ts"
+    "console:test": "vitest run --config src/console-next/vitest.config.ts",
+    "companion:build": "node scripts/companion/build.mjs"
   },
   "dependencies": {
     "@authzed/authzed-node": "^1.6.1",

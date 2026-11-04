@@ -1,0 +1,13 @@
+oapFormatVersion: "1"
+agent:
+  version: "1.0.0"
+compat:
+  minApVersion: "0.9.0"
+  crdApiVersion: agentprimitives.authzed.com/v1alpha1
+questions:
+  - name: config
+    type: string
+    prompt: Opintel companion configuration JSON
+    default: '{"gateway":"https://opintel.trustrail.io","project":"8b0998f1-09c5-47ba-b060-1ee4920ba68b","agentId":"oap-analyst","caFile":null}'
+    binding:
+      - target: 'SidecarToolbox/opintel#spec.config'

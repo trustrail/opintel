@@ -1,0 +1,19 @@
+apiVersion: agentprimitives.authzed.com/v1alpha1
+kind: AgentClass
+metadata:
+  name: opintel-analyst
+spec:
+  displayName: Opintel analyst
+  description: Answers questions using governed Opintel data.
+  agentIdentity: opintel-analyst-identity
+  authz:
+    toolCalls:
+      mode: permissive
+  sidecarToolboxes:
+    - name: opintel
+      ref: opintel
+  systemPrompt:
+    inline: |
+      Call opintel_describe first. Write SQL only against objects it lists.
+      Values beginning opintelsealed: are under custody and require opintel_unseal.
+      Never guess a value. Report refusals as supplied.
