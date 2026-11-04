@@ -106,3 +106,53 @@ One packaging invocation initially named a nonexistent manifest and failed befor
 creating output; the corrected invocation used the filename emitted by the build.
 The installed kit was not modified by the assistant; the user performs extraction
 and private credential creation. The live test waits for their confirmation.
+
+## Live credential test — 2026-11-04
+
+The user supplied the private env file. No credential content, certificates,
+keys, team identifiers or row values were printed. Nothing was published to GHCR.
+
+Two companion defects were fixed before the cloud test:
+
+- Bundled SDK schema initialization failed before startup. Importing the used
+  Zod binding before the MCP SDK resolves its bundled initialization order
+  (195e7f0); the actual bundled probe test now covers startup and all three tools.
+- The slim companion image omitted OpenSSL, which the shared agent-kit device
+  token unwrap invokes. Sanitized startup-stage diagnostics (7a7d87f) located
+  the failure at `XQ identity exchange: K1 refused: XQ token_unwrap`.
+  `command -v openssl` in that image exited 1. The corrected image (648ca66)
+  installs the same runtime dependency as the agent kit and runs `openssl version`
+  as its non-root user during both architecture builds. Both checks passed.
+
+Validation: companion tests 6 passed; provisioning runtime tests 3 passed;
+strict typecheck and lint passed. An initial provisioning invocation mistakenly
+used Node's test runner and failed before tests because this suite uses Vitest;
+the repository's `npm test -- test/provisioning-runtime.test.mjs` then passed.
+No full gate was rerun. The accepted smoke decision above remains unchanged.
+
+Local multi-architecture image:
+`tmp/companion/opintel-companion-648ca66.oci.tar`, index
+`sha256:cfbd8b476e141927b965646b9ce3e47135909b938b5918b8b9e32cbacc0cd733`.
+The amd64 container ran read-only, as the packaged non-root user, with a private
+writable tmpfs and the supplied mode-600 env file. Startup completed through XQ
+exchange, TLS identity loading and gateway MCP initialization.
+
+The committed `scripts/companion/live-check.mjs` initially used SELECT * and
+received `unsupported_on_aggregate_only`; no unseal ran. The check was corrected
+in 61395e9 to select only the requested custody column and verify its treatment
+through describe before querying. Syntax and lint passed. Against the same image:
+
+```text
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+opintel_describe: custody test column treatment=aggregate_only
+Live companion check failed at custody prerequisite; no values were logged.
+```
+
+Evidence: cloud describe reports the requested `claim_amount` column as
+`aggregate_only`. This is not the custody prerequisite specified for the live
+acceptance. The corrected check stopped before another query. Twelve sealed rows,
+local unseal, and repeated-redemption refusal remain unverified. No pool decision
+was changed. The test container was stopped and removed to discard its secret
+container environment. The user must set the intended column to custody before
+continuing this acceptance. GHCR first-publication approval remains outstanding.
