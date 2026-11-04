@@ -56,3 +56,25 @@ bundle uses a single config JSON question and separate setup-identity command as
 approved. Stock OAP records allowedHosts but does not enforce hostname-level
 restrictions (pkg/controllers/agentsession/cosidecar/cosidecar.go:66).
 The configured XQ hosts come from scripts/steps/infrastructure/xq-device.mjs.
+
+## Authorized isolation and smoke follow-up
+
+On 2026-11-04, with image builds finished, the standard command
+`npm test -- test/canonicaliser-assignment.test.ts` passed all three tests.
+File duration: 5448 ms; previously failing case: 1309 ms; overall runner duration:
+10.59 seconds. The reset hook's individual duration is not separately logged.
+Log: `/private/tmp/oap-canonicaliser-isolated-3bcc179.log`.
+
+Then the authorized `npm run test:smoke` ran once. It failed at the 30000 ms test
+deadline during `page.goto` at `e2e/smoke.spec.ts:78`, opening the receipt permalink
+and waiting for `load`. Reported scenario duration: 31.8 seconds. The preceding
+MCP query completed and the persisted receipt row-decision assertion passed.
+The engine `/execute` attempt completed successfully in 4219.311 ms, with
+7.691 ms TCP and 6.119 ms TLS phase durations. No cause for the browser timeout
+has been established; no environment or branch attribution is claimed.
+Log: `/private/tmp/oap-smoke-3bcc179.log`. Browser trace and error context are
+retained under `test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/`.
+
+No full-gate retry or smoke retry was run. Live credential testing has not begun;
+no image publication or merge occurred. The installed kit still needs the new
+export command delivered before the user can generate the requested env file.
