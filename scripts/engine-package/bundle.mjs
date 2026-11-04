@@ -1,3 +1,4 @@
+import {assertPackageInputs} from './package-boundaries.mjs';
 import process from 'node:process';
 import console from 'node:console';
 import {build} from 'esbuild';
@@ -13,8 +14,9 @@ const entries={
  console:{'console.mjs':'deploy/images/console.mjs'},
  egress:{'egress.mjs':'deploy/engine/egress.mjs'},
  migrations:{'src/platform/db/migrate.js':'src/platform/db/migrate.ts','src/modules/authz/infrastructure/load-schema.js':'src/modules/authz/infrastructure/load-schema.ts'},
- provisioning:{'scripts/steps/main.js':'scripts/steps/main.ts','scripts/steps/device-worker.mjs':'scripts/steps/infrastructure/device-worker.mjs','scripts/steps/identity-exchange.js':'scripts/steps/identity-exchange.ts','scripts/operator/engine-sources.js':'scripts/operator/engine-sources.ts','scripts/operator/customer-install.js':'scripts/operator/customer-install.ts','scripts/operator/customer-operator.js':'scripts/operator/customer-operator.ts','scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/ingress-tls.js':'scripts/operator/ingress-tls.ts','src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts','scripts/operator/provision.js':'scripts/operator/provision.ts'},
- 'demo-tools':{'scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/demo.js':'scripts/operator/demo.ts','scripts/operator/custody-agent.mjs':'scripts/soak/custody-agent.mjs'},
+ provisioning:{'scripts/operator/engine-sources.js':'scripts/operator/engine-sources.ts','scripts/operator/customer-install.js':'scripts/operator/customer-install.ts','scripts/operator/customer-operator.js':'scripts/operator/customer-operator.ts','scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/ingress-tls.js':'scripts/operator/ingress-tls.ts','src/platform/ops/owner-claim.js':'src/platform/ops/owner-claim.ts'},
+ 'agent-kit':{'scripts/agent/main.js':'scripts/agent/main.ts','scripts/agent/identities.js':'scripts/agent/identities.ts','scripts/agent/device-worker.mjs':'scripts/steps/infrastructure/device-worker.mjs'},
+ 'demo-tools':{'scripts/operator/device-worker.mjs':'scripts/steps/infrastructure/device-worker.mjs','scripts/verification/steps/main.js':'scripts/verification/steps/main.ts','scripts/operator/provision.js':'scripts/operator/provision.ts','scripts/operator/xq-worker.mjs':'src/modules/release-custody/infrastructure/xq-worker.mjs','scripts/operator/demo.js':'scripts/operator/demo.ts','scripts/operator/custody-agent.mjs':'scripts/soak/custody-agent.mjs'},
 };
 if(!Object.hasOwn(entries,target))throw new Error('Unknown runtime bundle target.');
 await mkdir(destination,{recursive:true});
@@ -41,8 +43,7 @@ for(const [name,source] of Object.entries(entries[target])){
    builder.onLoad({filter:/\/platform\/http\/development-migrations\.ts$/},()=>({contents:'export async function checkDevelopmentMigrations() {}',loader:'js'}));
   }}],
  });
- const forbidden=Object.keys(result.metafile.inputs).filter(file=>/^(?:test|e2e|reference|scripts\/verification\/workbooks)\//u.test(file)||(target!=='demo-tools'&&/^scripts\/soak\//u.test(file)));
- if(forbidden.length)throw new Error('Runtime bundle contains excluded build inputs: '+forbidden.join(', '));
+ assertPackageInputs(target,Object.keys(result.metafile.inputs));
  await record(name);
 }
 await writeFile(join(destination,'package.json'),'{"type":"module","private":true}\n');await record('package.json');

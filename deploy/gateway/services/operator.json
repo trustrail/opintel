@@ -1,11 +1,11 @@
 {
   "services": {
-    "demo-tools": {
-      "image": "${GATEWAY_DEMO_TOOLS_IMAGE:?set image digest}",
+    "operator": {
+      "image": "${GATEWAY_PROVISIONING_IMAGE:?set image digest}",
       "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
       "command": [
         "node",
-        "scripts/operator/demo.js",
+        "scripts/operator/customer-operator.js",
         "--help"
       ],
       "env_file": [
@@ -16,14 +16,11 @@
         "NODE_EXTRA_CA_CERTS": "/config/tls/ca.pem",
         "HOME": "/home/operator",
         "OPINTEL_OUTPUT_DIRECTORY": "/output",
-        "OPINTEL_SOAK_OUTPUT_DIRECTORY": "/output/soak",
-        "OPINTEL_PACKAGED_SOAK": "1",
         "ENGINE_HEARTBEAT_URL": "${GATEWAY_HEARTBEAT_URL:?set explicit gateway HTTPS heartbeat address}"
       },
       "volumes": [
         "${GATEWAY_CONFIG_DIRECTORY:?set gateway config directory}:/config:ro",
-        "${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output",
-        "${GATEWAY_AGENT_CERTIFICATES_DIRECTORY:?set agent certificate directory}:/home/operator/.xq:ro"
+        "${GATEWAY_OPERATOR_OUTPUT_DIRECTORY:?set private output directory}:/output"
       ],
       "read_only": true,
       "cap_drop": [

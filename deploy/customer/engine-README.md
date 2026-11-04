@@ -15,9 +15,9 @@ be installed, running, and allowed at least 8 GB memory. Extract this archive to
 3. If the code expires before pairing, run `./pairing-code` here. This changes only
    the unclaimed pairing code, never the engine identity or credentials. Once
    paired, no code can replace its gateway. `./status` shows service information.
-4. Complete the gateway's optional demonstration using its `DEMO.md`. Require a
-   passed 30-minute result with receipt verification. Source data remains on this
-   laptop if either package stops.
+4. Connect each customer source using `./sources add` below. The separate internal
+   verification package can exercise an installation without being installed on
+   the gateway or engine.
 
 Lifecycle: `./start`, `./stop`, `./status`, `./upgrade /path/to/new/engine`,
 `./backup`, `./restore /path/to/backup`. Backup/restore stop services. Back up before moving.
@@ -46,8 +46,8 @@ these ports only between the two laptops. External customer databases need their
 own explicit source configuration and network authorization. The bundled empty
 readiness database is durable and is never removed by stop or acceptance.
 
-No XQ device bundle belongs in this package: the gateway's demo job alone mounts
-team-issued agent identities. No hosted model is enabled or called by default.
+No XQ device bundle belongs in this package. Device identities and their keys
+belong on the agent host in the separate agent kit. No hosted model is enabled or called by default.
 Queries run against sources in place; result values are held in memory, not
 persisted after the response. Optional spreadsheet ingest writes into the
 customer's own Postgres inside their network. Retain logs and every failed result.

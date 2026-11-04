@@ -9,8 +9,8 @@ import {exchangeDue,exchangeRetryMs} from './exchange-policy.ts';
 import {certificateMapping} from './manifest.ts';
 import {webcrypto,createHash,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
-import {Client} from '@modelcontextprotocol/sdk/client/index.js';
-import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import {mcpAgent} from '../steps/infrastructure/mcp.ts';
+import {clientIdentity} from '../steps/infrastructure/identity.ts';
 import {verifyCustodyCells} from './custody-check.ts';
 import {xqDevice,DeviceFailure} from '../steps/infrastructure/xq-device.mjs';
 // The SDK and all secret-bearing operations stay in this agent subprocess.
@@ -53,8 +53,11 @@ async function command(m){
  if(m.op==='connect'){
   const entry=mapping.find(a=>a.certificateId===m.association.certificateId);
   if(!entry||entry.deviceName!==m.association.deviceName)throw new Error('Mapping differs from saved credential association');
-  const client=new Client({name:'soak-custody-agent',version:'1'});await client.connect(new StreamableHTTPClientTransport(new globalThis.URL(m.url),{requestInit:{headers:{authorization:'Bearer '+m.key,'x-opintel-agent-id':m.agentId}}}));clients.set(m.id,{client,association:entry,stored:m.stored});
-  const state=await ensure(m.association);return {ok:true,exchange:state};
+  const state=await ensure(m.association);if(!state.ok)return {ok:false,exchange:state};
+  const root=realpathSync(entry.bundlePath.startsWith('~/')?join(homedir(),entry.bundlePath.slice(2)):entry.bundlePath);
+  const identity=await clientIdentity(root,identities.get(entry.certificateId).association),url=new globalThis.URL(m.url);
+  const project=url.pathname.split('/').at(-1),connection=await mcpAgent(new globalThis.URL(url.origin),project,m.key,m.agentId,{...identity,proveEnrollment:async locator=>(await device.fetchShare(entry.certificateId,locator)).share});
+  clients.set(m.id,{client:connection.client,association:entry,stored:m.stored});return {ok:true,exchange:state};
  }
  if(m.op==='poll'){for(const {association} of clients.values())await ensure(association);return {ok:true};}
  if(m.op==='complete'){

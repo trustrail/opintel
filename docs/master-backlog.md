@@ -363,6 +363,33 @@ Opintel from using it; what XQ does to an already-issued device token is undocum
 
 ## Later — correctness debt
 
+### Packaged harness · Check disk space and clean up completed runs
+**Status** Open · Backlog only · 3 November 2026
+**Detail** Check available disk space before building and installing; fail early
+with a clear message when there is insufficient space. Delete the harness's own
+labs and archives from previous runs once their results are committed. Remove
+the Docker networks it creates at the end of each run, and check in preflight
+that a network can still be allocated. Timestamp every Docker stats sample and
+capture host free memory and memory pressure so browser or container exits can
+be correlated with memory conditions.
+
+### Gate preflight · Identify occupied engine ports before the gate starts
+**Status** Open · Backlog only · 3 November 2026
+**Detail** Check that ports 3100 and 3103 are free and name the holding process
+when either is occupied, instead of failing mid-run with `EADDRINUSE`.
+
+### Gate diagnostics · Preserve the original database abort and cleanup failure
+**Status** Open · Backlog only · 3 November 2026
+**Detail** On gate candidate `b3099b1`, Activity X-06 stopped because the
+test database cleanup control connection timed out while connecting; its
+one-second connect limit is in `scripts/testing/database-deadline.ts`. The
+retained diagnostic did not identify what initiated cleanup or preserve the
+original failure. Preserve both the original abort and each cleanup failure,
+including connection phase and timing, while retaining the fail-closed barrier.
+An isolated Activity run passed all ten tests with test-database statement
+logging and recorded no lock-wait, deadlock or PostgreSQL error; that later run
+does not establish what occurred during the gate.
+
 ### GATE-04 · contributor-key-migration setup hook exceeds 10 s on the Intel Mac gate; raise the hook timeout with a diagnostic, as done for the native-release test
 **Status** Open · Backlog only · 31 October 2026
 **Evidence** Full gate on `ca747c0` exhausted the existing 10,000 ms setup hook
@@ -885,6 +912,9 @@ times on the Intel development Mac and passed on immediate rerun twice. Review
 the deadline in the hard-coded-timeout audit, on proper hardware. Do not infer
 a product defect or change the deadline from these observations alone.
 
+Include the test harness's one-second cleanup control connection limit in the
+hard-coded timeout audit (`scripts/testing/database-deadline.ts:154`).
+
 
 SpiceDB schema write: hard-coded **5 s, single attempt**
 (`src/modules/authz/infrastructure/load-schema.ts`). **Fixed in this branch**:
@@ -934,6 +964,8 @@ waiting. No verifier or product behavior is changed by this backlog entry.
 
 Problem: gateway->engine calls are hand-built (src/shared/infrastructure/engine-transport.ts): a new pinned-TLS connection per call (agent:false), an address lookup per call, hard-coded 1 s connect limits and a custom retry loop. Most connection failures found during VERIFY-01 trace to this layer.
 
+Arm64 native run `stage5-arm64-6e74199.8GIJ1K` hit this limit again under post-build load: first-hour engine verification failed after three 1-second connect timeouts and an `ABORT_ERR` at the 9-second overall deadline. The engine had reported ready and paired 27 seconds earlier.
+
 Proposal: replace it with a standard transport that keeps certificate pinning and mutual TLS: either a pooled keep-alive HTTP/2 client, or gRPC (as SpiceDB already uses). Long-lived reused connections, multiplexing, standard deadlines, retries and health checks. Same request/response semantics; no message broker on the query path.
 Not in scope: pub/sub. Asynchronous flows (engine heartbeats and health, scan and ingest progress, landings, console live updates, receipt export) may later move to a message broker, decided separately.
 Later, when the gateway runs in the cloud and engines at customer sites: the engine opens the connection outward to the gateway, so customers open no inbound ports. Evaluate a broker at that point as the channel for both requests and events.
@@ -951,3 +983,8 @@ decision, including expressions and aliases. Design this together with the pool
 resource field planned for OAP's leakage gate. Until then, the query step uses
 describe metadata for exact direct-column matches and says “not reported” for
 outputs whose treatment cannot be established; it never guesses from values.
+
+- **OAP companion from the agent kit:** reuse the kit's mutual-TLS identity,
+  query and local custody redemption implementation.
+- **Bearer-only credentials through IdP-issued tokens:** pools as protected
+  resources; design authorization and token lifecycle before implementation.

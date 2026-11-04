@@ -1,3 +1,5 @@
+import {requestClientCertificate} from '../../../platform/http/index.js';
+import {IdentityEnrollment} from '../../../shared/api/credential-identity.js';
 import {diagnostic,diagnosticMcpOperation,withDiagnosticWork} from '../../../platform/telemetry/diagnostics.js';
 import {releaseRedeemOutput} from '../../../shared/release-contract.js';
 import type {ReleaseRuntime} from '../../release-custody/index.js';
@@ -82,10 +84,10 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    diagnostic({kind:'mcp_sweep',startedAt,sessions:sessions.length,keys:new Set(principals.map(p=>p.keyVersion)).size,projects:new Set(principals.map(p=>p.pool.projectId)).size,outcome,durationMs:performance.now()-started});
   }
  }
- private failure(response: ServerResponse, requestId: string, status: number, code: string, message: string) {
-  console.info({event:'mcp.transport_refused',reason:code,requestId});
+ private failure(response: ServerResponse, requestId: string, status: number, code: string, message: string,details?:import('../../../shared/kernel/index.js').JsonObject,identityDiagnostic?:{credentialId:string|null;presentedFingerprintPrefix:string|null;boundFingerprintPrefix:string|null;presentedRecipientIdentifier:string|null;challengeState:import('../../pools/index.js').IdentityDiagnostic['challengeState']}) {
+  console.info({event:'mcp.transport_refused',reason:code,cause:details?.cause,requestId,...identityDiagnostic});
   response.writeHead(status, {'content-type':'application/json','cache-control':'no-store','x-request-id':requestId});
-  response.end(JSON.stringify(errorEnvelopeSchema.parse({error:{code,message,requestId,retryable:false}})));
+  response.end(JSON.stringify(errorEnvelopeSchema.parse({error:{code,message,...details?{details}:{},requestId,retryable:false}})));
  }
  private async create(principal: McpPrincipal): Promise<Session> {
   const server = new Server({name:'opintel',version:'0.1.0'}, {capabilities:{tools:{listChanged:true}}});
@@ -169,6 +171,8 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    if (request.headers.origin) { this.failure(response,requestId,403,'forbidden','Browser origins are not accepted by the agent interface.'); return; }
    const principal = auth.value;
    if(url.pathname.endsWith('/custody/local')){
+    const certificate=requestClientCertificate(request);let identityState:import('../../pools/index.js').IdentityDiagnostic|undefined;
+    const identity=await this.access.identity(principal,certificate,undefined,value=>{identityState=value;});if(!identity.ok){this.failure(response,requestId,401,identity.error.code,identity.error.message,identity.error.details,{credentialId:principal.credentialId??null,presentedFingerprintPrefix:certificate?.fingerprint.slice(0,12)??null,boundFingerprintPrefix:identityState?.boundFingerprintPrefix??null,presentedRecipientIdentifier:null,challengeState:identityState?.challengeState??null});return;}
     if(request.method!=='POST'||!this.custody){this.failure(response,requestId,404,'not_found','The local custody provider is unavailable.');return;}
     const chunks:Buffer[]=[];let size=0;for await(const chunk of request){const b=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);size+=b.length;if(size>16384){this.failure(response,requestId,413,'validation_failed','The release grant is too large.');return;}chunks.push(b);}
     let input;try{input=releaseRedeemInput.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);}catch{this.failure(response,requestId,400,'validation_failed','Invalid release grant request.');return;}
@@ -194,6 +198,11 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
     try { body=JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown; }
     catch { this.failure(response,requestId,400,'validation_failed','Request body is not valid JSON.'); return; }
    }
+   let enrollment;
+   if(isInitializeRequest(body)){const parsed=IdentityEnrollment.optional().safeParse(body.params._meta?.['opintel.identity']);if(!parsed.success){this.failure(response,requestId,400,'validation_failed','Invalid public identity labels or recipient identifier.');return;}enrollment=parsed.data;}
+   const certificate=requestClientCertificate(request);let identityState:import('../../pools/index.js').IdentityDiagnostic|undefined;
+   const identity=await this.access.identity(principal,certificate,enrollment,value=>{identityState=value;});
+   if(!identity.ok){this.failure(response,requestId,401,identity.error.code,identity.error.message,identity.error.details,{credentialId:principal.credentialId??null,presentedFingerprintPrefix:certificate?.fingerprint.slice(0,12)??null,boundFingerprintPrefix:identityState?.boundFingerprintPrefix??null,presentedRecipientIdentifier:enrollment?.recipientIdentifier??null,challengeState:identityState?.challengeState??null});return;}
    diagnosticMcpOperation(body);
    const message = JSONRPCMessageSchema.safeParse(body);
    if (!session) {
@@ -214,7 +223,9 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
    const abort=()=>{if(!response.writableFinished)disconnected.abort();};response.once('close',abort);if(response.destroyed)disconnected.abort();
    try{await this.context.run({principal,signal:disconnected.signal,origin:request.socket.remoteAddress??null},()=>session!.transport.handleRequest(request,response,body));}
    finally{response.removeListener('close',abort);}
-  } catch {
+  } catch (error:unknown) {
+   const code=error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&/^[0-9A-Z]{5}$/u.test(error.code)?error.code:undefined;
+   console.info({event:'mcp.interface_failure',requestId,...code?{nativeCode:code}:{},exception:error instanceof Error?'Error':'unknown'});
    if (!response.headersSent) this.failure(response,requestId,503,'dependency_unavailable','The agent interface is temporarily unavailable.');
    else response.end();
   } finally {

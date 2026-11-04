@@ -1,6 +1,6 @@
+import type {CredentialKind} from '../../../shared/api/credential-identity.js';
 import type {PoolBudgetValues} from '../../../shared/api/pool-budgets.js';
 import {poolTableSelection,type PoolTableSelection} from './tables.js';
-import {CertificateAssociation} from '../../../shared/api/certificate-association.js';
 import type { Tx } from '../../../platform/db/scope.js';
 import { DomainError, err, type PoolId, type ProjectId, type UserId, type Timestamp, type Result } from '../../../shared/kernel/index.js';
 import { CreatePoolBody, PoolKeyIdempotency, type PoolKeyCreationResponse, type PoolKeyStored, type PoolKeyMetadata } from '../../../shared/api/pool-keys.js';
@@ -12,7 +12,7 @@ export interface AgentPresenceQuery {
  affectedInScope?(tx:Tx,poolId:PoolId,keyVersion:PoolKeyId,settings:unknown,at:Timestamp):Promise<Result<AffectedAgents>>;
  affected(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<AffectedAgents>>;
 }
-export type KeyCommand = {kind:'create';name:string;budgets?:PoolBudgetValues;tableSetup?:PoolTableSelection;certificateAssociation?:CertificateAssociation} | {kind:'issue';poolId:PoolId;label:string;certificateAssociation?:CertificateAssociation} | {kind:'revokeCredential';poolId:PoolId;credentialId:CredentialId;confirmation:string;confirmedLiveGrants?:number} | {kind:'rotate';poolId:PoolId;credentialId?:CredentialId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
+export type KeyCommand = {kind:'create';name:string;budgets?:PoolBudgetValues;tableSetup?:PoolTableSelection;credentialKind?:CredentialKind} | {kind:'issue';poolId:PoolId;label:string;credentialKind?:CredentialKind} | {kind:'revokeCredential';poolId:PoolId;credentialId:CredentialId;confirmation:string;confirmedLiveGrants?:number} | {kind:'rotate';poolId:PoolId;credentialId?:CredentialId} | {kind:'revoke';poolId:PoolId;keyVersion:PoolKeyId;confirmation:string};
 export interface PoolKeyRepository {
  execute(ctx:PoolKeyContext,command:KeyCommand,idempotencyKey:string,presence:AgentPresenceQuery):Promise<Result<PoolKeyCreationResponse|PoolKeyStored>>;
  inspect(ctx:PoolKeyContext,poolId:PoolId,keyVersion:PoolKeyId):Promise<Result<PoolKeyMetadata>>;
@@ -22,14 +22,10 @@ export class PoolKeyService {
  execute(ctx:PoolKeyContext,command:KeyCommand,idempotency:unknown) {
   const key=PoolKeyIdempotency.safeParse(idempotency);
   if(!key.success)return Promise.resolve(err(new DomainError('validation_failed','Idempotency-Key is required.')));
-  if((command.kind==='create'||command.kind==='issue')&&command.certificateAssociation!==undefined){
-   const association=CertificateAssociation.safeParse(command.certificateAssociation);
-   if(!association.success)return Promise.resolve(err(new DomainError('validation_failed','Invalid public certificate association. Private or transport key material is not accepted.')));
-  }
   if(command.kind==='create'){
-   const body=CreatePoolBody.safeParse({name:command.name,budgets:command.budgets,certificateAssociation:command.certificateAssociation,tableSetup:command.tableSetup});
+   const body=CreatePoolBody.safeParse({name:command.name,budgets:command.budgets,credentialKind:command.credentialKind,tableSetup:command.tableSetup});
    if(!body.success)return Promise.resolve(err(new DomainError('validation_failed','Supply a valid pool name, table setup and positive integer budgets.')));
-   return this.repository.execute(ctx,{kind:'create',name:body.data.name,...body.data.budgets?{budgets:body.data.budgets}:{},...body.data.tableSetup?{tableSetup:poolTableSelection(body.data.tableSetup)}:{},...body.data.certificateAssociation?{certificateAssociation:body.data.certificateAssociation}:{}},key.data,this.presence);
+   return this.repository.execute(ctx,{kind:'create',name:body.data.name,...body.data.budgets?{budgets:body.data.budgets}:{},...body.data.tableSetup?{tableSetup:poolTableSelection(body.data.tableSetup)}:{},credentialKind:body.data.credentialKind},key.data,this.presence);
   }
   return this.repository.execute(ctx,command,key.data,this.presence);
  }

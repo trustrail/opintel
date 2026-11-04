@@ -1,0 +1,39 @@
+{
+  "services": {
+    "provision": {
+      "image": "${VERIFICATION_IMAGE:?set image digest}",
+      "platform": "${PLATFORM:?set linux/amd64 or linux/arm64}",
+      "command": [
+        "node",
+        "scripts/operator/provision.js",
+        "--help"
+      ],
+      "env_file": [
+        "${VERIFICATION_ENV_FILE:?set private verification configuration}"
+      ],
+      "environment": {
+        "OPINTEL_DEPLOYMENT_PACKAGE": "gateway",
+        "NODE_EXTRA_CA_CERTS": "/config/ca.pem",
+        "HOME": "/home/operator",
+        "OPINTEL_OUTPUT_DIRECTORY": "/output",
+        "OPINTEL_SOAK_OUTPUT_DIRECTORY": "/output/soak"
+      },
+      "volumes": [
+        "${VERIFICATION_CONFIG_DIRECTORY:?set verification TLS directory}:/config:ro",
+        "${VERIFICATION_OUTPUT_DIRECTORY:?set private output directory}:/output"
+      ],
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "restart": "no",
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777"
+      ],
+      "user": "${VERIFICATION_UID:-65534}:${VERIFICATION_GID:-65534}"
+    }
+  }
+}

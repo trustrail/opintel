@@ -1,3 +1,4 @@
+import {IdentityEnrollment,EnrollmentChallenge} from './credential-identity.js';
 import {agentIdRequirement} from './agent-presence.js';
 import {rowScopeReceipt} from '../row-scope-contract.js';
 import {QueryRefusalMetadata} from './query-refusal.js';
@@ -39,7 +40,8 @@ export function mcpOpenApiDocument() {
    QueryInput: z.toJSONSchema(QueryInput), QueryOutput: z.toJSONSchema(QueryOutput),
   } },
   paths: { '/mcp/v1/p/{projectId}': Object.fromEntries(['get','post','delete'].map(method => [method, {
-   description:agentIdRequirement+' The agent ID is self-declared, used for presence and evidence only, and never authorizes access.',
+   'x-identity-enrollment':z.toJSONSchema(IdentityEnrollment),'x-enrollment-challenge':z.toJSONSchema(EnrollmentChallenge),
+   description:'Identity-bound credentials require a TLS client certificate on every request. First initialize supplies public opintel.identity metadata; a 401 identity_unproven challenge requires one-time XQ redemption and a proof on initialize before binding. No query is served before binding or required administrator approval. '+agentIdRequirement+' The agent ID is self-declared, used for presence and evidence only, and never authorizes access.',
    'x-permission': 'pool-key', security: [{ poolKey: [] }], parameters: [
     { name: 'projectId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
     { name: 'X-Opintel-Agent-Id', in: 'header', required: false, description:agentIdRequirement,schema: { type: 'string', minLength: 1,pattern:/\S/u.source } },

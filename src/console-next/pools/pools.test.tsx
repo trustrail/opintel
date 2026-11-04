@@ -9,6 +9,7 @@ import {TableIcon} from '../components/kind.js';
 import {Tooltip} from '../components/primitives.js';
 import {createApiClient} from '../../shared/api/client.js';
 import {Pools} from './screen.js';
+import {Agents} from './agent.js';
 import {CreatePool,creationBody} from './create.js';
 import {CredentialCommand,SetRows,newRule} from './commands.js';
 import {readPools,readTables,sumPools,isConnected,credentialAgents} from './data.js';
@@ -212,11 +213,17 @@ it('minute precision conversion keeps invalid dates and missing zones invalid',(
  for(const [type,value] of [['DATE','2026-02-31'],['TIMESTAMPTZ','2026-11-01T12:30'],['TIME','12:']] as const){const invalid=typedDraft({...newRule(),column:'when',value},{...column,type});expect(compatible([{kind:'element',id,label:'when',childCount:null,exposedType:type,state:null}],invalid)).toBe(false);}
 });
 
-it.each([false,true])('Grant access sends only public XQ metadata when selected; linked=%s',async linked=>{
- install();const pool=(await readPools(id)).pools[0]!,identity={certificateId:223,deviceName:'device-one',recipientIdentifier:'public-device-subject'};
- vi.stubGlobal('fetch',vi.fn(async(path:string,init:{method:string;body?:string})=>{calls.push({path,method:init.method,body:init.body?JSON.parse(init.body):null});const data=path.includes('/custody-identities')?{items:[identity],nextCursor:null}:init.method==='POST'?{poolId,keyVersion:credential,prefix:'opk_live_new',createdAt:now,state:'current',graceUntil:null,keyShown:true,key:'opk_live_'+'A'.repeat(22)}:response(path);return {ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify(data)};}));
+it.each(['identity-bound','bearer-only'] as const)('Grant access issues %s without importing identities',async kind=>{
+ install();const pool=(await readPools(id)).pools[0]!;
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init:{method:string;body?:string})=>{calls.push({path,method:init.method,body:init.body?JSON.parse(init.body):null});const data=init.method==='POST'?{poolId,keyVersion:credential,prefix:'opk_live_new',createdAt:now,state:'current',graceUntil:null,keyShown:true,key:'opk_live_'+'A'.repeat(22)}:response(path);return {ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify(data)};}));
  const issued=vi.fn();render(<CredentialCommand project={id} pool={pool} action={{kind:'issue'}} onClose={()=>{}} onIssued={issued}/>,{wrapper});
- await screen.findByText('Needed only if this agent will receive values released under custody.');fireEvent.change(screen.getByLabelText('Credential label'),{target:{value:'Analyst'}});
- if(linked){await waitFor(()=>expect(calls.some(c=>c.path.includes('/custody-identities'))).toBe(true));fireEvent.click(screen.getByRole('combobox',{name:'XQ identity for custody'}));fireEvent.click(await screen.findByRole('option',{name:'device-one · certificate 223'}));}
- fireEvent.click(screen.getByRole('button',{name:'Issue credential'}));await waitFor(()=>expect(issued).toHaveBeenCalled());expect(calls.find(c=>c.method==='POST'&&c.path.endsWith('/credentials'))?.body).toEqual({projectId:id,label:'Analyst',...linked?{certificateAssociation:identity}:{}});expect(document.body.textContent).not.toContain('public-device-subject');
+ fireEvent.change(screen.getByLabelText('Credential label'),{target:{value:'Analyst'}});
+ if(kind==='bearer-only')await selectOption('Credential kind',/^Bearer-only/);
+ fireEvent.click(screen.getByRole('button',{name:'Issue credential'}));await waitFor(()=>expect(issued).toHaveBeenCalled());
+ expect(calls.find(c=>c.method==='POST'&&c.path.endsWith('/credentials'))?.body).toEqual({projectId:id,label:'Analyst',credentialKind:kind});expect(calls.some(c=>c.path.includes('/custody-identities'))).toBe(false);
+});
+
+it('agent list shows the bound fingerprint and identifies the device name as a self-declared label',async()=>{
+ install();const pool=(await readPools(id)).pools[0]!;pool.detail.credentials![0]!.identity={kind:'identity-bound',status:'bound',fingerprint:'a'.repeat(64),subject:'CN=Fixture',deviceName:'Agent label',certificateId:223,boundAt:now};
+ render(<Agents project={id} pool={pool} filter={null}/>,{wrapper});expect(screen.getAllByText('Agent label').length).toBeGreaterThan(0);expect(screen.getAllByText('self-declared label').length).toBeGreaterThan(0);expect(screen.getAllByText(/aaaaaaaaaaaa · bound/).length).toBeGreaterThan(0);
 });

@@ -3,20 +3,16 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {it,expect} from 'vitest';
-it('default identity key handoff uses only the package-shared tree and writable private diagnostics',()=>{
- const root=mkdtempSync(join(tmpdir(),'customer-agent-default-key-'));
+it('agent kit imports with an explicit private API-key file and no key in Docker arguments',()=>{
+ const root=mkdtempSync(join(tmpdir(),'customer-agent-key-'));
  try{
-  mkdirSync(join(root,'bin'));mkdirSync(join(root,'host-only-tmp'));
-  for(const name of ['release.json','images.list'])writeFileSync(join(root,name),'');
-  writeFileSync(join(root,'bootstrap.image'),'synthetic-bootstrap');writeFileSync(join(root,'package-kind'),'gateway');writeFileSync(join(root,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
-  copyFileSync('deploy/customer/command',join(root,'identities'));chmodSync(join(root,'identities'),0o755);
-  writeFileSync(join(root,'package.env'),'OPINTEL_XQ_API_KEY=fixture-key\n',{mode:0o600});const zip=join(root,'device-223.zip');writeFileSync(zip,'fixture');
+  mkdirSync(join(root,'bin'));writeFileSync(join(root,'images.list'),'');writeFileSync(join(root,'bootstrap.image'),'synthetic-bootstrap');writeFileSync(join(root,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
+  copyFileSync('deploy/agent-kit/command',join(root,'identities'));chmodSync(join(root,'identities'),0o755);
+  const key=join(root,'api-key'),zip=join(root,'device-223.zip');writeFileSync(zip,'fixture');writeFileSync(key,'private-fixture-key',{mode:0o600});
   writeFileSync(join(root,'bin/docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nexit 0\n',{mode:0o755});
-  const result=spawnSync(join(root,'identities'),['add',zip,'--device','fixture-device'],{encoding:'utf8',env:{...process.env,TMPDIR:join(root,'host-only-tmp'),PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls')}});
-  expect(result.status,result.stderr).toBe(0);const calls=readFileSync(join(root,'calls'),'utf8').split('\n'),extract=calls.find(line=>line.includes('customer-install.js agent-api-key gateway')),exchange=calls.find(line=>line.includes('identity-exchange.js exchange'));
-  expect(extract).toContain(`--user ${process.getuid()}:${process.getgid()}`);expect(exchange).toContain(`--user ${process.getuid()}:${process.getgid()}`);
-  expect(extract).toContain(`-v ${root}/.agent-api-`);expect(extract).toContain(`-v ${root}/diagnostics:/package/diagnostics`);expect(extract).not.toContain('/host-only-tmp/');
-  expect(statSync(join(root,'diagnostics')).mode&0o777).toBe(0o700);expect(readdirSync(root).some(name=>name.startsWith('.agent-api-'))).toBe(false);expect(calls.join('\n')).not.toContain('fixture-key');
+  const result=spawnSync(join(root,'identities'),['add',zip,'--device','fixture-device','--api-key-file',key],{encoding:'utf8',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls')}});
+  expect(result.status,result.stderr).toBe(0);const calls=readFileSync(join(root,'calls'),'utf8'),exchange=calls.split('\n').find(line=>line.includes('scripts/agent/identities.js add'));
+  expect(exchange).toContain(`--user ${process.getuid()}:${process.getgid()}`);expect(exchange).toContain(`-v ${key}:/input/api-key:ro`);expect(calls).not.toContain('private-fixture-key');expect(statSync(join(root,'xq-api-key')).mode&0o777).toBe(0o600);
  }finally{rmSync(root,{recursive:true,force:true});}
 });
 it.each(['identities','steps'])('agent %s job gives device unwrap private memory-backed temporary storage',command=>{
@@ -24,11 +20,11 @@ it.each(['identities','steps'])('agent %s job gives device unwrap private memory
  try{
   mkdirSync(join(root,'bin'));for(const name of ['release.json','images.list'])writeFileSync(join(root,name),'');
   writeFileSync(join(root,'bootstrap.image'),'synthetic-bootstrap');writeFileSync(join(root,'package-kind'),'gateway');writeFileSync(join(root,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
-  copyFileSync('deploy/customer/command',join(root,command));chmodSync(join(root,command),0o755);
+  copyFileSync('deploy/agent-kit/command',join(root,command));chmodSync(join(root,command),0o755);
   writeFileSync(join(root,'bin/docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nexit 0\n',{mode:0o755});
   const zip=join(root,'device-223.zip'),key=join(root,'api-key');writeFileSync(zip,'fixture');writeFileSync(key,'private-fixture-key',{mode:0o600});
   const result=spawnSync(join(root,command),command==='identities'?['add',zip,'--device','fixture-device','--api-key-file',key]:['query','--help'],{encoding:'utf8',input:'',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls')}});
-  expect(result.status,result.stderr).toBe(0);const calls=readFileSync(join(root,'calls'),'utf8').split('\n'),agent=calls.find(line=>line.includes(command==='identities'?'identity-exchange.js exchange':'scripts/steps/main.js query'));
+  expect(result.status,result.stderr).toBe(0);const calls=readFileSync(join(root,'calls'),'utf8').split('\n'),agent=calls.find(line=>line.includes(command==='identities'?'scripts/agent/identities.js add':'scripts/agent/main.js query'));
   expect(agent).toContain(`--read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=${process.getuid()},gid=${process.getgid()}`);
   expect(agent).toContain('--cap-drop ALL --security-opt no-new-privileges');expect(calls.join('\n')).not.toContain('private-fixture-key');
  }finally{rmSync(root,{recursive:true,force:true});}
@@ -48,18 +44,15 @@ it('DEP-018: startup stops at a failed migration and retains private diagnostics
   const calls=readFileSync(join(root,'calls'),'utf8');expect(calls).toContain('--project-name opintel-test');expect(calls).toContain('--interactive=false -T migrations');expect(calls).not.toContain('spicedb-migrate');expect(calls).not.toContain('api console ingress');
  }finally{rmSync(root,{recursive:true,force:true});}
 });
-it.each([null,'operator','demo-tools'])('DEP-XQ-200: packaged check propagates %s failure and uses noninteractive jobs',failure=>{
+it.each([false,true])('DEP-XQ-200: packaged provider check propagates operator failure=%s without launching verification jobs',failure=>{
  const root=mkdtempSync(join(tmpdir(),'customer-xq-check-'));
  try{
-  mkdirSync(join(root,'state'));mkdirSync(join(root,'bin'));
-  for(const name of ['release.json','images.list','state/compose.json','state/package.env'])writeFileSync(join(root,name),'');
+  mkdirSync(join(root,'state'));mkdirSync(join(root,'bin'));for(const name of ['release.json','images.list','state/compose.json','state/package.env'])writeFileSync(join(root,name),'');
   writeFileSync(join(root,'state/project-name'),'opintel-test');writeFileSync(join(root,'bootstrap.image'),'synthetic-bootstrap');writeFileSync(join(root,'platform'),'linux/'+(process.arch==='arm64'?'arm64':'amd64'));
   copyFileSync('deploy/customer/command',join(root,'xq-check'));chmodSync(join(root,'xq-check'),0o755);
-  writeFileSync(join(root,'bin/docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nif [ -n "$MOCK_FAIL_SERVICE" ]; then case "$*" in *"-T $MOCK_FAIL_SERVICE "*) exit 23;; esac; fi\nexit 0\n',{mode:0o755});
-  const result=spawnSync(join(root,'xq-check'),['--roundtrips','200'],{encoding:'utf8',input:'must not be consumed\n',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls'),MOCK_FAIL_SERVICE:failure??''}});
-  expect(result.status).toBe(failure?23:0);
-  const calls=readFileSync(join(root,'calls'),'utf8');expect(calls).toContain('--interactive=false -T operator node scripts/operator/customer-operator.js xq-check');
-  if(failure==='operator')expect(calls).not.toContain('xq-roundtrip');else expect(calls).toContain('--interactive=false -T demo-tools node scripts/operator/demo.js xq-roundtrip 200');
+  writeFileSync(join(root,'bin/docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$MOCK_DOCKER_LOG"\nif [ "$MOCK_FAIL" = yes ]; then case "$*" in *"-T operator "*) exit 23;; esac; fi\nexit 0\n',{mode:0o755});
+  const result=spawnSync(join(root,'xq-check'),[],{encoding:'utf8',input:'must not be consumed\n',env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,MOCK_DOCKER_LOG:join(root,'calls'),MOCK_FAIL:failure?'yes':'no'}});
+  expect(result.status).toBe(failure?23:0);const calls=readFileSync(join(root,'calls'),'utf8');expect(calls).toContain('--interactive=false -T operator node scripts/operator/customer-operator.js xq-check');expect(calls).not.toContain('demo-tools');
  }finally{rmSync(root,{recursive:true,force:true});}
 });
 it.each(['shorter','longer'])('upgrade survives a %s replacement of its running entrypoint',length=>{

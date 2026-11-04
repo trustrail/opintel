@@ -1,0 +1,2 @@
+2026-11-03T03:52:07.889063508Z {"connection":"5","case":"b","status":200,"tls":"TLSv1.3","verify":"FAILED:self-signed certificate"}
+2026-11-03T03:52:07.889154508Z 2026/11/03 03:52:07 [info] 39#39: *7 client 127.0.0.1 closed keepalive connection

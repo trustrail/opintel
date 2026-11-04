@@ -75,7 +75,7 @@ try{
  let available:Agent[],connect:(key:string,id:string)=>Promise<Connection>;
  let receiptRead:(id:string,agentId:string)=>Promise<{receipt:{agent_id:string|null;pool_id:string;credential_id:string|null|undefined};detail:unknown}|null|undefined>;
  if(values.target){
-  const {externalTarget}=await import('./external.js');external=await externalTarget(values.target,values.manifest);
+  const {externalTarget}=await import('./external.js');external=await externalTarget(values.target,values.manifest,values.certs);
   observer=createObserver(external.base,external.manifest.projectId,values['observer-cookie'],terminalError,halt);await observer.ready();
   const receiptObserver=observer;receiptRead=async(id,agentId)=>{const detail=await receiptObserver.read(id,agentId);return detail?{receipt:{agent_id:detail.agentId,pool_id:detail.poolId,credential_id:detail.credentialId},detail}:detail;};
   available=external.agents;connect=external.connect;spec=external.manifest.specification!;coverage=new Coverage(spec.scenarios);literals=spec.literals;

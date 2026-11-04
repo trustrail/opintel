@@ -24,7 +24,7 @@ it.each([
   const result=spawnSync('/bin/bash',[script,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,NATIVE_TEST_ARCH:architecture,NATIVE_TEST_DOCKER:docker},timeout:30000});
   if(result.error||result.signal||result.status!==1)console.error({code:result.error?.code??null,signal:result.signal,elapsedMs:performance.now()-started,stderr:result.stderr});
   expect(result.status).toBe(1);expect(result.stderr).toContain('Precondition failed: '+message);
-  expect(result.stdout).toContain('Phase: arguments');expect(result.stdout).toContain('Run directory: not created (preflight failed)');expect(result.stdout.match(/Archive: not produced/gu)).toHaveLength(2);expect(result.stdout.trim()).toMatch(/Acceptance result: not produced$/u);
+  expect(result.stdout).toContain('Phase: arguments');expect(result.stdout).toContain('Run directory: not created (preflight failed)');expect(result.stdout.match(/Archive: not produced/gu)).toHaveLength(4);expect(result.stdout.trim()).toMatch(/Acceptance result: not produced$/u);
  }finally{rmSync(root,{recursive:true,force:true});}
 });
 

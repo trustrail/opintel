@@ -10,7 +10,7 @@ export function packageDeployment(manifest,destination,platform,{candidate=false
  if((manifest.candidate||manifest.dirty)&&!candidate)throw new Error('Dirty candidate artifacts cannot be packaged as a release.');
  if(existsSync(destination))throw new Error('Package output already exists; use a new directory.');
  const images={};
- for(const target of ['api','console','engine','egress','migrations','provisioning','demo-tools']){
+ for(const target of ['api','console','engine','egress','migrations','provisioning','demo-tools','agent-kit']){
   const matches=manifest.artifacts.filter(value=>value.target===target&&value.platform===platform);
   if(matches.length!==1)throw new Error('Missing or ambiguous image artifact: '+target);
   const digest=matches[0].repoDigests?.find(value=>/^[a-z0-9./:_-]+@sha256:[a-f0-9]{64}$/u.test(value));
@@ -29,14 +29,21 @@ export function packageDeployment(manifest,destination,platform,{candidate=false
    for(const [service,body] of Object.entries(config.services)){
     body.platform=platform;
     if(body.extends)body.extends.file='../upstream.json';
-    if(body.image){const target=service==='prepare'?'engine':['owner-claim','provision','ingress-setup'].includes(service)?'provisioning':service==='schema'?'migrations':service;body.image=images[target];if(!body.image)throw new Error('Unmapped image target.');}
+    if(body.image){const target=service==='prepare'?'engine':['owner-claim','operator','ingress-setup'].includes(service)?'provisioning':service==='schema'?'migrations':service;body.image=images[target];if(!body.image)throw new Error('Unmapped image target.');}
    }
    writeFileSync(join(output,'services',file),JSON.stringify(config,null,2)+'\n');
   }
   if(name==='gateway')cpSync('deploy/gateway/ingress',join(output,'ingress'),{recursive:true});
-  if(name==='gateway')cpSync('docs/ops/run-soak.md',join(output,'run-soak.md'));
   if(name==='gateway')writeFileSync(join(output,'upstream.json'),JSON.stringify({services:manifest.upstream.services},null,2)+'\n');
-  writeFileSync(join(output,'release.json'),JSON.stringify({revision:manifest.revision,platform,candidate:!!(manifest.candidate||manifest.dirty),images:Object.fromEntries(Object.entries(images).filter(([target])=>name==='engine'?['engine','egress'].includes(target):!['engine','egress'].includes(target)))},null,2)+'\n');
+  writeFileSync(join(output,'release.json'),JSON.stringify({revision:manifest.revision,platform,candidate:!!(manifest.candidate||manifest.dirty),images:Object.fromEntries(Object.entries(images).filter(([target])=>name==='engine'?['engine','egress'].includes(target):['api','console','migrations','provisioning'].includes(target)))},null,2)+'\n');
+ }
+ for(const [name,target] of [['agent-kit','agent-kit'],['verification','demo-tools']]){
+  const output=join(destination,name);mkdirSync(output,{recursive:true});
+  writeFileSync(join(output,'release.json'),JSON.stringify({revision:manifest.revision,platform,candidate:!!(manifest.candidate||manifest.dirty),images:{[target]:images[target]}},null,2)+'\n');
+  if(name==='verification'){
+   mkdirSync(join(output,'services'),{recursive:true});
+   for(const file of readdirSync('deploy/verification/services')){const config=JSON.parse(readFileSync(join('deploy/verification/services',file),'utf8'));for(const body of Object.values(config.services)){body.platform=platform;body.image=images[target];}writeFileSync(join(output,'services',file),JSON.stringify(config,null,2)+'\n');}
+  }
  }
  return {platform,images,destination};
 }

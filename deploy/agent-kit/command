@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+main(){
+set -euo pipefail
+umask 077
+root="$(cd "$(dirname "$0")" && pwd)"; command="$(basename "$0")"; cd "$root"
+fail(){ echo "$*" >&2; exit 1; }
+[[ -f bootstrap.image && -f platform && -f images.list ]] || fail 'Incomplete agent kit.'
+image="$(cat bootstrap.image)"; platform="$(cat platform)"
+if ! docker image inspect "$image" >/dev/null 2>&1; then docker load --input "$root/images.tar" > "$root/image-load.log" 2>&1 || fail 'Image load failed; see image-load.log.'; fi
+while IFS=' ' read -r ref expected; do [[ "$(docker image inspect --platform "$platform" --format '{{.Id}}' "$ref")" == "$expected" ]] || fail 'Agent image identity mismatch.'; done < images.list
+run(){ docker run --rm --pull never --platform "$platform" --user "$(id -u):$(id -g)" --read-only --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=$(id -u),gid=$(id -g)" --cap-drop ALL --security-opt no-new-privileges "$@"; }
+if [[ "$command" == identities ]]; then
+ if [[ ${1:---help} == --help || ${2:-} == --help ]]; then run "$image" node scripts/agent/identities.js --help; exit 0; fi
+ [[ ${1:-} == add && $# -ge 4 && -f "$2" ]] || fail 'Usage: ./identities add EXPORT.zip --api-key-file FILE [--device NAME]'
+ input="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; original="$(basename "$2")"; shift 2
+ key=; device=; while [[ $# -gt 0 ]]; do [[ $# -ge 2 ]] || fail 'Each flag needs a value.'; case "$1" in --api-key-file) key="$2";; --device) device="$2";; *) fail 'Unknown identity flag.';; esac; shift 2; done
+ [[ -f "$key" && ! -L "$key" ]] || fail 'Supply a private XQ API key file.'; key="$(cd "$(dirname "$key")" && pwd)/$(basename "$key")"
+ args=(); [[ -z "$device" ]] || args+=(--device "$device")
+ run -e OPINTEL_IMPORT_NAME="$original" -v "$root:/agent" -v "$input:/input/export.zip:ro" -v "$key:/input/api-key:ro" "$image" node scripts/agent/identities.js add /input/export.zip --api-key-file /input/api-key ${args[@]+"${args[@]}"}
+ if [[ "$key" != "$root/xq-api-key" ]]; then cp "$key" "$root/xq-api-key"; fi; chmod 600 "$root/xq-api-key"
+ exit 0
+fi
+[[ "$command" == steps ]] || fail 'Use ./identities or ./steps.'
+case "${1:---help}" in query|redeem-and-unseal|--help) ;; *) fail 'This agent kit provides query and redeem-and-unseal; administrator steps are in the verification package.';; esac
+mounts=(); envs=(); args=(); outputs=(); destinations=(); index=0
+if [[ -f active-identity ]]; then active="$(cat active-identity)"; [[ "$active" =~ ^device-[0-9]+$ ]] || fail 'Invalid active identity.'; mounts+=(-v "$root/identity-bundles/$active:/identity:ro"); envs+=(-e OPINTEL_AGENT_IDENTITY=/identity); fi
+if [[ -f xq-api-key ]]; then mounts+=(-v "$root/xq-api-key:/input/api-key:ro"); envs+=(-e STEPS_XQ_API_KEY_FILE=/input/api-key); fi
+if [[ -f gateway-ca.pem ]]; then mounts+=(-v "$root/gateway-ca.pem:/trust/ca.pem:ro"); envs+=(-e NODE_EXTRA_CA_CERTS=/trust/ca.pem); fi
+while [[ $# -gt 0 ]]; do
+ case "$1" in
+ --key-file|--result|--xq-identity)
+  [[ $# -ge 2 && -e "$2" && ! -L "$2" ]] || fail 'Input must exist and not be a link.'; path="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; index=$((index+1)); mounts+=(-v "$path:/input/$index:ro"); args+=("$1" "/input/$index"); shift 2;;
+ --out)
+  [[ $# -ge 2 ]] || fail 'Missing output path.'; parent="$(dirname "$2")"; mkdir -p "$parent"; parent="$(cd "$parent" && pwd)"; destination="$parent/$(basename "$2")"; [[ ! -e "$destination" && ! -L "$destination" ]] || fail 'Output already exists.'; stage="$(mktemp -d "$parent/.steps-output-XXXXXX")"; index=$((index+1)); outputs+=("$stage"); destinations+=("$destination"); mounts+=(-v "$stage:/output/$index"); args+=(--out "/output/$index/result"); shift 2;;
+ *) args+=("$1"); shift;;
+ esac
+done
+run --add-host host.docker.internal:host-gateway ${mounts[@]+"${mounts[@]}"} ${envs[@]+"${envs[@]}"} "$image" node scripts/agent/main.js ${args[@]+"${args[@]}"}
+for (( i=0; i<${#outputs[@]}; i++ )); do ln "${outputs[$i]}/result" "${destinations[$i]}" || fail 'Output could not be published; private staging retained.'; rm "${outputs[$i]}/result"; rmdir "${outputs[$i]}"; done
+}
+main "$@"; exit $?

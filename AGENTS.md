@@ -6,15 +6,17 @@ Keep this file short. If it grows past two pages it stops being read.
 
 ## Standing decisions
 
+- Three packages, never mixed: application archives (gateway and engine) contain only customer operations, no agent key material or verification tooling; the separate agent kit owns device identities, exchange, query and local redemption; the separate verification archive owns sign-in, grant-access, synthetic seed, soak and VERIFY-01 steps. Bundle input checks enforce command ownership.
+
 Read this section before every task and flag requests that contradict it.
 
 - Release script: two-minute soak by default; duration is an argument (`scripts/release/native.sh REVISION [--soak-seconds N]`).
-- Long soaks (30 minutes) are run by hand with `./demo soak N` on an installed package.
+- Long soaks (30 minutes) are run by hand with `./demo soak N` from the verification package against an installation.
 - A new table, route, permission or bundled file runs the matching contract tests as part of its targeted tests.
 - A change that adds or edits a migration runs every migration test (all migration up/down and migration-fixture tests) as part of its targeted tests, before the full gate.
 - Any change to a packaged script or bundle list runs `test/provisioning-runtime.test.mjs` as part of its targeted tests.
 - Script-only and docs-only changes: lint and syntax check, no full gate.
-- Customer install: archives, one env file, `./install`, one-code pairing, `./identities add` from the XQ export.
+- Customer install: application archives, one env file, `./install`, one-code pairing. `./identities add` imports the XQ export only on the agent host from the separate agent kit.
 - Demo and real data take the same path. A demo is a demo database or file connected like any customer source (./sources add, or a landing zone). Product code never branches on demo data.
 
 ---

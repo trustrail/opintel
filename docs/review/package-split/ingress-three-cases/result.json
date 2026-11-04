@@ -1,0 +1,103 @@
+{
+  "status": "passed",
+  "image": "nginx:stable-alpine@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951",
+  "phase": "completed",
+  "checks": [
+    {
+      "id": "a",
+      "name": "no client certificate",
+      "startedAt": "2026-11-03T03:52:07.424Z",
+      "events": [
+        {
+          "phase": "connect",
+          "at": "2026-11-03T03:52:07.486Z"
+        },
+        {
+          "phase": "tcp-connected",
+          "at": "2026-11-03T03:52:07.488Z"
+        },
+        {
+          "phase": "tls-complete",
+          "at": "2026-11-03T03:52:07.504Z",
+          "protocol": "TLSv1.3"
+        },
+        {
+          "phase": "http-response",
+          "at": "2026-11-03T03:52:07.510Z",
+          "status": 200
+        }
+      ],
+      "handshakeCompleted": true,
+      "tlsVersion": "TLSv1.3",
+      "sslClientVerify": "NONE",
+      "status": "passed",
+      "httpStatus": 200,
+      "nginxConnection": "2",
+      "forwardedCertificateMatches": true
+    },
+    {
+      "id": "b",
+      "name": "fresh self-signed client certificate",
+      "startedAt": "2026-11-03T03:52:07.827Z",
+      "events": [
+        {
+          "phase": "connect",
+          "at": "2026-11-03T03:52:07.830Z"
+        },
+        {
+          "phase": "tcp-connected",
+          "at": "2026-11-03T03:52:07.831Z"
+        },
+        {
+          "phase": "tls-complete",
+          "at": "2026-11-03T03:52:07.846Z",
+          "protocol": "TLSv1.3"
+        },
+        {
+          "phase": "http-response",
+          "at": "2026-11-03T03:52:07.891Z",
+          "status": 200
+        }
+      ],
+      "handshakeCompleted": true,
+      "tlsVersion": "TLSv1.3",
+      "sslClientVerify": "FAILED:self-signed certificate",
+      "status": "passed",
+      "httpStatus": 200,
+      "nginxConnection": "5",
+      "forwardedCertificateMatches": true
+    },
+    {
+      "id": "c",
+      "name": "XQ client certificate",
+      "startedAt": "2026-11-03T03:52:08.155Z",
+      "events": [
+        {
+          "phase": "connect",
+          "at": "2026-11-03T03:52:08.160Z"
+        },
+        {
+          "phase": "tcp-connected",
+          "at": "2026-11-03T03:52:08.161Z"
+        },
+        {
+          "phase": "tls-complete",
+          "at": "2026-11-03T03:52:08.181Z",
+          "protocol": "TLSv1.3"
+        },
+        {
+          "phase": "http-response",
+          "at": "2026-11-03T03:52:08.191Z",
+          "status": 200
+        }
+      ],
+      "handshakeCompleted": true,
+      "tlsVersion": "TLSv1.3",
+      "sslClientVerify": "FAILED:unable to verify the first certificate",
+      "status": "passed",
+      "httpStatus": 200,
+      "nginxConnection": "8",
+      "forwardedCertificateMatches": true
+    }
+  ]
+}

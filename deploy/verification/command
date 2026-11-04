@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+main(){
+set -euo pipefail
+umask 077
+root="$(cd "$(dirname "$0")" && pwd)"; command="$(basename "$0")"; cd "$root"
+fail(){ echo "$*" >&2; exit 1; }
+[[ -f bootstrap.image && -f platform && -f images.list ]] || fail 'Incomplete verification package.'
+image="$(cat bootstrap.image)"; platform="$(cat platform)"
+if ! docker image inspect "$image" >/dev/null 2>&1; then docker load --input "$root/images.tar" > "$root/image-load.log" 2>&1 || fail 'Image load failed; see image-load.log.'; fi
+while IFS=' ' read -r ref expected; do [[ "$(docker image inspect --platform "$platform" --format '{{.Id}}' "$ref")" == "$expected" ]] || fail 'Verification image identity mismatch.'; done < images.list
+run(){ docker run --rm --pull never --platform "$platform" --user "$(id -u):$(id -g)" --read-only --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=$(id -u),gid=$(id -g)" --cap-drop ALL --security-opt no-new-privileges "$@"; }
+if [[ "$command" == demo || "$command" == provision ]]; then
+ if [[ ${1:---help} == --help ]]; then script=scripts/operator/demo.js; [[ "$command" != provision ]] || script=scripts/operator/provision.js; run "$image" node "$script" --help; exit 0; fi
+ [[ -f verification.env && ! -L verification.env ]] || fail 'Create private verification.env with the target installation and fixture configuration.'
+ mode="$(stat -c '%a' verification.env 2>/dev/null || stat -f '%Lp' verification.env)"; [[ "$mode" == 600 ]] || fail 'verification.env must have mode 600.'
+ mounts=(); network=(); mkdir -p "$root/output"
+ if [[ -f network ]]; then network=(--network "$(cat network)"); fi
+ if [[ -f configuration-directory ]]; then source="$(cat configuration-directory)"; [[ -d "$source" ]] || fail 'Verification configuration directory is missing.'; for file in ca.pem peer-ca.pem application.pem application.key application-tls.json; do [[ -f "$source/$file" && ! -L "$source/$file" ]] || fail 'Verification TLS configuration is incomplete.'; mounts+=(-v "$source/$file:/config/$file:ro"); done; fi
+ if [[ -f identities-directory ]]; then source="$(cat identities-directory)"; [[ -d "$source" ]] || fail 'Agent identity directory is missing.'; mounts+=(-v "$source:/home/operator/.xq:ro"); fi
+ if [[ -f agent-api-key-file ]]; then keyfile="$(cat agent-api-key-file)"; [[ -f "$keyfile" && ! -L "$keyfile" ]] || fail 'Agent XQ API key file is missing.'; mounts+=(-v "$keyfile:/input/xq-api-key:ro"); fi
+ args=("$@"); if [[ "$command" == demo && ${1:-} == soak ]]; then shift; args=(customer-soak "$@"); fi
+ script=scripts/operator/demo.js; [[ "$command" != provision ]] || script=scripts/operator/provision.js
+ run ${network[@]+"${network[@]}"} ${mounts[@]+"${mounts[@]}"} --add-host host.docker.internal:host-gateway --env-file "$root/verification.env" -v "$root:/verification" -v "$root/output:/output" "$image" node "$script" ${args[@]+"${args[@]}"}
+ exit 0
+fi
+[[ "$command" == steps ]] || fail 'Use ./steps, ./demo or ./provision.'
+case "${1:---help}" in sign-in|grant-access|--help) ;; *) fail 'Agent operations run from the separate agent kit.';; esac
+mounts=(); envs=(); args=(); outputs=(); destinations=(); index=0
+if [[ -f gateway-ca.pem ]]; then mounts+=(-v "$root/gateway-ca.pem:/trust/ca.pem:ro"); envs+=(-e NODE_EXTRA_CA_CERTS=/trust/ca.pem); fi
+while [[ $# -gt 0 ]]; do
+ case "$1" in
+ --session-file)
+  [[ $# -ge 2 && -e "$2" && ! -L "$2" ]] || fail 'Input must exist and not be a link.'; path="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; index=$((index+1)); mounts+=(-v "$path:/input/$index:ro"); args+=("$1" "/input/$index"); shift 2;;
+ --key-out|--session-out)
+  [[ $# -ge 2 ]] || fail 'Missing output path.'; parent="$(dirname "$2")"; mkdir -p "$parent"; parent="$(cd "$parent" && pwd)"; destination="$parent/$(basename "$2")"; [[ ! -e "$destination" && ! -L "$destination" ]] || fail 'Output already exists.'; stage="$(mktemp -d "$parent/.steps-output-XXXXXX")"; index=$((index+1)); outputs+=("$stage"); destinations+=("$destination"); mounts+=(-v "$stage:/output/$index"); args+=("$1" "/output/$index/result"); shift 2;;
+ *) args+=("$1"); shift;;
+ esac
+done
+saved_tty=; if [[ -t 0 && ${args[0]:-} == sign-in ]]; then saved_tty="$(stty -g)"; stty -echo; trap 'stty "$saved_tty"' EXIT; fi
+run --interactive --add-host host.docker.internal:host-gateway ${mounts[@]+"${mounts[@]}"} ${envs[@]+"${envs[@]}"} "$image" node scripts/verification/steps/main.js ${args[@]+"${args[@]}"}
+for (( i=0; i<${#outputs[@]}; i++ )); do ln "${outputs[$i]}/result" "${destinations[$i]}" || fail 'Output could not be published; private staging retained.'; rm "${outputs[$i]}/result"; rmdir "${outputs[$i]}"; done
+}
+main "$@"; exit $?

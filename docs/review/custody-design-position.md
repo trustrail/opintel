@@ -59,8 +59,35 @@ Revocation is available from Activity and the API. Redemption is Opintel's first
 
 ### Identity binding
 
-- Alias = `agent:` + project id + `:` + credential id, created at the provider when an agent credential is issued, stored on the credential record. The pool key resolves to the credential, the credential to the alias; the grant's `sub` is that alias.
-- Redemption proof: local provider accepts the agent credential itself as the bearer proof; the xq implementation uses the access token from AuthorizeAlias. The harness `redeem(grant, credential)` covers both.
+Identity-bound is the issuance default. The pool key admits the first enrollment;
+the agent proves possession of its certificate key through mutual TLS. The
+credential is pinned to the SHA-256 certificate fingerprint. Every later MCP
+request must carry that certificate. Device name, certificate export ID and agent
+ID are self-declared labels and never authorize access. The ingress always
+overwrites the certificate header; the API accepts it only with the installation's
+private ingress proof. Requests that spoof this header outside ingress are refused.
+
+Before recording any supplied recipient and fingerprint, Opintel escrows a random
+32-byte nonce through the existing XQ escrow path to that recipient. The agent
+redeems it with its own XQ identity and returns it during initialize. Opintel
+stores only a hash, tied to the credential, recipient and presented fingerprint,
+with a two-minute enrollment deadline. A successful proof is consumed atomically
+with binding (or pending approval). Wrong, expired, replayed or absent proofs
+serve nothing and are audited with `identity_unproven`. This is enrollment only;
+ordinary queries never trigger XQ challenges. No new XQ API is introduced.
+
+The agent kit exchanges the device identity with XQ on the agent host. Its public
+recipient identifier travels in MCP initialize, and K1 is escrowed to the bound
+recipient. No private or transport key enters the gateway. Existing custody
+credentials migrate to identity-bound and unbound, with their already-associated
+recipient retained as a first-enrollment constraint: another recipient is refused
+and audited as `identity_mismatch`. Existing ordinary credentials stay bearer-only.
+
+A project can require administrator approval: first enrollment is pending and
+serves nothing until approval. Reset clears the binding for a fresh enrollment;
+both actions are audited. Bearer-only credentials cannot coexist with custody
+columns in a pool. The internal custody alias remains `agent:PROJECT:CREDENTIAL`;
+receipt and grant subjects do not become self-declared labels.
 
 ### Lifecycle
 

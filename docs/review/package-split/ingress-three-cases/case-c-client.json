@@ -1,0 +1,32 @@
+{
+  "id": "c",
+  "name": "XQ client certificate",
+  "startedAt": "2026-11-03T03:52:08.155Z",
+  "events": [
+    {
+      "phase": "connect",
+      "at": "2026-11-03T03:52:08.160Z"
+    },
+    {
+      "phase": "tcp-connected",
+      "at": "2026-11-03T03:52:08.161Z"
+    },
+    {
+      "phase": "tls-complete",
+      "at": "2026-11-03T03:52:08.181Z",
+      "protocol": "TLSv1.3"
+    },
+    {
+      "phase": "http-response",
+      "at": "2026-11-03T03:52:08.191Z",
+      "status": 200
+    }
+  ],
+  "handshakeCompleted": true,
+  "tlsVersion": "TLSv1.3",
+  "sslClientVerify": "FAILED:unable to verify the first certificate",
+  "status": "passed",
+  "httpStatus": 200,
+  "nginxConnection": "8",
+  "forwardedCertificateMatches": true
+}

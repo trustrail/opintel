@@ -42,7 +42,7 @@ it('5.37 step 1: same-pool credentials cannot redeem each other; receipts snapsh
   const answer=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records')).structuredContent),grant=answer.custody![0]!.grant;
   expect(await connection.client.callTool({name:'opintel.redeem',arguments:{grant}})).toMatchObject({isError:true});
   const claims=JSON.parse(Buffer.from(grant.split('.')[1]!,'base64url').toString()) as {custody:{provider_redeem_at:string}};
-  const denied=await fetch(claims.custody.provider_redeem_at,{method:'POST',headers:{authorization:`Bearer ${other.key}`,'content-type':'application/json','x-opintel-agent-id':'second'},body:JSON.stringify({grant})});expect(denied.status).toBe(403);
+  const denied=await fetch(claims.custody.provider_redeem_at,{method:'POST',headers:{...f.clientCertificateHeaders,authorization:`Bearer ${other.key}`,'content-type':'application/json','x-opintel-agent-id':'second'},body:JSON.stringify({grant})});expect(denied.status).toBe(403);
   const secondAnswer=QueryOutput.parse((await connection.client.callTool({name:'opintel.query',arguments:{sql:'SELECT field_1 FROM warehouse.public.records'}})).structuredContent);
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT credential_id,custody_alias FROM query_run WHERE id=$1',[secondAnswer.evidenceId]))).toEqual([{credential_id:other.credentialId,custody_alias:other.custodyAlias}]);
   expect(await withTenant(f.ctx,tx=>tx.query('SELECT last_used_at IS NOT NULL AS used FROM pool_credential WHERE id=$1',[other.credentialId]))).toEqual([{used:true}]);

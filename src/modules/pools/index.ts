@@ -20,5 +20,6 @@ export type {PoolReader} from './application/read.js';
 export {PostgresPoolBudgets} from './infrastructure/budgets.js';
 export type {PoolBudgetPort} from './application/budgets.js';
 
-export {FileCustodyIdentities} from './infrastructure/identities.js';
-export type {CustodyIdentitiesReader} from './application/identities.js';
+
+export {PostgresCredentialBindings} from './infrastructure/identity-binding.js';
+export type {CredentialBindings,PresentedIdentity,IdentityDiagnostic} from './application/identity-binding.js';
