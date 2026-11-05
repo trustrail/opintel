@@ -64,3 +64,12 @@ private. Safe projection: [transport.json](releases/42391a3-verify/transport.jso
 [browser result](releases/42391a3-verify/browser-result.json). Capture and summary
 scripts are committed with this record. The standard install wrapper exited 1
 after its cleanup path. No cloud host was touched; no image was republished.
+
+## Subsequent single authorized rerun — passed
+
+The owner authorized another run from the start. It passed in
+`tmp/console-first-run-acceptance-nj348q`: all 12 browser checkpoints, 6 rows in
+the receipt, zero browser/console/HTTP errors, no deadline failure. Engine verify
+passed. Final metadata-free archives and SHA-256s were then produced and checked
+on Linux. See [final release report](releases/42391a3-passed.md). The previous
+failure record above remains the evidence for that prior invocation.

@@ -1,0 +1,38 @@
+[
+  {
+    "archive": "agent-KIT-42391a3-amd64.tar.gz",
+    "bytes": 76743872,
+    "sha256": "130c783a9f9f83a5ed2aa781db4cf764d43ddb41aea3148d69a2b3e3e2f3c309",
+    "members": 13,
+    "macMetadataEntries": 0,
+    "linuxExtraction": "passed",
+    "linuxWarnings": 0
+  },
+  {
+    "archive": "engine-42391a3-amd64.tar.gz",
+    "bytes": 298402963,
+    "sha256": "aca435213d1899b4fe6e81b84b13563aad88437257fa4af8ce48f811046baa9b",
+    "members": 24,
+    "macMetadataEntries": 0,
+    "linuxExtraction": "passed",
+    "linuxWarnings": 0
+  },
+  {
+    "archive": "gateway-42391a3-amd64.tar.gz",
+    "bytes": 357674898,
+    "sha256": "e13e38df36bf6b663c8ad9af5c4c3b6efcd6f01d001e9068640e3f9f16f4c23a",
+    "members": 41,
+    "macMetadataEntries": 0,
+    "linuxExtraction": "passed",
+    "linuxWarnings": 0
+  },
+  {
+    "archive": "verification-42391a3-amd64.tar.gz",
+    "bytes": 101868213,
+    "sha256": "820f621d1ff3dd5c5f1dd8eea2163f8bfb445beb22f9d6e9c9569e726897899a",
+    "members": 18,
+    "macMetadataEntries": 0,
+    "linuxExtraction": "passed",
+    "linuxWarnings": 0
+  }
+]
