@@ -1,0 +1,1977 @@
+{
+  "containerClick": {
+    "status": "failed",
+    "steps": [
+      {
+        "name": "owner-sign-in",
+        "status": "passed"
+      },
+      {
+        "name": "1-create-project",
+        "status": "passed"
+      },
+      {
+        "name": "2-engine-registered-verified",
+        "status": "passed"
+      },
+      {
+        "name": "3-source-connected-scanned",
+        "status": "passed"
+      },
+      {
+        "name": "project-query-limits",
+        "status": "passed"
+      },
+      {
+        "name": "4-pool-created",
+        "status": "passed"
+      }
+    ],
+    "failure": {
+      "phase": "decide-column",
+      "message": "locator.click: Timeout 120000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'id \u00b7 First pool \u00b7 undecided \u00b7 choose treatment', exact: true })\n"
+    },
+    "browserErrors": 0,
+    "consoleErrors": [],
+    "network": [
+      {
+        "method": "GET",
+        "path": "/sign-in",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/providers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/providers",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/auth/request-link",
+        "status": 202
+      },
+      {
+        "method": "GET",
+        "path": "/check-email",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/auth/callback",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/auth/callback",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/industries",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies/f97177b8-e29e-4a39-828a-39dc72e3a3f2/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies/f97177b8-e29e-4a39-828a-39dc72e3a3f2/paired-engines",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects",
+        "status": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/stream",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/industries",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines/e37addf8-20b3-4f95-9dd8-93fadfbc752c/verify",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines/e37addf8-20b3-4f95-9dd8-93fadfbc752c/custody",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/token-key/initialize",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/sources/01a1aca5-4928-721c-8eda-b555416326a0/schemas",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "PUT",
+        "path": "/api/v1/sources/01a1aca5-4928-721c-8eda-b555416326a0/schemas",
+        "status": 202
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/sources/01a1aca5-4928-721c-8eda-b555416326a0/schemas",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/industries",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/invitations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/custody-provider",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies/f97177b8-e29e-4a39-828a-39dc72e3a3f2/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/token-key",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/invitations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/custody-provider",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/token-key",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/row-entitlements",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/tables",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/entitlement-members",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/pools/dffb5cdf-b481-4a6a-b8c0-fa9597ae89df/agents",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/catalog",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/9f9a3e8c-69a2-4e1b-9b44-a61c513cfac0/suggestions",
+        "status": 200
+      }
+    ]
+  },
+  "buttonClick": {
+    "status": "failed",
+    "steps": [
+      {
+        "name": "owner-sign-in",
+        "status": "passed"
+      },
+      {
+        "name": "1-create-project",
+        "status": "passed"
+      }
+    ],
+    "failure": {
+      "phase": "verify-engine",
+      "message": "locator.waitFor: Timeout 120000ms exceeded.\nCall log:\n  - waiting for getByText('First hour \u00b7 2 of 6 done') to be visible\n"
+    },
+    "browserErrors": 0,
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ],
+    "network": [
+      {
+        "method": "GET",
+        "path": "/sign-in",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/providers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/providers",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/auth/request-link",
+        "status": 202
+      },
+      {
+        "method": "GET",
+        "path": "/check-email",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/auth/callback",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/auth/callback",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/industries",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies/c8be87f4-ec48-4823-b645-f9f9e26c0157/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies/c8be87f4-ec48-4823-b645-f9f9e26c0157/paired-engines",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects",
+        "status": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-68gKBnEb.js",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-Cl7liKU6.css",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/fonts/InterVariable.woff2",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/stream",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/opintel-logo.png",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/industries",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/me",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/stats",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/runs/summary",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines/8194b58b-8e11-478c-88cd-f34db4a25e3f/verify",
+        "status": 503
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/engines",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/pools",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/sources",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/projects/4f1d4df7-6013-42ce-9766-b02bc5d7d954/needs-you",
+        "status": 200
+      }
+    ]
+  }
+}
