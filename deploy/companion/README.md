@@ -1,5 +1,7 @@
 # Opintel companion for OAP
 
+OAP-02 candidate `369cf0c` passed the Intel live check and awaits publication approval. Until it is published and re-pinned, the manifest and image-load command still reference the preceding image; wait for that update before testing this revised bundle.
+
 The companion holds the pool key, device identity and XQ API key as **one private OAP credential**. Use mode-600 files and a protected transfer; never paste credentials into chat, git, command arguments or logs. `/run/opintel` points into writable `/tmp`, which may be memory-backed or ordinary ephemeral disk. Private directories are mode 700 and files mode 600. Startup failure and orderly SIGINT/SIGTERM overwrite and remove live private files. SIGKILL/host failure cannot run cleanup; delete the ephemeral volume. Overwrite is not physical erasure of SSD, snapshot or copy-on-write history.
 
 ## Air run sheet (OAP e97928b)

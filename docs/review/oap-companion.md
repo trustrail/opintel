@@ -382,3 +382,32 @@ SQL guidance, prompt consistency, static secret reference, sandbox question,
 budgets and absence of disallowed bundle resources. Strict typecheck, lint and
 live-check syntax check passed. The live checker also asserts that describe has
 four SQL rules and no custody tenant or keys, without printing any values.
+
+### OAP-02 local image and Intel live evidence
+
+Implementation commit `369cf0c` is pushed. Standard dual-architecture build:
+`npm run companion:build -- 369cf0c` passed. Local index digest:
+`sha256:2f3cc453765f03a0301c7cd51bc7a83592f89c150f2246f204c4fb2ebbe53d13`.
+This is not a publication claim; the previous published digest remains pinned
+until approval and successful publication of this revision.
+
+The committed live checker ran against the non-root, read-only amd64 image with
+ordinary disk-backed `/tmp`, using the existing private env file. It exited 0.
+Describe assertions confirmed exactly four SQL rules and no custody tenant or
+keys. Value-free output:
+
+```text
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+opintel_query: rows=12 evidenceId=01a1a905-66bb-7cd0-abbf-6c872913bd62
+opintel_unseal: rows=12 evidenceId=01a1a905-66bb-7cd0-abbf-6c872913bd62
+opintel_unseal repeated: refused code=forbidden
+```
+
+Log: `/private/tmp/oap02-live-369cf0c.log`. Private disk checks confirmed directory
+mode 700 and file mode 600; SIGTERM exited 0 and the persistent volume was empty
+on inspection. The test container and volume were removed. No secrets or row
+values were printed. No local OAP install/run was performed, and no full gate
+was rerun for these script/bundle changes. Updated Air installation remains user
+verification; source inspection and the Intel container result are the evidence,
+not proof that upstream OAP's other defects are resolved.
