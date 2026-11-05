@@ -87,3 +87,13 @@ it('enrollment returns an XQ-redeemed nonce once during initialize, never replay
  base.mockImplementation(async()=>refusal());base.mockClear();redeem.mockClear();
  expect((await transport('https://gateway.example/mcp',{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'opintel.query',arguments:{sql:'SELECT 1'}}})})).status).toBe(401);expect(base).toHaveBeenCalledTimes(1);expect(redeem).not.toHaveBeenCalled();
 });
+it.each(['identity_mismatch','identity_unproven','identity_pending'])('MCP initialization reports the gateway refusal %s without its other fields',async cause=>{
+ const {mcpAgent}=await vi.importActual<typeof import('../scripts/steps/infrastructure/mcp.js')>('../scripts/steps/infrastructure/mcp.js');
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({error:{code:'unauthenticated',message:'PRIVATE detail',details:{cause,private:'PRIVATE key'}}}),{status:401,headers:{'content-type':'application/json'}})));
+ try{await expect(mcpAgent(new URL('https://gateway.example'),'project','PRIVATE pool key','agent')).rejects.toThrow(`MCP initialization: gateway refused the request (HTTP 401) · unauthenticated / ${cause}`);}finally{vi.unstubAllGlobals();}
+});
+it('MCP initialization preserves the gateway’s public credential-state message without inventing a cause',async()=>{
+ const {mcpAgent}=await vi.importActual<typeof import('../scripts/steps/infrastructure/mcp.js')>('../scripts/steps/infrastructure/mcp.js');
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({error:{code:'unauthenticated',message:'This credential is not active.'}}),{status:401})));
+ await expect(mcpAgent(new URL('https://gateway.example'),'project','PRIVATE key','agent')).rejects.toThrow('unauthenticated · This credential is not active.');
+});

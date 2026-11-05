@@ -262,7 +262,7 @@ lookup open and verifies that one subsequent submit issues one link request.
 | I-018 | F | Agent presence lifecycle | `connecting → active → idle → stale → disconnected` on SIGKILL |
 | I-019 | D | Agent never silently removed | Disconnected agents remain visible |
 | I-020 | F | Reconnect after stale | Same twin, reconnect count incremented |
-| I-021 | D | `agent_id` absent from the request | Refused, naming the `X-Opintel-Agent-Id` header and the `agentId` query parameter. Either source is accepted; both must match if supplied. A supplied id is caller-claimed and unverified; **nothing is authorised on it** |
+| I-021 | D | `agent_id` absent from the request | Refused, naming the `X-Opintel-Agent-Id` header and the `agentId` query parameter. Either source is accepted; both must match if supplied. The display name remains caller-claimed. Presence `verified` is true only when the observed connection authenticated with the credential’s bound certificate fingerprint; bearer-only presence is false. **Nothing is authorised on the display name** |
 | I-022 | S | Agent claims another agent's `agent_id` | Accepted, and the test asserts that no authorization outcome differs |
 | I-023 | C | MCP tool schemas and agent ID transport parameters | Contract tests pass in both directions; header and query ID are optional individually, share non-blank validation and leave pool-key authorization unchanged |
 | I-024 | F | Header-only, query-only and matching IDs; conflicts, missing and blank IDs | Valid sources resolve to the same presence identity; conflicts and missing/invalid IDs are refused; a query-only initialized MCP session records its agent ID on the query receipt and heartbeat presence |

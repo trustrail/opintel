@@ -213,7 +213,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
     const method = 'method' in message.data ? message.data.method : undefined;
     const kind = method==='initialize'?'connect':method==='ping'||method===undefined?'heartbeat':'request';
     const client = session.server.getClientVersion()?.name ?? null;
-    const presence = await this.access.observe(principal,kind,client);
+    const presence = await this.access.observe(principal,kind,client,certificate);
     if (!presence.ok) { this.failure(response,requestId,presence.error.code==='unauthenticated'?401:400,presence.error.code,presence.error.message); return; }
    }
    // The caller id is observational; changing it never changes session access.

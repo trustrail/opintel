@@ -58,3 +58,11 @@ it('retained key restoration requires the project name and sends the selected ve
 it('a project admin without company administration gets no Company section or Restore control',async()=>{api({companies:{items:[{id,name:'Company',role:'member',projectCount:1}],nextCursor:null}});useSettingsState.setState({section:'token',opened:true});render(<Settings project={project}/>,{wrapper});await screen.findByText('Version 1 · current');expect(screen.queryByRole('button',{name:'Company'})).toBeNull();expect(screen.queryByRole('button',{name:'Version 1 actions'})).toBeNull();});
 
 it('Signing key explains Opintel’s generated release-grant key on the row without changing its actions',async()=>{api();render(<Settings project={project}/>,{wrapper});const text=await screen.findByText("Opintel's own key. Signs release grants. Generated, never entered. Rotate if you suspect exposure.");expect(text.closest('[data-setting-row]')?.textContent).toContain('Signing key');expect(screen.getByRole('button',{name:'Signing key actions'})).toBeTruthy();});
+it('CONSOLE-02 marks all four query limits required and refuses an empty submission',async()=>{
+ const {SettingsEditor}=await import('./controls.js');const calls=api();
+ render(<SettingsEditor project={id} settings={{}} paths={['query.timeoutSeconds','query.rowLimit','query.memoryLimitMb','query.concurrencyPerPool']} onClose={()=>{}}/>,{wrapper});
+ for(const name of ['Query timeout (seconds)','Returned row limit','Memory limit (MB)','Concurrent executions per pool'])expect(screen.getByLabelText(name).hasAttribute('required')).toBe(true);
+ expect(screen.getAllByText(/· required/)).toHaveLength(4);
+ fireEvent.submit(screen.getByRole('button',{name:'Save settings'}).closest('form')!);
+ expect(await screen.findByRole('alert')).toHaveProperty('textContent','Query timeout (seconds) is required before queries can run.');expect(calls.some(c=>c.method==='PATCH')).toBe(false);
+});

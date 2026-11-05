@@ -3744,7 +3744,7 @@ create table agent_presence (
 ```
 **The heartbeat interval is 20 seconds**. Stale follows three missed heartbeats, so an agent that stops responding is stale within about 60 seconds. **The disconnect grace window is 5 minutes, measured from entering stale**, so a network interruption or a restart does not remove an agent that returns. Both are project settings, bounded to 5 to 60 seconds and 1 to 60 minutes.
 
-**A request with no agent id is refused**, not given a generated one. The agent_id is supplied by the caller and is how a reviewer follows one agent across requests, so inventing one would fill the list with identities nobody can trace and make the twin useless. The refusal names both supported sources: the `X-Opintel-Agent-Id` header and the `agentId` query parameter. Each supplied ID uses the same non-blank string validation; if both are supplied, they must match exactly. MCP initialization, requests and heartbeat presence use the same resolved ID. The id is unverified by design: it identifies, the pool key authorises, and presence records what was claimed rather than what was proven.
+**A request with no agent id is refused**, not given a generated one. The agent_id is supplied by the caller and is how a reviewer follows one agent across requests, so inventing one would fill the list with identities nobody can trace and make the twin useless. The refusal names both supported sources: the `X-Opintel-Agent-Id` header and the `agentId` query parameter. Each supplied ID uses the same non-blank string validation; if both are supplied, they must match exactly. MCP initialization, requests and heartbeat presence use the same resolved ID. The display name is self-declared and never authorizes access. Presence `verified` records that the last observed connection authenticated with the credential’s bound certificate fingerprint. Bearer-only connections remain claimed-only. The console calls this “verified name”; it proves the credential/certificate connection, not the truth of the display label.
 
 **The Pools list clear ratio** is clear elements divided by all active elements in the pool’s bound, non-archived sources, including undecided elements. Removed objects and elements are excluded. Display n/a when there are no active elements.
 
@@ -3769,7 +3769,7 @@ the agent is stale. At 60 seconds without a request a live agent is idle. With a
 short heartbeat interval, staleness can precede idleness. The disconnect deadline
 is the stale deadline plus grace, even if a sweep runs late. A successful return
 from stale/disconnected increments `reconnects` once; concurrent returns serialize
-on the same twin. All claimed identities remain explicitly unverified.
+on the same twin. Verified presence is produced only after successful identity authentication and a matching bound credential fingerprint; a caller cannot set it in a presence signal.
 
 `AgentPresenceService.observeAuthenticated` accepts `connect`, `request` and
 `heartbeat` signals from the authenticated transport, with the resolved pool and

@@ -96,7 +96,7 @@ describe('5.22 declarations end to end',()=>{
  it('DECL-007: validation names authorized qualified elements and structured declaration fields, never foreign names',async()=>{
   await withTenant(f.ctx,tx=>tx.query('UPDATE catalog_element SET token_domain=NULL,source_type=\'timestamp\',exposed_type=\'TIMESTAMP\' WHERE id=$1',[f.ids[0]]));const foreign=await bulkFixture(1);
   const result=unwrap(await new PostgresBulkEntitlements().set(f.ctx,f.pool,BulkEntitlementBody.parse({...f.body,elementIds:[...f.ids,...foreign.ids],treatment:'tokenized'}),randomUUID(),'test'));
-  expect(result).toMatchObject({status:422,body:{error:{details:{invalidElements:[{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['sourceTimezone'],reasons:[expect.stringContaining('Explore schema')]},{elementId:foreign.ids[0],qualifiedName:'Unavailable element',declarationFields:[]}]}}}});
+  expect(result).toMatchObject({status:422,body:{error:{details:{invalidElements:[{elementId:f.ids[0],qualifiedName:'warehouse.public.records.field_1',declarationFields:['sourceTimezone'],reasons:[expect.stringContaining('column’s declaration controls')]},{elementId:foreign.ids[0],qualifiedName:'Unavailable element',declarationFields:[]}]}}}});
  });
  it('DECL-003: concurrent first decision and declaration serialize without an unconfirmed token change',async()=>{
   const [declaration,decision]=await Promise.all([save({caseInsensitive:false}),tokenized()]);expect(unwrap(decision).status).toBe(200);

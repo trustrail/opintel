@@ -65,7 +65,7 @@ export class PostgresBulkEntitlements implements BulkEntitlementRepository {
             if (row.type !== null && !['VARCHAR','UUID','DATE','TIMESTAMP','TIMESTAMPTZ','TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT'].includes(row.type) && !row.type.startsWith('DECIMAL(')) reasons.push(`Type ${row.type} cannot be tokenized; cast it to a supported type upstream.`);
           }
         }
-        return reasons.length ? [{elementId,qualifiedName:row?.qualifiedName??'Unavailable element',declarationFields,reasons:reasons.map(reason=>declarationFields.length?reason+' Declare it in Data sources → Explore schema → Token declarations.':reason)}] : [];
+        return reasons.length ? [{elementId,qualifiedName:row?.qualifiedName??'Unavailable element',declarationFields,reasons:reasons.map(reason=>declarationFields.length?reason+' Declare it in Data → the source → the table’s column list, using the column’s declaration controls.':reason)}] : [];
       });
       let response: BulkStoredResponse;
       if (invalidElements.length) {

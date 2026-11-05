@@ -1,11 +1,11 @@
 import {EnrollmentChallenge,type IdentityEnrollment} from '../src/shared/api/credential-identity.js';
 import {randomUUID} from 'node:crypto';
 import {expect,it,vi} from 'vitest';
-import {PostgresCredentialBindings,PostgresPoolKeys,PoolKeyService,CredentialId} from '../src/modules/pools/index.js';
+import {PostgresAgentPresence,AgentPresenceService,poolKeyId,PostgresCredentialBindings,PostgresPoolKeys,PoolKeyService,CredentialId} from '../src/modules/pools/index.js';
 import {withPlatform,withTenant} from '../src/platform/db/scope.js';
 import {PoolKeyCreationResponse} from '../src/shared/api/pool-keys.js';
 import {ok,type Result} from '../src/shared/kernel/index.js';
-import {bulkFixture} from './fixtures/bulk-entitlements/fixture.js';
+import {bulkFixture,allowBulk} from './fixtures/bulk-entitlements/fixture.js';
 import {custodyCredentialGuard} from '../src/modules/entitlements/infrastructure/custody-credential-guard.js';
 const unwrap=<T>(r:Result<T>):T=>{if(!r.ok)throw r.error;return r.value;};
 const certificate={fingerprint:'a'.repeat(64),subject:'CN=Fixture'},other={fingerprint:'b'.repeat(64),subject:'CN=Other'};
@@ -24,7 +24,7 @@ async function fixture(kind:'identity-bound'|'bearer-only'='identity-bound'){
   return rawAuthenticate(cert,{...labels,proof:{id:challenge.id,nonce:packet.nonce}});
  };
  const row=()=>withTenant(f.ctx,async tx=>(await tx.query<{binding_status:string;certificate_fingerprint:string|null;recipient_identifier:string|null}>('SELECT * FROM pool_credential WHERE id=$1',[id]))[0]!);
- return {...f,id,bindings,keys,authenticate,rawAuthenticate,row,packets,escrow};
+ return {...f,issued,id,bindings,keys,authenticate,rawAuthenticate,row,packets,escrow};
 }
 it('ID-01 first connection binds fingerprint and records audit; later certificates must match',async()=>{
  const f=await fixture();expect((await f.authenticate()).ok).toBe(true);expect(await f.row()).toMatchObject({binding_status:'bound',certificate_fingerprint:certificate.fingerprint,recipient_identifier:enrollment.recipientIdentifier});
@@ -90,3 +90,21 @@ it('ID-01 an XQ enrollment escrow does not hold the database pool lock',async()=
  try{const result=await Promise.race([f.keys.execute(f.ctx,{kind:'issue',poolId:f.pool,label:'Concurrent agent'},randomUUID()),new Promise<never>((_,reject)=>{timeout=setTimeout(()=>reject(new Error('Credential issuance blocked behind XQ escrow')),5000);})]);expect(result.ok).toBe(true);}
  finally{if(timeout)clearTimeout(timeout);release();await enrollmentRequest;}
 },15000);
+
+it('CONSOLE-02 presence verifies the authenticated bound fingerprint, never a bearer credential or a claimed signal',async()=>{
+ const f=await fixture(),repo=new PostgresAgentPresence({publish:async()=>{}}),service=new AgentPresenceService(repo),auth={poolId:f.pool,keyVersion:unwrap(poolKeyId(f.issued.keyVersion)),certificateFingerprint:certificate.fingerprint};
+ expect((await f.authenticate()).ok).toBe(true);
+ const signal={kind:'request',agentId:'claimed-name'};
+ const verified=unwrap(await service.observeAuthenticated(f.ctx,auth,signal));expect(verified.verified).toBe(true);
+ const {AgentPresenceView}=await import('../src/shared/api/agent-presence.js');
+ const rows=unwrap(await service.list(f.ctx,f.pool,null,10));const {projectId:ignored,...apiRow}=rows[0]!;expect(AgentPresenceView.parse(apiRow).verified).toBe(true);
+ const {agentPresenceRoutes}=await import('../src/modules/pools/api/presence-routes.js'),{createHttpServer}=await import('../src/platform/http/index.js'),{once}=await import('node:events');
+ const server=createHttpServer(agentPresenceRoutes(service),{authorization:{currentUser:async()=>f.actor,port:allowBulk}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing presence listener');
+ try{const response=await fetch(`http://127.0.0.1:${address.port}/api/v1/pools/${f.pool}/agents?projectId=${f.ctx.projectId}`);expect(response.status).toBe(200);expect(await response.json()).toMatchObject({items:[{agentId:'claimed-name',verified:true}]});}finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
+
+ expect(await service.observeAuthenticated(f.ctx,auth,{...signal,verified:true})).toMatchObject({ok:false,error:{code:'validation_failed'}});
+ expect(unwrap(await service.observeAuthenticated(f.ctx,{...auth,certificateFingerprint:other.fingerprint},signal)).verified).toBe(false);
+ expect(unwrap(await service.observeAuthenticated(f.ctx,{poolId:f.pool,keyVersion:auth.keyVersion},signal)).verified).toBe(false);
+ const b=await fixture('bearer-only');expect((await b.authenticate()).ok).toBe(true);
+ expect(unwrap(await service.observeAuthenticated(b.ctx,{poolId:b.pool,keyVersion:unwrap(poolKeyId(b.issued.keyVersion)),certificateFingerprint:certificate.fingerprint},signal)).verified).toBe(false);
+});

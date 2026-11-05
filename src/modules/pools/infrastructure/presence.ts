@@ -28,17 +28,19 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
    if(!pools.length)return err(new DomainError('not_found','The pool was not found in this project.'));
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify(['presence',authenticated.poolId,signal.agentId])]);
    const now=this.clock.now();
-   const keys=await tx.query(`SELECT id FROM pool_key WHERE id=$1 AND pool_id=$2 AND created_at<=$3 AND (state='current' OR state='retiring' AND grace_until>$3)`,[authenticated.keyVersion,authenticated.poolId,now]);
+   const keys=await tx.query<{id:string;verified:boolean}>(`SELECT k.id,EXISTS(SELECT 1 FROM pool_credential c WHERE c.id=k.credential_id AND c.credential_kind='identity-bound' AND c.binding_status='bound' AND c.revoked_at IS NULL AND c.certificate_fingerprint=$4) AS verified FROM pool_key k WHERE k.id=$1 AND k.pool_id=$2 AND k.created_at<=$3 AND (k.state='current' OR k.state='retiring' AND k.grace_until>$3)`,[authenticated.keyVersion,authenticated.poolId,now,authenticated.certificateFingerprint??null]);
    if(!keys.length)return err(new DomainError('unauthenticated','The pool key is not valid.'));
    const [old]=await tx.query<Row>(`SELECT ${columns} FROM agent_presence WHERE pool_id=$1 AND agent_id=$2 FOR UPDATE`,[authenticated.poolId,signal.agentId]);
    if(old&&Date.parse(now)<old.lastSeen.getTime())return err(new DomainError('conflict','Presence time cannot move backwards.'));
    const initial:AgentPresence=old?presence(old):{projectId:ctx.projectId,poolId:authenticated.poolId,agentId:signal.agentId,client:signal.client,verified:false,keyVersion:authenticated.keyVersion,firstSeen:now,lastSeen:now,lastRequestAt:null,lastHeartbeatAt:now,staleAt:null,reconnects:0,state:'connecting'};
    const aged=agePresence(initial,now,settings.value);
-   const updated=observePresence(initial,signal.kind,authenticated.keyVersion,signal.client,now,settings.value);
+   // The fingerprint is supplied only after MCP identity authentication succeeds.
+   // Recheck the credential here; a claimed name or bearer key never verifies it.
+   const updated={...observePresence(initial,signal.kind,authenticated.keyVersion,signal.client,now,settings.value),verified:keys[0]!.verified};
    // Compare both the persisted state (a sweep may not have run yet) and the
    // read-time state. An unswept idle/stale caller returning to active is still
    // a transition even when its persisted state was already active.
-   const changed=!old||initial.state!==updated.state||initial.staleAt!==updated.staleAt||aged.state!==updated.state||aged.staleAt!==updated.staleAt;
+   const changed=!old||initial.verified!==updated.verified||initial.state!==updated.state||initial.staleAt!==updated.staleAt||aged.state!==updated.state||aged.staleAt!==updated.staleAt;
    await this.save(tx,updated);await tx.query('UPDATE pool_credential SET last_used_at=$2 WHERE id=(SELECT credential_id FROM pool_key WHERE id=$1)',[authenticated.keyVersion,now]);return ok({presence:updated,changed});
   });
   if(!result.ok)return result;
@@ -88,8 +90,8 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
  }
  private async save(tx:Tx,row:AgentPresence):Promise<void>{
   await tx.query(`INSERT INTO agent_presence(project_id,pool_id,agent_id,client,verified,key_version,first_seen,last_seen,last_request_at,last_heartbeat_at,stale_at,reconnects,state)
-   VALUES($1,$2,$3,$4,false,$5,$6,$7,$8,$9,$10,$11,$12)
-   ON CONFLICT(pool_id,agent_id) DO UPDATE SET client=EXCLUDED.client,key_version=EXCLUDED.key_version,last_seen=EXCLUDED.last_seen,last_request_at=EXCLUDED.last_request_at,last_heartbeat_at=EXCLUDED.last_heartbeat_at,stale_at=EXCLUDED.stale_at,reconnects=EXCLUDED.reconnects,state=EXCLUDED.state`,[row.projectId,row.poolId,row.agentId,row.client,row.keyVersion,row.firstSeen,row.lastSeen,row.lastRequestAt,row.lastHeartbeatAt,row.staleAt,row.reconnects,row.state]);
+   VALUES($1,$2,$3,$4,$13,$5,$6,$7,$8,$9,$10,$11,$12)
+   ON CONFLICT(pool_id,agent_id) DO UPDATE SET verified=EXCLUDED.verified,client=EXCLUDED.client,key_version=EXCLUDED.key_version,last_seen=EXCLUDED.last_seen,last_request_at=EXCLUDED.last_request_at,last_heartbeat_at=EXCLUDED.last_heartbeat_at,stale_at=EXCLUDED.stale_at,reconnects=EXCLUDED.reconnects,state=EXCLUDED.state`,[row.projectId,row.poolId,row.agentId,row.client,row.keyVersion,row.firstSeen,row.lastSeen,row.lastRequestAt,row.lastHeartbeatAt,row.staleAt,row.reconnects,row.state,row.verified]);
  }
  private publish(row:AgentPresence){return notify(this.events,row.projectId,{type:'agent.presence',poolId:row.poolId,agentId:row.agentId});}
 }
