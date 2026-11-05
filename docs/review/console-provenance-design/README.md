@@ -175,6 +175,56 @@ Retained complete output and timing:
 The failed run's standard metadata is in
 `test-results/normal/97edc5e0-81a7-4d3e-b6d1-8c7c3962222c/`.
 
+## Session inspection and requested follow-up — 2026-11-05
+
+Fork point confirmed: `4ea417806a46909a3e3c8ddae55e04ff29d2cc5e`.
+Application code remained `b461582`; checkout HEAD was `a4d8625` during the runs.
+
+The committed administrative helper
+`scripts/review/provenance-session-cleanup.mjs` inspects only `opintel_test` and
+`opintel_test_gate_*` database sessions, omits SQL contents and process arguments,
+and guards explicit Node termination by repository ownership and process start
+time. It does not change application configuration or test deadlines.
+
+Pre-run inspection and `--terminate-test-sessions` returned **zero sessions and
+zero termination targets**. The confirmation query also returned zero sessions.
+No stray test/build Node process was found. The only repository-working-directory
+Node processes were preserved tooling:
+
+- PID 65673, started Oct 29 16:26:47: Codex CUA REPL, parent Codex daemon.
+- PID 3482, started Oct 29 09:20:26: Codex CLI in the user's terminal.
+
+No process or backend was killed because no eligible leftover was present.
+Retained inspection/cleanup output:
+`/private/tmp/provenance-session-inspection.log` and
+`/private/tmp/provenance-session-cleanup.log`.
+
+Observation groups then ran **once**, using
+`/usr/bin/time -p npm test -- test/observation-groups.test.ts`:
+**8 passed**, exit 0; test execution 15.23 s, Vitest total 28.40 s, full command
+49.71 s. Complete log:
+`/private/tmp/provenance-observation-after-session-check.log`.
+Since the branch passed, the conditional run on the main fork point was not
+needed and was not performed. The earlier failure did not reproduce, but this
+does not establish a cause: there was no lingering session/process to remove.
+
+The requested single smoke run used
+`/usr/bin/time -p npm run test:smoke`. It **failed**, exit 1:
+
+> Test timeout of 30000ms exceeded.
+> Error: locator.click: Test timeout of 30000ms exceeded.
+> Waiting for getByRole('button', { name: 'Set rows', exact: true }).
+
+Location: `e2e/smoke.spec.ts:65`. Playwright reported 38.2 s including teardown;
+the full command took 92.41 s. Complete log:
+`/private/tmp/provenance-smoke-after-session-check.log`.
+Trace and error context remain under
+`test-results/smoke-sign-in-→-pool-→-row-9001e--persisted-receipt-decision-smoke/`.
+This is the recorded 30 s deadline failure; its underlying cause is not asserted.
+The retained helper passed `node --check` and `npm run lint`; no application or
+test code changed. No smoke retry, full gate, main comparison, application/test
+fix or merge followed.
+
 ## Screenshots
 
 | State | 1440 light | 1440 dark | 390 light | 390 dark |
