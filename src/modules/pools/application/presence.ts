@@ -3,7 +3,7 @@ import { PresenceSignal,agentIdRequirement } from '../../../shared/api/agent-pre
 import type { AgentPresence } from '../domain/presence.js';
 import type { PoolKeyId } from '../domain/pool.js';
 import type { PoolKeyContext } from './keys.js';
-export type AuthenticatedPresence={poolId:PoolId;keyVersion:PoolKeyId};
+export type AuthenticatedPresence={poolId:PoolId;keyVersion:PoolKeyId;certificateFingerprint?:string};
 export type AgentPresenceRead=AgentPresence&{authenticatedWith:{kind:'credential';label:string;alias:string}|{kind:'legacy_pool_key'}};
 export interface AgentPresenceRepository {
  observe(ctx:PoolKeyContext,authenticated:AuthenticatedPresence,signal:{agentId:string;client:string|null;kind:'connect'|'request'|'heartbeat'}):Promise<Result<AgentPresence>>;

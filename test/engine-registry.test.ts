@@ -149,3 +149,6 @@ it('persistent connection stalls retain the total deadline; pin and HTTP failure
  lookups=0;const {ProjectId,EngineId}=await import('../src/shared/kernel/index.js');
  expect((await probe.registerEgress({...endpoint,timeoutMs:1000},ProjectId(randomUUID()),EngineId(randomUUID()))).ok).toBe(false);expect(lookups).toBe(1);
 });
+it('CONSOLE-02 missing custody designation names the actual Settings row-menu action',async()=>{
+ const f=await fixture();expect(await f.repo.custody(f.ctx)).toMatchObject({ok:false,error:{code:'source_unavailable',message:'This project has no designated custody engine. Go to Settings → Engines → row menu (⋯) → "Use for custody" on a verified engine.'}});
+});

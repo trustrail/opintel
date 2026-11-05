@@ -1,0 +1,4 @@
+import {useState} from 'react';
+import {Glyph} from './kind.js';
+/** Copy the catalogue's exposed name verbatim; never reconstruct it from labels. */
+export function CopyName({name,compact=false}:{name:string;compact?:boolean}){const [state,setState]=useState<'idle'|'copied'|'failed'>('idle');return <button data-action type="button" title={state==='copied'?'Copied · '+name:state==='failed'?'Copy failed; select the name':name} aria-label={`Copy ${name}`} onClick={e=>{e.stopPropagation();if(!navigator.clipboard){setState('failed');return;}void navigator.clipboard.writeText(name).then(()=>setState('copied'),()=>setState('failed'));}}><Glyph name={state==='copied'?'check':state==='failed'?'warning':'copy'} size={16}/>{!compact&&(state==='copied'?'Copied':state==='failed'?'Copy failed; select the name':'Copy name')}</button>;}

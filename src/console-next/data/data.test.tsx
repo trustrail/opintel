@@ -66,3 +66,20 @@ it('the saved-source schema picker requires a ticked selection and saves exactly
  await screen.findByRole('checkbox',{name:'Include schema claims'});expect(screen.getByRole('button',{name:'Save schemas and scan'}).hasAttribute('disabled')).toBe(true);fireEvent.click(screen.getByRole('checkbox',{name:'Include schema claims'}));fireEvent.click(screen.getByRole('button',{name:'Save schemas and scan'}));await waitFor(()=>expect(done).toHaveBeenCalled());expect(calls.find(c=>c.method==='PUT')?.body).toEqual({projectId:id,includeSchemas:['claims']});
 });
 it('a source with no discoverable schemas has a plain empty state',async()=>{const {SchemaPicker}=await import('./schemas.js');install(()=>({schemas:[],included:[]}));render(<SchemaPicker project={id} source={{...source,engineId:EngineId(id),status:'choose_schemas'}}/>,{wrapper});await screen.findByText('The source has no schemas you can include.');expect(screen.queryByRole('button',{name:'Save schemas and scan'})).toBeNull();});
+it('CONSOLE-02 explains the contributor key before aggregate-only can save',async()=>{
+ install(()=>({elementId:element,sourceId:id,schemaName:'public',qualifiedName:'warehouse.public.records.secret',exposedType:'VARCHAR',projectName:'Review',stored:{contributorKey:false,tokenDomain:null,caseInsensitive:null,sourceTimezone:null,epochUnit:null,canonId:null},schemaTimezone:null,effective:{tokenDomain:'own',caseInsensitive:false,sourceTimezone:null,epochUnit:null,canonId:'stdtext1',mode:'text'},tokenizedEntitlements:0,canonicalisers:['stdtext1'],discoveryError:null}));
+ render(<TreatmentCell project={id} pool={pool} element={element} tableColumns={[element]} name="secret" treatment="undecided" editable/>,{wrapper});
+ fireEvent.click(screen.getByRole('button',{name:/choose treatment/}));fireEvent.click(await screen.findByRole('button',{name:'Aggregate only'}));
+ await screen.findByText(/Use as contributor key/);expect(screen.getByRole('button',{name:'Save treatment'}).hasAttribute('disabled')).toBe(true);expect(calls.some(c=>c.method==='POST')).toBe(false);
+});
+it('CONSOLE-02 copies the exact catalogue name without substituting its display label',async()=>{
+ const {CopyName}=await import('../components/copy-name.js');const writeText=vi.fn(async()=>{});vi.stubGlobal('navigator',{clipboard:{writeText}});
+ render(<CopyName name="testing_reinsurance.soak_claims.claims"/>,{wrapper});fireEvent.click(screen.getByRole('button',{name:'Copy testing_reinsurance.soak_claims.claims'}));
+ await screen.findByText('Copied');expect(writeText).toHaveBeenCalledWith('testing_reinsurance.soak_claims.claims');
+});
+it('CONSOLE-02 a source-save custody designation refusal links to Settings Engines',async()=>{
+ const engine='00000000-0000-4000-8000-000000000009';
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init:{method:string})=>new Response(JSON.stringify(init.method==='POST'?{error:{code:'source_unavailable',message:'This project has no designated custody engine. Go to Settings → Engines → row menu (⋯) → "Use for custody" on a verified engine.',requestId:'fixture',retryable:false}}:{items:[{id:engine,name:'Engine',address:'https://engine',certificatePin:'a'.repeat(64),contractVersion:3,verifiedAt:now,lastSeenAt:now,health:'healthy',healthMessage:null,custody:false,sources:[]}],nextCursor:null}),{status:init.method==='POST'?503:200})));
+ render(<ConnectSource project={id} onClose={()=>{}}/>,{wrapper});await screen.findByRole('combobox',{name:'Engine'});await selectOption('Engine','Engine · healthy');fireEvent.change(screen.getByLabelText('Stored reference name'),{target:{value:'warehouse'}});fireEvent.change(screen.getByLabelText('Source name'),{target:{value:'Warehouse'}});fireEvent.submit(screen.getByRole('button',{name:'Save and assign'}).closest('form')!);
+ expect((await screen.findByRole('link',{name:/Settings → Engines →/})).getAttribute('href')).toContain('section=engines');
+});

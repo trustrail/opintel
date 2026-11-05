@@ -36,8 +36,8 @@ export class McpAccess {
   if(!principal.credentialId)return err(new DomainError('unauthenticated','This key has no credential identity.'));
   return this.bindings.authenticate({projectId:principal.pool.projectId,userId:principal.scopeUserId},principal.pool.id,principal.credentialId,certificate,enrollment,diagnostic);
  }
- async observe(principal: McpPrincipal, kind: 'connect'|'request'|'heartbeat', client: string|null) {
+ async observe(principal: McpPrincipal, kind: 'connect'|'request'|'heartbeat', client: string|null, certificate?:PresentedIdentity) {
   return this.presence.observeAuthenticated({projectId:principal.pool.projectId,userId:principal.scopeUserId},
-   {poolId:principal.pool.id,keyVersion:principal.keyVersion}, {agentId:principal.agentId,kind,client});
+   {poolId:principal.pool.id,keyVersion:principal.keyVersion,...certificate?{certificateFingerprint:certificate.fingerprint}:{}}, {agentId:principal.agentId,kind,client});
  }
 }

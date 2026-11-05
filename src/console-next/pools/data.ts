@@ -12,6 +12,8 @@ import {homeKeys,pages,read} from '../home/data.js';
 import {treatmentOrder,type Treatment} from '../components/treatment.js';
 export const poolsKeys={currentRule:(p:string,pool:string,o:string)=>[...poolsKeys.all(p),'current-row-rule',pool,o] as const,history:(p:string,pool:string,o:string)=>[...poolsKeys.all(p),'row-history',pool,o] as const,people:(p:string)=>[...homeKeys.scope(p),'members'] as const,decision:(p:string,d:string)=>[...poolsKeys.all(p),'row-decision',d] as const,agent:(p:string,pool:string,agent:string)=>[...poolsKeys.all(p),'agent',pool,agent] as const,all:(p:string)=>[...homeKeys.scope(p),'pools'] as const,facts:(p:string)=>[...poolsKeys.all(p),'facts'] as const,columns:(p:string,ids:readonly string[])=>[...poolsKeys.all(p),'columns',...ids.toSorted()] as const,catalog:(p:string)=>[...poolsKeys.all(p),'catalog'] as const,rows:(p:string,pool:string)=>[...poolsKeys.all(p),'rows',pool] as const};
 export const emptySpectrum=()=>({clear:0,tokenized:0,masked:0,aggregate_only:0,custody:0,withheld:0,undecided:0});
+export const presenceTimingHint='Connected now includes connecting, active and idle. Stale means no authenticated request or heartbeat for three configured heartbeat intervals (60 seconds with the default 20-second interval). Stale and disconnected agents are excluded.';
+export const verifiedNameHint='Verified name: the last connection authenticated with the credential’s bound certificate. The display name is still self-declared and never authorizes access.';
 export const isConnected=(agent:AgentPresenceView)=>['connecting','active','idle'].includes(agent.state);
 export async function readPools(project:string,client=createApiClient()){
  const list=await pages(client,`/api/v1/projects/${project}/pools?limit=100`,PoolPage,Infinity);
@@ -50,7 +52,7 @@ export function dataLink(project:string,pool:string,object?:string,element?:stri
 
 export function useTableColumns(project:string,ids:readonly string[]){return useQuery({queryKey:poolsKeys.columns(project,ids),enabled:ids.length>0,retry:false,queryFn:async({signal})=>{const client=createApiClient(undefined,{signal}),result=[];for(const tableId of ids)result.push({tableId,columns:await readCatalogLevel(project,tableId,client)});return result;}});}
 
-/** Lane membership uses credential authentication; solidity requires verified name identity. */
+/** Lane membership uses credential authentication; solidity uses verified certificate-authenticated presence. */
 export function credentialAgents(pool:PoolFacts,credentialId:string,alias:string){
  const seen=new Map<string,{agent:AgentPresenceView;bound:boolean}>();
  for(const agent of pool.agents){const observed=agent.authenticatedWith.kind==='credential'&&agent.authenticatedWith.alias===alias,bound=Boolean(agent.verified),legacy=agent.authenticatedWith.kind==='legacy_pool_key'&&pool.detail.keys.some(k=>k.keyVersion===agent.keyVersion&&k.credentialId===credentialId);if(observed||legacy){const previous=seen.get(agent.agentId);if(!previous||bound)seen.set(agent.agentId,{agent,bound});}}
