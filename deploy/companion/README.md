@@ -1,6 +1,6 @@
 # Opintel companion for OAP
 
-OAP-02 candidate `369cf0c` passed the Intel live check and awaits publication approval. Until it is published and re-pinned, the manifest and image-load command still reference the preceding image; wait for that update before testing this revised bundle.
+OAP-02 image `369cf0c` is published for amd64 and arm64 and pinned by its verified index digest in the bundle. The Intel live check passed; the updated Air/OAP installation is user verification.
 
 The companion holds the pool key, device identity and XQ API key as **one private OAP credential**. Use mode-600 files and a protected transfer; never paste credentials into chat, git, command arguments or logs. `/run/opintel` points into writable `/tmp`, which may be memory-backed or ordinary ephemeral disk. Private directories are mode 700 and files mode 600. Startup failure and orderly SIGINT/SIGTERM overwrite and remove live private files. SIGKILL/host failure cannot run cleanup; delete the ephemeral volume. Overwrite is not physical erasure of SSD, snapshot or copy-on-write history.
 
@@ -81,7 +81,7 @@ This grants all service accounts in `default` get access to this **one AgentIden
 Use a Docker account already authorized to pull the private GHCR package. Keep the bundle's digest pin; do not replace it with a tag. The tag below identifies the image to export; verify its pulled index digest matches `spec.source.image` before importing.
 
 ```sh
-export COMPANION_TAG=ghcr.io/trustrail/opintel-companion:6bce943
+export COMPANION_TAG=ghcr.io/trustrail/opintel-companion:369cf0c
 docker pull "$COMPANION_TAG"
 docker buildx imagetools inspect "$COMPANION_TAG"
 kubectl config current-context

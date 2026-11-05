@@ -2,8 +2,8 @@
 
 ## Final status
 
-The published amd64/arm64 image `6bce943` is pinned by digest in the OAP manifest:
-`ghcr.io/trustrail/opintel-companion@sha256:a6c99b3c72f90b2f48f5dc51de7232009a6112a2193636dce09b6ddada0d14b2`.
+The published amd64/arm64 OAP-02 image `369cf0c` is pinned by digest in the OAP manifest:
+`ghcr.io/trustrail/opintel-companion@sha256:2f3cc453765f03a0301c7cd51bc7a83592f89c150f2246f204c4fb2ebbe53d13`.
 Gap 1 (ordinary ephemeral disk) is corrected and verified as recorded below.
 The live Intel container check passed. OAP deployment itself remains user-run.
 The historical entries below retain failures and subsequent evidence; their
@@ -411,3 +411,18 @@ values were printed. No local OAP install/run was performed, and no full gate
 was rerun for these script/bundle changes. Updated Air installation remains user
 verification; source inspection and the Intel container result are the evidence,
 not proof that upstream OAP's other defects are resolved.
+
+
+### OAP-02 approved publication
+
+After explicit owner approval, the push of `369cf0c` exited 0. Remote
+`docker buildx imagetools inspect` verified index
+`sha256:2f3cc453765f03a0301c7cd51bc7a83592f89c150f2246f204c4fb2ebbe53d13`,
+linux/amd64 manifest
+`sha256:07a63ace7d1aaf8059c7a4beefdcc2c1a91feb19a23921faafc271df9c48c835`,
+and linux/arm64 manifest
+`sha256:3244694d695fa52003ff40c8aa8e3d16fc003c7d1ba49c022c069213b0a7b8e3`.
+The bundle is pinned to the index digest, and the README's image-load command
+uses the matching tag. Package visibility was not changed. No merge or further
+live run was made in this publication step.
+Publication-step lint, manifest YAML parsing and exact-digest validation passed.
