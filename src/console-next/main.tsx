@@ -24,6 +24,7 @@ import './data/styles.css';
 import './data/contextual.css';
 import './activity/styles.css';
 import './first-run/styles.css';
+import './components/records.css';
 const cache=new QueryClient({defaultOptions:{queries:{refetchOnWindowFocus:true,retry:false}}});
 function ProjectApp(){
 

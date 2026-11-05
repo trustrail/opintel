@@ -1,0 +1,126 @@
+# CONSOLE-04b — provenance and custody presentation
+
+Branch: `fix/console-provenance-design`. No backend, migration, permission,
+receipt-write or provenance-API changes.
+
+## Evidence
+
+The committed capture harness uses isolated database fixtures, real receipt,
+provenance, pool, catalog and settings routes, the production console build,
+and the pinned Playwright container. It creates new fixture records; it never
+edits issued receipts. The XQ settings screenshots use unconfigured fixture
+provider metadata, with no external XQ call or real credentials.
+
+`capture.json` records each screenshot, HTTP responses, page errors, viewport
+and overflow, and the measured identifier touch targets. Screenshots cover
+1440 and 390 px in both themes, including served custody, refused and historical
+provenance; request and custody details; custody rows and empty state; Access,
+Agents & people and agent detail, credentials, Catalog, theme menu, Custody
+settings and its credential editor, Query limits and its editor.
+
+## Changes
+
+- Six fixed provenance disclosure rows replace the field dump. Human summaries,
+  kind icons, recorded/not-recorded/refused/release-state badges and explicit
+  historical gaps remain in order. Details use named definition rows, recorded
+  timezone-aware times and individually copyable IDs. Query limits are named
+  fields rather than a JSON blob. Redeemed retains the existing K2-only meaning.
+- Detail opens in a dialog on desktop and the existing bottom-sheet surface on
+  phone. Open receipt is the primary action. Existing entity links remain.
+- Custody uses the credential list gutters with a fixed grid, column treatment
+  chips, recorded identity, release-state badge and issued/expiry times. Revoke
+  is admin-only, in the menu, with a consequence confirmation. Provenance is in
+  the same menu. Revocation invalidates project release lists, provenance and
+  Activity receipts through their key factories. Empty lists use the extracted shared empty component.
+- The approved CopyName identifier variant keeps the full copy/tooltip value,
+  single-line monospace ellipsis, keyboard focus and at least 44 px targets.
+  Shared row, badge, definition-list and sheet components reuse console tokens.
+- Sweep: remove the extra binding timestamp from the agent list's credential
+  column; the credential name and binding labels remain visible, and full
+  binding details remain in the panel. The panel uses the existing truncated
+  value wrapper and a full metadata tooltip, fixing phone
+  overflow from its identity field. Credential summaries keep the primary certificate
+  and state while leaving secondary binding details to the panel. Settings
+  editor footers use the shared action layout, including touch-sized Cancel.
+  Credential-check explanation is on Check and save as a tooltip. Access and
+  Catalog retain full catalogue names with their existing copy controls. Theme
+  control and required query limits retain their established behaviour.
+
+Current pool names are fetched only for display context, explicitly identified
+as current on hover. They are not presented as recorded historical names.
+Missing historical certificate, credential kind/label, engine, contributor and
+write-time redaction data remain missing. No date is invented for when historic
+certificate recording began.
+
+## Inference and limits
+
+The fixture captures demonstrate rendering and API integration, not a new cloud
+acceptance or live XQ verification. Human design review remains necessary. A
+redeemed grant proves release of Opintel's share, not local decryption. When grants have different
+states, the timeline badge says recorded rather than implying a single state;
+the detail retains each grant's individual state.
+
+## Rule checklist
+
+Each row covers both new views and their details. Parent report bands and
+navigation are retained.
+
+| Rule | Provenance timeline / detail | Custody tab |
+|---|---|---|
+| 1 One queue | Met: existing Needs you remains the queue | Met: release history, no new queue |
+| 2 Health strip | N/A: no health screen | N/A: no health screen |
+| 3 Report above workbench | Met: existing Audit band above workbench | Met: existing entitlement band above tabs |
+| 4 One primary action | Met: Open receipt; disclosures are secondary | Met: existing Grant access primary; Revoke in menu and confirmed |
+| 5 At most four band numbers | N/A: no new band; parent retained | N/A: parent band retained |
+| 6 Badge state | Met: recorded, not recorded, refused and release states | Met: release state badge |
+| 7 Names before IDs | Met: nickname/certificate, pool and aliases in summaries; IDs in detail | Met: column/agent names; grant ID is necessarily an identifier |
+| 8 State-change motion only | Met: shared interactions, reduced-motion captures | Met: shared menus/sheet, no new animation |
+| 9 Same information by role | Met: receipt permission unchanged | Met: history visible; revoke action needs admin |
+| 10 Explanation on its subject | Met: badges, times and copy controls have tooltips | Met: state meaning, timestamps and IDs have tooltips |
+| 11 Phone and touch | Met: stacked fixed rows, bottom-sheet detail, 44 px copy/link/close targets | Met: fixed phone grid and shared menu targets |
+| 12 Fixed rows / truncation | Met: fixed timeline/detail rows, ellipsis and full tooltips | Met: fixed rows/grid, clipped long names with full tooltip |
+| 13 Band numbers filter | N/A: no new band controls; existing Audit behaviour retained | N/A: no new band controls; existing entitlement behaviour retained |
+| 14 Kind icons | Met: step kind icons and column chips/treatment marks | Met: grant/agent/column kinds and custody treatment mark |
+
+## Validation
+
+- `npm run console:test`: 184 tests passed (15 files, 91.50 s).
+- `npm test -- test/activity.test.ts`: 15 tests passed (37.97 s). The existing
+  served-custody, refused, release-first, historical-gap, permission and recorded
+  row-decision assertions were unchanged.
+- `npm run typecheck`: passed, strict.
+- `npm run lint`: passed, including dependency boundaries.
+- Foundation/component coverage: full copy value and keyboard focus; ellipsis and
+  token touch sizing; six badge states; distinct/mixed recorded grant states;
+  personal timezone; phone sheet surface; six ordered disclosures and gaps;
+  singular execution count; existing identity, classification and routing tests.
+- `node --check scripts/console-provenance-design-capture.mjs`: passed.
+- `node scripts/console-provenance-design-capture.mjs`: passed (100.53 s),
+  76 screenshots, zero page errors and zero HTTP failures. All captured pages
+  have zero horizontal overflow. Every identifier target is at least 44 × 44 px;
+  the browser verifies nowrap/ellipsis and actual truncated phone identifiers.
+- Completed-candidate gate: pending below.
+
+## Screenshots
+
+| State | 1440 light | 1440 dark | 390 light | 390 dark |
+|---|---|---|---|---|
+| Served provenance | [Open](provenance-served-1440-light.png) | [Open](provenance-served-1440-dark.png) | [Open](provenance-served-390-light.png) | [Open](provenance-served-390-dark.png) |
+| Refused provenance | [Open](provenance-refused-1440-light.png) | [Open](provenance-refused-1440-dark.png) | [Open](provenance-refused-390-light.png) | [Open](provenance-refused-390-dark.png) |
+| Historical gaps | [Open](provenance-historical-1440-light.png) | [Open](provenance-historical-1440-dark.png) | [Open](provenance-historical-390-light.png) | [Open](provenance-historical-390-dark.png) |
+| Served request detail | [Open](provenance-served-detail-1440-light.png) | [Open](provenance-served-detail-1440-dark.png) | [Open](provenance-served-detail-390-light.png) | [Open](provenance-served-detail-390-dark.png) |
+| Refused request detail | [Open](provenance-refused-detail-1440-light.png) | [Open](provenance-refused-detail-1440-dark.png) | [Open](provenance-refused-detail-390-light.png) | [Open](provenance-refused-detail-390-dark.png) |
+| Historical request detail | [Open](provenance-historical-detail-1440-light.png) | [Open](provenance-historical-detail-1440-dark.png) | [Open](provenance-historical-detail-390-light.png) | [Open](provenance-historical-detail-390-dark.png) |
+| Custody detail | [Open](provenance-custody-detail-1440-light.png) | [Open](provenance-custody-detail-1440-dark.png) | [Open](provenance-custody-detail-390-light.png) | [Open](provenance-custody-detail-390-dark.png) |
+| Custody rows | [Open](custody-1440-light.png) | [Open](custody-1440-dark.png) | [Open](custody-390-light.png) | [Open](custody-390-dark.png) |
+| Custody empty | [Open](custody-empty-1440-light.png) | [Open](custody-empty-1440-dark.png) | [Open](custody-empty-390-light.png) | [Open](custody-empty-390-dark.png) |
+| Access | [Open](access-1440-light.png) | [Open](access-1440-dark.png) | [Open](access-390-light.png) | [Open](access-390-dark.png) |
+| Agents | [Open](agents-1440-light.png) | [Open](agents-1440-dark.png) | [Open](agents-390-light.png) | [Open](agents-390-dark.png) |
+| Agent detail | [Open](agent-panel-1440-light.png) | [Open](agent-panel-1440-dark.png) | [Open](agent-panel-390-light.png) | [Open](agent-panel-390-dark.png) |
+| Credentials | [Open](credentials-1440-light.png) | [Open](credentials-1440-dark.png) | [Open](credentials-390-light.png) | [Open](credentials-390-dark.png) |
+| Catalog | [Open](catalog-1440-light.png) | [Open](catalog-1440-dark.png) | [Open](catalog-390-light.png) | [Open](catalog-390-dark.png) |
+| Theme control | [Open](theme-menu-1440-light.png) | [Open](theme-menu-1440-dark.png) | [Open](theme-menu-390-light.png) | [Open](theme-menu-390-dark.png) |
+| Custody settings | [Open](settings-custody-1440-light.png) | [Open](settings-custody-1440-dark.png) | [Open](settings-custody-390-light.png) | [Open](settings-custody-390-dark.png) |
+| Credential editor | [Open](settings-credentials-editor-1440-light.png) | [Open](settings-credentials-editor-1440-dark.png) | [Open](settings-credentials-editor-390-light.png) | [Open](settings-credentials-editor-390-dark.png) |
+| Query limits | [Open](settings-limits-1440-light.png) | [Open](settings-limits-1440-dark.png) | [Open](settings-limits-390-light.png) | [Open](settings-limits-390-dark.png) |
+| Limits editor | [Open](settings-limits-editor-1440-light.png) | [Open](settings-limits-editor-1440-dark.png) | [Open](settings-limits-editor-390-light.png) | [Open](settings-limits-editor-390-dark.png) |

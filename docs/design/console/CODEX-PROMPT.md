@@ -42,6 +42,20 @@ React, Radix primitives (Dialog, Popover, Tabs, Checkbox, ScrollArea, Tooltip, D
 - Motion between 150 and 250 ms, only when state changes (rule 08). Respect reduced motion.
 - Empty, loading and error states for every list.
 
+#### Shared record patterns (CONSOLE-04b)
+
+`CopyName` supports the approved `identifier` variant: single-line monospace,
+ellipsis, a full-value tooltip, native focusable button, existing copied state,
+and a token-based touch target of at least 44 px. The full value is copied even
+when its display is truncated. Use it for identifiers in details, not as a
+substitute for human names or navigation.
+
+`components/records.tsx` extracts the existing Activity/credential list-row,
+state badge, agent-panel two-column definition list, and Activity phone-sheet
+patterns. RecordTime formats stored timestamps in personal settings' timezone
+and exposes relative time on hover/focus. Detail disclosures open separately so
+the fixed-height summary rows do not grow with their contents.
+
 ### Rules from 01-Main, all 14 binding
 1. One queue. 2. Health is a strip, not a page. 3. Report above, workbench below. 4. One primary action per screen; destructive actions in menus. 5. At most four numbers per band. 6. A state is a badge, never a sentence. 7. Names, not identifiers. 8. Motion only when state changes. 9. Same screens for the data owner and the operator; role changes the order, never the information. 10. Explanations live on the thing they explain. Activity records, Suggestions asks, Entitlements decides. Findings are badges on their source, column or key, with detail in a tooltip and a fix one click away. There is no separate findings page. 11. Works on a phone: navigation becomes a bottom tab bar, cards stack, tables become lists, touch targets at least 44 px. 12. Fixed row heights and column widths; long text is truncated, never wrapped; cards only for summaries, never for data that can grow. 13. A number in a band is also the button that filters by it. 14. Every name wears its kind: source, table, view, column, pool, row rule, agent, person, credential and receipt each have one icon (see the key on 01-Main), shown wherever the name appears, with the kind named on hover. Build it as one shared component.
 
