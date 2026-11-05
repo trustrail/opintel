@@ -13,15 +13,26 @@
  --treatment-clear:#289d54;--treatment-tokenized:#305fb7;--treatment-masked:#b88a19;--treatment-aggregate_only:#7242a8;--treatment-custody:#23093f;--treatment-withheld:#bd293f;--treatment-undecided:#f1bf66;
  --strip-bar:#8d7ba4;--overlay:rgb(18 4 31 / 45%);
 }
-[data-console-theme="dark"] {
+:root[data-theme="dark"] {
  --bg:#150c21;--surface:#21142f;--surface-hover:#2b1c3a;--pressed:#372447;
  --ink:#f5effb;--muted:#b9a9cc;--border:#4b365f;--neutral:#352544;
  --ok:#71dc98;--ok-bg:#193c2b;--warning:#ffd17d;--warning-bg:#49351c;--down:#ff91a5;--down-bg:#4b2231;--unknown:#c0afcf;
  --treatment-clear:#4cbf79;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#c7aedf;--treatment-withheld:#f27c95;--treatment-undecided:#f1bf66;
  --strip-bar:#9d86ba;--overlay:rgb(5 1 9 / 70%);
 }
+@media (prefers-color-scheme: dark) {
+:root:not([data-theme="light"]) {
+ --bg:#150c21;--surface:#21142f;--surface-hover:#2b1c3a;--pressed:#372447;
+ --ink:#f5effb;--muted:#b9a9cc;--border:#4b365f;--neutral:#352544;
+ --ok:#71dc98;--ok-bg:#193c2b;--warning:#ffd17d;--warning-bg:#49351c;--down:#ff91a5;--down-bg:#4b2231;--unknown:#c0afcf;
+ --treatment-clear:#4cbf79;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#c7aedf;--treatment-withheld:#f27c95;--treatment-undecided:#f1bf66;
+ --strip-bar:#9d86ba;--overlay:rgb(5 1 9 / 70%);
+}
+}
+
 
 /* The report bands retain a plum background in both themes. */
-[data-pool-band]{--treatment-clear:#32df85;--treatment-tokenized:#75a3ff;--treatment-masked:#d5ac3d;--treatment-aggregate_only:#b78ae6;--treatment-custody:#e3d7ee;--treatment-withheld:#ff6c85;--treatment-undecided:#f1bf66;--warning:#f1bf66}
+:root{--band-clear:#32df85;--band-tokenized:#75a3ff;--band-masked:#d5ac3d;--band-aggregate-only:#b78ae6;--band-custody:#e3d7ee;--band-withheld:#ff6c85;--band-undecided:#f1bf66}
+[data-pool-band]{--treatment-clear:var(--band-clear);--treatment-tokenized:var(--band-tokenized);--treatment-masked:var(--band-masked);--treatment-aggregate_only:var(--band-aggregate-only);--treatment-custody:var(--band-custody);--treatment-withheld:var(--band-withheld);--treatment-undecided:var(--band-undecided);--warning:var(--band-undecided)}
 
 :root{--size-1:#e4d9f2;--size-2:#bd9de3;--size-3:#9776ba;--size-4:#765590;--size-5:#58446b}

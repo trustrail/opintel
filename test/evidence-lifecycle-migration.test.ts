@@ -2,15 +2,13 @@ import {readFile} from 'node:fs/promises';
 import {Client} from 'pg';
 import {it,expect} from 'vitest';
 import {policyFixture} from './fixtures/policy-version/fixture.js';
-import {migrationDatabase} from './fixtures/migration-database.js';
+import {migrationDatabase,migrateDownToVersion} from './fixtures/migration-database.js';
 const migrationOwner=migrationDatabase();
 // Owner access is confined to rollback-only migration/clock fixtures.
  // Migration round trips are functional; this hang guard allows for growth of the migration chain.
 it('052 down/up round-trips twice before irreversible lifecycle work',async()=>{
- const db=migrationOwner();
+ const db=migrationOwner();await migrateDownToVersion(db,'052');
  try{await db.query('BEGIN');
-  await db.query(await readFile('migrations/073_credential_lifecycle_guards.down.sql','utf8'));
-  await db.query(await readFile('migrations/072_pool_credentials.down.sql','utf8'));
   for(let i=0;i<2;i++){await db.query(await readFile('migrations/052_evidence_lifecycle.down.sql','utf8'));await db.query(await readFile('migrations/052_evidence_lifecycle.up.sql','utf8'));}
   const {rows}=await db.query("SELECT has_table_privilege('opintel_app','evidence_rollup','UPDATE') AS update,has_table_privilege('opintel_app','evidence_redaction','DELETE') AS delete");expect(rows).toEqual([{update:false,delete:false}]);
  }finally{await db.query('ROLLBACK');}
@@ -18,11 +16,12 @@ it('052 down/up round-trips twice before irreversible lifecycle work',async()=>{
 it('Q-025: unset windows retain evidence, rollups honour their creation floor, old incomplete headers survive',async()=>{
  const f=await policyFixture(0),db=new Client({connectionString:process.env.TEST_DATABASE_URL});await db.connect();
  try{await db.query('BEGIN');
-  const {rows}=await db.query<{id:string;at:string}>("INSERT INTO query_run(project_id,pool_id,key_prefix,mode,request,versions,started_at) SELECT $1,$2,'test','query','SELECT 1','{\"policy\":1,\"catalog\":1,\"vocabulary\":1,\"tokenKeyVersionSelected\":null}',clock_timestamp()-interval '10 days' FROM generate_series(1,2) RETURNING id,started_at::text AS at",[f.ctx.projectId,f.pool]);const r=rows[0]!;
+  const {rows}=await db.query<{id:string;at:string}>("INSERT INTO query_run(project_id,pool_id,key_prefix,mode,request,versions,agent_identity,started_at) SELECT $1,$2,'test','query','SELECT 1','{\"policy\":1,\"catalog\":1,\"vocabulary\":1,\"tokenKeyVersionSelected\":null}','{\"verified\":true,\"certificateIdentity\":{\"fingerprintPrefix\":\"aaaaaaaaaaaa\",\"certificateId\":235}}',clock_timestamp()-interval '10 days' FROM generate_series(1,2) RETURNING id,started_at::text AS at",[f.ctx.projectId,f.pool]);const r=rows[0]!;
   await db.query("INSERT INTO run_completion(run_id,started_at,outcome,completed_at) VALUES($1,$2,'{\"kind\":\"answered\",\"rowCount\":1,\"truncated\":false}',$2)",[r.id,r.at]);
   expect((await db.query('SELECT retain_evidence($1) AS n',[f.ctx.projectId])).rows).toEqual([{n:0}]);
   await db.query('UPDATE project SET settings=$2 WHERE id=$1',[f.ctx.projectId,{evidence:{fullRetentionDays:3}}]);
   expect((await db.query('SELECT retain_evidence($1) AS n',[f.ctx.projectId])).rows).toEqual([{n:1}]);
+  expect((await db.query('SELECT agent_identity FROM evidence_run_read WHERE id=$1',[r.id])).rows).toEqual([{agent_identity:{verified:true,certificateIdentity:{fingerprintPrefix:'aaaaaaaaaaaa',certificateId:235}}}]);
   // Simulate time passing only in the owner fixture, not through application grants.
   await db.query("UPDATE evidence_rollup SET created_at=clock_timestamp()-interval '2 days' WHERE id=$1",[r.id]);
   await db.query('UPDATE project SET settings=$2 WHERE id=$1',[f.ctx.projectId,{evidence:{fullRetentionDays:1,rollupRetentionDays:1}}]);

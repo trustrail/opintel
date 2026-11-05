@@ -95,16 +95,16 @@ it('CONSOLE-02 presence verifies the authenticated bound fingerprint, never a be
  const f=await fixture(),repo=new PostgresAgentPresence({publish:async()=>{}}),service=new AgentPresenceService(repo),auth={poolId:f.pool,keyVersion:unwrap(poolKeyId(f.issued.keyVersion)),certificateFingerprint:certificate.fingerprint};
  expect((await f.authenticate()).ok).toBe(true);
  const signal={kind:'request',agentId:'claimed-name'};
- const verified=unwrap(await service.observeAuthenticated(f.ctx,auth,signal));expect(verified.verified).toBe(true);
+ const verified=unwrap(await service.observeAuthenticated(f.ctx,auth,signal));expect(verified.verified).toBe(true);expect(verified.certificateIdentity).toEqual({fingerprintPrefix:'a'.repeat(12),certificateId:223});
  const {AgentPresenceView}=await import('../src/shared/api/agent-presence.js');
  const rows=unwrap(await service.list(f.ctx,f.pool,null,10));const {projectId:ignored,...apiRow}=rows[0]!;expect(AgentPresenceView.parse(apiRow).verified).toBe(true);
  const {agentPresenceRoutes}=await import('../src/modules/pools/api/presence-routes.js'),{createHttpServer}=await import('../src/platform/http/index.js'),{once}=await import('node:events');
  const server=createHttpServer(agentPresenceRoutes(service),{authorization:{currentUser:async()=>f.actor,port:allowBulk}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing presence listener');
- try{const response=await fetch(`http://127.0.0.1:${address.port}/api/v1/pools/${f.pool}/agents?projectId=${f.ctx.projectId}`);expect(response.status).toBe(200);expect(await response.json()).toMatchObject({items:[{agentId:'claimed-name',verified:true}]});}finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
+ try{const response=await fetch(`http://127.0.0.1:${address.port}/api/v1/pools/${f.pool}/agents?projectId=${f.ctx.projectId}`);expect(response.status).toBe(200);expect(await response.json()).toMatchObject({items:[{agentId:'claimed-name',verified:true,certificateIdentity:{fingerprintPrefix:'a'.repeat(12),certificateId:223}}]});}finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
 
  expect(await service.observeAuthenticated(f.ctx,auth,{...signal,verified:true})).toMatchObject({ok:false,error:{code:'validation_failed'}});
  expect(unwrap(await service.observeAuthenticated(f.ctx,{...auth,certificateFingerprint:other.fingerprint},signal)).verified).toBe(false);
- expect(unwrap(await service.observeAuthenticated(f.ctx,{poolId:f.pool,keyVersion:auth.keyVersion},signal)).verified).toBe(false);
+ expect(unwrap(await service.observeAuthenticated(f.ctx,{poolId:f.pool,keyVersion:auth.keyVersion},signal))).toMatchObject({verified:false,certificateIdentity:null});
  const b=await fixture('bearer-only');expect((await b.authenticate()).ok).toBe(true);
  expect(unwrap(await service.observeAuthenticated(b.ctx,{poolId:b.pool,keyVersion:unwrap(poolKeyId(b.issued.keyVersion)),certificateFingerprint:certificate.fingerprint},signal)).verified).toBe(false);
 });

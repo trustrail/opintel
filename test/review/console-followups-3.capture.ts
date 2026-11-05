@@ -1,0 +1,85 @@
+// Manual CONSOLE-03 review; isolated fixtures, real routes, no production data.
+import {entitlementReadRoutes} from '../../src/modules/entitlements/api/read-routes.js';
+import {BulkEntitlementService,DuckDBQueryParser,KeyCustodyService,PostgresBulkEntitlements,PostgresCustodyRepository,PostgresEntitlementReader} from '../../src/modules/entitlements/index.js';
+import {expect,it,onTestFinished} from 'vitest';
+import {once} from 'node:events';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {preview} from 'vite';
+import {chromium} from '@playwright/test';
+import {createRedisConnection} from '../../src/platform/redis/index.js';
+import {RedisProjectHub} from '../../src/platform/sse/redis-hub.js';
+import {projectStreamRoutes} from '../../src/platform/sse/routes.js';
+import {createHttpServer,defineRoute} from '../../src/platform/http/index.js';
+import {queryFixture,unwrap} from '../fixtures/query/fixture.js';
+import {withPlatform,withTenant} from '../../src/platform/db/scope.js';
+import {DuckDBEvidenceText,EvidenceQuery,PostgresEvidenceReader,PostgresEvidenceWriter} from '../../src/modules/evidence/index.js';
+import {PostgresDashboardReader,PostgresNeedsYouReader,PostgresProjectHealthReader,PostgresSettings} from '../../src/modules/tenancy/index.js';
+import {TenancyListService} from '../../src/modules/tenancy/application/list-tenancy.js';
+import {PostgresTenancyListRepository} from '../../src/modules/tenancy/infrastructure/tenancy-list-repository.js';
+import {tenancyListRoutes} from '../../src/modules/tenancy/api/list-routes.js';
+import {dashboardRoutes} from '../../src/modules/tenancy/api/dashboard-routes.js';
+import {needsYouRoutes} from '../../src/modules/tenancy/api/needs-you-routes.js';
+import {projectHealthRoutes} from '../../src/modules/tenancy/api/project-health-routes.js';
+import {evidenceRoutes} from '../../src/modules/evidence/api/routes.js';
+import {AgentPresenceService,PoolKeyService,PostgresAgentPresence,PostgresPoolKeys,PostgresPoolReader,PostgresPoolTables} from '../../src/modules/pools/index.js';
+import {poolReadRoutes} from '../../src/modules/pools/api/read-routes.js';
+import {agentPresenceRoutes} from '../../src/modules/pools/api/presence-routes.js';
+import {poolTableRoutes} from '../../src/modules/pools/api/table-routes.js';
+import {poolKeyRoutes} from '../../src/modules/pools/api/key-routes.js';
+import {catalogRoutes} from '../../src/modules/catalog/api/tree-routes.js';
+import {PostgresCatalogTreeReader} from '../../src/modules/catalog/infrastructure/tree.js';
+import {rowDecisionRoutes} from '../../src/modules/entitlements/api/row-routes.js';
+import {PostgresRowDecisions} from '../../src/modules/entitlements/infrastructure/row-decisions.js';
+import {sourceRoutes} from '../../src/modules/sources/api/source-routes.js';
+import {SourceRegistrationService} from '../../src/modules/sources/application/source-registration.js';
+import {PostgresSourceRegistrationRepository} from '../../src/modules/sources/infrastructure/source-registration-repository.js';
+import {IntrospectionJob,PostgresIntrospectionStore} from '../../src/modules/sources/index.js';
+import {SystemClock,UuidV7IdFactory} from '../../src/shared/kernel/index.js';
+import {suggestionRoutes} from '../../src/modules/relationships/api/routes.js';
+import {PostgresSuggestions} from '../../src/modules/relationships/infrastructure/review.js';
+import {bulkEntitlementRoutes} from '../../src/modules/entitlements/api/bulk-routes.js';
+import {settingsRoutes} from '../../src/modules/tenancy/api/settings-routes.js';
+import {memberRoutes} from '../../src/modules/tenancy/api/member-routes.js';
+import {ListMembersService} from '../../src/modules/tenancy/application/list-members.js';
+import {PostgresMemberListRepository} from '../../src/modules/tenancy/infrastructure/member-list-repository.js';
+import {invitationRoutes} from '../../src/modules/tenancy/api/invitation-routes.js';
+import {InvitationService} from '../../src/modules/tenancy/application/invitations.js';
+import {PostgresInvitationRepository} from '../../src/modules/tenancy/infrastructure/invitation-repository.js';
+import {RelationshipOutbox} from '../../src/modules/tenancy/application/relationship-outbox.js';
+import {releaseRoutes} from '../../src/modules/release-custody/index.js';
+import {EngineRegistry,HttpsEngineProbe,PostgresEngineRepository,RegistryCustodyClient,engineRoutes} from '../../src/modules/engines/index.js';
+import {keyCustodyRoutes} from '../../src/modules/entitlements/api/key-custody-routes.js';
+import {z} from 'zod';
+import {industryRoutes} from '../../src/modules/vocabulary/api/industry-routes.js';
+import {ListIndustriesService} from '../../src/modules/vocabulary/application/list-industries.js';
+import {PostgresIndustryListRepository} from '../../src/modules/vocabulary/infrastructure/industry-list-repository.js';
+it('CONSOLE-03 captures Home, Pools, Data and Settings in persisted light and dark themes',async()=>{
+ const redis=createRedisConnection({url:process.env.REDIS_URL!});await redis.connect();const hub=new RedisProjectHub(redis.client,process.env.REDIS_URL!);
+ const f=await queryFixture(new PostgresEvidenceWriter(hub),{releaseCustody:true});onTestFinished(()=>f.close());if(!f.release)throw new Error('Custody fixture required');
+ await withPlatform(tx=>tx.query("UPDATE project SET name='Review project' WHERE id=$1",[f.ctx.projectId]));
+ await withPlatform(tx=>tx.query("UPDATE user_account SET full_name='Review administrator' WHERE id=$1",[f.ctx.userId]));
+ const tables=new PostgresPoolTables(undefined,f.authorization),presence=new PostgresAgentPresence(hub),keys=new PoolKeyService(new PostgresPoolKeys(undefined,undefined,undefined,tables),presence);
+ const [object]=await withTenant(f.ctx,tx=>tx.query<{id:string}>('SELECT object_id AS id FROM catalog_element WHERE id=$1',[f.ids[0]]));unwrap(await tables.add(f.ctx,f.pool,[object!.id as Parameters<typeof tables.add>[2][number]],{allRows:true}));
+ expect((await f.query('SELECT field_1,field_2 FROM warehouse.public.records')).isError).not.toBe(true);
+ const ids=new UuidV7IdFactory(),store=new PostgresIntrospectionStore(ids),connector=()=>{throw new Error('No scan in a review capture');},jobs=new IntrospectionJob(store,connector),sources=new SourceRegistrationService(new PostgresSourceRegistrationRepository(),ids,connector,jobs,async(ctx,id,message)=>{await store.advance(ctx,id,'queued','connecting');await store.fail(ctx,id,message,false);});
+ const suggestions=new PostgresSuggestions(new EvidenceQuery(new PostgresEvidenceReader(),f.authorization,new DuckDBQueryParser()));
+ const registry=new EngineRegistry(new PostgresEngineRepository(),new HttpsEngineProbe(),f.engineTls),custody=new KeyCustodyService(new PostgresCustodyRepository(),new RegistryCustodyClient(registry),f.authorization);
+ const invitations=new InvitationService(new PostgresInvitationRepository(new RelationshipOutbox()),f.authorization,new SystemClock(),{dispatch:async()=>{}}),settings=new PostgresSettings(f.release);
+ const routes=[...settingsRoutes(settings),...industryRoutes(new ListIndustriesService(new PostgresIndustryListRepository())),...projectHealthRoutes(new PostgresProjectHealthReader()),...releaseRoutes(f.release),...engineRoutes(registry),...keyCustodyRoutes(custody),...memberRoutes(new ListMembersService(new PostgresMemberListRepository())),...invitationRoutes(invitations),...sourceRoutes(sources),...suggestionRoutes(suggestions),...bulkEntitlementRoutes(new BulkEntitlementService(new PostgresBulkEntitlements())),...poolKeyRoutes(keys),...poolTableRoutes(tables),...rowDecisionRoutes(new PostgresRowDecisions()),...catalogRoutes(new PostgresCatalogTreeReader()),...entitlementReadRoutes(new PostgresEntitlementReader()),...tenancyListRoutes(new TenancyListService(new PostgresTenancyListRepository(),f.authorization)),...needsYouRoutes(new PostgresNeedsYouReader(),f.authorization),...poolReadRoutes(new PostgresPoolReader()),...agentPresenceRoutes(new AgentPresenceService(presence)),...dashboardRoutes(new PostgresDashboardReader()),...evidenceRoutes(new EvidenceQuery(new PostgresEvidenceReader(),f.authorization,new DuckDBEvidenceText())),...projectStreamRoutes(hub),defineRoute({method:'GET',path:'/api/v1/auth/me',permission:'authenticated',params:z.object({}),request:z.undefined(),response:z.object({email:z.email()}),handle:async()=>({body:{email:f.actor.email}})})];
+ const api=createHttpServer(routes,{authorization:{currentUser:async()=>f.actor,port:f.authorization}});api.listen(0,'127.0.0.1');await once(api,'listening');const address=api.address();if(!address||typeof address==='string')throw new Error('Missing review listener');
+ const vite=await preview({configFile:'src/console-next/vite.config.ts',preview:{host:'127.0.0.1',port:5174,strictPort:true,proxy:{'^/api/':{target:`http://127.0.0.1:${address.port}`,changeOrigin:true}}}});
+ const browser=await chromium.connect(process.env.OPINTEL_REVIEW_BROWSER_WS!,{exposeNetwork:'<loopback>'}),directory='docs/review/console-followups-3';await mkdir(directory,{recursive:true});
+ const errors:string[]=[],responses:Array<{path:string;status:number}>=[],screenshots:string[]=[];
+ try{const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'}),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('requestfailed',r=>{if(r.failure()?.errorText!=='net::ERR_ABORTED')errors.push(r.url()+' '+r.failure()?.errorText);});page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('response',r=>{responses.push({path:new URL(r.url()).pathname,status:r.status()});});
+ for(const theme of ['light','dark'] as const){const profile=unwrap(await settings.personal(f.ctx.userId));unwrap(await settings.savePersonal(f.ctx.userId,{...profile,theme}));
+  for(const screen of ['home','pools','data','settings']){
+   await page.goto(`http://127.0.0.1:5174/?project=${f.ctx.projectId}&screen=${screen}&pool=${f.pool}&section=custody`);
+   await page.locator('[data-main]').waitFor().catch(async error=>{await page.screenshot({path:directory+'/capture-failure.png',fullPage:true});await writeFile(directory+'/capture-failure.json',JSON.stringify({errors,responses,body:await page.locator('body').innerText(),html:await page.content()},null,2));throw error;});await page.waitForFunction(()=>!document.querySelector('[data-list-state=loading]'));await page.waitForFunction(theme=>document.documentElement.dataset.theme===theme,theme);await page.evaluate(()=>document.fonts.ready);
+   await expect.poll(()=>page.locator('[data-list-state=error]').count()).toBe(0);
+   const file=`${screen}-1440-${theme}.png`;await page.screenshot({path:`${directory}/${file}`,animations:'disabled',fullPage:true});screenshots.push(file);
+   if(screen==='pools'){await page.getByRole('button',{name:'Set rows',exact:true}).first().click();await page.locator('[data-inline-rows]').waitFor();await page.getByRole('checkbox',{name:/^All rows/}).uncheck();await page.getByRole('button',{name:'Add condition',exact:true}).click();const rule=`condition-builder-${theme}.png`;await page.screenshot({path:`${directory}/${rule}`,animations:'disabled',fullPage:true});screenshots.push(rule);}
+  }
+ }
+ expect(errors).toEqual([]);expect(responses.filter(r=>r.status>=400)).toEqual([]);await writeFile(directory+'/capture.json',JSON.stringify({screenshots,errors,responses,fixture:'Isolated database and real API projections; injected fixture administrator; local custody; no cloud deployment.'},null,2));await context.close();
+ }finally{await browser.close();await new Promise<void>(resolve=>vite.httpServer.close(()=>resolve()));registry.close();api.closeAllConnections();await new Promise<void>(resolve=>api.close(()=>resolve()));await hub.close();await redis.close();}
+},180000);

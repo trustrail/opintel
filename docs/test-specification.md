@@ -1944,3 +1944,19 @@ The execution timezone boundary regression in `staging-source.test.ts` compiles 
 | STEPS-005 | Grant access and sign-in commands | Normal nonce-bound SMTP/callback/session and existing admin issuance API only; session and key written to create-only mode-600 files, never stdout or arguments; no administrator bypass. |
 | STEPS-006 | Agent identity boundary and packaging | Separate short-lived XQ process; XQ-issued subject used verbatim; gateway mounts public associations only; original files private; standalone compiled steps work without source files/node_modules/native runtime; existing soak custody checks unchanged. |
 | STEPS-007 | Fresh packaged live XQ acceptance | Standard archive first-run acceptance plus shipped steps, separate agent archive, public-only handoff, real SMTP sign-in and XQ K1 retrieval, independent fixture plaintext, recorded API revocation, replay/refusal, redacted terminal report and no key/session/grant material in terminal output. |
+
+## CONSOLE-03
+
+- Certificate-authenticated presence exposes only the certificate label and
+  fingerprint prefix; bearer-only presence is unverified. New receipt identity
+  remains unchanged after credential metadata changes. Historical receipts are
+  not back-filled. Retention/export keep the snapshot.
+- Personal theme defaults to system, persists all three options, and survives
+  unrelated profile edits. All component colours are tokens; normal/state text
+  meets AA contrast and report-band treatment marks meet graphical contrast.
+- XQ overrides are encrypted and project-bound, take precedence over installation
+  values, are write-only, and cannot be saved after a failed provider check. Live
+  grants require exact-count revocation confirmation. Viewer writes are refused;
+  audit output contains only identifiers and the fact of a change.
+- Forward migrations 099–103 round-trip before evidence exists; downgrades refuse
+  to erase recorded certificate snapshots. Every migration fixture runs targeted.

@@ -54,8 +54,8 @@ it('reads all catalogue pages, preserves unknown estimates and ignores unbound p
 });
 it('Data failures expose the actual retryable error without replacing it with zero statistics',async()=>{vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({error:{code:'dependency_unavailable',message:'Catalogue unavailable',requestId:id,retryable:true}}),{status:503})));render(<DataScreen project={project}/>,{wrapper});expect(await screen.findByRole('alert')).toBeTruthy();expect(screen.getByText('Catalogue unavailable')).toBeTruthy();expect(screen.getByRole('button',{name:'Retry'})).toBeTruthy();expect(screen.queryByText('~0')).toBeNull();useDataState.setState({source:null,table:null,tab:'entitlements',filter:null,search:'',connect:false});});
 
-it('the shared account menu opens You and has no theme override',async()=>{
- for(const active of ['Home','Pools','Data'] as const){const view=render(<Navigation project={id} active={active} needs={[]}/>,{wrapper});fireEvent.keyDown(screen.getByRole('button',{name:'Account menu'}),{key:'ArrowDown'});expect(await screen.findByRole('menuitem',{name:'You'})).toBeTruthy();expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();view.unmount();}
+it('the shared account menu opens You and offers all three theme choices',async()=>{
+ for(const active of ['Home','Pools','Data'] as const){const view=render(<Navigation project={id} active={active} needs={[]}/>,{wrapper});fireEvent.keyDown(screen.getByRole('button',{name:'Account menu'}),{key:'ArrowDown'});expect(await screen.findByRole('menuitem',{name:'You'})).toBeTruthy();for(const name of ['Light','Dark','System'])expect(screen.getByRole('menuitemradio',{name})).toBeTruthy();expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();view.unmount();}
  render(<ScopePicker kind="source" items={[]} selected={null} onSelect={()=>{}}/>,{wrapper});fireEvent.click(screen.getByRole('button',{name:'Choose source'}));await screen.findByRole('button',{name:/All sources/});expect(screen.queryByText(/Use (dark|light) theme/)).toBeNull();
 });
 

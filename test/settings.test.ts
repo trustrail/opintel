@@ -50,3 +50,10 @@ it('Q-011/Q-012: hold suppresses rule application; rules_only applies eligible m
  await service.saveProject(f.ctx.projectId,f.ctx.userId,{discovery:{...choices,newElements:'hold'}});expect((await f.introspect('text',['added_one'])).state).toBe('complete');expect(await withTenant(f.ctx,tx=>tx.query('SELECT treatment FROM entitlement'))).toHaveLength(0);
  await service.saveProject(f.ctx.projectId,f.ctx.userId,{discovery:{...choices,newElements:'rules_only'}});expect((await f.introspect('text',['added_one','added_two'])).state).toBe('complete');expect(await withTenant(f.ctx,tx=>tx.query('SELECT treatment FROM entitlement'))).toEqual([{treatment:'clear'}]);
 });
+
+it('CONSOLE-03 personal theme defaults to system and persists all three choices without resetting on profile edits',async()=>{
+ const f=await policyFixture(0);await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2) ON CONFLICT DO NOTHING',[f.ctx.userId,randomUUID()+'@example.com']));
+ const initial=unwrap(await service.personal(f.ctx.userId));expect(initial.theme).toBe('system');
+ for(const theme of ['light','dark','system'] as const){expect(unwrap(await service.savePersonal(f.ctx.userId,{...initial,theme})).theme).toBe(theme);expect(unwrap(await service.personal(f.ctx.userId)).theme).toBe(theme);}
+ await service.savePersonal(f.ctx.userId,{...initial,theme:'dark'});const {theme:_,email:__,...profile}=initial;await service.savePersonal(f.ctx.userId,profile);expect(unwrap(await service.personal(f.ctx.userId)).theme).toBe('dark');
+});

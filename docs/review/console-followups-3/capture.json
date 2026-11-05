@@ -1,0 +1,650 @@
+{
+  "screenshots": [
+    "home-1440-light.png",
+    "pools-1440-light.png",
+    "condition-builder-light.png",
+    "data-1440-light.png",
+    "settings-1440-light.png",
+    "home-1440-dark.png",
+    "pools-1440-dark.png",
+    "condition-builder-dark.png",
+    "data-1440-dark.png",
+    "settings-1440-dark.png"
+  ],
+  "errors": [],
+  "responses": [
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/stats",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/industries",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/companies",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 304
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/row-entitlements",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/row-entitlements/e68861c7-a73f-4d4f-bf13-7f869b4c81f0/history",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/row-entitlements/e68861c7-a73f-4d4f-bf13-7f869b4c81f0",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/sources",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/suggestions",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 304
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/companies",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/industries",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/health",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 304
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/stats",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/industries",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/companies",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/row-entitlements",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/row-entitlements/e68861c7-a73f-4d4f-bf13-7f869b4c81f0/history",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/row-entitlements/e68861c7-a73f-4d4f-bf13-7f869b4c81f0",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 304
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/sources",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/suggestions",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/1d2504c1-a366-4fdf-8ba6-b366d40d980b/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/9dd08fce-19ec-440a-8321-59653d9b72ab",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/catalog",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-oIYezNkm.js",
+      "status": 304
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/industries",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/companies",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/engines",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/custody-provider",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/invitations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/token-key",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/af16ca21-d627-4086-a166-bffdb775c8ce/needs-you",
+      "status": 200
+    }
+  ],
+  "fixture": "Isolated database and real API projections; injected fixture administrator; local custody; no cloud deployment."
+}

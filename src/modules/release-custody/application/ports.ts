@@ -34,6 +34,7 @@ export interface ReleaseRepository {
 export interface ReleaseRevocationPort {revoke(ctx:ReleaseContext,id:string,actor:string):Promise<Result<void>>;}
 export interface ReleaseSettingsPort extends ReleaseRevocationPort {
  saveProjectSettings(ctx:ReleaseContext,settings:import('zod').infer<typeof import('../../../shared/api/settings.js').ProjectSettings>,confirmedLiveGrants?:number):Promise<Result<import('zod').infer<typeof import('../../../shared/api/settings.js').ProjectSettingsView>>>;
+ saveCredentials(ctx:ReleaseContext,value:z.infer<typeof import('../../../shared/api/release-custody.js').CustodyCredentialsInput>):Promise<Result<void>>;
  status(ctx:ReleaseContext):Promise<z.infer<typeof import('../../../shared/api/release-custody.js').CustodyProviderStatus>>;
  checkConnection(ctx:ReleaseContext):Promise<ProviderHealth>;
  rotateSigningKey(ctx:ReleaseContext):Promise<{signingKeyId:string}>;

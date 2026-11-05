@@ -1,3 +1,4 @@
+import {storedCredentials} from './provider-credentials.js';
 import {createHmac} from 'node:crypto';
 import {z} from 'zod';
 import {withPlatform} from '../../../platform/db/scope.js';
@@ -9,12 +10,13 @@ export function custodyEnvironment(){return {apiKey:process.env.OPINTEL_XQ_API_K
 export function configurationFrom(settings:unknown){const provider=readSetting(settings,'custody.provider');return providerConfiguration.safeParse({provider,tenant:readSetting(settings,'custody.tenant'),region:readSetting(settings,'custody.region')});}
 /** An opaque check binding, not a credential or an authentication alternative. */
 export function checkBinding(config:ProviderConfiguration,environment=custodyEnvironment()){
- return createHmac('sha256',environment.master).update(JSON.stringify([config,environment.applicationUrl,config.provider==='xq'?[environment.apiKey,environment.senderAlias,environment.senderAccessToken,environment.redeemAt]:[]])).digest('hex');
+ return createHmac('sha256',environment.master).update(JSON.stringify([config,environment.applicationUrl,config.provider==='xq'?[environment.apiKey,environment.dashboardApiKey,environment.senderAlias,environment.senderAccessToken,environment.redeemAt]:[]])).digest('hex');
 }
 export async function custodyAvailability(projectId:ProjectId){
  const [row]=await withPlatform(tx=>tx.query<{settings:unknown;custody_check:unknown}>('SELECT settings,custody_check FROM project WHERE id=$1',[projectId]));
- const config=configurationFrom(row?.settings),check=z.object({binding:z.string(),passed:z.boolean(),at:z.iso.datetime(),failure:z.string().nullable()}).safeParse(row?.custody_check);
- const reason=!config.success?'provider_not_configured':!check.success?'provider_not_checked':check.data.binding!==checkBinding(config.data)?'provider_configuration_changed':!check.data.passed?'provider_check_failed':null;
- return {available:reason===null,reason,configuration:config.success?config.data:null,checkedAt:check.success?check.data.at:null,settings:row?.settings};
+ const stored=await storedCredentials(projectId),environment={...custodyEnvironment(),...stored.credentials??{}},settings=stored.credentials?{...row?.settings as Record<string,unknown>,custody:{...((row?.settings as {custody?:Record<string,unknown>})?.custody??{}),tenant:stored.credentials.tenant}}:row?.settings;
+ const config=configurationFrom(settings),check=z.object({binding:z.string(),passed:z.boolean(),at:z.iso.datetime(),failure:z.string().nullable()}).safeParse(row?.custody_check);
+ const reason=!config.success?'provider_not_configured':!check.success?'provider_not_checked':check.data.binding!==checkBinding(config.data,environment)?'provider_configuration_changed':!check.data.passed?'provider_check_failed':null;
+ return {available:reason===null,reason,configuration:config.success?config.data:null,checkedAt:check.success?check.data.at:null,settings,environment,credentialsChangedAt:stored.changedAt};
 }
 export async function custodyExecutionAvailable(project:ProjectId){const state=await custodyAvailability(project);return state.available?ok(undefined):err(new DomainError('dependency_unavailable','Custody provider unavailable. Configure a custody provider in Settings.',{cause:'release_configuration',reason:state.reason}));}

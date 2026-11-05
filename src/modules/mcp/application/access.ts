@@ -1,10 +1,11 @@
+import type {RecordedAgentIdentity} from '../../../shared/api/agent-presence.js';
 import type {IdentityEnrollment} from '../../../shared/api/credential-identity.js';
 import type {CredentialBindings,PresentedIdentity,IdentityDiagnostic} from '../../pools/index.js';
 import { DomainError, err, ok, type Result, type ProjectId } from '../../../shared/kernel/index.js';
 import { AgentIdHeader,agentIdRequirement } from '../../../shared/api/agent-presence.js';
 import type { KeyVerifier, KeyVerdict, AgentPresenceService } from '../../pools/index.js';
 
-export type McpPrincipal = Extract<KeyVerdict, {ok:true}> & { agentId: string };
+export type McpPrincipal = Extract<KeyVerdict, {ok:true}> & { agentId: string;agentIdentity?:RecordedAgentIdentity };
 export interface McpConfiguration {
  readMany(principals: readonly McpPrincipal[]): Promise<readonly Result<{ modes: {query:boolean;prompt:boolean}; heartbeatSeconds:number }>[]>;
 }

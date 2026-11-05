@@ -215,6 +215,7 @@ export class McpHttpServer implements PoolKeyHttpEndpoint {
     const client = session.server.getClientVersion()?.name ?? null;
     const presence = await this.access.observe(principal,kind,client,certificate);
     if (!presence.ok) { this.failure(response,requestId,presence.error.code==='unauthenticated'?401:400,presence.error.code,presence.error.message); return; }
+    principal.agentIdentity={verified:presence.value.verified,certificateIdentity:presence.value.certificateIdentity??null};
    }
    // The caller id is observational; changing it never changes session access.
    session.principal = principal;
