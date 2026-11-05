@@ -9,7 +9,7 @@ import type { AgentPresenceQuery,PoolKeyContext } from '../application/keys.js';
 import type { PoolKeyId } from '../domain/pool.js';
 import { agePresence,observePresence,type AgentPresence,type PresenceTiming } from '../domain/presence.js';
 type Row=Omit<AgentPresence,'firstSeen'|'lastSeen'|'lastRequestAt'|'lastHeartbeatAt'|'staleAt'>&{firstSeen:Date;lastSeen:Date;lastRequestAt:Date|null;lastHeartbeatAt:Date;staleAt:Date|null};
-const columns=`project_id AS "projectId",pool_id AS "poolId",agent_id AS "agentId",client,verified,key_version AS "keyVersion",first_seen AS "firstSeen",last_seen AS "lastSeen",last_request_at AS "lastRequestAt",last_heartbeat_at AS "lastHeartbeatAt",stale_at AS "staleAt",reconnects,state`;
+const columns=`project_id AS "projectId",pool_id AS "poolId",agent_id AS "agentId",client,verified,certificate_identity AS "certificateIdentity",key_version AS "keyVersion",first_seen AS "firstSeen",last_seen AS "lastSeen",last_request_at AS "lastRequestAt",last_heartbeat_at AS "lastHeartbeatAt",stale_at AS "staleAt",reconnects,state`;
 function presence(row:Row):AgentPresence{return {...row,firstSeen:Timestamp(row.firstSeen),lastSeen:Timestamp(row.lastSeen),lastRequestAt:row.lastRequestAt===null?null:Timestamp(row.lastRequestAt),lastHeartbeatAt:Timestamp(row.lastHeartbeatAt),staleAt:row.staleAt===null?null:Timestamp(row.staleAt)};}
 export class PostgresAgentPresence implements AgentPresenceRepository,AgentPresenceQuery {
  constructor(private readonly events:ProjectEvents,private readonly clock:Clock=new SystemClock()){}
@@ -28,7 +28,7 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
    if(!pools.length)return err(new DomainError('not_found','The pool was not found in this project.'));
    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify(['presence',authenticated.poolId,signal.agentId])]);
    const now=this.clock.now();
-   const keys=await tx.query<{id:string;verified:boolean}>(`SELECT k.id,EXISTS(SELECT 1 FROM pool_credential c WHERE c.id=k.credential_id AND c.credential_kind='identity-bound' AND c.binding_status='bound' AND c.revoked_at IS NULL AND c.certificate_fingerprint=$4) AS verified FROM pool_key k WHERE k.id=$1 AND k.pool_id=$2 AND k.created_at<=$3 AND (k.state='current' OR k.state='retiring' AND k.grace_until>$3)`,[authenticated.keyVersion,authenticated.poolId,now,authenticated.certificateFingerprint??null]);
+   const keys=await tx.query<{id:string;verified:boolean;certificateIdentity:AgentPresence['certificateIdentity']}>(`SELECT k.id,EXISTS(SELECT 1 FROM pool_credential c WHERE c.id=k.credential_id AND c.credential_kind='identity-bound' AND c.binding_status='bound' AND c.revoked_at IS NULL AND c.certificate_fingerprint=$4) AS verified,(SELECT jsonb_build_object('fingerprintPrefix',left(c.certificate_fingerprint,12),'certificateId',c.certificate_id) FROM pool_credential c WHERE c.id=k.credential_id AND c.credential_kind='identity-bound' AND c.binding_status='bound' AND c.revoked_at IS NULL AND c.certificate_fingerprint=$4) AS "certificateIdentity" FROM pool_key k WHERE k.id=$1 AND k.pool_id=$2 AND k.created_at<=$3 AND (k.state='current' OR k.state='retiring' AND k.grace_until>$3)`,[authenticated.keyVersion,authenticated.poolId,now,authenticated.certificateFingerprint??null]);
    if(!keys.length)return err(new DomainError('unauthenticated','The pool key is not valid.'));
    const [old]=await tx.query<Row>(`SELECT ${columns} FROM agent_presence WHERE pool_id=$1 AND agent_id=$2 FOR UPDATE`,[authenticated.poolId,signal.agentId]);
    if(old&&Date.parse(now)<old.lastSeen.getTime())return err(new DomainError('conflict','Presence time cannot move backwards.'));
@@ -36,7 +36,7 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
    const aged=agePresence(initial,now,settings.value);
    // The fingerprint is supplied only after MCP identity authentication succeeds.
    // Recheck the credential here; a claimed name or bearer key never verifies it.
-   const updated={...observePresence(initial,signal.kind,authenticated.keyVersion,signal.client,now,settings.value),verified:keys[0]!.verified};
+   const updated={...observePresence(initial,signal.kind,authenticated.keyVersion,signal.client,now,settings.value),verified:keys[0]!.verified,certificateIdentity:keys[0]!.certificateIdentity??null};
    // Compare both the persisted state (a sweep may not have run yet) and the
    // read-time state. An unswept idle/stale caller returning to active is still
    // a transition even when its persisted state was already active.
@@ -89,9 +89,9 @@ export class PostgresAgentPresence implements AgentPresenceRepository,AgentPrese
   }
  }
  private async save(tx:Tx,row:AgentPresence):Promise<void>{
-  await tx.query(`INSERT INTO agent_presence(project_id,pool_id,agent_id,client,verified,key_version,first_seen,last_seen,last_request_at,last_heartbeat_at,stale_at,reconnects,state)
-   VALUES($1,$2,$3,$4,$13,$5,$6,$7,$8,$9,$10,$11,$12)
-   ON CONFLICT(pool_id,agent_id) DO UPDATE SET verified=EXCLUDED.verified,client=EXCLUDED.client,key_version=EXCLUDED.key_version,last_seen=EXCLUDED.last_seen,last_request_at=EXCLUDED.last_request_at,last_heartbeat_at=EXCLUDED.last_heartbeat_at,stale_at=EXCLUDED.stale_at,reconnects=EXCLUDED.reconnects,state=EXCLUDED.state`,[row.projectId,row.poolId,row.agentId,row.client,row.keyVersion,row.firstSeen,row.lastSeen,row.lastRequestAt,row.lastHeartbeatAt,row.staleAt,row.reconnects,row.state,row.verified]);
+  await tx.query(`INSERT INTO agent_presence(project_id,pool_id,agent_id,client,verified,key_version,first_seen,last_seen,last_request_at,last_heartbeat_at,stale_at,reconnects,state,certificate_identity)
+   VALUES($1,$2,$3,$4,$13,$5,$6,$7,$8,$9,$10,$11,$12,$14)
+   ON CONFLICT(pool_id,agent_id) DO UPDATE SET certificate_identity=EXCLUDED.certificate_identity,verified=EXCLUDED.verified,client=EXCLUDED.client,key_version=EXCLUDED.key_version,last_seen=EXCLUDED.last_seen,last_request_at=EXCLUDED.last_request_at,last_heartbeat_at=EXCLUDED.last_heartbeat_at,stale_at=EXCLUDED.stale_at,reconnects=EXCLUDED.reconnects,state=EXCLUDED.state`,[row.projectId,row.poolId,row.agentId,row.client,row.keyVersion,row.firstSeen,row.lastSeen,row.lastRequestAt,row.lastHeartbeatAt,row.staleAt,row.reconnects,row.state,row.verified,row.certificateIdentity??null]);
  }
  private publish(row:AgentPresence){return notify(this.events,row.projectId,{type:'agent.presence',poolId:row.poolId,agentId:row.agentId});}
 }

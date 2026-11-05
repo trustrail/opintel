@@ -225,13 +225,13 @@ it.each(['identity-bound','bearer-only'] as const)('Grant access issues %s witho
 
 it('agent list shows the bound fingerprint and identifies the device name as a self-declared label',async()=>{
  install();const pool=(await readPools(id)).pools[0]!;pool.detail.credentials![0]!.identity={kind:'identity-bound',status:'bound',fingerprint:'a'.repeat(64),subject:'CN=Fixture',deviceName:'Agent label',certificateId:223,boundAt:now};
- render(<Agents project={id} pool={pool} filter={null}/>,{wrapper});expect(screen.getAllByText('Agent label').length).toBeGreaterThan(0);expect(screen.getAllByText('self-declared label').length).toBeGreaterThan(0);expect(screen.getAllByText(/aaaaaaaaaaaa · bound/).length).toBeGreaterThan(0);
+ render(<Agents project={id} pool={pool} filter={null}/>,{wrapper});expect(screen.getAllByText('Agent label').length).toBeGreaterThan(0);expect(screen.queryByText('self-declared label')).toBeNull();expect(screen.getAllByText(/cert 223 · aaaaaaaaaaaa/).length).toBeGreaterThan(0);
 });
 it('CONSOLE-02 carries verified presence through the API, uses it for lanes and explains stale versus now',async()=>{
  const client=createApiClient(async path=>({ok:true,headers:{get:()=>null},text:async()=>JSON.stringify(path.includes('/agents?')?{items:[{...agent,verified:true},{...agent,agentId:'stale-agent',state:'stale'}],nextCursor:null}:response(path))}));
  const verified=await readPools(id,client);expect(verified.pools[0]!.connected).toBe(1);expect(credentialAgents(verified.pools[0]!,credential,'agent:analyst').map(a=>a.bound)).toEqual([true,false]);
  render(<Agents project={id} pool={verified.pools[0]!} filter={null}/>,{wrapper});
- expect(screen.getByText('verified name')).toBeTruthy();expect(screen.getByText('name claimed only')).toBeTruthy();expect(screen.getByText('stale').getAttribute('title')).toContain('three configured heartbeat intervals');
+ expect(screen.getByText('verified')).toBeTruthy();expect(screen.getByText('unverified')).toBeTruthy();expect(screen.getByText('stale').getAttribute('title')).toContain('three configured heartbeat intervals');
 
 });
 it('CONSOLE-02 Access exposes the qualified catalogue name and a copy action',async()=>{
@@ -246,5 +246,5 @@ it('CONSOLE-02 identity labels and bound date are visibly separated',async()=>{
  const {IdentitySummary}=await import('./identity.js');
  const metadata={id:credential,label:'cloud-agent',custodyAlias:'agent:cloud',state:'active' as const,lastUse:now,identity:{kind:'identity-bound' as const,status:'bound' as const,fingerprint:'a'.repeat(64),subject:'CN=Fixture',deviceName:'cloud-agent',certificateId:235,boundAt:now}};
  const view=render(<IdentitySummary credential={metadata}/>,{wrapper});
- expect(view.container.textContent).toContain('bound · cloud-agent self-declared label · Certificate label 235 · self-declared · ');expect(screen.getByLabelText('Bound at').textContent).toContain('2026');expect(view.container.querySelector('time')?.getAttribute('dateTime')).toBe(now);
+ expect(view.container.textContent).toContain('cert 235 · aaaaaaaaaaaa · verified · cloud-agent · ');expect(screen.getByLabelText('Bound at').textContent).toContain('2026');expect(view.container.querySelector('time')?.getAttribute('dateTime')).toBe(now);
 });

@@ -30,7 +30,7 @@ it('local custody has a truthful title and amber row, section dot and health ban
 });
 it('an unset signing key makes the XQ section amber despite an otherwise healthy provider',async()=>{
  api({settings:{settings:{...settings,custody:{...settings.custody,grant_ttl:600}}},health:{items:[{kind:'custody',status:'ok',reason:'Checked',checked_at:at,next_action:null}]},'custody-provider':{provider:'xq',available:true,reason:null,checkedAt:at,apiKeySet:true,dashboardKeySet:true,dashboardCheck:{status:'authenticated',failure:null},signingKeyId:null,affectedColumns:0}});
- render(<Settings project={project}/>,{wrapper});await screen.findAllByText('[team]');expect(screen.getByRole('heading',{name:'Custody · XQ'})).toBeTruthy();expect(screen.getByRole('button',{name:/Custody · XQ/}).querySelector('[data-section-dot]')?.getAttribute('data-status')).toBe('warning');expect(screen.getByText('Not set').getAttribute('data-status')).toBe('warning');
+ render(<Settings project={project}/>,{wrapper});await screen.findAllByText('[team]');expect(screen.getByRole('heading',{name:'Custody · XQ'})).toBeTruthy();expect(screen.getByRole('button',{name:/Custody · XQ/}).querySelector('[data-section-dot]')?.getAttribute('data-status')).toBe('warning');expect(screen.getAllByText('Not set').some(el=>el.getAttribute('data-status')==='warning')).toBe(true);
 });
 it('People badges show account/access state while the role stays in the value column',async()=>{api();useSettingsState.setState({section:'people'});render(<Settings project={project}/>,{wrapper});await screen.findByText('Admin');expect(screen.getByText('Active').closest('[data-badge]')).toBeTruthy();expect(screen.getByText('Pending').closest('[data-badge]')).toBeTruthy();expect(screen.getByText('admin').closest('[data-badge]')).toBeNull();expect(screen.getByRole('button',{name:/People.*invite by email/i}).querySelector('[data-section-dot]')?.getAttribute('data-status')).toBe('warning');});
 it('engine, token, discovery and evidence dots include the worst displayed row',async()=>{
@@ -65,4 +65,11 @@ it('CONSOLE-02 marks all four query limits required and refuses an empty submiss
  expect(screen.getAllByText(/· required/)).toHaveLength(4);
  fireEvent.submit(screen.getByRole('button',{name:'Save settings'}).closest('form')!);
  expect(await screen.findByRole('alert')).toHaveProperty('textContent','Query timeout (seconds) is required before queries can run.');expect(calls.some(c=>c.method==='PATCH')).toBe(false);
+});
+
+it('CONSOLE-03 custody credential fields are write-only and saving checks through the dedicated admin endpoint',async()=>{
+ const calls=api();render(<Settings project={project}/>,{wrapper});fireEvent.click(await screen.findByRole('button',{name:'Edit credentials'}));
+ for(const name of ['API key','Dashboard API key','Sender alias','Sender access token','Team']){const field=screen.getByLabelText(name) as HTMLInputElement;expect(field.type).toBe('password');expect(field.value).toBe('');fireEvent.change(field,{target:{value:'fixture-only'}});}
+ fireEvent.click(screen.getByRole('button',{name:'Check and save'}));await waitFor(()=>expect(calls.some(c=>c.path.endsWith('/custody-provider/credentials')&&c.method==='POST')).toBe(true));
+ expect(document.body.textContent).not.toContain('fixture-only');
 });

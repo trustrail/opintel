@@ -51,3 +51,49 @@ it('DEP-009: an operator settings snapshot cannot overwrite an intervening admin
  expect(await f.release!.saveProjectSettings(f.ctx,{query:{rowLimit:102}},undefined,before!.settings)).toMatchObject({ok:false,error:{code:'conflict'}});
  const [after]=await withPlatform(tx=>tx.query<{limit:number}>("SELECT (settings->'query'->>'rowLimit')::int AS limit FROM project WHERE id=$1",[f.ctx.projectId]));expect(after?.limit).toBe(101);
 });
+
+it('CONSOLE-03 XQ credentials are checked before encrypted storage, override env, and expose only status',async()=>{
+ const {vi}=await import('vitest'),{XqReleaseProvider}=await import('../src/modules/release-custody/infrastructure/xq-provider.js'),{custodyAvailability}=await import('../src/modules/release-custody/infrastructure/availability.js');
+ const f=await queryFixture(undefined,{releaseCustody:true});cleanup.push(f.close);
+ vi.stubEnv('OPINTEL_CUSTODY_MASTER_KEY','11'.repeat(32));vi.stubEnv('OPINTEL_XQ_REDEEM_URL','https://example.invalid/redeem');vi.stubEnv('OPINTEL_XQ_API_KEY','old-api');
+ const health=vi.spyOn(XqReleaseProvider.prototype,'health').mockResolvedValue({reachable:true,authenticated:true,failure:null});
+ try{
+ await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{custody,provider}','\"xq\"') WHERE id=$1",[f.ctx.projectId]));
+ const credentials={apiKey:'new-api-secret',dashboardApiKey:'dashboard-secret',senderAlias:'sender-secret',senderAccessToken:'access-secret',tenant:'team-secret'};
+ expect((await custodyAvailability(f.ctx.projectId)).environment.apiKey).toBe('old-api');
+ expect(await f.release!.saveCredentials(f.ctx,credentials)).toEqual({ok:true,value:undefined});expect(health).toHaveBeenCalledOnce();
+ const state=await custodyAvailability(f.ctx.projectId);expect(state.available).toBe(true);expect(state.environment.apiKey).toBe(credentials.apiKey);expect(state.configuration?.tenant).toBe(credentials.tenant);
+ const status=await f.release!.status(f.ctx);expect(status.credentials).toMatchObject({apiKey:true,dashboardApiKey:true,senderAlias:true,senderAccessToken:true,tenant:true});expect(status.credentials?.changedAt).toBeTruthy();
+ const [stored]=await withPlatform(tx=>tx.query<{ciphertext:string}>('SELECT custody_credentials AS ciphertext FROM project WHERE id=$1',[f.ctx.projectId]));
+ const audit=await withTenant(f.ctx,tx=>tx.query("SELECT before,after FROM audit_entry WHERE action='CustodyCredentialsChanged'"));expect(audit).toEqual([{before:null,after:{credentialsSet:true}}]);
+ for(const secret of Object.values(credentials)){expect(JSON.stringify(status)).not.toContain(secret);expect(stored!.ciphertext).not.toContain(secret);expect(JSON.stringify(audit)).not.toContain(secret);}
+ health.mockResolvedValue({reachable:true,authenticated:false,failure:'authentication_refused'});expect(await f.release!.saveCredentials(f.ctx,{...credentials,apiKey:'invalid-secret'})).toMatchObject({ok:false,error:{code:'validation_failed'}});expect((await custodyAvailability(f.ctx.projectId)).environment.apiKey).toBe(credentials.apiKey);
+ const {decryptCredentials}=await import('../src/modules/release-custody/infrastructure/provider-credentials.js');expect(()=>decryptCredentials('different-project',stored!.ciphertext)).toThrow('could not be opened');
+ }finally{health.mockRestore();vi.unstubAllEnvs();}
+});
+it('CONSOLE-03 credential rotation requires exact live-grant confirmation before revoking or saving',async()=>{
+ const {vi}=await import('vitest'),{XqReleaseProvider}=await import('../src/modules/release-custody/infrastructure/xq-provider.js');
+ const f=await queryFixture(undefined,{releaseCustody:true});cleanup.push(f.close);
+ await withTenant(f.ctx,tx=>tx.query("UPDATE entitlement SET treatment='custody' WHERE pool_id=$1 AND element_id=$2",[f.pool,f.ids[0]]));
+ const answer=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records')).structuredContent);
+ vi.stubEnv('OPINTEL_CUSTODY_MASTER_KEY','11'.repeat(32));vi.stubEnv('OPINTEL_XQ_REDEEM_URL','https://example.invalid/redeem');const health=vi.spyOn(XqReleaseProvider.prototype,'health').mockResolvedValue({reachable:true,authenticated:true,failure:null});
+ try{
+ await withPlatform(tx=>tx.query("UPDATE project SET settings=jsonb_set(settings,'{custody,provider}','\"xq\"') WHERE id=$1",[f.ctx.projectId]));
+ const input={apiKey:'fixture-api',dashboardApiKey:'fixture-dashboard',senderAlias:'fixture-sender',senderAccessToken:'fixture-access',tenant:'fixture-team'};
+ expect(await f.release!.saveCredentials(f.ctx,input)).toMatchObject({ok:false,error:{details:{liveGrantCount:answer.custody!.length}}});
+ expect(await f.release!.saveCredentials(f.ctx,{...input,confirmedLiveGrants:0})).toMatchObject({ok:false});
+ expect(await f.release!.saveCredentials(f.ctx,{...input,confirmedLiveGrants:answer.custody!.length})).toMatchObject({ok:true});
+ const rows=await withTenant(f.ctx,tx=>tx.query('SELECT state,share FROM release_grant'));expect(rows.every(r=>r.state==='revoked'&&r.share===null)).toBe(true);
+ }finally{health.mockRestore();vi.unstubAllEnvs();}
+});
+
+it('CONSOLE-03 credential route requires project administration and never calls the provider for a viewer',async()=>{
+ const {once}=await import('node:events'),{createHttpServer}=await import('../src/platform/http/index.js'),{releaseRoutes}=await import('../src/modules/release-custody/api/routes.js'),{allowBulk}=await import('./fixtures/bulk-entitlements/fixture.js');
+ const f=await queryFixture(undefined,{releaseCustody:true});cleanup.push(f.close);let admin=false;
+ const server=createHttpServer(releaseRoutes(f.release!),{authorization:{currentUser:async()=>f.actor,port:{...allowBulk,check:async r=>({...await allowBulk.check(r),allowed:r.permission==='view'||admin})}}});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');
+ try{const path=`http://127.0.0.1:${address.port}/api/v1/projects/${f.ctx.projectId}/custody-provider/credentials`,request={method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({apiKey:'test',dashboardApiKey:'test',senderAlias:'test',senderAccessToken:'test',tenant:'test'})};
+  expect((await fetch(path,request)).status).toBe(403);admin=true;
+  const malformed=await fetch(path,{...request,body:'{}'});expect(malformed.status).toBe(400);
+  const [stored]=await withPlatform(tx=>tx.query('SELECT custody_credentials FROM project WHERE id=$1',[f.ctx.projectId]));expect(stored).toEqual({custody_credentials:null});
+ }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});

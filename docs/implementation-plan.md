@@ -1605,3 +1605,20 @@ Bearer-only credentials remain available only without custody columns.
 Application, agent kit and internal verification archives have separate command
 ownership enforced by bundle-input contracts. Agent private/transport keys stay
 on the agent host. No manual public-identity import into the gateway remains.
+
+## CONSOLE-03 — Certificate identity, personal theme, custody credentials
+
+Presence and new receipts carry the public certificate label and fingerprint
+prefix authenticated for that request. Nicknames remain self-declared and never
+authorize access. Historical receipts say certificate not recorded; current
+credential bindings must never back-fill evidence. Retention and exports preserve
+the recorded snapshot.
+
+Personal theme is light, dark or system (default), stored through existing personal
+settings. A local mirror applies before first paint; shared CSS tokens own every
+colour, including dark report bands. The account menu edits the server preference.
+
+Project administrators can replace write-only XQ credentials after the existing
+provider check succeeds. AES-256-GCM project-bound encryption protects stored
+overrides; installation values remain the fallback. Existing live-grant count
+confirmation/revocation gates rotation. Audit entries contain no credential values.

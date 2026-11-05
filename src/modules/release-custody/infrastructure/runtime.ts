@@ -1,3 +1,5 @@
+import {encryptCredentials,storedCredentials} from './provider-credentials.js';
+import {CustodyCredentialsInput,CustodyCredentials} from '../../../shared/api/release-custody.js';
 import {isDeepStrictEqual} from 'node:util';
 import {withDiagnosticWork} from '../../../platform/telemetry/diagnostics.js';
 import {requireEngineShares} from '../application/query-release.js';
@@ -7,7 +9,7 @@ import {custodyAvailability,custodyEnvironment,checkBinding,custodyExecutionAvai
 import {readSetting} from '../../../shared/project-settings.js';
 import {CustodyProviderStatus} from '../../../shared/api/release-custody.js';
 import {withPlatform,withTenant,type Tx} from '../../../platform/db/scope.js';
-import {DomainError,err,ProjectId,UserId} from '../../../shared/kernel/index.js';
+import {DomainError,err,ok,ProjectId,UserId} from '../../../shared/kernel/index.js';
 import {releaseClaims} from '../../../shared/release-contract.js';
 import {PostgresKeyVerifier} from '../../pools/index.js';
 import type {ReleaseContext,ReleaseProvider} from '../application/ports.js';
@@ -47,9 +49,9 @@ export class ReleaseRuntime {
  }
  private async ensure(ctx:ReleaseContext){
   const state=await custodyAvailability(ctx.projectId);if(!state.configuration)return undefined;
-  const binding=JSON.stringify([state.configuration.provider,state.configuration.tenant]),previous=this.bindings.get(ctx.projectId);
-  if(previous&&previous!==binding)return undefined;
-  if(!this.projects.has(ctx.projectId)){const environment=custodyEnvironment(),c=state.configuration;
+  const binding=checkBinding(state.configuration,state.environment),previous=this.bindings.get(ctx.projectId);
+  if(previous&&previous!==binding){this.projects.delete(ctx.projectId);this.bindings.delete(ctx.projectId);}
+  if(!this.projects.has(ctx.projectId)){const environment=state.environment,c=state.configuration;
    if(!environment.applicationUrl)return undefined;
    const applicationUrl=z.url().parse(environment.applicationUrl);
    if(c.provider==='local')this.install(ctx.projectId,{provider:'local',applicationUrl});
@@ -58,13 +60,13 @@ export class ReleaseRuntime {
   if(this.projects.has(ctx.projectId))this.bindings.set(ctx.projectId,binding);
   return this.projects.get(ctx.projectId);
  }
- private originalProvider(project:string,claims:z.infer<typeof releaseClaims>):ReleaseProvider{
-  const current=this.projects.get(project)?.provider;if(current?.id===claims.custody.provider&&current.tenant===claims.custody.tenant)return current;
+ private async originalProvider(project:string,claims:z.infer<typeof releaseClaims>):Promise<ReleaseProvider>{
+  const current=this.projects.get(project)?.provider;if(current?.id==='local'&&current.id===claims.custody.provider&&current.tenant===claims.custody.tenant)return current;
   if(claims.custody.provider==='local')return new LocalReleaseProvider(async()=>null,async()=>null);
   if(claims.custody.provider!=='xq')throw new DomainError('dependency_unavailable','The original custody provider is unavailable.',{cause:'release_configuration'});
-  const environment=custodyEnvironment();return new XqReleaseProvider({apiKey:environment.apiKey,dashboardApiKey:environment.dashboardApiKey,dashboardAccessToken:environment.dashboardAccessToken,senderAlias:environment.senderAlias,senderAccessToken:environment.senderAccessToken},claims.custody.tenant,claims.custody.provider_redeem_at);
+  const stored=await storedCredentials(ProjectId(project)),environment={...custodyEnvironment(),...stored.credentials??{}};return new XqReleaseProvider({apiKey:environment.apiKey,dashboardApiKey:environment.dashboardApiKey,dashboardAccessToken:environment.dashboardAccessToken,senderAlias:environment.senderAlias,senderAccessToken:environment.senderAccessToken},claims.custody.tenant,claims.custody.provider_redeem_at);
  }
- private originalService(project:string,claims:z.infer<typeof releaseClaims>){const provider=this.originalProvider(project,claims);return new ReleaseService(new PostgresReleaseRepository(project),new PostgresGrantSignatures(provider,this.master),provider);}
+ private async originalService(project:string,claims:z.infer<typeof releaseClaims>){const provider=await this.originalProvider(project,claims);return new ReleaseService(new PostgresReleaseRepository(project),new PostgresGrantSignatures(provider,this.master),provider);}
  async escrowEnrollment(ctx:ReleaseContext,nonce:Uint8Array,recipient:string,ttlSeconds:number):Promise<string>{
   const project=await this.ensure(ctx);
   if(!project||project.provider.id!=='xq')throw new DomainError('dependency_unavailable','XQ must be configured for identity enrollment.');
@@ -82,21 +84,26 @@ export class ReleaseRuntime {
    if(expectedSettings&&!isDeepStrictEqual(before?.settings,expectedSettings))return err(new DomainError('conflict','Project settings changed during provisioning; they were not overwritten.'));
    const changed=settings.custody!==undefined&&['custody.provider','custody.tenant'].some(path=>readSetting(before?.settings,path)!==readSetting(settings,path));
    if(changed){
+    const revoked=await this.revokeProviderGrants(tx,ctx,confirmedLiveGrants);if(!revoked.ok)return revoked;
+   }
+   const [row]=await tx.query<{settings:unknown}>('SELECT save_project_settings($1) AS settings',[settings]);
+   if(changed){this.bindings.delete(ctx.projectId);const previous=this.projects.get(ctx.projectId);if(previous?.provider instanceof LocalReleaseProvider)previous.provider.close();this.projects.delete(ctx.projectId);}
+   return {ok:true as const,value:ProjectSettingsView.parse(row)};
+  });
+ }
+
+ private async revokeProviderGrants(tx:Tx,ctx:ReleaseContext,confirmedLiveGrants?:number){
     const rows=await tx.query<{id:string;receipt_id:string;claims:unknown}>("SELECT id,receipt_id,claims FROM release_grant WHERE expires_at>clock_timestamp() AND state IN ('granted','redeemed') AND NOT EXISTS(SELECT 1 FROM release_event e WHERE e.grant_id=release_grant.id AND e.kind='revoked') ORDER BY id FOR UPDATE");
     if(rows.length&&confirmedLiveGrants!==rows.length)return err(new DomainError('conflict',`Revoke ${rows.length} live grants and switch provider?`,{cause:'custody_provider_change',liveGrantCount:rows.length}));
     for(const row of rows){
-     const claims=releaseClaims.parse(row.claims),provider=this.originalProvider(ctx.projectId,claims);
+     const claims=releaseClaims.parse(row.claims),provider=await this.originalProvider(ctx.projectId,claims);
      // Unknown local escrow cannot be recovered after a restart; it is already
      // gone. Never send an original locator to a newly selected tenant.
      try{await provider.revoke(claims.custody.locator);}catch{return err(new DomainError('dependency_unavailable','The original custody provider could not acknowledge revocation. The provider configuration was not changed.',{cause:'release_configuration'}));}
      await tx.query("UPDATE release_grant SET share=NULL,state='revoked',escrow_revoked=true WHERE id=$1",[row.id]);
      await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,occurred_at,alias,actor,jur_observed,reason) VALUES($1,$2,$3,'revoked',clock_timestamp(),$4,$5,NULL,'provider changed') ON CONFLICT(grant_id,kind) DO NOTHING",[ctx.projectId,row.id,row.receipt_id,claims.sub,ctx.userId]);
     }
-   }
-   const [row]=await tx.query<{settings:unknown}>('SELECT save_project_settings($1) AS settings',[settings]);
-   if(changed){this.bindings.delete(ctx.projectId);const previous=this.projects.get(ctx.projectId);if(previous?.provider instanceof LocalReleaseProvider)previous.provider.close();this.projects.delete(ctx.projectId);}
-   return {ok:true as const,value:ProjectSettingsView.parse(row)};
-  });
+  return ok(undefined);
  }
  /** Shared lifecycle hook: caller holds the project release lock exclusively. */
  async revokeInScope(tx:Tx,ctx:ReleaseContext,aliases:readonly string[],confirmedLiveGrants:number|undefined,reason:string){
@@ -120,19 +127,39 @@ export class ReleaseRuntime {
    const grants=await tx.query<{id:string;receipt_id:string;claims:unknown;state:string}>("SELECT id,receipt_id,claims,state FROM release_grant WHERE claims->>'sub'=$1 AND NOT escrow_revoked FOR UPDATE",[key.custody_alias]);
    let complete=true;
    for(const grant of grants){const claims=releaseClaims.parse(grant.claims);let acknowledged=false;
-    try{await this.originalProvider(ctx.projectId,claims).revoke(claims.custody.locator);acknowledged=true;}catch{complete=false; /* Delete K2 now; retain remote cleanup for retry. */ }
+    try{await (await this.originalProvider(ctx.projectId,claims)).revoke(claims.custody.locator);acknowledged=true;}catch{complete=false; /* Delete K2 now; retain remote cleanup for retry. */ }
     await tx.query("UPDATE release_grant SET share=NULL,state=CASE WHEN state='granted' THEN 'revoked' ELSE state END,escrow_revoked=$2 WHERE id=$1",[grant.id,acknowledged]);await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,occurred_at,alias,actor,reason) VALUES($1,$2,$3,'revoked',clock_timestamp(),$4,'system','legacy alias grace ended') ON CONFLICT(grant_id,kind) DO NOTHING",[ctx.projectId,grant.id,grant.receipt_id,claims.sub]);}
    if(complete)await tx.query('UPDATE pool_key SET alias_retired_at=clock_timestamp() WHERE id=$1',[row.key_id]);
   });}
  }
  async isConfigured(projectId:ProjectId){return (await custodyAvailability(projectId)).configuration!==null;}
  available(ctx:ReleaseContext){return custodyExecutionAvailable(ctx.projectId);}
- async status(ctx:ReleaseContext){const state=await custodyAvailability(ctx.projectId),environment=custodyEnvironment();const [facts]=await withTenant(ctx,tx=>tx.query<{affected:number;kid:string|null}>("SELECT (SELECT count(DISTINCT t.element_id)::int FROM entitlement t JOIN catalog_element e ON e.id=t.element_id JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id WHERE t.treatment='custody' AND e.status='active' AND o.status='active' AND s.status<>'archived' AND EXISTS(SELECT 1 FROM pool_source_binding b WHERE b.pool_id=t.pool_id AND b.source_id=s.id)) AS affected,(SELECT kid FROM release_signing_key WHERE retired_at IS NULL) AS kid"));return CustodyProviderStatus.parse({provider:state.configuration?.provider??null,available:state.available,reason:state.reason,checkedAt:state.checkedAt,apiKeySet:!!environment.apiKey,dashboardKeySet:!!environment.dashboardApiKey,dashboardCheck:await withPlatform(async tx=>{const [row]=await tx.query<{custody_check:unknown}>('SELECT custody_check FROM project WHERE id=$1',[ctx.projectId]);const parsed=z.object({dashboard:z.object({status:z.enum(['authenticated','failed','not_set']),failure:z.string().nullable()}).nullable().optional()}).safeParse(row?.custody_check);return parsed.success?parsed.data.dashboard??null:null;}),signingKeyId:facts?.kid??null,affectedColumns:facts?.affected??0});}
+
+ async saveCredentials(ctx:ReleaseContext,input:z.infer<typeof CustodyCredentialsInput>){
+  const {confirmedLiveGrants,...credentials}=CustodyCredentialsInput.parse(input),state=await custodyAvailability(ctx.projectId);
+  if(state.configuration?.provider!=='xq')return err(new DomainError('conflict','Select XQ as the custody provider before editing its credentials.'));
+  const environment={...state.environment,...credentials},configuration={...state.configuration,tenant:credentials.tenant};
+  if(!environment.redeemAt)return err(new DomainError('dependency_unavailable','The XQ redemption URL is not configured.'));
+  const encrypted=encryptCredentials(ctx.projectId,CustodyCredentials.parse(credentials));
+  const provider=new XqReleaseProvider(environment,credentials.tenant,environment.redeemAt,configuration.region),checked=await provider.health();
+  if(!checked.reachable||!checked.authenticated||checked.failure!==null||checked.dashboard?.status==='failed'||checked.dashboard?.status==='not_set')return err(new DomainError('validation_failed',`XQ credential check failed: ${checked.failure??checked.dashboard?.failure??'authentication_refused'}. Credentials were not saved.`));
+  const result=await withTenant(ctx,async tx=>{
+   await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,538))',[ctx.projectId]);
+   const current=await custodyAvailability(ctx.projectId);
+   if(!current.configuration||checkBinding(current.configuration,current.environment)!==checkBinding(state.configuration!,state.environment))return err(new DomainError('conflict','Custody configuration changed during the check. Check and save again.'));
+   const revoked=await this.revokeProviderGrants(tx,ctx,confirmedLiveGrants);if(!revoked.ok)return revoked;
+   await tx.query('SELECT save_custody_credentials($1,$2)',[encrypted,{binding:checkBinding(configuration,environment),passed:true,at:new Date().toISOString(),failure:null,dashboard:checked.dashboard??null}]);
+   return ok(undefined);
+  });
+  if(result.ok){this.projects.delete(ctx.projectId);this.bindings.delete(ctx.projectId);}
+  return result;
+ }
+ async status(ctx:ReleaseContext){const state=await custodyAvailability(ctx.projectId),environment=state.environment;const [facts]=await withTenant(ctx,tx=>tx.query<{affected:number;kid:string|null}>("SELECT (SELECT count(DISTINCT t.element_id)::int FROM entitlement t JOIN catalog_element e ON e.id=t.element_id JOIN catalog_object o ON o.id=e.object_id JOIN data_source s ON s.id=o.source_id WHERE t.treatment='custody' AND e.status='active' AND o.status='active' AND s.status<>'archived' AND EXISTS(SELECT 1 FROM pool_source_binding b WHERE b.pool_id=t.pool_id AND b.source_id=s.id)) AS affected,(SELECT kid FROM release_signing_key WHERE retired_at IS NULL) AS kid"));return CustodyProviderStatus.parse({provider:state.configuration?.provider??null,available:state.available,reason:state.reason,checkedAt:state.checkedAt,apiKeySet:!!environment.apiKey,dashboardKeySet:!!environment.dashboardApiKey,dashboardCheck:await withPlatform(async tx=>{const [row]=await tx.query<{custody_check:unknown}>('SELECT custody_check FROM project WHERE id=$1',[ctx.projectId]);const parsed=z.object({dashboard:z.object({status:z.enum(['authenticated','failed','not_set']),failure:z.string().nullable()}).nullable().optional()}).safeParse(row?.custody_check);return parsed.success?parsed.data.dashboard??null:null;}),signingKeyId:facts?.kid??null,affectedColumns:facts?.affected??0,credentials:{apiKey:!!environment.apiKey,dashboardApiKey:!!environment.dashboardApiKey,senderAlias:!!environment.senderAlias,senderAccessToken:!!environment.senderAccessToken,tenant:!!state.configuration?.tenant,changedAt:state.credentialsChangedAt}});}
  async checkConnection(ctx:ReleaseContext){const state=await custodyAvailability(ctx.projectId),p=await this.ensure(ctx);let result:import('../application/ports.js').ProviderHealth;
   if(!p||!this.master||!/^[0-9a-f]{64}$/u.test(this.master))result={reachable:false,authenticated:false,failure:'credentials_missing'};
   else if(p.provider instanceof LocalReleaseProvider||p.provider instanceof XqReleaseProvider)result=await p.provider.health();
   else result={reachable:false,authenticated:false,failure:'invalid_response'};
-  await withTenant(ctx,tx=>tx.query('SELECT record_custody_check($1)',[{binding:state.configuration?checkBinding(state.configuration):'',passed:result.authenticated&&result.failure===null,at:new Date().toISOString(),failure:result.failure,dashboard:result.dashboard??null}]));return result;
+  await withTenant(ctx,tx=>tx.query('SELECT record_custody_check($1)',[{binding:state.configuration?checkBinding(state.configuration,state.environment):'',passed:result.authenticated&&result.failure===null,at:new Date().toISOString(),failure:result.failure,dashboard:result.dashboard??null}]));return result;
  }
  async rotateSigningKey(ctx:ReleaseContext){const p=await this.ensure(ctx);if(!p)throw new DomainError('dependency_unavailable','Configure a custody provider before rotating its signing key.',{cause:'release_configuration'});const state=await custodyAvailability(ctx.projectId),ttl=Number(readSetting(state.settings,'custody.grant_ttl')??600),keys=new PostgresGrantSignatures(p.provider,this.master);const result=await keys.rotate(ctx,ttl);const active=await withTenant(ctx,tx=>tx.query<{kid:string}>('SELECT kid FROM release_signing_key WHERE retired_at IS NULL'));return {signingKeyId:active[0]?.kid??result.keys.at(-1)!.kid};}
  async seal(...args:Parameters<QueryRelease['seal']>){const valid=requireEngineShares(args[6]);if(!valid.ok)return valid;const state=await custodyAvailability(args[0].projectId);if(!state.available)return err(new DomainError('dependency_unavailable',`Custody provider unavailable: ${state.reason}. No result was released. Configure a custody provider in Settings.`,{cause:'release_configuration',reason:state.reason}));const p=await this.ensure(args[0]);return p?p.query.seal(...args):err(new DomainError('dependency_unavailable','Release custody is not configured for this project. No result was released.',{cause:'release_configuration'}));}
@@ -140,10 +167,10 @@ export class ReleaseRuntime {
  async describe(ctx:ReleaseContext){return (await this.ensure(ctx))?.service.describe(ctx);}
  async provision(ctx:ReleaseContext,alias:string){await (await this.ensure(ctx))?.provider.register?.(alias);}
  async provisionExisting(){const configured=await withPlatform(tx=>tx.query<{id:string}>("SELECT id FROM project WHERE settings->'custody'->>'provider' IN ('local','xq')"));for(const projectId of new Set([...this.projects.keys(),...configured.map(p=>p.id)])){const [user]=await withPlatform(tx=>tx.query<{user_id:string}>('SELECT user_id FROM project_member WHERE project_id=$1 ORDER BY user_id LIMIT 1',[projectId]));if(!user)continue;const ctx={projectId:ProjectId(projectId),userId:UserId(user.user_id)};for(const key of await withTenant(ctx,tx=>tx.query<{custody_alias:string}>("SELECT custody_alias FROM pool_credential WHERE revoked_at IS NULL UNION SELECT k.custody_alias FROM pool_key k JOIN pool_credential c ON c.id=k.credential_id WHERE c.revoked_at IS NULL AND k.state='retiring' AND k.grace_until>now()")))await this.provision(ctx,key.custody_alias);}}
- async redeem(ctx:ReleaseContext,grant:string,alias:string,origin:string|null){const [row]=await withTenant(ctx,tx=>tx.query<{claims:unknown}>('SELECT claims FROM release_grant WHERE grant_jws=$1',[grant]));return row?this.originalService(ctx.projectId,releaseClaims.parse(row.claims)).redeem(ctx,grant,alias,origin):err(new DomainError('forbidden','This release grant is unavailable. No release share was returned.',{cause:'release_refused'}));}
+ async redeem(ctx:ReleaseContext,grant:string,alias:string,origin:string|null){const [row]=await withTenant(ctx,tx=>tx.query<{claims:unknown}>('SELECT claims FROM release_grant WHERE grant_jws=$1',[grant]));return row?(await this.originalService(ctx.projectId,releaseClaims.parse(row.claims))).redeem(ctx,grant,alias,origin):err(new DomainError('forbidden','This release grant is unavailable. No release share was returned.',{cause:'release_refused'}));}
  async redeemLocal(ctx:ReleaseContext,grant:string,credential:string){const p=this.projects.get(ctx.projectId);if(!(p?.provider instanceof LocalReleaseProvider))return err(new DomainError('not_found','The local custody provider is not configured.'));try{const share=await p.provider.redeem(grant,credential);try{return {ok:true as const,value:{share:share.toString('base64url')}};}finally{share.fill(0);}}catch{return err(new DomainError('forbidden','Local custody redemption refused. No release share was returned.'));}}
- async revoke(ctx:ReleaseContext,id:string,actor:string){const rows=await withTenant(ctx,tx=>tx.query<{id:string;claims:unknown}>('SELECT id,claims FROM release_grant WHERE id=$1 OR receipt_id=$1',[id]));if(!rows.length)return err(new DomainError('not_found','The release grant or receipt was not found in this project.'));for(const row of rows){const result=await this.originalService(ctx.projectId,releaseClaims.parse(row.claims)).revoke(ctx,row.id,actor);if(!result.ok)return result;}return {ok:true as const,value:undefined};}
+ async revoke(ctx:ReleaseContext,id:string,actor:string){const rows=await withTenant(ctx,tx=>tx.query<{id:string;claims:unknown}>('SELECT id,claims FROM release_grant WHERE id=$1 OR receipt_id=$1',[id]));if(!rows.length)return err(new DomainError('not_found','The release grant or receipt was not found in this project.'));for(const row of rows){const result=await (await this.originalService(ctx.projectId,releaseClaims.parse(row.claims))).revoke(ctx,row.id,actor);if(!result.ok)return result;}return {ok:true as const,value:undefined};}
  start(){this.timer=setInterval(()=>{void withDiagnosticWork('release_cleanup',()=>this.sweep()).catch(()=>{console.warn({event:'release.cleanup_failed',category:'dependency_unavailable'});});},1000);this.timer?.unref();}
- async sweep(){if(this.sweeping)return;this.sweeping=true;try{await this.retireLegacyAliases();const services=new Map<string,ReleaseService>();for(const {ctx,grantId} of this.fixtureProjects?(await Promise.all([...this.fixtureProjects].map(project=>new PostgresReleaseRepository(project).due()))).flat():await new PostgresReleaseRepository().due()){const [row]=await withTenant(ctx,tx=>tx.query<{claims:unknown}>('SELECT claims FROM release_grant WHERE id=$1',[grantId]));if(!row)continue;const claims=releaseClaims.parse(row.claims),key=JSON.stringify([ctx.projectId,claims.custody.provider,claims.custody.tenant]);if(!services.has(key))services.set(key,this.originalService(ctx.projectId,claims));}for(const service of services.values())await service.sweep();}finally{this.sweeping=false;}}
+ async sweep(){if(this.sweeping)return;this.sweeping=true;try{await this.retireLegacyAliases();const services=new Map<string,ReleaseService>();for(const {ctx,grantId} of this.fixtureProjects?(await Promise.all([...this.fixtureProjects].map(project=>new PostgresReleaseRepository(project).due()))).flat():await new PostgresReleaseRepository().due()){const [row]=await withTenant(ctx,tx=>tx.query<{claims:unknown}>('SELECT claims FROM release_grant WHERE id=$1',[grantId]));if(!row)continue;const claims=releaseClaims.parse(row.claims),key=JSON.stringify([ctx.projectId,claims.custody.provider,claims.custody.tenant]);if(!services.has(key))services.set(key,await this.originalService(ctx.projectId,claims));}for(const service of services.values())await service.sweep();}finally{this.sweeping=false;}}
  close(){clearInterval(this.timer);for(const p of this.projects.values())if(p.provider instanceof LocalReleaseProvider)p.provider.close();}
 }

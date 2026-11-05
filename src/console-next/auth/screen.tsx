@@ -2,7 +2,6 @@ import {useEffect,useState,useRef,type ReactNode} from 'react';
 import {useMutation} from '@tanstack/react-query';
 import {requestLinkEmailSchema} from '../../shared/api/auth-schemas.js';
 import {BrandMark,Glyph,type icons} from '../components/kind.js';
-import {useHomeState} from '../home/state.js';
 import {useProviders,requestLink,completeLink,currentSession} from './data.js';
 import {authNavigation,rememberReturnTo,completeReturnTo,getDeviceNonce,useAuthState} from './state.js';
 function Frame({children}:{children:ReactNode}){return <main data-auth><aside data-auth-story><a href="/" data-auth-brand><BrandMark decorative size={32}/>Opintel</a><h1>Let agents read your data,<br/>only the way you decide.</h1><ul><li><Glyph name="project"/>Sign in with your company's identity provider, or a one-time email link</li><li><Glyph name="credential"/>Opintel never stores a password</li><li><Glyph name="tls"/>A link opened in another browser asks you to confirm it was you</li></ul></aside><section data-auth-panel><div data-auth-content>{children}</div></section></main>;}
@@ -28,4 +27,4 @@ function Completion({confirm}:{confirm:boolean}){const token=new URLSearchParams
  if(mutation.data==='signed-in')return <Outcome state="success"/>;
  if(!confirm||mutation.isPending)return <Outcome state="pending" message={accepted===false?'Declining your link.':'Checking your link. This takes a moment.'}/>;
  return <><span data-auth-tile data-status="warning"><Glyph name="tls"/></span><h2>Did you open this link yourself?</h2><p>This sign-in link was requested from a different browser. Confirm only if you requested it just now.</p><div data-auth-confirm>{[true,false].map(value=><button key={String(value)} data-primary={value||undefined} disabled={mutation.isPending} onClick={()=>{if(!mutation.isPending&&!submitting.current){submitting.current=true;setAccepted(value);mutation.mutate(value);}}}><Glyph name={value?'check':'close'}/>{value?'Yes, sign me in here':'No, decline this link'}</button>)}</div><small>Declining creates no session. If you did not request a link, tell your company administrator.</small></>;}
-export function Auth(){const theme=useHomeState(s=>s.theme);useEffect(()=>{document.documentElement.setAttribute('data-console-theme',theme);},[theme]);const path=location.pathname;return <Frame>{path==='/sign-in'?<SignIn/>:path==='/check-email'?<CheckEmail/>:<Completion confirm={path==='/auth/confirm-device'}/>}</Frame>;}
+export function Auth(){const path=location.pathname;return <Frame>{path==='/sign-in'?<SignIn/>:path==='/check-email'?<CheckEmail/>:<Completion confirm={path==='/auth/confirm-device'}/>}</Frame>;}

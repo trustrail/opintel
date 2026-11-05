@@ -1,7 +1,7 @@
 import type { PoolId,ProjectId,Timestamp } from '../../../shared/kernel/index.js';
 import type { PoolKeyId } from './pool.js';
 export type PresenceState='connecting'|'active'|'idle'|'stale'|'disconnected';
-export type AgentPresence=Readonly<{projectId:ProjectId;poolId:PoolId;agentId:string;client:string|null;verified:boolean;keyVersion:PoolKeyId;firstSeen:Timestamp;lastSeen:Timestamp;lastRequestAt:Timestamp|null;lastHeartbeatAt:Timestamp;staleAt:Timestamp|null;reconnects:number;state:PresenceState}>;
+export type AgentPresence=Readonly<{projectId:ProjectId;poolId:PoolId;agentId:string;client:string|null;verified:boolean;certificateIdentity?:{fingerprintPrefix:string;certificateId:number|null}|null;keyVersion:PoolKeyId;firstSeen:Timestamp;lastSeen:Timestamp;lastRequestAt:Timestamp|null;lastHeartbeatAt:Timestamp;staleAt:Timestamp|null;reconnects:number;state:PresenceState}>;
 export type PresenceTiming={agentHeartbeatSeconds:number;agentDisconnectGraceSeconds:number};
 /** Deadlines are event times, not the time a delayed sweep happens to run. */
 export function agePresence(row:AgentPresence,at:Timestamp,timing:PresenceTiming):AgentPresence {

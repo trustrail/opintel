@@ -1,3 +1,4 @@
+import type {RecordedAgentIdentity} from '../../../shared/api/agent-presence.js';
 import { DomainError, err, ok, type Result, type RunId, type ProjectId, type PoolId, type ElementId, type ExposedName, type Timestamp, type ErrorCode, type JsonObject } from '../../../shared/kernel/index.js';
 
 export type VersionStamp = Readonly<{policy:number;vocabulary:number;catalog:number;tokenKeyVersionSelected:number|null}>;
@@ -17,7 +18,7 @@ export type RunOutcome = Readonly<
  {kind:'failed';code:ErrorCode;retryable:boolean}
 >;
 export type RunHeader = Readonly<{
- id:RunId;projectId:ProjectId;poolId:PoolId;agentId:string|null;keyPrefix:string;credentialId?:string|null;custodyAlias?:string|null;
+ id:RunId;projectId:ProjectId;poolId:PoolId;agentIdentity?:RecordedAgentIdentity|null;agentId:string|null;keyPrefix:string;credentialId?:string|null;custodyAlias?:string|null;
  mode:'query'|'prompt';request:string|null;versions:VersionStamp;startedAt:Timestamp;
 }>;
 export type RunCompletion = Readonly<{

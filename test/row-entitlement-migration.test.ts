@@ -11,7 +11,9 @@ import {migrationChainInTransaction} from './migration-chain.js';
 resetDatabaseBeforeEach('company');
 // Migration round trips are functional; the guard grows with the schema chain.
 it('ROW-007 seeded forward/revert, explicit grants, destructive downgrade refused',async()=>{
- const f=await queryFixture(new PostgresEvidenceWriter()),db=new Client({connectionString:process.env.TEST_DATABASE_URL});
+ // Model a receipt issued before certificate snapshots existed; never edit an issued receipt.
+ const historical=new PostgresEvidenceWriter(),writer={implementation:'durable' as const,open:(...args:Parameters<PostgresEvidenceWriter['open']>)=>historical.open({...args[0],agentIdentity:null},args[1],args[2]),close:(...args:Parameters<PostgresEvidenceWriter['close']>)=>historical.close(args[0],args[1],{...args[2],agentIdentity:null})};
+ const f=await queryFixture(writer),db=new Client({connectionString:process.env.TEST_DATABASE_URL});
  try{
   const [object]=await withTenant(f.ctx,tx=>tx.query<{id:string}>('SELECT id FROM catalog_object WHERE source_id=$1',[f.source]));
   const decision=unwrap(await new PostgresRowDecisions().save(f.ctx,f.pool,ObjectId(object!.id),'field_1 >= 1'));

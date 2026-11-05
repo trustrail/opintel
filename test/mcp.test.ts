@@ -203,3 +203,15 @@ describe('5.5 MCP Streamable HTTP',{timeout:30_000},()=>{
  });
 
 });
+
+it('CONSOLE-03 new receipts snapshot authenticated certificate metadata; later binding changes do not rewrite it',async()=>{
+ const {queryFixture}=await import('./fixtures/query/fixture.js'),{QueryOutput}=await import('../src/shared/api/mcp.js');
+ const {PostgresEvidenceWriter}=await import('../src/modules/evidence/index.js');const f=await queryFixture(new PostgresEvidenceWriter(),{identityBound:true});cleanups.push(f.close);
+ const answer=QueryOutput.parse((await f.query('SELECT field_1 FROM warehouse.public.records')).structuredContent);
+ const [before]=await withTenant(f.ctx,tx=>tx.query<{identity:unknown}>('SELECT agent_identity AS identity FROM query_run WHERE id=$1',[answer.evidenceId]));
+ expect(before?.identity).toMatchObject({verified:true,certificateIdentity:{certificateId:1,fingerprintPrefix:expect.stringMatching(/^[a-f0-9]{12}$/u)}});
+ await withTenant(f.ctx,tx=>tx.query("UPDATE pool_credential SET device_name='new label',certificate_id=999 WHERE pool_id=$1",[f.pool]));
+ const [after]=await withTenant(f.ctx,tx=>tx.query('SELECT agent_identity AS identity FROM query_run WHERE id=$1',[answer.evidenceId]));expect(after).toEqual(before);
+ const {PostgresEvidenceReader}=await import('../src/modules/evidence/index.js'),{RunId}=await import('../src/shared/kernel/index.js');
+ const [time]=await withTenant(f.ctx,tx=>tx.query<{at:string}>('SELECT started_at::text AS at FROM query_run WHERE id=$1',[answer.evidenceId]));expect(unwrap(await new PostgresEvidenceReader().detail(f.ctx,RunId(answer.evidenceId),time!.at)).agentIdentity).toEqual(before!.identity);
+});
