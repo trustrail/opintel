@@ -1,0 +1,212 @@
+[
+  {
+    "line": 61,
+    "title": "Navigate",
+    "start": 29835.745,
+    "end": 31508.347,
+    "ms": 1672.6020000000026
+  },
+  {
+    "line": 61,
+    "title": "Expect \"toHaveURL\"",
+    "start": 31520.986,
+    "end": 32038.098,
+    "ms": 517.112000000001
+  },
+  {
+    "line": 62,
+    "title": "Fill \"bulk@example.com\"",
+    "start": 32042.178,
+    "end": 32857.755,
+    "ms": 815.5769999999975
+  },
+  {
+    "line": 62,
+    "title": "Click",
+    "start": 32859.429,
+    "end": 33300.168,
+    "ms": 440.7390000000014
+  },
+  {
+    "line": 63,
+    "title": "Expect \"toBeVisible\"",
+    "start": 33301.068,
+    "end": 34713.279,
+    "ms": 1412.211000000003
+  },
+  {
+    "line": 64,
+    "title": "Navigate",
+    "start": 34713.973,
+    "end": 35943.532,
+    "ms": 1229.559000000001
+  },
+  {
+    "line": 64,
+    "title": "Expect \"toHaveURL\"",
+    "start": 35949.241,
+    "end": 37358.896,
+    "ms": 1409.6549999999988
+  },
+  {
+    "line": 64,
+    "title": "Wait for navigation",
+    "start": 35954.53,
+    "end": 37358.787,
+    "ms": 1404.2569999999978
+  },
+  {
+    "line": 64,
+    "title": "Navigate",
+    "start": 37359.553,
+    "end": 38911.035,
+    "ms": 1551.4820000000036
+  },
+  {
+    "line": 65,
+    "title": "Click",
+    "start": 38914.001,
+    "end": 40252.401,
+    "ms": 1338.4000000000015
+  },
+  {
+    "line": 66,
+    "title": "Uncheck",
+    "start": 40258.942,
+    "end": 40767.668,
+    "ms": 508.7259999999951
+  },
+  {
+    "line": 66,
+    "title": "Click",
+    "start": 40769.747,
+    "end": 40998.933,
+    "ms": 229.18599999999424
+  },
+  {
+    "line": 66,
+    "title": "Click",
+    "start": 41000.407,
+    "end": 41238.135,
+    "ms": 237.7280000000028
+  },
+  {
+    "line": 67,
+    "title": "Click",
+    "start": 41239.945,
+    "end": 41422.597,
+    "ms": 182.65200000000186
+  },
+  {
+    "line": 67,
+    "title": "Click",
+    "start": 41423.29,
+    "end": 41789.463,
+    "ms": 366.1730000000025
+  },
+  {
+    "line": 68,
+    "title": "Fill \"3\"",
+    "start": 41791.598,
+    "end": 41863.283,
+    "ms": 71.68500000000495
+  },
+  {
+    "line": 68,
+    "title": "Click",
+    "start": 41865.059,
+    "end": 42500.096,
+    "ms": 635.0369999999966
+  },
+  {
+    "line": 69,
+    "title": "Expect \"toHaveCount\"",
+    "start": 42502.294,
+    "end": 43198.934,
+    "ms": 696.6399999999994
+  },
+  {
+    "line": 71,
+    "title": "Expect \"toMatch\"",
+    "start": 43257.559,
+    "end": 43260.129,
+    "ms": 2.569999999999709
+  },
+  {
+    "line": 72,
+    "title": "Expect \"not toBe\"",
+    "start": 50630.965,
+    "end": 50631.45,
+    "ms": 0.4850000000005821
+  },
+  {
+    "line": 73,
+    "title": "Expect \"toEqual\"",
+    "start": 50633.24,
+    "end": 50635.338,
+    "ms": 2.0980000000054133
+  },
+  {
+    "line": 74,
+    "title": "Expect \"toEqual\"",
+    "start": 50636.165,
+    "end": 50636.277,
+    "ms": 0.11200000000098953
+  },
+  {
+    "line": 77,
+    "title": "Expect \"toEqual\"",
+    "start": 50801.788,
+    "end": 50801.984,
+    "ms": 0.1959999999962747
+  },
+  {
+    "line": 78,
+    "title": "Navigate",
+    "start": 50814.152,
+    "end": 53080.558,
+    "ms": 2266.4059999999954
+  },
+  {
+    "line": 80,
+    "title": "Expect \"toHaveAttribute\"",
+    "start": 53177.464,
+    "end": 54991.961,
+    "ms": 1814.497000000003
+  },
+  {
+    "line": 81,
+    "title": "Expect \"toContainText\"",
+    "start": 54997.324,
+    "end": 55217.437,
+    "ms": 220.11299999999756
+  },
+  {
+    "line": 81,
+    "title": "Expect \"toContainText\"",
+    "start": 55218.577,
+    "end": 55394.173,
+    "ms": 175.596000000005
+  },
+  {
+    "line": 81,
+    "title": "Expect \"toContainText\"",
+    "start": 55395.082,
+    "end": 55457.31,
+    "ms": 62.22799999999552
+  },
+  {
+    "line": 82,
+    "title": "Click",
+    "start": 55459.308,
+    "end": 55882.915,
+    "ms": 423.6070000000036
+  },
+  {
+    "line": 82,
+    "title": "Expect \"toContainText\"",
+    "start": 55884.613,
+    "end": 58284.909,
+    "ms": 2400.296000000002
+  }
+]

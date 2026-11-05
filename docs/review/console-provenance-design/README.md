@@ -225,6 +225,85 @@ The retained helper passed `node --check` and `npm run lint`; no application or
 test code changed. No smoke retry, full gate, main comparison, application/test
 fix or merge followed.
 
+## Authorized 120 s smoke diagnostic — 2026-11-05
+
+One invocation of the standard harness, via the existing diagnostic wrapper:
+
+```sh
+node scripts/console03-smoke-diagnostic.mjs tmp/console-provenance-design-smoke-120
+python3 scripts/console03-smoke-timings.py tmp/console-provenance-design-smoke-120 docs/review/console-provenance-design/smoke-120-actions.json
+python3 scripts/review/provenance-smoke-retained-analysis.py
+```
+
+Application code was unchanged. The wrapper temporarily raised the smoke test
+configuration to 120 s, retained tracing/JSON reporting, and restored the normal
+configuration byte-for-byte. Both the restored file and HEAD have blob hash
+`5bd41ffa3b24e37eb33405234f022ff7d318cf53`. No assertion or action changed.
+Optional output paths preserve the preceding diagnostic's retained artifacts.
+
+**Passed**, exit 0: scenario **35.647 s**, Playwright total 66.563 s, full harness
+90.042 s. However, the owner's compound acceptance criterion was **not met**:
+two segments were markedly slower despite the under-45-second total. This run
+is **not recorded as an accepted known-pattern result**.
+
+| Segment | Supplied baseline | This run | Difference |
+|---|---:|---:|---:|
+| Sign-in / check email | 10.2 s | 4.878 s | −5.322 s |
+| Callback → pool | 5.2 s | 4.197 s | −1.003 s |
+| Row rule | 4.8 s | 4.285 s | −0.515 s |
+| MCP and persisted receipt | 4.8 s | **7.603 s** | **+2.803 s** |
+| Receipt open / assertions | 2.2 s | **4.643 s** | **+2.443 s** |
+| Recorded row decision | 4.2 s | 2.826 s | −1.374 s |
+
+The segments use the same trace line boundaries as the reference timing script.
+They exclude setup, teardown and gaps, and do not sum to the test duration.
+The MCP bracket includes decision reads and persistence assertions, not only SQL.
+Individual actions: [smoke-120-actions.json](smoke-120-actions.json).
+Sanitized retained analysis:
+[smoke-120-retained-analysis.json](smoke-120-retained-analysis.json).
+
+### Slow-path findings, and limits of attribution
+
+The slowdown is localized; a **causal branch defect has not been established**.
+It is not labelled environmental merely because the scenario passed.
+
+- In the MCP segment, `/execute` took 5.352 s on attempt 1. TCP was 4.085 ms,
+  TLS 6.528 ms, and admission wait about 1 ms. The long span is engine SQL
+  validation: **3.769 s**, from `22:55:09.076Z` to `22:55:12.845Z`.
+  `sidecar/execution/application/execute.ts:65` awaits
+  `InspectedSessionExecutor.validate`; `sidecar/sql/application/execute.ts:25–32`
+  enters the isolated DuckDB session and SQL inspection path. The retained
+  reference log records 1.290 s for this validation span. It does not expose
+  sub-operation/CPU timing sufficient to identify why this invocation took longer.
+- The receipt step's browser navigation grew from 0.921 s to 2.266 s, and its
+  row-decision-link assertion wait from 1.137 s to 1.814 s. Receipt HTTP read
+  itself was **168 ms versus 222 ms** in the retained reference. Row-decision
+  HTTP read was 143 ms versus 147 ms. The browser started those receipt-related
+  requests about 1.1 s later relative to navigation, with longer static asset
+  transfers and startup. No browser CPU profile was retained to attribute that
+  extra startup/wait to a particular function or stylesheet.
+- `git diff 4ea4178...440d9d6` is empty for backend/shared/platform/sidecar code,
+  query fixtures and the smoke spec. It is also empty for the existing receipt
+  component/data hooks. Validation/SQL/session code is unchanged against the
+  retained reference revision as well. The branch's Activity change extracts
+  `RunRow`; the smoke returns an empty runs list (`e2e/smoke.spec.ts:50`), and
+  the trace records **zero provenance API requests**. These observations do not
+  establish a causal path from the new provenance implementation to either delay.
+
+The supplied baseline numbers govern the comparison above. The already-retained
+trace with those six timings is identified as `8a96b43` by
+`docs/review/console-followups-3.md`; its engine/network evidence is described as
+that retained reference, not relabelled as a newly executed `42391a3` run.
+
+The timing threshold flags a potential regression, but naming a specific branch
+bug from these artifacts would be a guess. Node/Python syntax checks and repository lint passed for the retained diagnostic
+tools. No fix, second smoke run, full gate, main run or merge was made. Work stopped with the slower spans and the unresolved
+causal attribution explicitly recorded.
+
+Full log: `/private/tmp/provenance-smoke-120-diagnostic.log`.
+Raw trace, JSON reporter output and invocation record:
+`tmp/console-provenance-design-smoke-120/`.
+
 ## Screenshots
 
 | State | 1440 light | 1440 dark | 390 light | 390 dark |
