@@ -27,4 +27,21 @@ Branch: feat/provenance, based on merged main fab72e1. No merge authorized.
 
 Step recorded=true means at least one fact is recorded; each missing fact remains recorded=false. Missing retained receipts return not found. Provenance does not claim complete read-column lineage beyond the stored objects and delivered element records. Current grant lifecycle state is shown alongside its recorded release time. The historical credential label is deliberately not replaced by today's label.
 
-Full gate: pending on this candidate. No pass claimed yet.
+## Single full gate — failed before conformance scenarios
+
+`npm run check` ran once on `9d167f1`, exit 1, total 736.082 s.
+Preflight, strict typecheck, conformance typecheck, lint and production artifact
+passed. The conformance container installed dependencies (npm reported 6 minutes),
+then Playwright reported: `Error: Timed out waiting 120000ms from config.webServer.`
+Conformance tier elapsed 593.662 s. Coverage: **0/30 routes visited**; zero findings
+is incomplete coverage, not a pass. Normal tests and smoke were not reached.
+Cleanup passed. No retry or timeout change was made.
+
+The retained gate metadata reports minimum host available memory 815,968,256 bytes
+at 2026-11-05T14:53:37.510Z. That observation does not establish the timeout cause.
+The production-preview screenshots and targeted checks above passed separately;
+they do not replace the failed gate. The known smoke deadline exception does not
+apply to this startup failure.
+
+[Gate metadata](provenance/gate.json). Full log:
+`/private/tmp/provenance-gate-9d167f1.log`. Stopped, not merged.
