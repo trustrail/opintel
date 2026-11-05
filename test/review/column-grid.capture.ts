@@ -82,6 +82,10 @@ it('dev console pool Access to column grid diagnostic',async()=>{
  await page.screenshot({path:directory+'/pool-access.png',fullPage:true});
  await page.locator('[data-access-list] code a').first().click();
  let rendered=false;try{await page.locator('[data-data-column-head]').waitFor({timeout:30000});await page.waitForLoadState('networkidle');rendered=await page.locator('[data-data-column-head]').isVisible();}catch{/* Retain actual UI and browser diagnostics before failing. */}
+ await page.goto(`http://127.0.0.1:5174/?project=${f.ctx.projectId}&screen=data`);
+ const namedButton=page.locator('[data-data-table-row] strong button').filter({has:page.locator('code').filter({hasText:/^warehouse\.public\.records$/u})});
+ await namedButton.waitFor();await namedButton.click();await page.locator('[data-data-column-head]').waitFor();await page.waitForLoadState('networkidle');
+ expect(await page.locator('[data-data-column-head]').isVisible(),'Full-name code button opens the grid despite the kind icon').toBe(true);
  await page.screenshot({path:directory+'/column-grid.png',fullPage:true});
  await writeFile(directory+'/dev-result.json',JSON.stringify({rendered,errors,responses,url:page.url(),body:await page.locator('body').innerText()},null,2));
  await context.tracing.stop({path:directory+'/trace.zip'});

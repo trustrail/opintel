@@ -1,0 +1,2791 @@
+{
+  "screenshots": [],
+  "errors": [],
+  "responses": [
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/main.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@react-refresh",
+      "status": 200
+    },
+    {
+      "path": "/routing.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/account.tsx",
+      "status": 200
+    },
+    {
+      "path": "/auth/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/auth/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/auth/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/console-destinations.mjs",
+      "status": 200
+    },
+    {
+      "path": "/@vite/client",
+      "status": 200
+    },
+    {
+      "path": "/first-run/welcome.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/activity/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react-dom_client.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@tanstack_react-query.js",
+      "status": 200
+    },
+    {
+      "path": "/components/primitives.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/motion_react.js",
+      "status": 200
+    },
+    {
+      "path": "/home/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/home/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/home/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/pools/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/data/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/data/contextual.css",
+      "status": 200
+    },
+    {
+      "path": "/activity/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/first-run/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/components/select.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/client.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/settings.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react_jsx-dev-runtime.js",
+      "status": 200
+    },
+    {
+      "path": "/components/kind.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/zustand.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/auth-schemas.ts",
+      "status": 200
+    },
+    {
+      "path": "/auth/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/chip.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/tenancy-schemas.ts",
+      "status": 200
+    },
+    {
+      "path": "/first-run/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/custody-credentials.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/zod.js",
+      "status": 200
+    },
+    {
+      "path": "/settings/engine.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/project-members.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/project.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/project-settings.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/release-custody.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/engines.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/navigation.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/custody-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/provenance.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/identity.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/home/needs.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/controls.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/scope.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/treatment.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/receipt.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/copy-name.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/source-panel.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/source-band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/declarations.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/unsupported.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/source-state.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/source-data.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_shape.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/source-schemas.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/commands.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/treatment.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/suggestions.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/connect.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/releases.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/rolldown-runtime-DC62tzP2.js",
+      "status": 200
+    },
+    {
+      "path": "/pools/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/ring.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/agent.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/create.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react-dom.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react_jsx-runtime.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-dialog.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-popover.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-tabs.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-checkbox.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-scroll-area.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-tooltip.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-dropdown-menu.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-select.js",
+      "status": 200
+    },
+    {
+      "path": "/api.ts",
+      "status": 200
+    },
+    {
+      "path": "/observations/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pools.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/needs-you.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/project-health.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/activity.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/agent-presence.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/dashboard.ts",
+      "status": 200
+    },
+    {
+      "path": "/stream-cache.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/project-picker.tsx",
+      "status": 200
+    },
+    {
+      "path": "/first-run/home.tsx",
+      "status": 200
+    },
+    {
+      "path": "/home/exposure.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/strip.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Envelope.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Database.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Table.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Folder.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Eye.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Columns.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Stack.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Rows.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Robot.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_User.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Key.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Receipt.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ShieldCheck.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Gear.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Cpu.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Lock.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Pulse.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_House.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_MagnifyingGlass.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsDownUp.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Warning.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CaretRight.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Sun.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Moon.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Check.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Question.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Prohibit.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsOutSimple.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_X.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ChartBar.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Copy.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Target.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CaretUpDown.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_DotsThree.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Circle.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleHalf.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleNotch.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleDashed.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Clock.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Smiley.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsClockwise.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowRight.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowLeft.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_SignIn.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowUUpLeft.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/value-objects.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/provenance.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/row-entitlements.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/reasons.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/observation-copy.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/declarations.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/observation-packet.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/schemas.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_scale.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/type-observations.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/introspection.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/landing-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/esm-BkIgJKp_.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/suggestions.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/credential-identity.ts",
+      "status": 200
+    },
+    {
+      "path": "/pools/rows.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/history.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/bulk-entitlements.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-keys.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-tables.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/entitlement-groups.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/catalog.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_group.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-DohN8Sgk.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BEyII_Gs.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Hhi0ewQM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BDyCc5Vl.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/es2015-sc_4CyiY.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Chke-jQc.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-YnJd5yrM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BVOK2EFy.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-C8tc9Z5_.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-CFpRlUrM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-DNeC32IW.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-CZYk2dod.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Cb8EyZge.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/observations.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/custody-failure.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/release-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-scope-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/errors.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-preview-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/token-domain.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/certificate-association.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/IconBase.es-DH4G4LD0.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/stream.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/execution-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-predicate-syntax.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-budgets.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/staging-types.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/infrastructure/decimal.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/result.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/decimal__js.js",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/row-entitlements",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/@vite/client",
+      "status": 304
+    },
+    {
+      "path": "/main.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@react-refresh",
+      "status": 304
+    },
+    {
+      "path": "/node_modules/.vite/deps/react.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react-dom_client.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@tanstack_react-query.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/motion_react.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react_jsx-dev-runtime.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/rolldown-runtime-DC62tzP2.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react-dom.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react_jsx-runtime.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/node_modules/vite/dist/client/env.mjs",
+      "status": 304
+    },
+    {
+      "path": "/routing.ts",
+      "status": 304
+    },
+    {
+      "path": "/components/account.tsx",
+      "status": 304
+    },
+    {
+      "path": "/node_modules/.vite/deps/zustand.js",
+      "status": 200
+    },
+    {
+      "path": "/auth/screen.tsx",
+      "status": 304
+    },
+    {
+      "path": "/auth/state.ts",
+      "status": 304
+    },
+    {
+      "path": "/auth/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/console-destinations.mjs",
+      "status": 304
+    },
+    {
+      "path": "/first-run/welcome.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/screen.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/activity/screen.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/screen.tsx",
+      "status": 304
+    },
+    {
+      "path": "/pools/screen.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/primitives.ts",
+      "status": 304
+    },
+    {
+      "path": "/home/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/home/screen.tsx",
+      "status": 304
+    },
+    {
+      "path": "/home/state.ts",
+      "status": 304
+    },
+    {
+      "path": "/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/pools/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/data/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/data/contextual.css",
+      "status": 304
+    },
+    {
+      "path": "/activity/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/first-run/styles.css",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/settings.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/client.ts",
+      "status": 304
+    },
+    {
+      "path": "/components/select.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/kind.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/auth-schemas.ts",
+      "status": 304
+    },
+    {
+      "path": "/auth/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/node_modules/.vite/deps/zod.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_shape.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-dialog.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-popover.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-tabs.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-checkbox.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-scroll-area.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-tooltip.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-dropdown-menu.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-select.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Folder.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Envelope.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Database.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Table.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Eye.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Columns.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Stack.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Rows.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Robot.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_User.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Key.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Receipt.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ShieldCheck.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Gear.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Cpu.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Lock.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Pulse.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_House.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_MagnifyingGlass.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsDownUp.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CaretRight.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Warning.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Sun.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Moon.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Check.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Question.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Prohibit.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsOutSimple.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_X.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ChartBar.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Copy.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Target.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CaretUpDown.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_DotsThree.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Circle.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleHalf.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleDashed.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleNotch.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Smiley.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Clock.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsClockwise.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowLeft.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowRight.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_SignIn.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowUUpLeft.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/esm-BkIgJKp_.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-DohN8Sgk.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Hhi0ewQM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BEyII_Gs.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BDyCc5Vl.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/es2015-sc_4CyiY.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-YnJd5yrM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Chke-jQc.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-DNeC32IW.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Cb8EyZge.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-C8tc9Z5_.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BVOK2EFy.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-CFpRlUrM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-CZYk2dod.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/IconBase.es-DH4G4LD0.js",
+      "status": 200
+    },
+    {
+      "path": "/components/chip.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/tenancy-schemas.ts",
+      "status": 304
+    },
+    {
+      "path": "/first-run/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/settings/custody-credentials.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/engine.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/project.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/project-members.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/project-settings.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/release-custody.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/engines.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/custody-contract.ts",
+      "status": 304
+    },
+    {
+      "path": "/components/navigation.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/settings/band.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/controls.tsx",
+      "status": 304
+    },
+    {
+      "path": "/settings/state.ts",
+      "status": 304
+    },
+    {
+      "path": "/activity/provenance.tsx",
+      "status": 304
+    },
+    {
+      "path": "/pools/identity.tsx",
+      "status": 304
+    },
+    {
+      "path": "/activity/state.ts",
+      "status": 304
+    },
+    {
+      "path": "/home/needs.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/scope.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/treatment.tsx",
+      "status": 304
+    },
+    {
+      "path": "/activity/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/activity/band.tsx",
+      "status": 304
+    },
+    {
+      "path": "/activity/receipt.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/copy-name.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/source-panel.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/source-band.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/declarations.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/unsupported.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/source-state.ts",
+      "status": 304
+    },
+    {
+      "path": "/data/source-data.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/source-schemas.ts",
+      "status": 304
+    },
+    {
+      "path": "/pools/commands.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/state.ts",
+      "status": 304
+    },
+    {
+      "path": "/data/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_scale.js",
+      "status": 200
+    },
+    {
+      "path": "/data/band.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/treatment.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/suggestions.tsx",
+      "status": 304
+    },
+    {
+      "path": "/data/connect.tsx",
+      "status": 304
+    },
+    {
+      "path": "/activity/releases.tsx",
+      "status": 304
+    },
+    {
+      "path": "/pools/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/pools/agent.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/ring.tsx",
+      "status": 304
+    },
+    {
+      "path": "/pools/state.ts",
+      "status": 304
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_group.js",
+      "status": 200
+    },
+    {
+      "path": "/pools/create.tsx",
+      "status": 304
+    },
+    {
+      "path": "/api.ts",
+      "status": 304
+    },
+    {
+      "path": "/observations/data.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/needs-you.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/dashboard.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/activity.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/agent-presence.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pools.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/project-health.ts",
+      "status": 304
+    },
+    {
+      "path": "/stream-cache.ts",
+      "status": 304
+    },
+    {
+      "path": "/components/project-picker.tsx",
+      "status": 304
+    },
+    {
+      "path": "/first-run/home.tsx",
+      "status": 304
+    },
+    {
+      "path": "/home/exposure.tsx",
+      "status": 304
+    },
+    {
+      "path": "/components/strip.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/value-objects.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/provenance.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/row-entitlements.ts",
+      "status": 304
+    },
+    {
+      "path": "/activity/reasons.ts",
+      "status": 304
+    },
+    {
+      "path": "/data/schemas.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/observation-packet.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/observation-copy.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/declarations.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/introspection.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/landing-contract.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/type-observations.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/credential-identity.ts",
+      "status": 304
+    },
+    {
+      "path": "/pools/rows.tsx",
+      "status": 304
+    },
+    {
+      "path": "/pools/history.tsx",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-keys.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-tables.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/suggestions.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/bulk-entitlements.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/entitlement-groups.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/catalog.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/observations.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/custody-failure.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/release-contract.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-scope-contract.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/stream.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/errors.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-preview-contract.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/token-domain.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/certificate-association.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-predicate-syntax.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-budgets.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/execution-contract.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/infrastructure/decimal.ts",
+      "status": 304
+    },
+    {
+      "path": "/node_modules/.vite/deps/decimal__js.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/result.ts",
+      "status": 304
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/staging-types.ts",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/sources",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/suggestions",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/suggestions/domains",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/24d3d743-c832-4adb-b35f-ca686a1bbe0e/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/7de41909-55c1-4032-94bb-02028378d194/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/81e2f074-8cbb-42ef-854c-76d4de45f20a/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/aec80a17-f0cf-4f8d-979c-fb17d601f5c2/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/955c7634-fc9d-44ee-94a0-e822ef23ad7c/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/a0f38eeb-4680-410a-8e2e-442ee28abdc6/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/sources/e7769f6d-991d-4a0e-91ea-7a28f4f13ece/schemas/query_c652604e64874c2c8f76fc1793e29eb3/declarations",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/main.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react_jsx-dev-runtime.js",
+      "status": 200
+    },
+    {
+      "path": "/@vite/client",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/rolldown-runtime-DC62tzP2.js",
+      "status": 200
+    },
+    {
+      "path": "/routing.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/account.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/zustand.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react.js",
+      "status": 200
+    },
+    {
+      "path": "/@react-refresh",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@tanstack_react-query.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react_jsx-runtime.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/motion_react.js",
+      "status": 200
+    },
+    {
+      "path": "/auth/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/auth/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/auth/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/first-run/welcome.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/activity/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/console-destinations.mjs",
+      "status": 200
+    },
+    {
+      "path": "/settings/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/primitives.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react-dom_client.js",
+      "status": 200
+    },
+    {
+      "path": "/data/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/home/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/home/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/pools/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/pools/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/data/contextual.css",
+      "status": 200
+    },
+    {
+      "path": "/activity/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/first-run/styles.css",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "path": "/home/screen.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/settings.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/client.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/kind.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/select.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/auth-schemas.ts",
+      "status": 200
+    },
+    {
+      "path": "/auth/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/zod.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-dialog.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-popover.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-tabs.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-checkbox.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-scroll-area.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-tooltip.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-dropdown-menu.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@radix-ui_react-select.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/react-dom.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_shape.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Folder.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Envelope.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Database.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Table.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Eye.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Columns.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Stack.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Rows.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Robot.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_User.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Key.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Receipt.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ShieldCheck.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Gear.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Cpu.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Lock.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Pulse.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_House.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_MagnifyingGlass.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsDownUp.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CaretRight.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Warning.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Sun.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Moon.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Check.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Question.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Prohibit.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsOutSimple.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_X.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ChartBar.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Copy.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Target.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CaretUpDown.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_DotsThree.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Circle.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleHalf.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleDashed.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_CircleNotch.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Smiley.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_Clock.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowsClockwise.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowLeft.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowRight.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_SignIn.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@phosphor-icons_react_dist_csr_ArrowUUpLeft.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-DohN8Sgk.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Hhi0ewQM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BEyII_Gs.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BDyCc5Vl.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/es2015-sc_4CyiY.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-YnJd5yrM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Chke-jQc.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-DNeC32IW.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-Cb8EyZge.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-C8tc9Z5_.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-BVOK2EFy.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-CFpRlUrM.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/dist-CZYk2dod.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/esm-BkIgJKp_.js",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/IconBase.es-DH4G4LD0.js",
+      "status": 200
+    },
+    {
+      "path": "/components/chip.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/tenancy-schemas.ts",
+      "status": 200
+    },
+    {
+      "path": "/first-run/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/provenance.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/identity.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/scope.tsx",
+      "status": 200
+    },
+    {
+      "path": "/home/needs.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/custody-credentials.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/navigation.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/receipt.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/engine.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/project.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/release-custody.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/treatment.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/engines.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/custody-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/project-members.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/project-settings.ts",
+      "status": 200
+    },
+    {
+      "path": "/settings/controls.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/copy-name.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/source-panel.tsx",
+      "status": 200
+    },
+    {
+      "path": "/settings/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/source-band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/declarations.tsx",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_scale.js",
+      "status": 200
+    },
+    {
+      "path": "/components/unsupported.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/commands.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/source-state.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/source-data.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/source-schemas.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/band.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/treatment.tsx",
+      "status": 200
+    },
+    {
+      "path": "/api.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/suggestions.tsx",
+      "status": 200
+    },
+    {
+      "path": "/data/connect.tsx",
+      "status": 200
+    },
+    {
+      "path": "/observations/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/agent-presence.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/needs-you.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/activity.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/dashboard.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pools.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/project-health.ts",
+      "status": 200
+    },
+    {
+      "path": "/stream-cache.ts",
+      "status": 200
+    },
+    {
+      "path": "/activity/releases.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/ring.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/agent.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/data.ts",
+      "status": 200
+    },
+    {
+      "path": "/pools/state.ts",
+      "status": 200
+    },
+    {
+      "path": "/components/project-picker.tsx",
+      "status": 200
+    },
+    {
+      "path": "/components/strip.tsx",
+      "status": 200
+    },
+    {
+      "path": "/first-run/home.tsx",
+      "status": 200
+    },
+    {
+      "path": "/home/exposure.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/provenance.ts",
+      "status": 200
+    },
+    {
+      "path": "/pools/create.tsx",
+      "status": 200
+    },
+    {
+      "path": "/activity/reasons.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/row-entitlements.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/value-objects.ts",
+      "status": 200
+    },
+    {
+      "path": "/data/schemas.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/observation-packet.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/observation-copy.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/declarations.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/@visx_group.js",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/credential-identity.ts",
+      "status": 200
+    },
+    {
+      "path": "/pools/history.tsx",
+      "status": 200
+    },
+    {
+      "path": "/pools/rows.tsx",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-tables.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-keys.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/introspection.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/landing-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/type-observations.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/suggestions.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/observations.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/bulk-entitlements.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/catalog.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/custody-failure.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/release-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/stream.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-scope-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/entitlement-groups.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-preview-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/errors.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/token-domain.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/certificate-association.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/execution-contract.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/api/pool-budgets.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/row-predicate-syntax.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/staging-types.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/infrastructure/decimal.ts",
+      "status": 200
+    },
+    {
+      "path": "/@fs/Users/rzarita/opintel/src/shared/kernel/result.ts",
+      "status": 200
+    },
+    {
+      "path": "/node_modules/.vite/deps/decimal__js.js",
+      "status": 200
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/sources",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/suggestions",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/3416c6ee-e6b7-442d-879b-52e07c17d6bc",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/58ffa862-30c2-4bb6-b9df-b2b30977df13/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/suggestions/domains",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/81e2f074-8cbb-42ef-854c-76d4de45f20a/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/24d3d743-c832-4adb-b35f-ca686a1bbe0e/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/7de41909-55c1-4032-94bb-02028378d194/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/955c7634-fc9d-44ee-94a0-e822ef23ad7c/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/a0f38eeb-4680-410a-8e2e-442ee28abdc6/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/elements/aec80a17-f0cf-4f8d-979c-fb17d601f5c2/declarations",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/c0e83833-beaa-4e84-bc05-fcee746d9653/catalog/sources/e7769f6d-991d-4a0e-91ea-7a28f4f13ece/schemas/query_c652604e64874c2c8f76fc1793e29eb3/declarations",
+      "status": 200
+    }
+  ],
+  "fixture": "Isolated database and real API projections; injected fixture administrator; local custody; no cloud deployment."
+}
