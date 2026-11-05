@@ -1,0 +1,61 @@
+{
+  "revision": "42391a3e86db16dfdac0736cbf5927efa6ada7f6",
+  "status": "failed",
+  "failure": {
+    "phase": "packaged-console",
+    "message": "packaged-console: browser failed; private log retained"
+  },
+  "installationSteps": [
+    {
+      "name": "fresh-archives-extracted",
+      "status": "passed"
+    },
+    {
+      "name": "gateway-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "engine-installed-from-archive",
+      "status": "passed"
+    },
+    {
+      "name": "one-code-pairing",
+      "status": "passed"
+    },
+    {
+      "name": "engine-sources-add",
+      "status": "passed"
+    }
+  ],
+  "browserStatus": "failed",
+  "browserFailure": {
+    "phase": "decide-column",
+    "message": "locator.click: Timeout 120000ms exceeded.\nCall log:\n  - waiting for locator('[data-data-table-row]').filter({ has: getByText('records', { exact: true }) })\n"
+  },
+  "browserSteps": [
+    {
+      "name": "owner-sign-in",
+      "status": "passed"
+    },
+    {
+      "name": "1-create-project",
+      "status": "passed"
+    },
+    {
+      "name": "2-engine-registered-verified",
+      "status": "passed"
+    },
+    {
+      "name": "3-source-connected-scanned",
+      "status": "passed"
+    },
+    {
+      "name": "project-query-limits",
+      "status": "passed"
+    },
+    {
+      "name": "4-pool-created",
+      "status": "passed"
+    }
+  ]
+}
