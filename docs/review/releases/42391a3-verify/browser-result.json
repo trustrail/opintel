@@ -1,0 +1,508 @@
+{
+  "status": "failed",
+  "steps": [
+    {
+      "name": "owner-sign-in",
+      "status": "passed"
+    },
+    {
+      "name": "1-create-project",
+      "status": "passed"
+    }
+  ],
+  "failure": {
+    "phase": "verify-engine",
+    "message": "locator.waitFor: Timeout 120000ms exceeded.\nCall log:\n  - waiting for getByText('First hour \u00b7 2 of 6 done') to be visible\n"
+  },
+  "browserErrors": 0,
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "network": [
+    {
+      "method": "GET",
+      "path": "/sign-in",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/providers",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/providers",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/request-link",
+      "status": 202
+    },
+    {
+      "method": "GET",
+      "path": "/check-email",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/auth/callback",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/callback",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/industries",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies/5be49253-ce76-4b43-9211-3f42173c959b/settings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies/5be49253-ce76-4b43-9211-3f42173c959b/paired-engines",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/projects",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/stats",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/runs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/stream",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/runs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/health",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/runs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/runs/summary",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/industries",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines/009db5d9-41d6-4a27-ba7c-bb8b43a2e53f/verify",
+      "status": 503
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/engines",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/pools",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/sources",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/ab51bf00-7daf-4f2b-bcb7-b60ce061b855/needs-you",
+      "status": 200
+    }
+  ]
+}
