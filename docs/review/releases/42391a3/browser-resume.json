@@ -1,0 +1,18 @@
+{
+  "status": "failed",
+  "failure": {
+    "phase": "decide-column",
+    "message": "locator.click: Timeout 120000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'id \u00b7 First pool \u00b7 undecided \u00b7 choose treatment', exact: true })\n"
+  },
+  "steps": [
+    {
+      "name": "owner-sign-in",
+      "status": "passed"
+    },
+    {
+      "name": "resumed-existing-project-pool",
+      "status": "passed"
+    }
+  ],
+  "browserErrors": 0
+}
