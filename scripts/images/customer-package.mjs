@@ -40,7 +40,8 @@ for(const kind of flags.includes('--agent-kit-only')?['agent-kit']:['gateway','e
  docker(['image','save','--platform',platform,'--output',join(directory,'images.tar'),...inventory.map(i=>i.image)]);
  if(application)auditPackage(directory);
  const archive=join(output,(kind==='agent-kit'?'agent-KIT':kind)+'-'+manifest.revision.slice(0,7)+'-'+platform.split('/')[1]+'.tar.gz');
- const tar=spawnSync('tar',['-czf',archive,'-C',output,kind],{stdio:'inherit',timeout:600000,env:{...process.env,LC_ALL:'C'}});if(tar.status!==0)throw new Error('Package archive failed.');
+ const metadataFlags=process.platform==='darwin'?['--no-mac-metadata','--no-xattrs','--no-acls','--no-fflags']:['--no-xattrs','--no-acls'];
+ const tar=spawnSync('tar',[...metadataFlags,'-czf',archive,'-C',output,kind],{stdio:'inherit',timeout:600000,env:{...process.env,LC_ALL:'C',COPYFILE_DISABLE:'1'}});if(tar.status!==0)throw new Error('Package archive failed.');
  if(kind==='gateway'){const packed=spawnSync('tar',['-xOf',archive,'gateway/package.env'],{encoding:'utf8',timeout:60000});if(packed.status!==0)throw new Error('Cannot audit archived customer environment.');auditCustomerEnvironment(packed.stdout);}
  console.log('Customer archive: '+archive);
 }

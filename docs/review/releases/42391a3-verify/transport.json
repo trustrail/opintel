@@ -1,0 +1,69 @@
+[
+  {
+    "event": "'engine.transport_attempt_started'",
+    "timestamp": "'2026-11-05T17:42:54.664Z'",
+    "callId": "'064af475-aa49-4748-bfdf-d87a568776cc'",
+    "path": "'/health'",
+    "attempt": "1",
+    "phase": "'dns'",
+    "dnsSkipped": "false",
+    "nativeErrorCode": "null"
+  },
+  {
+    "event": "'engine.transport_dns_completed'",
+    "timestamp": "'2026-11-05T17:42:54.675Z'",
+    "callId": "'064af475-aa49-4748-bfdf-d87a568776cc'",
+    "path": "'/health'",
+    "attempt": "1",
+    "phase": "'connect'",
+    "nativeErrorCode": "null"
+  },
+  {
+    "event": "'engine.transport_tcp_connected'",
+    "timestamp": "'2026-11-05T17:42:54.688Z'",
+    "callId": "'064af475-aa49-4748-bfdf-d87a568776cc'",
+    "path": "'/health'",
+    "attempt": "1",
+    "phase": "'tls'",
+    "nativeErrorCode": "null"
+  },
+  {
+    "event": "'engine.transport_failed'",
+    "timestamp": "'2026-11-05T17:43:05.932Z'",
+    "callId": "'064af475-aa49-4748-bfdf-d87a568776cc'",
+    "path": "'/health'",
+    "attempt": "1",
+    "phase": "'tls'",
+    "reason": "'ABORT_ERR'",
+    "written": "false",
+    "nativeErrorCode": "'ABORT_ERR'"
+  },
+  {
+    "event": "'engine.transport_attempt_completed'",
+    "timestamp": "'2026-11-05T17:43:06.015Z'",
+    "callId": "'064af475-aa49-4748-bfdf-d87a568776cc'",
+    "path": "'/health'",
+    "attempt": "1",
+    "phase": "'tls'",
+    "written": "false",
+    "dnsSkipped": "false",
+    "nativeErrorCode": "'ABORT_ERR'",
+    "dns": "10.804191999995965",
+    "tcp": "12.416496000005282",
+    "tls": "null",
+    "connect": "23.220688000001246",
+    "total": "11267.117742000002"
+  },
+  {
+    "event": "'engine.probe_refused'",
+    "timestamp": "'2026-11-05T17:43:06.196Z'",
+    "path": "'/health'",
+    "phase": "'tls'",
+    "stage": "'transport'"
+  },
+  {
+    "event": "'engine.verification_refused'",
+    "timestamp": "'2026-11-05T17:43:06.208Z'",
+    "stage": "'health'"
+  }
+]
