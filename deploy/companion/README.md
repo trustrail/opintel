@@ -49,6 +49,8 @@ This is the JSON document, not `companion.env`. The bundle contains only a Secre
 
 ### 3. Lint, install and store the credential
 
+**Before running `oap agent install` below, complete step 5, including both the containerd import and digest-name tag.** The probe runs during installation.
+
 ```sh
 oap agent lint deploy/companion/oap
 oap agent install deploy/companion/oap --namespace default
@@ -100,9 +102,10 @@ Choose **one** load route:
   ```sh
   set -o pipefail
   docker save "$COMPANION_TAG" | ssh -i "$HOME/Library/Application Support/oap/ap-vm-key" root@192.168.64.2 'k3s ctr -n k8s.io images import -'
+  ssh -i "$HOME/Library/Application Support/oap/ap-vm-key" root@192.168.64.2 'k3s ctr -n k8s.io images tag ghcr.io/trustrail/opintel-companion:369cf0c ghcr.io/trustrail/opintel-companion@sha256:2f3cc453765f03a0301c7cd51bc7a83592f89c150f2246f204c4fb2ebbe53d13'
   ```
 
-The Air's successful import preserved the index digest. OAP deliberately supplies no image pull Secret for user sidecars; authenticated host-side pull and VM import are required here. No package-visibility change is needed. Controllers may report pull/probe failures while the image is absent; wait for reconciliation after import.
+The Air's successful import preserved the index digest. OAP deliberately supplies no image pull Secret for user sidecars; authenticated host-side pull and VM import are required here. No package-visibility change is needed. The import and digest-name tag must both happen **before `oap agent install`**, because the probe runs at install. If installation already probed before the image was available under the digest name, bump the SidecarToolbox `spec.version` to trigger a new probe after import and tagging. Air reinstall evidence supplied by the user: Valid/Reachable/PinMatch succeeded after this tag, with no manual spec patches. This is user-reported acceptance evidence, not a new local OAP run.
 
 ### 6. Verify conditions, then run and open the sessions page
 

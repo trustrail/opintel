@@ -98,3 +98,25 @@ The imported index digest was preserved in the Air evidence.
 The user also observed `oap agent chat` browser sign-in HTTP 500; the cause is
 not established from supplied evidence. `oap agent run` and the web sessions page
 worked. No claim is made that this companion change fixes that OAP sign-in path.
+
+## 7. OpenAI web sessions reject null content after tool-only turns
+
+User-observed on the Air: web sessions using the OpenAI provider fail after
+tool-only turns with HTTP 400, `Invalid value for 'content'`; the request sends
+`messages[].content` as null. Inspected adapter path:
+`pkg/agent/llm/openaicompat/translate.go:84-110` builds an assistant message with
+ToolCalls and assigns Content.OfString only when textParts is nonempty. That
+source establishes the omitted-content construction; the null wire value and
+provider rejection are the supplied runtime observation, not locally reproduced
+wire evidence. Upstream should add a tool-only-turn serialization regression
+against the affected OpenAI endpoint and correct its request shape.
+
+## 8. Web sessions page shows no turns while a session runs
+
+User-observed on the Air: the web sessions page displays no turns while the
+session is running. The streaming/subscription or persistence cause is not
+established from retained evidence; no local OAP reproduction was performed.
+The relevant UI surface is `web/packages/agentui` (session view); the exact
+failing code path is not established. Upstream should retain session events and
+browser subscription responses to distinguish absent events from a rendering
+failure. This is distinct from a completed answer ending `Failed: Stalled`.
