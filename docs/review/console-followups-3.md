@@ -38,8 +38,7 @@ a non-reproducing timing failure, not proof of its underlying cause.
 The standard production build and review capture passed (22.35-second capture):
 no page errors and no failed HTTP responses. The development capture initially
 used an obsolete proxy override and an incomplete checkbox selector; the final
-harness uses production preview and the actual accessible label. No full gate
-has run yet.
+harness uses production preview and the actual accessible label. The single full-gate result is recorded below.
 
 The initial targeted run exposed the missing certificate column in the retention/
 export view; forward migration 103 corrects that without editing applied migrations.
@@ -81,3 +80,37 @@ are tested in `foundations.test.ts`. The captured eight screen/theme combination
 were visually inspected; tokens remain legible on the dark band. The existing
 condition-builder layout and truncated long Settings subtitles remain unchanged;
 this task changes theme behavior, not those layouts.
+
+## Single full gate — failed, no retry
+
+Implementation candidate: `36a3c36d0e33b567a6b49bd33c79e64b08eab0bc`.
+Command: `npm run check`. Exit 1; wall time 2,736.65 seconds.
+
+- Preflight passed: Docker 7.75 GiB usable; PostgreSQL and Redis reachable; fresh
+  gate database migrated from zero.
+- Strict typecheck, conformance typecheck, lint and production artifact: passed.
+- Control conformance: 38 passed, 28/28 screen routes, zero distinct findings.
+- Normal tests: **2,306 passed, 1 failed; 271 files passed, 1 file failed**.
+- Failed: `test/database-deadline-runner.test.ts:9`, `runner control: deadline`.
+  Exact error: `Test timed out in 15000ms.` Reported test duration: 15,035 ms.
+  The same file's lock and unconfirmed controls passed (6,314 ms and 1,100 ms).
+- Smoke was **not reached**. No standalone smoke run or full-gate retry was made.
+- Gate cleanup passed. No product change was made after this result.
+
+The runner-control test and database runner are unchanged from main `67d8f14`
+(`git diff 67d8f14...36a3c36 -- test/database-deadline-runner.test.ts
+scripts/testing/database-runner.ts` is empty). Its 15-second guard includes the
+child Vitest process startup. The observed fact is a timeout; the underlying
+cause has **not been established**. This report does not classify it as an
+environment failure or claim the gate passed.
+
+All CONSOLE-03 targeted files also passed inside this gate, including identity
+binding, MCP receipt snapshots, evidence retention/export, settings, credential
+checks and the new migrations. `test/provisioning-runtime.test.mjs` passed 3 tests.
+
+[Gate metadata](console-followups-3/gate.json) ·
+[Failure and totals](console-followups-3/gate-failure.txt).
+Full retained log: `/private/tmp/console03-gate-36a3c36.log`.
+
+Implementation and screenshots were committed and pushed as `36a3c36` before the
+gate. The closing report commit changes documentation/evidence only. Not merged.

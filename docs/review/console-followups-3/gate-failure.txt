@@ -1,0 +1,20 @@
+ FAIL  test/database-deadline-runner.test.ts > runner control: deadline
+Error: Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/database-deadline-runner.test.ts:9:44
+      7| import { expect, it } from 'vitest';
+      8|
+      9| it.for(['deadline', 'lock', 'unconfirmed'])('runner control: %s', asyn…
+       |                                            ^
+     10|   const directory = await mkdtemp(join(tmpdir(), 'opintel-deadline-con…
+     11|   try {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 271 passed (272)
+      Tests  1 failed | 2306 passed (2307)
+   Start at  23:22:30
+   Duration  1955.93s (transform 22.42s, setup 5.76s, import 245.70s, tests 1604.40s, environment 596ms)
+
+Gate wall time: 2736.65s
