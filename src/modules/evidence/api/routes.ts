@@ -1,3 +1,4 @@
+import {Provenance} from '../../../shared/api/provenance.js';
 import {z} from 'zod';
 import {defineRoute,errorEnvelopeSchema} from '../../../platform/http/index.js';
 import {DomainError,ProjectId,RunId} from '../../../shared/kernel/index.js';
@@ -5,6 +6,7 @@ import {ActivityQuery,ActivityFilters,ActivityPage,ActivitySummary,ActivitySumma
 import type {EvidenceQuery,EvidencePosition} from '../application/read.js';
 const cursor=z.object({project:z.uuid(),filters:ActivityFilters,after:z.object({id:z.uuid(),at:z.iso.datetime({offset:true})})});
 export function evidenceRoutes(service:EvidenceQuery){return [
+ defineRoute({method:'GET',path:'/api/v1/projects/:id/provenance/:receiptId',params:z.object({id:z.uuid(),receiptId:z.uuid()}),request:z.undefined(),permission:{resource:'project',id:r=>r.params.id,permission:'view'},response:z.union([Provenance,errorEnvelopeSchema]),handle:async r=>{const result=await service.provenance({projectId:ProjectId(r.params.id),userId:r.actor.id},RunId(r.params.receiptId));if(!result.ok)throw result.error;return {headers:{'Cache-Control':'no-store'},body:result.value};}}),
  defineRoute({method:'GET',path:'/api/v1/projects/:id/runs/summary',params:z.object({id:z.uuid()}),request:z.undefined(),query:ActivitySummaryQuery,permission:{resource:'project',id:r=>r.params.id,permission:'view'},response:z.union([ActivitySummary,errorEnvelopeSchema]),handle:async r=>{const result=await service.summary({projectId:ProjectId(r.params.id),userId:r.actor.id},r.query);if(!result.ok)throw result.error;return {headers:{'Cache-Control':'no-store'},body:result.value};}}),
  defineRoute({method:'GET',path:'/api/v1/projects/:id/runs',params:z.object({id:z.uuid()}),request:z.undefined(),query:ActivityQuery,permission:{resource:'project',id:r=>r.params.id,permission:'view'},response:z.union([ActivityPage,errorEnvelopeSchema]),handle:async r=>{
   const filters=ActivityFilters.parse(r.query);let after:EvidencePosition|null=null;

@@ -1,7 +1,8 @@
+import {ProvenanceSupplement} from '../application/provenance.js';
 import {rowScopeReceipt} from '../../../shared/row-scope-contract.js';
 import {z} from 'zod';
 import {withTenant,withPlatform} from '../../../platform/db/scope.js';
-import {ok,err,DomainError,type RunId} from '../../../shared/kernel/index.js';
+import {ok,err,DomainError,RunId} from '../../../shared/kernel/index.js';
 import {ActivityEntry,ActivityMetadata,ActivitySummary,EvidenceDetail,type ActivityFilters,type ActivitySummaryFilters} from '../../../shared/api/activity.js';
 import type {EvidenceContext,EvidencePosition,EvidenceReader} from '../application/read.js';
 export const time=(column:string)=>`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
@@ -36,6 +37,18 @@ const storedRowScopeReceipt=z.union([rowScopeReceipt,legacyRowScopeReceipt]);
 const storedScopes=z.object({rowPreview:ActivityMetadata.shape.rowPreview,rowScopes:z.array(storedRowScopeReceipt).optional()});
 function entry(row:Record<string,unknown>){const legacy=typeof row.versions==='object'&&row.versions!==null&&'tokenKey' in row.versions?legacyVersions.safeParse(row.versions):null;const objects=storedObjects.safeParse(row.sourcePlan??{});return ActivityEntry.parse({...row,metadata:ActivityMetadata.parse({rowPreview:storedScopes.parse(row.sourcePlan??{}).rowPreview,rowScopes:storedScopes.parse(row.sourcePlan??{}).rowScopes,objects:objects.success?objects.data.objects:null,delivered:row.delivered??{},omissions:row.omissions??{}}),versions:legacy?.success?{policy:legacy.data.policy,catalog:legacy.data.catalog,vocabulary:legacy.data.vocabulary,tokenKeyVersionSelected:legacy.data.tokenKey||null}:row.versions});}
 export class PostgresEvidenceReader implements EvidenceReader {
+ async provenance(ctx:EvidenceContext,id:RunId){
+  return withTenant(ctx,async tx=>{
+   const [row]=await tx.query<{id:string;at:string;rows:unknown;grants:unknown;limits:unknown;floor:unknown;cause:unknown}>(`SELECT r.id,${time('r.started_at')} AS at,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'sequence',d.sequence::text,'expression',d.expression,'objectId',d.object_id) ORDER BY d.sequence) FROM row_entitlement d WHERE d.project_id=r.project_id AND EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(c.source_plan->'rowScopes','[]'::jsonb)) scope WHERE scope->>'decisionId'=d.id::text OR scope->'decisionIds' @> to_jsonb(d.id::text))),'[]') AS rows,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('id',g.id,'columns',g.claims->'cols','issued',to_timestamp((g.claims->>'iat')::double precision),'expires',g.expires_at,'state',g.state,'redeemed',(SELECT min(e.occurred_at) FROM release_event e WHERE e.project_id=r.project_id AND e.grant_id=g.id AND e.kind='redeemed')) ORDER BY (g.claims->>'iat')::bigint,g.id) FROM release_grant g WHERE g.project_id=r.project_id AND g.receipt_id=r.id),'[]') AS grants,
+    c.source_plan->'executionSettings'->'limits' AS limits,c.source_plan->'executionSettings'->'aggregateMinGroupSize' AS floor,
+    (SELECT s.detail->>'cause' FROM run_stage s WHERE s.run_id=r.id AND s.started_at=r.started_at AND s.result='refuse' AND s.stage=c.outcome->>'stage' LIMIT 1) AS cause
+    ${joined} WHERE r.project_id=$1 AND (r.id=$2 OR r.id=(SELECT g.receipt_id FROM release_grant g WHERE g.project_id=$1 AND g.id=$2)) ORDER BY r.started_at DESC LIMIT 1`,[ctx.projectId,id]);
+   if(!row)return err(new DomainError('not_found','No retained receipt was found for this receipt or release in this project.'));
+   return ok({id:RunId(row.id),at:row.at,supplement:ProvenanceSupplement.parse(row)});
+  });
+ }
  async settings(ctx:EvidenceContext){const [row]=await withPlatform(tx=>tx.query<{settings:unknown}>('SELECT settings FROM project WHERE id=$1',[ctx.projectId]));return row?.settings;}
  async list(ctx:EvidenceContext,filters:ActivityFilters,after:EvidencePosition|null,limit:number){
   const {params,where}=activityScope(ctx.projectId,filters);

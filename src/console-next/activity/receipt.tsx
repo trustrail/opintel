@@ -23,6 +23,7 @@ export function ReceiptBody({project,r,facts}:{project:Project;r:EvidenceDetail;
  {(r.status==='refused'||r.status==='failed')&&<Row name="Reason" icon="refused" reason><span data-refusal-reason><p>{refusalSentence(r)}</p><span data-refusal-context>{refusalColumns(r).map(name=><KindChip key={name} kind="column" name={name}/>)}{r.objects.map(o=><KindChip key={`${o.catalog}.${o.schema}.${o.name}`} kind="table" kindLabel="table or view; kind not recorded" name={o.name}/>)}</span>{r.refusalCode&&<small data-refusal-code>{r.refusalCode}</small>}</span></Row>}
  {r.releaseEvents.length>0&&<Row name="Custody" icon="custody"><span data-kind-chip title="Count of recorded release events; state is the latest recorded grant, revocation or expiry. This does not prove decryption.">{custodyChip(r)}</span></Row>}
  {!captured(r)&&!r.releaseEvents.length&&<Row name="Custody" icon="custody"><span>not captured</span></Row>}
+ <Row name="Provenance" icon="receipt"><a href={'/?'+new URLSearchParams({project:project.id,screen:'activity',provenance:r.id})}>Provenance</a></Row>
  <Row name="When" icon="activity"><time dateTime={r.startedAt}>{stamp(r.startedAt)}</time></Row>
  </ul></>;
 }

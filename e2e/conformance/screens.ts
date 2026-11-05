@@ -1,9 +1,10 @@
-import {screens,settingsSections,poolTabs,dataTabs,accountDialogs} from '../../src/console-next/routing.js';
+import {provenanceParameter,screens,settingsSections,poolTabs,dataTabs,accountDialogs} from '../../src/console-next/routing.js';
 import {consoleAuthPaths} from '../../src/shared/console-destinations.mjs';
 /** Enumerate the same registries consumed by the application; a new screen,
  * settings section, tab or URL-owned dialog necessarily adds a required visit. */
 export function screenPaths():string[]{return [...new Set([
  ...consoleAuthPaths,
+ '/?screen=activity&'+provenanceParameter+'=00000000-0000-4000-8000-000000000001',
  ...screens.map(screen=>'/?screen='+screen),
  ...settingsSections.map(section=>'/?screen=settings&section='+section),
  ...poolTabs.map(tab=>'/?screen=pools&tab='+tab),

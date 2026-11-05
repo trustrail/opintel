@@ -1622,3 +1622,18 @@ Project administrators can replace write-only XQ credentials after the existing
 provider check succeeds. AES-256-GCM project-bound encryption protects stored
 overrides; installation values remain the fallback. Existing live-grant count
 confirmation/revocation gates rotation. Audit entries contain no credential values.
+
+## CONSOLE-04 — Stored provenance and governance vocabulary
+
+Read-only receipt/release provenance uses the existing receipt view permission
+and SQL visibility policy. Six ordered steps expose only projected stored facts,
+with field-level and step-level recording flags. No receipt writes, backfills,
+current credential bindings, or current catalogue decisions are used. Historical
+credential labels/kinds, engine identity, contributor keys and write-time
+redaction policies remain explicit gaps when absent. Recorded execution limits
+and aggregate floors are projected from the receipt's source plan. Custody's
+redeemed state means Opintel released K2, not proof of local decryption.
+
+Console navigation calls Data Catalog, Pools Entitlements, Activity Audit;
+API/database names and existing screen destinations stay stable. Provenance
+opens in the existing dialog and list patterns; no CSS classes are introduced.

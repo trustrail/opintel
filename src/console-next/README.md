@@ -86,3 +86,17 @@ Receipts display current credential names as current, and retrieve immutable
 recorded row decision ids only for authorized roles. Missing detail never becomes
 zero. Four manual capture links and every design difference are documented in
 `docs/review/console-backend/activity.md`. No full gate or merge for this phase.
+
+## Governance vocabulary and recorded provenance
+
+Navigation uses Catalog (reachable data and classification), Entitlements
+(access rules grouped into pools), Audit (requests and recorded receipts), and
+Settings. Existing `data`, `pools`, and `activity` screen parameters and all API
+paths remain unchanged. Each rail destination has a glossary tooltip.
+
+Audit receipt → Provenance opens six expandable steps: Request, Policy applied,
+Sources, Execution, Custody, Evidence. `?screen=activity&provenance=ID` accepts a
+receipt or release grant ID. Entitlements → pool → Custody links each retained
+release; Home's Custody number links the latest retained release when available.
+Provenance reads stored records only: missing historical facts say “not recorded”.
+“Redeemed” records Opintel releasing its key share, not proof of decryption.

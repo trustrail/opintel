@@ -77,7 +77,7 @@ it('derives Data/Pools and Settings attention only from matching needs-you kinds
  expect(needsAreas([needs[1]!])).toEqual({Home:true,Activity:false,Pools:true,Data:true,Settings:false});
  expect(needsAreas([needs[0]!])).toEqual({Home:true,Activity:false,Pools:false,Data:false,Settings:true});
  const view=render(<HomeView project={project} projects={[project]} data={{...data,needs:[needs[1]!]}} health={health} live onProject={()=>{}}/>,{wrapper});
- for(const name of ['Pools','Data'])expect(screen.getByRole('link',{name}).querySelector('[data-attention]')).toBeTruthy();expect(screen.getByRole('link',{name:'Settings'}).querySelector('[data-attention]')).toBeNull();view.unmount();
+ for(const name of ['Entitlements','Catalog'])expect(screen.getByRole('link',{name}).querySelector('[data-attention]')).toBeTruthy();expect(screen.getByRole('link',{name:'Settings'}).querySelector('[data-attention]')).toBeNull();view.unmount();
  expect(poolBadge('C2 Cedant 02')).toBe('C2');expect(poolBadge('Query pool')).toBe('QP');
 });
 it('health hover/focus exposes the actual reason, and entity icons name their kinds',async()=>{
@@ -115,4 +115,8 @@ it('groups only settings edited in the same form, preserving decisions and linki
  const result=groupSettingNeeds([...settings,...needs],id);expect(result).toHaveLength(3);expect(result[0]).toMatchObject({title:'Set query limits · 4 values',count:4,targetRoute:`?project=${id}&screen=settings&section=query&edit=true`,roles:['admin']});expect(result.slice(1)).toEqual(needs);
  const view=render(<HomeView project={project} projects={[project]} data={{...data,needs:settings,stats:{...stats,spectrum:{clear:0,tokenized:0,masked:0,aggregate_only:0,custody:0,withheld:0,undecided:0}},minutes:[{at:now.toISOString(),requests:0,refused:0,custody:0}]}} health={health} live onProject={()=>{}}/>,{wrapper});
  expect(screen.getByText('Set query limits · 4 values')).toBeTruthy();expect(view.container.querySelectorAll('[data-needs-row]')).toHaveLength(1);expect(view.container.querySelector('[data-workbench]')?.getAttribute('data-exposure-visible')).toBe('false');expect(screen.getByText('No requests yet')).toBeTruthy();expect(screen.queryByRole('img',{name:/one-minute buckets/})).toBeNull();
+});
+it('Home Custody links the latest recorded release provenance without changing API routes',()=>{
+ render(<HomeView project={project} projects={[project]} data={data} health={health} live onProject={()=>{}} latestRelease={other}/>,{wrapper});
+ const link=screen.getByRole('link',{name:'9 Custody, today UTC'});expect(link.getAttribute('href')).toContain('screen=activity');expect(link.getAttribute('href')).toContain('provenance='+other);
 });
