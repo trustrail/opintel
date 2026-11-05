@@ -28,7 +28,12 @@ No new CSS classes, API routes, grants or receipt changes. The existing response
 - Targeted integration/contracts/migrations: 63 files, 298 tests passed; supplementary schema/migration and HTTP-authentication checks: 5 files, 58 tests passed. This includes every migration up/down and migration-fixture test, table grants, MCP contracts and DEP-008 packaging/provisioning.
 - Console: 13 files, 165 tests passed (exit 0); final list/copy/date recheck: 2 files, 66 tests passed. Early in-progress checks exposed two outdated/ambiguous test selectors, corrected without weakening assertions, and three existing row-builder tests hit their 5-second deadline; the final run passed with those deadlines unchanged. Happy DOM emitted socket/abort teardown diagnostics in the full console run; its assertions and exit status passed.
 - Strict typecheck and unchanged lint/boundary checks passed.
-- Single completed-candidate `npm run check`: pending.
+- Single completed-candidate `npm run check` on `65f4aea`: both typechecks, lint/boundaries, production artifact, 38 conformance checks (28/28 screen routes, zero findings), and all 2,301 normal tests in 271 files passed. The browser/MCP smoke scenario exceeded its 30-second deadline (31.8 seconds); the gate exited 1 after 2,750.33 seconds. The failure also logged `budget_exceeded` during query validation and an MCP connection-close error during teardown. These are recorded, not suppressed.
+- The one permitted standalone `npm run test:smoke` retry on the unchanged `65f4aea` passed: one scenario in 15.9 seconds (45.1 seconds including setup), exit 0. No timeout, assertion or product code changed; the full gate was not rerun. This matches the previously observed Intel-host deadline pattern but does not independently establish the timeout's root cause. Validation is recorded as all preceding gate tiers passed plus standalone smoke passed, not as an exit-0 full gate.
+
+Candidate implementation commit: `65f4aeac5616f1955cb513d08a6baa37472b9246`, pushed to `origin/fix/console-followups-2`. This final report update is docs-only. No merge.
+
+Gate evidence: `/private/tmp/console02-gate-65f4aea.log`; original gate JSON, smoke trace and error context retained under `/private/tmp/console02-first-smoke/`; standalone smoke log `/private/tmp/console02-smoke-once-65f4aea.log`.
 
 Logs on the development host: `/private/tmp/console02-targeted.log`, `console02-targeted-final.log`, `console02-console-final.log`, `console02-list-controls.log`, `console02-typecheck-final.log`, `console02-lint.log` (all under `/private/tmp/`). Test names above provide the requested per-item evidence; no production deployment or cloud-session verification is claimed.
 
