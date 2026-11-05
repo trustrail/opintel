@@ -106,7 +106,8 @@ navigation are retained.
   Strict typecheck, lint, production-artifact exclusion and all 40 conformance
   checks passed (30/30 routes, zero findings). Normal tests stopped early:
   143 files passed, 4 files failed; 1,057 tests passed and 4 failed.
-  Smoke was not reached. No gate or test rerun was performed after this failure.
+  Smoke was not reached. No full-gate rerun was performed. The separately
+  authorized isolation follow-up is recorded below.
 
 ### Gate failure evidence
 
@@ -132,6 +133,47 @@ or test correction and no merge.
 Implementation and screenshots: commit `b461582`, pushed to
 `origin/fix/console-provenance-design`. This report update is a separate docs-only
 commit; application code remains the candidate tested above.
+
+## Authorized isolation follow-up — 2026-11-05
+
+Tested revision: `46ca0de` (application code remains `b461582`). Each file ran
+once, sequentially, with `/usr/bin/time -p npm test -- FILE`, using the unchanged
+normal isolated datastore harness. No competing gate, Vite build, Docker build
+or test runner was present in the pre-run process listing. Development Postgres
+and Redis were healthy. The initial load averages were 5.87 / 15.16 / 20.47;
+this records the observed conditions rather than assuming zero host load.
+
+| File | Result | Test execution | Vitest total | Command including setup/cleanup |
+|---|---|---:|---:|---:|
+| `test/bulk-entitlements.test.ts` | 24 passed | 46.31 s | 54.54 s | 103.28 s |
+| `test/element-declarations.test.ts` | 10 passed | 31.31 s | 38.35 s | 57.99 s |
+| `test/normal-redis.test.ts` | 1 passed | 4.60 s | 8.69 s | 30.16 s |
+| `test/observation-groups.test.ts` | Failed before a test body ran; 1 failure reported out of 8 tests | 0 ms | 16.49 s | 35.12 s |
+
+The previously failing bulk missing-epoch case passed in 1.338 s, DECL-003 in
+4.230 s, and Redis FLUSHDB isolation in 4.584 s. All three commands exited 0.
+Observation groups exited 1. Its first printed error was:
+
+> Database test run stopped: cleanup could not be confirmed or a reset was blocked. No further tests may use this database.
+
+The stack is `stopDatabaseRun` at `scripts/testing/database-deadline.ts:48`,
+`DatabaseOwner.clean:201`, `DatabaseOwner.drain:141`, then `databasePhase:291`.
+The log does not establish the underlying cleanup failure or reset blocker.
+No root cause is inferred from the wrapper error.
+
+Per the stop rule, **smoke was not run** after this failure. No retries, full gate,
+application changes, harness changes or test changes followed. The original gate
+remains recorded as failed; the three passing isolated files do not rewrite it.
+
+Retained complete output and timing:
+
+- `/private/tmp/provenance-isolated-bulk-entitlements.log`
+- `/private/tmp/provenance-isolated-element-declarations.log`
+- `/private/tmp/provenance-isolated-normal-redis.log`
+- `/private/tmp/provenance-isolated-observation-groups.log`
+
+The failed run's standard metadata is in
+`test-results/normal/97edc5e0-81a7-4d3e-b6d1-8c7c3962222c/`.
 
 ## Screenshots
 
