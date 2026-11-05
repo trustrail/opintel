@@ -153,3 +153,57 @@ it('ACT-15M: bucket option groups UTC boundaries, partitions outcomes and preser
  expect(ActivitySummary.parse(await(await fetch(path+'?'+range+'&poolId='+randomUUID())).json()).buckets).toEqual([]);
  view=false;expect((await fetch(path+'?'+range)).status).toBe(404);
 });
+
+it('provenance: historical gaps stay missing; same receipt permission and project isolation',async()=>{
+ const h=await header();const path=`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`;
+ const response=await fetch(path);expect(response.status).toBe(200);const record=await response.json();
+ expect(record.steps.map((s:{kind:string})=>s.kind)).toEqual(['request','policy','sources','execution','custody','evidence']);
+ expect(record.steps[0].facts).toContainEqual(expect.objectContaining({key:'certificate',recorded:false,value:null}));
+ expect(record.steps[0].facts).toContainEqual(expect.objectContaining({key:'credentialLabel',recorded:false,value:null}));
+ expect(record.steps[5].facts).toContainEqual(expect.objectContaining({key:'writeRedaction',recorded:false,value:null}));
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'sql',value:null}));
+ expect((await fetch(`${base}/api/v1/projects/${randomUUID()}/provenance/${h.id}`)).status).toBe(404);
+ view=false;expect((await fetch(path)).status).toBe(404);
+});
+it('provenance: refused request returns the stored cause without arbitrary stage details',async()=>{
+ const h=await header();await withTenant(f.ctx,async tx=>{
+  await tx.query("INSERT INTO run_stage(run_id,started_at,stage,result,detail,ms) VALUES($1,$2,'validate','refuse',$3,7)",[h.id,h.startedAt,{code:'sql_not_permitted',cause:'source_not_bound',privateDetail:'never-return-this'}]);
+  await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,latency_ms,completed_at) VALUES($1,$2,$3,7,$2)',[h.id,h.startedAt,{kind:'refused',code:'sql_not_permitted',stage:'validate',element:null}]);
+ });
+ const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`);expect(response.status).toBe(200);const raw=await response.text();expect(raw).not.toContain('never-return-this');const record=JSON.parse(raw);
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'cause',value:'source_not_bound',recorded:true}));
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'outcome',value:'refused'}));
+});
+it('provenance: served custody and release-first lookup return the same stored chain without shares or claims',async()=>{
+ await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
+ const h=await header(),grant=randomUUID();await withTenant(f.ctx,async tx=>{
+  await tx.query("INSERT INTO run_element(run_id,started_at,element_id,exposed_name,state,treatment) VALUES($1,$2,$3,'amount','released','custody')",[h.id,h.startedAt,f.ids[0]]);
+  await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,source_plan,latency_ms,completed_at) VALUES($1,$2,$3,$4,12,$2)',[h.id,h.startedAt,{kind:'answered',rowCount:2,truncated:false},{executionSettings:{limits:{timeoutMs:5000},aggregateMinGroupSize:5}}]);
+  await tx.query("INSERT INTO release_grant(id,project_id,scope_user_id,receipt_id,claims,grant_jws,expires_at,share,state) VALUES($1,$2,$3,$4,$5,'never-return-jws',now(),NULL,'redeemed')",[grant,f.ctx.projectId,f.ctx.userId,h.id,{cols:['amount'],iat:Math.floor(Date.parse(h.startedAt)/1000),custody:{provider:'local',tenant:'never-return-tenant',locator:'never-return-locator'}}]);
+  await tx.query("INSERT INTO release_event(project_id,grant_id,receipt_id,kind,alias,occurred_at) VALUES($1,$2,$3,'redeemed','alias',clock_timestamp())",[f.ctx.projectId,grant,h.id]);
+ });
+ const load=async(id:string)=>{const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${id}`);expect(response.status).toBe(200);return response.json();};
+ const record=await load(h.id);expect(await load(grant)).toEqual(record);expect(JSON.stringify(record)).not.toContain('never-return');
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'outcome',value:'served'}));
+ expect(record.steps[4].facts).toContainEqual(expect.objectContaining({key:'state:'+grant,value:'redeemed'}));
+ expect(record.steps[1].facts).toContainEqual(expect.objectContaining({key:'limits',value:'{"timeoutMs":5000}'}));
+});
+it('provenance contract declares receipt view permission and exactly six ordered steps',async()=>{
+ const {Provenance,provenanceOpenApiDocument}=await import('../src/shared/api/provenance.js');
+ expect(provenanceOpenApiDocument().paths['/api/v1/projects/{id}/provenance/{receiptId}'].get['x-permission']).toBe('project#view');
+ const h=await header();const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`);expect(response.status).toBe(200);
+ const record=Provenance.parse(await response.json());expect(record.steps).toHaveLength(6);
+ expect(Provenance.safeParse({...record,steps:[...record.steps].reverse()}).success).toBe(false);
+ expect(Provenance.safeParse({...record,steps:record.steps.map(s=>({...s,facts:[{key:'invented',label:'Invented',recorded:true,value:null}]}))}).success).toBe(false);
+});
+it('provenance resolves only the row decision IDs recorded on the receipt, never a later rule',async()=>{
+ const {PostgresRowDecisions}=await import('../src/modules/entitlements/infrastructure/row-decisions.js');
+ const {ObjectId}=await import('../src/shared/kernel/index.js');
+ await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
+ const [object]=await withTenant(f.ctx,tx=>tx.query<{id:string}>('SELECT object_id AS id FROM catalog_element WHERE id=$1',[f.ids[0]]));
+ const repo=new PostgresRowDecisions(),first=await repo.save(f.ctx,f.pool,ObjectId(object!.id),`"field_1" = 'first'`);if(!first.ok)throw first.error;
+ const h=await header();await withTenant(f.ctx,tx=>tx.query('INSERT INTO run_completion(run_id,started_at,outcome,source_plan,completed_at) VALUES($1,$2,$3,$4,$2)',[h.id,h.startedAt,{kind:'answered',rowCount:1,truncated:false},{rowScopes:[{objectId:object!.id,objectName:'warehouse.public.records',poolId:f.pool,decisionId:first.value.id,decisionIds:[first.value.id],hash:first.value.hash,columns:['field_1'],returnedRows:1,provenance:'agent credential',missingDecision:false}]}]));
+ const later=await repo.save(f.ctx,f.pool,ObjectId(object!.id),`"field_1" = 'later'`);if(!later.ok)throw later.error;
+ const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`);expect(response.status).toBe(200);const raw=await response.text();expect(raw).toContain(first.value.id);expect(raw).not.toContain(later.value.id);expect(raw).not.toContain("'later'");
+ expect(JSON.parse(raw).steps[1].facts).toContainEqual(expect.objectContaining({key:'expression:'+first.value.id,value:first.value.expression}));
+});

@@ -1,11 +1,13 @@
+import {buildProvenance,type ProvenanceSupplement} from './provenance.js';
 import {projectSettingSchema} from '../../../shared/project-settings.js';
 import {z} from 'zod';
-import {ok,type ProjectId,type UserId,type RunId,type Result} from '../../../shared/kernel/index.js';
+import {ok,err,DomainError,type ProjectId,type UserId,type RunId,type Result} from '../../../shared/kernel/index.js';
 import type {AuthorizationPort} from '../../authz/index.js';
 import {ActivityEntry,EvidenceDetail,type ActivityFilters,type ActivitySummaryFilters,type ActivitySummary} from '../../../shared/api/activity.js';
 export type EvidenceContext={projectId:ProjectId;userId:UserId};
 export type EvidencePosition={id:RunId;at:string};
 export interface EvidenceReader {
+ provenance?(ctx:EvidenceContext,id:RunId):Promise<Result<{id:RunId;at:string;supplement:ProvenanceSupplement}>>;
  settings(ctx:EvidenceContext):Promise<unknown>;
  list(ctx:EvidenceContext,filters:ActivityFilters,after:EvidencePosition|null,limit:number):Promise<Result<ActivityEntry[]>>;
  summary(ctx:EvidenceContext,filters:ActivitySummaryFilters):Promise<Result<ActivitySummary>>;
@@ -39,6 +41,12 @@ export class EvidenceQuery {
   const settings=await this.visibility(ctx),result:EvidenceDetail[]=[];
   for(const row of rows){const redacted=await this.redact(row,settings);result.push({...redacted,generatedSql:settings.redaction==='none'?row.generatedSql:settings.redaction==='allowlist'&&settings.allowlistedFields.includes('sql')&&row.generatedSql?await this.text.stripSql(row.generatedSql):null});}
   return ok(result);
+ }
+ async provenance(ctx:EvidenceContext,id:RunId){
+  if(!this.reader.provenance)return err(new DomainError('dependency_unavailable','Provenance reader is unavailable.'));
+  const lookup=await this.reader.provenance(ctx,id);if(!lookup.ok)return lookup;
+  const detail=await this.detail(ctx,lookup.value.id,lookup.value.at);if(!detail.ok)return detail;
+  return ok(buildProvenance(detail.value,lookup.value.supplement));
  }
  async detail(ctx:EvidenceContext,id:RunId,at:string){
   const row=await this.reader.detail(ctx,id,at);if(!row.ok)return row;

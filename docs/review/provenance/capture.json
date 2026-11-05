@@ -1,0 +1,180 @@
+{
+  "screenshots": [
+    "request-1440-light.png",
+    "custody-1440-light.png",
+    "request-390-light.png",
+    "custody-390-light.png"
+  ],
+  "errors": [],
+  "responses": [
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/provenance/01a1ac2a-7783-7f12-bf34-5a37f8e68f4f",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-68gKBnEb.js",
+      "status": 304
+    },
+    {
+      "path": "/assets/index-Cl7liKU6.css",
+      "status": 304
+    },
+    {
+      "path": "/fonts/InterVariable.woff2",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/stream",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/pools",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/runs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/30e8da12-c1b2-4852-8f3c-a2ea2132d84b",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d/tables",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d/entitlement-members",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d/agents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/pools/f2914178-a93e-4982-b801-9ede2f0af26d",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/needs-you",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/runs/summary",
+      "status": 200
+    },
+    {
+      "path": "/opintel-logo.png",
+      "status": 304
+    },
+    {
+      "path": "/api/v1/projects/2b8e8125-5b66-47c4-ac69-12f95524b297/provenance/01a1ac2a-7783-7f12-bf34-5a37f8e68f4f",
+      "status": 200
+    }
+  ],
+  "fixture": "Isolated database and real API projections; injected fixture administrator; local custody; no cloud deployment."
+}

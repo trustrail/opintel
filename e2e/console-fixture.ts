@@ -12,6 +12,7 @@ export async function mockConsole(page:Page,{welcome=false}:{welcome?:boolean}={
  await page.route('**/deployment.json',r=>r.fulfill({json:{selfSignedTls:true}}));
  await page.route('**/api/v1/**',r=>{
   const u=new URL(r.request().url()),path=u.pathname,tail=path.split('/').at(-1);
+  if(path.includes('/provenance/'))return r.fulfill({json:{receiptId:project,projectId:project,startedAt:at,steps:['request','policy','sources','execution','custody','evidence'].map(kind=>({kind,title:kind,recorded:false,facts:[{key:kind,label:kind,recorded:false,value:null,copyable:false}]}))}});
   let value:unknown=empty;
   if(path.endsWith('/auth/providers'))value={magicLink:true,providers:[],enforced:null};
   else if(path.endsWith('/auth/callback'))return r.fulfill({status:503,json:{error:{code:'dependency_unavailable',message:'Sign-in unavailable. Request a new link.',requestId:'conformance',retryable:true}}});

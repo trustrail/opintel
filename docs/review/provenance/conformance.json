@@ -1,0 +1,494 @@
+{
+  "status": "passed",
+  "scope": "full",
+  "coverageComplete": true,
+  "coverage": [
+    {
+      "screen": "/?dialog=new-project",
+      "visited": true,
+      "headings": [
+        "New project",
+        "Needs you 8"
+      ],
+      "states": [
+        "dialog"
+      ]
+    },
+    {
+      "screen": "/?dialog=you",
+      "visited": true,
+      "headings": [
+        "You",
+        "Needs you 8"
+      ],
+      "states": [
+        "dialog"
+      ]
+    },
+    {
+      "screen": "/?screen=activity",
+      "visited": true,
+      "headings": [
+        "All pools"
+      ],
+      "states": [
+        "empty-or-message",
+        "dialog",
+        "expanded"
+      ]
+    },
+    {
+      "screen": "/?screen=activity&provenance=00000000-0000-4000-8000-000000000001",
+      "visited": true,
+      "headings": [
+        "All pools"
+      ],
+      "states": [
+        "empty-or-message",
+        "dialog",
+        "expanded"
+      ]
+    },
+    {
+      "screen": "/?screen=data",
+      "visited": true,
+      "headings": [
+        "All sources"
+      ],
+      "states": [
+        "empty-or-message",
+        "error"
+      ]
+    },
+    {
+      "screen": "/?screen=data&tab=entitlements",
+      "visited": true,
+      "headings": [
+        "All sources"
+      ],
+      "states": [
+        "empty-or-message"
+      ]
+    },
+    {
+      "screen": "/?screen=data&tab=sources",
+      "visited": true,
+      "headings": [
+        "All sources"
+      ],
+      "states": [
+        "empty-or-message"
+      ]
+    },
+    {
+      "screen": "/?screen=data&tab=suggestions",
+      "visited": true,
+      "headings": [
+        "All sources"
+      ],
+      "states": [
+        "error"
+      ]
+    },
+    {
+      "screen": "/?screen=home",
+      "visited": true,
+      "headings": [
+        "Needs you 8"
+      ],
+      "states": [
+        "expanded"
+      ]
+    },
+    {
+      "screen": "/?screen=pools",
+      "visited": true,
+      "headings": [
+        "Reporting pool"
+      ],
+      "states": [
+        "empty-or-message",
+        "expanded"
+      ]
+    },
+    {
+      "screen": "/?screen=pools&tab=access",
+      "visited": true,
+      "headings": [
+        "Reporting pool"
+      ],
+      "states": [
+        "empty-or-message",
+        "expanded"
+      ]
+    },
+    {
+      "screen": "/?screen=pools&tab=agents",
+      "visited": true,
+      "headings": [
+        "Reporting pool"
+      ],
+      "states": [
+        "empty-or-message"
+      ]
+    },
+    {
+      "screen": "/?screen=pools&tab=credentials",
+      "visited": true,
+      "headings": [
+        "Reporting pool"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=custody",
+      "visited": true,
+      "headings": [
+        "Reporting pool"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": [
+        "error",
+        "empty-or-message"
+      ]
+    },
+    {
+      "screen": "/?screen=settings&section=company",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=custody",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": [
+        "error"
+      ]
+    },
+    {
+      "screen": "/?screen=settings&section=discovery",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=engines",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": [
+        "empty-or-message"
+      ]
+    },
+    {
+      "screen": "/?screen=settings&section=evidence",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=mail",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=people",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=project",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=query",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=tls",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=token",
+      "visited": true,
+      "headings": [
+        "Settings"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/auth/callback",
+      "visited": true,
+      "headings": [
+        "Signing you in",
+        "We could not sign you in"
+      ],
+      "states": [
+        "error"
+      ]
+    },
+    {
+      "screen": "/auth/confirm-device",
+      "visited": true,
+      "headings": [
+        "Did you open this link yourself?"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/check-email",
+      "visited": true,
+      "headings": [
+        "Check your email"
+      ],
+      "states": []
+    },
+    {
+      "screen": "/sign-in",
+      "visited": true,
+      "headings": [
+        "Sign in"
+      ],
+      "states": []
+    }
+  ],
+  "missing": [],
+  "findings": [],
+  "tests": [
+    {
+      "title": "conformance: /?dialog=new-project",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?dialog=you",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=activity",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=activity&provenance=00000000-0000-4000-8000-000000000001",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=data",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=data&tab=entitlements",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=data&tab=sources",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=data&tab=suggestions",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=home",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=pools",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=pools&tab=access",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=pools&tab=agents",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=pools&tab=credentials",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=pools&tab=custody",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=company",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=custody",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=discovery",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=engines",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=evidence",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=mail",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=people",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=project",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=query",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=tls",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /?screen=settings&section=token",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /auth/callback",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /auth/confirm-device",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /check-email",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "conformance: /sign-in",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "Welcome has the same observed controls with no project",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "phone Needs-you expands the trailing rows in place",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "compound per-table and preserves mixed numeric/date controls and request",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "compound per-table or preserves mixed numeric/date controls and request",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "unclassified controls and broken disclosures fail; approved surfaces pass",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "Radix closed portals may be unmounted; an open missing portal fails",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "disabled and pending actions keep foundation states on hover",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "rule 14 validates each name and treatment, including multiple named chips in one receipt row",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "every application browser suite uses the observed fixture",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "title": "Select has implicit listbox popup semantics; an ordinary closed disclosure still needs a target",
+      "status": "passed",
+      "errors": []
+    }
+  ]
+}
