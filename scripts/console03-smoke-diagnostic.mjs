@@ -5,7 +5,8 @@ import process from 'node:process';
 // One diagnostic invocation of the standard harness; restore the gate config
 // byte-for-byte even when the diagnostic fails. Never used by the gate.
 const path='playwright.smoke.config.ts',original=readFileSync(path,'utf8');
-const directory='tmp/console03-smoke-120';
+const directory=process.argv[2]??'tmp/console03-smoke-120';
+if(!/^tmp\/[A-Za-z0-9/_-]+$/u.test(directory))throw new Error('Diagnostic output must be a simple path under tmp/.');
 mkdirSync(directory,{recursive:true});
 const diagnostic=original.replace('defineConfig({...base,',`defineConfig({...base,timeout:120000,outputDir:'${directory}/artifacts',`).replace("trace:'retain-on-failure'","trace:'on'").replace("reporter:[['list']]",`reporter:[['list'],['json',{outputFile:'${directory}/result.json'}]]`);
 if(diagnostic===original)throw new Error('Smoke configuration did not match diagnostic override.');

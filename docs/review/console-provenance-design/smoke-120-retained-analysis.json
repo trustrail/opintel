@@ -1,0 +1,4142 @@
+{
+  "current": {
+    "enginePhases": [
+      {
+        "phase": "respond",
+        "startedAt": "2026-11-05T22:55:07.647000+00:00",
+        "endedAt": "2026-11-05T22:55:07.651000+00:00",
+        "ms": 4.0
+      },
+      {
+        "phase": "respond",
+        "startedAt": "2026-11-05T22:55:08.957000+00:00",
+        "endedAt": "2026-11-05T22:55:08.958000+00:00",
+        "ms": 1.0
+      },
+      {
+        "phase": "queue",
+        "startedAt": "2026-11-05T22:55:09.073000+00:00",
+        "endedAt": "2026-11-05T22:55:09.075000+00:00",
+        "ms": 2.0
+      },
+      {
+        "phase": "validate",
+        "startedAt": "2026-11-05T22:55:09.076000+00:00",
+        "endedAt": "2026-11-05T22:55:12.845000+00:00",
+        "ms": 3769.0
+      },
+      {
+        "phase": "scan",
+        "startedAt": "2026-11-05T22:55:12.848000+00:00",
+        "endedAt": "2026-11-05T22:55:12.929000+00:00",
+        "ms": 81.0
+      },
+      {
+        "phase": "scan",
+        "startedAt": "2026-11-05T22:55:13.110000+00:00",
+        "endedAt": "2026-11-05T22:55:13.111000+00:00",
+        "ms": 1.0
+      },
+      {
+        "phase": "treat",
+        "startedAt": "2026-11-05T22:55:13.112000+00:00",
+        "endedAt": "2026-11-05T22:55:13.114000+00:00",
+        "ms": 2.0
+      },
+      {
+        "phase": "stage",
+        "startedAt": "2026-11-05T22:55:13.114000+00:00",
+        "endedAt": "2026-11-05T22:55:13.552000+00:00",
+        "ms": 438.0
+      },
+      {
+        "phase": "scan",
+        "startedAt": "2026-11-05T22:55:13.553000+00:00",
+        "endedAt": "2026-11-05T22:55:13.554000+00:00",
+        "ms": 1.0
+      },
+      {
+        "phase": "execute",
+        "startedAt": "2026-11-05T22:55:12.929000+00:00",
+        "endedAt": "2026-11-05T22:55:14.377000+00:00",
+        "ms": 1448.0
+      },
+      {
+        "phase": "respond",
+        "startedAt": "2026-11-05T22:55:14.382000+00:00",
+        "endedAt": "2026-11-05T22:55:14.393000+00:00",
+        "ms": 11.0
+      }
+    ],
+    "network": [
+      {
+        "path": "/projects/:id/pools/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 43631.113,
+        "ms": 224.54,
+        "timings": {
+          "dns": -1,
+          "connect": 23.334,
+          "ssl": 26.496,
+          "send": 0,
+          "wait": 98.923,
+          "receive": 75.787
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 43795.503,
+        "ms": 62.537,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 13.725,
+          "receive": 48.812
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 43845.637,
+        "ms": 288.45300000000003,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 265.031,
+          "receive": 23.422
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 43845.07,
+        "ms": 320.655,
+        "timings": {
+          "dns": -1,
+          "connect": 10.491,
+          "ssl": 12.037,
+          "send": 0,
+          "wait": 70.783,
+          "receive": 227.344
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 45178.969,
+        "ms": 194.407,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 126.147,
+          "receive": 68.26
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 401,
+        "resourceType": "fetch",
+        "startedAtMs": 45185.652,
+        "ms": 194.642,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 131.484,
+          "receive": 63.158
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 45177.604,
+        "ms": 341.731,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 92.137,
+          "receive": 249.594
+        }
+      },
+      {
+        "path": "/sign-in",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 45390.842,
+        "ms": 134.425,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 64.411,
+          "receive": 70.014
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 45506.74,
+        "ms": 277.154,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 181.363,
+          "receive": 95.791
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 45504.125,
+        "ms": 415.735,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 157.422,
+          "receive": 258.313
+        }
+      },
+      {
+        "path": "/api/v1/auth/providers",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 46304.057,
+        "ms": 75.437,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 73.597,
+          "receive": 1.84
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 46303.275,
+        "ms": 297.07800000000003,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 209.02,
+          "receive": 88.058
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 46302.692,
+        "ms": 319.394,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 123.476,
+          "receive": 195.918
+        }
+      },
+      {
+        "path": "/api/v1/auth/providers",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 46817.821,
+        "ms": 17.047,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 15.717,
+          "receive": 1.33
+        }
+      },
+      {
+        "path": "/api/v1/auth/request-link",
+        "method": "POST",
+        "status": 204,
+        "resourceType": "fetch",
+        "startedAtMs": 46955.194,
+        "ms": 18.837,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 17.816,
+          "receive": 1.021
+        }
+      },
+      {
+        "path": "/check-email",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 47002.798,
+        "ms": 28.406999999999996,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 8.498,
+          "receive": 19.909
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 47053.506,
+        "ms": 316.268,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 246.313,
+          "receive": 69.955
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 47045.262,
+        "ms": 338.8,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 66.093,
+          "receive": 272.707
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 47854.162,
+        "ms": 132.31799999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 16.268,
+          "receive": 116.05
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 47855.175,
+        "ms": 209.57,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 45.878,
+          "receive": 163.692
+        }
+      },
+      {
+        "path": "/auth/callback",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 48394.919,
+        "ms": 11.515,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 5.625,
+          "receive": 5.89
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 48424.148,
+        "ms": 102.36500000000001,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 35.609,
+          "receive": 66.756
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 48423.602,
+        "ms": 299.515,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 121.02,
+          "receive": 178.495
+        }
+      },
+      {
+        "path": "/api/v1/auth/callback",
+        "method": "POST",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 49613.096,
+        "ms": 185.86,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 73.482,
+          "receive": 112.378
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 49611.116,
+        "ms": 290.161,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 62.175,
+          "receive": 227.986
+        }
+      },
+      {
+        "path": "/api/v1/auth/me",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 49835.797,
+        "ms": 273.428,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 248.353,
+          "receive": 25.075
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 49612.311,
+        "ms": 566.2529999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 298.796,
+          "receive": 267.457
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 50126.121,
+        "ms": 184.634,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 127.639,
+          "receive": 56.995
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 50487.836,
+        "ms": 439.192,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 387.979,
+          "receive": 51.213
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 50474.854,
+        "ms": 431.019,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 106.048,
+          "receive": 324.971
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 51185.948,
+        "ms": 118.321,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 66.421,
+          "receive": 51.9
+        }
+      },
+      {
+        "path": "/projects/:id/pools/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 51211.974,
+        "ms": 363.626,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 333.171,
+          "receive": 30.455
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 51201.583,
+        "ms": 122.654,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 72.297,
+          "receive": 50.357
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 51494.164,
+        "ms": 146.464,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 99.536,
+          "receive": 46.928
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 51619.234,
+        "ms": 36.454,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 20.344,
+          "receive": 16.11
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 51175.509,
+        "ms": 477.4,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 306.188,
+          "receive": 171.212
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 51597.962,
+        "ms": 100.05499999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 68.844,
+          "receive": 31.211
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 51788.697,
+        "ms": 347.092,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 252.354,
+          "receive": 94.738
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 51781.845,
+        "ms": 307.705,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 68.797,
+          "receive": 238.908
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 52578.067,
+        "ms": 184.901,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 62.191,
+          "receive": 122.71
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 52580.18,
+        "ms": 184.728,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 63.144,
+          "receive": 121.584
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 52697.14,
+        "ms": 120.869,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 119.568,
+          "receive": 1.301
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 52577.753,
+        "ms": 371.683,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 59.12,
+          "receive": 312.563
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 52829.147,
+        "ms": 32.317,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 27.191,
+          "receive": 5.126
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 52832.17,
+        "ms": 42.603,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 37.912,
+          "receive": 4.691
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 52832.657,
+        "ms": 53.057,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 50.551,
+          "receive": 2.506
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 52831.481,
+        "ms": 167.965,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 161.582,
+          "receive": 6.383
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53012.312,
+        "ms": 36.951,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 36.162,
+          "receive": 0.789
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 53297.256,
+        "ms": 32.701,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 10.602,
+          "receive": 22.099
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53293.347,
+        "ms": 79.052,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 77.787,
+          "receive": 1.265
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53468.341,
+        "ms": 88.85799999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 86.749,
+          "receive": 2.109
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53295.719,
+        "ms": 416.853,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 415.156,
+          "receive": 1.697
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/members",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 53847.42,
+        "ms": 46.107,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 43.37,
+          "receive": 2.737
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id/history",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53846.046,
+        "ms": 137.038,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 129.079,
+          "receive": 7.959
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53848.595,
+        "ms": 179.60999999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 175.843,
+          "receive": 3.767
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 53850.231,
+        "ms": 230.74599999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 225.617,
+          "receive": 5.129
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables/:id/rows",
+        "method": "PUT",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56132.962,
+        "ms": 104.724,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 103.545,
+          "receive": 1.179
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56258.305,
+        "ms": 81.156,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 76.046,
+          "receive": 5.11
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id/history",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56312.863,
+        "ms": 305.493,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 304.171,
+          "receive": 1.322
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56263.995,
+        "ms": 314.391,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 310.158,
+          "receive": 4.233
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56260.445,
+        "ms": 316.142,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 312.254,
+          "receive": 3.888
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56570.862,
+        "ms": 254.40499999999997,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 48.544,
+          "receive": 205.861
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56599.844,
+        "ms": 313.954,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 94.961,
+          "receive": 218.993
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56600.169,
+        "ms": 322.824,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 105.086,
+          "receive": 217.738
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56597.72,
+        "ms": 420.475,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 200.91,
+          "receive": 219.565
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 56787.466,
+        "ms": 42.162,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 35.236,
+          "receive": 6.926
+        }
+      },
+      {
+        "path": "/projects/:id/runs/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 64932.632,
+        "ms": 164.276,
+        "timings": {
+          "dns": -1,
+          "connect": 40.27,
+          "ssl": 61.438,
+          "send": 0,
+          "wait": 15.425,
+          "receive": 47.143
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 65038.177,
+        "ms": 46.789,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 28.358,
+          "receive": 18.431
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 65153.063,
+        "ms": 553.583,
+        "timings": {
+          "dns": -1,
+          "connect": 16.587,
+          "ssl": 18.669,
+          "send": 0,
+          "wait": 490.874,
+          "receive": 27.453
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 65152.292,
+        "ms": 527.848,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 318.842,
+          "receive": 209.006
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 66751.469,
+        "ms": 300.932,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 283.55,
+          "receive": 17.382
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 66885.861,
+        "ms": 302.031,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 286.142,
+          "receive": 15.889
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/runs",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67055.051,
+        "ms": 59.182,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 55.954,
+          "receive": 3.228
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/runs/summary",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67065.389,
+        "ms": 72.75399999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 69.192,
+          "receive": 3.562
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67068.845,
+        "ms": 78.239,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 72.845,
+          "receive": 5.394
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 66745.969,
+        "ms": 533.198,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 270.418,
+          "receive": 262.78
+        }
+      },
+      {
+        "path": "/api/v1/runs/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67070.156,
+        "ms": 168.062,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 164.412,
+          "receive": 3.65
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67201.485,
+        "ms": 52.131,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 29.136,
+          "receive": 22.995
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67218.286,
+        "ms": 120.42999999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 79.514,
+          "receive": 40.916
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67226.836,
+        "ms": 122.099,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 83.408,
+          "receive": 38.691
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67216.511,
+        "ms": 155.668,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 127.881,
+          "receive": 27.787
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67381.092,
+        "ms": 24.439999999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 22.88,
+          "receive": 1.56
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 67643.743,
+        "ms": 31.320999999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 21.724,
+          "receive": 9.597
+        }
+      },
+      {
+        "path": "/api/v1/row-decisions/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67642.077,
+        "ms": 143.48000000000002,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 142.127,
+          "receive": 1.353
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 69274.435,
+        "ms": 42.244,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 23.504,
+          "receive": 18.74
+        }
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 69436.408,
+        "ms": 553.367,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 524.685,
+          "receive": 28.682
+        }
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 69434.245,
+        "ms": 529.62,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 134.634,
+          "receive": 394.986
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 71023.746,
+        "ms": 93.783,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 43.142,
+          "receive": 50.641
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71024.776,
+        "ms": 95.549,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 42.798,
+          "receive": 52.751
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71120.695,
+        "ms": 130.38299999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 118.005,
+          "receive": 12.378
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 71025.614,
+        "ms": 246.28000000000003,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 114.302,
+          "receive": 131.978
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71228.174,
+        "ms": 57.702999999999996,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 53.687,
+          "receive": 4.016
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71241.724,
+        "ms": 65.364,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 59.796,
+          "receive": 5.568
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71243.923,
+        "ms": 72.453,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 66.772,
+          "receive": 5.681
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71230.288,
+        "ms": 111.637,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 106.877,
+          "receive": 4.76
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71367.453,
+        "ms": 36.579,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 34.935,
+          "receive": 1.644
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/members",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 71554.393,
+        "ms": 68.931,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 65.983,
+          "receive": 2.948
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 71566.266,
+        "ms": 86.63,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 10.919,
+          "receive": 75.711
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71528.692,
+        "ms": 136.60399999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 127.856,
+          "receive": 8.748
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71531.217,
+        "ms": 241.048,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 232.587,
+          "receive": 8.461
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id/history",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71549.115,
+        "ms": 226.062,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 217.591,
+          "receive": 8.471
+        }
+      },
+      {
+        "path": "/api/v1/row-decisions/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71560.962,
+        "ms": 273.504,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 269.975,
+          "receive": 3.529
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71565.316,
+        "ms": 321.682,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 318.774,
+          "receive": 2.908
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71711.519,
+        "ms": 193.61,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 176.828,
+          "receive": 16.782
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 71564.238,
+        "ms": 334.298,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 331.271,
+          "receive": 3.027
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": -1,
+        "resourceType": "fetch",
+        "startedAtMs": 51621.702,
+        "ms": -1,
+        "timings": {
+          "send": -1,
+          "wait": -1,
+          "receive": -1
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": -1,
+        "resourceType": "fetch",
+        "startedAtMs": 51624.238,
+        "ms": -1,
+        "timings": {
+          "send": -1,
+          "wait": -1,
+          "receive": -1
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": -1,
+        "resourceType": "fetch",
+        "startedAtMs": 51625.803,
+        "ms": -1,
+        "timings": {
+          "send": -1,
+          "wait": -1,
+          "receive": -1
+        }
+      }
+    ],
+    "receiptResources": [
+      {
+        "path": "/projects/:id/runs/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 64932.632,
+        "ms": 164.276,
+        "timings": {
+          "dns": -1,
+          "connect": 40.27,
+          "ssl": 61.438,
+          "send": 0,
+          "wait": 15.425,
+          "receive": 47.143
+        },
+        "relativeToReceiptNavigationMs": 0.0
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 65038.177,
+        "ms": 46.789,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 28.358,
+          "receive": 18.431
+        },
+        "relativeToReceiptNavigationMs": 105.54500000000553
+      },
+      {
+        "path": "/assets/index-Bxu4cyvy.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 65152.292,
+        "ms": 527.848,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 318.842,
+          "receive": 209.006
+        },
+        "relativeToReceiptNavigationMs": 219.6600000000035
+      },
+      {
+        "path": "/assets/index-DUR_776U.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 65153.063,
+        "ms": 553.583,
+        "timings": {
+          "dns": -1,
+          "connect": 16.587,
+          "ssl": 18.669,
+          "send": 0,
+          "wait": 490.874,
+          "receive": 27.453
+        },
+        "relativeToReceiptNavigationMs": 220.43100000000413
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 66745.969,
+        "ms": 533.198,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 270.418,
+          "receive": 262.78
+        },
+        "relativeToReceiptNavigationMs": 1813.3369999999995
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 66751.469,
+        "ms": 300.932,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 283.55,
+          "receive": 17.382
+        },
+        "relativeToReceiptNavigationMs": 1818.8369999999995
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 66885.861,
+        "ms": 302.031,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 286.142,
+          "receive": 15.889
+        },
+        "relativeToReceiptNavigationMs": 1953.2290000000066
+      },
+      {
+        "path": "/api/v1/projects/:id/runs",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67055.051,
+        "ms": 59.182,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 55.954,
+          "receive": 3.228
+        },
+        "relativeToReceiptNavigationMs": 2122.419000000009
+      },
+      {
+        "path": "/api/v1/projects/:id/runs/summary",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67065.389,
+        "ms": 72.75399999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 69.192,
+          "receive": 3.562
+        },
+        "relativeToReceiptNavigationMs": 2132.756999999998
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67068.845,
+        "ms": 78.239,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 72.845,
+          "receive": 5.394
+        },
+        "relativeToReceiptNavigationMs": 2136.2130000000034
+      },
+      {
+        "path": "/api/v1/runs/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67070.156,
+        "ms": 168.062,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 164.412,
+          "receive": 3.65
+        },
+        "relativeToReceiptNavigationMs": 2137.524000000005
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67201.485,
+        "ms": 52.131,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 29.136,
+          "receive": 22.995
+        },
+        "relativeToReceiptNavigationMs": 2268.853000000003
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67216.511,
+        "ms": 155.668,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 127.881,
+          "receive": 27.787
+        },
+        "relativeToReceiptNavigationMs": 2283.879000000001
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67218.286,
+        "ms": 120.42999999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 79.514,
+          "receive": 40.916
+        },
+        "relativeToReceiptNavigationMs": 2285.653999999995
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67226.836,
+        "ms": 122.099,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 83.408,
+          "receive": 38.691
+        },
+        "relativeToReceiptNavigationMs": 2294.203999999998
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67381.092,
+        "ms": 24.439999999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 22.88,
+          "receive": 1.56
+        },
+        "relativeToReceiptNavigationMs": 2448.4600000000064
+      },
+      {
+        "path": "/api/v1/row-decisions/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67642.077,
+        "ms": 143.48000000000002,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 142.127,
+          "receive": 1.353
+        },
+        "relativeToReceiptNavigationMs": 2709.445000000007
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 67643.743,
+        "ms": 31.320999999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 21.724,
+          "receive": 9.597
+        },
+        "relativeToReceiptNavigationMs": 2711.1110000000044
+      }
+    ]
+  },
+  "retainedBaseline": {
+    "enginePhases": [
+      {
+        "phase": "respond",
+        "startedAt": "2026-11-05T13:56:14.305000+00:00",
+        "endedAt": "2026-11-05T13:56:14.308000+00:00",
+        "ms": 3.0
+      },
+      {
+        "phase": "respond",
+        "startedAt": "2026-11-05T13:56:15.976000+00:00",
+        "endedAt": "2026-11-05T13:56:15.976000+00:00",
+        "ms": 0.0
+      },
+      {
+        "phase": "queue",
+        "startedAt": "2026-11-05T13:56:16.064000+00:00",
+        "endedAt": "2026-11-05T13:56:16.068000+00:00",
+        "ms": 4.0
+      },
+      {
+        "phase": "validate",
+        "startedAt": "2026-11-05T13:56:16.071000+00:00",
+        "endedAt": "2026-11-05T13:56:17.361000+00:00",
+        "ms": 1290.0
+      },
+      {
+        "phase": "scan",
+        "startedAt": "2026-11-05T13:56:17.364000+00:00",
+        "endedAt": "2026-11-05T13:56:17.441000+00:00",
+        "ms": 77.0
+      },
+      {
+        "phase": "scan",
+        "startedAt": "2026-11-05T13:56:17.709000+00:00",
+        "endedAt": "2026-11-05T13:56:17.716000+00:00",
+        "ms": 7.0
+      },
+      {
+        "phase": "treat",
+        "startedAt": "2026-11-05T13:56:17.716000+00:00",
+        "endedAt": "2026-11-05T13:56:17.718000+00:00",
+        "ms": 2.0
+      },
+      {
+        "phase": "stage",
+        "startedAt": "2026-11-05T13:56:17.719000+00:00",
+        "endedAt": "2026-11-05T13:56:17.896000+00:00",
+        "ms": 177.0
+      },
+      {
+        "phase": "scan",
+        "startedAt": "2026-11-05T13:56:17.896000+00:00",
+        "endedAt": "2026-11-05T13:56:17.897000+00:00",
+        "ms": 1.0
+      },
+      {
+        "phase": "execute",
+        "startedAt": "2026-11-05T13:56:17.441000+00:00",
+        "endedAt": "2026-11-05T13:56:18.053000+00:00",
+        "ms": 612.0
+      },
+      {
+        "phase": "respond",
+        "startedAt": "2026-11-05T13:56:18.056000+00:00",
+        "endedAt": "2026-11-05T13:56:18.060000+00:00",
+        "ms": 4.0
+      }
+    ],
+    "network": [
+      {
+        "path": "/projects/:id/pools/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 61778.971,
+        "ms": 583.017,
+        "timings": {
+          "dns": -1,
+          "connect": 95.069,
+          "ssl": 141.741,
+          "send": 0,
+          "wait": 120.16,
+          "receive": 226.047
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 62139.169,
+        "ms": 78.92099999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 17.825,
+          "receive": 61.096
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 62458.424,
+        "ms": 650.2860000000001,
+        "timings": {
+          "dns": -1,
+          "connect": 193.945,
+          "ssl": 195.334,
+          "send": 0,
+          "wait": 198.786,
+          "receive": 62.221
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 62456.822,
+        "ms": 472.767,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 86.971,
+          "receive": 385.796
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 64330.622,
+        "ms": 340.653,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 322.521,
+          "receive": 18.132
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 401,
+        "resourceType": "fetch",
+        "startedAtMs": 64411.647,
+        "ms": 328.726,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 323.967,
+          "receive": 4.759
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 64279.152,
+        "ms": 467.626,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 283.063,
+          "receive": 184.563
+        }
+      },
+      {
+        "path": "/sign-in",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 64797.727,
+        "ms": 118.116,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 48.512,
+          "receive": 69.604
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 65107.417,
+        "ms": 364.793,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 96.191,
+          "receive": 268.602
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 65104.941,
+        "ms": 878.1500000000001,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 147.613,
+          "receive": 730.537
+        }
+      },
+      {
+        "path": "/api/v1/auth/providers",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 66976.921,
+        "ms": 1039.2820000000002,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 861.321,
+          "receive": 177.961
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 66976.043,
+        "ms": 1167.716,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 802.196,
+          "receive": 365.52
+        }
+      },
+      {
+        "path": "/api/v1/auth/providers",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 67705.825,
+        "ms": 123.256,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 99.452,
+          "receive": 23.804
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 66966.472,
+        "ms": 1161.906,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 353.962,
+          "receive": 807.944
+        }
+      },
+      {
+        "path": "/api/v1/auth/request-link",
+        "method": "POST",
+        "status": 204,
+        "resourceType": "fetch",
+        "startedAtMs": 68635.078,
+        "ms": 50.859,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 44.842,
+          "receive": 6.017
+        }
+      },
+      {
+        "path": "/check-email",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 68728.624,
+        "ms": 75.134,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 34.412,
+          "receive": 40.722
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 68817.289,
+        "ms": 428.707,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 407.532,
+          "receive": 21.175
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 68816.742,
+        "ms": 393.617,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 84.896,
+          "receive": 308.721
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 70658.072,
+        "ms": 808.8,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 198.882,
+          "receive": 609.918
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 70658.858,
+        "ms": 789.741,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 103.222,
+          "receive": 686.519
+        }
+      },
+      {
+        "path": "/auth/callback",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 71638.266,
+        "ms": 41.333,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 10.805,
+          "receive": 30.528
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 71744.52,
+        "ms": 400.249,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 361.064,
+          "receive": 39.185
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 71740.128,
+        "ms": 418.63,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 178.946,
+          "receive": 239.684
+        }
+      },
+      {
+        "path": "/api/v1/auth/callback",
+        "method": "POST",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 72896.734,
+        "ms": 118.982,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 98.098,
+          "receive": 20.884
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 72895.081,
+        "ms": 198.989,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 43.583,
+          "receive": 155.406
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 72896.061,
+        "ms": 317.574,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 99.685,
+          "receive": 217.889
+        }
+      },
+      {
+        "path": "/api/v1/auth/me",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 72997.548,
+        "ms": 147.417,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 136.677,
+          "receive": 10.74
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 73280.999,
+        "ms": 126.149,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 44.483,
+          "receive": 81.666
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 73556.671,
+        "ms": 799.714,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 641.869,
+          "receive": 157.845
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 73540.159,
+        "ms": 944.8580000000001,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 341.619,
+          "receive": 603.239
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 75009.585,
+        "ms": 138.411,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 101.87,
+          "receive": 36.541
+        }
+      },
+      {
+        "path": "/projects/:id/pools/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 75032.355,
+        "ms": 81.437,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 41.614,
+          "receive": 39.823
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 75012.081,
+        "ms": 171.291,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 135.462,
+          "receive": 35.829
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 75217.55,
+        "ms": 72.893,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 47.125,
+          "receive": 25.768
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 75102.055,
+        "ms": 202.682,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 156.998,
+          "receive": 45.684
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 75443.878,
+        "ms": 505.815,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 443.851,
+          "receive": 61.964
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 75442.893,
+        "ms": 477.726,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 72.094,
+          "receive": 405.632
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 76772.13,
+        "ms": 526.112,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 149.503,
+          "receive": 376.609
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 76775.853,
+        "ms": 529.573,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 153.594,
+          "receive": 375.979
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 76862.985,
+        "ms": 266.204,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 264.31,
+          "receive": 1.894
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77093.457,
+        "ms": 35.002,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 33.524,
+          "receive": 1.478
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77099.036,
+        "ms": 41.317,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 39.182,
+          "receive": 2.135
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77102.028,
+        "ms": 50.521,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 48.473,
+          "receive": 2.048
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77096.57,
+        "ms": 148.143,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 146.625,
+          "receive": 1.518
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77250.679,
+        "ms": 20.823999999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 19.401,
+          "receive": 1.423
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 76768.078,
+        "ms": 804.941,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 118.301,
+          "receive": 686.64
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 77371.661,
+        "ms": 36.688,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 19.088,
+          "receive": 17.6
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77367.706,
+        "ms": 78.911,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 77.637,
+          "receive": 1.274
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77370.319,
+        "ms": 367.797,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 360.831,
+          "receive": 6.966
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 77630.044,
+        "ms": 260.694,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 227.624,
+          "receive": 33.07
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/members",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 78045.33,
+        "ms": 66.941,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 64.738,
+          "receive": 2.203
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id/history",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 78043.135,
+        "ms": 133.496,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 131.369,
+          "receive": 2.127
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 78047.361,
+        "ms": 142.127,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 139.273,
+          "receive": 2.854
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 78048.36,
+        "ms": 193.065,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 184.198,
+          "receive": 8.867
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables/:id/rows",
+        "method": "PUT",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80408.487,
+        "ms": 249.711,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 247.657,
+          "receive": 2.054
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80752.652,
+        "ms": 122.242,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 31.95,
+          "receive": 90.292
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id/history",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80768.098,
+        "ms": 262.185,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 173.072,
+          "receive": 89.113
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80764.874,
+        "ms": 267.735,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 177.181,
+          "receive": 90.554
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80818.12,
+        "ms": 136.26600000000002,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 130.616,
+          "receive": 5.65
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80823.468,
+        "ms": 141.02499999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 135.581,
+          "receive": 5.444
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80907.783,
+        "ms": 145.27,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 138.191,
+          "receive": 7.079
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80757.913,
+        "ms": 291.803,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 200.702,
+          "receive": 91.101
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 80822.8,
+        "ms": 182.993,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 177.045,
+          "receive": 5.948
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 81006.048,
+        "ms": 18.724999999999998,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 17.464,
+          "receive": 1.261
+        }
+      },
+      {
+        "path": "/projects/:id/runs/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 86337.829,
+        "ms": 58.927,
+        "timings": {
+          "dns": -1,
+          "connect": 16.973,
+          "ssl": 21.113,
+          "send": 0,
+          "wait": 9.021,
+          "receive": 11.82
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 86381.893,
+        "ms": 57.471000000000004,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 11.145,
+          "receive": 46.326
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 86472.125,
+        "ms": 385.296,
+        "timings": {
+          "dns": -1,
+          "connect": 119.443,
+          "ssl": 122.007,
+          "send": 0,
+          "wait": 117.129,
+          "receive": 26.717
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 86466.546,
+        "ms": 244.02,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 45.31,
+          "receive": 198.71
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 87239.197,
+        "ms": 201.288,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 76.84,
+          "receive": 124.448
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87239.948,
+        "ms": 202.843,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 79.121,
+          "receive": 123.722
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/runs",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87358.419,
+        "ms": 13.459,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 12.315,
+          "receive": 1.144
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/runs/summary",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87359.601,
+        "ms": 33.75,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 32.698,
+          "receive": 1.052
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87360.306,
+        "ms": 36.231,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 34.68,
+          "receive": 1.551
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 87238.615,
+        "ms": 303.319,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 62.332,
+          "receive": 240.987
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87439.268,
+        "ms": 79.483,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 60.272,
+          "receive": 19.211
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87443.219,
+        "ms": 92.275,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 74.087,
+          "receive": 18.188
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87452.313,
+        "ms": 112.84700000000001,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 94.522,
+          "receive": 18.325
+        }
+      },
+      {
+        "path": "/api/v1/runs/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87361.587,
+        "ms": 221.721,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 220.314,
+          "receive": 1.407
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87440.377,
+        "ms": 175.007,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 155.949,
+          "receive": 19.058
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87706.923,
+        "ms": 23.268,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 18.322,
+          "receive": 4.946
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 87960.299,
+        "ms": 84.094,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 46.73,
+          "receive": 37.364
+        }
+      },
+      {
+        "path": "/api/v1/row-decisions/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87952.598,
+        "ms": 146.963,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 141.337,
+          "receive": 5.626
+        }
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 88781.781,
+        "ms": 82.89699999999999,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 7.35,
+          "receive": 75.547
+        }
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 89147.86,
+        "ms": 412.586,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 239.12,
+          "receive": 173.466
+        }
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 89146.482,
+        "ms": 1131,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 133.345,
+          "receive": 997.655
+        }
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 91098.974,
+        "ms": 239.824,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 98.668,
+          "receive": 141.156
+        }
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91100.143,
+        "ms": 244.46499999999997,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 50.062,
+          "receive": 194.403
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91239.073,
+        "ms": 258.754,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 249.287,
+          "receive": 9.467
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 91100.578,
+        "ms": 552.072,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 208.893,
+          "receive": 343.179
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91500.819,
+        "ms": 80.662,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 41.78,
+          "receive": 38.882
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91504.308,
+        "ms": 60.968,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 47.03,
+          "receive": 13.938
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91516.167,
+        "ms": 82.072,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 68.316,
+          "receive": 13.756
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91502.934,
+        "ms": 86.512,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 71.11,
+          "receive": 15.402
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91683.966,
+        "ms": 76.167,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 21.984,
+          "receive": 54.183
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/members",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 91938.392,
+        "ms": 105.464,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 92.723,
+          "receive": 12.741
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91893.587,
+        "ms": 217.141,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 208.184,
+          "receive": 8.957
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id/history",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91908.283,
+        "ms": 198.487,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 193.641,
+          "receive": 4.846
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91982.64,
+        "ms": 273.831,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 181.162,
+          "receive": 92.669
+        }
+      },
+      {
+        "path": "/api/v1/row-decisions/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91949.193,
+        "ms": 291.20500000000004,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 270.845,
+          "receive": 20.36
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91901.146,
+        "ms": 349.072,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 335.208,
+          "receive": 13.864
+        }
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 91986.718,
+        "ms": 268.89799999999997,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 71.496,
+          "receive": 197.402
+        }
+      },
+      {
+        "path": "/api/v1/pools/:id/row-entitlements/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 91985.593,
+        "ms": 401.839,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 309.522,
+          "receive": 92.317
+        }
+      },
+      {
+        "path": "/api/v1/projects/:id/catalog",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 92218.623,
+        "ms": 179.794,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 152.488,
+          "receive": 27.306
+        }
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": -1,
+        "resourceType": "font",
+        "startedAtMs": 75003.067,
+        "ms": -1,
+        "timings": {
+          "send": -1,
+          "wait": -1,
+          "receive": -1
+        }
+      }
+    ],
+    "receiptResources": [
+      {
+        "path": "/projects/:id/runs/:id",
+        "method": "GET",
+        "status": 302,
+        "resourceType": "document",
+        "startedAtMs": 86337.829,
+        "ms": 58.927,
+        "timings": {
+          "dns": -1,
+          "connect": 16.973,
+          "ssl": 21.113,
+          "send": 0,
+          "wait": 9.021,
+          "receive": 11.82
+        },
+        "relativeToReceiptNavigationMs": 0.0
+      },
+      {
+        "path": "/",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "document",
+        "startedAtMs": 86381.893,
+        "ms": 57.471000000000004,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 11.145,
+          "receive": 46.326
+        },
+        "relativeToReceiptNavigationMs": 44.06399999999849
+      },
+      {
+        "path": "/assets/index-oIYezNkm.js",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "script",
+        "startedAtMs": 86466.546,
+        "ms": 244.02,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 45.31,
+          "receive": 198.71
+        },
+        "relativeToReceiptNavigationMs": 128.7170000000042
+      },
+      {
+        "path": "/assets/index-Cl7liKU6.css",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "stylesheet",
+        "startedAtMs": 86472.125,
+        "ms": 385.296,
+        "timings": {
+          "dns": -1,
+          "connect": 119.443,
+          "ssl": 122.007,
+          "send": 0,
+          "wait": 117.129,
+          "receive": 26.717
+        },
+        "relativeToReceiptNavigationMs": 134.2960000000021
+      },
+      {
+        "path": "/fonts/InterVariable.woff2",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "font",
+        "startedAtMs": 87238.615,
+        "ms": 303.319,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 62.332,
+          "receive": 240.987
+        },
+        "relativeToReceiptNavigationMs": 900.7860000000073
+      },
+      {
+        "path": "/api/v1/me/settings",
+        "method": "GET",
+        "status": 404,
+        "resourceType": "fetch",
+        "startedAtMs": 87239.197,
+        "ms": 201.288,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 76.84,
+          "receive": 124.448
+        },
+        "relativeToReceiptNavigationMs": 901.3680000000022
+      },
+      {
+        "path": "/api/v1/projects",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87239.948,
+        "ms": 202.843,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 79.121,
+          "receive": 123.722
+        },
+        "relativeToReceiptNavigationMs": 902.119000000006
+      },
+      {
+        "path": "/api/v1/projects/:id/runs",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87358.419,
+        "ms": 13.459,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 12.315,
+          "receive": 1.144
+        },
+        "relativeToReceiptNavigationMs": 1020.5899999999965
+      },
+      {
+        "path": "/api/v1/projects/:id/runs/summary",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87359.601,
+        "ms": 33.75,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 32.698,
+          "receive": 1.052
+        },
+        "relativeToReceiptNavigationMs": 1021.7719999999972
+      },
+      {
+        "path": "/api/v1/projects/:id/pools",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87360.306,
+        "ms": 36.231,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 34.68,
+          "receive": 1.551
+        },
+        "relativeToReceiptNavigationMs": 1022.476999999999
+      },
+      {
+        "path": "/api/v1/runs/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87361.587,
+        "ms": 221.721,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 220.314,
+          "receive": 1.407
+        },
+        "relativeToReceiptNavigationMs": 1023.7580000000016
+      },
+      {
+        "path": "/api/v1/pools/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87439.268,
+        "ms": 79.483,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 60.272,
+          "receive": 19.211
+        },
+        "relativeToReceiptNavigationMs": 1101.4389999999985
+      },
+      {
+        "path": "/api/v1/pools/:id/tables",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87440.377,
+        "ms": 175.007,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 155.949,
+          "receive": 19.058
+        },
+        "relativeToReceiptNavigationMs": 1102.5479999999952
+      },
+      {
+        "path": "/api/v1/pools/:id/entitlement-members",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87443.219,
+        "ms": 92.275,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 74.087,
+          "receive": 18.188
+        },
+        "relativeToReceiptNavigationMs": 1105.3899999999994
+      },
+      {
+        "path": "/api/v1/pools/:id/agents",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87452.313,
+        "ms": 112.84700000000001,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 94.522,
+          "receive": 18.325
+        },
+        "relativeToReceiptNavigationMs": 1114.4839999999967
+      },
+      {
+        "path": "/api/v1/projects/:id/needs-you",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87706.923,
+        "ms": 23.268,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 18.322,
+          "receive": 4.946
+        },
+        "relativeToReceiptNavigationMs": 1369.0939999999973
+      },
+      {
+        "path": "/api/v1/row-decisions/:id",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "fetch",
+        "startedAtMs": 87952.598,
+        "ms": 146.963,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 141.337,
+          "receive": 5.626
+        },
+        "relativeToReceiptNavigationMs": 1614.7690000000002
+      },
+      {
+        "path": "/opintel-logo.png",
+        "method": "GET",
+        "status": 200,
+        "resourceType": "image",
+        "startedAtMs": 87960.299,
+        "ms": 84.094,
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 46.73,
+          "receive": 37.364
+        },
+        "relativeToReceiptNavigationMs": 1622.4700000000012
+      }
+    ]
+  }
+}

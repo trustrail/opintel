@@ -1637,3 +1637,12 @@ redeemed state means Opintel released K2, not proof of local decryption.
 Console navigation calls Data Catalog, Pools Entitlements, Activity Audit;
 API/database names and existing screen destinations stay stable. Provenance
 opens in the existing dialog and list patterns; no CSS classes are introduced.
+
+## CONSOLE-04b — Record presentation foundations
+
+Provenance uses six fixed disclosure rows and shared definition-list details, with
+phone sheets, personal-timezone timestamps and copyable identifiers. Custody
+releases use the credential list gutters, recorded identities, state badges and
+menu-only revoke confirmation. Stored provenance and receipt API semantics stay
+unchanged. Historical omissions stay visible; current pool names are labelled
+as current display context rather than historical evidence.
