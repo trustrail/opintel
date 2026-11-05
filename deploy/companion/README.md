@@ -1,38 +1,119 @@
 # Opintel companion for OAP
 
-The companion holds the agent's pool key, device identity and XQ API key as **one OAP credential**. Its export is private: use a protected channel, mode-600 files, and never commit or paste it into chat. The companion writes private files under `/run/opintel`, linked to OAP's writable `/tmp`; files are removed on orderly exit. The published image `6bce943`, pinned by digest in the OAP manifest, accepts either a memory-backed or ordinary disk-backed writable emptyDir at `/tmp`. It creates mode-700 private directories and mode-600 files, overwrites live private files before unlinking them, and clears them on startup failure or orderly SIGINT/SIGTERM shutdown. SIGKILL and host failure cannot run cleanup; deleting the ephemeral volume remains the backstop. Overwriting does not guarantee physical erasure from SSDs, snapshots or copy-on-write storage.
+The companion holds the pool key, device identity and XQ API key as **one private OAP credential**. Use mode-600 files and a protected transfer; never paste credentials into chat, git, command arguments or logs. `/run/opintel` points into writable `/tmp`, which may be memory-backed or ordinary ephemeral disk. Private directories are mode 700 and files mode 600. Startup failure and orderly SIGINT/SIGTERM overwrite and remove live private files. SIGKILL/host failure cannot run cleanup; delete the ephemeral volume. Overwrite is not physical erasure of SSD, snapshot or copy-on-write history.
 
-## Install the OAP provider
+## Air run sheet (OAP e97928b)
 
-Copy `oap/providers/opintel-agent.yaml` to the OAP checkout's `providers/` directory and rebuild OAP. The provider library is embedded at build time (`providers/embed.go`); it is not loaded from that directory at runtime.
+These commands assume the desktop and its VM already work. Run them on the Air unless noted. Use the existing OAP checkout if present; the clone commands below are for new checkout directories. The companion package stays private on GHCR.
 
-## On the agent host
-
-With the updated agent kit, export its imported identity and pool key:
+### 1. Get the branch and rebuild OAP with the provider
 
 ```sh
-./identities export-companion --identity DEVICE_NAME --key-file /PRIVATE/POOL_KEY --api-key-file /PRIVATE/XQ_API_KEY --out /PRIVATE/COMPANION_CREDENTIAL.json
+export OPINTEL_CHECKOUT="$HOME/opintel-oap"
+export OAP_CHECKOUT="$HOME/openagentprimitives"
+git clone --branch feat/oap-companion https://github.com/trustrail/opintel.git "$OPINTEL_CHECKOUT"
+git clone https://github.com/authzed/openagentprimitives.git "$OAP_CHECKOUT"
+git -C "$OAP_CHECKOUT" checkout e97928b
+cp "$OPINTEL_CHECKOUT/deploy/companion/oap/providers/opintel-agent.yaml" "$OAP_CHECKOUT/providers/opintel-agent.yaml"
+cd "$OAP_CHECKOUT"
+mage build:oap && mage desktop:all
 ```
 
-Move the resulting file to the Air through a protected channel. OAP's credential entry takes the JSON content; do not pass it on a command line.
+Quit the old OAP app normally, then launch the rebuilt app and wait for its VM to be ready:
 
-## On the Air
+```sh
+open "$OAP_CHECKOUT/build/desktop/out/oap.app"
+export PATH="$OAP_CHECKOUT/bin:$PATH"
+cd "$OPINTEL_CHECKOUT"
+```
 
-From this checkout:
+Provider YAML is embedded (`providers/embed.go:9`, `pkg/platform/identity/provider/loader.go:47`); copying it without rebuilding does not register it.
+
+### 2. Prepare the private credential file
+
+On the **agent-kit host**, export the imported identity and credential. Replace uppercase private paths with local paths:
+
+```sh
+./identities export-companion --identity DEVICE_NAME --key-file /PRIVATE/POOL_KEY --api-key-file /PRIVATE/XQ_API_KEY --out /PRIVATE/companion-credential.json
+```
+
+Transfer that file to the Air through a protected channel, then:
+
+```sh
+chmod 600 /PRIVATE/companion-credential.json
+```
+
+This is the JSON document, not `companion.env`. The bundle contains only a Secret reference, never the value.
+
+### 3. Lint, install and store the credential
 
 ```sh
 oap agent lint deploy/companion/oap
 oap agent install deploy/companion/oap --namespace default
-oap agent setup-identity opintel-analyst
-kubectl get sidecartoolbox opintel -n default -o yaml
+oap identity put-token opintel-analyst-identity --namespace default --credential opintel-creds --from-file /PRIVATE/companion-credential.json
 ```
 
-The setup command collects the credential for provider `opintel-agent`. Confirm the toolbox reports `Valid=True`, `Reachable=True`, and the three names in `observedTools`. The default config targets the cloud project. To override it, supply the entire non-secret JSON as one answer:
+`put-token` reads `opintel-creds`' declared secretRef and **creates or updates** Secret `opintel-companion-credential`, key `credential`; a pre-existing Secret is unnecessary (`identitycmd/put_token.go:171`, `dotenv/secretwrite.go:25-34`). Do not use `setup-identity` for this sidecar: this OAP build enumerates only tool bundles and MCP servers.
+
+The install questions default to the cloud config and desktop sandbox image `spicebox-sandbox:dev`. Other clusters must supply the sandbox image that matches their operator's `--sandbox-image`; this is an explicit bundle question, not automatic discovery:
 
 ```sh
-oap agent install deploy/companion/oap --namespace default --set 'config={"gateway":"https://GATEWAY","project":"PROJECT_UUID","agentId":"AGENT_ID","caFile":null}'
+oap agent install deploy/companion/oap --namespace default --set 'sandboxImage=CLUSTER_SANDBOX_IMAGE' --set 'config={"gateway":"https://GATEWAY","project":"PROJECT_UUID","agentId":"AGENT_ID","caFile":null}'
 ```
 
-Start a session and ask: “What is the total claim amount per cedant in testing_reinsurance.soak_claims.claims?” The agent should describe the pool, query it, unseal custody values and answer with amounts. Check the agent binding, release and receipts in the Opintel console. After an administrator changes `claim_amount` to aggregate-only, ask for one cedant's claim; the agent should report the minimum-group-size refusal.
+The harmless `noop` tool and sandbox image satisfy OAP's current SpiceboxClass validator; they are not agent-visible Opintel tools.
 
-The class records allowed hosts `opintel.trustrail.io:443`, `subscription.xqmsg.net:443`, and `validation.xqmsg.net:443`. OAP's stock policy allows coarse outbound TCP rather than enforcing hostnames; a DNS-aware policy controller is needed for host-level enforcement.
+### 4. Apply the narrowly scoped runner identity-read workaround
+
+OAP's bundle allowlist **rejects Role and RoleBinding**, so they must not be placed in `oap/manifests/`. Run these two commands once per namespace; the examples intentionally target `default`:
+
+```sh
+kubectl create role opintel-identity-reader -n default --verb=get --resource=agentidentities.agentprimitives.authzed.com --resource-name=opintel-analyst-identity
+kubectl create rolebinding opintel-identity-reader -n default --role=opintel-identity-reader --group=system:serviceaccounts:default
+```
+
+This grants all service accounts in `default` get access to this **one AgentIdentity**, not Secret read access. It works around `pkg/controllers/agentsession/controller.go:2041`, whose identity-read grant omits sidecar-only classes. On repeat installs, leave the existing matching Role/RoleBinding in place. See `docs/review/oap-defects.md` for removal criteria.
+
+### 5. Load the private companion image into the VM
+
+Use a Docker account already authorized to pull the private GHCR package. Keep the bundle's digest pin; do not replace it with a tag. The tag below identifies the image to export; verify its pulled index digest matches `spec.source.image` before importing.
+
+```sh
+export COMPANION_TAG=ghcr.io/trustrail/opintel-companion:6bce943
+docker pull "$COMPANION_TAG"
+docker buildx imagetools inspect "$COMPANION_TAG"
+kubectl config current-context
+```
+
+Choose **one** load route:
+
+- When the active context is `oap-desktop`:
+
+  ```sh
+  oap image load "$COMPANION_TAG"
+  ```
+
+- When the desktop VM's kube-context is `default` (the observed Air case), `oap image load` rejects it. Use the same Docker-save/containerd-import path directly; `192.168.64.2` is that Air VM's address, so substitute the actual VM address if different:
+
+  ```sh
+  set -o pipefail
+  docker save "$COMPANION_TAG" | ssh -i "$HOME/Library/Application Support/oap/ap-vm-key" root@192.168.64.2 'k3s ctr -n k8s.io images import -'
+  ```
+
+The Air's successful import preserved the index digest. OAP deliberately supplies no image pull Secret for user sidecars; authenticated host-side pull and VM import are required here. No package-visibility change is needed. Controllers may report pull/probe failures while the image is absent; wait for reconciliation after import.
+
+### 6. Verify conditions, then run and open the sessions page
+
+```sh
+kubectl get sidecartoolbox opintel -n default -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}{"\n"}{end}'
+kubectl get sidecartoolbox opintel -n default -o jsonpath='{.status.observedTools}{"\n"}'
+kubectl get agentclass opintel-analyst -n default -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}{"\n"}{end}'
+oap agent run opintel-analyst --namespace default --prompt 'What is the total claim amount per cedant in testing_reinsurance.soak_claims.claims?'
+open http://127.0.0.1:17080/sessions
+```
+
+Require toolbox `Valid=True`, `Reachable=True`, all three tools in `observedTools`, and AgentClass `Valid=True`. The agent should describe once, query the appropriate grouped result, unseal custody grants and answer without guessing. Check the corresponding receipts in Opintel. With `claim_amount` changed by an administrator to aggregate-only, a request for one undersized group's claim must report the gateway's refusal.
+
+The user observed `oap agent chat` fail its browser sign-in with HTTP 500 on this OAP build; `oap agent run` and the web sessions page worked. A run also ended `Failed: Stalled` after showing a completed answer; do not treat a visible answer as proof of a successful terminal status. This is reported separately to AuthZed.
+
+The class records `opintel.trustrail.io:443`, `subscription.xqmsg.net:443`, and `validation.xqmsg.net:443`. Stock OAP e97928b does not enforce hostname restrictions; it permits coarse TCP 80/443. A DNS-aware policy backend is needed for host-level enforcement.

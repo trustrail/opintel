@@ -4,4 +4,10 @@ metadata:
   name: opintel-analyst-identity
 spec:
   description: Opintel companion agent identity.
-  credentials: []
+  credentials:
+    - name: opintel-creds
+      type: static
+      static:
+        secretRef:
+          name: opintel-companion-credential
+          key: credential

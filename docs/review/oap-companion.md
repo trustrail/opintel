@@ -352,3 +352,33 @@ The OAP manifest is re-pinned to that index; the README now describes the
 published disk-backed support, private modes and cleanup limits. No runtime
 changes, additional live runs or merge were made in this publication step.
 Publication-step lint and YAML/digest validation passed.
+
+## OAP-02 bundle and describe corrections
+
+The user's first Air/OAP run on e97928b completed describe, policy refusals,
+grouped query, unseal and an answer after manual workarounds. This is user-supplied
+runtime evidence, not a local OAP acceptance claim. The bundle now declares the
+sidecar's static secretRef, an overridable sandbox image and harmless noop tool,
+and explicit 50-turn / 500000-token / 30m budgets. The run sheet uses put-token,
+explicit scoped RBAC commands, private-image import and the verified run command.
+
+Source checks: put-token resolves the declared secretRef and WriteSecretKey
+creates a missing Secret; Role/RoleBinding are excluded by OAP's bundle kind
+allowlist. Consequently no RBAC or Secret resource is placed in the bundle.
+See `docs/review/oap-defects.md` for exact OAP paths and the distinction between
+observed failures and source-based explanations.
+
+Companion describe now whitelists only custody provider and credentialRequired;
+it omits tenant and keys. sqlRules and the AgentClass prompt agree. Rules are
+based on `src/modules/entitlements/application/aggregate.ts:51-58` (aggregate-only
+and equality-only token operations), `:119` (SUM/AVG/COUNT instead of MIN/MAX),
+`:87-170` (expression allowlist excludes CAST), and
+`src/modules/mcp/application/response.ts:21-22` (statement families). No gateway
+policy, treatment or refusal behaviour was changed.
+
+Targeted tests: 24 passed across companion, bundled probe, steps custody and
+provisioning runtime suites. New tests cover private describe-field removal,
+SQL guidance, prompt consistency, static secret reference, sandbox question,
+budgets and absence of disallowed bundle resources. Strict typecheck, lint and
+live-check syntax check passed. The live checker also asserts that describe has
+four SQL rules and no custody tenant or keys, without printing any values.

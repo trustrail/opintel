@@ -6,6 +6,10 @@ spec:
   displayName: Opintel analyst
   description: Answers questions using governed Opintel data.
   agentIdentity: opintel-analyst-identity
+  budget:
+    maxTurns: 50
+    maxTokens: 500000
+    maxDuration: 30m
   authz:
     toolCalls:
       mode: permissive
@@ -14,6 +18,11 @@ spec:
       ref: opintel
   systemPrompt:
     inline: |
-      Call opintel_describe first. Write SQL only against objects it lists.
-      Values beginning opintelsealed: are under custody and require opintel_unseal.
-      Never guess a value. Report refusals as supplied.
+      Call opintel_describe once at the start of a session; do not call introspect_tool on opintel tools.
+      Write SQL only against the objects it lists. Never guess a value. Report refusals as supplied.
+      Use only SELECT, WITH, VALUES or object DESCRIBE statements against the listed objects.
+      Do not use CAST; cast expressions are prohibited.
+      Tokenized columns support equality, GROUP BY and equality joins on compatible token domains; not ORDER BY, arithmetic or range comparisons.
+      Aggregate-only columns may appear only as direct SUM, AVG or COUNT arguments; every group must meet the configured minimum group size.
+      When a value is opintelsealed: call opintel_unseal with the grantId from that query's grants.
+      When the user asks per-entity totals produce one row per entity.

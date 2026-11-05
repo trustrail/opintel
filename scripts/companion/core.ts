@@ -1,3 +1,5 @@
+import {DescribeOutput} from '../../src/shared/api/mcp.js';
+import {sqlRules} from './sql-rules.js';
 import {AgentIdHeader} from '../../src/shared/api/agent-presence.js';
 import {z} from 'zod';
 import {query,redeem,grantClaims,type McpCall,type ResultFile} from '../steps/service.js';
@@ -10,7 +12,7 @@ export function createTools(call:McpCall,config:z.infer<typeof Config>,share:(lo
  const saved=new Map<string,ResultFile>();
  return async(name:string,args:Record<string,unknown>)=>{
   if(name==='opintel_describe'){
-   const result=await call('opintel.describe',{});if(result.isError)return {refused:true,code:publicCode(result._meta?.code),cause:publicCause(result._meta?.cause),message:'The request was refused.'};return result.structuredContent;
+   const result=await call('opintel.describe',{});if(result.isError)return {refused:true,code:publicCode(result._meta?.code),cause:publicCause(result._meta?.cause),message:'The request was refused.'};const {custody,...visible}=DescribeOutput.parse(result.structuredContent);return {...visible,...(custody?{custody:{provider:custody.provider,credentialRequired:custody.credentialRequired}}:{}),sqlRules:[...sqlRules]};
   }
   if(name==='opintel_query'){
    const sql=z.object({sql:z.string().min(1)}).parse(args).sql;

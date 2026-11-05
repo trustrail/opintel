@@ -3,7 +3,12 @@ kind: SpiceboxClass
 metadata:
   name: opintel-companion
 spec:
-  image: ""
+  # OAP e97928b validateSpec requires image and tools even for a sidecar sandbox.
+  # The bundle question lets non-desktop clusters supply their sandbox image.
+  image: spicebox-sandbox:dev
+  tools:
+    - name: noop
+      command: ["/bin/true"]
   resources:
     cpu: "200m"
     memory: "256Mi"

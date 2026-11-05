@@ -11,3 +11,9 @@ questions:
     default: '{"gateway":"https://opintel.trustrail.io","project":"8b0998f1-09c5-47ba-b060-1ee4920ba68b","agentId":"oap-analyst","caFile":null}'
     binding:
       - target: 'SidecarToolbox/opintel#spec.config'
+  - name: sandboxImage
+    type: string
+    prompt: Cluster sandbox image (match the operator's --sandbox-image)
+    default: spicebox-sandbox:dev
+    binding:
+      - target: 'SpiceboxClass/opintel-companion#spec.image'
