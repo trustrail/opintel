@@ -45,3 +45,29 @@ apply to this startup failure.
 
 [Gate metadata](provenance/gate.json). Full log:
 `/private/tmp/provenance-gate-9d167f1.log`. Stopped, not merged.
+
+## Authorized standalone conformance diagnostic
+
+The owner authorized conformance alone with web-server startup logging, followed
+by one smoke run if routes passed. The diagnostic script temporarily pipes
+Playwright web-server stdout/stderr and restores its config byte-for-byte;
+command, assertions and 120-second startup bound are unchanged.
+
+Result: **40 passed; 30/30 routes visited; zero distinct findings**. Vite reported
+`built in 1m 13s`; the preview server started within the existing deadline. No
+build or route-registration error occurred, including the provenance and pool
+Custody routes. The earlier startup timeout did not reproduce; its root cause
+is not established. This does not retroactively claim the full gate passed.
+The startup log and conformance JSON are retained beside this report.
+
+The authorized smoke invocation then failed: `Test timeout of 30000ms exceeded.`
+Playwright reported 35.6 s including cleanup, followed by
+`MCP error -32000: Connection closed` during fixture teardown. This is the same
+deadline/cleanup symptom previously recorded on this Intel host; the underlying
+cause is not established by this run. No additional smoke retry, full gate,
+product change or timeout change was made. Normal tests remain unrun by the
+original full gate. Smoke log: `/private/tmp/provenance-smoke-once.log`.
+
+Conclusion: conformance startup succeeded on the standalone invocation; no build
+or route-registration defect was found. The original 120-second startup timeout
+is non-reproduced, not proven environmental. Standalone smoke remains failed.
