@@ -54,6 +54,9 @@ certificate recording began.
 
 ## Inference and limits
 
+Table/view kind is absent from the receipt projection; a relation glyph is
+presentation, not additional evidence of a historical physical object kind.
+
 The fixture captures demonstrate rendering and API integration, not a new cloud
 acceptance or live XQ verification. Human design review remains necessary. A
 redeemed grant proves release of Opintel's share, not local decryption. When grants have different
@@ -99,7 +102,36 @@ navigation are retained.
   76 screenshots, zero page errors and zero HTTP failures. All captured pages
   have zero horizontal overflow. Every identifier target is at least 44 × 44 px;
   the browser verifies nowrap/ellipsis and actual truncated phone identifiers.
-- Completed-candidate gate: pending below.
+- Single completed-candidate gate: **failed**, exit 1, on `b461582`.
+  Strict typecheck, lint, production-artifact exclusion and all 40 conformance
+  checks passed (30/30 routes, zero findings). Normal tests stopped early:
+  143 files passed, 4 files failed; 1,057 tests passed and 4 failed.
+  Smoke was not reached. No gate or test rerun was performed after this failure.
+
+### Gate failure evidence
+
+Command: `npm run check`. Retained log:
+`/private/tmp/console-provenance-design-gate-b461582.log`.
+Gate wall time: 2,398.62 s; normal tier: 1,624.04 s.
+
+| Test | Recorded failure |
+|---|---|
+| `test/bulk-entitlements.test.ts:93` — missing epoch unit | `Hook timed out in 10000ms` at `test/database-fixture.ts:16`; teardown also reported `Server is not running` |
+| `test/element-declarations.test.ts:52` — DECL-003 | `timeout expired` at `node_modules/pg/lib/client.js:170` |
+| `test/normal-redis.test.ts:5` — FLUSHDB isolation | `Test timed out in 30000ms` |
+| `test/observation-groups.test.ts:31` — RED-012 | `Database test run stopped: cleanup could not be confirmed or a reset was blocked. No further tests may use this database.` at `scripts/testing/database-deadline.ts:201` |
+
+The gate then reported cleanup failure for its owned database
+`opintel_test_gate_64cadc497d02_3d281ed963a7`. It was left untouched for diagnosis.
+The failing tests, database reset/deadline harness and backend module files are
+unchanged from main (`git diff main...b461582` on those paths is empty).
+These observations do **not** establish the root cause; no environment or branch
+causality is claimed. Implementation stopped, with no timeout, harness, backend
+or test correction and no merge.
+
+Implementation and screenshots: commit `b461582`, pushed to
+`origin/fix/console-provenance-design`. This report update is a separate docs-only
+commit; application code remains the candidate tested above.
 
 ## Screenshots
 
