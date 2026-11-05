@@ -5,13 +5,14 @@ import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {packageDeployment} from './package.mjs';
 import {auditPackage,auditCustomerEnvironment} from './package-audit.mjs';
-const [manifestFile,destination,...flags]=process.argv.slice(2);const candidate=flags.length===1&&flags[0]==='--candidate';if(flags.length&&!candidate)throw new Error('Unknown package flag.');
-if(!manifestFile||!destination)throw new Error('Usage: customer-package.mjs PUBLISHED_MANIFEST NEW_DIRECTORY');
+const [manifestFile,destination,...flags]=process.argv.slice(2);const candidate=flags.includes('--candidate'),kind=flags.includes('--agent-kit-only')?'agent-kit':'all';
+if(flags.some(flag=>!['--candidate','--agent-kit-only'].includes(flag)))throw new Error('Unknown package flag.');
+if(!manifestFile||!destination)throw new Error('Usage: customer-package.mjs PUBLISHED_MANIFEST NEW_DIRECTORY [--candidate] [--agent-kit-only]');
 const manifest=JSON.parse(readFileSync(manifestFile,'utf8')),platform=process.env.PLATFORM;
 if(!manifest.publishedAt&&!candidate)throw new Error('Customer archives require a published manifest.');
-const output=resolve(destination);packageDeployment(manifest,output,platform,{candidate});
+const output=resolve(destination);packageDeployment(manifest,output,platform,{candidate,kind});
 function docker(args){const r=spawnSync('docker',args,{encoding:'utf8',timeout:600000,maxBuffer:4*1024*1024});if(r.status!==0)throw new Error('Offline archive Docker step failed: '+args[0]);return r.stdout.trim();}
-for(const kind of ['gateway','engine','agent-kit','verification']){
+for(const kind of flags.includes('--agent-kit-only')?['agent-kit']:['gateway','engine','agent-kit','verification']){
  const application=kind==='gateway'||kind==='engine';const directory=join(output,kind);if(application)rmSync(join(directory,kind+'.sh'));const release=JSON.parse(readFileSync(join(directory,'release.json'),'utf8'));release.customerPackageVersion=1;writeFileSync(join(directory,'release.json'),JSON.stringify(release,null,2)+'\n');
  const provisioning=manifest.artifacts.find(a=>a.target===(application?'provisioning':kind==='agent-kit'?'agent-kit':'demo-tools')&&a.platform===platform)?.repoDigests[0];
  if(!provisioning)throw new Error('Installer image missing.');

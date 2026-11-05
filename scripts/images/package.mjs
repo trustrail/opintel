@@ -4,13 +4,14 @@ import {readFileSync,writeFileSync,mkdirSync,cpSync,readdirSync,chmodSync,exists
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-export function packageDeployment(manifest,destination,platform,{candidate=false}={}){
+export function packageDeployment(manifest,destination,platform,{candidate=false,kind='all'}={}){
  if(!['linux/amd64','linux/arm64'].includes(platform))throw new Error('Select one supported package platform.');
  if(!/^[a-f0-9]{40}$/u.test(manifest.revision??''))throw new Error('Release revision is missing.');
  if((manifest.candidate||manifest.dirty)&&!candidate)throw new Error('Dirty candidate artifacts cannot be packaged as a release.');
  if(existsSync(destination))throw new Error('Package output already exists; use a new directory.');
+ if(!['all','agent-kit'].includes(kind))throw new Error('Unsupported package selection.');
  const images={};
- for(const target of ['api','console','engine','egress','migrations','provisioning','demo-tools','agent-kit']){
+ for(const target of kind==='agent-kit'?['agent-kit']:['api','console','engine','egress','migrations','provisioning','demo-tools','agent-kit']){
   const matches=manifest.artifacts.filter(value=>value.target===target&&value.platform===platform);
   if(matches.length!==1)throw new Error('Missing or ambiguous image artifact: '+target);
   const digest=matches[0].repoDigests?.find(value=>/^[a-z0-9./:_-]+@sha256:[a-f0-9]{64}$/u.test(value));
@@ -20,7 +21,7 @@ export function packageDeployment(manifest,destination,platform,{candidate=false
  for(const service of Object.values(manifest.upstream?.services??{}))if(!/@sha256:[a-f0-9]{64}$/u.test(service.image))throw new Error('Upstream image is not digest-pinned.');
  for(const service of ['postgres','redis','spicedb'])if(!manifest.upstream?.services?.[service])throw new Error('Missing pinned upstream service.');
  mkdirSync(destination,{recursive:true});
- for(const [name,source] of [['gateway','deploy/gateway'],['engine','deploy/engine-package']]){
+ for(const [name,source] of kind==='agent-kit'?[]:[['gateway','deploy/gateway'],['engine','deploy/engine-package']]){
   const output=join(destination,name);mkdirSync(join(output,'services'),{recursive:true});
   cpSync(join(source,'README.md'),join(output,'README.md'));
   cpSync(join(source,name+'.sh'),join(output,name+'.sh'));chmodSync(join(output,name+'.sh'),0o755);
@@ -37,7 +38,7 @@ export function packageDeployment(manifest,destination,platform,{candidate=false
   if(name==='gateway')writeFileSync(join(output,'upstream.json'),JSON.stringify({services:manifest.upstream.services},null,2)+'\n');
   writeFileSync(join(output,'release.json'),JSON.stringify({revision:manifest.revision,platform,candidate:!!(manifest.candidate||manifest.dirty),images:Object.fromEntries(Object.entries(images).filter(([target])=>name==='engine'?['engine','egress'].includes(target):['api','console','migrations','provisioning'].includes(target)))},null,2)+'\n');
  }
- for(const [name,target] of [['agent-kit','agent-kit'],['verification','demo-tools']]){
+ for(const [name,target] of kind==='agent-kit'?[['agent-kit','agent-kit']]:[['agent-kit','agent-kit'],['verification','demo-tools']]){
   const output=join(destination,name);mkdirSync(output,{recursive:true});
   writeFileSync(join(output,'release.json'),JSON.stringify({revision:manifest.revision,platform,candidate:!!(manifest.candidate||manifest.dirty),images:{[target]:images[target]}},null,2)+'\n');
   if(name==='verification'){

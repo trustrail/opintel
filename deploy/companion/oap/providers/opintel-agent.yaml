@@ -1,0 +1,11 @@
+id: opintel-agent
+title: Opintel agent credential
+description: A private agent-kit credential for an Opintel pool.
+shape: bearer
+tokenShape:
+  pattern: '^\{"v":1,'
+  description: an Opintel companion credential document
+instructions: |
+  Run ./identities export-companion on the agent host, then paste the resulting private JSON document here.
+prompt: |
+  Ask the user to export the companion credential with their agent kit and paste it into the credential entry. Do not request it in chat or log it.

@@ -1,0 +1,22 @@
+apiVersion: agentprimitives.authzed.com/v1alpha1
+kind: SpiceboxClass
+metadata:
+  name: opintel-companion
+spec:
+  # OAP e97928b validateSpec requires image and tools even for a sidecar sandbox.
+  # The bundle question lets non-desktop clusters supply their sandbox image.
+  image: spicebox-sandbox:dev
+  tools:
+    - name: noop
+      command: ["/bin/true"]
+  resources:
+    cpu: "200m"
+    memory: "256Mi"
+    ephemeralStorage: "128Mi"
+    pidsLimit: 32
+  network:
+    mode: allowlist
+    allowedHosts:
+      - opintel.trustrail.io:443
+      - subscription.xqmsg.net:443
+      - validation.xqmsg.net:443

@@ -11,6 +11,15 @@ while IFS=' ' read -r ref expected; do [[ "$(docker image inspect --platform "$p
 run(){ docker run --rm --pull never --platform "$platform" --user "$(id -u):$(id -g)" --read-only --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=0700,uid=$(id -u),gid=$(id -g)" --cap-drop ALL --security-opt no-new-privileges "$@"; }
 if [[ "$command" == identities ]]; then
  if [[ ${1:---help} == --help || ${2:-} == --help ]]; then run "$image" node scripts/agent/identities.js --help; exit 0; fi
+ if [[ ${1:-} == export-companion ]]; then
+  shift; identity=; poolkey=; xqkey=; destination=;
+  while [[ $# -gt 0 ]]; do [[ $# -ge 2 ]] || fail 'Each flag needs a value.'; case "$1" in --identity) identity="$2";; --key-file) poolkey="$2";; --api-key-file) xqkey="$2";; --out) destination="$2";; *) fail 'Unknown flag.';; esac; shift 2; done
+  [[ "$identity" =~ ^device-[1-9][0-9]*$ && -f "$poolkey" && ! -L "$poolkey" && -f "$xqkey" && ! -L "$xqkey" && -n "$destination" ]] || fail 'Invalid private inputs or identity.'
+  poolkey="$(cd "$(dirname "$poolkey")" && pwd)/$(basename "$poolkey")"; xqkey="$(cd "$(dirname "$xqkey")" && pwd)/$(basename "$xqkey")"; parent="$(cd "$(dirname "$destination")" && pwd)"; destination="$parent/$(basename "$destination")"; [[ ! -e "$destination" && ! -L "$destination" ]] || fail 'Output already exists.'
+  stage="$(mktemp -d "$parent/.companion-output-XXXXXX")"; trap 'rm -rf "$stage"' EXIT
+  run -v "$root/identity-bundles:/agent/identity-bundles:ro" -v "$poolkey:/input/pool-key:ro" -v "$xqkey:/input/api-key:ro" -v "$stage:/output" "$image" node scripts/agent/identities.js export-companion --identity "$identity" --key-file /input/pool-key --api-key-file /input/api-key --out /output/result > /dev/null
+  ln "$stage/result" "$destination" || fail 'Output could not be published.'; rm "$stage/result"; rmdir "$stage"; trap - EXIT; printf '%s\n' "$destination"; exit 0
+ fi
  [[ ${1:-} == add && $# -ge 4 && -f "$2" ]] || fail 'Usage: ./identities add EXPORT.zip --api-key-file FILE [--device NAME]'
  input="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; original="$(basename "$2")"; shift 2
  key=; device=; while [[ $# -gt 0 ]]; do [[ $# -ge 2 ]] || fail 'Each flag needs a value.'; case "$1" in --api-key-file) key="$2";; --device) device="$2";; *) fail 'Unknown identity flag.';; esac; shift 2; done

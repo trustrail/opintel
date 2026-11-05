@@ -1,0 +1,13 @@
+apiVersion: agentprimitives.authzed.com/v1alpha1
+kind: AgentIdentity
+metadata:
+  name: opintel-analyst-identity
+spec:
+  description: Opintel companion agent identity.
+  credentials:
+    - name: opintel-creds
+      type: static
+      static:
+        secretRef:
+          name: opintel-companion-credential
+          key: credential
