@@ -31,7 +31,7 @@ at the end of acceptance. No scenario or receipt assertion is removed.
 ## Required design
 
 Use Node's built-in http2, not a second HTTP library. Packaged Node is pinned by
-its existing upstream image digest; confirm the concrete version with the image.
+its existing upstream image digest. Inspecting that pinned runtime image on this host reports NODE_VERSION=22.23.4; Node core http2 adds no separately versioned dependency.
 Retain hostname/CA validation, mTLS and an explicit certificate pin check before
 any HTTP/2 stream is written. Pools must be separated by pinned TLS identity;
 a session authenticated under a different pin/client identity is never reused.
@@ -171,3 +171,38 @@ benchmark result to fail even if old HTTP/1 metadata lacks an HTTP status.
 Remaining before completion: corrected HTTP/1 measurement candidate, completed
 tip gate, fresh H2 archives/acceptance, 10-minute soak and after measurements.
 No gate or candidate acceptance is claimed yet; no cloud host was contacted.
+
+
+## Corrected HTTP/1 baseline — blocked by XQ enrollment
+
+Candidate f0b22f2 ran the exact Stage-5 command above, retaining
+`tmp/stage5-acceptance-EBDV8P/result.json` and
+`/private/tmp/arch01-h1-baseline-docker-route.log`. The archives and product
+images are still the immutable HTTP/1 f1887d1 baseline, not H2 candidate images.
+
+Installation, four identity imports, pairing, real SMTP, fresh owner sign-in,
+engine verification, source connection and scan, pool/table/row decisions and
+all six column treatments passed. At the first MCP query the agent kit exited
+nonzero: `MCP initialization: gateway refused the request (HTTP 401) ·
+unauthenticated / identity_unproven`. This is retained in `024-first-hour.log:1`.
+
+Gateway log lines 4428–4429 record the enrollment escrow subscription subcall
+from 2026-11-06T05:11:50.119Z to 05:11:51.693Z, HTTP 200, written true. Its
+validation subcall ran from 05:11:51.791Z to 05:11:55.683Z, status null,
+written false. Lines 4431–4439 record the identity_unproven refusal, no bound
+fingerprint and no completed challenge state. Public identifiers/identity labels
+are intentionally omitted from this report. The diagnostic record is emitted
+by `src/modules/release-custody/infrastructure/xq-provider.ts:16`; subcall
+classification is in `xq-worker.mjs:37`.
+
+Evidence establishes an unfinished XQ enrollment subcall on the unchanged
+baseline. It does not establish whether DNS, TCP, TLS or the remote provider
+caused it; no native failure code or phase is present in those records. This
+is not evidence of an H2 regression. Under the standing blocker rule, stop
+here: no provider workaround, no substitute step, no repeated packaged run.
+
+The H2 product candidate and its six startup-validated settings are committed
+and pushed as f0b22f2. Targeted validation is as recorded above. No completed
+before/after latency samples, H2 packaged acceptance, ten-minute soak or full
+gate are claimed. The full gate has not run. These remain outstanding; the task
+is incomplete. No cloud host was contacted and nothing was merged.
