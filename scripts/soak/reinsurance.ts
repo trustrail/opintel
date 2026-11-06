@@ -1,4 +1,4 @@
-import {queryOutcomeBreach} from './query-breach.js';
+import {queryOutcomeBreach,isCapacityRefusal} from './query-breach.js';
 import {Coverage,type Specification,type Scenario} from './specification.js';
 import {scenarioPlan,discoveryMismatches,declaredMask,scenarioValuesMatch,expectedReturnedRows,refusalEvidenceMatches} from './scenarios.js';
 import {certificateForAgent} from './manifest.js';
@@ -48,7 +48,7 @@ const count=integer(values.agents,'agents',1),rate=integer(values.rate,'rate',0)
 if(values.pool&&!['Cedant 01','Cedant 02'].includes(values.pool))throw new Error('pool must be Cedant 01 or Cedant 02');
 if(values.custody&&(!values.target||!values.certs))throw new Error('--custody requires --target and --certs');
 let stopping=false;const stop=new AbortController();const halt=()=>{stopping=true;stop.abort();};process.on('SIGINT',halt);process.on('SIGTERM',halt);
-const counters:Record<string,Record<string,number>>={agents:{},pools:{},outcomes:{},treatments:{},refusals:{}};
+const counters:Record<string,Record<string,number>>={agents:{},pools:{},outcomes:{},treatments:{},refusals:{},capacityRefusals:{}};
 const bump=(group:string,key:string,n=1)=>{const map=counters[group]!;map[key]=(map[key]??0)+n;};
 let breaches=0,joins=0,matched=0,errors=0;const latencies=new Map<number,number>();
 const seenTreatments=new Map<string,string>(),tokens=new Map<string,unknown>();
@@ -116,7 +116,7 @@ try{
    const body:unknown=await response.json();const code=body&&typeof body==='object'&&'error' in body&&body.error&&typeof body.error==='object'&&'code' in body.error?String(body.error.code):'unexpected_response';const actual={outcome:response.status===401?code:'unexpected_http_'+response.status};
    if(!coverage.observe(scenario,actual))await alarm('Revoked credential accepted or wrong refusal',{scenario:scenario.id,expected:scenario.expected,actual});await record({type:'scenario',scenario:scenario.id,expected:scenario.expected,actual,status:response.status});continue;
   }
-  const client=await external.connect(credential.key,agentId);const response=await client.query(scenario.sql);const output=QueryOutput.safeParse(response.structuredContent);const actual={outcome:response.isError?String(response._meta?.code):'success',rowCount:output.success?output.data.rows.length:undefined};
+  const client=await external.connect(credential.key,agentId);const response=await client.query(scenario.sql);const output=QueryOutput.safeParse(response.structuredContent);if(isCapacityRefusal(response))bump('capacityRefusals','engine_saturated');const actual={outcome:response.isError?String(response._meta?.code):'success',cause:typeof response._meta?.cause==='string'?response._meta.cause:undefined,rowCount:output.success?output.data.rows.length:undefined};
   const breach=queryOutcomeBreach(response,coverage.observe(scenario,actual)?undefined:'Retiring credential outcome mismatch');if(breach)await alarm(breach,{scenario:scenario.id,expected:scenario.expected,actual,response});
   await record({type:'scenario',scenario:scenario.id,expected:scenario.expected,actual,response});
   if(output.success){const out=output.data;const column=scenario.columns.find(c=>spec!.objects.find(o=>o.name===c.object&&o.poolIndex===0)?.columns.find(v=>v.name===c.name)?.treatment==='custody')!;const i=out.columns.findIndex(c=>c.name===column.alias);
@@ -145,7 +145,7 @@ try{
     const started=performance.now();
     const response=await agent.query(plan.sql),elapsed=performance.now()-started;
     const output=QueryOutput.safeParse(response.structuredContent),refused=response.isError===true;
-    const outcome=refused?String(response._meta?.code??'refused'):'success';bump('outcomes',outcome);if(refused)bump('refusals',outcome);
+    const outcome=refused?String(response._meta?.code??'refused'):'success';bump('outcomes',outcome);if(refused)bump('refusals',outcome);if(isCapacityRefusal(response))bump('capacityRefusals',outcome);
     latencies.set(Math.round(elapsed),(latencies.get(Math.round(elapsed))??0)+1);
     const context={agent:agent.agentId,pool,sequence,sql:plan.sql,response};await record({type:'query',at,...context,latencyMs:elapsed,outcome});
     let mismatch:'Declared scenario outcome mismatch'|undefined;
@@ -202,7 +202,7 @@ try{
      const observed=await receiptRead(id,agent.agentId);
      if(observed===null)await alarm('Stored receipt missing',context);
      else if(observed){const {receipt,detail}=observed;await record({type:'receipt',agent:agent.agentId,sequence,id,detail});
-      if(declared?.kind==='treatment semantics'&&refused&&!refusalEvidenceMatches(declared,id,detail))await alarm('Declared refusal evidence mismatch',{scenario:declared.id,id});
+      if(declared?.kind==='treatment semantics'&&refused&&!isCapacityRefusal(response)&&!refusalEvidenceMatches(declared,id,detail))await alarm('Declared refusal evidence mismatch',{scenario:declared.id,id});
       if(receipt.agent_id!==agent.agentId||receipt.pool_id!==agent.pool||receipt.credential_id!==agent.credentialId)await alarm('Receipt caller interleaving',{...context,receipt});
       if(literals.some(v=>JSON.stringify(detail).includes(JSON.stringify(v))))await alarm('Receipt contains fixture literal',{...context,detail});
      }

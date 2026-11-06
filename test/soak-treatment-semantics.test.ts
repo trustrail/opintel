@@ -47,3 +47,12 @@ it('5.24a: an unsatisfiable token join requires its own persisted Suggestions ca
  expect(refusalEvidenceMatches(s,id,{...detail,metadata:{refusal:{candidate:null}}})).toBe(false);
  detail.metadata.refusal.candidate.columns[0]!.name='unrelated.column';expect(refusalEvidenceMatches(s,id,detail)).toBe(false);
 });
+
+it('capacity refusal grants no capability coverage and cannot erase a wrong answer',()=>{
+ const s=scenario('masked-group'),c=new Coverage([s]);
+ expect(c.observe(s,{outcome:'engine_saturated',cause:'engine_saturated'})).toBe(true);
+ expect(c.summary()).toMatchObject({exercised:0,capacityRefusals:1,unhit:[s.id],scenarios:[{status:'CAPACITY REFUSED',count:0,matched:0,capacityRefusals:1}]});
+ expect(c.observe(s,{outcome:'value_mismatch'})).toBe(false);
+ expect(c.observe(s,{outcome:'engine_saturated',cause:'engine_saturated'})).toBe(true);
+ expect(c.summary()).toMatchObject({exercised:1,capacityRefusals:2,scenarios:[{status:'FAIL',count:1,matched:0,capacityRefusals:2}]});
+});

@@ -657,3 +657,46 @@ the remaining traffic refusals are a blocker to acceptance. No merge.
 
 Post-cleanup checks found no run-labelled containers/volumes or gateway compose
 network. Report-only lint and whitespace checks passed.
+
+
+## Owner-approved capacity classification and H2 trace for the registry refusal
+
+The two engine_saturated answers are correct capacity refusals under load. They
+are now counted separately in the soak summary and per-cell coverage, without
+incrementing a cell's exercised/matched count. Capacity-only cells say CAPACITY
+REFUSED and remain unhit; a capacity refusal cannot erase a prior wrong answer.
+The 115 fixture expectations are unchanged. Stored historical reports remain
+unchanged; this is a new classification, not a rewritten previous verdict.
+
+Only plain error responses with engine_saturated and no structured values or
+release failure qualify. Returned values on a refusal, incorrect rows/treatments,
+wrong governance outcomes, receipt issues, escrow failure and non-capacity
+infrastructure mismatches remain failures. Receipt verification still runs for
+capacity refusals. Capacity does not receive false capability coverage.
+
+The remaining engine_registry refusal is resolved by retained H2 records:
+health call b5a1140f-4521-4f1a-bf74-3a660b5a32ed returned HTTP 200 (written
+16:31:05.202Z, response 16:31:06.096Z). Registration call
+0f6e9b57-da38-4822-bb9f-b10a74ceb45c was written 16:31:06.356Z and returned HTTP
+503 at 16:31:13.725Z, completing in 7517.3 ms. Both used the existing pinned H2
+session: original DNS 6 ms, TCP 3 ms, TLS 7 ms, H2-ready 19 ms; no new handshake
+or connection failure occurred for these calls.
+
+At 16:31:13.873Z the gateway logged engine.verification_refused,
+stage egress_registration, and invalidated readiness (registry.ts:132). At
+16:31:16.556Z the query was refused from that registry state; its evidence ID
+never appears in the engine's request log, and there is no /execute dispatch
+for it. The engine answered; this is a service 503 followed by intentional
+registry invalidation, not an unexplained stale registry view or H2 failure.
+Why the engine's internal registration returned 503 is not established here.
+Bounded phase evidence:
+[capacity-and-registry-classification.json](capacity-and-registry-classification.json).
+
+No product timeout, retry, registry behavior, admission policy or oracle answer
+has been changed. The approved change is confined to the verification soak.
+
+Capacity correction validation: initial regressions failed as expected; the
+first implementation had a coverage-summary ReferenceError, fixed before the
+final run. Final targeted/packaging/provisioning tests 22/22, versioned fixture
+specification tests 4/4, strict typecheck, lint, help/syntax and whitespace checks
+passed. Script-only verification change: no full gate rerun.

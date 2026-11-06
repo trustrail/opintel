@@ -16,3 +16,13 @@ it('preserves other scenario mismatches and does not misclassify expected govern
  expect(queryOutcomeBreach({isError:false})).toBeUndefined();
  expect(queryOutcomeBreach({isError:true},'Declared scenario outcome mismatch')).toBe('Declared scenario outcome mismatch');
 });
+
+it('capacity refusal is counted separately, never a wrong answer; values or escrow failures still fail',()=>{
+ const capacity={isError:true,_meta:{code:'engine_saturated',cause:'engine_saturated'}};
+ expect(queryOutcomeBreach(capacity,'Declared scenario outcome mismatch')).toBeUndefined();
+ expect(queryOutcomeBreach(capacity,'Retiring credential outcome mismatch')).toBeUndefined();
+ expect(queryOutcomeBreach({...capacity,structuredContent:{rows:[[1]]}},'Declared scenario outcome mismatch')).toBeDefined();
+ expect(queryOutcomeBreach({...capacity,_meta:{...capacity._meta,releaseFailure:{phase:'escrow'}}})).toBe('Escrow failed');
+ expect(queryOutcomeBreach({isError:true,_meta:{code:'source_unavailable',cause:'engine_registry'}},'Declared scenario outcome mismatch')).toBe('Declared scenario outcome mismatch');
+ expect(queryOutcomeBreach({isError:false},'Declared scenario outcome mismatch')).toBe('Declared scenario outcome mismatch');
+});
