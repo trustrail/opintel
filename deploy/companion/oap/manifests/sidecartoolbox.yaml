@@ -7,7 +7,7 @@ spec:
   version: "1"
   intent: Query governed data and redeem custody grants.
   source:
-    image: ghcr.io/trustrail/opintel-companion@sha256:2f3cc453765f03a0301c7cd51bc7a83592f89c150f2246f204c4fb2ebbe53d13
+    image: ghcr.io/trustrail/opintel-companion@sha256:4d8179d27a42c635ade7d48b19ba28459fbd0ad2f5127242e4d00694eb2cb16a
   sandbox:
     class: opintel-companion
   transport:
@@ -20,16 +20,25 @@ spec:
     provider: opintel-agent
     envVar: OPINTEL_AGENT_CREDENTIAL
   config: '{"gateway":"https://opintel.trustrail.io","project":"8b0998f1-09c5-47ba-b060-1ee4920ba68b","agentId":"oap-analyst","caFile":null}'
+  # OAP readonly/readwrite require a SpiceDB check. These tools delegate
+  # governance to Opintel, so use OAP's external-resource passthrough policy.
   tools:
     - name: opintel_describe
       intent: List visible tables and their column treatments.
+      permission:
+        stateImpact: passthrough
       args:
         allowedFields: []
     - name: opintel_query
       intent: Execute a governed SQL query.
+      permission:
+        stateImpact: passthrough
       args:
         allowedFields: [sql]
     - name: opintel_unseal
       intent: Redeem and unseal an earlier custody result.
+      # Redemption consumes a gateway grant; there is no OAP SpiceDB resource.
+      permission:
+        stateImpact: passthrough
       args:
         allowedFields: [evidenceId, grantId]

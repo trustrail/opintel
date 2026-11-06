@@ -1,0 +1,8 @@
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+rows opintel_query: rows=12 evidenceId=01a1ae74-d8d1-7d83-82da-698070267652
+rows opintel_unseal: rows=12 evidenceId=01a1ae74-d8d1-7d83-82da-698070267652
+rows replay: refused code=forbidden
+aggregate opintel_query: rows=3 evidenceId=01a1ae74-e4a5-7279-84d6-6f2f8939e6de
+aggregate opintel_unseal: rows=3 evidenceId=01a1ae74-e4a5-7279-84d6-6f2f8939e6de
+aggregate replay: refused code=forbidden
