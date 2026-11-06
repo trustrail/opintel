@@ -206,3 +206,42 @@ and pushed as f0b22f2. Targeted validation is as recorded above. No completed
 before/after latency samples, H2 packaged acceptance, ten-minute soak or full
 gate are claimed. The full gate has not run. These remain outstanding; the task
 is incomplete. No cloud host was contacted and nothing was merged.
+
+
+## Owner-authorized HTTP/1 rerun — stopped before enrollment
+
+Owner requested one fresh baseline rerun after the XQ stop. On branch tip
+1f65402, the same standard Stage-5 command above ran from the beginning with
+immutable f1887d1 archives. Retained artifacts:
+`tmp/stage5-acceptance-my25Zg/result.json`, `gateway-services.log`,
+`engine-services.log`, and `/private/tmp/arch01-h1-baseline-owner-rerun.log`.
+The harness exited 1; no product/config changes or substitute steps were used.
+
+Gateway/engine install, all four identity imports, pairing, real SMTP and fresh
+owner sign-in passed. This attempt failed earlier: first-hour verify-engine
+returned HTTP 503. Gateway log lines 205–281 retain one /health call
+931990b3-1975-44a7-b034-8f7da7e72f44 with these UTC timestamps:
+
+| Phase | Timestamp | Measured duration |
+|---|---|---|
+| Attempt start | 2026-11-06T05:32:26.059Z | — |
+| DNS complete, address returned | 05:32:26.080Z | 20.638 ms |
+| TCP connected | 05:32:26.088Z | 8.077 ms |
+| TLS complete / request written | not recorded; both null | — |
+| Failure | 05:32:35.066Z | 9007.141 ms total |
+
+The failure is phase tls, native code ABORT_ERR, written false, aborted true.
+Only one attempt is recorded. Log lines 277–288 record probe and verification
+refusals. The retained engine log contains no /health request record. These
+records establish a TLS-phase deadline abort, not its underlying cause.
+
+Enrollment was never reached, so the prior XQ failure was neither reproduced
+nor disproved. There are zero custody.xq_escrow_request diagnostics in this
+run; there are no new XQ validation timings to report. The previous attempt's
+validation timing remains 05:11:51.791Z–05:11:55.683Z (3892 ms), status null,
+written false, attempt 2. Individual retry/connection phase timings were not
+recorded by that diagnostic.
+
+Stopped after this single authorized rerun. No further baseline, cloud access,
+full gate, H2 acceptance or latency measurement was run. Await owner decision
+on how to obtain the HTTP/1 baseline.
