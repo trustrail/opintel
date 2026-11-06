@@ -164,19 +164,19 @@ backoffs are included because they consume deadline budgets.
 | denied: timeout | 10000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:172 |
 | module configuration: timer / backoff | 15000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:188 |
 | module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:196 |
-| bounded: timer / backoff | ms | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:61 |
-| output: timeout | 600000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:64 |
-| wait: timeout | 120000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:70 |
-| wait: deadline | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:70 |
-| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:70 |
-| req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:78 |
-| req: operation cancellation | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:78 |
-| module configuration: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:135 |
-| list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:138 |
-| message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:138 |
-| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:147 |
-| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:179 |
-| stopped: timeout | 60000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:202 |
+| bounded: timer / backoff | ms | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:63 |
+| output: timeout | 600000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:66 |
+| wait: timeout | 120000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:72 |
+| wait: deadline | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:72 |
+| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:72 |
+| req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:80 |
+| req: operation cancellation | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:80 |
+| module configuration: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:137 |
+| list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:140 |
+| message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:140 |
+| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:149 |
+| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:181 |
+| stopped: timeout | 60000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:207 |
 | result: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:19 |
 | sign: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:25 |
 | custodyStepsAcceptance: timer / backoff | 500 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:27 |

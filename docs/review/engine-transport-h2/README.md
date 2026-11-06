@@ -245,3 +245,30 @@ recorded by that diagnostic.
 Stopped after this single authorized rerun. No further baseline, cloud access,
 full gate, H2 acceptance or latency measurement was run. Await owner decision
 on how to obtain the HTTP/1 baseline.
+
+
+## Owner decision — resume H2 acceptance
+
+The owner abandoned Intel HTTP/1 measurement as an environmental TLS stall.
+Before/after latency will be measured on the cloud pair by the owner after
+merge, not by this task. No local before/after numbers are claimed.
+
+Resume the completed-candidate full gate, then the standard H2 packaged
+acceptance with custody/companion checks and a ten-minute soak. The standard
+Stage-5 harness now accepts `--transport-diagnostics`: it sets the existing
+validated LOG_LEVEL=debug in the test installation, retains complete API phase
+logs, and writes sanitized transport-diagnostics.json on success or failure.
+The summary counts TLS deadline stalls, their phase timestamps/durations and
+whether a later successful attempt on the same call recovered them. It does
+not alter retries, deadlines, pin validation or written-request replay rules.
+Successful calls with retries are counted separately; a retry is never assumed
+to be a recovered TLS stall without a recorded TLS failure on that call.
+
+Removed only the duplicate extracted images.tar files from the four failed
+baseline lab directories. Original immutable tar.gz archives, all logs/results,
+identity files and database/Docker volumes remain retained. Host free space
+increased from 2.4 to 5.6 GiB. No cloud host was accessed.
+
+Diagnostic capture targeted tests passed 12/12 across four files, including
+DEP-008. Changed-script syntax and repository lint passed. The completed-tip
+gate is next; no earlier full gate has run on this H2 candidate.

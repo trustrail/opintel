@@ -34,3 +34,23 @@ export function publicLatency(samples,count=50){
  const quantile=q=>values.length?values[Math.ceil(values.length*q)-1]:null;
  return {status:values.length===count?'passed':'failed',selected:selected.length,passed:values.length,failed:selected.length-values.length,missing:Math.max(0,count-selected.length),p50Ms:quantile(.5),p95Ms:quantile(.95)};
 }
+
+/** H2 debug records only: retain phase timings, never unrelated log payloads. */
+export function transportRetryEvidence(log){
+ const calls=new Map(),attempts=new Map();
+ for(const line of log.split('\n')){
+  let value;try{value=JSON.parse(line);}catch{continue;}
+  if(!value||typeof value.callId!=='string'||typeof value.path!=='string')continue;
+  if(value.event==='engine.transport_call_completed')calls.set(value.callId,{outcome:value.outcome,attempts:value.attempts});
+  if(!['engine.transport_failed','engine.transport_attempt_completed'].includes(value.event))continue;
+  const key=value.callId+':'+value.attempt,before=attempts.get(key)??{};
+  const fields=['callId','path','attempt','phase','reason','nativeErrorCode','outcome','written','aborted','attemptStartedAt','dnsCompletedAt','tcpConnectedAt','tlsCompletedAt','requestWrittenAt','failedAt','finishedAt'];
+  for(const field of fields)if(value[field]!==undefined)before[field]=value[field];
+  if(typeof value.durationsMs?.total==='number')before.durationMs=value.durationsMs.total;
+  attempts.set(key,before);
+ }
+ const failed=[...attempts.values()].filter(value=>value.outcome==='failure');
+ const tlsStalls=failed.filter(value=>value.phase==='tls'&&['connect_deadline','ABORT_ERR'].includes(value.reason));
+ const recovered=tlsStalls.filter(value=>value.written===false&&calls.get(value.callId)?.outcome==='ok'&&calls.get(value.callId)?.attempts>value.attempt);
+ return {completedCalls:calls.size,failedAttempts:failed.length,tlsStallCount:tlsStalls.length,recoveredTlsStallCount:recovered.length,tlsStalls:tlsStalls.map(value=>({...value,recovered:recovered.includes(value)})),successfulCallsWithRetries:[...calls.values()].filter(value=>value.outcome==='ok'&&value.attempts>1).length};
+}

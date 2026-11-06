@@ -1,5 +1,5 @@
 import {it,expect} from 'vitest';
-import {transportSamples,publicLatency} from '../scripts/images/transport-benchmark.mjs';
+import {transportSamples,publicLatency,transportRetryEvidence} from '../scripts/images/transport-benchmark.mjs';
 const startedAt='2026-11-05T00:00:00.000Z',finishedAt='2026-11-05T00:00:10.000Z';
 it('keeps the entire HTTP/1 retry lifetime and parses nested metadata without evaluating logs',()=>{
  const event=(attempt,start,end,outcome)=>`{\n  event: 'engine.transport_attempt_completed',\n  callId: 'one',\n  path: '/health',\n  attempt: ${attempt},\n  attemptStartedAt: '${start}',\n  finishedAt: '${end}',\n  outcome: '${outcome}',\n  durationsMs: {\n    total: 12\n  }\n}`;
@@ -20,4 +20,17 @@ it('reports public verify latency separately and never replaces invalid or missi
  expect(publicLatency(Array.from({length:50},(_,n)=>n+1))).toMatchObject({status:'passed',selected:50,p50Ms:25,p95Ms:48});
  expect(publicLatency([null,...Array.from({length:50},(_,n)=>n+1)])).toMatchObject({status:'failed',selected:50,passed:49,failed:1,missing:0});
  expect(publicLatency([10])).toMatchObject({status:'failed',selected:1,missing:49,p50Ms:10,p95Ms:10});
+});
+
+it('reports TLS stalls as recovered only after a successful later attempt, retaining timings without payloads',()=>{
+ const events=[{event:'unrelated',secret:'not-retained'},...['recovered','failed'].flatMap(callId=>[
+  {event:'engine.transport_failed',callId,path:'/health',attempt:1,phase:'tls',reason:'connect_deadline',written:false,privateBody:'not-retained'},
+  {event:'engine.transport_attempt_completed',callId,path:'/health',attempt:1,phase:'tls',outcome:'failure',attemptStartedAt:startedAt,tcpConnectedAt:startedAt,tlsCompletedAt:null,failedAt:finishedAt,durationsMs:{total:5000}},
+  {event:'engine.transport_call_completed',callId,path:'/health',attempts:callId==='recovered'?2:1,outcome:callId==='recovered'?'ok':'failure'},
+ ])];
+ const result=transportRetryEvidence(events.map(value=>JSON.stringify(value)).join('\n'));
+ expect(result).toMatchObject({completedCalls:2,failedAttempts:2,tlsStallCount:2,recoveredTlsStallCount:1,successfulCallsWithRetries:1});
+ expect(result.tlsStalls.map(value=>[value.durationMs,value.recovered])).toEqual([[5000,true],[5000,false]]);
+ expect(result.tlsStalls[0]).toMatchObject({tcpConnectedAt:startedAt,tlsCompletedAt:null,failedAt:finishedAt});
+ expect(JSON.stringify(result)).not.toContain('not-retained');
 });

@@ -1,4 +1,5 @@
 import {custodyStepsAcceptance} from './steps-custody-acceptance.mjs';
+import {transportRetryEvidence} from './transport-benchmark.mjs';
 import {URL} from 'node:url';
 const {fetch,AbortSignal}=globalThis;
 import process from 'node:process';
@@ -26,11 +27,12 @@ import {verificationConfig} from './verification-config.mjs';
 // External acceptance only. It never alters generated package configuration.
 const archives=resolve(process.argv[2]??''),manifest=JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8'));
 const platform=process.env.PLATFORM??'linux/amd64',prefix=manifest.revision.slice(0,7);
-let candidate=false,transportBenchmark=false,firstHourOnly=false,firstHourActive=false,customerSource,soakDurationSeconds=120;
+let candidate=false,transportBenchmark=false,transportDiagnostics=false,firstHourOnly=false,firstHourActive=false,customerSource,soakDurationSeconds=120;
 for(let index=3;index<process.argv.length;index++){
  const argument=process.argv[index];
  if(argument==='--candidate')candidate=true;
  else if(argument==='--transport-benchmark')transportBenchmark=true;
+ else if(argument==='--transport-diagnostics')transportDiagnostics=true;
  else if(argument==='--first-hour-only')firstHourOnly=true;
  else if(argument==='--duration-seconds'){
   const value=process.argv[++index];assert.match(value??'',/^[1-9][0-9]*$/u,'--duration-seconds requires a positive integer');
@@ -103,7 +105,7 @@ try{
  let hostAddress;
  if(process.platform==='darwin'){const route=run('route',['-n','get','default']);const iface=/interface:\s+(\S+)/u.exec(route)?.[1];assert.ok(iface);hostAddress=run('ipconfig',['getifaddr',iface]);}else hostAddress=run('hostname',['-I']).split(/\s/u)[0];
  const clientHost=acceptanceHostAddress(process.platform,hostAddress);base='https://'+clientHost;
- const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:'fixture!$#%=' ,SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
+ const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:'fixture!$#%=' ,SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit',...(transportDiagnostics?{LOG_LEVEL:'debug'}:{})};
  write(join(gateway,'package.env'),Object.entries(settings).map(([name,value])=>name+"='"+value.replaceAll("'","\\'")+"'").join('\n')+'\n');
  const mapping=JSON.parse(readFileSync('scripts/soak/certificates.example.json'));
  advance('gateway-install');command('gateway','install');result.checks.gatewayInstall=true;
@@ -193,6 +195,9 @@ finally{
  write(resultFile,result); // Results precede any source/daemon teardown.
  if(customerSource){try{customerSource.close();}catch(error){result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;result.cleanupFailures=[{step:'customer-source',message:error instanceof Error?error.message:'Fixture cleanup failed'}];}}
  const cleanupFailure=(step,error)=>{result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;result.cleanupFailures??=[];result.cleanupFailures.push({step,message:error instanceof Error?error.message:'Cleanup failed'});};
+ if(transportDiagnostics&&existsSync(join(gateway,'state/compose.json'))){
+  try{const file=join(directory,'gateway-transport.log');captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested});result.checks.transportDiagnostics=transportRetryEvidence(readFileSync(file,'utf8'));write(join(directory,'transport-diagnostics.json'),result.checks.transportDiagnostics);}catch(error){cleanupFailure('retain-transport-diagnostics',error);}
+ }
  for(const kind of ['gateway','engine'])if(existsSync(join(directory,kind,'state/compose.json'))){
   try{captureProcessLog('docker',composeArgs(kind,'logs','--no-color'),join(directory,kind+'-services.log'),{env:nested});}catch(error){cleanupFailure('retain-'+kind+'-logs',error);}
   try{phase='stop-'+kind;command(kind,'stop');}catch(error){cleanupFailure(phase,error);}
