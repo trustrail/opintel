@@ -535,3 +535,41 @@ returned 8,325,959,680 bytes and 4 CPUs; its elapsed time was not measured.
 No timeout was changed, Docker was not restarted, and acceptance was not retried.
 See [seed-route-preflight-stop.json](seed-route-preflight-stop.json). The corrected
 seed route therefore remains to be exercised in packaged acceptance.
+
+
+## Final authorized acceptance after Docker Desktop restart (2026-11-06)
+
+`docker desktop restart --timeout 180` exited 0. The standard Stage 5 command
+then ran once, with existing b8c71ba published images/archives and
+`--candidate --duration-seconds 600 --transport-diagnostics`. No rebuild,
+republish, timeout change, cloud access or subsequent acceptance run occurred.
+Run: tmp/stage5-acceptance-qO0puT; harness revision 09c04d2.
+
+Preflight passed at 7.75 GiB Docker allocation. Gateway/engine install, four
+identity imports, pairing, real SMTP, fresh owner sign-in, first-hour receipt
+and 200/200 XQ escrow/redeem round trips passed. The corrected seed route was
+exercised successfully: seed and lifecycle-renew each exited 0.
+
+Prepare exited 1: retained verification/output/failure-2026-11-06T16-02-31.437Z-59.log:1
+says "Escrow query refused". Gateway log lines 1514 onward in the private
+prepare-gateway.private.log record mcp.refused at 16:02:31.399Z,
+source_unavailable / engine_registry, evidence ID
+01a1b198-eb3f-77e2-9e13-e32ca929da71. No failed engine transport attempt was
+recorded, so a DNS/TCP/TLS timeout is not established by this refusal. The exact
+registry reason is not retained by prepare's generic error and is not inferred.
+The driver eventually recorded its standard soak-start timeout after that exit.
+
+Final transport capture: 155 completed calls, zero failed attempts, zero
+successful calls with retries, zero observed TLS stalls or recovered stalls.
+This is successful setup-transport evidence, not a ten-minute traffic proof.
+No soak traffic, packaged browser/outage, or final custody/companion regressions
+ran. Cloud before/after latency remains deferred to the owner after merge.
+
+Cleanup passed: two owned outer containers removed plus the nested daemon's data
+volume (and thereby its internal application containers, volumes and networks).
+Logs and results remain retained. See
+[packaged-after-restart.json](packaged-after-restart.json). No further acceptance
+runs today, as instructed; no merge.
+
+Post-cleanup ownership queries returned no run-labelled containers/volumes or
+gateway compose network. Report-only lint and diff whitespace checks passed.

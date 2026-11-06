@@ -1,0 +1,72 @@
+{
+  "harnessRevision": "09c04d2",
+  "imageRevision": "b8c71ba0a7a9d5704b40b160eac17f69360b4532",
+  "runDirectory": "tmp/stage5-acceptance-qO0puT",
+  "dockerRestart": "docker desktop restart --timeout 180; exit 0",
+  "status": "failed",
+  "preflight": {
+    "allocatedBytes": 8325935104,
+    "minimumBytes": 3221225472
+  },
+  "completed": [
+    "gateway install",
+    "engine install",
+    "four identity imports",
+    "pairing",
+    "real SMTP relay",
+    "fresh owner sign-in",
+    "first receipt"
+  ],
+  "xq": {
+    "escrowRedeemAttempted": 200,
+    "escrowRedeemVerified": 200
+  },
+  "soakSteps": [
+    {
+      "step": "seed",
+      "exitCode": 0
+    },
+    {
+      "step": "lifecycle-renew",
+      "exitCode": 0
+    },
+    {
+      "step": "prepare",
+      "exitCode": 1
+    }
+  ],
+  "failure": {
+    "step": "prepare",
+    "message": "Escrow query refused",
+    "code": "source_unavailable",
+    "cause": "engine_registry",
+    "timestamp": "2026-11-06T16:02:31.399Z",
+    "evidenceId": "01a1b198-eb3f-77e2-9e13-e32ca929da71",
+    "underlyingCause": "not established"
+  },
+  "transport": {
+    "completedCalls": 155,
+    "failedAttempts": 0,
+    "tlsStallCount": 0,
+    "recoveredTlsStallCount": 0,
+    "tlsStalls": [],
+    "successfulCallsWithRetries": 0
+  },
+  "cleanup": {
+    "id": "cb12fd80-5d65-466d-a8d9-0ce0c48eee8d",
+    "status": "passed",
+    "removed": {
+      "containers": 2,
+      "volumes": 1,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "notExercised": [
+    "10-minute soak traffic",
+    "packaged browser",
+    "console outage",
+    "custody/companion row and aggregate regression"
+  ],
+  "furtherAcceptanceRunsToday": 0
+}
