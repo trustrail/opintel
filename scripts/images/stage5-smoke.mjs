@@ -202,6 +202,15 @@ finally{
  if(transportDiagnostics&&existsSync(join(gateway,'state/compose.json'))){
   try{const file=join(directory,'gateway-transport.log');captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested});result.checks.transportDiagnostics=transportRetryEvidence(readFileSync(file,'utf8'));write(join(directory,'transport-diagnostics.json'),result.checks.transportDiagnostics);}catch(error){cleanupFailure('retain-transport-diagnostics',error);}
  }
+ if(result.status==='failed'&&['real-smtp-relay','smtp-fixture','normal-owner-login'].includes(phase)){
+  try{
+   captureProcessLog('docker',['ps','--all','--no-trunc','--format','json'],join(directory,'smtp-container-list.jsonl'),{env:nested});
+   const listed=spawnSync('docker',['ps','--all','--quiet'],{encoding:'utf8',env:nested,timeout:10000});
+   if(listed.status!==0)cleanupFailure('retain-smtp-container-state',new Error('SMTP container state enumeration failed'));
+   const ids=listed.status===0?listed.stdout.trim().split(/\s+/u).filter(Boolean):[];
+   if(ids.length)captureProcessLog('docker',['inspect','--format','{"name":{{json .Name}},"state":{{json .State}}}',...ids],join(directory,'smtp-container-states.jsonl'),{env:nested});
+  }catch(error){cleanupFailure('retain-smtp-container-state',error);}
+ }
  for(const kind of ['gateway','engine'])if(existsSync(join(directory,kind,'state/compose.json'))){
   try{captureProcessLog('docker',composeArgs(kind,'logs','--no-color'),join(directory,kind+'-services.log'),{env:nested});}catch(error){cleanupFailure('retain-'+kind+'-logs',error);}
  }

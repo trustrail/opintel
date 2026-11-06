@@ -9,6 +9,8 @@ it('FH-011: the SMTP probe uses the installed daemon and cleanup tracks package 
  const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8'),relay=driver.split('\n').find(line=>line.includes('const relayOutput='));
  expect(relay).toContain("],{env:nested});");
  expect(driver).toContain('lab.trackCompose(gateway);lab.trackCompose(engine);');
+ expect(driver).toContain('smtp-container-states.jsonl');
+ expect(driver).toContain('smtp-container-list.jsonl');
 });
 it('FH-001: first-hour workflow imports only public transport tooling and cannot access Opintel stores',()=>{
  const text=readFileSync('scripts/images/first-hour.mjs','utf8');

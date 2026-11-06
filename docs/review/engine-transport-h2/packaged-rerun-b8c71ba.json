@@ -1,0 +1,48 @@
+{
+  "revision": "b8c71ba0a7a9d5704b40b160eac17f69360b4532",
+  "status": "failed",
+  "runDirectory": "tmp/stage5-acceptance-0HIRZf",
+  "phase": "customer-demo-soak",
+  "smtp": {
+    "authenticated": true,
+    "acceptedResponse": "250"
+  },
+  "ownerSmtpLogin": true,
+  "firstHourStatus": "passed",
+  "xqCheck": {
+    "authenticated": true,
+    "escrowRedeemAttempted": 200,
+    "escrowRedeemVerified": 200
+  },
+  "failure": {
+    "step": "seed",
+    "exitCode": 1,
+    "cause": "ECONNREFUSED",
+    "harnessMessage": "Packaged soak start timed out: Demo exited 1; /Users/rzarita/opintel/tmp/stage5-acceptance-0HIRZf/demo-soak.log"
+  },
+  "transportDiagnostics": {
+    "completedCalls": 65,
+    "failedAttempts": 0,
+    "tlsStallCount": 0,
+    "recoveredTlsStallCount": 0,
+    "tlsStalls": [],
+    "successfulCallsWithRetries": 0
+  },
+  "cleanup": {
+    "id": "37521a7d-5878-4988-9476-a793d9b7692e",
+    "status": "passed",
+    "removed": {
+      "containers": 2,
+      "volumes": 1,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "notExercised": [
+    "soak traffic",
+    "packaged browser",
+    "console outage",
+    "custody rows and aggregates",
+    "companion regression"
+  ]
+}

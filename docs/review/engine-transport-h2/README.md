@@ -458,3 +458,45 @@ standard npm test invocation is the authoritative provisioning check. Local
 sandbox IPC was denied before tests, so it was run with the required host access.
 Before/after latency remains deferred to the owner's cloud pair after merge.
 No cloud host was accessed and nothing was merged.
+
+
+## Owner-authorized fresh acceptance rerun (no republish)
+
+The standard Stage 5 command was repeated from the start on the existing b8c71ba
+published manifest and four archives, using `--candidate --duration-seconds 600
+--transport-diagnostics`. Run: `tmp/stage5-acceptance-0HIRZf`.
+
+Evidence: real SMTP accepted the test message; fresh owner SMTP sign-in and the
+first-hour flow through a receipt passed. All 200 XQ escrow/redeem round trips
+passed. No SMTP timeout recurred. The earlier daemon-selection correction is
+present, but this single pass does not establish the earlier timeout's cause.
+
+Acceptance then failed: the soak's seed step exited 1, with ECONNREFUSED to its
+configured source database endpoint (demo-soak.log line 40; retained
+verification/output/failure-2026-11-06T15-20-14.320Z-19.log line 1).
+The soak result records only seed/exitCode 1. The driver subsequently reported
+its standard start timeout. The endpoint's refusal is established; its underlying
+cause has not been diagnosed. No fix or further acceptance retry followed.
+Browser, outage, traffic and final custody/companion checks did not execute.
+
+Transport diagnostics retained 65 completed calls, zero failed attempts, zero
+successful calls with retries and zero observed TLS stalls. Thus no retry was
+needed in these completed setup calls; the ten-minute traffic proof is still
+not exercised. Before/after cloud latency remains owner-run after merge.
+
+Cleanup passed, removing two owned outer containers and the nested daemon's data
+volume (which contains its internal applications/networks/volumes). Subsequent
+queries found no run-labelled containers/volumes or gateway compose network.
+Logs and results remain on disk. See
+[packaged-rerun-b8c71ba.json](packaged-rerun-b8c71ba.json).
+
+The harness now retains a private nested container list and state-only inspect
+snapshot on an SMTP-phase failure, before service logs and teardown. This avoids
+retaining container environment secrets in the state snapshot; existing gateway,
+engine and mail fixture logs remain private. At real-smtp-relay the SMTP server
+is external, not the later local Mailpit fixture, so there is no local mail daemon
+container to inspect at that step. No archive or image was rebuilt or republished.
+
+Capture/packaging contracts passed 11/11; syntax and lint passed. Lint initially
+rejected a throw in the finally block; cleanup now records that failure and
+continues teardown. No product code changed in this round.
