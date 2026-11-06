@@ -1,0 +1,68 @@
+{
+  "revision": "3b3add27859f58190831dea454f99dd217e16df4",
+  "runDirectory": "tmp/stage5-acceptance-tkyGXy",
+  "status": "failed",
+  "phase": "empty-docker-daemon",
+  "failure": {
+    "phase": "empty-docker-daemon",
+    "message": "Empty daemon startup timed out: empty-docker-daemon failed; private log: /Users/rzarita/opintel/tmp/stage5-acceptance-tkyGXy/127-empty-docker-daemon.log"
+  },
+  "dockerMemory": {
+    "allocatedBytes": 8325947392,
+    "minimumBytes": 3221225472
+  },
+  "archives": {
+    "gateway": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-review-amd64-archives/gateway-3b3add2-amd64.tar.gz",
+      "sha256": "b5922ad2a5930828fb23032a0465763dbd1593faba461c47a9531ddbc2e71d87"
+    },
+    "engine": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-review-amd64-archives/engine-3b3add2-amd64.tar.gz",
+      "sha256": "907493713c9d1f2046e17f59f2cff34fca4201ca4c3afc1ea50e3b7b1ae6787b"
+    },
+    "agent-kit": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-review-amd64-archives/agent-KIT-3b3add2-amd64.tar.gz",
+      "sha256": "45a011617bf0e3bbc4a2e1b0eff47b9ef77da495d49beddc70114684ef32a0ec"
+    },
+    "verification": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-review-amd64-archives/verification-3b3add2-amd64.tar.gz",
+      "sha256": "bb4890e6b365b03a00e54cf9d407b554e9c8ad36e75029efc6c26e75bd70374c"
+    }
+  },
+  "daemonLog": {
+    "file": "opintel-stage5-daemon-5ea6182f-8546-452c-bea0-e76957b55f25.log",
+    "startedAt": "2026-11-06T22:39:49.639628656Z",
+    "containerdStartedAt": "2026-11-06T22:39:51.251472617Z",
+    "error": "failed to start containerd: timeout waiting for containerd to start",
+    "underlyingCause": "not established"
+  },
+  "cleanup": {
+    "id": "b5681a5d-0f4a-4b06-b3b6-44ebce2f3224",
+    "status": "passed",
+    "removed": {
+      "containers": 1,
+      "volumes": 1,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "notExercised": [
+    "gateway install",
+    "engine install",
+    "first receipt",
+    "ten-minute soak",
+    "final custody/companion checks",
+    "H2 50-call benchmark",
+    "HTTP/1 baseline benchmark"
+  ],
+  "baseline": {
+    "archiveRevision": "f1887d1",
+    "acceptedMain": "a15d35f",
+    "productPathsDiffExit": 0
+  },
+  "latencySamples": {
+    "query": 0,
+    "attest": 0,
+    "verify": 0
+  }
+}

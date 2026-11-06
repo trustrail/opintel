@@ -780,3 +780,55 @@ and lint passed. The current verifier (including the revoked-key guard) will
 be rebuilt for the requested fresh acceptance and 50-call measurement. The
 HTTP/1 baseline remains f1887d1: git diff --quiet f1887d1..main over src, sidecar,
 customer-install and engine packaging exits 0 against main a15d35f.
+
+
+## Owner-requested fresh review acceptance and latency comparison — blocked
+
+Docker Desktop was restarted by the owner before this round. A source audit
+found the second, mismatched-certificate import still passed an outside-lab ZIP;
+both final imports now use the tested private staging helper. Syntax, targeted
+and provisioning tests 14/14, and lint passed; pushed as 3b3add2.
+
+The complete current verifier (including the revocation guard) was rebuilt:
+all eight amd64 image audits passed and images published using the standard
+workflow, manifest tmp/arch01-review-published.json. All four archives were
+produced under tmp/arch01-review-amd64-archives/, revision 3b3add2. No cloud host
+was touched. The immutable accepted HTTP/1 f1887d1 archives remain available;
+git diff --quiet f1887d1..main over src, sidecar, customer-install and engine
+packaging exited 0 against main a15d35f. They would be reported under their real
+archive revision, not relabelled.
+
+The exact standard acceptance command used --candidate --duration-seconds 600
+--transport-diagnostics --transport-benchmark. The benchmark runs only after
+functional custody/companion assertions. Run: tmp/stage5-acceptance-tkyGXy.
+
+Outer Docker memory preflight passed (7.75 GiB), and all four archive audits
+passed. The fresh nested daemon could not start: its retained log says
+"failed to start containerd: timeout waiting for containerd to start" after
+starting containerd at 22:39:51.251472617Z. The readiness helper repeatedly
+reported cannot connect at 127.0.0.1:12375 and reached its existing 120-second
+startup deadline. This is before any gateway/engine install or H2 call. The
+underlying cause of the containerd startup timeout is not established; no claim
+of OOM or branch transport failure is made.
+
+Cleanup passed: the owned daemon container and data volume were removed. No
+retry, timeout change or substitute setup followed this standard-step failure.
+See [review-acceptance-containerd-stop.json](review-acceptance-containerd-stop.json).
+
+The requested before/after measurement is **not measured**, not zero. No new
+50-call selection ran; the HTTP/1 comparison was conditional on H2 acceptance
+passing, so the baseline was not started. Prior successful soak evidence remains
+recorded, but does not replace this required complete acceptance.
+
+| Packaged path | HTTP/1 p50 / p95 | H2 p50 / p95 | Samples in this review attempt |
+|---|---|---|---|
+| Query (/execute) | Not measured | Not measured | 0/50 each |
+| Attest (/custody/attest) | Not measured | Not measured | 0/50 each |
+| Verify (/health; plus public verify duration) | Not measured | Not measured | 0/50 each |
+
+The timeout/default table and full static inventory remain in
+[docs/timeouts.md](../../timeouts.md). No settings changed in this round. Overall
+acceptance and latency comparison remain blocked; stop for review, no merge.
+
+Report lint and whitespace checks passed. Post-cleanup label queries found no
+owned containers or volumes. No additional acceptance or baseline run followed.
