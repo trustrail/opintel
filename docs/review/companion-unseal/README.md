@@ -77,7 +77,7 @@ accessible and its original argument fields have not been independently read.
 
 Both console-first-run-install and Stage 5 now run the custody extension after
 the browser stage. It uses the shipped kit commands for a six-row projection and
-SUM, independent fixture answers (including SUM's recorded string `645`), and
+SUM, independent fixture answers (including SUM's recorded string representation), and
 refused replay. Then it exports a credential with the kit command and runs the
 companion's official-SDK checker for rows and aggregate (both IDs), local unseal,
 and refused replay. Counts, evidence IDs and sanitized failures are retained.
@@ -107,3 +107,32 @@ checkout. The exported unseal description, schema property descriptions and MCP
 read-only annotations are verified by the bundled runtime test. Original OAP
 session arguments remain unverified remotely; no Kubernetes context is installed
 on this Intel host.
+
+## Final dual-architecture build and live result
+
+Implementation revision 2882bd7 is pushed. `npm run companion:build -- 2882bd7`
+exited 0; OCI index
+`sha256:4d8179d27a42c635ade7d48b19ba28459fbd0ad2f5127242e4d00694eb2cb16a`
+contains linux/amd64 and linux/arm64. This is a local build digest; publication
+and the bundle pin are pending explicit owner approval.
+
+The amd64 image, loaded from that OCI archive, ran against the cloud using the
+same private env file and no secrets in arguments. Standard live checker exit 0:
+
+- tools/list: all three tools; describe: ok.
+- rows: 12 sealed, 12 unsealed, replay `forbidden`; evidence
+  01a1ae74-d8d1-7d83-82da-698070267652.
+- aggregate: 3 sealed, 3 unsealed **with both IDs**, replay `forbidden`; evidence
+  01a1ae74-e4a5-7279-84d6-6f2f8939e6de.
+
+Six custody assertions passed, zero failed. The container log contains no
+internal_error. The diagnostic and final test containers were stopped and
+removed. No values, shares or key material were printed. Sanitized output and
+container records are in `evidence/fixed-*`.
+
+Evidence: the compound-ID bug reproduces locally; row and single-ID aggregate
+controls succeed, and matching compound IDs succeed with the fix. Inference:
+the provider change likely made the original model send both IDs; the Air's
+original tool-call input has not been independently retrieved. The owner has
+explicitly directed this to be treated as the cause. No gateway change or cloud
+upgrade is part of the fix.
