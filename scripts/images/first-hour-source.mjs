@@ -6,6 +6,10 @@ import {setTimeout} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import process from 'node:process';
 
+/** Docker Desktop's caller route, as used by console-first-run-install.
+ * Retain the explicit host address on Linux; never guess a Linux host alias. */
+export function acceptanceHostAddress(platform,address){return platform==='darwin'?'host.docker.internal':address;}
+
 /** External plain Postgres, never a packaged readiness/demo database. */
 export async function firstHourSource({directory,image,host,recordFailure,env=process.env,run=spawnSync}){
  assert.match(image,/^postgres:[^@]+@sha256:[a-f0-9]{64}$/u,'First-hour source must be pinned official Postgres');

@@ -1,3 +1,4 @@
+import {acceptanceHostAddress} from '../scripts/images/first-hour-source.mjs';
 import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -53,4 +54,9 @@ it.each([true,false])('FH-009: first hour honours automatic engine attachment (%
  expect(result.steps.some(step=>step.step==='verify-engine'&&step.status==='passed')).toBe(true);
  expect(calls.filter(call=>call.path.endsWith('/engines')&&call.method==='POST')).toHaveLength(automatic?0:1);
  expect(result.failure.step).toBe('designate-custody-engine');
+});
+
+it('FH-010: Stage 5 uses the existing console-harness Docker Desktop route for both gateway and source',()=>{
+ expect(acceptanceHostAddress('darwin','192.0.2.10')).toBe('host.docker.internal');expect(acceptanceHostAddress('linux','192.0.2.10')).toBe('192.0.2.10');
+ const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');expect(driver).toContain("base='https://'+clientHost");expect(driver).toContain('customerPostgres,host:clientHost,env:outer');
 });

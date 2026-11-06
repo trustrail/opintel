@@ -19,7 +19,7 @@ import {parse} from 'dotenv';
 import {auditPackage} from './package-audit.mjs';
 import {firstHour} from './first-hour.mjs';
 import {firstHourEngine} from './first-hour-engine.mjs';
-import {firstHourSource} from './first-hour-source.mjs';
+import {firstHourSource,acceptanceHostAddress} from './first-hour-source.mjs';
 import {acceptanceRequest,acceptanceDeadlineMs} from './acceptance-json.mjs';
 import {verificationConfig} from './verification-config.mjs';
 
@@ -102,7 +102,7 @@ try{
  advance('package-inputs');
  let hostAddress;
  if(process.platform==='darwin'){const route=run('route',['-n','get','default']);const iface=/interface:\s+(\S+)/u.exec(route)?.[1];assert.ok(iface);hostAddress=run('ipconfig',['getifaddr',iface]);}else hostAddress=run('hostname',['-I']).split(/\s/u)[0];
- base='https://'+hostAddress;
+ const clientHost=acceptanceHostAddress(process.platform,hostAddress);base='https://'+clientHost;
  const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:'fixture!$#%=' ,SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
  if(transportBenchmark)settings.LOG_LEVEL='debug';
  write(join(gateway,'package.env'),Object.entries(settings).map(([name,value])=>name+"='"+value.replaceAll("'","\\'")+"'").join('\n')+'\n');
@@ -140,7 +140,7 @@ try{
  const link=message.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);
  const response=await https('/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage5-customer-acceptance'});assert.equal(response.status,200);ownerCookie=response.headers['set-cookie'].find(value=>value.startsWith('opintel_session=')).split(';')[0];result.checks.normalOwnerSmtpLogin=true;
  advance('first-hour-customer-source');
- customerSource=await firstHourSource({directory,image:upstream['x-acceptance-images'].customerPostgres,host:hostAddress,env:outer,recordFailure:(error,fixture)=>{result.status='failed';result.checks.firstHourSource={...fixture,external:true};result.failure={phase,message:error instanceof Error?error.message:'Source fixture failed'};write(resultFile,result);}});
+ customerSource=await firstHourSource({directory,image:upstream['x-acceptance-images'].customerPostgres,host:clientHost,env:outer,recordFailure:(error,fixture)=>{result.status='failed';result.checks.firstHourSource={...fixture,external:true};result.failure={phase,message:error instanceof Error?error.message:'Source fixture failed'};write(resultFile,result);}});
  result.checks.firstHourSource={container:customerSource.name,network:customerSource.network,image:customerSource.image,fixture:'test/fixtures/first-hour/customer.sql',log:customerSource.log,external:true};
  advance('first-hour');
  firstHourActive=true;

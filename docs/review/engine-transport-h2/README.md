@@ -120,3 +120,32 @@ through the existing API when absent. This is necessary to generate real
 `/custody/attest` samples: engine verification alone does not attest a key, and
 a clear-only query would leave the requested attestation measurement empty.
 Outside benchmark mode the custody acceptance fixture is unchanged.
+
+### Canonical-engine baseline candidate — source route stop
+
+`tmp/stage5-acceptance-nr0ZLs/result.json` stopped at source-connected. Engine
+verification, custody designation, project settings and source registration
+passed. The failing `/test-connection` completed DNS at 03:54:45.536Z, TCP at
+.539Z, TLS at .545Z and write at .546Z; the API aborted the response at
+03:54:54.451Z (8921ms total). Engine logs 683–744 show one source lease, a
+10000ms source-connect allowance, ETIMEDOUT at 03:54:55.668Z and lease release.
+The source Postgres log has no corresponding incoming remote connection.
+These records locate the failure after the gateway/engine handshake; they do
+not identify the underlying host-network reason.
+
+Stage 5 still passed the Mac LAN address to the external source and to
+container-side gateway clients. The existing console-first-run-install harness
+uses host.docker.internal for those same Docker Desktop paths. Stage 5 now
+uses that established route on macOS for both; Linux retains its explicit host
+address. Source container/network, published port, reference import, policy,
+public registration and SQL assertions are unchanged. No application timeout
+or egress permission is changed to accommodate the fixture. FH-010 covers the
+platform distinction. This is a new corrected harness candidate, not a gate
+retry. Both earlier runs remain failed; neither produced latency samples.
+
+The complete Docker Desktop caller-route correction passed 10/10 first-hour
+and benchmark-parser tests; repository lint and changed-script syntax checks
+passed. The route matches the pre-existing console-first-run-install harness
+for container-side public gateway access as well as the ordinary source. The
+LAN address remains the installation host identity used for pairing; only
+local caller routes select the established Docker Desktop alias.
