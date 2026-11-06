@@ -10,6 +10,8 @@ import {gateDatabase} from './gate-database.mjs';
 import {gateMemoryMonitor} from './gate-memory.mjs';
 import {randomUUID} from 'node:crypto';
 import {cleanupGateContainers} from './gate-containers.mjs';
+import {gateSelection} from './gate-selection.mjs';
+const selection=gateSelection(process.argv.slice(2));
 async function isolation(tier){
  const checks=[];
  for(const port of [3000,3100,3101,4173,5173]){
@@ -38,7 +40,8 @@ const interrupt=()=>stop('SIGINT'),terminate=()=>stop('SIGTERM');
 process.on('SIGINT',interrupt);process.on('SIGTERM',terminate);
 function record(){
  mkdirSync('test-results',{recursive:true});
- writeFileSync('test-results/gate.json',JSON.stringify({commit,runId,preflight,memory:memory.snapshot(),tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,complete:tiers.length===7&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted},null,2)+'\n');
+ const selectedComplete=tiers.length===selection.scripts.length&&tiers.every(tier=>tier.exitCode===0)&&cleanup?.exitCode===0&&!interrupted;
+ writeFileSync('test-results/gate.json',JSON.stringify({commit,runId,selection,preflight,memory:memory.snapshot(),tiers,cleanup,interrupted,wallSeconds:(performance.now()-start)/1000,selectedComplete,complete:selection.scope==='full'&&selectedComplete},null,2)+'\n');
 }
 async function tier(script){
  return new Promise(resolve=>{
@@ -57,8 +60,7 @@ try{
  console.log(`Gate preflight: PostgreSQL and Redis reachable; fresh migrated database ${database.name}.`);
  record();
  // Sequential; never retry a tier or run domains concurrently with smoke setup.
- const scripts=['typecheck','typecheck:conformance','lint','build:production','test:conformance','test','test:smoke'];
- for(const script of scripts){
+ for(const script of selection.scripts){
   if(interrupted)break;
   if(script==='test:conformance'||script==='test:smoke')await isolation(script.replace(':','-'));
   if(interrupted)break;

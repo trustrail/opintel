@@ -82,7 +82,7 @@ backoffs are included because they consume deadline budgets.
 | client: query_timeout | 500 | Caller/configuration dependent | scripts/gate-probe.ts:20 |
 | client: connectTimeout | 500 | Caller/configuration dependent | scripts/gate-probe.ts:29 |
 | main: timer / backoff | 100 | Caller/configuration dependent | scripts/gate-probe.ts:40 |
-| stop: timer / backoff | 5000 | Caller/configuration dependent | scripts/gate.mjs:34 |
+| stop: timer / backoff | 5000 | Caller/configuration dependent | scripts/gate.mjs:36 |
 | module configuration: acceptanceDeadlineMs | 30000 | Caller/configuration dependent | scripts/images/acceptance-json.mjs:15 |
 | captureProcessLog: {env,timeout=600000} | {} | Caller/configuration dependent | scripts/images/acceptance-log.mjs:6 |
 | docker: timeout | 5000 | Caller/configuration dependent | scripts/images/acceptance-preflight.mjs:8 |

@@ -309,3 +309,19 @@ not run. TLS-stall recovery counts/timings for that packaged candidate are
 not exercised, not zero. The opt-in diagnostic capture is committed for the
 next authorized run. Cloud before/after latency remains deferred to the owner
 after merge. No cloud host was accessed and nothing was merged.
+
+
+## Owner-authorized continuation after Docker restart
+
+Owner authorized restarting at conformance, then normal tests and smoke before
+packaged acceptance and the ten-minute soak. Docker restart left development
+PostgreSQL and Redis stopped; standard `docker compose up -d --wait
+--wait-timeout 120 postgres redis` brought both to healthy. Host free space was
+9.5 GiB.
+
+The gate now supports explicit `--from TIER` selection, with unchanged service
+preflight, fresh isolated migrated database, port isolation and teardown. It
+records resumed scope and selectedComplete separately; complete is false for a
+partial run. Unknown/ambiguous tier arguments refuse before running anything.
+The prior failed record and its four passed tiers remain separate evidence.
+This is a requested continuation, not an unreported full-gate retry.
