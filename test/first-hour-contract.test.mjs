@@ -1,4 +1,7 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {firstHourEngine} from '../scripts/images/first-hour-engine.mjs';
 import {it,expect} from 'vitest';
 import {firstHour,firstHourRefusal} from '../scripts/images/first-hour.mjs';
 it('FH-001: first-hour workflow imports only public transport tooling and cannot access Opintel stores',()=>{
@@ -17,4 +20,37 @@ it('FH-007: refusal diagnostics retain only bounded classification and evidence 
  const evidenceId='01a18613-ebde-7372-8fb0-c8456b2a38c4';
  expect(firstHourRefusal({code:'unsupported_pushdown',cause:'scan_size_unknown',evidenceId,message:'private value',token:'synthetic-secret'})).toEqual({code:'unsupported_pushdown',cause:'scan_size_unknown',evidenceId});
  expect(firstHourRefusal({code:'x'.repeat(65),cause:'private payload!',evidenceId:'not a receipt'})).toEqual({code:'unknown',cause:'unknown'});
+});
+
+it('FH-008: acceptance registers the API pairing projection, never its original LAN address',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'first-hour-peer-'));
+ try{
+  mkdirSync(join(directory,'state/paired-engines'),{recursive:true});
+  const identity={kind:'engine',address:'https://192.0.2.10:3100',pin:'00'.repeat(32)};
+  writeFileSync(join(directory,'state/peer.json'),JSON.stringify(identity),{mode:0o600});
+  expect(()=>firstHourEngine(directory)).toThrow();
+  writeFileSync(join(directory,'state/paired-engines/peer.json'),JSON.stringify({...identity,address:'https://host.docker.internal:3100'}),{mode:0o600});
+  expect(firstHourEngine(directory)).toEqual({address:'https://host.docker.internal:3100',pin:identity.pin});
+  expect(readFileSync('scripts/images/stage5-smoke.mjs','utf8')).toContain('const peer=firstHourEngine(gateway)');
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+it.each([true,false])('FH-009: first hour honours automatic engine attachment (%s) without duplicate registration',async automatic=>{
+ const project='00000000-0000-4000-8000-000000000001',id='00000000-0000-4000-8000-000000000002',engine={name:'Paired engine',address:'https://host.docker.internal:3100',certificatePin:'AA'.repeat(32)},calls=[];let exists=automatic;
+ const request=async(path,method,body)=>{
+  calls.push({path,method,body});let value;
+  if(path.startsWith('/api/v1/companies?'))value={items:[{id:project,role:'admin'}],nextCursor:null};
+  else if(path==='/api/v1/industries')value=[{id:project,slug:'reinsurance-treaty'}];
+  else if(path==='/api/v1/projects')value={id:project,...automatic?{registeredEngine:{id,name:engine.name}}:{}};
+  else if(path.includes('/pools?')||path.includes('/sources?'))value={items:[],nextCursor:null};
+  else if(path.endsWith('/engines')&&method==='POST'){exists=true;value={ok:true};}
+  else if(path.includes('/engines?'))value={items:exists?[{...engine,id}]:[],nextCursor:null};
+  else if(path.endsWith('/verify'))value={ok:true};
+  else return {status:503,text:JSON.stringify({error:{code:'fixture_stop'}})};
+  return {status:200,text:JSON.stringify(value)};
+ };
+ const result=await firstHour({request,engine,source:{credentialRef:'secret://sources/customer'},addSource:async()=> 'secret://sources/customer'});
+ expect(result.steps.some(step=>step.step==='verify-engine'&&step.status==='passed')).toBe(true);
+ expect(calls.filter(call=>call.path.endsWith('/engines')&&call.method==='POST')).toHaveLength(automatic?0:1);
+ expect(result.failure.step).toBe('designate-custody-engine');
 });

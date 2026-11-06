@@ -18,6 +18,7 @@ import {setTimeout as deadlineTimer,clearTimeout} from 'node:timers';
 import {parse} from 'dotenv';
 import {auditPackage} from './package-audit.mjs';
 import {firstHour} from './first-hour.mjs';
+import {firstHourEngine} from './first-hour-engine.mjs';
 import {firstHourSource} from './first-hour-source.mjs';
 import {acceptanceRequest,acceptanceDeadlineMs} from './acceptance-json.mjs';
 import {verificationConfig} from './verification-config.mjs';
@@ -103,6 +104,7 @@ try{
  if(process.platform==='darwin'){const route=run('route',['-n','get','default']);const iface=/interface:\s+(\S+)/u.exec(route)?.[1];assert.ok(iface);hostAddress=run('ipconfig',['getifaddr',iface]);}else hostAddress=run('hostname',['-I']).split(/\s/u)[0];
  base='https://'+hostAddress;
  const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:'fixture!$#%=' ,SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
+ if(transportBenchmark)settings.LOG_LEVEL='debug';
  write(join(gateway,'package.env'),Object.entries(settings).map(([name,value])=>name+"='"+value.replaceAll("'","\\'")+"'").join('\n')+'\n');
  const mapping=JSON.parse(readFileSync('scripts/soak/certificates.example.json'));
  advance('gateway-install');command('gateway','install');result.checks.gatewayInstall=true;
@@ -142,7 +144,7 @@ try{
  result.checks.firstHourSource={container:customerSource.name,network:customerSource.network,image:customerSource.image,fixture:'test/fixtures/first-hour/customer.sql',log:customerSource.log,external:true};
  advance('first-hour');
  firstHourActive=true;
- const peer=JSON.parse(readFileSync(join(gateway,'state/peer.json')));
+ const peer=firstHourEngine(gateway);
  result.checks.firstHour=await firstHour({base,addSource:()=>command('engine','sources','add','first-hour','--host',customerSource.host,'--port',customerSource.port,'--database',customerSource.database,'--user',customerSource.user,'--password-file',customerSource.passwordFile),request:(path,method,body,headers)=>{assert.ok(!(JSON.stringify(body)??'').includes(readFileSync(customerSource.passwordFile,'utf8')),'Source secret reached gateway transport');return https(path,method,body,headers.authorization?undefined:ownerCookie,headers);},engine:{name:'First hour engine',address:peer.address,certificatePin:peer.pin},source:{name:'Demonstration database',kind:'postgres',credentialRef:'secret://sources/first-hour',includeSchemas:['public'],samplingConsent:false,receivesLandings:false,landingStrategy:null},agentQuery:({project,key,sql})=>{const keyFile=join(agent,'first-hour.key'),out=join(agent,'first-hour.json');writeFileSync(keyFile,key+'\n',{mode:0o600});run(join(agent,'steps'),['query','--gateway',base,'--project',project,'--key-file',keyFile,'--agent-id','first-hour','--sql',sql,'--out',out],{env:nested});return {structuredContent:JSON.parse(readFileSync(out,'utf8')).result};},settings:{query:{timeoutSeconds:30,rowLimit:100,memoryLimitMb:256,concurrencyPerPool:2},custody:{provider:'xq',tenant:provider.OPINTEL_XQ_TEAM_ID,region:'us-east-1'}},onProgress:value=>{result.checks.firstHour=value;write(resultFile,result);}});
  firstHourActive=false;
  assert.equal(result.checks.firstHour.status,'passed','First-hour acceptance failed at '+result.checks.firstHour.failure?.step);

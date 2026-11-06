@@ -54,3 +54,69 @@ checks passed 5/5. Repository lint and changed-script syntax checks passed.
 Unused build-cache cleanup reclaimed 5.32GB; host free space reached 11GiB.
 Development Postgres and Redis remained healthy. Required SMTP/XQ setting names
 and all four identity exports were present (no values were printed).
+
+## HTTP/1 baseline attempt — failed, not retried
+
+The standard invocation was:
+
+```sh
+PLATFORM=linux/amd64 RELEASE_MANIFEST=tmp/release-f1887d1-published.json STAGE4_PROVIDER_ENV=.env node scripts/images/stage5-smoke.mjs tmp/cloud-f1887d1-archives --candidate --duration-seconds 120 --transport-benchmark
+```
+
+Retained run: `tmp/stage5-acceptance-awBfUg/result.json`; host log:
+`/private/tmp/arch01-h1-baseline.log`. Started 2026-11-06T02:27:42.302Z.
+Install, identity import, pairing, SMTP relay and owner sign-in passed. First-hour
+engine verification returned HTTP 503 at 02:47:18.285Z. Its `/health` transport
+call recorded four failed connect attempts, no TCP/TLS completion and no request
+write. Attempt 1 took 1015ms; attempt 4 ended at the caller deadline with
+ABORT_ERR. Retained gateway log lines 294–523 contain the phase records and
+`engine.probe_refused` (stage transport, phase connect).
+
+The first-hour flow stopped before any latency selection or custody extension.
+Thus before p50/p95 are **not measured**, not zero; no successful-call samples
+are substituted, and this baseline acceptance has not been rerun. The retained
+records establish a connect-stage failure, not its underlying network cause.
+The uncommitted H2 product draft did not enter the immutable f1887d1 application
+archives used by this run.
+
+### Established baseline harness cause and correction
+
+The retained installation has different authoritative addresses:
+`gateway/state/peer.json` retained the original LAN address, while
+`gateway/state/output/peer.json` and `gateway/state/paired-engines/peer.json`
+contain the same-host Docker route. Stage 5 read the former at its first-hour
+registration step; the API/console use the latter projection mounted through
+INSTALLATION_PAIRING_FILE. The standard harness now reads that projection,
+with no fallback to the original LAN address. FH-008 proves that distinction
+with two different fixture addresses and refuses an absent projection. This
+is a harness input correction, not a transport or application fix. It explains
+which different target was used; the earlier phase log alone did not establish
+the underlying host-network failure.
+
+The benchmark parser and first-hour contracts passed 7/7 after this correction.
+The broader installer/packaging/transport/settings/cleanup batch passed 66/66,
+including DEP-008 and the real non-root archive/runtime checks. Strict typecheck
+passed before the subsequent scope-isolation hardening; it will be rerun on the
+completed tip. Repository lint passed before that hardening. No full gate has
+run yet. Per-path health summaries are scoped by project as well as engine/pin;
+sharing one pinned connection never shares one project's counters with another.
+
+The corrected first-hour driver also honours the engine auto-attached by the
+public project-creation API: it checks its listed address and pairing pin,
+then verifies it instead of issuing a duplicate registration. When no engine
+was attached, it still registers through the public engine API. Both branches
+are exercised by FH-009; the final first-hour/parser batch passed 9/9.
+
+Session limits include draining sessions. Age rotation begins at the configured
+age even while a stream is active; new streams wait for capacity while written
+streams drain under their own deadlines. This preserves the one-session default
+without replay or unbounded replacement connections. Debug phase capture is
+opt-in with `LOG_LEVEL=debug` in package.env; the benchmark harness selects it.
+
+The benchmark query explicitly reads `id, token_id`, ordered only by the clear
+id. In benchmark mode the standard custody fixture prepares that token column
+through the public declaration/entitlement APIs and initializes its token key
+through the existing API when absent. This is necessary to generate real
+`/custody/attest` samples: engine verification alone does not attest a key, and
+a clear-only query would leave the requested attestation measurement empty.
+Outside benchmark mode the custody acceptance fixture is unchanged.

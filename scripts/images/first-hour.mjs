@@ -36,7 +36,13 @@ export async function firstHour({request,base,engine,source,settings,agentQuery,
   const project=await run('create-empty-project',()=>api('/api/v1/projects','POST',{companyId:company.id,name:'First hour '+randomUUID().slice(0,8),industryId:industry.id,region:'us-east-1'}));
   const p=project.id;result.projectId=p;
   await run('verify-empty-project',async()=>{assert.equal((await all(`/api/v1/projects/${p}/pools`)).length,0);assert.equal((await all(`/api/v1/projects/${p}/sources`)).length,0);});
-  await run('register-engine',()=>api(`/api/v1/projects/${p}/engines`,'POST',engine));
+  await run('register-engine',async()=>{
+   const existing=await all(`/api/v1/projects/${p}/engines`);
+   const attached=project.registeredEngine?existing.find(e=>e.id===project.registeredEngine.id):existing.find(e=>e.address===engine.address);
+   if(project.registeredEngine)assert.ok(attached,'Automatically attached engine was not listed');
+   if(attached){assert.equal(attached.address,engine.address,'Attached engine must use the paired route');assert.equal(attached.certificatePin.replaceAll(':','').toUpperCase(),engine.certificatePin.replaceAll(':','').toUpperCase(),'Attached engine must retain the pairing pin');return;}
+   await api(`/api/v1/projects/${p}/engines`,'POST',engine);
+  });
   const registered=(await all(`/api/v1/projects/${p}/engines`)).find(e=>e.address===engine.address);assert.ok(registered,'Engine registration was not listed');
   await run('verify-engine',()=>api(`/api/v1/projects/${p}/engines/${registered.id}/verify`,'POST',{}));
   await run('designate-custody-engine',()=>api(`/api/v1/projects/${p}/engines/${registered.id}/custody`,'POST',{}));

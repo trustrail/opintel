@@ -22,7 +22,14 @@ try{
   for(const credential of pool.credentials.filter(c=>c.state==='active'&&c.identity?.kind==='bearer-only'))await api(`/api/v1/pools/${config.pool}/credentials/revoke`,'POST',{projectId:config.project,credentialId:credential.id,confirmation:credential.label});
   const members=(await api(`/api/v1/pools/${config.pool}/entitlement-members?projectId=${config.project}&mode=name&decision=all&limit=100`)).items,field=members.find(m=>m.name==='custody_label');assert.ok(field,'Fixture custody column missing');assert.match(field.objectName,/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*){2}$/u);
   await api(`/api/v1/pools/${config.pool}/entitlements/bulk`,'POST',{projectId:config.project,elementIds:[field.id,members.find(m=>m.name==='amount').id],treatment:'custody',maskKind:null,justification:null});
-  result={status:'passed',operation:'prepare',sql:`SELECT id, custody_label FROM ${field.objectName} ORDER BY id`,aggregateSql:`SELECT SUM(amount) AS total FROM ${field.objectName}`,benchmarkSql:`SELECT id FROM ${field.objectName} ORDER BY id`,provider:'xq',publicIdentityImport:false};
+  if(config.transportBenchmark){
+   const key=await api(base+'/token-key');if(!key.currentVersion)await api(base+'/token-key/initialize','POST',{});
+   const token=members.find(member=>member.name==='token_id');assert.ok(token,'Benchmark token column missing');
+   const path=base+`/catalog/elements/${token.id}/declarations`,declaration=await api(path);
+   await api(path,'PUT',{...declaration.stored,caseInsensitive:false,canonId:declaration.effective.canonId});
+   await api(`/api/v1/pools/${config.pool}/entitlements/bulk`,'POST',{projectId:config.project,elementIds:[token.id],treatment:'tokenized',maskKind:null,justification:null});
+  }
+  result={status:'passed',operation:'prepare',sql:`SELECT id, custody_label FROM ${field.objectName} ORDER BY id`,aggregateSql:`SELECT SUM(amount) AS total FROM ${field.objectName}`,benchmarkSql:`SELECT id${config.transportBenchmark?', token_id':''} FROM ${field.objectName} ORDER BY id`,provider:'xq',publicIdentityImport:false};
  }else if(config.operation==='benchmark-verify'){
   const engine=(await api(`/api/v1/projects/${config.project}/engines`)).items.find(e=>e.verifiedAt);assert.ok(engine,'No verified benchmark engine');
   const samples=[];for(let n=0;n<50;n++){const started=performance.now();await api(`/api/v1/projects/${config.project}/engines/${engine.id}/verify`,'POST',{});samples.push(performance.now()-started);}
