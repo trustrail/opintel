@@ -176,8 +176,8 @@ backoffs are included because they consume deadline budgets.
 | list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:144 |
 | message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:144 |
 | module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:153 |
-| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:185 |
-| listed: timeout | 10000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:208 |
+| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:187 |
+| listed: timeout | 10000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:210 |
 | result: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:19 |
 | sign: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:25 |
 | custodyStepsAcceptance: timer / backoff | 500 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:27 |

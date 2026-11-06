@@ -521,3 +521,17 @@ The Stage 5 seed URI now uses the already discovered explicit outer host address
 route (customerSource.host). The source, schema selection, credentials, seed
 options and expected soak answers are unchanged. No product transport change,
 image rebuild or republish is needed. FH-012 protects this distinction.
+
+
+Seed-route correction validation: 12/12 first-hour and provisioning tests passed;
+syntax and lint passed. Committed/pushed as 67b8c47 before the fresh standard
+acceptance attempt, with the existing b8c71ba manifest/archives and no republish.
+
+That attempt, tmp/stage5-acceptance-ttSA3A, stopped at memory preflight: docker
+info did not complete within the existing 10-second inspection limit. It did
+not extract/install archives or start any fixture. Cleanup passed with zero
+resources created/removed. A subsequent direct read-only docker info eventually
+returned 8,325,959,680 bytes and 4 CPUs; its elapsed time was not measured.
+No timeout was changed, Docker was not restarted, and acceptance was not retried.
+See [seed-route-preflight-stop.json](seed-route-preflight-stop.json). The corrected
+seed route therefore remains to be exercised in packaged acceptance.
