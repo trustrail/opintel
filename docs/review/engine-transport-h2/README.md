@@ -613,3 +613,47 @@ standard dev Postgres/Redis stopped after Desktop restart; docker compose up -d
 Heartbeat binding correction: 22/22 targeted/packaging/provisioning tests,
 changed-script syntax, lint and whitespace checks passed. No full gate rerun for
 this harness-only change. Fresh acceptance follows with existing images.
+
+
+## Corrected heartbeat binding: fresh packaged result
+
+On harness 3cd0bd8, the standard fresh Stage 5 run used the existing published
+b8c71ba images/four archives, `--candidate --duration-seconds 600
+--transport-diagnostics`, with no rebuild or republish. Run:
+`tmp/stage5-acceptance-QVmqog`.
+
+Preflight, installs, identities, pairing, real SMTP, fresh sign-in, first receipt
+and 200/200 XQ round trips passed. Seed, lifecycle-renew and prepare all exited
+0. The prior prepare refusal did not recur after preserving the exact installed
+heartbeat binding. Packaged browser and console outage/recovery checks passed.
+
+The ten-minute soak started at 16:26:04.652Z and completed with exit 1/status
+FAILED: 292 queries and 292 receipts, 256 successful queries, three invariant
+alarms (declared scenario outcome mismatches), operationalErrors 0 under the
+soak's classification. Refusals were engine_saturated 2, source_unavailable 5,
+element_withheld 13 and unsupported_on_aggregate_only 16. Receipt checks were
+enabled, failed=false, checksSkipped=0. Custody verified 90 values, refusals 0,
+skipped 0. Coverage exercised 41/115 declared cells (36%); this is not complete
+V-01 capability coverage and is not presented as such.
+
+Two clear cedant scenarios, one per pool on policies, unexpectedly received
+engine_saturated. The pool-0 claims clear cedant scenario unexpectedly received
+source_unavailable / engine_registry, receipt
+01a1b1b3-3d14-77ff-9230-d9dac3343708. Its public error says the registered Engine
+is unavailable or has not passed verification. That does not establish the
+underlying registry condition. See bounded alarm evidence in
+[packaged-heartbeat-binding.json](packaged-heartbeat-binding.json).
+
+Final gateway capture contains 1,373 completed H2 calls, zero failed transport
+attempt records, zero successful calls requiring retries and zero observed or
+recovered TLS stalls. This does not explain the application refusals or turn the
+soak into a pass. No timeout, admission limit or expectation was changed.
+
+The standard harness stopped on the failed soak; its final custody and companion
+row/aggregate/replay checks therefore did not run. Cleanup passed, removing the
+owned source and nested Docker containers plus the nested data volume. Retained
+logs/results remain available. No further acceptance run or product fix followed;
+the remaining traffic refusals are a blocker to acceptance. No merge.
+
+Post-cleanup checks found no run-labelled containers/volumes or gateway compose
+network. Report-only lint and whitespace checks passed.

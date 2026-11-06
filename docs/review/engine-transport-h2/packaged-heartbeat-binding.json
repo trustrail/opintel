@@ -1,0 +1,126 @@
+{
+  "harnessRevision": "3cd0bd8",
+  "imageRevision": "b8c71ba0a7a9d5704b40b160eac17f69360b4532",
+  "runDirectory": "tmp/stage5-acceptance-QVmqog",
+  "status": "failed",
+  "phase": "soak-result",
+  "failure": {
+    "phase": "soak-result",
+    "message": "Customer demo soak failed\n\n1 !== 0\n"
+  },
+  "passed": [
+    "preflight",
+    "gateway install",
+    "engine install",
+    "four identity imports",
+    "pairing",
+    "real SMTP",
+    "fresh owner sign-in",
+    "first receipt",
+    "XQ 200/200 round trips",
+    "seed",
+    "lifecycle-renew",
+    "prepare",
+    "packaged browser",
+    "console outage and recovery"
+  ],
+  "soak": {
+    "durationSeconds": 600,
+    "startedAt": "2026-11-06T16:26:04.652Z",
+    "status": "failed",
+    "steps": [
+      {
+        "step": "seed",
+        "exitCode": 0
+      },
+      {
+        "step": "lifecycle-renew",
+        "exitCode": 0
+      },
+      {
+        "step": "prepare",
+        "exitCode": 0
+      },
+      {
+        "step": "soak",
+        "exitCode": 1
+      }
+    ],
+    "eventCounts": {
+      "query": 292,
+      "receipt": 292,
+      "alarm": 3
+    },
+    "outcomes": {
+      "success": 256,
+      "engine_saturated": 2,
+      "element_withheld": 13,
+      "unsupported_on_aggregate_only": 16,
+      "source_unavailable": 5
+    },
+    "invariantBreaches": 3,
+    "operationalErrors": 0,
+    "receiptInvariants": {
+      "enabled": true,
+      "failed": false,
+      "reason": null,
+      "checksSkipped": 0
+    },
+    "custody": {
+      "verifiedValues": 90,
+      "refusals": 0,
+      "skipped": 0
+    },
+    "coverage": {
+      "declared": 115,
+      "exercised": 41,
+      "percent": 36
+    },
+    "alarms": [
+      {
+        "message": "Declared scenario outcome mismatch",
+        "scenario": "pool1/reinsurance_policies.soak_policies.policies/cedant/clear",
+        "code": "engine_saturated",
+        "cause": "engine_saturated",
+        "evidenceId": "01a1b1ae-9e88-781b-80b7-7812b7425222"
+      },
+      {
+        "message": "Declared scenario outcome mismatch",
+        "scenario": "pool0/reinsurance_policies.soak_policies.policies/cedant/clear",
+        "code": "engine_saturated",
+        "cause": "engine_saturated",
+        "evidenceId": "01a1b1ae-9edb-71b0-bb22-ba6e39cbe18e"
+      },
+      {
+        "message": "Declared scenario outcome mismatch",
+        "scenario": "pool0/reinsurance_claims.soak_claims.claims/cedant/clear",
+        "code": "source_unavailable",
+        "cause": "engine_registry",
+        "evidenceId": "01a1b1b3-3d14-77ff-9230-d9dac3343708"
+      }
+    ]
+  },
+  "transport": {
+    "completedCalls": 1373,
+    "failedAttempts": 0,
+    "tlsStallCount": 0,
+    "recoveredTlsStallCount": 0,
+    "tlsStalls": [],
+    "successfulCallsWithRetries": 0
+  },
+  "cleanup": {
+    "id": "64a3a647-cf38-462f-9474-9bb1017c52a1",
+    "status": "passed",
+    "removed": {
+      "containers": 2,
+      "volumes": 1,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "notRun": [
+    "final packaged custody row/aggregate/replay checks",
+    "final companion row/aggregate/replay checks"
+  ],
+  "deeperTrafficFailureCause": "not established; no further run or governance change"
+}
