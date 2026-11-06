@@ -59,3 +59,14 @@ Configure watched directories, rule snapshots and durable registers separately
 under `/ingest`; restart the engine after changing its configuration. Stop the
 engine before using the packaged local register's `retry` command. These settings
 and commands are identical for generated files and customer submissions.
+
+### Private HTTP/2 transport
+
+Use the same six `ENGINE_TRANSPORT_*` values in the engine's `package.env`
+as on the gateway: max sessions 1, max concurrent streams 32, idle timeout
+60000ms, maximum session age 600000ms, connect timeout 5000ms and PING interval
+15000ms. See the gateway README and `docs/timeouts.md` for names and ranges.
+The engine advertises the stream limit; two missed PINGs discard a client
+session. The private listeners retain HTTP/1 compatibility for operator tools.
+The local egress controller's Unix-socket IPC stays HTTP/1; it is not an
+engine network connection.

@@ -135,13 +135,13 @@ it('verification diagnostics name the failed step without provider exception tex
 });
 
 it('bounded stalled initial connections retry with fresh pinned TLS inside the original probe deadline',async()=>{
- let lookups=0;const probe=new HttpsEngineProbe(undefined,{connectTimeoutMs:25,lookup:(_host,lookupOptions,callback)=>{lookups++;if(lookups<4)return;callback(null,lookupOptions.all?[{address:'127.0.0.1',family:4}]:'127.0.0.1',4);}});
+ let lookups=0;const probe=new HttpsEngineProbe(undefined,{backoffMs:0,connectTimeoutMs:250,lookup:(_host,lookupOptions,callback)=>{lookups++;if(lookups<4)return;callback(null,lookupOptions.all?[{address:'127.0.0.1',family:4}]:'127.0.0.1',4);}});
  const result=await probe.health({...options,baseUrl:options.baseUrl.replace('127.0.0.1','localhost'),timeoutMs:1000});
  expect(result.ok).toBe(true);expect(lookups).toBe(4);
 });
 it('persistent connection stalls retain the total deadline; pin and HTTP failures never retry',async()=>{
  let lookups=0;const endpoint={...options,baseUrl:options.baseUrl.replace('127.0.0.1','localhost'),timeoutMs:300};
- const stalled=new HttpsEngineProbe(undefined,{connectTimeoutMs:20,lookup:()=>{lookups++;}});const started=performance.now();
+ const stalled=new HttpsEngineProbe(undefined,{backoffMs:0,connectTimeoutMs:20,lookup:()=>{lookups++;}});const started=performance.now();
  expect((await stalled.health(endpoint)).ok).toBe(false);expect(lookups).toBe(4);expect(performance.now()-started).toBeLessThan(1000);
  const lookup:import('node:net').LookupFunction=(_host,lookupOptions,callback)=>{lookups++;callback(null,lookupOptions.all?[{address:'127.0.0.1',family:4}]:'127.0.0.1',4);};
  lookups=0;const probe=new HttpsEngineProbe('https://gateway.example',{connectTimeoutMs:1000,lookup});
@@ -151,4 +151,11 @@ it('persistent connection stalls retain the total deadline; pin and HTTP failure
 });
 it('CONSOLE-02 missing custody designation names the actual Settings row-menu action',async()=>{
  const f=await fixture();expect(await f.repo.custody(f.ctx)).toMatchObject({ok:false,error:{code:'source_unavailable',message:'This project has no designated custody engine. Go to Settings → Engines → row menu (⋯) → "Use for custody" on a verified engine.'}});
+});
+
+it('ARCH-01: existing engine health reads expose public transport summaries without a new endpoint',async()=>{
+ const f=await fixture(),snapshot={since:'2026-11-06T01:00:00.000Z',sampleWindow:1024 as const,paths:[{path:'/health' as const,count:50,failed:0,p50Ms:10,p95Ms:20,lastMs:11,lastAt:'2026-11-06T01:00:01.000Z'}]};
+ const telemetry={snapshot:vi.fn(()=>snapshot)},registry=new EngineRegistry(f.repo,{health:async()=>ok({contract:3,queryEngineVersion:'fixture',canonicalisers:[]}),sentinel:async()=>ok({version:null,sentinel:null})},options.tls,{},Date.now,telemetry);
+ const page=await registry.list(f.ctx,null,10);expect(page.find(e=>e.id===f.registered.id)?.transport).toEqual(snapshot);expect(telemetry.snapshot).toHaveBeenCalledWith(f.registered.address,f.registered.certificatePin,f.ctx.projectId);
+ const {EnginePage}=await import('../src/shared/api/engines.js');expect(EnginePage.safeParse({items:page,nextCursor:null}).success).toBe(true);
 });

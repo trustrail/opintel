@@ -15,7 +15,7 @@ export function useSettings(project:string,admin:boolean){
  const base=`/api/v1/projects/${project}`,client=createApiClient();
  const settings=useQuery({queryKey:settingsKeys.part(project,'values'),queryFn:()=>read(client,base+'/settings',ProjectSettingsView)});
  const provider=useQuery({queryKey:settingsKeys.part(project,'provider'),queryFn:()=>read(client,base+'/custody-provider',CustodyProviderStatus),refetchInterval:15000});
- const engines=useQuery({queryKey:settingsKeys.part(project,'engines'),queryFn:async()=>(await pages(client,base+'/engines?limit=100',EnginePage,Infinity)).items.map(({id,name,address,certificatePin,custody,health,verifiedAt,lastSeenAt,sources})=>({id,name,address,certificatePin,custody,health,verifiedAt,lastSeenAt,sourceCount:sources.length})),refetchInterval:15000});
+ const engines=useQuery({queryKey:settingsKeys.part(project,'engines'),queryFn:async()=>(await pages(client,base+'/engines?limit=100',EnginePage,Infinity)).items.map(({id,name,address,certificatePin,custody,health,verifiedAt,lastSeenAt,sources,transport})=>({id,name,address,certificatePin,custody,health,verifiedAt,lastSeenAt,transport,sourceCount:sources.length})),refetchInterval:15000});
  const people=useQuery({queryKey:settingsKeys.part(project,'people'),queryFn:async()=>(await pages(client,base+'/members?limit=100',ProjectMemberListResponse,Infinity)).items});
  const invitations=useQuery({queryKey:settingsKeys.part(project,'invitations'),queryFn:async()=>(await pages(client,base+'/invitations?limit=100',Invitations,Infinity)).items});
  const token=useQuery({queryKey:settingsKeys.part(project,'token'),enabled:admin,queryFn:()=>read(client,base+'/token-key',TokenKeyView),refetchInterval:15000});

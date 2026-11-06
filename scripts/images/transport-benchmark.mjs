@@ -27,3 +27,10 @@ export function transportSamples(log,{startedAt,finishedAt,count=50}){
  });
  return {status:results.every(v=>v.passed===count)?'passed':'failed',samplesPerPath:count,selection:'first completed calls per path in the isolated benchmark window; failures are retained',paths:results};
 }
+
+/** First retained public-call timings; invalid or missing samples cannot pass. */
+export function publicLatency(samples,count=50){
+ const selected=samples.slice(0,count),values=selected.filter(value=>typeof value==='number'&&Number.isFinite(value)&&value>=0).sort((a,b)=>a-b);
+ const quantile=q=>values.length?values[Math.ceil(values.length*q)-1]:null;
+ return {status:values.length===count?'passed':'failed',selected:selected.length,passed:values.length,failed:selected.length-values.length,missing:Math.max(0,count-selected.length),p50Ms:quantile(.5),p95Ms:quantile(.95)};
+}

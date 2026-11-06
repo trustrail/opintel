@@ -1,4 +1,4 @@
-import {createServer} from 'node:https';
+import {createInternalH2Server} from '../../../shared/infrastructure/internal-h2-server.js';
 import {randomUUID} from 'node:crypto';
 import type {TLSSocket} from 'node:tls';
 import {egressHeartbeat,egressPolicy} from '../../../shared/engine-egress-contract.js';
@@ -6,7 +6,7 @@ import type {EngineEgress} from '../application/egress.js';
 import type {ApplicationTls} from '../application/registry.js';
 export function createEngineHeartbeatServer(tls:ApplicationTls,service:EngineEgress){
  const route={path:'/engine-heartbeat',permission:'verified_engine_certificate' as const};
- return createServer({...tls,minVersion:'TLSv1.3',requestCert:true,rejectUnauthorized:true,requestTimeout:10000},(req,res)=>{
+ return createInternalH2Server({...tls,minVersion:'TLSv1.3',requestCert:true,rejectUnauthorized:true},(req,res)=>{
   const socket=req.socket as TLSSocket;
   if(!socket.authorized){socket.destroy();return;}
   const requestId=randomUUID();

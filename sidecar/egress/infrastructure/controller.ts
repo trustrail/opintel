@@ -1,7 +1,7 @@
 import {egressControlAddress} from './control-address.js';
 import {createServer} from 'node:http';
-import {request} from 'node:https';
-import {checkServerIdentity} from 'node:tls';
+import {engineConnect,configureEngineTransport} from '../../../src/shared/infrastructure/engine-transport.js';
+import {engineTransportSettingsFromEnv} from '../../../src/shared/engine-transport-settings.js';
 import {X509Certificate} from 'node:crypto';
 import {readFile,writeFile,rename,chown} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
@@ -33,6 +33,7 @@ async function source(ref:string){
 }
 export type ControllerPhase='configuration'|'tls'|'stored_state'|'bootstrap_policy'|'bootstrap_firewall'|'readiness_resolution'|'receipt_resolution'|'assigned_destination_resolution'|'hosts_update'|'firewall_apply'|'state_persist'|'control_listener'|'readiness_marker';
 export async function startController(file:string,phase:(value:ControllerPhase)=>void=()=>{}){
+ configureEngineTransport(engineTransportSettingsFromEnv(process.env));
  phase('configuration');
  const stateOwner=process.env.EGRESS_STATE_UID===undefined?undefined:z.object({uid:z.coerce.number().int().positive(),gid:z.coerce.number().int().nonnegative()}).parse({uid:process.env.EGRESS_STATE_UID,gid:process.env.EGRESS_STATE_GID});
  const config=configSchema.parse(JSON.parse(await readFile(file,'utf8')));
@@ -78,12 +79,11 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
   const certificate=new X509Certificate(nextPeer),authority=new X509Certificate(nextCa);
   if(!authority.ca||!certificate.verify(authority.publicKey)||Date.parse(certificate.validTo)<=Date.now())throw new Error('Gateway trust invalid.');
   ca=nextCa;peer=nextPeer;pin=certificate.fingerprint256;
-  return new Promise((resolve,reject)=>{
   const data=JSON.stringify({projectId:entry.binding.projectId,engineId:entry.binding.engineId,appliedVersion:applied.get(entry.binding.projectId)??null,unreachableSourceIds:failures.get(entry.binding.projectId)??[]});
-  const req=request(new URL('/engine-heartbeat',entry.binding.gatewayUrl),{method:'POST',agent:false,ca,cert,key,minVersion:'TLSv1.3',rejectUnauthorized:true,checkServerIdentity:(host,value)=>checkServerIdentity(host,value)??(value.fingerprint256===pin?undefined:new Error('Gateway pin mismatch')),signal:AbortSignal.timeout(5000),headers:{'content-type':'application/json','content-length':Buffer.byteLength(data)}},res=>{
+  return engineConnect(new URL('/engine-heartbeat',entry.binding.gatewayUrl),{method:'POST',ca,cert,key,minVersion:'TLSv1.3',rejectUnauthorized:true,signal:AbortSignal.timeout(5000),headers:{'content-type':'application/json','content-length':Buffer.byteLength(data)}},data,res=>new Promise<EgressPolicy>((resolve,reject)=>{
    const chunks:Buffer[]=[];let size=0;res.on('error',reject);res.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>2*1024*1024)res.destroy(new Error('Policy too large'));else chunks.push(chunk);});res.on('end',()=>{try{if(res.statusCode!==200||!res.complete)throw new Error('Heartbeat refused');resolve(egressPolicy.parse(JSON.parse(Buffer.concat(chunks).toString('utf8'))));}catch(error){reject(error);}});
-  });req.on('error',reject);req.end(data);
- });}
+  }),{certificatePin:pin});}
+
  // Serialize registration, policy application and persistence; no stale async
  // fetch may overwrite a newer registration or acknowledge a partial apply.
  let work=Promise.resolve();

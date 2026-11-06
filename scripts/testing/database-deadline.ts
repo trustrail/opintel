@@ -154,7 +154,7 @@ export class DatabaseOwner {
       const control = new Client({ ...client.connectionParameters,
         // pg intentionally makes this property non-enumerable.
         password: client.connectionParameters.password,
-        application_name: 'opintel-test-cleanup', connectionTimeoutMillis: 1_000,
+        application_name: 'opintel-test-cleanup', connectionTimeoutMillis: 5_000,
         statement_timeout: 1_000, query_timeout: 1_500 });
       controls.add(control);
       control.on('error', () => {});

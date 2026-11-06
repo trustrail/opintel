@@ -2,7 +2,6 @@ import {effectiveSetting} from '../../../shared/project-settings.js';
 import { safeSourceMessage } from '../../../shared/source-errors.js';
 import { X509Certificate } from 'node:crypto';
 import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
-import { checkServerIdentity } from 'node:tls';
 import { z } from 'zod';
 import { DomainError, err, ok, type ElementId, type Result } from '../../../shared/kernel/index.js';
 import type { SecretRef } from '../../../platform/secrets/types.js';
@@ -11,6 +10,7 @@ import { serviceErrorEnvelope } from '../../../shared/error-contract.js';
 import * as wire from './sidecar-wire.js';
 
 export interface SidecarOptions {
+  telemetryProject?:SourceConnectorContext['projectId'];
   baseUrl: string;
   tls: { ca: string; cert: string; key: string; pinnedCertificate?: string; certificatePin?: string };
   /** Entire operation, including first-use health negotiation; always under 10s. */
@@ -116,14 +116,9 @@ export class SidecarSourceConnector implements SourceConnector {
   private post(path: string, body: unknown, signal: AbortSignal): Promise<unknown> {
       const encoded = body === undefined ? undefined : JSON.stringify(body);
       return engineConnect(new URL(path, this.url), {
-        method: 'POST', agent: false, signal,
+        method: 'POST', signal,
         ca: this.options.tls.ca, cert: this.options.tls.cert, key: this.options.tls.key,
         minVersion: 'TLSv1.3', rejectUnauthorized: true,
-        checkServerIdentity: (host, cert) => {
-          const error = checkServerIdentity(host, cert);
-          if (error) return error;
-          return cert.fingerprint256 === this.fingerprint ? undefined : new Error('Sidecar certificate pin mismatch.');
-        },
         headers: encoded === undefined ? {} : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(encoded) },
       }, encoded, (res) => new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
@@ -147,6 +142,6 @@ export class SidecarSourceConnector implements SourceConnector {
             resolve(body);
           } catch { reject(new Error('Invalid Opintel Engine JSON.')); }
         });
-      }));
+      }),{certificatePin:this.fingerprint,telemetryProject:this.context.projectId});
   }
 }

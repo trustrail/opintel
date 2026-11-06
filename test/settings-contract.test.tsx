@@ -56,3 +56,14 @@ it('SET-002: editing evidence preserves an explicitly stored empty allowlist',as
  await waitFor(()=>expect(calls).toHaveLength(1));expect(calls[0]).toEqual({evidence:{allowlistedFields:[],fullRetentionDays:31}});
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+
+it('ARCH-01: engine panel renders bounded public latency summaries and an honest empty state',async()=>{
+ const {EngineTransportPanel}=await import('../src/console-next/settings/transport.js');
+ const {Tooltip}=await import('../src/console-next/components/primitives.js');
+ const at='2026-11-06T01:00:00.000Z',query=new QueryClient();
+ const panel=(telemetry:Parameters<typeof EngineTransportPanel>[0]['telemetry'])=><QueryClientProvider client={query}><Tooltip.Provider><EngineTransportPanel name="Private engine" telemetry={telemetry} onClose={()=>{}}/></Tooltip.Provider></QueryClientProvider>;
+ const mounted=render(panel(null));expect(screen.getByRole('status').textContent).toContain('No retained connection timings');
+ mounted.rerender(panel({since:at,sampleWindow:1024,paths:[{path:'/execute',count:50,failed:1,p50Ms:10,p95Ms:25,lastMs:11,lastAt:at}]}));
+ expect(screen.getByText('/execute')).toBeDefined();expect(screen.getByText('25 ms')).toBeDefined();expect(screen.getByText('50')).toBeDefined();
+ expect(screen.getByText(/Last 1024 calls per path/)).toBeDefined();expect(document.body.innerHTML).not.toContain('https://');
+});

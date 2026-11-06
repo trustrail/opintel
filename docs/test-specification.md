@@ -1960,3 +1960,16 @@ The execution timezone boundary regression in `staging-source.test.ts` compiles 
   audit output contains only identifiers and the fact of a change.
 - Forward migrations 099–103 round-trip before evidence exists; downgrades refuse
   to erase recorded certificate snapshots. Every migration fixture runs targeted.
+
+### ARCH-01 — pooled pinned HTTP/2 transport
+
+The existing CONNECT-01..07 assertions apply to the H2 client: requests wait
+for pinned TLS and H2 readiness; no written mutation is replayed; wrong pins,
+TLS stalls and native errors retain their refusal and diagnostics. Fixtures
+allow H2 setup before clocks that specifically test post-write cancellation.
+H2-01 checks concurrent requests reuse one authenticated session and cancellation
+of one stream leaves the other streams usable. Install-time settings tests
+exercise all six default values, named startup failures and each range boundary.
+Per-path summary tests check rolling quantiles, bounded label sets and pin
+isolation. Settings' contract test checks the existing engine panel presents the
+summaries and an honest no-samples state without a new metrics endpoint.

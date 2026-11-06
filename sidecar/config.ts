@@ -1,3 +1,5 @@
+import {engineTransportSettingsFromEnv} from '../src/shared/engine-transport-settings.js';
+import {configureEngineTransport} from '../src/shared/infrastructure/engine-transport.js';
 import {DEFAULT_SOURCE_CONNECT_TIMEOUT_MS} from './application/source-connector.js';
 import { startupCheck, StartupCheckError } from './startup-check.js';
 import { SecretRef } from '../src/platform/secrets/types.js';
@@ -35,6 +37,7 @@ export type SidecarConfig = z.infer<typeof sidecarConfigSchema>;
 export type SidecarTls = { ca: string; cert: string; key: string; clientPin: string };
 
 export async function loadSidecarConfig(file: string): Promise<{ config: SidecarConfig; tls: SidecarTls }> {
+  configureEngineTransport(engineTransportSettingsFromEnv(process.env));
   const value = await startupCheck(`configuration file ${file}`, async () => JSON.parse(await readFile(file, 'utf8')) as unknown);
   const parsed = sidecarConfigSchema.safeParse(value);
   if (!parsed.success) throw new StartupCheckError('configuration schema', `Invalid Opintel Engine configuration fields: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}.`);

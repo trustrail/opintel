@@ -6,8 +6,7 @@ import { executionRequest,validationRequest,executionResponse,validationResponse
 import { canonicalisers, type CanonicaliserRegistry } from '../tokenize/canonicalisers/index.js';
 import { custodyOperations,custodyEnvelope,safeCustodyMessage,type CustodyOperation } from '../../src/shared/custody-contract.js';
 import { randomUUID, X509Certificate } from 'node:crypto';
-import { createServer } from 'node:https';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import {createInternalH2Server,type InternalRequest,type InternalResponse} from '../../src/shared/infrastructure/internal-h2-server.js';
 import type { Socket } from 'node:net';
 import type { TLSSocket } from 'node:tls';
 import { z } from 'zod';
@@ -52,16 +51,16 @@ export function createSidecarServer(options: {
   const sockets = new Set<Socket>();
   const active = new Map<AbortController, Promise<void>>();
   let shuttingDown = false;
-  function send(res: ServerResponse, status: number, body: unknown): void {
+  function send(res: InternalResponse, status: number, body: unknown): void {
     if (res.destroyed || res.writableEnded) return;
     res.writeHead(status, { 'content-type':'application/json', 'cache-control':'no-store' });
     res.end(JSON.stringify(body));
   }
-  function fail(res: ServerResponse, status: number, code: string, message: string, requestId: string, retryable=false, details?:Readonly<Record<string,unknown>>) {
+  function fail(res: InternalResponse, status: number, code: string, message: string, requestId: string, retryable=false, details?:Readonly<Record<string,unknown>>) {
     if(status<500)console.info({event:'sidecar.refused',reason:code,requestId});
     send(res,status,{error:{code,message,requestId,retryable,...(details?{details}:{})}});
   }
-  async function handle(req: IncomingMessage,res: ServerResponse,controller: AbortController): Promise<void> {
+  async function handle(req: InternalRequest,res: InternalResponse,controller: AbortController): Promise<void> {
     let requestId: string = randomUUID();
     const arrivedAt=new Date().toISOString();
     const socket = req.socket as TLSSocket;
@@ -86,10 +85,11 @@ export function createSidecarServer(options: {
         const parsed = (path==='/egress/register'?egressRegistration:path==='/preview-rows'?rowPreviewRequest:path==='/validate'?validationRequest:execution?executionRequest:path.startsWith('/custody/')?custodyEnvelope:wire.envelope).safeParse(body);
         if (!parsed.success) { fail(res,400,'validation_failed','The request did not pass validation.',requestId); return; }
         requestId = parsed.data.requestId;
-        if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)socket.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000));
+        if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)req.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000));
       }
       enginePhase(requestId,'arrival','end',arrivedAt);
-      res.once('finish',()=>enginePhase(requestId,'respond','end'));
+      const interrupted=()=>controller.signal.aborted||('stream' in req&&req.stream.rstCode!==0);
+      res.once('finish',()=>enginePhase(requestId,'respond',interrupted()?'aborted':'end'));
       res.once('close',()=>{if(!res.writableFinished)enginePhase(requestId,'respond','aborted');});
       const result = await route.invoke(body,controller.signal);
       if (controller.signal.aborted) return;
@@ -104,7 +104,7 @@ export function createSidecarServer(options: {
       send(res,200,response.data);
     } catch (error: unknown) {
       if (error instanceof RequestTooLarge) {
-        res.setHeader('connection','close');
+        if(req.httpVersionMajor<2)res.setHeader('connection','close');
         res.once('finish',()=>req.destroy());
         fail(res,413,'validation_failed','The request is too large.',requestId);
         return;
@@ -112,7 +112,8 @@ export function createSidecarServer(options: {
       if (!controller.signal.aborted) fail(res,503,'dependency_unavailable','The Opintel Engine operation failed.',requestId,true);
     }
   }
-  const server = createServer({ ...options.tls, minVersion:'TLSv1.3', requestCert:true, rejectUnauthorized:true },(req,res)=>{
+  const server = createInternalH2Server({ ...options.tls, minVersion:'TLSv1.3', requestCert:true, rejectUnauthorized:true },(req,res)=>{
+    req.setTimeout(options.config.limits.operationTimeoutMs+10000,()=>req.destroy());
     const controller = new AbortController();
     const abort = () => controller.abort();
     const closed = () => { if (!res.writableFinished) abort(); };
@@ -136,8 +137,6 @@ export function createSidecarServer(options: {
   server.on('tlsClientError',error=>console.info({event:'sidecar.refused',timestamp:new Date().toISOString(),reason:'mutual_tls',transportCode:transportFailureCode(error,'tls_error')}));
   server.requestTimeout = 10000;
   server.headersTimeout = 10000;
-  server.keepAliveTimeout = 1000;
-  server.setTimeout(options.config.limits.operationTimeoutMs + 10000,(socket)=>socket.destroy());
   return {
     server,
     replaceTrustedClient(tls:SidecarTls):void{
@@ -174,7 +173,7 @@ export function createSidecarServer(options: {
 }
 
 class RequestTooLarge extends Error {}
-function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
+function readBody(req: InternalRequest, limit: number): Promise<Buffer> {
   return new Promise((resolve,reject)=>{
     const chunks: Buffer[]=[];
     let size=0;

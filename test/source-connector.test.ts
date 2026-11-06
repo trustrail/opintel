@@ -3,7 +3,8 @@ import { randomUUID, X509Certificate } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createServer, type Server } from 'node:https';
+import {createInternalH2Server as createServer} from '../src/shared/infrastructure/internal-h2-server.js';
+import {closeEngineTransports} from '../src/shared/infrastructure/engine-transport.js';
 import type { TLSSocket } from 'node:tls';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidecarSourceConnector, type SourceConnectorContext, type SidecarOptions } from '../src/modules/sources/index.js';
@@ -19,7 +20,7 @@ const context: SourceConnectorContext = {
 const object = { id: ObjectId(randomUUID()), sourceId: context.sourceId, schema: 'public', name: 'orders' };
 let dir: string;
 let tls: SidecarOptions['tls'];
-let server: Server;
+let server: ReturnType<typeof createServer>;
 let url: string;
 let seen: Array<{ path: string; method: string; body: unknown }>;
 let responses: Record<string, unknown>;
@@ -63,7 +64,7 @@ beforeEach(async () => {
   url = `https://localhost:${address.port}`;
 });
 afterEach(async () => {
-  server.closeAllConnections();
+  closeEngineTransports();server.closeAllConnections();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 const client = (options: Partial<SidecarOptions> = {}, ctx = context) => new SidecarSourceConnector('postgres', ctx, { baseUrl: url, tls, ...options });

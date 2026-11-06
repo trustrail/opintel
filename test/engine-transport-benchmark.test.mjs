@@ -1,5 +1,5 @@
 import {it,expect} from 'vitest';
-import {transportSamples} from '../scripts/images/transport-benchmark.mjs';
+import {transportSamples,publicLatency} from '../scripts/images/transport-benchmark.mjs';
 const startedAt='2026-11-05T00:00:00.000Z',finishedAt='2026-11-05T00:00:10.000Z';
 it('keeps the entire HTTP/1 retry lifetime and parses nested metadata without evaluating logs',()=>{
  const event=(attempt,start,end,outcome)=>`{\n  event: 'engine.transport_attempt_completed',\n  callId: 'one',\n  path: '/health',\n  attempt: ${attempt},\n  attemptStartedAt: '${start}',\n  finishedAt: '${end}',\n  outcome: '${outcome}',\n  durationsMs: {\n    total: 12\n  }\n}`;
@@ -14,4 +14,10 @@ it('counts missing/failed calls honestly and reads the new per-call summaries',(
 it('passes only with all fifty calls for each path',()=>{
  const lines=['/execute','/custody/attest','/health'].flatMap(path=>Array.from({length:50},(_,i)=>JSON.stringify({event:'engine.transport_call_completed',callId:path+i,path,startedAt,timestamp:finishedAt,durationMs:i+1,outcome:'ok'}))).join('\n');
  const result=transportSamples(lines,{startedAt,finishedAt});expect(result.status).toBe('passed');expect(result.paths.every(p=>p.selected===50&&p.p50Ms===25&&p.p95Ms===48)).toBe(true);
+});
+
+it('reports public verify latency separately and never replaces invalid or missing samples',()=>{
+ expect(publicLatency(Array.from({length:50},(_,n)=>n+1))).toMatchObject({status:'passed',selected:50,p50Ms:25,p95Ms:48});
+ expect(publicLatency([null,...Array.from({length:50},(_,n)=>n+1)])).toMatchObject({status:'failed',selected:50,passed:49,failed:1,missing:0});
+ expect(publicLatency([10])).toMatchObject({status:'failed',selected:1,missing:49,p50Ms:10,p95Ms:10});
 });

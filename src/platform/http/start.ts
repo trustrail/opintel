@@ -1,3 +1,6 @@
+import {engineTransportLatency} from '../../shared/infrastructure/engine-transport-metrics.js';
+import {engineTransportSettingsFromEnv} from '../../shared/engine-transport-settings.js';
+import {configureEngineTransport,closeEngineTransports} from '../../shared/infrastructure/engine-transport.js';
 import {identityBindingRoutes} from '../../modules/pools/api/identity-binding-routes.js';
 import {PostgresCredentialBindings} from '../../modules/pools/index.js';
 import {pairedEngineRoutes} from '../../modules/tenancy/api/project-routes.js';
@@ -94,6 +97,7 @@ function requiredEnvironment(name: 'REDIS_URL' | 'SPICEDB_ENDPOINT' | 'SPICEDB_T
 
 async function start(): Promise<void> {
   loadDevelopmentEnvironment();
+  configureEngineTransport(engineTransportSettingsFromEnv(process.env));
   await startDiagnostics();
   await checkDevelopmentMigrations();
   await checkDeploymentDatabase();
@@ -236,7 +240,7 @@ async function start(): Promise<void> {
   const register = new PostgresFilingRegister(hub);
   const [{createSourceRuntime},{sourceRoutes},engines]=await Promise.all([import('../../modules/sources/infrastructure/source-runtime.js'),import('../../modules/sources/api/source-routes.js'),import('../../modules/engines/index.js')]);
   const applicationTls=await engines.loadApplicationTls(process.env.APPLICATION_TLS_CONFIG ?? 'tmp/sidecar/application-tls.json');
-  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(process.env.ENGINE_HEARTBEAT_URL),applicationTls,engines.engineHealthPolicy(process.env));
+  const engineRegistry=new engines.EngineRegistry(new engines.PostgresEngineRepository(),new engines.HttpsEngineProbe(process.env.ENGINE_HEARTBEAT_URL),applicationTls,engines.engineHealthPolicy(process.env),Date.now,{snapshot:engineTransportLatency});
   engineRegistry.startHealthRefresh();
   const sources=createSourceRuntime(engineRegistry,hub);
   const heartbeatServer=process.env.ENGINE_HEARTBEAT_URL?engines.createEngineHeartbeatServer(applicationTls,new engines.EngineEgress(new engines.PostgresEngineEgress(),projectId=>sources.resume({projectId,userId:UserId('00000000-0000-4000-8000-000000000001')}))):undefined;
@@ -351,7 +355,7 @@ async function start(): Promise<void> {
   });
   instrumentHttp(server);
   // Dedicated mTLS listener: the receipt route is never mounted on the browser API.
-  let receiptServer: import('node:https').Server | undefined;
+  let receiptServer: ReturnType<typeof import('../../modules/ingest/api/landing-receipt-server.js').createLandingReceiptServer> | undefined;
   if (process.env.LANDING_RECEIPT_PORT || process.env.NODE_ENV !== 'production') {
     const [{ createLandingReceiptServer }, { AcceptLandingReceipt }, { PostgresLandingReceiptRepository }] = await Promise.all([
       import('../../modules/ingest/api/landing-receipt-server.js'), import('../../modules/ingest/application/landing-receipts.js'), import('../../modules/ingest/infrastructure/landing-receipts.js'),
@@ -381,6 +385,7 @@ async function start(): Promise<void> {
     void mcp.close();
     void hub.close();
     receiptServer?.close();
+    closeEngineTransports();
     heartbeatServer?.close();
     server.close(() => { authorization.close(); void redis.close(); });
   };

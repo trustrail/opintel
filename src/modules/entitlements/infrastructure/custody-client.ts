@@ -1,6 +1,5 @@
 import { X509Certificate,randomUUID } from 'node:crypto';
 import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
-import { checkServerIdentity } from 'node:tls';
 import { z } from 'zod';
 import { DomainError,err,ok,type ProjectId,type Result } from '../../../shared/kernel/index.js';
 import { custodyEnvelope,custodyOperations,safeCustodyMessage,type CustodyOperation,type CustodyResponse } from '../../../shared/custody-contract.js';
@@ -15,14 +14,14 @@ export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
  async canonicalisers():Promise<Result<readonly string[]>> {
   try {
    // Refresh discovery for assignment: a cached manifest must not hide a deployment.
-   const response=await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??9000));
+   const response=await this.post('/health',undefined,AbortSignal.timeout(this.options.timeoutMs??10000));
    if(healthContract.parse(response).contract!==3)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: canonicaliser discovery requires contract 3.'));
    return ok(healthResponse.parse(response).canonicalisers);
   }catch{return err(new DomainError('dependency_unavailable','Canonicaliser discovery failed. Check the pinned Opintel Engine connection and its health contract before assigning a canonicaliser.',undefined,true));}
  }
  async call<K extends CustodyOperation>(projectId:ProjectId,operation:K,payload:z.input<(typeof custodyOperations)[K]['request']>):Promise<Result<CustodyResponse<K>>>{
   const parsed=custodyOperations[operation].request.safeParse(payload);if(!parsed.success)return err(new DomainError('validation_failed','Invalid custody request.'));
-  const signal=AbortSignal.timeout(this.options.timeoutMs??9000);
+  const signal=AbortSignal.timeout(operation==='attest'?Math.min(this.options.timeoutMs??10000,5000):this.options.timeoutMs??10000);
   try{
    if(!this.checked){const response=await this.post('/health',undefined,signal);if(healthContract.parse(response).contract!==3)return err(new DomainError('dependency_unavailable','Opintel Engine contract mismatch: custody requires contract 3.'));healthResponse.parse(response);this.checked=true;}
    const body=custodyEnvelope.parse({requestId:randomUUID(),projectId,payload:parsed.data});
@@ -32,11 +31,10 @@ export class SidecarCustodyClient implements CustodyPort, CanonicaliserCatalog {
  }
  private post(path:string,body:unknown,signal:AbortSignal):Promise<unknown>{
   const encoded=body===undefined?undefined:JSON.stringify(body);
-  return engineConnect(new URL(path,this.url),{method:'POST',agent:false,signal,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,minVersion:'TLSv1.3',rejectUnauthorized:true,
-   checkServerIdentity:(host,cert)=>checkServerIdentity(host,cert)??(cert.fingerprint256===this.pin?undefined:new Error('Custody certificate pin mismatch.')),
+  return engineConnect(new URL(path,this.url),{method:'POST',signal,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,minVersion:'TLSv1.3',rejectUnauthorized:true,
    headers:encoded?{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}:{}},encoded,res=>new Promise((resolve,reject)=>{
     const chunks:Buffer[]=[];let length=0;res.on('error',reject);res.on('data',(chunk:Buffer)=>{length+=chunk.length;if(length>1024*1024){res.destroy(new Error('Custody response too large.'));return;}chunks.push(chunk);});
     res.on('end',()=>{try{const value:unknown=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(res.statusCode!==200){const error=serviceErrorEnvelope.parse(value).error;reject(new DomainError(error.code,safeCustodyMessage(error.message),undefined,error.retryable));}else resolve(value);}catch{reject(new Error('Invalid custody response.'));}});
-   }));
+   }),{certificatePin:this.pin,telemetryProject:this.options.telemetryProject});
  }
 }

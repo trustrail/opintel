@@ -1,9 +1,9 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
-import type {IncomingMessage,ServerResponse} from 'node:http';
+import type {InternalRequest as IncomingMessage,InternalResponse as ServerResponse} from '../../shared/infrastructure/internal-h2-server.js';
+import type {EventEmitter} from 'node:events';
 import {createWriteStream,type WriteStream} from 'node:fs';
 import {mkdir} from 'node:fs/promises';
 import {monitorEventLoopDelay,performance} from 'node:perf_hooks';
-import type {Server} from 'node:http';
 
 type RequestContext={requestId:string;requestKind:'console'|'observer'|'agent_control'|'agent_query'|'engine_receipt';operation:string|null};
 const requests=new AsyncLocalStorage<RequestContext>(),contexts=new WeakMap<ServerResponse,RequestContext>();
@@ -49,9 +49,9 @@ export async function startDiagnostics():Promise<void>{
  },1000);
  timer.unref();
 }
-export function instrumentHttp(server:Server|import('node:https').Server):void{
+export function instrumentHttp(server:EventEmitter):void{
  if(!diagnosticsEnabled())return;
- server.prependListener('request',(request,response)=>{
+ server.prependListener('request',(request:IncomingMessage,response:ServerResponse)=>{
   const started=performance.now();let recorded=false;
   const write=()=>{if(recorded)return;recorded=true;diagnostic({kind:'http',requestId:contexts.get(response)?.requestId??String(response.getHeader('x-request-id')??''),requestKind:contexts.get(response)?.requestKind??'unattributed',operation:contexts.get(response)?.operation??null,method:request.method??'',path:(request.url??'/').split('?')[0]!,status:response.headersSent?response.statusCode:0,durationMs:performance.now()-started});};
   response.once('finish',write);response.once('close',write);

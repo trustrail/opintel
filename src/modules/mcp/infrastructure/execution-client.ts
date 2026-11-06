@@ -1,7 +1,6 @@
 import {rowPreviewRequest,rowPreviewResponse,type RowPreviewRequest} from '../../../shared/row-preview-contract.js';
 import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
 import {X509Certificate} from 'node:crypto';
-import {checkServerIdentity} from 'node:tls';
 import {z} from 'zod';
 import {DomainError,err,ok,type Result} from '../../../shared/kernel/index.js';
 import {executionRequest,validationRequest,executionResponse,validationResponse,type ExecutionRequest,type ValidationRequest} from '../../../shared/execution-contract.js';
@@ -13,10 +12,10 @@ import type {QueryExecutionPort,QueryValidationPort} from '../application/query-
 export class SidecarQueryExecution implements QueryExecutionPort,QueryValidationPort {
  private readonly base:URL;private readonly pin:string;
  constructor(private readonly options:SidecarOptions){this.base=new URL(options.baseUrl);if(this.base.protocol!=='https:'||this.base.username||this.base.password||this.base.search||this.base.hash)throw new Error('Query execution requires an HTTPS Opintel Engine URL.');this.pin=options.tls.certificatePin ? options.tls.certificatePin.match(/.{2}/gu)!.join(':') : new X509Certificate(options.tls.pinnedCertificate!).fingerprint256;}
- async health(signal?:AbortSignal){const result=await this.call('/health',undefined,healthResponse,this.options.timeoutMs??9000,signal);if(!result.ok)return result;return result.value.contract===3?ok({queryEngineVersion:result.value.queryEngineVersion}):err(new DomainError('dependency_unavailable','The Opintel Engine contract is incompatible with query execution.',{cause:'sidecar_contract_mismatch',reason:'health_contract'}));}
- preview(input:RowPreviewRequest,signal?:AbortSignal){const parsed=rowPreviewRequest.safeParse(input);return parsed.success?this.call('/preview-rows',parsed.data,rowPreviewResponse,Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+2000),signal):Promise.resolve(err(new DomainError('validation_failed','Invalid preview request.')));}
- execute(input:ExecutionRequest,signal?:AbortSignal){const parsed=executionRequest.safeParse(input);return parsed.success?this.call('/execute',parsed.data,executionResponse,Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+2000),signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
- validate(input:ValidationRequest,signal?:AbortSignal){const parsed=validationRequest.safeParse(input);return parsed.success?this.call('/validate',parsed.data,validationResponse,this.options.timeoutMs??9000,signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
+ async health(signal?:AbortSignal){const result=await this.call('/health',undefined,healthResponse,this.options.timeoutMs??10000,signal);if(!result.ok)return result;return result.value.contract===3?ok({queryEngineVersion:result.value.queryEngineVersion}):err(new DomainError('dependency_unavailable','The Opintel Engine contract is incompatible with query execution.',{cause:'sidecar_contract_mismatch',reason:'health_contract'}));}
+ preview(input:RowPreviewRequest,signal?:AbortSignal){const parsed=rowPreviewRequest.safeParse(input);return parsed.success?this.call('/preview-rows',parsed.data,rowPreviewResponse,parsed.data.limits.timeoutMs,signal):Promise.resolve(err(new DomainError('validation_failed','Invalid preview request.')));}
+ execute(input:ExecutionRequest,signal?:AbortSignal){const parsed=executionRequest.safeParse(input);return parsed.success?this.call('/execute',parsed.data,executionResponse,parsed.data.limits.timeoutMs,signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
+ validate(input:ValidationRequest,signal?:AbortSignal){const parsed=validationRequest.safeParse(input);return parsed.success?this.call('/validate',parsed.data,validationResponse,this.options.timeoutMs??10000,signal):Promise.resolve(err(new DomainError('validation_failed','Invalid execution request.')));}
  private async call<T>(path:string,body:unknown,schema:z.ZodType<T>,timeoutMs:number,parent?:AbortSignal):Promise<Result<T>>{
   const timeout=AbortSignal.timeout(timeoutMs),signal=parent?AbortSignal.any([timeout,parent]):timeout;
   let abortOrigin:'parent'|'transport_deadline'|undefined;
@@ -26,14 +25,13 @@ export class SidecarQueryExecution implements QueryExecutionPort,QueryValidation
   let responseStarted=false;let responseReason:string|undefined;
   try{
    const encoded=body===undefined?undefined:JSON.stringify(body);
-   const response=await engineConnect(new URL(path,this.base),{method:'POST',agent:false,signal,minVersion:'TLSv1.3',rejectUnauthorized:true,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,
-     checkServerIdentity:(host,cert)=>checkServerIdentity(host,cert)??(cert.fingerprint256===this.pin?undefined:new Error('Opintel Engine pin mismatch.')),
+   const response=await engineConnect(new URL(path,this.base),{method:'POST',signal,minVersion:'TLSv1.3',rejectUnauthorized:true,ca:this.options.tls.ca,cert:this.options.tls.cert,key:this.options.tls.key,
      headers:encoded===undefined?{}:{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}},encoded,res=>new Promise<{status:number;body:unknown}>((resolve,reject)=>{
       responseStarted=true;
       const chunks:Buffer[]=[];let size=0;res.on('error',reject);res.on('aborted',()=>{responseReason??='response_incomplete';reject(new Error('Incomplete Opintel Engine response.'));});
       res.on('data',(b:Buffer)=>{size+=b.length;if(size>16*1024*1024){responseReason='response_oversized';res.destroy(new Error('Query response is too large.'));return;}chunks.push(b);});
       res.on('end',()=>{try{responseReason=!res.complete?'response_incomplete':!/^application\/json(?:;|$)/iu.test(res.headers['content-type']??'')?'response_content_type':undefined;if(responseReason)throw new Error('Invalid response');responseReason='response_json';const decoded:unknown=JSON.parse(Buffer.concat(chunks).toString('utf8'));responseReason=undefined;resolve({status:res.statusCode??0,body:decoded});}catch{reject(new Error('Invalid Opintel Engine response.'));}});
-     }));
+     }),{certificatePin:this.pin,telemetryProject:this.options.telemetryProject});
    if(response.status!==200){const parsed=serviceErrorEnvelope.extend({error:serviceErrorEnvelope.shape.error.extend({details:z.record(z.string(),z.json()).optional()})}).safeParse(response.body);if(!parsed.success){responseReason='response_error_envelope';throw new Error('Invalid error envelope.');}return err(new DomainError(parsed.data.error.code,parsed.data.error.message,parsed.data.error.details,parsed.data.error.retryable));}
    const parsed=schema.safeParse(response.body);return parsed.success?ok(parsed.data):err(new DomainError('dependency_unavailable','The Opintel Engine returned an invalid query result.',{cause:path==='/health'?'sidecar_contract_mismatch':'unclassified',...(path==='/health'?{reason:'health_contract'}:{reason:'result_contract'})}));
   }catch{return err(new DomainError('source_unavailable',signal.aborted?'The query was cancelled or exceeded its deadline. No partial result was returned.':'The Opintel Engine is unreachable or its response was incomplete. No cached or partial result was returned.',{cause:signal.aborted?(abortOrigin==='parent'?'parent_cancelled':'deadline_exceeded'):responseStarted?'sidecar_response_unusable':'sidecar_transport_failed',...(signal.aborted?{cancellationOrigin:abortOrigin??'transport_deadline'}:{}),...(responseReason?{reason:responseReason}:{})},true));}

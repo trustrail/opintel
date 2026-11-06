@@ -53,9 +53,9 @@ export async function custodyStepsAcceptance({directory,archives,revision,gatewa
  const revoked=await consoleApi('revoke',{grantId,receiptId:second.result.evidenceId});checks.push('console-api-grant-revocation-recorded');
  const blocked=join(agent,'revoked-must-not-exist.json'),refusal=run(agent,['steps','redeem-and-unseal',...agentFlags,'--result',pending,'--xq-identity',identity,'--show','--out',blocked],'redeem-revoked',1);assert.match(refusal,/K2 refused/u);assert.ok(!existsSync(blocked));assert.ok(!/custody-[0-9]+/u.test(refusal));checks.push('revoked-redemption-refused-no-plaintext');
  let benchmark;if(transportBenchmark){
-  const startedAt=new Date().toISOString();let failure;
-  try{await consoleApi('benchmark-verify');for(let n=0;n<50;n++)run(agent,['steps','query',...agentFlags,'--sql',prepared.benchmarkSql,'--quiet'],'benchmark-query-'+n);}catch(error){failure=error;}
-  finally{const finishedAt=new Date().toISOString();assert.equal(typeof apiLog,'function','API log capture is required');const logFile=join(output,'transport.private.log');apiLog(logFile);const log=readFileSync(logFile,'utf8');const {transportSamples}=await import('./transport-benchmark.mjs');benchmark={...transportSamples(log,{startedAt,finishedAt}),startedAt,finishedAt};writeFileSync(join(output,'transport-benchmark.json'),JSON.stringify(benchmark,null,2)+'\n',{mode:0o600});}
+  const startedAt=new Date().toISOString();let failure,verifyTimings=[],callerStep='benchmark-verify';
+  try{verifyTimings=(await consoleApi('benchmark-verify')).samples;for(let n=0;n<50;n++){callerStep='benchmark-query-'+n;run(agent,['steps','query',...agentFlags,'--sql',prepared.benchmarkSql,'--quiet'],callerStep);}}catch(error){failure=error;}
+  finally{const finishedAt=new Date().toISOString();assert.equal(typeof apiLog,'function','API log capture is required');const logFile=join(output,'transport.private.log');apiLog(logFile);const log=readFileSync(logFile,'utf8');const {transportSamples,publicLatency}=await import('./transport-benchmark.mjs');const rpc=transportSamples(log,{startedAt,finishedAt}),publicVerify=publicLatency(verifyTimings);benchmark={...rpc,status:failure||publicVerify.status!=='passed'?'failed':rpc.status,publicVerify,caller:{status:failure?'failed':'passed',step:callerStep},startedAt,finishedAt};writeFileSync(join(output,'transport-benchmark.json'),JSON.stringify(benchmark,null,2)+'\n',{mode:0o600});}
   if(failure)throw failure;assert.equal(benchmark.status,'passed','Missing or failed benchmark calls; inspect transport-benchmark.json');
  }
 

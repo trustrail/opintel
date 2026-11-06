@@ -104,7 +104,6 @@ try{
  if(process.platform==='darwin'){const route=run('route',['-n','get','default']);const iface=/interface:\s+(\S+)/u.exec(route)?.[1];assert.ok(iface);hostAddress=run('ipconfig',['getifaddr',iface]);}else hostAddress=run('hostname',['-I']).split(/\s/u)[0];
  const clientHost=acceptanceHostAddress(process.platform,hostAddress);base='https://'+clientHost;
  const settings={APP_BASE_URL:base,OWNER_EMAIL:'owner@stage5.example',...Object.fromEntries(providerNames.map(name=>[name,provider[name]])),SMTP_HOST:'host.docker.internal',SMTP_PORT:'11465',SMTP_USER:'acceptance',SMTP_PASSWORD:'fixture!$#%=' ,SMTP_SENDER:'noreply@stage5.example',SMTP_TLS_MODE:'implicit'};
- if(transportBenchmark)settings.LOG_LEVEL='debug';
  write(join(gateway,'package.env'),Object.entries(settings).map(([name,value])=>name+"='"+value.replaceAll("'","\\'")+"'").join('\n')+'\n');
  const mapping=JSON.parse(readFileSync('scripts/soak/certificates.example.json'));
  advance('gateway-install');command('gateway','install');result.checks.gatewayInstall=true;

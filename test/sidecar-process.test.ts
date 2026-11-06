@@ -1,7 +1,7 @@
 import { spawn,execFile, type ChildProcess } from 'node:child_process';
 import {promisify} from 'node:util';
 import { createServer as tcpServer } from 'node:net';
-import { createServer as httpsServer } from 'node:https';
+import {createInternalH2Server as httpsServer} from '../src/shared/infrastructure/internal-h2-server.js';
 import { mkdtemp, readFile, writeFile, mkdir, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join,resolve } from 'node:path';

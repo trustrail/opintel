@@ -167,3 +167,11 @@ explicit-list inventory and separate-file baseline/candidate results are in
 relaxed and no grant is widened.
 
 Console-next uses its approved tokens and shared primitives. Its unit tests and the fresh packaged-install acceptance cover the five root screens, Select interactions, translated links and actual Inter rendering; the legacy conformance report does not claim coverage of console-next controls.
+
+ARCH-01 (2026-11-05): the connected smoke's hang guard is 60 seconds. The
+recorded Intel Mac diagnostic completions took 35–38 seconds without a slow
+individual step; 30 seconds was measuring host speed rather than a wiring
+failure. Its assertions, fixtures and request deadlines are unchanged. The
+normal-runner cleanup control connection allowance is 5 seconds (previously 1);
+its existing 5-second overall cleanup barrier, cancellation verification,
+statement/query limits and database ownership checks are unchanged.

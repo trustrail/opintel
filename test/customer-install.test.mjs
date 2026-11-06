@@ -1,5 +1,6 @@
 import {issuePairingCode,servePairing,claimEngine} from '../scripts/operator/engine-pairing.js';
-import {createServer} from 'node:https';
+import {createInternalH2Server as createServer} from '../src/shared/infrastructure/internal-h2-server.js';
+import {closeEngineTransports} from '../src/shared/infrastructure/engine-transport.js';
 import {X509Certificate} from 'node:crypto';
 import {HttpsEngineProbe,loadApplicationTls} from '../src/modules/engines/index.js';
 import {mkdtempSync,rmSync,readFileSync,writeFileSync,statSync,copyFileSync,chmodSync,mkdirSync} from 'node:fs';
@@ -83,7 +84,7 @@ it('DEP-018: independent package CAs pair for the actual pinned health probe and
   expect((await new HttpsEngineProbe().health(endpoint)).ok).toBe(true);
   const wrong=await new HttpsEngineProbe().health({...endpoint,tls:{...tls,certificatePin:'00'.repeat(32)}});expect(wrong.ok).toBe(false);expect(wrong.error.details.transportReason).toBe('ENGINE_PIN_MISMATCH');expect(arrivals).toBe(1);
   const wrongCa=await new HttpsEngineProbe().health({...endpoint,tls:{...endpoint.tls,ca:JSON.parse(readFileSync(join(gateway.directory,'trust.json'),'utf8')).ca}});expect(wrongCa.ok).toBe(false);expect(wrongCa.error.details.transportReason).not.toBe('tls_error');expect(arrivals).toBe(1);
- }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+ }finally{closeEngineTransports();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 },30000);
 it('DEP-018: install permission audit rejects a world-readable private key',()=>{
  const {directory,run}=packageRoot('gateway');run('initialize');run('audit-permissions');chmodSync(join(directory,'state/application.key'),0o644);
@@ -129,7 +130,7 @@ it('DEP-018: one-use engine pairing refuses wrong pins/codes, records trust, and
   await expect(claimEngine(other.directory,registration.address,code,port)).rejects.toThrow('refused');
   expect(readFileSync(join(engine.directory,'state/peer.json'),'utf8')).toBe(saved);
   expect(()=>issuePairingCode(engine.directory,true)).toThrow('already paired');
- }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+ }finally{closeEngineTransports();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 },30000);
 
 it('DEP-018: gateway upgrade retains old local identity files without mounting them in application services',()=>{
@@ -161,3 +162,15 @@ it.each(['gateway','engine'])('DEMO-01: %s upgrade removes retired metadata with
  run('upgrade');expect(JSON.parse(readFileSync(join(directory,'trust.json'),'utf8'))).toEqual(trust);expect(readFileSync(key)).toEqual(before);expect(readFileSync(join(directory,'state/runtime.env'),'utf8')).toBe(env);
  if(kind==='engine'){const config=JSON.parse(readFileSync(join(directory,'state/service.json'),'utf8'));expect(config).not.toHaveProperty('demo');expect(config.landingZones).toEqual(zones);}
 },30000);
+
+it.each(['gateway','engine'])('ARCH-01: %s installs, validates and upgrades transport settings without changing private state',kind=>{
+ const {directory,run}=packageRoot(kind),file=join(directory,'package.env'),settings=readFileSync(file,'utf8');
+ writeFileSync(file,settings+'\nENGINE_TRANSPORT_MAX_SESSIONS=2\nENGINE_TRANSPORT_CONNECT_TIMEOUT_MS=8000\n',{mode:0o600});run('initialize');
+ const services=()=>JSON.parse(readFileSync(join(directory,'state/compose.json'),'utf8')).services,names=kind==='gateway'?['api']:['engine','egress'];
+ for(const name of names)expect(services()[name].environment).toMatchObject({ENGINE_TRANSPORT_MAX_SESSIONS:'2',ENGINE_TRANSPORT_MAX_CONCURRENT_STREAMS:'32',ENGINE_TRANSPORT_IDLE_TIMEOUT_MS:'60000',ENGINE_TRANSPORT_MAX_SESSION_AGE_MS:'600000',ENGINE_TRANSPORT_CONNECT_TIMEOUT_MS:'8000',ENGINE_TRANSPORT_PING_INTERVAL_MS:'15000'});
+ const identity=readFileSync(join(directory,'state',kind==='gateway'?'application.key':'engine.key'),'utf8');
+ writeFileSync(file,settings+'\nENGINE_TRANSPORT_MAX_SESSIONS=3\n',{mode:0o600});run('upgrade');
+ for(const name of names)expect(services()[name].environment).toMatchObject({ENGINE_TRANSPORT_MAX_SESSIONS:'3',ENGINE_TRANSPORT_CONNECT_TIMEOUT_MS:'8000'});
+ writeFileSync(file,settings+'\nENGINE_TRANSPORT_MAX_SESSIONS=0\n',{mode:0o600});const before=readFileSync(join(directory,'state/compose.json'),'utf8');
+ expect(()=>run('upgrade')).toThrow();expect(readFileSync(join(directory,'state/compose.json'),'utf8')).toBe(before);expect(readFileSync(join(directory,'state',kind==='gateway'?'application.key':'engine.key'),'utf8')).toBe(identity);
+},60000);

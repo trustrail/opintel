@@ -62,3 +62,36 @@ Agent identities, query and local redemption run from the separate agent kit on
 the agent host. See that archive's README for the custody sequence. Administrator
 sign-in, grant-access and synthetic verification run from the separate verification
 archive. Neither archive is part of the gateway or engine application package.
+
+### Engine transport limits
+
+Gateway and engine use pinned mutual-TLS HTTP/2 sessions for their private
+calls. Set `ENGINE_TRANSPORT_MAX_SESSIONS` (1),
+`ENGINE_TRANSPORT_MAX_CONCURRENT_STREAMS` (32),
+`ENGINE_TRANSPORT_IDLE_TIMEOUT_MS` (60000),
+`ENGINE_TRANSPORT_MAX_SESSION_AGE_MS` (600000),
+`ENGINE_TRANSPORT_CONNECT_TIMEOUT_MS` (5000), and
+`ENGINE_TRANSPORT_PING_INTERVAL_MS` (15000) in `package.env` before install.
+Use matching values on both hosts. Invalid integers or out-of-range values
+refuse startup. See `docs/timeouts.md` in the source release for ranges and
+semantics. Sessions beyond one are opened only when existing stream capacity
+is exhausted; the peer's advertised stream limit still applies. Session
+rotation rechecks the pinned certificate, and written requests never replay.
+Settings → Engines → Connection timings shows process-local counts and the
+last-1024-call p50/p95/last latencies; no separate metrics endpoint is exposed.
+
+Upgrade gateway and engine together in a maintenance window when moving from
+an HTTP/1-only release. The private listeners retain HTTP/1 compatibility for
+operator tools, but new gateway calls and the engine's reverse heartbeat/receipt
+clients require H2 peers. A mixed-version pair is not fully operational. Request
+and response schemas stay the same.
+
+The standard `./upgrade` also validates these six settings from `package.env`
+and applies them to the generated service environment. If an override is
+absent, a previously installed value is retained; older installations acquire
+the packaged defaults. Restart through that standard upgrade path rather than
+editing generated Compose state.
+
+Set `LOG_LEVEL=debug` in `package.env` before install/upgrade to retain detailed
+DNS/TCP/TLS/stream phase records. The default `info` emits one transport summary
+per call. Both levels exclude request bodies, addresses and TLS material.

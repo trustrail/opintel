@@ -1,3 +1,4 @@
+import {engineTransportSettingsFromEnv,engineTransportSettingDefinitions} from '../../src/shared/engine-transport-settings.js';
 import {DEFAULT_SOURCE_CONNECT_TIMEOUT_MS} from '../../sidecar/application/source-connector.js';
 import {issuePairingCode,servePairing,claimEngine,pairingIdentity} from './engine-pairing.js';
 import {operatorDiagnostic} from './diagnostics.js';
@@ -41,11 +42,17 @@ function mountPairedMetadata(service:Service){
  writePairedMetadata();service.environment={...service.environment,INSTALLATION_PAIRING_FILE:'/installation-pairing/peer.json'};
  if(!service.volumes?.some(v=>v.endsWith(':/installation-pairing:ro')))service.volumes=[...service.volumes??[],host+'/state/paired-engines:/installation-pairing:ro'];
 }
+function engineTransportEnvironment(settings:Record<string,string|undefined>):Record<string,string>{
+ const values=engineTransportSettingsFromEnv(settings),level=settings.LOG_LEVEL??'info';
+ if(!['info','debug'].includes(level))throw new InstallError('Invalid LOG_LEVEL: use info or debug.');
+ return {...Object.fromEntries((Object.keys(engineTransportSettingDefinitions) as Array<keyof typeof engineTransportSettingDefinitions>).map(key=>[engineTransportSettingDefinitions[key].env,String(values[key])])),LOG_LEVEL:level};
+}
 function initialize(){
  if(existsSync(join(state,'installed.json'))){console.info('Existing installation retained; secrets and decisions are unchanged.');return;}
  if(existsSync(state))throw new InstallError('Incomplete installation state exists. Preserve it and use ./restore; install will not overwrite secrets.');
  const packageText=existsSync(join(root,'package.env'))?readFileSync(join(root,'package.env'),'utf8'):'';
  const settings=parse(packageText);
+ const transportEnvironment=engineTransportEnvironment(settings);
  // SMTP passwords are literal single-line values, not dotenv expressions/comments.
  const passwordLine=packageText.split(/\r?\n/u).findLast(line=>/^\s*SMTP_PASSWORD\s*=/u.test(line));
  if(passwordLine!==undefined){
@@ -176,6 +183,7 @@ function initialize(){
  write('state/project-name',installId+'\n');
  write('state/volumes.list',Object.keys(volumes).map(n=>installId+'-'+n).join('\n')+'\n');
  if(kind==='gateway'){mountPairedMetadata(services.api!);}
+ for(const name of kind==='gateway'?['api']:['engine','egress'])services[name]!.environment={...services[name]!.environment,...transportEnvironment};
  write('state/compose.json',{name:installId,services,volumes});
  const pem=readFileSync(join(state,kind==='gateway'?'application.pem':'engine.pem'),'utf8');
  write('trust.json',{version:1,kind,address:kind==='gateway'?`https://${app!.hostname}:3102`:`https://${address}:3100`,certificate:pem,ca:readFileSync(join(state,'ca.pem'),'utf8'),pin:new X509Certificate(pem).fingerprint256},0o600);
@@ -257,6 +265,8 @@ function removeRetiredConfiguration(){
 function hardenConfiguration(config:{services:Record<string,Service>}){
  const uid=process.getuid?.()??65534,gid=process.getgid?.()??65534;
  if(uid===0)throw new InstallError('Run the upgrade as the original non-root operator.');
+ const transportOverrides=existsSync(join(root,'package.env'))?parse(readFileSync(join(root,'package.env'),'utf8')):{};
+ const transport=Object.fromEntries((kind==='gateway'?['api']:['engine','egress']).map(name=>[name,engineTransportEnvironment({...config.services[name]!.environment,...transportOverrides})]));
  removeRetiredConfiguration();
  let peerCa=readFileSync(join(state,'ca.pem'),'utf8');
  const paired=existsSync(join(state,'peer.json'));
@@ -264,6 +274,7 @@ function hardenConfiguration(config:{services:Record<string,Service>}){
  writeFileSync(join(state,'peer-ca.pem'),peerCa,{mode:0o600});
  const tlsServices=kind==='gateway'?['api','operator']:['engine','egress','prepare'];
  for(const [name,service] of Object.entries(config.services)){
+  if(transport[name])service.environment={...service.environment,...transport[name]};
   if(!['postgres','spicedb-postgres','readiness','egress'].includes(name))service.user=`${uid}:${gid}`;
   if(tlsServices.includes(name)&&!service.volumes?.some(v=>v.includes(':/config/peer-ca.pem:')))service.volumes=[...service.volumes??[],host+'/state/peer-ca.pem:/config/peer-ca.pem:ro'];
   if(kind==='gateway'&&tlsServices.includes(name))service.environment={...service.environment,APPLICATION_TLS_CONFIG:'/config/application-tls.json'};

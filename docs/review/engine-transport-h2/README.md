@@ -111,7 +111,7 @@ Session limits include draining sessions. Age rotation begins at the configured
 age even while a stream is active; new streams wait for capacity while written
 streams drain under their own deadlines. This preserves the one-session default
 without replay or unbounded replacement connections. Debug phase capture is
-opt-in with `LOG_LEVEL=debug` in package.env; the benchmark harness selects it.
+opt-in with `LOG_LEVEL=debug` in package.env. Measurements use production-default info summaries, not an artificially verbose debug run.
 
 The benchmark query explicitly reads `id, token_id`, ordered only by the clear
 id. In benchmark mode the standard custody fixture prepares that token column
@@ -149,3 +149,25 @@ passed. The route matches the pre-existing console-first-run-install harness
 for container-side public gateway access as well as the ordinary source. The
 LAN address remains the installation host identity used for pairing; only
 local caller routes select the established Docker Desktop alias.
+
+## Current targeted validation
+
+The completed product source passed strict typecheck and repository lint. The
+final targeted batch passed 164/164 across 17 files: source/engine contracts,
+V-01, custody wire confidentiality, outage/supervision, cancellation, scoped
+latency metadata, Settings, customer install/upgrade, DEP-008 and cleanup. The
+unchanged sidecar HTTP file passed 18/18 in isolation (13.03s total): the real
+SIGTERM case took 2.854s and wire/execution case 0.403s. Earlier 10s-startup and
+3s-request deadline failures did not reproduce in that idle run; their cause
+was not retained well enough to establish. No guard was raised for them.
+
+The final transport file passed 22/22, including whole-connection and stream-only resets after write, and aborting one pending-connect
+waiter while another completes on the same authenticated session. The final
+harness/parser contracts passed 11/11. Public verify-call timings are retained
+separately from private /health timings so an API verification measurement is
+not misrepresented as only its network hop. A caller failure forces the
+benchmark result to fail even if old HTTP/1 metadata lacks an HTTP status.
+
+Remaining before completion: corrected HTTP/1 measurement candidate, completed
+tip gate, fresh H2 archives/acceptance, 10-minute soak and after measurements.
+No gate or candidate acceptance is claimed yet; no cloud host was contacted.
