@@ -1646,3 +1646,23 @@ releases use the credential list gutters, recorded identities, state badges and
 menu-only revoke confirmation. Stored provenance and receipt API semantics stay
 unchanged. Historical omissions stay visible; current pool names are labelled
 as current display context rather than historical evidence.
+
+## ARCH-01 — gateway/engine HTTP/2 transport (approved)
+
+Replace per-call HTTPS connections with a pinned mutual-TLS HTTP/2 session pool.
+Preserve every route/body/refusal and cancellation boundary; never replay a
+written stream. Bound connection setup, caller deadlines, capacity and reconnect
+backoff. Validate the six operator settings at startup; one session by default,
+additional sessions only at stream-capacity exhaustion, negotiated concurrency,
+idle/age rotation and two-missed-ping recovery. Heartbeat is the reverse private
+TLS path; local egress registration is Unix-socket IPC, not a public endpoint.
+
+Keep detailed connection phases at debug with one info summary per call. Expose
+bounded per-engine latency summaries through the existing engine read and panel,
+not a new metrics endpoint. Audit deadlines in docs/timeouts.md, set smoke to
+60s and the cleanup control connect budget to 5s without weakening cleanup proof.
+Use existing console foundations; no new CSS. Validate transport/security,
+engine routes and response contracts, runtime packaging, typecheck and lint;
+then one full gate. Compare 50 calls/path on equivalent HTTP/1 and HTTP/2
+packaged fixtures, and finish candidate acceptance with custody/companion plus
+a ten-minute standard packaged soak. No cloud measurement; owner runs that.

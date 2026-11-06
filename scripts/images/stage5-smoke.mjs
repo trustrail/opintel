@@ -25,10 +25,11 @@ import {verificationConfig} from './verification-config.mjs';
 // External acceptance only. It never alters generated package configuration.
 const archives=resolve(process.argv[2]??''),manifest=JSON.parse(readFileSync(process.env.RELEASE_MANIFEST,'utf8'));
 const platform=process.env.PLATFORM??'linux/amd64',prefix=manifest.revision.slice(0,7);
-let candidate=false,firstHourOnly=false,firstHourActive=false,customerSource,soakDurationSeconds=120;
+let candidate=false,transportBenchmark=false,firstHourOnly=false,firstHourActive=false,customerSource,soakDurationSeconds=120;
 for(let index=3;index<process.argv.length;index++){
  const argument=process.argv[index];
  if(argument==='--candidate')candidate=true;
+ else if(argument==='--transport-benchmark')transportBenchmark=true;
  else if(argument==='--first-hour-only')firstHourOnly=true;
  else if(argument==='--duration-seconds'){
   const value=process.argv[++index];assert.match(value??'',/^[1-9][0-9]*$/u,'--duration-seconds requires a positive integer');
@@ -177,10 +178,11 @@ try{
  for(let n=0;n<4;n++){await api('/healthz');await api('/api/v1/projects/'+provision.projectId+'/runs?limit=1');await setTimeout(5000);}
  const during=events(),successful=new Set(during.filter(e=>e.type==='query'&&e.outcome==='success').map(e=>e.response?.structuredContent?.evidenceId)),verified=during.filter(e=>e.type==='receipt'&&!before.has(e.id)&&successful.has(e.id));assert.ok(verified.length,'No query/receipt completed during console outage');
  compose('gateway','start','console');await wait(async()=>assert.equal((await https('/sign-in')).status,200),'Console return');result.checks.consoleIsolation={stoppedAt,resumedAt:new Date().toISOString(),verifiedQueriesDuringOutage:verified.length};result.checks.browserRestored=browserCheck(true);
- advance('packaged-custody-rows-aggregate-companion');result.checks.custodyRegression=await custodyStepsAcceptance({directory,archives,revision:manifest.revision,gateway,base,email:settings.OWNER_EMAIL,team:provider.OPINTEL_XQ_TEAM_ID,apiKey:provider.OPINTEL_XQ_API_KEY,browser:result.checks.firstHour,version:JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version,platform,commandEnv:nested});
  advance('soak-result');assert.equal(await childDone,0,'Customer demo soak failed');child=undefined;
  const soakResult=JSON.parse(readFileSync(join(runDirectory,'result.json'))),summary=events().at(-1);assert.equal(soakResult.status,'passed');assert.equal(summary.status,'PASSED');assert.equal(summary.operationalErrors,0);assert.equal(summary.invariantBreaches,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
  result.checks.packagedSoak={durationSeconds:soakDurationSeconds,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
+ advance('packaged-custody-rows-aggregate-companion');result.checks.custodyRegression=await custodyStepsAcceptance({directory,archives,revision:manifest.revision,gateway,base,email:settings.OWNER_EMAIL,team:provider.OPINTEL_XQ_TEAM_ID,apiKey:provider.OPINTEL_XQ_API_KEY,browser:result.checks.firstHour,version:JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version,platform,commandEnv:nested,transportBenchmark,apiLog:file=>captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested})});
+
  }
  result.status='passed';result.finishedAt=new Date().toISOString();
 }catch(error){result.status='failed';result.failure={phase,message:error instanceof Error?error.message:'Acceptance failed'};process.exitCode=1;}
