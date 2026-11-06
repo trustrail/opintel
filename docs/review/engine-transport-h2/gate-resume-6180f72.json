@@ -1,0 +1,65 @@
+{
+  "commit": "6180f72ab6f9e560a69357eb002d0f07f4929007",
+  "runId": "94ece96d-1d39-4616-aad5-7d07e3180adb",
+  "selection": {
+    "scope": "resumed",
+    "from": "test:conformance",
+    "scripts": [
+      "test:conformance",
+      "test",
+      "test:smoke"
+    ]
+  },
+  "preflight": {
+    "memory": {
+      "availableBytes": 2506149888,
+      "minimumAvailableBytes": 1073741824
+    },
+    "docker": {
+      "bytes": 8325959680,
+      "minimumBytes": 7516192768
+    },
+    "images": {
+      "postgres": "pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a",
+      "redis": "redis:7-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541",
+      "spicedb": "authzed/spicedb:latest@sha256:a170d372c9f6b921bb6849064df6ca3566dd5b174882c1a2c4300c2ae1d60efd",
+      "browser": "mcr.microsoft.com/playwright:v1.63.0-noble"
+    },
+    "started": [],
+    "postgres": "reachable",
+    "redis": "reachable",
+    "database": "opintel_test_gate_64cadc497d02_f8af92dbd0bb",
+    "migratedFromZero": true,
+    "seconds": 7.6991722199999995,
+    "exitCode": 0
+  },
+  "memory": {
+    "startAvailableBytes": 2506149888,
+    "minimumAvailableBytes": 1984241664,
+    "minimumAt": "2026-11-06T13:00:19.600Z",
+    "lastSampleAt": "2026-11-06T13:07:52.248Z",
+    "samples": 345,
+    "failedSamples": 0,
+    "intervalMs": 5000
+  },
+  "tiers": [
+    {
+      "tier": "test:conformance",
+      "seconds": 221.63117205400002,
+      "exitCode": 0
+    },
+    {
+      "tier": "test",
+      "seconds": 1487.6878742509998,
+      "exitCode": 1
+    }
+  ],
+  "cleanup": {
+    "database": "opintel_test_gate_64cadc497d02_f8af92dbd0bb",
+    "exitCode": 0,
+    "containersRemoved": 0
+  },
+  "wallSeconds": 1718.752734103,
+  "selectedComplete": false,
+  "complete": false
+}

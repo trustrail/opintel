@@ -325,3 +325,56 @@ records resumed scope and selectedComplete separately; complete is false for a
 partial run. Unknown/ambiguous tier arguments refuse before running anything.
 The prior failed record and its four passed tiers remain separate evidence.
 This is a requested continuation, not an unreported full-gate retry.
+
+
+## Docker-restart continuation result — normal tier failed
+
+The owner-authorized standard continuation ran once on
+6180f72ab6f9e560a69357eb002d0f07f4929007:
+
+```sh
+npm run check -- --from test:conformance
+```
+
+Retained private log: `/private/tmp/arch01-h2-gate-resume-6180f72.log`.
+Committed run metadata: `gate-resume-6180f72.json`. Fresh migrated database and
+normal teardown succeeded. The result explicitly records resumed scope,
+selectedComplete=false and complete=false; the earlier failed full run remains
+separate evidence.
+
+| Selected tier | Result | Seconds |
+|---|---|---:|
+| Router-derived conformance | 40/40 passed; 30/30 routes; zero findings | 221.631 |
+| Normal tests | 2361 passed, 3 failed; 275 passed files, 3 failed | 1487.688 |
+| Browser/MCP smoke | not run after failed normal tier | — |
+
+Total continuation wall time: 1718.753s. The previously failed 120s web-server
+startup did not recur after Docker restart. This observation does not establish
+its earlier underlying cause.
+
+### Exact failed assertions
+
+- `test/filing-register.test.ts:222`, ING-31/32 (887ms case, 14986ms file):
+  console.info entries are checked against the ingest-only property allowlist;
+  Object.keys(entry).every(...) returned false. The prior all-logs secret
+  exclusion at line 220 passed. New transport info summaries are JSON strings
+  emitted at `src/shared/infrastructure/engine-transport.ts:70`; this is a
+  candidate explanation for the ingest-only spy failure, not an entry-by-entry
+  diagnosis retained by the assertion.
+- `test/mcp-query.test.ts:42`, E-10 child exit after health check 2 (1490ms case,
+  40336ms file): expected source_unavailable / engine_registry, retryable true;
+  received source_unavailable / sidecar_transport_failed, retryable true.
+  The exact public cause changed in this observed race; no assertion is relaxed.
+- `test/pool-key-route-schemas.test.ts:35`, I-003 (1763ms case, 1769ms file):
+  GET /api/v1/projects/:id/provenance/:receiptId was rejected because each of the
+  six steps contains facts.items.key. The scanner treats a property literally
+  named key as potential credential exposure. The test and shared provenance
+  schema are unchanged relative to main a15d35f. Main was not run in isolation,
+  so an inherited failure is not claimed as established.
+
+No code/test fix, additional run or normal-tier retry followed these failures.
+The H2 transport file itself passed all 22 tests in this continuation. Packaged
+acceptance, custody/companion checks and the ten-minute soak did not start.
+Packaged TLS-stall retry counts/timings remain not exercised, not zero. The
+owner's cloud before/after latency measurement remains deferred until after
+merge. Nothing was merged and no cloud host was accessed.
