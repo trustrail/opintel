@@ -136,3 +136,22 @@ the provider change likely made the original model send both IDs; the Air's
 original tool-call input has not been independently retrieved. The owner has
 explicitly directed this to be treated as the cause. No gateway change or cloud
 upgrade is part of the fix.
+
+## Approved publication and merge
+
+Owner approved publication and merge. `docker push` of the already-tested local
+image 2882bd7 exited 0. GHCR's raw index hashes to
+`sha256:4d8179d27a42c635ade7d48b19ba28459fbd0ad2f5127242e4d00694eb2cb16a`,
+matching the tested OCI index. Remote platform manifests:
+
+- linux/amd64: `sha256:658abcdc1b0e5111ee35364625ac1ec571e77113b96d19c4de6dad4b3f16bf57`
+- linux/arm64: `sha256:b41915d06c0488cd50d53f6c383ee1555238a9ac0b9dbc5adb0740acda909c17`
+
+The SidecarToolbox is pinned to that index digest. The Air run sheet's pull,
+containerd import and digest-name tag commands use 2882bd7 and the same digest.
+Package visibility is unchanged. No additional live run or full gate was made
+for this manifest/docs publication step.
+
+Publication-step validation: repository lint passed; companion bundle/contract
+file passed 11/11 tests. The verified remote raw index is retained in
+`evidence/published-index.json`. No application or engine files changed.

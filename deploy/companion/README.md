@@ -1,6 +1,6 @@
 # Opintel companion for OAP
 
-OAP-02 image `369cf0c` is published for amd64 and arm64 and pinned by its verified index digest in the bundle. The Intel live check passed; the updated Air/OAP installation is user verification.
+OAP-04 image `2882bd7` is published for amd64 and arm64 and pinned by its verified index digest in the bundle. The Intel live check passed; the updated Air/OAP installation is user verification.
 
 The companion holds the pool key, device identity and XQ API key as **one private OAP credential**. Use mode-600 files and a protected transfer; never paste credentials into chat, git, command arguments or logs. `/run/opintel` points into writable `/tmp`, which may be memory-backed or ordinary ephemeral disk. Private directories are mode 700 and files mode 600. Startup failure and orderly SIGINT/SIGTERM overwrite and remove live private files. SIGKILL/host failure cannot run cleanup; delete the ephemeral volume. Overwrite is not physical erasure of SSD, snapshot or copy-on-write history.
 
@@ -83,7 +83,7 @@ This grants all service accounts in `default` get access to this **one AgentIden
 Use a Docker account already authorized to pull the private GHCR package. Keep the bundle's digest pin; do not replace it with a tag. The tag below identifies the image to export; verify its pulled index digest matches `spec.source.image` before importing.
 
 ```sh
-export COMPANION_TAG=ghcr.io/trustrail/opintel-companion:369cf0c
+export COMPANION_TAG=ghcr.io/trustrail/opintel-companion:2882bd7
 docker pull "$COMPANION_TAG"
 docker buildx imagetools inspect "$COMPANION_TAG"
 kubectl config current-context
@@ -102,7 +102,7 @@ Choose **one** load route:
   ```sh
   set -o pipefail
   docker save "$COMPANION_TAG" | ssh -i "$HOME/Library/Application Support/oap/ap-vm-key" root@192.168.64.2 'k3s ctr -n k8s.io images import -'
-  ssh -i "$HOME/Library/Application Support/oap/ap-vm-key" root@192.168.64.2 'k3s ctr -n k8s.io images tag ghcr.io/trustrail/opintel-companion:369cf0c ghcr.io/trustrail/opintel-companion@sha256:2f3cc453765f03a0301c7cd51bc7a83592f89c150f2246f204c4fb2ebbe53d13'
+  ssh -i "$HOME/Library/Application Support/oap/ap-vm-key" root@192.168.64.2 'k3s ctr -n k8s.io images tag ghcr.io/trustrail/opintel-companion:2882bd7 ghcr.io/trustrail/opintel-companion@sha256:4d8179d27a42c635ade7d48b19ba28459fbd0ad2f5127242e4d00694eb2cb16a'
   ```
 
 The Air's successful import preserved the index digest. OAP deliberately supplies no image pull Secret for user sidecars; authenticated host-side pull and VM import are required here. No package-visibility change is needed. The import and digest-name tag must both happen **before `oap agent install`**, because the probe runs at install. If installation already probed before the image was available under the digest name, bump the SidecarToolbox `spec.version` to trigger a new probe after import and tagging. Air reinstall evidence supplied by the user: Valid/Reachable/PinMatch succeeded after this tag, with no manual spec patches. This is user-reported acceptance evidence, not a new local OAP run.
