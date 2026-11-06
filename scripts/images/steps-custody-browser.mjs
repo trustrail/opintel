@@ -20,8 +20,8 @@ try{
   const pool=await api(`/api/v1/pools/${config.pool}?projectId=${config.project}`);
   for(const credential of pool.credentials.filter(c=>c.state==='active'&&c.identity?.kind==='bearer-only'))await api(`/api/v1/pools/${config.pool}/credentials/revoke`,'POST',{projectId:config.project,credentialId:credential.id,confirmation:credential.label});
   const members=(await api(`/api/v1/pools/${config.pool}/entitlement-members?projectId=${config.project}&mode=name&decision=all&limit=100`)).items,field=members.find(m=>m.name==='custody_label');assert.ok(field,'Fixture custody column missing');assert.match(field.objectName,/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*){2}$/u);
-  await api(`/api/v1/pools/${config.pool}/entitlements/bulk`,'POST',{projectId:config.project,elementIds:[field.id],treatment:'custody',maskKind:null,justification:null});
-  result={status:'passed',operation:'prepare',sql:`SELECT id, custody_label FROM ${field.objectName} ORDER BY id`,provider:'xq',publicIdentityImport:false};
+  await api(`/api/v1/pools/${config.pool}/entitlements/bulk`,'POST',{projectId:config.project,elementIds:[field.id,members.find(m=>m.name==='amount').id],treatment:'custody',maskKind:null,justification:null});
+  result={status:'passed',operation:'prepare',sql:`SELECT id, custody_label FROM ${field.objectName} ORDER BY id`,aggregateSql:`SELECT SUM(amount) AS total FROM ${field.objectName}`,provider:'xq',publicIdentityImport:false};
  }else if(config.operation==='revoke'){
   const pool=await api(`/api/v1/pools/${config.pool}?projectId=${config.project}`),credential=pool.credentials.find(c=>c.label==='Custody terminal agent');assert.equal(credential?.identity?.deviceName,config.deviceName);assert.equal(credential?.identity?.certificateId,223);
   await api(`/api/v1/projects/${config.project}/releases/${config.grantId}/revoke`,'POST',{});

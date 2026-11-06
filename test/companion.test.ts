@@ -35,6 +35,7 @@ it('OAP bundle declares sidecar credentials, valid sandbox defaults and budgets,
  expect(documents.some(d=>['Secret','Role','RoleBinding'].includes(d.kind))).toBe(false);
  const sandbox=documents.find(d=>d.kind==='SpiceboxClass')!;expect(sandbox.spec.image).toBe('spicebox-sandbox:dev');expect(sandbox.spec.tools).toEqual([{name:'noop',command:['/bin/true']}]);
  const manifest=z.object({questions:z.array(z.unknown())}).parse(load(readFileSync(base+'oap.yaml','utf8')));expect(manifest.questions).toContainEqual(expect.objectContaining({name:'sandboxImage',binding:[{target:'SpiceboxClass/opintel-companion#spec.image'}]}));
+ const toolbox=documents.find(d=>d.kind==='SidecarToolbox');expect(z.array(z.object({permission:z.object({stateImpact:z.literal('passthrough')})})).parse(toolbox.spec.tools)).toHaveLength(3);
  const agent=documents.find(d=>d.kind==='AgentClass')!;expect(agent.spec.budget).toEqual({maxTurns:50,maxTokens:500000,maxDuration:'30m'});
  const prompt=z.object({inline:z.string()}).parse(agent.spec.systemPrompt).inline;
  for(const rule of sqlRules)expect(prompt).toContain(rule);
@@ -47,4 +48,30 @@ it('internal unseal diagnostics identify the phase and schema path without leaki
  expect(parsed.success).toBe(false);
  if(!parsed.success)expect(internalDiagnostic(new CompanionFailure('K2 redeem',parsed.error))).toEqual({step:'K2 redeem',name:'ZodError',message:'Response schema validation failed: invalid_type at share'});
  for(const step of ['lookup','K2 redeem','K1 fetch','unseal'] as const){const diagnostic=internalDiagnostic(new CompanionFailure(step,new Error('secret-value share-content')));expect(diagnostic.step).toBe(step);expect(JSON.stringify(diagnostic)).not.toMatch(/secret-value|share-content/u);}
+});
+
+it('tracks an invalid K2 response as K2 redeem, without exposing its response value',async()=>{
+ const {randomUUID}=await import('node:crypto'),{internalDiagnostic}=await import('../scripts/companion/diagnostics.js');
+ const receipt=randomUUID(),grantId=randomUUID(),claims={iss:config.project,sub:'agent:fixture',aud:'xq',jti:grantId,iat:100,exp:200,rcpt:receipt,cols:['amount'],custody:{provider:'xq',tenant:'fixture',provider_redeem_at:'https://validation.xqmsg.net/v2/key',locator:'fixture',opintel_redeem_at:config.gateway}};
+ const grant='e30.'+Buffer.from(JSON.stringify(claims)).toString('base64url')+'.c2ln';
+ const tool=createTools(async name=>name==='opintel.query'?{structuredContent:{...answer(receipt),custody:[{columns:['amount'],grant}]}}:{structuredContent:{share:'PRIVATE_SHARE_SENTINEL',receipt,grantId}},config,async()=>Buffer.alloc(32));
+ await tool('opintel_query',{sql:'SELECT SUM(amount) AS amount FROM fixture.public.records'});
+ try{await tool('opintel_unseal',{evidenceId:receipt});throw new Error('Expected a failed response schema');}catch(error){const diagnostic=internalDiagnostic(error);expect(diagnostic).toMatchObject({step:'K2 redeem',name:'ZodError'});expect(diagnostic.message).toContain('share');expect(JSON.stringify(diagnostic)).not.toContain('PRIVATE_SHARE_SENTINEL');}
+});
+
+it.each(['claim_amount','total'])('companion unseals recorded output %s and passes replay refusal through',async column=>{
+ const {randomUUID}=await import('node:crypto'),{sealResult}=await import('../src/shared/infrastructure/sealed-result.js');
+ const receipt=randomUUID(),grantId=randomUUID(),sealed=sealResult([[123],[456]],[column],[0],receipt);
+ const claims={iss:config.project,sub:'agent:fixture',aud:'xq',jti:grantId,iat:100,exp:200,rcpt:receipt,cols:[column],custody:{provider:'xq',tenant:'fixture',provider_redeem_at:'https://validation.xqmsg.net/v2/key',locator:'fixture',opintel_redeem_at:config.gateway}};
+ const grant='e30.'+Buffer.from(JSON.stringify(claims)).toString('base64url')+'.c2ln';let redeemed=false;
+ const tool=createTools(async name=>{
+  if(name==='opintel.query')return {structuredContent:{columns:[{name:column,type:'VARCHAR'}],rows:sealed.rows,evidenceId:receipt,truncated:false,custody:[{columns:[column],grant}]}};
+  if(redeemed)return {isError:true,_meta:{code:'forbidden',cause:'release_refused'}};
+  redeemed=true;return {structuredContent:{share:sealed.second.toString('base64url'),receipt,grantId}};
+ },config,async()=>Buffer.from(sealed.first));
+ try{
+  const result=await tool('opintel_query',{sql:'SELECT SUM(claim_amount) AS '+column+' FROM fixture.public.records'});expect(await tool('opintel_unseal',{})).toMatchObject({refused:true,code:'validation_failed'});expect(await tool('opintel_unseal',{grantId,evidenceId:randomUUID()})).toMatchObject({refused:true,code:'validation_failed',cause:'result_reference_mismatch'});expect(redeemed).toBe(false);expect(result).toMatchObject({rows:sealed.rows,columns:[{name:column,treatment:'custody'}]});
+  expect(await tool('opintel_unseal',column==='total'?{evidenceId:receipt,grantId}:{grantId})).toEqual({rows:[[123],[456]],evidenceId:receipt});
+  expect(await tool('opintel_unseal',{evidenceId:receipt})).toMatchObject({refused:true,code:'forbidden',cause:'release_refused'});
+ }finally{sealed.first.fill(0);sealed.second.fill(0);}
 });

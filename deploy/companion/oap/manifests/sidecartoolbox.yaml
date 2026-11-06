@@ -20,23 +20,25 @@ spec:
     provider: opintel-agent
     envVar: OPINTEL_AGENT_CREDENTIAL
   config: '{"gateway":"https://opintel.trustrail.io","project":"8b0998f1-09c5-47ba-b060-1ee4920ba68b","agentId":"oap-analyst","caFile":null}'
+  # OAP readonly/readwrite require a SpiceDB check. These tools delegate
+  # governance to Opintel, so use OAP's external-resource passthrough policy.
   tools:
     - name: opintel_describe
       intent: List visible tables and their column treatments.
       permission:
-        stateImpact: readonly
+        stateImpact: passthrough
       args:
         allowedFields: []
     - name: opintel_query
       intent: Execute a governed SQL query.
       permission:
-        stateImpact: readonly
+        stateImpact: passthrough
       args:
         allowedFields: [sql]
     - name: opintel_unseal
       intent: Redeem and unseal an earlier custody result.
-      # One-time redemption mutates the gateway grant, although data is only read.
+      # Redemption consumes a gateway grant; there is no OAP SpiceDB resource.
       permission:
-        stateImpact: readwrite
+        stateImpact: passthrough
       args:
         allowedFields: [evidenceId, grantId]

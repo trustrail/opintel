@@ -1,0 +1,5 @@
+tools/list: opintel_describe, opintel_query, opintel_unseal
+opintel_describe: ok
+aggregate-single-id opintel_query: rows=3 evidenceId=01a1ae68-a159-717b-98d1-1354b3bc0f19
+aggregate-single-id opintel_unseal: rows=3 evidenceId=01a1ae68-a159-717b-98d1-1354b3bc0f19
+aggregate-single-id replay: refused code=forbidden

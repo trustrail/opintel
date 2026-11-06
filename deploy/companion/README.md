@@ -122,3 +122,22 @@ Require toolbox `Valid=True`, `Reachable=True`, all three tools in `observedTool
 The user observed `oap agent chat` fail its browser sign-in with HTTP 500 on this OAP build; `oap agent run` and the web sessions page worked. A run also ended `Failed: Stalled` after showing a completed answer; do not treat a visible answer as proof of a successful terminal status. This is reported separately to AuthZed.
 
 The class records `opintel.trustrail.io:443`, `subscription.xqmsg.net:443`, and `validation.xqmsg.net:443`. Stock OAP e97928b does not enforce hostname restrictions; it permits coarse TCP 80/443. A DNS-aware policy backend is needed for host-level enforcement.
+
+### Unseal lookup and OAP permissions
+
+`opintel_unseal` accepts `evidenceId`, `grantId`, or both from a previous query.
+When both are present, it looks up `grantId` and checks that the grant belongs to
+`evidenceId`. Neither is a `validation_failed` refusal; mismatched references are
+also refused before any share is redeemed. There is no gateway upgrade for this
+companion-side lookup correction.
+
+OAP's `readonly` and `readwrite` policies require a SpiceDB resource check. This
+bundle delegates governance to Opintel and has no OAP resource mapping, so its
+three permission blocks use `passthrough`, as OAP's own external-service sidecars
+do. MCP read-only annotations identify describe/query as reads and unseal as a
+state change (the one-time grant is consumed).
+
+Every release acceptance now checks the kit and companion against the candidate
+gateway: row query, aggregate, local unseal and refused replay. The live checker
+records counts and evidence IDs, never result values. These checks run after the
+browser stage in both packaged acceptance harnesses.
