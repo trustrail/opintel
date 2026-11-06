@@ -38,6 +38,7 @@ it('verification soak launches from its own private config and signed-in session
   const runtime=Object.fromEntries(['DATABASE_URL','REDIS_URL','SPICEDB_ENDPOINT','SPICEDB_TOKEN','OPINTEL_CUSTODY_MASTER_KEY'].map(k=>[k,'fixture-'+k]));
   const provider=Object.fromEntries(['OPINTEL_XQ_API_KEY','OPINTEL_XQ_DASHBOARD_API_KEY','OPINTEL_XQ_SENDER_ALIAS','OPINTEL_XQ_SENDER_ACCESS_TOKEN','OPINTEL_XQ_TEAM_ID'].map(k=>[k,'fixture-'+k]));
   const vars=verificationConfig({runtime:{...runtime,UNRELATED_GATEWAY_SECRET:'excluded'},provider,ownerEmail:'owner@example.test',applicationUrl:'https://gateway.example.test',heartbeatUrl:'https://gateway.example.test:3102'});
+  for(const heartbeatUrl of ['https://gateway.example.test:3102','https://gateway.example.test:3102/'])expect(verificationConfig({runtime,provider,ownerEmail:'owner@example.test',applicationUrl:'https://gateway.example.test',heartbeatUrl}).ENGINE_HEARTBEAT_URL).toBe(heartbeatUrl);
   expect(vars.ENGINE_HEARTBEAT_URL).toBe('https://gateway.example.test:3102');expect(vars.APPLICATION_TLS_CONFIG).toBe('/config/application-tls.json');expect(vars.OPINTEL_PACKAGED_SOAK).toBe('1');expect(vars).not.toHaveProperty('UNRELATED_GATEWAY_SECRET');
   writeFileSync(join(root,'verification.env'),Object.entries(vars).map(([k,v])=>k+'='+v).join('\n')+'\n',{mode:0o600});
   writeFileSync(join(root,'output/owner.cookie'),'opintel_session=fixture\n',{mode:0o600});

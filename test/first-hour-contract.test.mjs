@@ -75,3 +75,10 @@ it('FH-012: the external seed target uses the outer host address, independently 
  expect(driver).toContain("command('engine','sources','add','v01','--host',customerSource.host");
  expect(driver).not.toContain("const target=new URL('postgresql://'+customerSource.host");
 });
+
+it('FH-013: verification uses the installed heartbeat binding verbatim, including its root slash',()=>{
+ const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');
+ expect(driver).toContain("const installed=parse(readFileSync(join(gateway,'state/package.env'),'utf8'));");
+ expect(driver).toContain('heartbeatUrl:installed.GATEWAY_HEARTBEAT_URL');
+ expect(driver).not.toContain('heartbeatUrl:heartbeat.origin');
+});

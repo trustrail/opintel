@@ -573,3 +573,43 @@ runs today, as instructed; no merge.
 
 Post-cleanup ownership queries returned no run-labelled containers/volumes or
 gateway compose network. Report-only lint and diff whitespace checks passed.
+
+
+## Prepare refusal diagnosis: exact heartbeat binding mismatch
+
+This is distinct from 67b8c47's seed route fix. The seed targeted an outer
+published database port through the nested gateway. Prepare's requests reach
+the gateway, but its verification process registers an engine heartbeat binding
+that differs from the installed API's binding by a trailing slash:
+
+- gateway/state/package.env: GATEWAY_HEARTBEAT_URL=https://host.docker.internal:3102/
+- verification/verification.env: ENGINE_HEARTBEAT_URL=https://host.docker.internal:3102
+- retained engine/state/control/state.json: both installed bindings end in `/`.
+
+The Stage 5 driver reconstructed heartbeat.origin, removing the slash. The
+verification config passes this value unchanged to the operator's EngineRegistry
+(provision-service.ts:31), and its HttpsEngineProbe registers it. The API refresh
+registers the installed slash-terminated value. The controller's registration
+comparison (controller.ts:98-105) compares the complete binding JSON; a different
+value replaces the binding with policy:null and deletes its applied version.
+The next heartbeat records appliedVersion:null in the gateway; query admission
+refuses a non-current policy (registry.ts:65-66; repository.ts:10-16).
+
+The retained gateway-services.log records null appliedVersion at lines 1843–1848
+(16:02:17.312Z) and 1926–1931 (16:02:28.104Z), then matching policy again at
+16:02:32.374Z. Prepare's escrow query was refused at 16:02:31.399Z with
+source_unavailable / engine_registry. All engine transport calls completed;
+this is an acknowledgement reset, not evidence of a DNS/TCP/TLS stall.
+See [prepare-heartbeat-diagnosis.json](prepare-heartbeat-diagnosis.json).
+
+Fix: read the installation's GATEWAY_HEARTBEAT_URL from its generated package.env
+verbatim; do not reconstruct/normalize the binding. No product code, policy
+checks, timeouts, expected query answers or installed configuration is changed.
+FH-013 failed on the old driver before this fix; the config test verifies both
+slash forms are passed through unchanged. Initial test bootstrap found the
+standard dev Postgres/Redis stopped after Desktop restart; docker compose up -d
+--wait --wait-timeout 90 postgres redis restored both to healthy before tests.
+
+Heartbeat binding correction: 22/22 targeted/packaging/provisioning tests,
+changed-script syntax, lint and whitespace checks passed. No full gate rerun for
+this harness-only change. Fresh acceptance follows with existing images.

@@ -160,8 +160,9 @@ try{
  writeFileSync(join(verification,'network'),readFileSync(join(gateway,'state/project-name'),'utf8').trim()+'_default\n',{mode:0o600});
  writeFileSync(join(verification,'configuration-directory'),join(gateway,'state')+'\n',{mode:0o600});writeFileSync(join(verification,'identities-directory'),join(agent,'identity-bundles')+'\n',{mode:0o600});writeFileSync(join(verification,'agent-api-key-file'),agentApiKey+'\n',{mode:0o600});
  const runtime=parse(readFileSync(join(gateway,'state/runtime.env'),'utf8'));
- const heartbeat=new URL(settings.APP_BASE_URL);heartbeat.port='3102';
- const vars=verificationConfig({runtime,provider,ownerEmail:settings.OWNER_EMAIL,applicationUrl:settings.APP_BASE_URL,heartbeatUrl:heartbeat.origin});
+ // Registration equality is exact: do not reconstruct or normalize the paired heartbeat binding.
+ const installed=parse(readFileSync(join(gateway,'state/package.env'),'utf8'));
+ const vars=verificationConfig({runtime,provider,ownerEmail:settings.OWNER_EMAIL,applicationUrl:settings.APP_BASE_URL,heartbeatUrl:installed.GATEWAY_HEARTBEAT_URL});
  assert.ok(Object.values(vars).every(v=>!/[\r\n\0]/u.test(v)),'Verification environment values must be single line');writeFileSync(join(verification,'verification.env'),Object.entries(vars).map(([key,value])=>key+'='+value).join('\n')+'\n',{mode:0o600});
  run(join(verification,'demo'),['xq-roundtrip','200'],{env:nested});
  const xqDirectory=join(output,readdirSync(output).filter(name=>name.startsWith('xq-roundtrip-')).sort().at(-1));
