@@ -73,6 +73,7 @@ function run(command,args,{env=outer,log=true,...options}={}){
 }
 async function wait(check,label,timeout=120000){const deadline=Date.now()+timeout;let last;while(Date.now()<deadline){try{return await bounded(Promise.resolve().then(check),Math.min(10000,deadline-Date.now()));}catch(error){last=error;await setTimeout(500);}}throw new Error(label+' timed out'+(last instanceof Error?': '+last.message:''));}
 const gateway=join(directory,'gateway'),engine=join(directory,'engine'),agent=join(directory,'agent-kit'),verification=join(directory,'verification');
+lab.trackCompose(gateway);lab.trackCompose(engine);
 const command=(kind,name,...args)=>run(join(kind==='gateway'?gateway:engine,name),args,{env:nested});
 const composeArgs=(kind,...args)=>{const root=kind==='gateway'?gateway:engine;return ['compose','--project-name',readFileSync(join(root,'state/project-name'),'utf8').trim(),'--env-file',join(root,'state/package.env'),'-f',join(root,'state/compose.json'),...args];};
 const compose=(kind,...args)=>run('docker',composeArgs(kind,...args),{env:nested});
@@ -128,7 +129,7 @@ try{
  for(const name of smtpNames)delete operatorService.environment[name];
  operatorService.env_file=[{path:relayFile,format:'raw'}];
  const relayCompose=join(directory,'real-smtp-compose.json');write(relayCompose,{services:{operator:operatorService},networks:rendered.networks,volumes:rendered.volumes});
- const relayOutput=run('docker',['compose','--project-name',readFileSync(join(gateway,'state/project-name'),'utf8').trim(),'-f',relayCompose,'run','--rm','--no-deps','--interactive=false','-T','operator','node','scripts/operator/customer-operator.js','mail-test',provider.SMTP_TEST_RECIPIENT??provider.SMTP_SENDER]);
+ const relayOutput=run('docker',['compose','--project-name',readFileSync(join(gateway,'state/project-name'),'utf8').trim(),'-f',relayCompose,'run','--rm','--no-deps','--interactive=false','-T','operator','node','scripts/operator/customer-operator.js','mail-test',provider.SMTP_TEST_RECIPIENT??provider.SMTP_SENDER],{env:nested});
  const accepted=/SMTP accepted test message; response code (2[0-9]{2})/u.exec(relayOutput);assert.ok(accepted,'Real SMTP relay must accept an authenticated message');
  result.checks.realSmtpRelay={authenticated:true,acceptedResponse:accepted[1]};
  advance('smtp-fixture');

@@ -1,0 +1,71 @@
+{
+  "revision": "b8c71ba0a7a9d5704b40b160eac17f69360b4532",
+  "status": "failed",
+  "phase": "real-smtp-relay",
+  "runDirectory": "tmp/stage5-acceptance-oovZiD",
+  "smtp": {
+    "event": "mail.failed",
+    "timestamp": "2026-11-06T14:49:39.321Z",
+    "error": "ETIMEDOUT",
+    "responseCode": null,
+    "underlyingPhase": "not retained"
+  },
+  "completed": [
+    "gateway install",
+    "engine install",
+    "four identity imports",
+    "pairing",
+    "private permissions"
+  ],
+  "notExercised": [
+    "owner SMTP sign-in",
+    "first receipt",
+    "custody checks",
+    "companion checks",
+    "600-second soak",
+    "H2 TLS-stall recovery"
+  ],
+  "archives": {
+    "gateway": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-b8c71ba-amd64-archives/gateway-b8c71ba-amd64.tar.gz",
+      "sha256": "5f3a9d69f23779c4aec58e1f3badb1f172fe45bc20977ac7e2e151bca46d7779"
+    },
+    "engine": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-b8c71ba-amd64-archives/engine-b8c71ba-amd64.tar.gz",
+      "sha256": "9f3a7fab311bf9105e7f45f511c9fdf328c56f6c5a7348a2ab94131362910bb7"
+    },
+    "agent-kit": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-b8c71ba-amd64-archives/agent-KIT-b8c71ba-amd64.tar.gz",
+      "sha256": "fb53b591db118309b7af6bbd319a3f1b56e8d03c38cc9ed93139d324ff5b8657"
+    },
+    "verification": {
+      "file": "/Users/rzarita/opintel/tmp/arch01-b8c71ba-amd64-archives/verification-b8c71ba-amd64.tar.gz",
+      "sha256": "be41778ab9bb610d78d872b2cb5b8f0b4ffdf6c89bbd0cc8a7c4c2226f6cf5d1"
+    }
+  },
+  "initialCleanup": {
+    "id": "6072db4c-5219-4ad7-b977-ec31c657b650",
+    "status": "passed",
+    "removed": {
+      "containers": 1,
+      "volumes": 1,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "cleanupCorrection": {
+    "missedNetwork": "opintel-gateway-b972bae26b_default",
+    "ownership": "matching fresh package compose project, zero endpoints",
+    "action": "removed explicitly after ownership verification",
+    "remainingProjectNetworks": 0,
+    "futureFix": "SMTP operator uses nested daemon; cleanup tracks both package compose projects"
+  },
+  "transportDiagnostics": {
+    "completedCalls": 0,
+    "failedAttempts": 0,
+    "tlsStallCount": 0,
+    "recoveredTlsStallCount": 0,
+    "tlsStalls": [],
+    "successfulCallsWithRetries": 0
+  }
+}

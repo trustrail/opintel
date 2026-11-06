@@ -170,13 +170,13 @@ backoffs are included because they consume deadline budgets.
 | wait: timeout | 120000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:74 |
 | wait: deadline | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:74 |
 | wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:74 |
-| req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:82 |
-| req: operation cancellation | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:82 |
-| module configuration: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:140 |
-| list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:143 |
-| message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:143 |
-| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:152 |
-| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:184 |
+| req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:83 |
+| req: operation cancellation | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:83 |
+| module configuration: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:141 |
+| list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:144 |
+| message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:144 |
+| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:153 |
+| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:185 |
 | result: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:19 |
 | sign: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:25 |
 | custodyStepsAcceptance: timer / backoff | 500 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:27 |

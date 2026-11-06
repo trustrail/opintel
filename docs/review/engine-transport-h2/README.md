@@ -420,3 +420,41 @@ DEP-008) passed in the targeted batches. Console provenance/shared-record tests
 passed 13/13. Strict typecheck, conformance typecheck, lint, changed-script syntax
 and production artifact checks passed on the corrected source. Next: commit and
 push, then the owner-requested normal/smoke continuation and fresh H2 acceptance.
+
+
+## Corrected candidate validation and packaged stop (2026-11-06)
+
+Evidence: on b8c71ba, `npm run check -- --from test` passed all 2,371 normal
+tests in 279 files and the browser/MCP smoke (15.7 s scenario; 39.6 s suite).
+This was the authorized staged continuation, not a single uninterrupted full gate.
+The retained gate metadata is [gate-normal-smoke-b8c71ba.json](gate-normal-smoke-b8c71ba.json).
+
+The standard candidate build, publish and customer-package commands completed:
+all eight amd64 images published and all four audited archives built under
+`tmp/arch01-b8c71ba-amd64-archives/`. Paths and SHA-256s are recorded in
+[packaged-b8c71ba.json](packaged-b8c71ba.json).
+
+The one fresh Stage 5 invocation used that published manifest, `--candidate
+--duration-seconds 600 --transport-diagnostics`, and stopped at real-smtp-relay.
+Gateway/engine install, four identity imports, pairing and permission checks
+passed. The private relay log records mail.failed at 14:49:39.321 UTC,
+ETIMEDOUT, responseCode null. It does not establish whether DNS, TCP, TLS or SMTP
+greeting timed out. No owner sign-in, first receipt, custody/companion checks or
+soak ran. Zero H2 calls were captured: TLS-stall recovery is not exercised.
+
+Cleanup initially reported the nested Docker container and its data volume
+removed. A wider audit found the relay's compose command used the outer daemon
+and created one outer network. Its project label matched this fresh installation
+and it had zero endpoints; it was explicitly removed and the project network
+query then returned none. The initial result remains unchanged; the correction
+is recorded separately. Stage 5 now explicitly runs the relay on the installed
+nested daemon and tracks both package project names for cleanup. This fixes a
+proven harness wiring/leak defect; it does not establish the SMTP timeout's
+underlying cause or prove live delivery. No packaged retry followed the failure.
+
+The correction passed 13 first-hour/cleanup tests, 3/3 provisioning-runtime tests, syntax and lint. An attempted
+Node test-runner invocation of the Vitest provisioning suite was invalid; the
+standard npm test invocation is the authoritative provisioning check. Local
+sandbox IPC was denied before tests, so it was run with the required host access.
+Before/after latency remains deferred to the owner's cloud pair after merge.
+No cloud host was accessed and nothing was merged.

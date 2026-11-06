@@ -5,6 +5,11 @@ import {tmpdir} from 'node:os';
 import {firstHourEngine} from '../scripts/images/first-hour-engine.mjs';
 import {it,expect} from 'vitest';
 import {firstHour,firstHourRefusal} from '../scripts/images/first-hour.mjs';
+it('FH-011: the SMTP probe uses the installed daemon and cleanup tracks package projects as well as run labels',()=>{
+ const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8'),relay=driver.split('\n').find(line=>line.includes('const relayOutput='));
+ expect(relay).toContain("],{env:nested});");
+ expect(driver).toContain('lab.trackCompose(gateway);lab.trackCompose(engine);');
+});
 it('FH-001: first-hour workflow imports only public transport tooling and cannot access Opintel stores',()=>{
  const text=readFileSync('scripts/images/first-hour.mjs','utf8');
  const imports=[...text.matchAll(/from '([^']+)'/gu)].map(m=>m[1]);
