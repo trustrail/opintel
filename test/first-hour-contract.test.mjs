@@ -92,6 +92,6 @@ it('FH-014: final agent import stages the original ZIP inside the shared lab wit
   expect(staged).toBe(join(agent,'private-export-223.zip'));
   expect(readFileSync(staged,'utf8')).toBe('fixture ZIP bytes');expect(statSync(staged).mode&0o777).toBe(0o600);
   expect(readFileSync(outside,'utf8')).toBe('fixture ZIP bytes');
-  const driver=readFileSync('scripts/images/steps-custody-acceptance.mjs','utf8');expect(driver).toContain("run(agent,['identities','add',identityExport");
+  const driver=readFileSync('scripts/images/steps-custody-acceptance.mjs','utf8');expect(driver).toContain("run(agent,['identities','add',identityExport");expect(driver).toContain("run(agent,['identities','add',otherIdentityExport");expect(driver).not.toContain("run(agent,['identities','add',join(");
  }finally{rmSync(root,{recursive:true,force:true});}
 });

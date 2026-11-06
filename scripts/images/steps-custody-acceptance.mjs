@@ -49,7 +49,8 @@ export async function custodyStepsAcceptance({directory,archives,revision,gatewa
  const companion=companionCustodyAcceptance({directory:output,agent,key,apiKeyFile,base,project:browser.projectId,sql:prepared.sql,aggregateSql:prepared.aggregateSql,revision,platform,commandEnv,preparedImage,lab});checks.push(...companion.checks.map(check=>'companion-'+check.name));
  // A second real XQ certificate must never reuse the bound pool key.
  const otherExports=join(homedir(),'.xq/v02/224'),otherZips=readdirSync(otherExports).filter(name=>name.endsWith('-224.zip'));assert.equal(otherZips.length,1,'Second XQ export missing or ambiguous');
- run(agent,['identities','add',join(otherExports,otherZips[0]),'--device','opintelpoola','--api-key-file',apiKeyFile],'mismatch-identity-import');
+ const otherIdentityExport=stageAgentIdentityExport(directoryAgent,join(otherExports,otherZips[0]));
+ run(agent,['identities','add',otherIdentityExport,'--device','opintelpoola','--api-key-file',apiKeyFile],'mismatch-identity-import');
  const mismatchResult=join(agent,'mismatch-must-not-exist.json');
  run(agent,['steps','query',...agentFlags,'--sql',prepared.sql,'--out',mismatchResult],'identity-mismatch',1);assert.ok(!existsSync(mismatchResult));checks.push('different-certificate-refused-no-rows');
  writeFileSync(join(agent,'active-identity'),'device-223\n',{mode:0o600});

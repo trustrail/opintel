@@ -772,3 +772,11 @@ new guard has not been packaged/exercised live after the preflight stop.
 Final revocation guard targeted tests 11/11, provisioning-runtime 3/3, help/syntax,
 lint and whitespace checks passed. No further packaged run followed the
 preflight blocker. The latest guard is unit-tested, not live packaged proof.
+
+Final review run preparation: the mismatched-certificate import also used an
+outside-lab ZIP path. It now uses the same tested private staging helper as the
+first import; FH-014 asserts both paths. Syntax, 14 targeted/provisioning tests
+and lint passed. The current verifier (including the revoked-key guard) will
+be rebuilt for the requested fresh acceptance and 50-call measurement. The
+HTTP/1 baseline remains f1887d1: git diff --quiet f1887d1..main over src, sidecar,
+customer-install and engine packaging exits 0 against main a15d35f.
