@@ -1,0 +1,82 @@
+{
+  "harnessRevision": "1524328",
+  "imageRevision": "1524328333a8cfe6baa73ee93d4f34feda651cfb",
+  "runDirectory": "tmp/stage5-acceptance-e5UC0N",
+  "status": "failed",
+  "failure": {
+    "phase": "packaged-custody-rows-aggregate-companion",
+    "message": "agent-identity-import exit status mismatch\n\nfalse !== true\n"
+  },
+  "soak": {
+    "durationSeconds": 600,
+    "status": "passed",
+    "steps": [
+      {
+        "step": "seed",
+        "exitCode": 0
+      },
+      {
+        "step": "lifecycle-renew",
+        "exitCode": 0
+      },
+      {
+        "step": "prepare",
+        "exitCode": 0
+      },
+      {
+        "step": "soak",
+        "exitCode": 0
+      }
+    ],
+    "queries": 339,
+    "outcomes": {
+      "success": 309,
+      "element_withheld": 13,
+      "unsupported_on_aggregate_only": 17
+    },
+    "capacityRefusals": {},
+    "invariantBreaches": 0,
+    "operationalErrors": 0,
+    "receiptInvariants": {
+      "enabled": true,
+      "failed": false,
+      "reason": null,
+      "checksSkipped": 0
+    },
+    "custody": {
+      "verifiedValues": 102,
+      "refusals": 0,
+      "skipped": 0
+    },
+    "coverage": {
+      "declared": 115,
+      "exercised": 46,
+      "percent": 40,
+      "capacityRefusals": 0
+    }
+  },
+  "transport": {
+    "completedCalls": 1575,
+    "failedAttempts": 0,
+    "tlsStallCount": 0,
+    "recoveredTlsStallCount": 0,
+    "tlsStalls": [],
+    "successfulCallsWithRetries": 0
+  },
+  "cleanup": {
+    "id": "9f448167-95b5-4014-8cf1-fada80293cb5",
+    "status": "passed",
+    "removed": {
+      "containers": 2,
+      "volumes": 1,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "custodyRegression": {
+    "failedStep": "agent-identity-import",
+    "message": "invalid input or refused exchange",
+    "diagnosis": "Host-only export ZIP path was outside the directory shared with the fresh nested Docker daemon",
+    "subsequentChecks": "not run"
+  }
+}

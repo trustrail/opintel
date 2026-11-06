@@ -178,10 +178,10 @@ backoffs are included because they consume deadline budgets.
 | module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:153 |
 | module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:188 |
 | listed: timeout | 10000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:211 |
-| result: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:19 |
-| sign: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:25 |
-| custodyStepsAcceptance: timer / backoff | 500 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:27 |
-| result: timeout | operation==='benchmark-verify'?600000:180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:32 |
+| result: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:22 |
+| sign: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:29 |
+| custodyStepsAcceptance: timer / backoff | 500 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:31 |
+| result: timeout | operation==='benchmark-verify'?600000:180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:36 |
 | result: timeout | 15000 | Caller/configuration dependent | scripts/infrastructure/xq-device-certificate-envelope.mjs:34 |
 | child: timeout | 15000 | Caller/configuration dependent | scripts/infrastructure/xq-token-unwrap.mjs:19 |
 | r: operation cancellation | 30000 | Caller/configuration dependent | scripts/operator/common.ts:31 |

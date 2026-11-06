@@ -1,5 +1,6 @@
+import {stageAgentIdentityExport} from '../scripts/images/steps-custody-acceptance.mjs';
 import {acceptanceHostAddress} from '../scripts/images/first-hour-source.mjs';
-import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync,statSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {firstHourEngine} from '../scripts/images/first-hour-engine.mjs';
@@ -81,4 +82,16 @@ it('FH-013: verification uses the installed heartbeat binding verbatim, includin
  expect(driver).toContain("const installed=parse(readFileSync(join(gateway,'state/package.env'),'utf8'));");
  expect(driver).toContain('heartbeatUrl:installed.GATEWAY_HEARTBEAT_URL');
  expect(driver).not.toContain('heartbeatUrl:heartbeat.origin');
+});
+
+it('FH-014: final agent import stages the original ZIP inside the shared lab with mode 600',()=>{
+ const root=mkdtempSync(join(tmpdir(),'agent-export-stage-'));
+ try{
+  const outside=join(root,'private-export-223.zip'),agent=join(root,'lab/agent-host');mkdirSync(agent,{recursive:true});writeFileSync(outside,'fixture ZIP bytes',{mode:0o600});
+  const staged=stageAgentIdentityExport(agent,outside);
+  expect(staged).toBe(join(agent,'private-export-223.zip'));
+  expect(readFileSync(staged,'utf8')).toBe('fixture ZIP bytes');expect(statSync(staged).mode&0o777).toBe(0o600);
+  expect(readFileSync(outside,'utf8')).toBe('fixture ZIP bytes');
+  const driver=readFileSync('scripts/images/steps-custody-acceptance.mjs','utf8');expect(driver).toContain("run(agent,['identities','add',identityExport");
+ }finally{rmSync(root,{recursive:true,force:true});}
 });

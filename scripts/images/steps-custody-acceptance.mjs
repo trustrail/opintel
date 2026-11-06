@@ -6,10 +6,13 @@ const {fetch}=globalThis;
 // MCP or TLS implementation. All agent actions run the shipped ./steps command.
 import {spawn,spawnSync} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,copyFileSync,readdirSync,chmodSync,existsSync,statSync} from 'node:fs';
-import {join,resolve} from 'node:path';
+import {join,resolve,basename} from 'node:path';
 import {homedir} from 'node:os';
 import {setTimeout} from 'node:timers/promises';
 import assert from 'node:assert/strict';
+/** Stage private inputs inside the path shared with the nested Docker daemon. */
+export function stageAgentIdentityExport(directory,original){const file=join(directory,basename(original));copyFileSync(original,file);chmodSync(file,0o600);return file;}
+
 export async function custodyStepsAcceptance({directory,archives,revision,gateway,base,email,team,apiKey,browser,version,platform='linux/amd64',commandEnv=process.env,transportBenchmark=false,apiLog,lab}){
  const preparedImage=prepareCompanionImage({directory,revision,platform});
  const directoryAgent=join(directory,'agent-host');mkdirSync(directoryAgent,{mode:0o700});for(const archive of [`agent-KIT-${revision.slice(0,7)}-${platform.split('/')[1]}.tar.gz`,`verification-${revision.slice(0,7)}-${platform.split('/')[1]}.tar.gz`]){const extracted=spawnSync('tar',['-xpf',join(archives,archive),'-C',directoryAgent],{encoding:'utf8'});assert.equal(extracted.status,0,'Separate archive extraction failed: '+archive);}
@@ -19,7 +22,8 @@ export async function custodyStepsAcceptance({directory,archives,revision,gatewa
  function run(root,args,name,expected=0){const result=spawnSync(join(root,args[0]),args.slice(1),{encoding:'utf8',timeout:180000,maxBuffer:16*1024*1024,env:{...commandEnv,STEPS_XQ_API_KEY_FILE:apiKeyFile}}),text=(result.stdout??'')+(result.stderr??'');writeFileSync(join(output,name+'.private.log'),text,{mode:0o600});assert.equal(Boolean(result.error),false,name+' process failed');assert.equal(result.status===0,expected===0,name+' exit status mismatch');record('./'+args[0]+' '+args[1]+' [flags supplied; values redacted]',text);return text;}
  const exports=join(homedir(),'.xq/v02/223'),zips=readdirSync(exports).filter(name=>name.endsWith('-223.zip'));assert.equal(zips.length,1,'Original XQ device export missing or ambiguous');
  // Import and exchange occur on the agent host; there is no public handoff.
- run(agent,['identities','add',join(exports,zips[0]),'--device',deviceName,'--api-key-file',apiKeyFile],'agent-identity-import');
+ const identityExport=stageAgentIdentityExport(directoryAgent,join(exports,zips[0]));
+ run(agent,['identities','add',identityExport,'--device',deviceName,'--api-key-file',apiKeyFile],'agent-identity-import');
  checks.push('agent-host-exchange-no-public-handoff');
  const before=await(await fetch('http://127.0.0.1:11825/api/v1/messages')).json(),seen=new Set(before.messages.map(m=>m.ID));
  const sign=spawn(join(verification,'steps'),['sign-in','--gateway',base,'--email',email,'--session-out',session],{stdio:['pipe','pipe','pipe'],env:commandEnv,timeout:180000});let signedOutput='';sign.stdout.on('data',chunk=>{signedOutput+=chunk;});sign.stderr.on('data',chunk=>{signedOutput+=chunk;});const completed=new Promise((resolve,reject)=>{sign.once('error',()=>reject(new Error('steps sign-in process failed')));sign.once('exit',code=>resolve(code));});

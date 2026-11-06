@@ -700,3 +700,48 @@ first implementation had a coverage-summary ReferenceError, fixed before the
 final run. Final targeted/packaging/provisioning tests 22/22, versioned fixture
 specification tests 4/4, strict typecheck, lint, help/syntax and whitespace checks
 passed. Script-only verification change: no full gate rerun.
+
+
+## Capacity-aware packaged run and final-check input correction
+
+All eight amd64 1524328 candidate images built/audited and published via the
+standard workflow; all four archives built under
+`tmp/arch01-1524328-amd64-archives/`. Published manifest:
+`tmp/arch01-1524328-published.json`. This contains the verification-only capacity
+change; no product behavior change. Standard acceptance run:
+`tmp/stage5-acceptance-e5UC0N`, duration 600, diagnostics enabled.
+
+Installs, identity imports, pairing, real SMTP, fresh sign-in, first receipt,
+200 XQ round trips, prepare, browser and console outage/recovery passed. The
+full ten-minute soak PASSED: 339 queries/receipts, invariantBreaches 0,
+operationalErrors 0, no capacity refusals on this run, receipt checks enabled
+with failed=false/checksSkipped=0. Custody verified 102 values. The completed
+run did not reproduce the earlier scenario or engine_registry failures.
+Gateway transport captured 1,575 completed calls with no failed attempts,
+TLS stalls, recovered stalls or successful retry calls.
+
+Final custody/companion phase stopped at agent-identity-import, before its
+query/unseal checks. The companion image preparation completed; this was not a
+build timeout. The agent command's private log reports invalid input or refused
+exchange, and no identity-bundles directory was created. Its source ZIP was
+passed directly from the host's ~/.xq tree. The fresh nested Docker daemon has
+only the acceptance directory mounted at the same path; that host-only ZIP is
+not available to it. Docker bind semantics create a directory for an absent
+source, which the importer's file-only input check refuses. The first successful
+import phase already stages its ZIP within the shared acceptance directory.
+
+Fix the final harness path the same way: copy the original export into the
+private agent-host directory, preserve its filename and chmod 600, then invoke
+the unchanged shipped importer. FH-014 verifies path, original preservation,
+mode and driver wiring. No key data reaches gateway service mounts. No product,
+XQ exchange, timeout or archive change is required for this correction.
+See [capacity-soak-and-agent-input-stop.json](capacity-soak-and-agent-input-stop.json).
+
+Cleanup of the failed run passed. For disk space, only redundant images.tar
+payloads in three previously reported/committed labs (QVmqog, qO0puT, 0HIRZf)
+were removed; logs, records and their canonical archives remain. Free space
+rose to 8.2 GiB before the next standard run. No evidence records were edited.
+
+Final import staging correction: 14/14 targeted/provisioning tests, syntax,
+lint and whitespace checks passed before commit and the next fresh standard
+acceptance. The eight published images and four archives are reused.
