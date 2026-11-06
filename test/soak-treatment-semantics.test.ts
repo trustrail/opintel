@@ -56,3 +56,9 @@ it('capacity refusal grants no capability coverage and cannot erase a wrong answ
  expect(c.observe(s,{outcome:'engine_saturated',cause:'engine_saturated'})).toBe(true);
  expect(c.summary()).toMatchObject({exercised:1,capacityRefusals:2,scenarios:[{status:'FAIL',count:1,matched:0,capacityRefusals:2}]});
 });
+
+it('revoked credentials still require authentication refusal before any capacity handling',()=>{
+ const s=spec.scenarios.find(s=>s.credential==='revoked')!,c=new Coverage([s]);
+ expect(c.observe(s,{outcome:'engine_saturated',cause:'engine_saturated'})).toBe(false);
+ expect(c.summary()).toMatchObject({capacityRefusals:0,scenarios:[{status:'FAIL',count:1,matched:0}]});
+});

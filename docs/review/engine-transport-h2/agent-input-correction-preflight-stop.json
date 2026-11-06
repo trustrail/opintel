@@ -1,0 +1,22 @@
+{
+  "harnessRevision": "0234be3",
+  "imageRevision": "1524328333a8cfe6baa73ee93d4f34feda651cfb",
+  "runDirectory": "tmp/stage5-acceptance-sfYxv3",
+  "status": "failed",
+  "failure": {
+    "phase": "preflight",
+    "message": "Docker memory preflight could not inspect its allocation; start or restart Docker Desktop."
+  },
+  "cleanup": {
+    "id": "03a4b88f-0194-4c05-8f8f-c0e8e448495a",
+    "status": "passed",
+    "removed": {
+      "containers": 0,
+      "volumes": 0,
+      "networks": 0
+    },
+    "failures": []
+  },
+  "installationStarted": false,
+  "furtherAcceptanceRuns": 0
+}

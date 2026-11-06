@@ -745,3 +745,30 @@ rose to 8.2 GiB before the next standard run. No evidence records were edited.
 Final import staging correction: 14/14 targeted/provisioning tests, syntax,
 lint and whitespace checks passed before commit and the next fresh standard
 acceptance. The eight published images and four archives are reused.
+
+
+## Corrected agent input attempt: Docker preflight blocker
+
+The tested harness-only import fix was pushed as 0234be3. The next fresh
+standard acceptance reused the 1524328 published manifest and four archives;
+no republish or product change. It stopped at memory preflight in
+`tmp/stage5-acceptance-sfYxv3`: docker info exceeded the existing 10-second
+allocation-inspection limit. No install or fixture started. Cleanup passed with
+zero resources created/removed. No timeout was changed or Docker restart or
+further acceptance retry attempted. See
+[agent-input-correction-preflight-stop.json](agent-input-correction-preflight-stop.json).
+
+Thus the ten-minute capacity-aware soak is proven passing on 1524328 (339
+queries, zero breaches/errors, 102 values unsealed), while the final agent-kit and
+companion row/aggregate/replay regression remains unverified after the input
+fix. The source and bounded evidence are pushed; overall acceptance is blocked.
+
+A final guard keeps revoked-credential scenarios outside capacity deferral: an
+engine_saturated result for a revoked credential is still a failed authentication
+expectation. Revocation must be enforced before admission; the capacity exception
+must never mask that governance defect. This only tightens the verifier, and its
+new guard has not been packaged/exercised live after the preflight stop.
+
+Final revocation guard targeted tests 11/11, provisioning-runtime 3/3, help/syntax,
+lint and whitespace checks passed. No further packaged run followed the
+preflight blocker. The latest guard is unit-tested, not live packaged proof.
