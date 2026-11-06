@@ -40,3 +40,11 @@ it('OAP bundle declares sidecar credentials, valid sandbox defaults and budgets,
  for(const rule of sqlRules)expect(prompt).toContain(rule);
  expect(prompt).toContain('do not call introspect_tool');expect(prompt).toContain('with the grantId');expect(prompt).toContain('one row per entity');
 });
+
+it('internal unseal diagnostics identify the phase and schema path without leaking values',async()=>{
+ const {internalDiagnostic,CompanionFailure}=await import('../scripts/companion/diagnostics.js');
+ const parsed=z.object({share:z.string()}).safeParse({share:123,secret:'must-not-log'});
+ expect(parsed.success).toBe(false);
+ if(!parsed.success)expect(internalDiagnostic(new CompanionFailure('K2 redeem',parsed.error))).toEqual({step:'K2 redeem',name:'ZodError',message:'Response schema validation failed: invalid_type at share'});
+ for(const step of ['lookup','K2 redeem','K1 fetch','unseal'] as const){const diagnostic=internalDiagnostic(new CompanionFailure(step,new Error('secret-value share-content')));expect(diagnostic.step).toBe(step);expect(JSON.stringify(diagnostic)).not.toMatch(/secret-value|share-content/u);}
+});

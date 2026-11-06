@@ -23,13 +23,20 @@ spec:
   tools:
     - name: opintel_describe
       intent: List visible tables and their column treatments.
+      permission:
+        stateImpact: readonly
       args:
         allowedFields: []
     - name: opintel_query
       intent: Execute a governed SQL query.
+      permission:
+        stateImpact: readonly
       args:
         allowedFields: [sql]
     - name: opintel_unseal
       intent: Redeem and unseal an earlier custody result.
+      # One-time redemption mutates the gateway grant, although data is only read.
+      permission:
+        stateImpact: readwrite
       args:
         allowedFields: [evidenceId, grantId]

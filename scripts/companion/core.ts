@@ -2,8 +2,9 @@ import {DescribeOutput} from '../../src/shared/api/mcp.js';
 import {sqlRules} from './sql-rules.js';
 import {AgentIdHeader} from '../../src/shared/api/agent-presence.js';
 import {z} from 'zod';
-import {query,redeem,grantClaims,type McpCall,type ResultFile} from '../steps/service.js';
+import {query,redeem,grantClaims,type McpCall,type ResultFile,type RedemptionStep} from '../steps/service.js';
 import {ShareRefused} from '../steps/infrastructure/device.js';
+import {CompanionFailure} from './diagnostics.js';
 import {publicCode,publicCause} from '../steps/infrastructure/diagnostics.js';
 
 export const Credential=z.strictObject({v:z.literal(1),poolKey:z.string().regex(/^opk_live_[A-Za-z0-9]{22}$/u),identity:z.strictObject({name:z.string().regex(/^device-[1-9][0-9]*$/u),clientCert:z.string().min(1),clientKey:z.string().min(1),transportKey:z.string().min(1)}),xqApiKey:z.string().min(1)});
@@ -23,8 +24,8 @@ export function createTools(call:McpCall,config:z.infer<typeof Config>,share:(lo
   if(name==='opintel_unseal'){
    const input=z.object({evidenceId:z.string().optional(),grantId:z.string().optional()}).refine(v=>Boolean(v.evidenceId)!==Boolean(v.grantId)).parse(args);
    const file=input.evidenceId?saved.get(input.evidenceId):[...saved.values()].find(f=>grantClaims(f.result).some(g=>g.claims.jti===input.grantId));if(!file)return {refused:true,code:'result_not_found',cause:'not_in_session',message:'The result is not available in this session.'};
-   let refusal:Record<string,unknown>|undefined;const observed:McpCall=async(name,args)=>{const reply=await call(name,args);if(reply.isError){const content=z.array(z.object({type:z.string(),text:z.string().optional()})).safeParse(reply.content);refusal={refused:true,code:publicCode(reply._meta?.code),cause:publicCause(reply._meta?.cause),message:content.success?content.data.find(p=>p.type==='text')?.text??'Redemption refused.':'Redemption refused.'};}return reply;};
-   try{return {rows:(await redeem(file,observed,share)).rows,evidenceId:file.result.evidenceId};}catch(error){if(refusal)return refusal;if(error instanceof ShareRefused)return {refused:true,code:'redemption_refused',cause:error.share,message:error.message};throw error;}
+   let step:RedemptionStep='lookup';let refusal:Record<string,unknown>|undefined;const observed:McpCall=async(name,args)=>{const reply=await call(name,args);if(reply.isError){const content=z.array(z.object({type:z.string(),text:z.string().optional()})).safeParse(reply.content);refusal={refused:true,code:publicCode(reply._meta?.code),cause:publicCause(reply._meta?.cause),message:content.success?content.data.find(p=>p.type==='text')?.text??'Redemption refused.':'Redemption refused.'};}return reply;};
+   try{return {rows:(await redeem(file,observed,share,value=>{step=value;})).rows,evidenceId:file.result.evidenceId};}catch(error){if(refusal)return refusal;if(error instanceof ShareRefused)return {refused:true,code:'redemption_refused',cause:error.share,message:error.message};throw new CompanionFailure(step,error);}
   }
   throw new Error('Unknown tool.');
  };

@@ -7,6 +7,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {wipePrivateDirectory} from '../infrastructure/private-cleanup.mjs';
 import {randomUUID} from 'node:crypto';
 import {join} from 'node:path';
+import {internalDiagnostic} from './diagnostics.js';
 import {Config,Credential,createTools} from './core.js';
 import {transportFailure} from '../steps/infrastructure/diagnostics.js';
 import {ShareRefused,deviceAgent} from '../steps/infrastructure/device.js';
@@ -56,7 +57,7 @@ async function main(){
     const invoke=makeInvoke();
     const mcp=new McpServer({name:'opintel-companion',version:'1.0.0'});
     const register=(name:string,inputSchema:z.ZodRawShape)=>mcp.registerTool(name,{inputSchema},async(args)=>{
-     try{const result=await invoke(name,args as Record<string,unknown>);const item=result&&typeof result==='object'?result as Record<string,unknown>:{};const outcome=item.refused===true?'refused '+String(item.code??'unknown'):'ok';const evidence=z.uuid().safeParse(item.evidenceId).success?String(item.evidenceId):'-';const rows=Array.isArray(item.rows)?item.rows.length:0;console.info(`${name} ${outcome} ${evidence} ${rows}`);return {content:[{type:'text' as const,text:JSON.stringify(result)}],structuredContent:item};}catch{console.info(`${name} refused internal_error - 0`);return {content:[{type:'text' as const,text:JSON.stringify({refused:true,code:'internal_error'})}],structuredContent:{refused:true,code:'internal_error'}};}
+     try{const result=await invoke(name,args as Record<string,unknown>);const item=result&&typeof result==='object'?result as Record<string,unknown>:{};const outcome=item.refused===true?'refused '+String(item.code??'unknown'):'ok';const evidence=z.uuid().safeParse(item.evidenceId).success?String(item.evidenceId):'-';const rows=Array.isArray(item.rows)?item.rows.length:0;console.info(`${name} ${outcome} ${evidence} ${rows}`);return {content:[{type:'text' as const,text:JSON.stringify(result)}],structuredContent:item};}catch(error){console.error(JSON.stringify({event:'companion.internal_error',tool:name,...internalDiagnostic(error)}));console.info(`${name} refused internal_error - 0`);return {content:[{type:'text' as const,text:JSON.stringify({refused:true,code:'internal_error'})}],structuredContent:{refused:true,code:'internal_error'}};}
     });
     register('opintel_describe',{});register('opintel_query',{sql:z.string()});register('opintel_unseal',{evidenceId:z.string().optional(),grantId:z.string().optional()});
     transport=new StreamableHTTPServerTransport({sessionIdGenerator:()=>randomUUID(),onsessioninitialized:id=>{transports.set(id,transport!);}});transport.onclose=()=>{if(transport?.sessionId)transports.delete(transport.sessionId);};await mcp.connect(transport);

@@ -25,20 +25,22 @@ export async function query(call:McpCall,sql:string){
  for(const grant of grantClaims(result))for(const column of grant.columns)treatments[column]='custody';
  return {result,treatments};
 }
-export async function redeem(file:ResultFile,call:McpCall,firstShare:(locator:string)=>Promise<Buffer>){
+export type RedemptionStep='lookup'|'K2 redeem'|'K1 fetch'|'unseal';
+export async function redeem(file:ResultFile,call:McpCall,firstShare:(locator:string)=>Promise<Buffer>,onStep:(step:RedemptionStep)=>void=()=>{}){
+ onStep('lookup');
  const grants=grantClaims(file.result);if(!grants.length)throw new Error('The result has no custody grants.');
  const shares:Array<{columns:string[];first:Buffer;second:Buffer}>=[];let released=0;
  try{
   for(const bundle of grants){
-   const response=await call('opintel.redeem',{grant:bundle.grant});
+   onStep('K2 redeem');const response=await call('opintel.redeem',{grant:bundle.grant});
    if(response.isError)throw new ShareRefused('K2',`${publicCode(response._meta?.code)} / ${publicCause(response._meta?.cause)}: the grant is expired, revoked, already redeemed, or belongs to another credential; the server does not distinguish these causes.`);
    const reply=releaseRedeemOutput.parse(response.structuredContent);if(reply.receipt!==file.result.evidenceId||reply.grantId!==bundle.claims.jti)throw new Error('K2 response does not match the receipt and grant.');
    released++;const second=Buffer.from(reply.share,'base64url');let first:Buffer;
-   try{first=await firstShare(bundle.claims.custody.locator);}catch(error){second.fill(0);throw error;}
+   try{onStep('K1 fetch');first=await firstShare(bundle.claims.custody.locator);}catch(error){second.fill(0);throw error;}
    shares.push({columns:bundle.columns,first,second});
   }
   // Fetch every share first. A refused share means no cell is decrypted.
-  let rows=file.result.rows;for(const share of shares)rows=unsealColumns({...file.result,rows},share.columns,share.first,share.second);
+  onStep('unseal');let rows=file.result.rows;for(const share of shares)rows=unsealColumns({...file.result,rows},share.columns,share.first,share.second);
   return {rows,grants:grants.map(g=>({id:g.claims.jti,columns:g.columns})),receiptState:'redeemed' as const};
  }catch(error){if(error instanceof Error&&released>0)error.message+=' Receipt state: redeemed for '+released+' grant(s) (K2 released); no plaintext was output.';throw error;}
  finally{for(const share of shares){share.first.fill(0);share.second.fill(0);}}

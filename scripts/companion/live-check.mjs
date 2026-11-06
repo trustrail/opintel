@@ -1,5 +1,6 @@
 import {URL} from 'node:url';
 const {fetch,AbortSignal}=globalThis;
+import {readFileSync,writeFileSync} from 'node:fs';
 import process from 'node:process';
 import console from 'node:console';
 import {setTimeout} from 'node:timers/promises';
@@ -16,9 +17,20 @@ try{
  step='initialize';await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',base)));
  step='tools/list';const {tools}=await client.listTools();requireThat(JSON.stringify(tools.map(t=>t.name).sort())===JSON.stringify(['opintel_describe','opintel_query','opintel_unseal']));console.info('tools/list: opintel_describe, opintel_query, opintel_unseal');
  step='opintel_describe';const described=await client.callTool({name:step,arguments:{}});requireThat(!described.isError&&!described.structuredContent?.refused);requireThat(Array.isArray(described.structuredContent?.sqlRules)&&described.structuredContent.sqlRules.length===4);const custody=described.structuredContent?.custody;requireThat(!custody||(!Object.hasOwn(custody,'tenant')&&!Object.hasOwn(custody,'keys')));console.info('opintel_describe: ok');
- step='custody prerequisite';const column=described.structuredContent?.objects?.find(object=>object.name==='testing_reinsurance.soak_claims.claims')?.columns?.find(column=>column.name==='claim_amount');const treatment=['clear','tokenized','masked','aggregate_only','custody'].includes(column?.treatment)?column.treatment:'not reported';console.info(`opintel_describe: custody test column treatment=${treatment}`);requireThat(treatment==='custody');
- step='opintel_query';const reply=await client.callTool({name:step,arguments:{sql:'SELECT claim_amount FROM testing_reinsurance.soak_claims.claims'}}),query=reply.structuredContent;requireThat(!reply.isError&&query&&!query.refused&&Array.isArray(query.rows)&&query.rows.length===12&&Array.isArray(query.columns));
- const index=query.columns.findIndex(c=>c.name==='claim_amount');requireThat(index>=0&&query.rows.every(row=>typeof row[index]==='string'&&row[index].startsWith('opintelsealed:')));requireThat(typeof query.evidenceId==='string'&&/^[a-f0-9-]{36}$/u.test(query.evidenceId));console.info(`opintel_query: rows=12 evidenceId=${query.evidenceId}`);
- step='opintel_unseal';const clear=await client.callTool({name:step,arguments:{evidenceId:query.evidenceId}}),unsealed=clear.structuredContent;requireThat(!clear.isError&&unsealed&&!unsealed.refused&&Array.isArray(unsealed.rows)&&unsealed.rows.length===12&&unsealed.rows.every(row=>row[index]!==null&&row[index]!==undefined&&!String(row[index]).startsWith('opintelsealed:')));console.info(`opintel_unseal: rows=12 evidenceId=${query.evidenceId}`);
- step='opintel_unseal repeated';const repeated=await client.callTool({name:'opintel_unseal',arguments:{evidenceId:query.evidenceId}}),refusal=repeated.structuredContent;requireThat(refusal?.refused===true&&refusal.code==='forbidden');console.info('opintel_unseal repeated: refused code=forbidden');
+ const cases=process.argv[3]?JSON.parse(readFileSync(process.argv[3],'utf8')):[
+  {name:'rows',sql:'SELECT claim_id, claim_amount FROM testing_reinsurance.soak_claims.claims',column:'claim_amount',rows:12},
+  {name:'aggregate',sql:'SELECT cedant, SUM(claim_amount) AS total FROM testing_reinsurance.soak_claims.claims GROUP BY cedant',column:'total',rows:3},
+ ];
+ const checks=[];
+ for(const scenario of cases){
+  step=scenario.name+' query';const reply=await client.callTool({name:'opintel_query',arguments:{sql:scenario.sql}}),query=reply.structuredContent;
+  if(query?.refused)console.info(`${scenario.name} query: refused code=${query.code}`);
+  requireThat(!reply.isError&&query&&!query.refused&&Array.isArray(query.rows)&&query.rows.length===scenario.rows&&Array.isArray(query.columns));
+  const index=query.columns.findIndex(c=>c.name===scenario.column);requireThat(index>=0&&query.rows.every(row=>typeof row[index]==='string'&&row[index].startsWith('opintelsealed:')));requireThat(typeof query.evidenceId==='string'&&/^[a-f0-9-]{36}$/u.test(query.evidenceId));console.info(`${scenario.name} opintel_query: rows=${scenario.rows} evidenceId=${query.evidenceId}`);checks.push({name:scenario.name+' query',evidenceId:query.evidenceId,rows:scenario.rows});
+  step=scenario.name+' unseal';const clear=await client.callTool({name:'opintel_unseal',arguments:{evidenceId:query.evidenceId}}),unsealed=clear.structuredContent;
+  if(unsealed?.refused)console.info(`${scenario.name} unseal: refused code=${unsealed.code}`);
+  requireThat(!clear.isError&&unsealed&&!unsealed.refused&&Array.isArray(unsealed.rows)&&unsealed.rows.length===scenario.rows&&unsealed.rows.every(row=>row[index]!==null&&row[index]!==undefined&&!String(row[index]).startsWith('opintelsealed:')));console.info(`${scenario.name} opintel_unseal: rows=${scenario.rows} evidenceId=${query.evidenceId}`);checks.push({name:scenario.name+' unseal',evidenceId:query.evidenceId,rows:scenario.rows});
+  step=scenario.name+' replay';const repeated=await client.callTool({name:'opintel_unseal',arguments:{evidenceId:query.evidenceId}}),refusal=repeated.structuredContent;requireThat(refusal?.refused===true&&refusal.code==='forbidden');console.info(`${scenario.name} replay: refused code=forbidden`);checks.push({name:scenario.name+' replay',code:'forbidden'});
+ }
+ if(process.argv[4])writeFileSync(process.argv[4],JSON.stringify({status:'passed',checks})+'\n',{mode:0o600});
 }catch{console.error(`Live companion check failed at ${step}; no values were logged.`);process.exitCode=1;}finally{await client.close().catch(()=>{});}
