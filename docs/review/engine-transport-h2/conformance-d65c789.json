@@ -1,0 +1,371 @@
+{
+  "status": "failed",
+  "scope": "full",
+  "coverageComplete": false,
+  "coverage": [
+    {
+      "screen": "/?dialog=new-project",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?dialog=you",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=activity",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=activity&provenance=00000000-0000-4000-8000-000000000001",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data&tab=entitlements",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data&tab=sources",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data&tab=suggestions",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=home",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=access",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=agents",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=credentials",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=custody",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=company",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=custody",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=discovery",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=engines",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=evidence",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=mail",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=people",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=project",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=query",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=tls",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=token",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/auth/callback",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/auth/confirm-device",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/check-email",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/sign-in",
+      "visited": false,
+      "headings": [],
+      "states": []
+    }
+  ],
+  "missing": [
+    {
+      "screen": "/?dialog=new-project",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?dialog=you",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=activity",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=activity&provenance=00000000-0000-4000-8000-000000000001",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data&tab=entitlements",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data&tab=sources",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=data&tab=suggestions",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=home",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=access",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=agents",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=credentials",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=pools&tab=custody",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=company",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=custody",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=discovery",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=engines",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=evidence",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=mail",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=people",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=project",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=query",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=tls",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/?screen=settings&section=token",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/auth/callback",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/auth/confirm-device",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/check-email",
+      "visited": false,
+      "headings": [],
+      "states": []
+    },
+    {
+      "screen": "/sign-in",
+      "visited": false,
+      "headings": [],
+      "states": []
+    }
+  ],
+  "findings": [],
+  "tests": []
+}

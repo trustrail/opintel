@@ -272,3 +272,40 @@ increased from 2.4 to 5.6 GiB. No cloud host was accessed.
 Diagnostic capture targeted tests passed 12/12 across four files, including
 DEP-008. Changed-script syntax and repository lint passed. The completed-tip
 gate is next; no earlier full gate has run on this H2 candidate.
+
+
+## Single completed-candidate gate — failed at conformance startup
+
+`npm run check` ran once on d65c789313a07e5938c17f61c46eaba4ab2213f0.
+Private log: `/private/tmp/arch01-h2-full-gate-d65c789.log`. Committed metadata:
+`gate-d65c789.json` and `conformance-d65c789.json` in this report directory.
+Total wall time 651.055s; cleanup succeeded.
+
+| Tier | Result | Seconds |
+|---|---|---:|
+| Strict typecheck | passed | 54.151 |
+| Conformance typecheck | passed | 11.661 |
+| Lint | passed | 27.841 |
+| Production build/artifact exclusion | passed | 9.663 |
+| Router-derived control conformance | failed before tests | 503.078 |
+| Normal tests | not run | — |
+| Browser/MCP smoke | not run | — |
+
+The first retained error is log line 83:
+`Error: Timed out waiting 120000ms from config.webServer.`
+The conformance report records 0/30 screen routes visited, not a completed
+screen check. The build/preview startup command is in playwright.config.ts:31;
+the existing startup guard is 120000ms at line 34. Dependency installation
+completed, but the retained output contains no earlier build/route-registration
+error or server-ready line. The underlying startup cause is not established.
+
+Host available memory began at 1760972800 bytes, reached a recorded minimum of
+844955648 bytes at 2026-11-06T12:21:10.689Z, with 130 samples and none missing.
+This does not establish an OOM or explain the startup failure.
+
+Stop after this single gate failure, with no tier or gate retry. Fresh H2
+archives, packaged custody/companion acceptance and the ten-minute soak have
+not run. TLS-stall recovery counts/timings for that packaged candidate are
+not exercised, not zero. The opt-in diagnostic capture is committed for the
+next authorized run. Cloud before/after latency remains deferred to the owner
+after merge. No cloud host was accessed and nothing was merged.
