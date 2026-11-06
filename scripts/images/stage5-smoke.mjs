@@ -1,3 +1,4 @@
+import {createAcceptanceLab} from './acceptance-lab.mjs';
 import {custodyStepsAcceptance} from './steps-custody-acceptance.mjs';
 import {transportRetryEvidence} from './transport-benchmark.mjs';
 import {URL} from 'node:url';
@@ -10,7 +11,7 @@ import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,readdirSync,cpSync,chmo
 import {resolve,join} from 'node:path';
 import {homedir} from 'node:os';
 import {request} from 'node:https';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {createReadStream} from 'node:fs';
 import {acceptancePortPreflight,acceptanceMemoryPreflight} from './acceptance-preflight.mjs';
 import {captureProcessLog} from './acceptance-log.mjs';
@@ -54,9 +55,10 @@ const directory=resolve(mkdtempSync('tmp/stage5-acceptance-'));chmodSync(directo
 const write=(file,value)=>{writeFileSync(file,typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode:0o600});chmodSync(file,0o600);};
 const result={scope:firstHourOnly?'first-hour':'stage5',revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',soakDurationSeconds:firstHourOnly?null:soakDurationSeconds,startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:firstHourOnly?'customer archives → install → pair → first-hour public APIs':'customer archives → install → pair → first-hour → demo soak',checks:{}};
 const resultFile=join(directory,'result.json');write(resultFile,result);
-const unique=Date.now().toString(),daemon='opintel-stage5-daemon-'+unique,mail='opintel-stage5-mail-'+unique;
+const unique=randomUUID(),daemon='opintel-stage5-daemon-'+unique,mail='opintel-stage5-mail-'+unique;
 const daemonVolume=daemon+'-data',nested={...process.env,DOCKER_HOST:'tcp://127.0.0.1:12375',DOCKER_CONTEXT:'',DOCKER_TLS_VERIFY:'',DOCKER_CERT_PATH:'',DOCKER_CLI_HINTS:'false'};
 const outer={...process.env,DOCKER_CLI_HINTS:'false'};
+const lab=createAcceptanceLab({directory,env:outer});
 let phase='preflight',sequence=0,child,childDone;
 function advance(name){phase=name;result.phase=name;write(resultFile,result);console.log('Phase: '+name);}
 process.once('beforeExit',()=>{if(result.status==='running'){result.status='failed';result.failure={phase,message:'Acceptance driver ended with an unfinished await.'};write(resultFile,result);console.error('Acceptance driver incomplete: '+resultFile);process.exitCode=1;}});
@@ -84,7 +86,7 @@ async function api(path,method='GET',body){const response=await https(path,metho
 
 function browserCheck(restore=false){
  const version=JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version;
- run('docker',['run','--rm','--init','--ipc=host','--platform',platform,'-v',resolve('node_modules')+':/work/node_modules:ro','-v',resolve('scripts/images/package-browser.mjs')+':/work/browser.mjs:ro','-v',directory+':/acceptance','-w','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs',...(restore?['restore']:[])]);
+ run('docker',['run',...lab.labelArgs,'--rm','--init','--ipc=host','--platform',platform,'-v',resolve('node_modules')+':/work/node_modules:ro','-v',resolve('scripts/images/package-browser.mjs')+':/work/browser.mjs:ro','-v',directory+':/acceptance','-w','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs',...(restore?['restore']:[])]);
  return JSON.parse(readFileSync(join(directory,'browser-'+(restore?'restored':'initial')+'.json')));
 }
 try{
@@ -97,7 +99,8 @@ try{
  const archiveHashes={};for(const kind of ['gateway','engine','agent-kit','verification']){const file=join(archives,(kind==='agent-kit'?'agent-KIT':kind)+'-'+prefix+'-'+platform.split('/')[1]+'.tar.gz'),hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk);archiveHashes[kind]={file,sha256:hash.digest('hex')};}
  result.checks.archives={revision:manifest.revision,customerPackageVersion:1,audited:true,archives:archiveHashes,packageEnvironmentKeys:Object.keys(parse(readFileSync(join(gateway,'package.env')))).sort()};
  advance('empty-docker-daemon');write(join(directory,'daemon.json'),{features:{'containerd-snapshotter':true}});
- run('docker',['run','--detach','--privileged','--name',daemon,'--platform',platform,'--env','DOCKER_TLS_CERTDIR=','--publish','127.0.0.1:12375:2375',...['443','3100','3101','3102','3103','5434'].flatMap(port=>['--publish','0.0.0.0:'+port+':'+port]),'--volume',daemonVolume+':/var/lib/docker','--volume',directory+':'+directory,'--volume',join(directory,'daemon.json')+':/etc/docker/daemon.json:ro',upstream['x-acceptance-images'].dockerDaemon,'--tls=false']);
+ run('docker',['volume','create',...lab.labelArgs,daemonVolume]);
+ run('docker',['run',...lab.labelArgs,'--detach','--privileged','--name',daemon,'--platform',platform,'--env','DOCKER_TLS_CERTDIR=','--publish','127.0.0.1:12375:2375',...['443','3100','3101','3102','3103','5434'].flatMap(port=>['--publish','0.0.0.0:'+port+':'+port]),'--volume',daemonVolume+':/var/lib/docker','--volume',directory+':'+directory,'--volume',join(directory,'daemon.json')+':/etc/docker/daemon.json:ro',upstream['x-acceptance-images'].dockerDaemon,'--tls=false']);
  await wait(()=>run('docker',['info'],{env:nested,log:false}),'Empty daemon startup');
  assert.equal(run('docker',['image','ls','-q'],{env:nested}),'');assert.equal(run('docker',['ps','-aq'],{env:nested}),'');
  result.checks.emptyDocker={imageCount:0,containerCount:0,daemon,volume:daemonVolume};
@@ -133,7 +136,7 @@ try{
  run('openssl',['req','-newkey','rsa:2048','-nodes','-keyout',join(mailDirectory,'mail.key'),'-out',join(mailDirectory,'mail.csr'),'-subj','/CN=host.docker.internal']);
  write(join(mailDirectory,'mail.ext'),'subjectAltName=DNS:host.docker.internal,DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n');
  run('openssl',['x509','-req','-in',join(mailDirectory,'mail.csr'),'-CA',join(gateway,'state/ca.pem'),'-CAkey',join(gateway,'state/ca.key'),'-CAcreateserial','-out',join(mailDirectory,'mail.pem'),'-days','2','-extfile',join(mailDirectory,'mail.ext')]);
- run('docker',['run','--detach','--name',mail,'--platform',platform,'--user',String(process.getuid())+':'+process.getgid(),'--publish','127.0.0.1:11465:1025','--publish','127.0.0.1:11825:8025','--env','MP_SMTP_TLS_CERT=/tls/mail.pem','--env','MP_SMTP_TLS_KEY=/tls/mail.key','--env','MP_SMTP_REQUIRE_TLS=true','--env','MP_SMTP_AUTH_ACCEPT_ANY=false','--env','MP_SMTP_AUTH=acceptance:'+settings.SMTP_PASSWORD,'--volume',mailDirectory+':/tls:ro',upstream['x-acceptance-images'].mailpit]);
+ run('docker',['run',...lab.labelArgs,'--detach','--name',mail,'--platform',platform,'--user',String(process.getuid())+':'+process.getgid(),'--publish','127.0.0.1:11465:1025','--publish','127.0.0.1:11825:8025','--env','MP_SMTP_TLS_CERT=/tls/mail.pem','--env','MP_SMTP_TLS_KEY=/tls/mail.key','--env','MP_SMTP_REQUIRE_TLS=true','--env','MP_SMTP_AUTH_ACCEPT_ANY=false','--env','MP_SMTP_AUTH=acceptance:'+settings.SMTP_PASSWORD,'--volume',mailDirectory+':/tls:ro',upstream['x-acceptance-images'].mailpit]);
  await wait(async()=>assert.equal((await fetch('http://127.0.0.1:11825/api/v1/messages',{signal:AbortSignal.timeout(5000)})).status,200),'SMTP catcher');
  advance('normal-owner-login');
  const email=settings.OWNER_EMAIL;assert.equal((await https('/api/v1/auth/request-link','POST',{email,deviceNonce:'stage5-customer-acceptance'})).status,202);
@@ -141,7 +144,7 @@ try{
  const link=message.Text.match(/https:\/\/[^\s<>]+/u)?.[0];assert.ok(link);
  const response=await https('/api/v1/auth/callback','POST',{token:new URL(link).searchParams.get('token'),deviceNonce:'stage5-customer-acceptance'});assert.equal(response.status,200);ownerCookie=response.headers['set-cookie'].find(value=>value.startsWith('opintel_session=')).split(';')[0];result.checks.normalOwnerSmtpLogin=true;
  advance('first-hour-customer-source');
- customerSource=await firstHourSource({directory,image:upstream['x-acceptance-images'].customerPostgres,host:clientHost,env:outer,recordFailure:(error,fixture)=>{result.status='failed';result.checks.firstHourSource={...fixture,external:true};result.failure={phase,message:error instanceof Error?error.message:'Source fixture failed'};write(resultFile,result);}});
+ customerSource=await firstHourSource({directory,image:upstream['x-acceptance-images'].customerPostgres,host:clientHost,env:outer,lab,recordFailure:(error,fixture)=>{result.status='failed';result.checks.firstHourSource={...fixture,external:true};result.failure={phase,message:error instanceof Error?error.message:'Source fixture failed'};write(resultFile,result);}});
  result.checks.firstHourSource={container:customerSource.name,network:customerSource.network,image:customerSource.image,fixture:'test/fixtures/first-hour/customer.sql',log:customerSource.log,external:true};
  advance('first-hour');
  firstHourActive=true;
@@ -184,7 +187,7 @@ try{
  advance('soak-result');assert.equal(await childDone,0,'Customer demo soak failed');child=undefined;
  const soakResult=JSON.parse(readFileSync(join(runDirectory,'result.json'))),summary=events().at(-1);assert.equal(soakResult.status,'passed');assert.equal(summary.status,'PASSED');assert.equal(summary.operationalErrors,0);assert.equal(summary.invariantBreaches,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
  result.checks.packagedSoak={durationSeconds:soakDurationSeconds,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
- advance('packaged-custody-rows-aggregate-companion');result.checks.custodyRegression=await custodyStepsAcceptance({directory,archives,revision:manifest.revision,gateway,base,email:settings.OWNER_EMAIL,team:provider.OPINTEL_XQ_TEAM_ID,apiKey:provider.OPINTEL_XQ_API_KEY,browser:result.checks.firstHour,version:JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version,platform,commandEnv:nested,transportBenchmark,apiLog:file=>captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested})});
+ advance('packaged-custody-rows-aggregate-companion');result.checks.custodyRegression=await custodyStepsAcceptance({directory,archives,revision:manifest.revision,gateway,base,email:settings.OWNER_EMAIL,team:provider.OPINTEL_XQ_TEAM_ID,apiKey:provider.OPINTEL_XQ_API_KEY,browser:result.checks.firstHour,version:JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version,platform,commandEnv:nested,transportBenchmark,lab,apiLog:file=>captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested})});
 
  }
  result.status='passed';result.finishedAt=new Date().toISOString();
@@ -200,11 +203,10 @@ finally{
  }
  for(const kind of ['gateway','engine'])if(existsSync(join(directory,kind,'state/compose.json'))){
   try{captureProcessLog('docker',composeArgs(kind,'logs','--no-color'),join(directory,kind+'-services.log'),{env:nested});}catch(error){cleanupFailure('retain-'+kind+'-logs',error);}
-  try{phase='stop-'+kind;command(kind,'stop');}catch(error){cleanupFailure(phase,error);}
  }
  for(const name of [mail,daemon]){const found=spawnSync('docker',['inspect',name],{encoding:'utf8',env:outer});if(found.status===0){
   try{captureProcessLog('docker',['logs',name],join(directory,name+'.log'),{env:outer});}catch(error){cleanupFailure('retain-fixture-logs',error);}
-  const stopped=spawnSync('docker',['stop',name],{stdio:'ignore',env:outer,timeout:60000});if(stopped.error||stopped.status!==0)cleanupFailure('stop-fixture',new Error('Fixture stop failed: '+name));
  }}
+ result.labCleanup=lab.cleanup();if(result.labCleanup.status!=='passed'){result.cleanupIncomplete=true;result.status='failed';process.exitCode=1;}
  write(resultFile,result);console.log((firstHourOnly?'First-hour':'Stage 5')+' acceptance '+result.status+': '+resultFile);
 }

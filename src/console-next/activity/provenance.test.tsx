@@ -8,7 +8,7 @@ import {Navigation} from '../components/navigation.js';
 const id='00000000-0000-4000-8000-000000000001';
 it('shows six ordered expandable provenance steps and explicit historical gaps',()=>{
  const kinds=['request','policy','sources','execution','custody','evidence'];
- const record=Provenance.parse({receiptId:id,projectId:id,startedAt:'2026-11-05T00:00:00Z',steps:kinds.map(kind=>({kind,title:kind,recorded:kind!=='request',facts:[{key:kind==='request'?'certificate':'id',label:kind,recorded:kind!=='request',value:kind==='request'?null:id,copyable:kind!=='request'}]}))});
+ const record=Provenance.parse({receiptId:id,projectId:id,startedAt:'2026-11-05T00:00:00Z',steps:kinds.map(kind=>({kind,title:kind,recorded:kind!=='request',facts:[{field:kind==='request'?'certificate':'id',label:kind,recorded:kind!=='request',value:kind==='request'?null:id,copyable:kind!=='request'}]}))});
  render(<QueryClientProvider client={new QueryClient()}><Tooltip.Provider><ProvenanceBody record={record}/></Tooltip.Provider></QueryClientProvider>);
  expect(screen.getByRole('button',{name:/1. request/})).toBeTruthy();
  expect(screen.getByRole('button',{name:/2. policy/}).getAttribute('aria-haspopup')).toBe('dialog');

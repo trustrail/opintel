@@ -12,7 +12,7 @@ export function prepareCompanionImage({directory,revision,platform='linux/amd64'
 }
 
 /** Uses the kit exporter and the official-SDK live checker; no alternate client. */
-export function companionCustodyAcceptance({directory,agent,key,apiKeyFile,base,project,sql,aggregateSql,revision,platform='linux/amd64',commandEnv=process.env,preparedImage,run=spawnSync}){
+export function companionCustodyAcceptance({directory,agent,key,apiKeyFile,base,project,sql,aggregateSql,revision,platform='linux/amd64',commandEnv=process.env,preparedImage,lab,run=spawnSync}){
  function command(binary,args,env=process.env){const result=run(binary,args,{env,encoding:'utf8',timeout:600000,maxBuffer:16*1024*1024});if(result.error||result.status!==0)writeFileSync(join(directory,'companion-command.private.log'),(result.stdout??'')+(result.stderr??''),{mode:0o600});assert.ok(!result.error&&result.status===0,'Companion acceptance command failed: '+binary);return result.stdout??'';}
  const {image,sourceRevision}=preparedImage??prepareCompanionImage({directory,revision,platform,run});const name='opintel-companion-acceptance-'+Date.now();
  const trust=join(directory,'companion-ca.pem');copyFileSync(join(agent,'gateway-ca.pem'),trust);chmodSync(trust,0o644);
@@ -23,13 +23,13 @@ export function companionCustodyAcceptance({directory,agent,key,apiKeyFile,base,
 
  let started=false;
  try{
-  command('docker',['run','--detach','--name',name,'--platform',platform,'--env-file',environment,'--env','MCP_PORT=8080','--env','AP_SIDECAR_CONFIG='+JSON.stringify({gateway:base,project,agentId:'custody-terminal-agent',caFile:null}),'--env','NODE_EXTRA_CA_CERTS=/trust/ca.pem','--mount','type=bind,src='+trust+',dst=/trust/ca.pem,readonly','--publish','127.0.0.1::8080',image]);started=true;
+  command('docker',['run',...(lab?.labelArgs??[]),'--detach','--rm','--name',name,'--platform',platform,'--env-file',environment,'--env','MCP_PORT=8080','--env','AP_SIDECAR_CONFIG='+JSON.stringify({gateway:base,project,agentId:'custody-terminal-agent',caFile:null}),'--env','NODE_EXTRA_CA_CERTS=/trust/ca.pem','--mount','type=bind,src='+trust+',dst=/trust/ca.pem,readonly','--publish','127.0.0.1::8080',image]);started=true;
   const port=/127\.0\.0\.1:(\d+)/u.exec(command('docker',['port',name,'8080/tcp']))?.[1];assert.ok(port,'Companion acceptance port missing');
   const output=run(process.execPath,[resolve('scripts/companion/live-check.mjs'),'http://127.0.0.1:'+port,cases,report],{encoding:'utf8',timeout:180000});
   writeFileSync(join(directory,'companion-terminal-redacted.txt'),(output.stdout??'')+(output.stderr??''),{mode:0o600});
   assert.ok(!output.error&&output.status===0,'Companion rows/aggregate/replay acceptance failed; inspect sanitized companion log');
   const result=JSON.parse(readFileSync(report,'utf8'));assert.equal(result.status,'passed');assert.equal(result.checks.length,6);return {...result,sourceRevision};
  }finally{
-  if(started){const logs=run('docker',['logs',name],{encoding:'utf8',timeout:30000});writeFileSync(join(directory,'companion-container.log'),(logs.stdout??'')+(logs.stderr??''),{mode:0o600});run('docker',['rm','--force',name],{encoding:'utf8',timeout:30000});}
+  if(started){const logs=run('docker',['logs',name],{encoding:'utf8',timeout:30000});writeFileSync(join(directory,'companion-container.log'),(logs.stdout??'')+(logs.stderr??''),{mode:0o600});run('docker',['rm','--force','--volumes',name],{encoding:'utf8',timeout:30000});}
  }
 }

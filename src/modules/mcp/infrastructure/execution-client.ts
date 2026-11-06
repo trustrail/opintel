@@ -1,5 +1,5 @@
 import {rowPreviewRequest,rowPreviewResponse,type RowPreviewRequest} from '../../../shared/row-preview-contract.js';
-import {engineConnect} from '../../../shared/infrastructure/engine-transport.js';
+import {engineConnect,EngineTransportError} from '../../../shared/infrastructure/engine-transport.js';
 import {X509Certificate} from 'node:crypto';
 import {z} from 'zod';
 import {DomainError,err,ok,type Result} from '../../../shared/kernel/index.js';
@@ -34,7 +34,7 @@ export class SidecarQueryExecution implements QueryExecutionPort,QueryValidation
      }),{certificatePin:this.pin,telemetryProject:this.options.telemetryProject});
    if(response.status!==200){const parsed=serviceErrorEnvelope.extend({error:serviceErrorEnvelope.shape.error.extend({details:z.record(z.string(),z.json()).optional()})}).safeParse(response.body);if(!parsed.success){responseReason='response_error_envelope';throw new Error('Invalid error envelope.');}return err(new DomainError(parsed.data.error.code,parsed.data.error.message,parsed.data.error.details,parsed.data.error.retryable));}
    const parsed=schema.safeParse(response.body);return parsed.success?ok(parsed.data):err(new DomainError('dependency_unavailable','The Opintel Engine returned an invalid query result.',{cause:path==='/health'?'sidecar_contract_mismatch':'unclassified',...(path==='/health'?{reason:'health_contract'}:{reason:'result_contract'})}));
-  }catch{return err(new DomainError('source_unavailable',signal.aborted?'The query was cancelled or exceeded its deadline. No partial result was returned.':'The Opintel Engine is unreachable or its response was incomplete. No cached or partial result was returned.',{cause:signal.aborted?(abortOrigin==='parent'?'parent_cancelled':'deadline_exceeded'):responseStarted?'sidecar_response_unusable':'sidecar_transport_failed',...(signal.aborted?{cancellationOrigin:abortOrigin??'transport_deadline'}:{}),...(responseReason?{reason:responseReason}:{})},true));}
+  }catch(error){return err(new DomainError('source_unavailable',signal.aborted?'The query was cancelled or exceeded its deadline. No partial result was returned.':'The Opintel Engine is unreachable or its response was incomplete. No cached or partial result was returned.',{cause:signal.aborted?(abortOrigin==='parent'?'parent_cancelled':'deadline_exceeded'):error instanceof EngineTransportError?'engine_registry':responseStarted?'sidecar_response_unusable':'engine_registry',...(signal.aborted?{cancellationOrigin:abortOrigin??'transport_deadline'}:{}),...(responseReason?{reason:responseReason}:{})},true));}
   finally{parent?.removeEventListener('abort',markParent);timeout.removeEventListener('abort',markDeadline);}
  }
 }

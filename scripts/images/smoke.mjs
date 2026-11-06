@@ -1,3 +1,4 @@
+import {createAcceptanceLab} from './acceptance-lab.mjs';
 import process from 'node:process';
 import {URL} from 'node:url';
 import console from 'node:console';
@@ -46,6 +47,7 @@ writeFileSync(resolve(directory,'runtime.env'),`DATABASE_URL=${url}\nMIGRATION_D
 const tag=process.env.TAG??exec('git',['rev-parse','--short=12','HEAD']).trim();
 const env={...process.env,TAG:`${tag}-${platform.replace('/','-')}`,PLATFORM:platform,POSTGRES_PORT:'15432',REDIS_PORT:'16379',SPICEDB_PORT:'15051',API_PORT:'13800',CONSOLE_PORT:'13873',ENGINE_PORT:'13810',APPLICATION_CONFIG_DIRECTORY:directory,ENGINE_CONFIG_DIRECTORY:directory,ENGINE_SECRET_ENV_FILE:resolve(directory,'runtime.env'),API_SECRET_ENV_FILE:resolve(directory,'runtime.env'),ENGINE_POLICY_FILE:resolve(directory,'egress.json'),ENGINE_AUDIT_DIRECTORY:resolve(directory,'audit'),ENGINE_CUSTODY_DIRECTORY:resolve(directory,'custody'),XQ_DIRECTORY:resolve(directory,'xq')};
 const project='opintel-images-'+Date.now(),base=['compose','-p',project,'-f','deploy/images/compose.yml','-f','deploy/images/smoke.compose.yml'];
+const lab=createAcceptanceLab({directory});lab.trackProject(project);
 const compose=(...args)=>exec('docker',[...base,...args],{env});
 async function wait(check){const until=Date.now()+90000;for(;;){try{return await check();}catch(error){if(Date.now()>until)throw error;await setTimeout(500);}}}
 async function bounded(promise,label){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=deadlineTimer(()=>reject(new Error(label+' exceeded 60 seconds')),60000);})]);}finally{clearTimeout(timer);}}
@@ -71,4 +73,4 @@ try{
  write('result.json',{status:'passed',platform,tag,readiness,evidenceId:result.structuredContent.evidenceId,rows:1,enginePin:pin});
  console.log('Image smoke passed: readiness, console, governed MCP query and evidence id. Record: '+resolve(directory,'result.json'));
 }catch(error){writeFileSync(resolve(directory,'services.log'),compose('logs','--no-color'));throw error;}
-finally{try{if(client)await bounded(client.close(),'MCP shutdown');}finally{compose('down');}}
+finally{try{if(client)await bounded(client.close(),'MCP shutdown');}finally{lab.cleanup();}}

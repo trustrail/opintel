@@ -1973,3 +1973,21 @@ exercise all six default values, named startup failures and each range boundary.
 Per-path summary tests check rolling quantiles, bounded label sets and pin
 isolation. Settings' contract test checks the existing engine panel presents the
 summaries and an honest no-samples state without a new metrics endpoint.
+
+
+### ARCH-01 corrections and acceptance ownership
+
+MCP E-10 keeps the existing engine_registry public refusal and recorded refusal
+through engine replacement; no SQL replay, no fabricated zero-use proof for an
+interrupted request. Graceful GOAWAY precedes forced socket teardown, while
+cancelled handlers close their response stream and retain the original shutdown
+budget. ING-31/32 permits only the strict bounded transport summary in addition
+to existing ingest metadata, retaining the all-logs value exclusion. I-003 keeps
+its secret-field scan unchanged; provenance facts use field for the machine
+identifier and label for display, without changing stored receipt fields.
+
+acceptance-lab.test.mjs proves run-scoped cleanup after success, failure and
+handled termination, removal of named/anonymous volumes and networks, cleanup
+of unlabeled one-shot jobs identified by owned mounts/networks, preservation of
+another lab, idempotence and resource cleanup despite retention I/O failure.
+Private evidence stays on the host; cleanup failures fail acceptance.

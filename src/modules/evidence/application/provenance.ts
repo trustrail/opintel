@@ -11,7 +11,7 @@ export const ProvenanceSupplement=z.object({
 });
 export type ProvenanceSupplement=z.infer<typeof ProvenanceSupplement>;
 export function buildProvenance(r:EvidenceDetail,s:ProvenanceSupplement){
- const fact=(key:string,label:string,value:string|number|null|undefined,link?:string,copyable=false):ProvenanceFact=>({key,label,recorded:value!==null&&value!==undefined,value:value===null||value===undefined?null:String(value),...(link?{link}:{}),copyable});
+ const fact=(field:string,label:string,value:string|number|null|undefined,link?:string,copyable=false):ProvenanceFact=>({field,label,recorded:value!==null&&value!==undefined,value:value===null||value===undefined?null:String(value),...(link?{link}:{}),copyable});
  const link=(screen:string,values:Record<string,string>)=>'/?'+new URLSearchParams({project:r.projectId,screen,...values});
  const step=<K extends Provenance['steps'][number]['kind']>(kind:K,title:string,facts:ProvenanceFact[])=>({kind,title,recorded:facts.some(f=>f.recorded),facts});
  const identity=r.agentIdentity?.certificateIdentity;

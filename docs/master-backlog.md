@@ -373,6 +373,8 @@ that a network can still be allocated. Timestamp every Docker stats sample and
 capture host free memory and memory pressure so browser or container exits can
 be correlated with memory conditions.
 
+**ARCH-01 partial implementation (6 November 2026):** New acceptance runs now remove their own Docker containers, anonymous/named volumes and networks on normal completion, failure and handled termination. Ownership is scoped by run labels, fresh package project names, lab bind mounts and owned networks; no global prune. Logs/results and immutable archives remain for review. Disk/allocation preflight, old-run/archive reclamation and timestamped host-memory capture remain open.
+
 ### Gate preflight · Identify occupied engine ports before the gate starts
 **Status** Open · Backlog only · 3 November 2026
 **Detail** Check that ports 3100 and 3103 are free and name the holding process

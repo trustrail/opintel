@@ -378,3 +378,45 @@ acceptance, custody/companion checks and the ten-minute soak did not start.
 Packaged TLS-stall retry counts/timings remain not exercised, not zero. The
 owner's cloud before/after latency measurement remains deferred until after
 merge. Nothing was merged and no cloud host was accessed.
+
+
+## Approved three-defect correction and mandatory lab cleanup
+
+- Execution client transport failures now use engine_registry, preserving
+  parent/deadline cancellation and existing malformed-response classification.
+  Native phase/reason remains in opt-in transport debug records. Historical
+  refusal enums and issued receipts are unchanged.
+- The ingest-only console spy was rejecting the new JSON transport info line.
+  Its additional allowlist is EngineTransportCallSummary: fixed event, bounded
+  path/outcome, UUID, timestamps and numeric timings/counts only. All-logs secret
+  exclusion remains; arbitrary fields and value-like paths are rejected.
+- Provenance's machine fact identifier is field, distinct from its display
+  label. API projection, console, fixtures and contract assertions change
+  together. The secret-schema scanner's assertions are not relaxed. No stored
+  evidence, schema migration, route or permission is changed.
+- Further targeted E-10 validation found the old session could be cut off before
+  GOAWAY delivered. Host shutdown now allows graceful session close under its
+  original deadline. Cancellation also destroys the abandoned response stream,
+  so an active-SQL shutdown does not wait for an unfinishable H2 stream. Public
+  cause and receipt assertions remain intact; unknown execution is never
+  converted into a fabricated zero-use result.
+
+The shared acceptance lab cleanup covers Stage 3/4/5, console archive acceptance,
+image/runtime smoke and the ingress handshake proof. It removes only owned
+resources, captures logs first, and fails acceptance on cleanup/retention errors.
+Fresh package projects, run labels, private lab bind mounts and owned networks
+cover the shipped one-shot commands too. Stage 5 deletes its named nested-Docker
+volume, which removes that lab's internal containers, volumes and networks.
+There is no keep-running bypass or global prune; old retained labs are untouched.
+Pending console fixture work is awaited before cleanup so it cannot recreate
+services afterward. Logs/results and immutable archives stay for review.
+
+Initial correction testing passed 148/149; the remaining E-10 evidence assertion
+led to the GOAWAY fix. Further shutdown/cleanup checks found abandoned streams
+and unstarted unlabeled fixture discovery; these were fixed without raising
+existing hang guards. Final MCP/sidecar/cleanup regressions passed 50/50. Other
+contracts (provenance, secret scan, engine settings, first-hour, companion,
+DEP-008) passed in the targeted batches. Console provenance/shared-record tests
+passed 13/13. Strict typecheck, conformance typecheck, lint, changed-script syntax
+and production artifact checks passed on the corrected source. Next: commit and
+push, then the owner-requested normal/smoke continuation and fresh H2 acceptance.

@@ -2,7 +2,7 @@ import {ProjectId} from '../src/shared/kernel/value-objects.js';
 import {afterEach,describe,expect,it} from 'vitest';
 import {engineTransportDefaults,engineTransportSettingDefinitions,engineTransportSettingsFromEnv} from '../src/shared/engine-transport-settings.js';
 import {clearEngineTransportMetrics,engineTransportLatency,recordEngineTransport} from '../src/shared/infrastructure/engine-transport-metrics.js';
-import {EngineTransportLatency} from '../src/shared/engine-transport-telemetry.js';
+import {EngineTransportLatency,EngineTransportCallSummary} from '../src/shared/engine-transport-telemetry.js';
 import {custodyOperations} from '../src/shared/custody-contract.js';
 describe('install-time engine transport settings',()=>{
  it('uses the approved six defaults',()=>expect(engineTransportDefaults).toEqual({maxSessions:1,maxConcurrentStreams:32,idleTimeoutMs:60000,maxSessionAgeMs:600000,connectTimeoutMs:5000,pingIntervalMs:15000}));
@@ -16,6 +16,12 @@ describe('install-time engine transport settings',()=>{
  }
 });
 afterEach(clearEngineTransportMetrics);
+it('transport info allowlist accepts only bounded metadata, never row values or additional fields',()=>{
+ const value={event:'engine.transport_call_completed',timestamp:new Date().toISOString(),startedAt:new Date().toISOString(),callId:'00000000-0000-4000-8000-000000000001',path:'/execute',outcome:'ok',durationMs:1,reused:true,attempts:1};
+ expect(EngineTransportCallSummary.safeParse(value).success).toBe(true);
+ expect(EngineTransportCallSummary.safeParse({...value,rows:[['private-value']]}).success).toBe(false);
+ expect(EngineTransportCallSummary.safeParse({...value,path:'/private-value'}).success).toBe(false);
+});
 it('per-path summaries use bounded samples and never expose addresses, pins or unknown paths',()=>{
  const address='https://private-engine.invalid:3100',pin='secret-pin';
  for(let value=1;value<=1100;value++)recordEngineTransport(address,pin,'/execute',value,value===1100);

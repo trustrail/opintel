@@ -84,18 +84,19 @@ backoffs are included because they consume deadline budgets.
 | main: timer / backoff | 100 | Caller/configuration dependent | scripts/gate-probe.ts:40 |
 | stop: timer / backoff | 5000 | Caller/configuration dependent | scripts/gate.mjs:36 |
 | module configuration: acceptanceDeadlineMs | 30000 | Caller/configuration dependent | scripts/images/acceptance-json.mjs:15 |
+| createAcceptanceLab: timeout | 30000 | Caller/configuration dependent | scripts/images/acceptance-lab.mjs:9 |
+| command: timeout | 60000 | Caller/configuration dependent | scripts/images/acceptance-lab.mjs:19 |
 | captureProcessLog: {env,timeout=600000} | {} | Caller/configuration dependent | scripts/images/acceptance-log.mjs:6 |
 | docker: timeout | 5000 | Caller/configuration dependent | scripts/images/acceptance-preflight.mjs:8 |
 | host: timeout | 5000 | Caller/configuration dependent | scripts/images/acceptance-preflight.mjs:11 |
 | response: timeout | 10000 | Caller/configuration dependent | scripts/images/acceptance-preflight.mjs:28 |
-| r: timeout | 30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:19 |
-| r: timeout | 30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:22 |
-| module configuration: deadline | Date.now()+30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:36 |
-| r: timeout | 5000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:37 |
-| module configuration: timer / backoff | 250 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:37 |
-| module configuration: req.setTimeout | 10000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:53 |
-| module configuration: timer / backoff | 100 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:56 |
-| module configuration: timeout | 30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:61 |
+| r: timeout | 30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:21 |
+| r: timeout | 30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:24 |
+| module configuration: deadline | Date.now()+30000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:38 |
+| r: timeout | 5000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:39 |
+| module configuration: timer / backoff | 250 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:39 |
+| module configuration: req.setTimeout | 10000 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:55 |
+| module configuration: timer / backoff | 100 | Caller/configuration dependent | scripts/images/agent-ingress-handshake.mjs:58 |
 | result: timeout | 30000 | Caller/configuration dependent | scripts/images/capture-engine-verification.mjs:10 |
 | result: timeout | 600000 | Caller/configuration dependent | scripts/images/companion-custody-acceptance.mjs:8 |
 | result: timeout | 600000 | Caller/configuration dependent | scripts/images/companion-custody-acceptance.mjs:16 |
@@ -107,19 +108,19 @@ backoffs are included because they consume deadline budgets.
 | fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-auth-source-browser.mjs:24 |
 | module configuration: page.setDefaultTimeout | 120000 | Caller/configuration dependent | scripts/images/console-auth-source-browser.mjs:26 |
 | module configuration: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-auth-source-browser.mjs:45 |
-| r: timeout | 600000 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:16 |
-| fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:38 |
-| fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:38 |
-| timer: periodic schedule | 250 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:49 |
+| r: timeout | 600000 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:18 |
+| fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:41 |
+| fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:41 |
+| timer: periodic schedule | 250 | Caller/configuration dependent | scripts/images/console-auth-source-install.mjs:52 |
 | module configuration: page.setDefaultTimeout | 120000 | Caller/configuration dependent | scripts/images/console-final-workflows-browser.mjs:20 |
 | mailLink: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-final-workflows-browser.mjs:22 |
 | module configuration: page.setDefaultTimeout | 120000 | Caller/configuration dependent | scripts/images/console-final-workflows-browser.mjs:26 |
-| r: timeout | 600000 | Caller/configuration dependent | scripts/images/console-final-workflows-install.mjs:16 |
-| fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-final-workflows-install.mjs:34 |
-| timer: periodic schedule | 250 | Caller/configuration dependent | scripts/images/console-final-workflows-install.mjs:39 |
+| r: timeout | 600000 | Caller/configuration dependent | scripts/images/console-final-workflows-install.mjs:18 |
+| fixture: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-final-workflows-install.mjs:37 |
+| timer: periodic schedule | 250 | Caller/configuration dependent | scripts/images/console-final-workflows-install.mjs:42 |
 | module configuration: page.setDefaultTimeout | 120000 | Caller/configuration dependent | scripts/images/console-first-run-browser.mjs:19 |
 | module configuration: timer / backoff | 500 | Caller/configuration dependent | scripts/images/console-first-run-browser.mjs:22 |
-| r: timeout | 600000 | Caller/configuration dependent | scripts/images/console-first-run-install.mjs:15 |
+| r: timeout | 600000 | Caller/configuration dependent | scripts/images/console-first-run-install.mjs:17 |
 | r: timeout | 600000 | Caller/configuration dependent | scripts/images/customer-package.mjs:14 |
 | tar: timeout | 600000 | Caller/configuration dependent | scripts/images/customer-package.mjs:44 |
 | packed: timeout | 60000 | Caller/configuration dependent | scripts/images/customer-package.mjs:45 |
@@ -133,50 +134,49 @@ backoffs are included because they consume deadline budgets.
 | module configuration: timer / backoff | 500 | Caller/configuration dependent | scripts/images/package-browser.mjs:34 |
 | result: timeout | 600000 | Caller/configuration dependent | scripts/images/publish.mjs:11 |
 | existing: timeout | 60000 | Caller/configuration dependent | scripts/images/publish.mjs:21 |
-| result: timeout | 60000 | Caller/configuration dependent | scripts/images/runtime-smoke.mjs:29 |
+| result: timeout | 60000 | Caller/configuration dependent | scripts/images/runtime-smoke.mjs:34 |
 | module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/seed-smoke.ts:22 |
-| module configuration: statementTimeoutMs | 8000 | Caller/configuration dependent | scripts/images/smoke.mjs:42 |
-| module configuration: operationTimeoutMs | 9000 | Caller/configuration dependent | scripts/images/smoke.mjs:42 |
-| wait: until | Date.now()+90000 | Caller/configuration dependent | scripts/images/smoke.mjs:50 |
-| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/smoke.mjs:50 |
-| bounded: timer / backoff | 60000 | Caller/configuration dependent | scripts/images/smoke.mjs:51 |
-| q: timeout | 5000 | Caller/configuration dependent | scripts/images/smoke.mjs:52 |
-| result: timeout | 120000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:23 |
-| module configuration: statementTimeoutMs | 8000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:65 |
-| module configuration: operationTimeoutMs | 9000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:65 |
-| module configuration: timeout | '2s' | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:76 |
-| wait: until | Date.now()+90000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:82 |
-| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:82 |
-| call: timeout | 5000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:86 |
-| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:118 |
-| denied: timeout | 10000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:139 |
-| owner: timeout | 10000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:19 |
-| sourceLimits: statementTimeoutMs | 30000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:26 |
-| sourceLimits: operationTimeoutMs | 35000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:26 |
-| result: timeout | 600000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:31 |
-| module configuration: timeout | '2s' | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:96 |
-| wait: timeout | 90000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:101 |
-| wait: until | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:101 |
-| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:101 |
-| call: timeout | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:105 |
-| call: timeout | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:110 |
-| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:149 |
-| denied: timeout | 10000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:172 |
-| module configuration: timer / backoff | 15000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:188 |
-| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:196 |
-| bounded: timer / backoff | ms | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:63 |
-| output: timeout | 600000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:66 |
-| wait: timeout | 120000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:72 |
-| wait: deadline | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:72 |
-| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:72 |
-| req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:80 |
-| req: operation cancellation | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:80 |
-| module configuration: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:137 |
-| list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:140 |
-| message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:140 |
-| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:149 |
-| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:181 |
-| stopped: timeout | 60000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:207 |
+| module configuration: statementTimeoutMs | 8000 | Caller/configuration dependent | scripts/images/smoke.mjs:43 |
+| module configuration: operationTimeoutMs | 9000 | Caller/configuration dependent | scripts/images/smoke.mjs:43 |
+| wait: until | Date.now()+90000 | Caller/configuration dependent | scripts/images/smoke.mjs:52 |
+| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/smoke.mjs:52 |
+| bounded: timer / backoff | 60000 | Caller/configuration dependent | scripts/images/smoke.mjs:53 |
+| q: timeout | 5000 | Caller/configuration dependent | scripts/images/smoke.mjs:54 |
+| result: timeout | 120000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:24 |
+| module configuration: statementTimeoutMs | 8000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:67 |
+| module configuration: operationTimeoutMs | 9000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:67 |
+| module configuration: timeout | '2s' | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:78 |
+| wait: until | Date.now()+90000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:84 |
+| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:84 |
+| call: timeout | 5000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:88 |
+| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:120 |
+| denied: timeout | 10000 | Caller/configuration dependent | scripts/images/stage3-smoke.mjs:141 |
+| owner: timeout | 10000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:20 |
+| sourceLimits: statementTimeoutMs | 30000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:27 |
+| sourceLimits: operationTimeoutMs | 35000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:27 |
+| result: timeout | 600000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:32 |
+| module configuration: timeout | '2s' | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:98 |
+| wait: timeout | 90000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:103 |
+| wait: until | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:103 |
+| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:103 |
+| call: timeout | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:107 |
+| call: timeout | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:112 |
+| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:151 |
+| denied: timeout | 10000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:174 |
+| module configuration: timer / backoff | 15000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:190 |
+| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage4-smoke.mjs:198 |
+| bounded: timer / backoff | ms | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:65 |
+| output: timeout | 600000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:68 |
+| wait: timeout | 120000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:74 |
+| wait: deadline | Date.now()+timeout | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:74 |
+| wait: timer / backoff | 500 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:74 |
+| req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:82 |
+| req: operation cancellation | acceptanceDeadlineMs | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:82 |
+| module configuration: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:140 |
+| list: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:143 |
+| message: operation cancellation | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:143 |
+| module configuration: timeoutSeconds | 30 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:152 |
+| module configuration: timer / backoff | 5000 | Caller/configuration dependent | scripts/images/stage5-smoke.mjs:184 |
 | result: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:19 |
 | sign: timeout | 180000 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:25 |
 | custodyStepsAcceptance: timer / backoff | 500 | Caller/configuration dependent | scripts/images/steps-custody-acceptance.mjs:27 |
@@ -278,10 +278,10 @@ backoffs are included because they consume deadline budgets.
 | acquire: timer / backoff | maxWaitMs | Caller/configuration dependent | sidecar/execution/application/queue.ts:27 |
 | handle: req.setTimeout | Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000) | Caller/configuration dependent | sidecar/http/server.ts:88 |
 | server: req.setTimeout | options.config.limits.operationTimeoutMs+10000 | Caller/configuration dependent | sidecar/http/server.ts:116 |
-| createSidecarServer: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:138 |
-| createSidecarServer: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:139 |
-| close: deadline | new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);}) | Caller/configuration dependent | sidecar/http/server.ts:165 |
-| deadline: timer / backoff | options.config.shutdownTimeoutMs | Caller/configuration dependent | sidecar/http/server.ts:165 |
+| createSidecarServer: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:141 |
+| createSidecarServer: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:142 |
+| close: deadline | new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);}) | Caller/configuration dependent | sidecar/http/server.ts:168 |
+| deadline: timer / backoff | options.config.shutdownTimeoutMs | Caller/configuration dependent | sidecar/http/server.ts:168 |
 | unavailableEngine: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/unavailable.ts:23 |
 | unavailableEngine: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/unavailable.ts:23 |
 | module configuration: realDeadlineClock | { after(milliseconds, expire) { const timer = setTimeout(expire, milliseconds); return () => clearTimeout(timer); }, } | Caller/configuration dependent | sidecar/infrastructure/postgres-source-scope.ts:30 |
@@ -411,6 +411,8 @@ backoffs are included because they consume deadline budgets.
 | Test: server: timer / backoff | 100 | Caller/configuration dependent | test/acceptance-json.test.mjs:25 |
 | Test: agent: timeout | 5 | Caller/configuration dependent | test/acceptance-json.test.mjs:27 |
 | Test: req: timeout | acceptanceDeadlineMs | Caller/configuration dependent | test/acceptance-json.test.mjs:29 |
+| Test: response: timeout | 30000 | Caller/configuration dependent | test/acceptance-lab.test.mjs:28 |
+| Test: result: timeout | 5000 | Caller/configuration dependent | test/acceptance-lab.test.mjs:54 |
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/activity-migration.test.ts:5 |
 | Test: module configuration: timeoutMs | 5000 | Caller/configuration dependent | test/activity.test.ts:181 |
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/agent-credential-provenance.test.ts:33 |
@@ -551,10 +553,10 @@ backoffs are included because they consume deadline budgets.
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/extraction-migration.test.ts:11 |
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/filing-party-upgrade.test.ts:13 |
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/filing-party-upgrade.test.ts:54 |
-| Test: beforeAll hook guard (unchanged) | 30_000 | Caller/configuration dependent | test/filing-register.test.ts:60 |
-| Test: connector: statementTimeoutMs | 2000 | Caller/configuration dependent | test/filing-register.test.ts:264 |
-| Test: connector: operationTimeoutMs | 5000 | Caller/configuration dependent | test/filing-register.test.ts:264 |
-| Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/filing-register.test.ts:321 |
+| Test: beforeAll hook guard (unchanged) | 30_000 | Caller/configuration dependent | test/filing-register.test.ts:61 |
+| Test: connector: statementTimeoutMs | 2000 | Caller/configuration dependent | test/filing-register.test.ts:267 |
+| Test: connector: operationTimeoutMs | 5000 | Caller/configuration dependent | test/filing-register.test.ts:267 |
+| Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/filing-register.test.ts:324 |
 | Test: Test case hang guard (unchanged) | scenario === 'lock' ? 3_000 : 1_500 | Caller/configuration dependent | test/fixtures/database-deadline/cases.fixture.ts:34 |
 | Test: module configuration: timer / backoff | 2_000 | Caller/configuration dependent | test/fixtures/database-deadline/cases.fixture.ts:50 |
 | Test: beforeAll hook guard (unchanged) | 60_000 | Caller/configuration dependent | test/fixtures/migration-database.ts:21 |
@@ -661,7 +663,7 @@ backoffs are included because they consume deadline budgets.
 | Test: base: timeoutMs | 1000 | Caller/configuration dependent | test/pool-domain.test.ts:8 |
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/pool-key-migration.test.ts:7 |
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/pool-key-migration.test.ts:20 |
-| Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/pool-key-route-schemas.test.ts:15 |
+| Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/pool-key-route-schemas.test.ts:16 |
 | Test: module configuration: timeout | 30_000 | Caller/configuration dependent | test/pool-keys.test.ts:25 |
 | Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/pool-migration.test.ts:5 |
 | Test: beforeAll hook guard (unchanged) | 60000 | Caller/configuration dependent | test/postgres-connector.test.ts:35 |

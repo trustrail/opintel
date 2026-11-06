@@ -250,7 +250,7 @@ describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
       await vi.waitFor(async()=>expect((await fixture(async(db)=>(await db.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND state='active' AND query LIKE '%slow%'",[role])).rows)).length).toBe(1));
       child.kill('SIGTERM');
       await vi.waitFor(()=>expect(child.exitCode !== null || child.signalCode !== null).toBe(true),{timeout:4000});
-      await expect(exited).resolves.toEqual({code:0,signal:null});
+      await expect(exited,output).resolves.toEqual({code:0,signal:null});
       expect(await result).toMatchObject({ok:false});
       expect(await fixture(async(db)=>(await db.query('SELECT pid FROM pg_stat_activity WHERE usename=$1',[role])).rows)).toEqual([]);
       const events=(await readFile(auditFile,'utf8')).trim().split('\n').map(line=>JSON.parse(line) as {outcome:string});

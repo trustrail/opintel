@@ -158,10 +158,10 @@ it('provenance: historical gaps stay missing; same receipt permission and projec
  const h=await header();const path=`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`;
  const response=await fetch(path);expect(response.status).toBe(200);const record=await response.json();
  expect(record.steps.map((s:{kind:string})=>s.kind)).toEqual(['request','policy','sources','execution','custody','evidence']);
- expect(record.steps[0].facts).toContainEqual(expect.objectContaining({key:'certificate',recorded:false,value:null}));
- expect(record.steps[0].facts).toContainEqual(expect.objectContaining({key:'credentialLabel',recorded:false,value:null}));
- expect(record.steps[5].facts).toContainEqual(expect.objectContaining({key:'writeRedaction',recorded:false,value:null}));
- expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'sql',value:null}));
+ expect(record.steps[0].facts).toContainEqual(expect.objectContaining({field:'certificate',recorded:false,value:null}));
+ expect(record.steps[0].facts).toContainEqual(expect.objectContaining({field:'credentialLabel',recorded:false,value:null}));
+ expect(record.steps[5].facts).toContainEqual(expect.objectContaining({field:'writeRedaction',recorded:false,value:null}));
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({field:'sql',value:null}));
  expect((await fetch(`${base}/api/v1/projects/${randomUUID()}/provenance/${h.id}`)).status).toBe(404);
  view=false;expect((await fetch(path)).status).toBe(404);
 });
@@ -171,8 +171,8 @@ it('provenance: refused request returns the stored cause without arbitrary stage
   await tx.query('INSERT INTO run_completion(run_id,started_at,outcome,latency_ms,completed_at) VALUES($1,$2,$3,7,$2)',[h.id,h.startedAt,{kind:'refused',code:'sql_not_permitted',stage:'validate',element:null}]);
  });
  const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`);expect(response.status).toBe(200);const raw=await response.text();expect(raw).not.toContain('never-return-this');const record=JSON.parse(raw);
- expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'cause',value:'source_not_bound',recorded:true}));
- expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'outcome',value:'refused'}));
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({field:'cause',value:'source_not_bound',recorded:true}));
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({field:'outcome',value:'refused'}));
 });
 it('provenance: served custody and release-first lookup return the same stored chain without shares or claims',async()=>{
  await withPlatform(tx=>tx.query('INSERT INTO user_account(id,email) VALUES($1,$2)',[f.ctx.userId,`${f.ctx.userId}@example.com`]));
@@ -184,9 +184,9 @@ it('provenance: served custody and release-first lookup return the same stored c
  });
  const load=async(id:string)=>{const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${id}`);expect(response.status).toBe(200);return response.json();};
  const record=await load(h.id);expect(await load(grant)).toEqual(record);expect(JSON.stringify(record)).not.toContain('never-return');
- expect(record.steps[3].facts).toContainEqual(expect.objectContaining({key:'outcome',value:'served'}));
- expect(record.steps[4].facts).toContainEqual(expect.objectContaining({key:'state:'+grant,value:'redeemed'}));
- expect(record.steps[1].facts).toContainEqual(expect.objectContaining({key:'limits',value:'{"timeoutMs":5000}'}));
+ expect(record.steps[3].facts).toContainEqual(expect.objectContaining({field:'outcome',value:'served'}));
+ expect(record.steps[4].facts).toContainEqual(expect.objectContaining({field:'state:'+grant,value:'redeemed'}));
+ expect(record.steps[1].facts).toContainEqual(expect.objectContaining({field:'limits',value:'{"timeoutMs":5000}'}));
 });
 it('provenance contract declares receipt view permission and exactly six ordered steps',async()=>{
  const {Provenance,provenanceOpenApiDocument}=await import('../src/shared/api/provenance.js');
@@ -194,7 +194,7 @@ it('provenance contract declares receipt view permission and exactly six ordered
  const h=await header();const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`);expect(response.status).toBe(200);
  const record=Provenance.parse(await response.json());expect(record.steps).toHaveLength(6);
  expect(Provenance.safeParse({...record,steps:[...record.steps].reverse()}).success).toBe(false);
- expect(Provenance.safeParse({...record,steps:record.steps.map(s=>({...s,facts:[{key:'invented',label:'Invented',recorded:true,value:null}]}))}).success).toBe(false);
+ expect(Provenance.safeParse({...record,steps:record.steps.map(s=>({...s,facts:[{field:'invented',label:'Invented',recorded:true,value:null}]}))}).success).toBe(false);
 });
 it('provenance resolves only the row decision IDs recorded on the receipt, never a later rule',async()=>{
  const {PostgresRowDecisions}=await import('../src/modules/entitlements/infrastructure/row-decisions.js');
@@ -205,5 +205,5 @@ it('provenance resolves only the row decision IDs recorded on the receipt, never
  const h=await header();await withTenant(f.ctx,tx=>tx.query('INSERT INTO run_completion(run_id,started_at,outcome,source_plan,completed_at) VALUES($1,$2,$3,$4,$2)',[h.id,h.startedAt,{kind:'answered',rowCount:1,truncated:false},{rowScopes:[{objectId:object!.id,objectName:'warehouse.public.records',poolId:f.pool,decisionId:first.value.id,decisionIds:[first.value.id],hash:first.value.hash,columns:['field_1'],returnedRows:1,provenance:'agent credential',missingDecision:false}]}]));
  const later=await repo.save(f.ctx,f.pool,ObjectId(object!.id),`"field_1" = 'later'`);if(!later.ok)throw later.error;
  const response=await fetch(`${base}/api/v1/projects/${f.ctx.projectId}/provenance/${h.id}`);expect(response.status).toBe(200);const raw=await response.text();expect(raw).toContain(first.value.id);expect(raw).not.toContain(later.value.id);expect(raw).not.toContain("'later'");
- expect(JSON.parse(raw).steps[1].facts).toContainEqual(expect.objectContaining({key:'expression:'+first.value.id,value:first.value.expression}));
+ expect(JSON.parse(raw).steps[1].facts).toContainEqual(expect.objectContaining({field:'expression:'+first.value.id,value:first.value.expression}));
 });

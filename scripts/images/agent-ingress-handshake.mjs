@@ -1,3 +1,4 @@
+import {createAcceptanceLab} from './acceptance-lab.mjs';
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {setTimeout} from 'node:timers/promises';
@@ -13,6 +14,7 @@ process.umask(0o077);
 const identity=process.argv[2];
 if(!identity)throw new Error('Usage: node scripts/images/agent-ingress-handshake.mjs AGENT_IDENTITY_DIRECTORY');
 const directory=resolve(mkdtempSync('tmp/agent-ingress-handshake-')),name='opintel-agent-handshake-'+randomUUID();
+const lab=createAcceptanceLab({directory});
 const image=JSON.parse(readFileSync('deploy/images/upstream.json','utf8')).services.ingress.image;
 const privateKey=()=>{const text=readFileSync(join(identity,'client.key'),'utf8');const bytes=text.includes('-----BEGIN')?Buffer.from(text):Buffer.from(text.trim(),'base64');try{return createPrivateKey(bytes.includes(Buffer.from('-----BEGIN'))?bytes:{key:bytes,format:'der',type:'pkcs8'}).export({format:'pem',type:'pkcs8'});}finally{bytes.fill(0);}};
 const pem=file=>{const value=readFileSync(join(identity,file),'utf8');return value.includes('-----BEGIN')?value:Buffer.from(value.trim(),'base64').toString('utf8');};
@@ -30,7 +32,7 @@ try{
  config=config.replace('http {',`http {\n  server { listen 127.0.0.1:8081; access_log off; location / { default_type text/plain; return 200 "$http_x_opintel_client_certificate"; } }`);
  writeFileSync(join(directory,'nginx.conf'),config);
  result.phase='start-nginx';
- command('docker',['run','--detach','--name',name,'--publish','127.0.0.1::8443','--volume',join(directory,'nginx.conf')+':/etc/nginx/nginx.conf:ro','--volume',join(directory,'server.pem')+':/tls/console.pem:ro','--volume',join(directory,'server.key')+':/tls/console.key:ro',image],'container-start');started=true;
+ command('docker',['run',...lab.labelArgs,'--detach','--name',name,'--publish','127.0.0.1::8443','--volume',join(directory,'nginx.conf')+':/etc/nginx/nginx.conf:ro','--volume',join(directory,'server.pem')+':/tls/console.pem:ro','--volume',join(directory,'server.key')+':/tls/console.key:ro',image],'container-start');started=true;
  result.phase='nginx-readiness';
  // Establish readiness inside the container over plain HTTP, not by retrying a TLS case.
  const deadline=Date.now()+30000;let ready=false;
@@ -58,4 +60,4 @@ try{
  }
  result.status=result.checks.every(check=>check.status==='passed')?'passed':'failed';result.phase='completed';if(result.status!=='passed')process.exitCode=1;
 }catch(error){result.status='failed';result.error={phase:result.phase,name:error.name,code:error.code??null,message:error.message};process.exitCode=1;}
-finally{if(started){writeFileSync(join(directory,'nginx-full.log'),logs());spawnSync('docker',['rm','--force',name],{stdio:'ignore',timeout:30000});}writeFileSync(join(directory,'result.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({status:result.status,result:join(directory,'result.json')}));}
+finally{if(started){writeFileSync(join(directory,'nginx-full.log'),logs());}result.labCleanup=lab.cleanup();if(result.labCleanup.status!=='passed'){result.status='failed';process.exitCode=1;}writeFileSync(join(directory,'result.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({status:result.status,result:join(directory,'result.json')}));}

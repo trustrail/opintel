@@ -129,7 +129,7 @@ describe('5.7 authenticated query through authoritative sidecar',{timeout:60000}
  });
  it('a dead sidecar after a successful request never serves the preceding result',async()=>{
   const f=await fixture(),sql='SELECT field_1 FROM warehouse.public.records';expect((await f.query(sql)).isError).not.toBe(true);await f.host.close();
-  const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'sidecar_transport_failed',retryable:true}});expect(response.structuredContent).toBeUndefined();
+  const response=await f.query(sql);expect(response).toMatchObject({isError:true,_meta:{code:'source_unavailable',cause:'engine_registry',retryable:true}});expect(response.structuredContent).toBeUndefined();
  });
  it('disconnecting the MCP request aborts its sidecar request',async()=>{
   const f=await fixture();let started!:()=>void;const beginning=new Promise<void>(resolve=>{started=resolve;});let stopped!:()=>void;const ended=new Promise<void>(resolve=>{stopped=resolve;});

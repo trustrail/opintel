@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {createApiClient} from './client.js';
 export const ProvenanceKind=z.enum(['request','policy','sources','execution','custody','evidence']);
-export const ProvenanceFact=z.strictObject({key:z.string(),label:z.string(),recorded:z.boolean(),value:z.string().nullable(),link:z.string().startsWith('/').optional(),copyable:z.boolean().default(false)}).refine(f=>f.recorded===(f.value!==null),'A recorded fact must have a stored value.');
+export const ProvenanceFact=z.strictObject({field:z.string(),label:z.string(),recorded:z.boolean(),value:z.string().nullable(),link:z.string().startsWith('/').optional(),copyable:z.boolean().default(false)}).refine(f=>f.recorded===(f.value!==null),'A recorded fact must have a stored value.');
 export const ProvenanceStep=z.strictObject({kind:ProvenanceKind,title:z.string(),recorded:z.boolean(),facts:z.array(ProvenanceFact)});
 export const Provenance=z.strictObject({receiptId:z.uuid(),projectId:z.uuid(),startedAt:z.iso.datetime({offset:true}),steps:z.tuple([ProvenanceStep.extend({kind:z.literal('request')}),ProvenanceStep.extend({kind:z.literal('policy')}),ProvenanceStep.extend({kind:z.literal('sources')}),ProvenanceStep.extend({kind:z.literal('execution')}),ProvenanceStep.extend({kind:z.literal('custody')}),ProvenanceStep.extend({kind:z.literal('evidence')})])});
 export type Provenance=z.infer<typeof Provenance>;

@@ -11,7 +11,7 @@ import process from 'node:process';
 export function acceptanceHostAddress(platform,address){return platform==='darwin'?'host.docker.internal':address;}
 
 /** External plain Postgres, never a packaged readiness/demo database. */
-export async function firstHourSource({directory,image,host,recordFailure,env=process.env,run=spawnSync}){
+export async function firstHourSource({directory,image,host,recordFailure,lab,env=process.env,run=spawnSync}){
  assert.match(image,/^postgres:[^@]+@sha256:[a-f0-9]{64}$/u,'First-hour source must be pinned official Postgres');
  assert.equal(typeof recordFailure,'function','Fixture failures must be recorded before cleanup');
  const suffix=randomUUID(),name='opintel-first-hour-source-'+suffix,network=name+'-network';
@@ -23,10 +23,10 @@ export async function firstHourSource({directory,image,host,recordFailure,env=pr
  function docker(args){const r=run('docker',args,{encoding:'utf8',env,timeout:120000});if(r.error||r.status!==0)throw new Error('First-hour source fixture '+args[0]+' failed');return r.stdout.trim();}
  let created=false,networkCreated=false;
  const log=join(directory,'first-hour-source.log');
- const close=()=>{if(created){const output=run('docker',['logs',name],{encoding:'utf8',env,timeout:10000,maxBuffer:8*1024*1024});writeFileSync(log,(output.stdout??'')+(output.stderr??''),{mode:0o600});chmodSync(log,0o600);docker(['rm','--force',name]);created=false;}if(networkCreated){docker(['network','rm',network]);networkCreated=false;}};
+ const close=()=>{if(created){const output=run('docker',['logs',name],{encoding:'utf8',env,timeout:10000,maxBuffer:8*1024*1024});writeFileSync(log,(output.stdout??'')+(output.stderr??''),{mode:0o600});chmodSync(log,0o600);docker(['rm','--force','--volumes',name]);created=false;}if(networkCreated){docker(['network','rm',network]);networkCreated=false;}};
  try{
-  docker(['network','create',network]);networkCreated=true;
-  docker(['run','--detach','--name',name,'--network',network,'--env-file',environmentFile,'--publish','0.0.0.0::5432','--mount',`type=bind,src=${resolve(sql)},dst=/docker-entrypoint-initdb.d/customer.sql,readonly`,image,'-c','log_connections=on','-c','log_disconnections=on']);created=true;
+  docker(['network','create',...(lab?.labelArgs??[]),network]);networkCreated=true;
+  docker(['run',...(lab?.labelArgs??[]),'--detach','--name',name,'--network',network,'--env-file',environmentFile,'--publish','0.0.0.0::5432','--mount',`type=bind,src=${resolve(sql)},dst=/docker-entrypoint-initdb.d/customer.sql,readonly`,image,'-c','log_connections=on','-c','log_disconnections=on']);created=true;
   const until=Date.now()+120000;
   for(;;){const r=run('docker',['exec',name,'pg_isready','-h','127.0.0.1','-U','customer','-d','customer'],{encoding:'utf8',env,timeout:5000});if(r.status===0)break;if(Date.now()>=until)throw new Error('First-hour source fixture TCP readiness timed out');await setTimeout(500);}
   const binding=docker(['port',name,'5432/tcp']),port=/0\.0\.0\.0:(\d+)/u.exec(binding)?.[1];assert.ok(port,'Fixture published port missing');

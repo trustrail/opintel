@@ -1,4 +1,5 @@
 import {developmentEngineOptions} from '../scripts/development-engine.js';
+import {EngineTransportCallSummary} from '../src/shared/engine-transport-telemetry.js';
 import { createPostgresConnector } from '../sidecar/create-postgres-connector.js';
 import { IntrospectionJob, PostgresIntrospectionStore, type SourceConnector } from '../src/modules/sources/index.js';
 import { randomUUID } from 'node:crypto';
@@ -218,7 +219,9 @@ describe('filing register', () => {
   expect(ingestAttributes(injected)).toEqual({ event: 'ingest.quarantined', timestamp: injected.timestamp, sourceId: zone.sourceId, projectId: zone.projectId, filingId: filing.id, errorCategory: 'conflict', attemptCount: 2 });
   ingestEvent(injected);
   expect(JSON.stringify(logs.mock.calls)).not.toContain(secret);
+  expect(logs.mock.calls.some(([entry])=>typeof entry==='string'&&entry.includes('engine.transport_call_completed'))).toBe(true);
   for (const [entry] of logs.mock.calls) {
+   if(typeof entry==='string'){expect(EngineTransportCallSummary.safeParse(JSON.parse(entry)).success).toBe(true);continue;}
    expect(Object.keys(entry as object).every(key => ['event','timestamp','sourceId','projectId','filingId','errorCategory','attemptCount'].includes(key))).toBe(true);
    expect(entry).toMatchObject({ timestamp: expect.any(String), sourceId: zone.sourceId, projectId: zone.projectId });
   }

@@ -123,6 +123,9 @@ export function createSidecarServer(options: {
     const work = handle(req,res,controller).catch(()=>{
       if(!controller.signal.aborted)fail(res,503,'dependency_unavailable','The Opintel Engine operation failed.',randomUUID(),true);
     }).finally(()=>{
+      // Cancellation must close its stream as well as its SQL work. Otherwise
+      // graceful H2 shutdown waits for an abandoned response until its deadline.
+      if(controller.signal.aborted&&!res.writableFinished)res.destroy();
       req.removeListener('aborted',abort); res.removeListener('close',closed); active.delete(controller);
     });
     active.set(controller,work);
@@ -165,6 +168,9 @@ export function createSidecarServer(options: {
       const deadline = new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);});
       try {
         await Promise.race([Promise.allSettled([...active.values()]),deadline]);
+        // Let GOAWAY and graceful stream/session closure reach the peer before
+        // forcing sockets down. The same shutdown deadline bounds both waits.
+        await Promise.race([closed,deadline]);
         for(const socket of sockets)socket.destroy();
         await closed;
       } finally { if(timer!==undefined)clearTimeout(timer); }

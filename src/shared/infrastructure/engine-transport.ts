@@ -9,6 +9,7 @@ import {acquireEngineSession,type EngineLease,type ConnectionTrace} from './engi
 import {EngineTransportError,type EngineTransportPhase} from './engine-transport-error.js';
 import {transportFailureCode} from './transport-failure-code.js';
 import {recordEngineTransport} from './engine-transport-metrics.js';
+import {engineTransportPaths} from '../engine-transport-telemetry.js';
 export {EngineTransportError} from './engine-transport-error.js';
 export {closeEngineTransports,configureEngineTransport} from './engine-h2-pool.js';
 export class EngineResponse extends PassThrough {statusCode=0;headers:IncomingHttpHeaders={};complete=false;}
@@ -67,6 +68,7 @@ export async function engineConnect<T>(url:URL,options:RequestOptions&{signal:Ab
   }
  }finally{
   const durationMs=performance.now()-started;recordEngineTransport(url.origin,transport.certificatePin??'',path,durationMs,outcome==='failure',transport.telemetryProject);
-  console.info(JSON.stringify({event:'engine.transport_call_completed',timestamp:new Date().toISOString(),startedAt,callId,path,outcome,durationMs,reused,attempts}));
+  const logPath=engineTransportPaths.find(known=>known===path)??'/other';
+  console.info(JSON.stringify({event:'engine.transport_call_completed',timestamp:new Date().toISOString(),startedAt,callId,path:logPath,outcome,durationMs,reused,attempts}));
  }
 }

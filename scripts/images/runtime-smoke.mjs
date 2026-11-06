@@ -1,3 +1,6 @@
+import {createAcceptanceLab} from './acceptance-lab.mjs';
+import {mkdtempSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
 import process from 'node:process';
 import console from 'node:console';
 import {spawnSync} from 'node:child_process';
@@ -26,6 +29,10 @@ try{
  console.log('Packaged native binding and XQ worker passed without source or node_modules.');
 }finally{clearTimeout(deadline);await worker.terminate();await new Promise(resolve=>server.close(resolve));}
 `;
-const result=spawnSync('docker',['run','--rm','--platform',platform,'--network','none','--read-only','-i',image,'node','--input-type=module'],{input:probe,encoding:'utf8',timeout:60000});
+mkdirSync('tmp',{recursive:true});const directory=resolve(mkdtempSync('tmp/runtime-acceptance-')),lab=createAcceptanceLab({directory});
+try{
+const result=spawnSync('docker',['run',...lab.labelArgs,'--rm','--platform',platform,'--network','none','--read-only','-i',image,'node','--input-type=module'],{input:probe,encoding:'utf8',timeout:60000});
 if(result.stdout)console.log(result.stdout.trim());
 if(result.error||result.status!==0)throw new Error(result.error?.message??result.stderr??`Runtime smoke exited ${result.status}`);
+
+}finally{lab.cleanup();}

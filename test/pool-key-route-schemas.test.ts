@@ -4,6 +4,7 @@ import { expect,it } from 'vitest';
 import { z } from 'zod';
 import ts from 'typescript';
 import {AgentPresencePage,AuthenticatedWith} from '../src/shared/api/agent-presence.js';
+import {ProvenanceFact} from '../src/shared/api/provenance.js';
 import type { defineRoute } from '../src/platform/http/index.js';
 async function files(root:string):Promise<string[]>{return (await Promise.all((await readdir(root,{withFileTypes:true})).map(e=>e.isDirectory()?files(`${root}/${e.name}`):Promise.resolve(e.name.endsWith('.ts')?[`${root}/${e.name}`]:[])))).flat();}
 function credentialFields(schema:unknown,path=''):string[]{
@@ -44,4 +45,10 @@ it('I-003: authenticatedWith metadata passes; a literal credential property stil
  expect(AuthenticatedWith.safeParse({kind:'legacy_pool_key',label:'Legacy',alias:'alias'}).success).toBe(false);
  expect(AuthenticatedWith.parse({kind:'credential',label:'Reader',alias:'agent:alias'})).toEqual({kind:'credential',label:'Reader',alias:'agent:alias'});
  expect(AuthenticatedWith.safeParse({kind:'credential'}).success).toBe(false);
+});
+it('I-003: provenance exposes a non-secret field identifier without a secret-looking key property',()=>{
+ const value={field:'certificate',label:'Certificate',recorded:false,value:null};
+ expect(ProvenanceFact.safeParse(value).success).toBe(true);
+ expect(ProvenanceFact.safeParse({...value,key:'certificate'}).success).toBe(false);
+ expect(credentialFields(z.toJSONSchema(ProvenanceFact))).toEqual([]);
 });

@@ -1,3 +1,4 @@
+import {createAcceptanceLab} from './acceptance-lab.mjs';
 import {parse} from 'dotenv';
 import {createServer} from 'node:net';
 import {homedir} from 'node:os';
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import {spawnSync,spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,chmodSync,appendFileSync,readdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
-import {randomBytes,X509Certificate,createHash} from 'node:crypto';
+import {randomBytes,randomUUID,X509Certificate,createHash} from 'node:crypto';
 import {request} from 'node:https';
 import {request as httpRequest} from 'node:http';
 import {setTimeout} from 'node:timers/promises';
@@ -34,7 +35,8 @@ function exec(command,args,options={}){
  return result.stdout.trim();
 }
 const tag=process.env.TAG??'candidate-stage4-core',directory=resolve(mkdtempSync('tmp/stage4-acceptance-'));
-const gatewayProject='opintel-gateway-proof-'+Date.now(),engineProject='opintel-engine-proof-'+Date.now(),sourceProject='opintel-source-proof-'+Date.now();
+const gatewayProject='opintel-gateway-proof-'+randomUUID(),engineProject='opintel-engine-proof-'+randomUUID(),sourceProject='opintel-source-proof-'+randomUUID();
+const lab=createAcceptanceLab({directory});for(const project of [gatewayProject,engineProject,sourceProject])lab.trackProject(project);
 const gatewayDirectory=join(directory,'gateway'),engineDirectory=join(directory,'engine'),consoleDirectory=join(directory,'console');
 for(const path of [gatewayDirectory,engineDirectory,consoleDirectory,...[gatewayDirectory,engineDirectory].map(d=>join(d,'tls')),join(engineDirectory,'audit'),join(engineDirectory,'custody'),join(engineDirectory,'ingest'),join(engineDirectory,'state'),join(engineDirectory,'xq'),join(gatewayDirectory,'xq')])mkdirSync(path,{recursive:true});
 for(const path of [gatewayDirectory,engineDirectory,consoleDirectory,join(gatewayDirectory,'tls'),join(engineDirectory,'tls')])chmodSync(path,0o755);
@@ -50,7 +52,7 @@ const images={};for(const name of ['api','console','engine','egress','migrations
  const info=JSON.parse(exec('docker',['image','inspect','--platform',platform,ref??`opintel-${name}:${tag}-${platform.replace('/','-')}`]))[0];
  const digest=ref??info.RepoDigests?.find(value=>value.startsWith(`opintel-${name}@sha256:`));if(!digest)throw new Error('Missing audited image digest: '+name);images[name]=digest;
 }
-const hostAddress=process.env.STAGE4_HOST_ADDRESS??exec('docker',['run','--rm','--platform',platform,images.api,'node','-e',"require('node:dns').lookup('host.docker.internal',{family:4},(error,value)=>{if(error)process.exit(1);console.log(value);})"]);
+const hostAddress=process.env.STAGE4_HOST_ADDRESS??exec('docker',['run',...lab.labelArgs,'--rm','--platform',platform,images.api,'node','-e',"require('node:dns').lookup('host.docker.internal',{family:4},(error,value)=>{if(error)process.exit(1);console.log(value);})"]);
 assert.match(hostAddress,/^\d+\.\d+\.\d+\.\d+$/u);
 const upstream=JSON.parse(readFileSync('deploy/images/upstream.json','utf8'));
 const packages=join(directory,'packages');
@@ -120,7 +122,7 @@ async function login(){
 }
 function browserCheck(restore=false){
  const version=JSON.parse(readFileSync('package-lock.json','utf8')).packages['node_modules/@playwright/test'].version;
- exec('docker',['run','--rm','--init','--ipc=host','--platform',platform,'-v',resolve('node_modules')+':/work/node_modules:ro','-v',resolve('scripts/images/package-browser.mjs')+':/work/browser.mjs:ro','-v',directory+':/acceptance','-w','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs',...(restore?['restore']:[])]);
+ exec('docker',['run',...lab.labelArgs,'--rm','--init','--ipc=host','--platform',platform,'-v',resolve('node_modules')+':/work/node_modules:ro','-v',resolve('scripts/images/package-browser.mjs')+':/work/browser.mjs:ro','-v',directory+':/acceptance','-w','/work',`mcr.microsoft.com/playwright:v${version}-noble`,'node','browser.mjs',...(restore?['restore']:[])]);
  return JSON.parse(readFileSync(join(directory,'browser-'+(restore?'restored':'initial')+'.json'),'utf8'));
 }
 
@@ -167,7 +169,7 @@ try{
  const blocked=createServer(socket=>socket.end());await new Promise(resolve=>blocked.listen(14899,'0.0.0.0',resolve));
  try{
   const probe=`const s=require('node:net').connect(14899,${JSON.stringify(hostAddress)});s.setTimeout(1500);s.on('connect',()=>{s.end();process.exit(0)});s.on('timeout',()=>process.exit(2));s.on('error',()=>process.exit(3));`;
-  exec('docker',['run','--rm','--platform',platform,images.api,'node','-e',probe]);
+  exec('docker',['run',...lab.labelArgs,'--rm','--platform',platform,images.api,'node','-e',probe]);
   const container=exec('docker',['ps','-q','--filter',`label=com.docker.compose.project=${engineProject}`,'--filter','label=com.docker.compose.service=engine']);assert.ok(container);
   const denied=spawnSync('docker',['exec',container,'node','-e',probe],{encoding:'utf8',timeout:10000});assert.equal(denied.status,2);result.checks.egressDenial={positiveControl:true,undeclaredDestinationDenied:true};
  }finally{await new Promise(resolve=>blocked.close(resolve));}
@@ -213,9 +215,5 @@ try{
  result.status='passed';write(join(directory,'result.json'),result);console.log('Stage4 package acceptance passed: '+join(directory,'result.json'));
 }catch(error){result.status='failed';result.failure=error instanceof Error?error.message:'Acceptance failed';write(join(directory,'result.json'),result);throw error;}
 finally{
- if(process.env.STAGE4_KEEP_RUNNING!=='1')for(const project of [gatewayProject,engineProject,sourceProject]){
-  const containers=exec('docker',['ps','-aq','--filter',`label=com.docker.compose.project=${project}`]);
-  if(containers){const ids=containers.split('\n');write(join(directory,project+'.log'),ids.map(container=>spawnSync('docker',['logs',container],{encoding:'utf8'})).map(log=>log.stdout+log.stderr).join('\n'));exec('docker',['stop',...ids]);exec('docker',['rm',...ids]);}
-  const networks=exec('docker',['network','ls','--filter',`label=com.docker.compose.project=${project}`,'--format','{{.ID}}']);if(networks)exec('docker',['network','rm',...networks.split('\n')]);
- }
+ result.labCleanup=lab.cleanup();if(result.labCleanup.status!=='passed'){result.status='failed';process.exitCode=1;}write(join(directory,'result.json'),result);
 }
