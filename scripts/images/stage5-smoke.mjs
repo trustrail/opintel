@@ -170,7 +170,9 @@ try{
  advance('customer-demo-soak');
  // Reuse the explicitly named external customer database, never engine readiness.
  command('engine','sources','add','v01','--host',customerSource.host,'--port',customerSource.port,'--database',customerSource.database,'--user',customerSource.user,'--password-file',customerSource.passwordFile);
- const target=new URL('postgresql://'+customerSource.host+':'+customerSource.port+'/'+customerSource.database);target.username=customerSource.user;target.password=readFileSync(customerSource.passwordFile,'utf8');
+ // The seed job overrides host.docker.internal with the nested daemon's gateway.
+ // The database port belongs to the outer host, so use its explicit address.
+ const target=new URL('postgresql://'+hostAddress+':'+customerSource.port+'/'+customerSource.database);target.username=customerSource.user;target.password=readFileSync(customerSource.passwordFile,'utf8');
  writeFileSync(join(output,'v01-uri'),target.href,{mode:0o600});
  writeFileSync(join(output,'owner.cookie'),ownerCookie,{mode:0o600});
  const soakLog=join(directory,'demo-soak.log');child=spawn(join(verification,'demo'),['soak',String(soakDurationSeconds),'--target-file','/output/v01-uri','--source-ref','secret://sources/v01','--session-file','/output/owner.cookie'],{env:nested,stdio:['ignore','pipe','pipe']});

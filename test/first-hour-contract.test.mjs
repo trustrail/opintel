@@ -67,3 +67,11 @@ it('FH-010: Stage 5 uses the existing console-harness Docker Desktop route for b
  expect(acceptanceHostAddress('darwin','192.0.2.10')).toBe('host.docker.internal');expect(acceptanceHostAddress('linux','192.0.2.10')).toBe('192.0.2.10');
  const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');expect(driver).toContain("base='https://'+clientHost");expect(driver).toContain('customerPostgres,host:clientHost,env:outer');
 });
+
+it('FH-012: the external seed target uses the outer host address, independently of the engine caller alias',()=>{
+ const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');
+ expect(acceptanceHostAddress('darwin','192.0.2.42')).toBe('host.docker.internal');
+ expect(driver).toContain("const target=new URL('postgresql://'+hostAddress+':'+customerSource.port+'/'+customerSource.database)");
+ expect(driver).toContain("command('engine','sources','add','v01','--host',customerSource.host");
+ expect(driver).not.toContain("const target=new URL('postgresql://'+customerSource.host");
+});

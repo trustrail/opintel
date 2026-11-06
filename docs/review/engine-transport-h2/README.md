@@ -500,3 +500,24 @@ container to inspect at that step. No archive or image was rebuilt or republishe
 Capture/packaging contracts passed 11/11; syntax and lint passed. Lint initially
 rejected a throw in the finally block; cleanup now records that failure and
 continues teardown. No product code changed in this round.
+
+
+## Seed refusal diagnosis and harness-only correction
+
+EVIDENCE-01 was canceled by the owner after confirming capture sampling was
+42%. Its uncommitted investigation is preserved in a named local stash on
+fix/receipt-capture; none of it ships on this branch.
+
+The failed seed's target was host.docker.internal at the source fixture's
+outer-daemon published port. deploy/verification/command:23 explicitly adds
+host.docker.internal:host-gateway for the verification job. Under nested Docker,
+that is the inner daemon's gateway; the retained failure names
+172.18.0.1:65105 (demo-soak.log:40 and the seed failure log:1), rather than the
+outer host that owns the published port. The successful first-hour engine route
+uses that hostname without the verification job's host-gateway override.
+
+The Stage 5 seed URI now uses the already discovered explicit outer host address
+(hostAddress), while the engine source reference retains its existing caller
+route (customerSource.host). The source, schema selection, credentials, seed
+options and expected soak answers are unchanged. No product transport change,
+image rebuild or republish is needed. FH-012 protects this distinction.
