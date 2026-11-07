@@ -65,3 +65,8 @@ it('a retention filesystem failure cannot prevent removal of owned resources',()
   expect(result.failures.some(f=>f.operation==='retain cleanup result')).toBe(true);expect(calls.some(args=>args[0]==='rm'&&args.includes('--volumes'))).toBe(true);
  }finally{process.exitCode=previous;lab.cleanup();rmSync(directory,{force:true});rmSync(directory+'-retained',{recursive:true,force:true});}
 });
+
+it('explicit retention transfers the same ownership identity to a later selection without pruning',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'acceptance-retain-')),calls=[];const run=(_command,args)=>{calls.push(args);return {status:0,stdout:''};};
+ const lab=createAcceptanceLab({directory,id:'retained-fixture',run,capture:()=>{}});try{expect(lab.retain().status).toBe('retained');expect(calls).toHaveLength(0);const resumed=createAcceptanceLab({directory,id:lab.id,run,capture:()=>{}});expect(resumed.id).toBe(lab.id);expect(resumed.cleanup().status).toBe('passed');expect(calls.some(args=>args.includes('label=io.opintel.acceptance-run=retained-fixture'))).toBe(true);}finally{rmSync(directory,{recursive:true,force:true});}
+});

@@ -1334,3 +1334,40 @@ Logs: `/private/tmp/arch01-diagnostic-tests.log`,
 `/private/tmp/arch01-diagnostic-console.log`,
 `/private/tmp/arch01-diagnostic-typecheck-final.log`,
 `/private/tmp/arch01-diagnostic-lint-final.log`.
+
+## Close-out harness and gate discipline (2026-11-07)
+
+Only prompt-named levels run: L0 targeted tests/typecheck/lint after each commit;
+L1 one full gate; L2 one full acceptance and one HTTP/1 soak/latency baseline.
+The shared ledger refuses a second charged L1/full/baseline run. Preflight alone
+is uncharged and gets one ten-second warm-up and one retry; an executed test or
+acceptance stage is never retried automatically.
+
+External-only harness selection (nothing is bundled into product images):
+
+```
+node scripts/images/stage5-smoke.mjs ARCHIVES --candidate --retain-install --ledger LEDGER
+node scripts/images/stage5-smoke.mjs ARCHIVES --candidate --only custody,companion --reuse-run RUN_DIR --ledger LEDGER
+node scripts/images/stage5-smoke.mjs ARCHIVES --candidate --from soak --reuse-run RUN_DIR --transport-benchmark --ledger LEDGER
+```
+
+These commands illustrate selection, not additional authorization to run.
+A live, mode-600 checkpoint must match the original image revision and archive
+directory. An absent daemon or invalid session stops; no silent reinstallation.
+Default success/failure still removes the owned lab. Explicit `--retain-install`
+retains a successful lab for a later authorized selection; its resumed owner
+removes the original labelled resources unless retention is explicitly requested
+again. No live install remains from 09enB0, so that run cannot be resumed.
+
+`--baseline --duration-seconds 600 --transport-benchmark` on the accepted HTTP/1
+archives performs the standard setup prerequisites, then only soak and latency;
+it does not claim custody/companion/browser acceptance. Both protocols benchmark
+the same versioned V-01 claims fixture, same query, 50 queries and 50 public
+engine verifies; per-path samples include the query's key attestations. Latency
+measurement remains after the soak. No missing/failed sample can pass.
+
+External resource capture records timestamped host load/memory/pressure,
+outer/nested Docker stats and daemon CPU counters throughout acceptance. It is
+independent of the synchronous harness process and is stopped before cleanup.
+No admission, deadline or health-serving behavior changes in this round.
+CORE findings are recorded in [enforcement-core](../enforcement-core/README.md).

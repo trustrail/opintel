@@ -15,7 +15,7 @@ Read this section before every task and flag requests that contradict it.
 - A new table, route, permission or bundled file runs the matching contract tests as part of its targeted tests.
 - A change that adds or edits a migration runs every migration test (all migration up/down and migration-fixture tests) as part of its targeted tests, before the full gate.
 - Any change to a packaged script or bundle list runs `test/provisioning-runtime.test.mjs` as part of its targeted tests.
-- Script-only and docs-only changes: lint and syntax check, no full gate.
+- Gate discipline: L0 (targeted tests, strict typecheck, lint) after each commit. L1 (full gate) and L2 (packaged acceptance) only at the level/count explicitly named by the prompt. Preflight gets one warm-up retry, then stops; it consumes no run. Reports end with a run ledger (level, stage, commit, images, result, minutes, executed/allowed). Budget exhaustion means stop. Never trigger L1/L2 for a diagnostic or docs commit.
 - Customer install: application archives, one env file, `./install`, one-code pairing. `./identities add` imports the XQ export only on the agent host from the separate agent kit.
 - Demo and real data take the same path. A demo is a demo database or file connected like any customer source (./sources add, or a landing zone). Product code never branches on demo data.
 
@@ -138,7 +138,7 @@ Report once per task at the end, never between steps.
 
 ## Validation
 
-Run validation commands sequentially. Except for script-only and docs-only changes covered by Standing decisions, the completed-candidate gate is `npm run check`: strict typecheck, unchanged lint, production-artifact exclusion, router-derived control conformance, all normal domain/integration tests, then one browser/MCP smoke path. Run it once on the completed tip; report failures honestly. Do not retry it to obtain a green record.
+Run validation commands sequentially at the explicitly authorized level and count. L1 is `npm run check`: strict typecheck, unchanged lint, production-artifact exclusion, router-derived control conformance, all normal domain/integration tests, then one browser/MCP smoke path. Report failures honestly; do not rerun to obtain a green record. L0 does not authorize L1 or L2.
 
 The browser scenario and pixel regression tiers are retired. Historical PNGs live in `archive/browser-baselines/2026-10-16`, outside the active path. Never recapture them. Human review remains necessary for screen design.
 

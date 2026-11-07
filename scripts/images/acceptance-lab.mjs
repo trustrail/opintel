@@ -6,8 +6,8 @@ import {join,resolve,relative,isAbsolute} from 'node:path';
 import {captureProcessLog} from './acceptance-log.mjs';
 
 /** Own only this run's labels or fresh package projects. Never prune a daemon. */
-export function createAcceptanceLab({directory,env=process.env,run=spawnSync,capture=(args,file)=>captureProcessLog('docker',args,file,{env,timeout:30000})}){
- const id=randomUUID(),label='io.opintel.acceptance-run='+id,roots=new Set(),projects=new Set();
+export function createAcceptanceLab({directory,id=randomUUID(),env=process.env,run=spawnSync,capture=(args,file)=>captureProcessLog('docker',args,file,{env,timeout:30000})}){
+ const label='io.opintel.acceptance-run='+id,roots=new Set(),projects=new Set();
  let result;
  const privateFile=(name,value)=>writeFileSync(join(directory,name),JSON.stringify(value,null,2)+'\n',{mode:0o600});
  function trackProject(project){if(!/^opintel[-a-z0-9_]+$/u.test(project))throw new Error('Acceptance cleanup requires a generated Opintel project name.');projects.add(project);}
@@ -55,5 +55,5 @@ export function createAcceptanceLab({directory,env=process.env,run=spawnSync,cap
  const onExit=()=>cleanup(),onInterrupt=()=>process.exit(130),onTerminate=()=>process.exit(143);
  process.once('exit',onExit);process.once('SIGINT',onInterrupt);process.once('SIGTERM',onTerminate);
  privateFile('lab-ownership.json',{id,label});
- return {id,labelArgs:['--label',label],trackCompose,trackProject,cleanup};
+ return {id,retain(){if(result)throw new Error('Lab already closed.');result={id,status:'retained',removed:{containers:0,volumes:0,networks:0},failures:[]};process.removeListener('exit',onExit);process.removeListener('SIGINT',onInterrupt);process.removeListener('SIGTERM',onTerminate);privateFile('lab-retained.json',result);return result;},labelArgs:['--label',label],trackCompose,trackProject,cleanup};
 }
