@@ -929,3 +929,77 @@ Before count: four egress-registration HTTP 503s in ekJKaK, with four scenario
 mismatches, seven capacity refusals and one /validate response timeout. The new
 candidate acceptance and isolated latency results will be recorded below after
 validation; they are not yet claimed as passed.
+
+### Corrected candidate 5480fbb — gate passed, acceptance blocked at enrollment
+
+The second change is committed as **5480fbb**, immediately pushed. Its commit
+message describes the serialization and entry-identity check. Strict typecheck
+and lint passed. The single completed-candidate gate exited 0: production
+artifact checks, 40 conformance checks / 30 routes, **2,387 normal tests in 281
+files**, and smoke (32.8-second scenario, 53.2-second tier). Gate wall time:
+2,031.84 seconds. No gate retry.
+
+The standard build audited all eight amd64 images and published them with
+manifest `tmp/arch01-5480fbb-published.json`. All four offline archives were
+created under `tmp/arch01-5480fbb-amd64-archives/`, actual source revision
+5480fbbb22f556cd920d2edae6fdeddf3123184e. No cloud host was touched.
+
+Ran the same standard acceptance command with that manifest/archive directory,
+`--candidate --duration-seconds 600 --transport-diagnostics
+--transport-benchmark`. Run **tmp/stage5-acceptance-STWRsM**, started
+2026-11-07T01:51:46.917Z. A diagnostic log follower/watch interrupted on a
+registration 503 if observed; no stop was triggered. The initial API follower
+ended when its container was replaced during installation, so counts below
+come from the final retained canonical logs, not an assumption that the first
+follower covered the complete run. No harness implementation was changed.
+
+**Evidence:** archive audits, fresh gateway/engine installs, four identity
+imports, pairing, real SMTP owner sign-in, all 31 first-hour steps through the
+persisted receipt, and **200/200 XQ round trips** passed. The soak then failed
+before its first workload query:
+
+```text
+MCP initialization: gateway refused the request (HTTP 401) · unauthenticated / identity_unproven
+```
+
+The soak's retained result reports failed, zero queries, one operational error
+and zero invariant breaches. Gateway logs contain mcp.transport_refused with
+cause identity_unproven, including challengeState escrowed (gateway-transport.log
+lines 396, 1555, 1646 and later). An escrowed enrollment challenge alone does not
+establish why enrollment ultimately failed; some initial challenge refusals are
+part of normal enrollment. No claim is made about a wrong identity, XQ outage
+or branch regression without additional evidence. This enrollment failure is
+outside the two authorized changes and was not fixed or retried.
+
+The harness exited 1 at customer-demo-soak after its existing start guard:
+"Packaged soak start timed out: Demo exited 1". Cleanup passed (owned daemon
+container, customer-source container and daemon volume removed). Private
+diagnostics remain in the run directory.
+
+| Observation | Before: ekJKaK | After: STWRsM |
+|---|---:|---:|
+| Registration HTTP 503s in retained gateway transport log | 4 | **0** |
+| Registration HTTP 200s in new retained gateway log | — | 51 |
+| Controller registration-start queue-wait samples | Not recorded | 81 |
+| Largest recorded registration queue wait | Not recorded | 510.543 ms |
+| Controller registration-failed diagnostic events | Not recorded | 0 |
+| Soak workload queries | 284 | **0** |
+| Soak scenario mismatches | 4 | 0 (no workload exercised) |
+
+New transport diagnostics: 169 completed calls, zero failed attempts, zero TLS
+stalls, zero successful calls with retries. The observed registration count
+improved, but **does not prove the ten-minute load case passes**: enrollment
+prevented that workload. No written 503 retry was added.
+
+The browser/outage stages, dedicated custody/companion checks and isolated
+50-call benchmark were not reached. The conditional HTTP/1 baseline was not
+started. Honest measurement table:
+
+| Path (50 calls required per revision) | HTTP/1 p50 / p95 | H2 p50 / p95 |
+|---|---|---|
+| Query /execute | Not measured | Not measured |
+| Attest /custody/attest | Not measured | Not measured |
+| Verify /health and public verify duration | Not measured | Not measured |
+
+The [timeout table](../../timeouts.md) is unchanged. Overall packaged acceptance
+and before/after latency comparison remain blocked. Stop for review; no merge.
