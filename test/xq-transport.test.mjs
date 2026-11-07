@@ -26,3 +26,16 @@ it.each(['reset','timeout','400'])('XQ transport never retries %s after writing'
 it('failed DNS setup retains only its phase and allowlisted native error code',async()=>{
  await expect(xqRequest('http://test.invalid/packet',{method:'POST'},'PRIVATE_BODY',{connectTimeoutMs:20,deadlineMs:200,lookup:()=>{}})).rejects.toMatchObject({phase:'DNS',nativeErrorCode:'ETIMEDOUT',written:false,attempt:2});
 });
+
+it('default setup allowance admits a connection taking 1.5 seconds on its first attempt',async()=>{
+ let requests=0,lookups=0;const server=createServer((req,res)=>{requests++;req.resume();res.end('accepted');});server.listen(0,'127.0.0.1');await once(server,'listening');
+ try{
+  const result=await xqRequest(`http://slow.invalid:${server.address().port}/packet`,{method:'POST'},'synthetic',{lookup:(_host,options,callback)=>{lookups++;setTimeout(()=>callback(null,options.all?[{address:'127.0.0.1',family:4}]:'127.0.0.1',4),1500);}});
+  expect(result).toMatchObject({status:200,attempt:1});expect(requests).toBe(1);expect(lookups).toBe(1);
+ }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+});
+it('connection allowance cannot extend the shared operation deadline',async()=>{
+ const started=performance.now();let lookups=0;
+ await expect(xqRequest('http://stall.invalid/packet',{method:'POST'},'synthetic',{deadlineMs:120,lookup:()=>{lookups++;}})).rejects.toMatchObject({kind:'deadline_exceeded',phase:'DNS',written:false,attempt:1});
+ expect(lookups).toBe(1);expect(performance.now()-started).toBeLessThan(1000);
+});

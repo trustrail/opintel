@@ -2,6 +2,18 @@
 
 ARCH-01: static runtime inventory plus install-time defaults.
 
+## XQ operation and connection bounds
+
+Each XQ HTTP subcall keeps its existing shared **15,000 ms** deadline across
+at most two connect-only attempts. Connection setup (DNS, TCP and TLS) now gets
+**min(5,000 ms, remaining subcall deadline)** per attempt. Expired operations
+start no further attempt. Writing ends the setup timer; the response still uses
+the same remaining operation deadline. Written requests are never replayed.
+The disposable SDK worker's existing **20,000 ms** outer limit is unchanged;
+it can end a multi-subcall operation earlier than those subcalls' combined
+budgets. Sources: `src/modules/release-custody/infrastructure/xq-transport.mjs`
+and `xq-provider.ts`. No gateway/engine or validation deadline changed.
+
 ## Pinned engine HTTP/2 transport
 
 Set these in `package.env` on gateway and engine before installation. Both
@@ -265,10 +277,10 @@ backoffs are included because they consume deadline budgets.
 | sidecarConfigSchema: operationTimeoutMs | milliseconds | Caller/configuration dependent | sidecar/config.ts:21 |
 | sidecarConfigSchema: connectTimeoutMs | milliseconds.default(DEFAULT_SOURCE_CONNECT_TIMEOUT_MS) | Caller/configuration dependent | sidecar/config.ts:21 |
 | sidecarConfigSchema: shutdownTimeoutMs | milliseconds.default(10000) | Caller/configuration dependent | sidecar/config.ts:25 |
-| req: operation cancellation | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/control-client.ts:11 |
-| timer: timer / backoff | 3000 | Caller/configuration dependent | sidecar/egress/infrastructure/controller.ts:25 |
-| fetchPolicy: operation cancellation | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/controller.ts:83 |
-| timer: periodic schedule | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/controller.ts:115 |
+| signal: operation cancellation | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/control-client.ts:16 |
+| timer: timer / backoff | 3000 | Caller/configuration dependent | sidecar/egress/infrastructure/controller.ts:42 |
+| fetchPolicy: operation cancellation | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/controller.ts:100 |
+| timer: periodic schedule | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/controller.ts:136 |
 | firewall: timeout | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/firewall.ts:14 |
 | firewall: timeout | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/firewall.ts:18 |
 | firewall: timeout | 5000 | Caller/configuration dependent | sidecar/egress/infrastructure/firewall.ts:18 |
@@ -277,12 +289,12 @@ backoffs are included because they consume deadline budgets.
 | timer: timer / backoff | ms | Caller/configuration dependent | sidecar/execution/application/ports.ts:11 |
 | signal: operation cancellation | r.limits.timeoutMs | Caller/configuration dependent | sidecar/execution/application/preview.ts:17 |
 | acquire: timer / backoff | maxWaitMs | Caller/configuration dependent | sidecar/execution/application/queue.ts:27 |
-| handle: req.setTimeout | Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000) | Caller/configuration dependent | sidecar/http/server.ts:88 |
-| server: req.setTimeout | options.config.limits.operationTimeoutMs+10000 | Caller/configuration dependent | sidecar/http/server.ts:116 |
-| createSidecarServer: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:141 |
-| createSidecarServer: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:142 |
-| close: deadline | new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);}) | Caller/configuration dependent | sidecar/http/server.ts:168 |
-| deadline: timer / backoff | options.config.shutdownTimeoutMs | Caller/configuration dependent | sidecar/http/server.ts:168 |
+| handle: req.setTimeout | Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000) | Caller/configuration dependent | sidecar/http/server.ts:89 |
+| server: req.setTimeout | options.config.limits.operationTimeoutMs+10000 | Caller/configuration dependent | sidecar/http/server.ts:117 |
+| createSidecarServer: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:142 |
+| createSidecarServer: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:143 |
+| close: deadline | new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);}) | Caller/configuration dependent | sidecar/http/server.ts:169 |
+| deadline: timer / backoff | options.config.shutdownTimeoutMs | Caller/configuration dependent | sidecar/http/server.ts:169 |
 | unavailableEngine: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/unavailable.ts:23 |
 | unavailableEngine: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/unavailable.ts:23 |
 | module configuration: realDeadlineClock | { after(milliseconds, expire) { const timer = setTimeout(expire, milliseconds); return () => clearTimeout(timer); }, } | Caller/configuration dependent | sidecar/infrastructure/postgres-source-scope.ts:30 |
@@ -359,10 +371,11 @@ backoffs are included because they consume deadline budgets.
 | limits: timeoutMs | Math.min(b.timeoutMs??Number(q.timeoutSeconds)*1000,Number(q.timeoutSeconds)*1000) | Caller/configuration dependent | src/modules/mcp/infrastructure/query-reader.ts:37 |
 | create: timeoutMs | state.budgets.timeoutMs | Caller/configuration dependent | src/modules/pools/domain/pool.ts:49 |
 | start: periodic schedule | 1000 | Caller/configuration dependent | src/modules/release-custody/infrastructure/runtime.ts:173 |
-| stop: timer / backoff | 20000 | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-provider.ts:15 |
-| xqRequest: {deadlineMs=15000,connectTimeoutMs=1000,lookup} | {} | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:10 |
-| signal: operation cancellation | deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:11 |
-| response: timer / backoff | connectTimeoutMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:33 |
+| stop: timer / backoff | 20000 | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-provider.ts:21 |
+| xqRequest: {deadlineMs=15000,connectTimeoutMs=5000,lookup} | {} | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:12 |
+| xqRequest: deadline | performance.now()+deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:13 |
+| signal: operation cancellation | deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:13 |
+| response: timer / backoff | Math.max(1,Math.ceil(Math.min(connectTimeoutMs,deadline-performance.now()))) | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:40 |
 | poll: periodic schedule | 100 | Caller/configuration dependent | src/modules/sources/application/introspection-job.ts:49 |
 | module configuration: this.timeoutMs | options.timeoutMs ?? 9_000 | Caller/configuration dependent | src/modules/sources/infrastructure/sidecar-source-connector.ts:31 |
 | call: timeout | AbortSignal.timeout(this.timeoutMs) | Caller/configuration dependent | src/modules/sources/infrastructure/sidecar-source-connector.ts:97 |
@@ -482,6 +495,7 @@ backoffs are included because they consume deadline budgets.
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/demo-pack.test.ts:52 |
 | Test: Test case hang guard (unchanged) | 60000 | Caller/configuration dependent | test/demo-removal-migration.test.ts:6 |
 | Test: Test case hang guard (unchanged) | 15_000 | Caller/configuration dependent | test/dependency-cruiser.test.mjs:11 |
+| Test: module configuration: originalTimeout | AbortSignal.timeout.bind(AbortSignal) | Caller/configuration dependent | test/egress-control-client.test.ts:13 |
 | Test: result: timeout | 15000 | Caller/configuration dependent | test/egress-startup.test.mjs:14 |
 | Test: client: timeoutMs | 5 | Caller/configuration dependent | test/engine-cancellation-origin.test.ts:6 |
 | Test: keepAlive: periodic schedule | 20 | Caller/configuration dependent | test/engine-cancellation-origin.test.ts:11 |
@@ -739,22 +753,22 @@ backoffs are included because they consume deadline budgets.
 | Test: module configuration: timeout | 60000 | Caller/configuration dependent | test/session-store.test.ts:53 |
 | Test: module configuration: timeout | 120000 | Caller/configuration dependent | test/session-store.test.ts:54 |
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/settings-migration.test.ts:6 |
-| Test: Test case hang guard (unchanged) | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:61 |
-| Test: payload: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:65 |
-| Test: req: operation cancellation | 3000 | Caller/configuration dependent | test/sidecar-http.test.ts:92 |
-| Test: beforeAll hook guard (unchanged) | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:103 |
-| Test: module configuration: statementTimeoutMs | 5000 | Caller/configuration dependent | test/sidecar-http.test.ts:107 |
-| Test: module configuration: operationTimeoutMs | 6000 | Caller/configuration dependent | test/sidecar-http.test.ts:107 |
-| Test: module configuration: timeout | 2500 | Caller/configuration dependent | test/sidecar-http.test.ts:201 |
-| Test: Test case hang guard (unchanged) | 15000 | Caller/configuration dependent | test/sidecar-http.test.ts:234 |
-| Test: module configuration: shutdownTimeoutMs | 2000 | Caller/configuration dependent | test/sidecar-http.test.ts:240 |
-| Test: module configuration: statementTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:240 |
-| Test: module configuration: operationTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:240 |
-| Test: module configuration: timeout | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:245 |
-| Test: connector: timeoutMs | 9000 | Caller/configuration dependent | test/sidecar-http.test.ts:246 |
-| Test: module configuration: timeout | 4000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/sidecar-http.test.ts:275 |
-| Test: r: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:276 |
+| Test: Test case hang guard (unchanged) | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:62 |
+| Test: payload: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:66 |
+| Test: req: operation cancellation | 3000 | Caller/configuration dependent | test/sidecar-http.test.ts:93 |
+| Test: beforeAll hook guard (unchanged) | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:104 |
+| Test: module configuration: statementTimeoutMs | 5000 | Caller/configuration dependent | test/sidecar-http.test.ts:108 |
+| Test: module configuration: operationTimeoutMs | 6000 | Caller/configuration dependent | test/sidecar-http.test.ts:108 |
+| Test: module configuration: timeout | 2500 | Caller/configuration dependent | test/sidecar-http.test.ts:213 |
+| Test: Test case hang guard (unchanged) | 15000 | Caller/configuration dependent | test/sidecar-http.test.ts:246 |
+| Test: module configuration: shutdownTimeoutMs | 2000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
+| Test: module configuration: statementTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
+| Test: module configuration: operationTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
+| Test: module configuration: timeout | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:257 |
+| Test: connector: timeoutMs | 9000 | Caller/configuration dependent | test/sidecar-http.test.ts:258 |
+| Test: module configuration: timeout | 4000 | Caller/configuration dependent | test/sidecar-http.test.ts:264 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/sidecar-http.test.ts:287 |
+| Test: r: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:288 |
 | Test: Test case hang guard (unchanged) | 20000 | Caller/configuration dependent | test/sidecar-landing-check.test.ts:30 |
 | Test: module configuration: timeout | 15000 | Caller/configuration dependent | test/sidecar-landing-check.test.ts:37 |
 | Test: beforeAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/sidecar-pin.test.ts:11 |
@@ -838,6 +852,10 @@ backoffs are included because they consume deadline budgets.
 | Test: result: deadlineMs | 1000 | Caller/configuration dependent | test/xq-transport.test.mjs:11 |
 | Test: result: connectTimeoutMs | 100 | Caller/configuration dependent | test/xq-transport.test.mjs:20 |
 | Test: result: deadlineMs | 200 | Caller/configuration dependent | test/xq-transport.test.mjs:20 |
+| Test: module configuration: connectTimeoutMs | 20 | Caller/configuration dependent | test/xq-transport.test.mjs:27 |
+| Test: module configuration: deadlineMs | 200 | Caller/configuration dependent | test/xq-transport.test.mjs:27 |
+| Test: result: timer / backoff | 1500 | Caller/configuration dependent | test/xq-transport.test.mjs:33 |
+| Test: module configuration: deadlineMs | 120 | Caller/configuration dependent | test/xq-transport.test.mjs:39 |
 | module configuration: testTimeout | 30_000 | Caller/configuration dependent | vitest.config.ts:7 |
 <!-- end runtime timeout inventory -->
 
