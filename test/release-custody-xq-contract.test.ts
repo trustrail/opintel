@@ -1,3 +1,4 @@
+import {CredentialId} from '../src/modules/pools/index.js';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {randomUUID} from 'node:crypto';
@@ -68,4 +69,17 @@ it.each(['legacy','sdk'])('retrieves an existing %s grant without re-escrowing o
  const base=`http://127.0.0.1:${address.port}`,provider=new XqReleaseProvider({apiKey:'synthetic',dashboardApiKey:'synthetic',senderAlias:'synthetic',senderAccessToken:'synthetic',validationUrl:base+'/validation'},'tenant','https://provider.invalid/redeem');
  try{expect(await provider.fetch('already-issued-locator','recipient','synthetic-token')).toEqual(share);expect(calls).toEqual(['GET /validation/key/already-issued-locator']);}
  finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+
+it('failed enrollment XQ operations log public correlation and sanitized response diagnostics only',async()=>{
+ const warn=vi.spyOn(console,'warn').mockImplementation(()=>{}),correlation={enrollmentId:randomUUID(),credentialId:CredentialId(randomUUID())};
+ const secret='PRIVATE_KEY_TOKEN_TEAM_PIN_SENTINEL';
+ const server=createServer((req,res)=>{req.resume();res.writeHead(503);res.end(secret);});server.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
+ const provider=new XqReleaseProvider({apiKey:secret,dashboardApiKey:secret,senderAlias:secret,senderAccessToken:secret,subscriptionUrl:`http://127.0.0.1:${address.port}/subscription`},secret,'https://provider.invalid/redeem');
+ try{
+  await expect(provider.escrow(Buffer.alloc(32),secret,120,true,undefined,correlation)).rejects.toThrow('Custody provider operation failed.');
+  expect(warn).toHaveBeenCalledTimes(1);const record=JSON.parse(String(warn.mock.calls[0]?.[0])) as Record<string,unknown>;
+  expect(record).toMatchObject({event:'custody.xq_operation_failed',operation:'escrow',...correlation,kind:'http_refused',phase:'response',status:503,written:true,nativeErrorCode:null});
+  expect(JSON.stringify(warn.mock.calls)).not.toContain(secret);expect(JSON.stringify(warn.mock.calls)).not.toContain('http://');
+ }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));warn.mockRestore();}
 });

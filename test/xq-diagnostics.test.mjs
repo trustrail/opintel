@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import {Buffer} from 'node:buffer';
-import {redactedXqBody,xqKeySignature} from '../src/modules/release-custody/infrastructure/xq-diagnostics.mjs';
+import {redactedXqBody,xqKeySignature,xqNativeCode} from '../src/modules/release-custody/infrastructure/xq-diagnostics.mjs';
 
 it('preserves a provider reason while masking token fields, nested echoes and known secrets',()=>{
  const body=JSON.stringify({message:'Alias is not active',error:{reason:'Invalid recipient',access_token:'short-secret',details:{key:'key-material'}},authorization:'Bearer credential',messageEcho:'hidden',detail:'Rejected known-secret at https://example.invalid/?token=hidden'});
@@ -28,4 +28,9 @@ it('retains only bounded key character classes and punctuation sets, never key f
  expect(xqKeySignature('🙂-')).toEqual({nonAlphanumeric:['-','other'],firstClass:'other',doubledPunctuation:[]});
  expect(xqKeySignature('')).toEqual({nonAlphanumeric:[],firstClass:'empty',doubledPunctuation:[]});
  const secret='aSecretValue123--__';expect(JSON.stringify(xqKeySignature(secret))).not.toContain('SecretValue');
+});
+
+it('native error codes are allowlisted rather than echoing arbitrary provider values',()=>{
+ expect(xqNativeCode('ETIMEDOUT')).toBe('ETIMEDOUT');
+ for(const value of ['PRIVATE_KEY_TOKEN_TEAM_PIN_SENTINEL','ETIMEDOUT-secret',null,{}])expect(xqNativeCode(value)).toBeNull();
 });

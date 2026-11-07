@@ -67,10 +67,10 @@ export class ReleaseRuntime {
   const stored=await storedCredentials(ProjectId(project)),environment={...custodyEnvironment(),...stored.credentials??{}};return new XqReleaseProvider({apiKey:environment.apiKey,dashboardApiKey:environment.dashboardApiKey,dashboardAccessToken:environment.dashboardAccessToken,senderAlias:environment.senderAlias,senderAccessToken:environment.senderAccessToken},claims.custody.tenant,claims.custody.provider_redeem_at);
  }
  private async originalService(project:string,claims:z.infer<typeof releaseClaims>){const provider=await this.originalProvider(project,claims);return new ReleaseService(new PostgresReleaseRepository(project),new PostgresGrantSignatures(provider,this.master),provider);}
- async escrowEnrollment(ctx:ReleaseContext,nonce:Uint8Array,recipient:string,ttlSeconds:number):Promise<string>{
+ async escrowEnrollment(ctx:ReleaseContext,nonce:Uint8Array,recipient:string,ttlSeconds:number,correlation?:import('../application/ports.js').ProviderCorrelation):Promise<string>{
   const project=await this.ensure(ctx);
   if(!project||project.provider.id!=='xq')throw new DomainError('dependency_unavailable','XQ must be configured for identity enrollment.');
-  return project.provider.escrow(nonce,recipient,ttlSeconds,true);
+  return project.provider.escrow(nonce,recipient,ttlSeconds,true,undefined,correlation);
  }
  async revokeEnrollment(ctx:ReleaseContext,locator:string):Promise<void>{
   const project=await this.ensure(ctx);if(project?.provider.id==='xq')await project.provider.revoke(locator);

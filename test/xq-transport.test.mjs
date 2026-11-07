@@ -22,3 +22,7 @@ it.each(['reset','timeout','400'])('XQ transport never retries %s after writing'
   expect(requests).toBe(1);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
+
+it('failed DNS setup retains only its phase and allowlisted native error code',async()=>{
+ await expect(xqRequest('http://test.invalid/packet',{method:'POST'},'PRIVATE_BODY',{connectTimeoutMs:20,deadlineMs:200,lookup:()=>{}})).rejects.toMatchObject({phase:'DNS',nativeErrorCode:'ETIMEDOUT',written:false,attempt:2});
+});

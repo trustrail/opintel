@@ -39,7 +39,7 @@ try{
   const requestDiagnostic=(status,attempt,written)=>{if(operation==='escrow')parentPort.postMessage({type:'escrow-request',startedAt,completedAt:new Date().toISOString(),evidenceId:receipt??null,subcall,requestBytes,requestShape,status,attempt,written});};
   let response;
   try{response=await xqRequest(url,{method,headers:requestHeaders},body);}
-  catch(error){requestDiagnostic(null,error.attempt??1,error.written??false);failure={kind:error.kind??'unreachable',subcall,providerCode:null,attempt:error.attempt??1,requestBytes,requestShape};throw error;}
+  catch(error){requestDiagnostic(null,error.attempt??1,error.written??false);failure={kind:error.kind??'unreachable',subcall,providerCode:null,attempt:error.attempt??1,phase:error.phase??null,nativeErrorCode:error.nativeErrorCode??null,written:error.written??false,requestBytes,requestShape};throw error;}
   requestDiagnostic(response.status,response.attempt,true);
   const ok=response.status>=200&&response.status<300;
   let value;try{value=JSON.parse(response.text);}catch{value=response.text;}
@@ -47,7 +47,7 @@ try{
    const raw=value&&typeof value==='object'?(value.code??value.errorCode??value.error?.code):undefined;
    const code=typeof raw==='number'&&Number.isSafeInteger(raw)?String(raw):raw;
    const secrets=[...Object.values(configuration),alias,recipientIdentifier,locator,share,wireShare,receipt,typeof payload?.data==='string'?payload.data:undefined];
-   failure={kind:'http_refused',status:response.status,subcall,providerCode:typeof code==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u.test(code)&&redactedXqBody(code,secrets).text===code?code:null,attempt:response.attempt,requestBytes,requestShape,...(response.status>=400&&response.status<500?{responseBody:redactedXqBody(response.text,secrets)}:{})};
+   failure={kind:'http_refused',phase:'response',nativeErrorCode:null,written:true,status:response.status,subcall,providerCode:typeof code==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,47}$/u.test(code)&&redactedXqBody(code,secrets).text===code?code:null,attempt:response.attempt,requestBytes,requestShape,...(response.status>=400&&response.status<500?{responseBody:redactedXqBody(response.text,secrets)}:{})};
   }
   if(operation==='health'){healthStatus=response.status;return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,null);}
   return new ServerResponse(ok?ServerResponse.OK:ServerResponse.ERROR,response.status,value);
@@ -62,11 +62,11 @@ try{
  else throw new Error('Unknown XQ operation.');
  if(operation==='health'){
   const status=healthStatus;
-  parentPort.postMessage({ok:true,value:{reachable:status!==undefined,authenticated:status!==undefined&&(response?.status===ServerResponse.OK),failure:status===undefined?'unreachable':(response?.status===ServerResponse.OK)?null:status===401||status===403?'authentication_refused':'provider_refused'}});
+  parentPort.postMessage({ok:true,diagnostic:failure,value:{reachable:status!==undefined,authenticated:status!==undefined&&(response?.status===ServerResponse.OK),failure:status===undefined?'unreachable':(response?.status===ServerResponse.OK)?null:status===401||status===403?'authentication_refused':'provider_refused'}});
   sdk.getCache().clearAllProfiles();
  }else{
  if(response?.status!==ServerResponse.OK)throw new Error('XQ operation refused.');
  parentPort.postMessage({ok:true,value:operation==='escrow'||operation==='fetch'?response.payload:null});
  sdk.getCache().clearAllProfiles();
  }
-}catch(error){parentPort.postMessage((workerData.operation==='health')?{ok:true,value:{reachable:false,authenticated:false,failure:error?.name==='TimeoutError'?'deadline_exceeded':'unreachable'}}:{ok:false,failure:failure??{kind:'operation_refused'}});}
+}catch(error){parentPort.postMessage((workerData.operation==='health')?{ok:true,diagnostic:failure??{kind:'operation_refused'},value:{reachable:false,authenticated:false,failure:error?.name==='TimeoutError'?'deadline_exceeded':'unreachable'}}:{ok:false,failure:failure??{kind:'operation_refused'}});}

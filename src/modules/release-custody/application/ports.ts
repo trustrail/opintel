@@ -5,11 +5,12 @@ export type ReleaseContext={projectId:ProjectId;userId:UserId};
 export type ProviderHealth={dashboard?:{status:'authenticated'|'failed'|'not_set';failure:null|'credentials_missing'|'authentication_refused'|'provider_refused'|'unreachable'|'deadline_exceeded'|'invalid_response'};reachable:boolean;authenticated:boolean;failure:null|'credentials_missing'|'authentication_refused'|'provider_refused'|'unreachable'|'deadline_exceeded'|'invalid_response'};
 export type ProviderRedemption={locator:string;alias:string;at:Date;origin:string|null};
 export type ProviderRedemptions={status:'supported';events:ProviderRedemption[]}|{status:'unsupported'};
+export type ProviderCorrelation={enrollmentId:string;credentialId:import('../../pools/index.js').CredentialId};
 export interface ReleaseProvider {
  readonly id:string;readonly tenant:string;readonly redeemAt:string;
  readonly reportedRegion?:string;
  register?(alias:string):Promise<void>;
- escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true,receipt?:string):Promise<string>;
+ escrow(key:Uint8Array,alias:string,ttlSeconds:number,singleUse:true,receipt?:string,correlation?:ProviderCorrelation):Promise<string>;
  revoke(locator:string):Promise<void>;
  redemptions(since:Date):Promise<ProviderRedemptions>;
 }

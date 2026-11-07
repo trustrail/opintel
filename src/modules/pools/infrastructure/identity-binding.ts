@@ -41,7 +41,7 @@ export class PostgresCredentialBindings implements CredentialBindings{
    const previous=StoredChallenge.safeParse(preview?.enrollment_challenge);
    if(preview&&!preview.revoked_at&&preview.credential_kind==='identity-bound'&&preview.certificate_fingerprint===null&&(!preview.enrollment_recipient_identifier||preview.enrollment_recipient_identifier===enrollment.recipientIdentifier)&&(!previous.success||Date.parse(previous.data.expiresAt)<=Date.now())){
     const nonce=randomBytes(32),challengeId=randomUUID(),ttl=120,expiresAt=new Date(Date.now()+ttl*1000).toISOString();
-    try{const locator=await this.escrow.escrowEnrollment(ctx,nonce,enrollment.recipientIdentifier,ttl);prepared={id:challengeId,nonce,locator,expiresAt};}catch{nonce.fill(0);}
+    try{const locator=await this.escrow.escrowEnrollment(ctx,nonce,enrollment.recipientIdentifier,ttl,{enrollmentId:challengeId,credentialId:id});prepared={id:challengeId,nonce,locator,expiresAt};}catch{nonce.fill(0);}
    }
   }
   try{return await withTenant(ctx,async tx=>{

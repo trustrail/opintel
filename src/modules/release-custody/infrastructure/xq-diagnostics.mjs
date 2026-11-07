@@ -53,3 +53,7 @@ export function redactedXqBody(text,secrets=[]){
  const bytes=Buffer.from(rendered);if(bytes.length>2048)truncated=true;
  return {text:bytes.subarray(0,2048).toString('utf8').replace(/\uFFFD$/u,''),truncated};
 }
+
+// Never echo an arbitrary error.code: it can contain provider-controlled data.
+const nativeCodes=new Set(['ABORT_ERR','ETIMEDOUT','ECONNRESET','ECONNREFUSED','EHOSTUNREACH','ENETUNREACH','EAI_AGAIN','ENOTFOUND','EPIPE','ECONNABORTED','ERR_TLS_CERT_ALTNAME_INVALID','CERT_HAS_EXPIRED','DEPTH_ZERO_SELF_SIGNED_CERT','UNABLE_TO_VERIFY_LEAF_SIGNATURE','ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR','ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE','RESPONSE_OVERSIZED']);
+export const xqNativeCode=value=>nativeCodes.has(value)?value:null;
