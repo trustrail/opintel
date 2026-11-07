@@ -832,3 +832,70 @@ acceptance and latency comparison remain blocked; stop for review, no merge.
 
 Report lint and whitespace checks passed. Post-cleanup label queries found no
 owned containers or volumes. No additional acceptance or baseline run followed.
+
+## Fresh acceptance after full Docker purge — soak failed
+
+At the owner's request, recreated the ordinary development Postgres and Redis
+with `docker compose up -d postgres redis`, then ran the standard
+`prepareDevelopmentServices` bootstrap from scripts/dev-up.ts. Migration/bootstrap
+exited 0 through migration 103; both services reported healthy before acceptance
+and after cleanup. Base images were pulled normally. No product or environment
+configuration was changed in this round.
+
+Ran the standard packaged acceptance once from the beginning:
+
+```sh
+PLATFORM=linux/amd64 RELEASE_MANIFEST=tmp/arch01-review-published.json STAGE4_PROVIDER_ENV=.env node scripts/images/stage5-smoke.mjs tmp/arch01-review-amd64-archives --candidate --duration-seconds 600 --transport-diagnostics --transport-benchmark
+```
+
+Retained private run: `tmp/stage5-acceptance-ekJKaK`, started
+2026-11-06T23:58:02.392Z. Actual archive/image revision: **3b3add2**, manifest
+`tmp/arch01-review-published.json`; checkout **f8f0a07** adds only the preceding
+report. Docker memory preflight: 8,325,939,200 bytes (7.75 GiB). Nested daemon
+startup succeeded this time.
+
+**Evidence:** archive audits, gateway/engine install, four identity imports,
+pairing, real SMTP sign-in, all 31 first-hour steps through a receipt, 200/200 XQ
+round trips, browser and restored browser (zero page errors), and console outage
+isolation (19 verified queries) passed. The ten-minute soak completed with:
+
+- 284 queries: 239 success, 7 engine_saturated, 9 source_unavailable,
+  13 element_withheld, 16 unsupported_on_aggregate_only.
+- Four scenario mismatches, all source_unavailable / engine_registry for masked
+  insured_name on policies in pools 0 and 1. Evidence ids:
+  `01a1b355-d0ea-7980-8a2a-8f7a1b5e3348`,
+  `01a1b355-d1a6-75d1-93c9-3dfb7bd0a6f1`,
+  `01a1b355-d0ec-745a-a197-496e77166b53`,
+  `01a1b355-d1a5-7846-9355-a418a138513b`.
+- Zero operational errors; receipt invariants did not fail; 79 custody values
+  verified during the soak. Seven capacity refusals remained separate from
+  invariant breaches. Coverage: 40/115 cells exercised (35%); this timed soak
+  does not establish complete scenario coverage.
+
+The engine **answered** `/egress/register` with HTTP 503 on an already connected,
+reused H2 session. Call `0e1a2143-e727-40de-a856-0134804366b0` was written at
+00:05:37.603Z, answered at 00:05:45.478Z; call
+`cbb196a1-4bb8-4469-a31a-dc53c122ee34` was written at 00:05:50.896Z, answered
+at 00:05:56.276Z. Gateway verification refusal followed at 00:05:45.625Z and
+00:05:56.329Z, stage egress_registration. The reused session's DNS/TCP/TLS
+durations were 5/3/5 ms, H2 ready in 20 ms. Registry handling at
+src/modules/engines/application/registry.ts:132 clears serving authority on this
+registration refusal; registry refusals use cause engine_registry at line 33.
+These records demonstrate HTTP responses, not a connection-phase failure. The
+underlying reason for the engine's registration 503 is not established here.
+
+Separately, `/validate` call `bebd7d6b-a204-4632-92ae-a2ff91aa5efa` failed in
+response phase after 10,010 ms: written 00:07:33.660Z, ABORT_ERR at
+00:07:43.664Z, no response. It was not replayed. Aggregate diagnostics: 1,327
+completed calls, one failed attempt, zero recorded TLS stalls or recovered TLS
+stalls, zero successful calls with retries. This is **not** a zero-transport-
+failure soak.
+
+**Conclusion / limits:** acceptance failed at soak-result (exit 1). No claim is
+made that load or H2 itself caused the registration refusals. Final dedicated
+custody/companion checks and the isolated 50-call latency selection were not
+reached. The conditional HTTP/1 baseline was not started; query, attest and
+verify p50/p95 remain **not measured** on both sides. The timeout table remains
+[docs/timeouts.md](../../timeouts.md). No timeout, assertion or product fix was
+made, and no acceptance retry followed. Owned lab cleanup passed; development
+Postgres and Redis remain healthy. Stop for review; no merge.
