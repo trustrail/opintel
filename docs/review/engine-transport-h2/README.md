@@ -1073,3 +1073,117 @@ XQ run. No claim of successful enrollment or zero registration failures is made
 for d1131d3. Query/attest/verify p50/p95 remain unmeasured for this candidate and
 the conditional HTTP/1 baseline. The preceding successful gate on 5480fbb does
 not validate this changed product tip. Stop for review; no merge.
+
+## Owner-authorized warm-Docker rerun on 0c34137 — gate passed, soak failed
+
+No product, test, environment configuration or deadline changed in this round.
+The owner classified the previous preflight failure as Docker warm-up and
+explicitly authorized this new full gate and packaged run.
+
+**Gate:** `npm run check` exited 0 on **0c34137**. Docker info took **7.830 s**;
+Postgres and Redis were reachable and the fresh gate database migrated. Strict
+checks, lint and production artifact checks passed, as did 40 conformance
+checks / 30 routes, **2,395 normal tests in 282 files**, and smoke (25.3-second
+scenario; 52.6-second tier). Gate wall time 2,158.57 seconds. Log:
+`/private/tmp/arch01-xq-warm-gate.log`. No retry after this run.
+
+**Artifacts:** eight fresh amd64 candidate images were audited and published;
+manifest `tmp/arch01-xq-warm-published.json`, actual source revision
+0c34137f52b3fdfd2cbb6fd6dd799b84f844e969. Four offline archives are under
+`tmp/arch01-xq-warm-amd64-archives/` (gateway, engine, agent-KIT, verification,
+all named with 0c34137). Before installation, unused regenerable builder cache
+cleanup reclaimed 214.3 MB; images, archives, logs, containers and volumes were
+preserved, and df reported 7.4 GiB free. No cloud host was touched.
+
+Ran standard `scripts/images/stage5-smoke.mjs` from the beginning, with these
+archives/manifest and `--candidate --duration-seconds 600
+--transport-diagnostics --transport-benchmark`. Run:
+**tmp/stage5-acceptance-09enB0**, started 2026-11-07T03:36:53.799Z. Log followers
+reattached across service replacement. A log-only stop watcher saw no failed
+enrollment or registration 503, so did not interrupt the standard harness.
+
+**Passed:** gateway/engine install, four identity imports, pairing, real SMTP
+and fresh owner sign-in, all 31 first-hour steps through the first receipt,
+**200/200 XQ round trips**, all ten soak agents enrolling, browser sign-in/Home
+with zero page errors, console outage (18 verified queries), and restored
+browser state. No custody.xq_operation_failed event appears in the retained
+gateway log. This run passed the enrollment point that stopped STWRsM.
+
+**Failed:** the completed ten-minute soak had 257 queries and 257 receipt
+records. Outcomes: 217 success, 12 engine_saturated, 1 source_unavailable,
+13 element_withheld, 14 unsupported_on_aggregate_only. Capacity refusals
+remain counted separately. There was one scenario mismatch, zero operational
+errors, and no receipt-invariant failure/skipped checks. During the soak,
+74 custody values were verified; custody refusals/skips were zero. Coverage
+was 36/115 (31%), not complete capability coverage.
+
+The one unexpected query refusal was:
+
+```text
+scenario: pool0/reinsurance_policies.soak_policies.policies/cedant/clear
+code: source_unavailable
+cause: deadline_exceeded
+cancellationOrigin: transport_deadline
+retryable: false
+evidenceId: 01a1b422-0c08-7fa5-a031-705fbf182121
+callId: 766d2caf-c79d-4ecb-9c76-57d30f57c46e
+```
+
+The new call-id correlation ties gateway and engine records directly. This was
+one written `/execute` attempt, response phase, ABORT_ERR; it was not replayed.
+It reused an established session (recorded DNS/TCP/TLS 14/6/33 ms), not a fresh
+connection stall. The following UTC timestamps come from gateway-transport.log
+lines 2572–2573 and matching engine-services.log phase records (starting line
+19919):
+
+| Event | UTC timestamp |
+|---|---|
+| Gateway request written | 03:51:33.263 |
+| Engine arrival | 03:51:33.280 |
+| Admission wait starts | 03:51:33.288 |
+| Admission wait ends; execution validation starts | 03:51:42.123 |
+| Execution validation ends | 03:51:47.625 |
+| Execution starts (after pre-scan) | 03:51:48.776 |
+| Gateway response deadline aborts | 03:52:03.659 |
+| Engine response aborted | 03:52:03.742 |
+| Engine execution ends | 03:52:04.680 |
+
+Admission took 8.835 s and execution validation 5.502 s. The gateway attempt
+ended after 30,399.93 ms; engine work ended after that caller deadline. These
+records place the wait; they do not establish its underlying cause or justify
+changing the deadline or reclassifying the refusal.
+
+A second written response-phase failure occurred on `/health`, call
+19c99f49-9b31-4c80-9e4a-70012638a52e: attempt started 04:00:35.710Z, written
+04:00:36.089Z, ABORT_ERR at 04:00:46.246Z, total 10,539.59 ms. Its recorded
+DNS/TCP/TLS were 9/4/15 ms. It is separate from the one query scenario mismatch.
+Overall retained transport diagnostics: 1,298 completed calls, **two failed
+attempts**, zero recorded TLS stalls/recovered stalls and zero successful calls
+with retries. This is not a zero-transport-failure soak.
+
+| Measurement | Before: ekJKaK / 3b3add2 | STWRsM / 5480fbb | New: 09enB0 / 0c34137 |
+|---|---:|---:|---:|
+| Registration HTTP 503s in retained gateway log | 4 | 0 | **0** |
+| New-run registration HTTP 200s | — | 51 | 175 |
+| New-run controller registration wait samples | Not recorded | 81 | 206 |
+| Largest recorded registration queue wait | Not recorded | 510.543 ms | 1,371.885 ms |
+| Enrollment | Completed | Failed | **Completed: all 10 agents** |
+| Soak queries | 284 | 0 | 257 |
+| Unexpected scenario mismatches | 4 | 0 (not exercised) | 1 |
+
+The harness exited 1 at soak-result and cleaned up its owned lab successfully.
+No rerun, refusal exemption, timeout change or code fix followed. The dedicated
+end-of-run custody/companion checks and isolated latency benchmark were not
+reached; the conditional HTTP/1 baseline was not started. The 74 custody values
+verified during soak do not replace those dedicated regression checks.
+
+| Required isolated selection | HTTP/1 p50 / p95 | H2 p50 / p95 | Samples |
+|---|---|---|---|
+| Query /execute | Not measured | Not measured | 0/50 each |
+| Attest /custody/attest | Not measured | Not measured | 0/50 each |
+| Verify /health and public verify duration | Not measured | Not measured | 0/50 each |
+
+The failed query's elapsed time is diagnostic evidence, not a substitute for
+that benchmark. [Timeout bounds and inventory](../../timeouts.md) remain as
+validated. Overall packaged acceptance and latency comparison remain blocked.
+Stop for review; no merge.
