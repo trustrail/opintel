@@ -61,7 +61,7 @@ const directory=selection.reuse?resolve(selection.reuse):resolve(mkdtempSync('tm
 const checkpoint=selection.reuse?JSON.parse(readFileSync(join(directory,'install-checkpoint.private.json'),'utf8')):null;
 if(checkpoint){assert.equal(checkpoint.revision,manifest.revision,'Reuse requires the same pinned images and archives.');assert.equal(checkpoint.archives,archives,'Reuse requires the original archive directory.');assert.equal(statSync(join(directory,'install-checkpoint.private.json')).mode&0o777,0o600);}chmodSync(directory,0o700);
 const write=(file,value)=>{writeFileSync(file,typeof value==='string'?value:JSON.stringify(value,null,2)+'\n',{mode:0o600});chmodSync(file,0o600);};
-const result={scope:firstHourOnly?'first-hour':'stage5',revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',soakDurationSeconds:firstHourOnly?null:soakDurationSeconds,startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:firstHourOnly?'customer archives → install → pair → first-hour public APIs':'customer archives → install → pair → first-hour → demo soak',checks:{}};
+const result={scope:firstHourOnly?'first-hour':selection.scope==='full'?'stage5':selection.scope,revision:manifest.revision,platform,candidate:!!manifest.candidate,published:!!manifest.publishedAt,status:'running',soakDurationSeconds:firstHourOnly?null:soakDurationSeconds,startedAt:new Date().toISOString(),images:manifest.artifacts.filter(a=>a.platform===platform).map(a=>({target:a.target,digest:a.repoDigests[0],id:a.id})),path:firstHourOnly?'customer archives → install → pair → first-hour public APIs':'customer archives → install → pair → first-hour → demo soak',checks:{}};
 const resultFile=join(directory,selection.reuse?'selection-'+Date.now()+'-result.json':'result.json');
 result.selection=selection.scope;
 const ledger=runLedger(selection.ledger??join(directory,'run-ledger.json'));let ledgerRun;write(resultFile,result);
@@ -94,7 +94,7 @@ function https(path,method='GET',body,cookie,headers={}){return bounded(new Prom
  }),35000);}
 let base=checkpoint?.base,ownerCookie=checkpoint?.ownerCookie,hostAddress=checkpoint?.hostAddress,clientHost=checkpoint?.clientHost,settings=checkpoint?.settings;
 const agentApiKey=join(agent,'xq-api-key'),output=join(verification,'output');
-if(checkpoint){customerSource=checkpoint.customerSource;result.checks={...checkpoint.checks};}
+if(checkpoint){customerSource=checkpoint.customerSource;result.checks={...checkpoint.checks};const selectedKeys=[...selection.custody?['custodyRegression']:[],...selection.soak?['packagedSoak']:[],...selection.latency?['transportBenchmark']:[]];for(const key of selectedKeys)delete result.checks[key];result.reusedChecks={revision:checkpoint.revision,keys:Object.keys(result.checks)};}
 async function api(path,method='GET',body){const response=await https(path,method,body,ownerCookie);assert.ok(response.status>=200&&response.status<300,'API refused '+path+' ('+response.status+')');return response.text?JSON.parse(response.text):undefined;}
 
 function browserCheck(restore=false){

@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {transportSamples,publicLatency} from './transport-benchmark.mjs';
 /** Same V-01 fixture and shipped agent command for H1 and H2; no replacement client. */
-export async function installedTransportBenchmark({directory,gateway,agent,verification,base,ownerCookie,env,lab,platform,run,apiLog}){
+export async function installedTransportBenchmark({directory,agent,verification,base,ownerCookie,env,lab,platform,run,apiLog}){
  const output=join(directory,'transport-benchmark');mkdirSync(output,{mode:0o700,recursive:true});
  const manifest=JSON.parse(readFileSync(join(verification,'output/soak.json'),'utf8')),credential=manifest.agents.find(value=>value.poolIndex===0&&value.association?.certificateId===223);assert.ok(credential,'Benchmark requires the enrolled V-01 device-223 custody agent.');
  const sql='SELECT claim_id FROM reinsurance_claims.soak_claims.claims LIMIT 1';assert.ok(Object.hasOwn(manifest.objects,'reinsurance_claims.soak_claims.claims'),'Benchmark fixture table missing');
