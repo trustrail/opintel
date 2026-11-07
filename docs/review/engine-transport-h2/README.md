@@ -1039,3 +1039,37 @@ completed request-body instrumentation and phase tests passed 30/30; final XQ
 worker/contracts/transport tests passed 15/15. Strict typecheck, lint, syntax and
 whitespace checks passed. Full candidate gate and fresh packaged acceptance
 results follow below; no completed acceptance is claimed yet.
+
+### d1131d3 gate preflight stop — no packaged run
+
+All three requested changes are pushed (74cd6e4, 49a778a, d1131d3). The single
+completed-candidate `npm run check` on d1131d3 exited 1 **before any gate test
+ran**. Retained log: `/private/tmp/arch01-xq-candidate-gate.log`:
+
+```text
+Gate memory preflight: 1.85 GiB available RAM; minimum 1 GiB.
+Docker info: 10.253s elapsed; timeout 30s.
+Docker memory: 7.75 GiB; minimum 7 GiB usable.
+Gate failed: Redis did not accept connections within 5 seconds
+Gate wall time: 16.06s
+```
+
+A subsequent read-only `docker compose ps postgres redis` reported both services
+up three hours and healthy. This does not establish their responsiveness during
+the failed check or the cause of the five-second timeout. No service restart,
+timeout alteration or gate retry followed. No fresh images or acceptance run
+was started after this standard preflight failure.
+
+| Measurement | Before: 3b3add2 / ekJKaK | Previous: 5480fbb / STWRsM | New: d1131d3 |
+|---|---|---|---|
+| Registration 503s in retained logs | 4 | 0 | Not measured |
+| Enrollment | Completed | Failed: identity_unproven | Not exercised |
+| Soak query count | 284 | 0 | Not exercised |
+| Dedicated custody/companion checks | Not reached | Not reached | Not run |
+| Isolated 50-call latency selection | Not reached | Not reached | Not run |
+
+XQ allowance and correlation are validated by targeted tests, not by a new live
+XQ run. No claim of successful enrollment or zero registration failures is made
+for d1131d3. Query/attest/verify p50/p95 remain unmeasured for this candidate and
+the conditional HTTP/1 baseline. The preceding successful gate on 5480fbb does
+not validate this changed product tip. Stop for review; no merge.
