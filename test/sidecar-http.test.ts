@@ -1,3 +1,4 @@
+import {DomainError} from '../src/shared/kernel/index.js';
 import {X509Certificate} from 'node:crypto';
 import {engineConnect} from '../src/shared/infrastructure/engine-transport.js';
 import {enginePhase} from '../src/shared/engine-phase.js';
@@ -138,6 +139,17 @@ afterAll(async()=>{
 });
 
 describe('S1 sidecar over real pinned mTLS and Postgres',()=>{
+  it('logs HTTP dependency failures with status and request id, never error values',async()=>{
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>{}),requestId=randomUUID();
+    const failed=createSidecarServer({config,tls,connector,registerEgress:async()=>({ok:false,error:new DomainError('dependency_unavailable','PRIVATE_ERROR_SENTINEL')})});
+    try{
+      const port=await failed.listen();
+      expect((await json('/egress/register',{requestId,projectId,engineId:randomUUID(),gatewayUrl:'https://gateway.example/'},{baseUrl:`https://127.0.0.1:${port}`})).status).toBe(503);
+      expect(warning).toHaveBeenCalledWith(expect.objectContaining({event:'sidecar.http_failed',status:503,reason:'dependency_unavailable',requestId}));
+      expect(JSON.stringify(warning.mock.calls)).not.toContain('PRIVATE_ERROR_SENTINEL');
+    }finally{await failed.close();warning.mockRestore();}
+  });
+
   it('J-001: all five POST endpoints implement the wire contract',async()=>{
     expect(await json('/health')).toEqual({status:200,value:sidecarBuild});
     expect(await json('/test-connection',body({}))).toEqual({status:200,value:{reachable:true}});

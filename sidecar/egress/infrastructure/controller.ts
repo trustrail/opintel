@@ -91,11 +91,14 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
  await install();await persist();
  const server=createServer((req,res)=>{
   if(req.method!=='POST'||req.url!=='/register'){res.writeHead(404);res.end();req.resume();return;}
-  void(async()=>{try{
+  void(async()=>{let queueWaitMs:number|null=null;try{
    const chunks:Buffer[]=[];let size=0;for await(const chunk of req){const bytes=Buffer.from(chunk as Uint8Array);size+=bytes.length;if(size>4096)throw new Error('Registration too large');chunks.push(bytes);}
    const registration=egressRegistration.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
    const binding={projectId:registration.projectId,engineId:registration.engineId,gatewayUrl:registration.gatewayUrl};
+   const queuedAt=performance.now();
    await queue(async()=>{
+    queueWaitMs=Math.max(0,performance.now()-queuedAt);
+    console.info({event:'engine.egress_registration_started',timestamp:new Date().toISOString(),requestId:registration.requestId,queueWaitMs});
     const prior=state.find(value=>value.binding.projectId===binding.projectId);
     if(prior&&JSON.stringify(prior.binding)===JSON.stringify(binding))return;
     if(!prior&&state.length>=32)throw new Error('Too many registrations');
@@ -107,7 +110,11 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
      throw error;
     }
    });res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({registered:true}));
-  }catch{res.writeHead(503);res.end();}})();
+  }catch(error){
+   const nativeErrorCode=error instanceof Error&&'code' in error&&typeof error.code==='string'&&/^[A-Z][A-Z0-9_]+$/u.test(error.code)?error.code:undefined;
+   const registrationCause=error instanceof z.ZodError||error instanceof SyntaxError?'malformed':nativeErrorCode==='ETIMEDOUT'||nativeErrorCode==='ABORT_ERR'?'timeout':nativeErrorCode?'socket':'apply';
+   console.warn({event:'engine.egress_registration_failed',timestamp:new Date().toISOString(),registrationCause,queueWaitMs,...(nativeErrorCode?{nativeErrorCode}:{})});
+   res.writeHead(503);res.end();}})();
  });
  phase('control_listener');
  await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(egressControlAddress,resolve);});

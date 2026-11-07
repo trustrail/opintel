@@ -58,6 +58,7 @@ export function createSidecarServer(options: {
   }
   function fail(res: InternalResponse, status: number, code: string, message: string, requestId: string, retryable=false, details?:Readonly<Record<string,unknown>>) {
     if(status<500)console.info({event:'sidecar.refused',reason:code,requestId});
+    else console.warn({event:'sidecar.http_failed',timestamp:new Date().toISOString(),status,reason:code,requestId,...(typeof details?.registrationCause==='string'?{registrationCause:details.registrationCause}:{})});
     send(res,status,{error:{code,message,requestId,retryable,...(details?{details}:{})}});
   }
   async function handle(req: InternalRequest,res: InternalResponse,controller: AbortController): Promise<void> {
