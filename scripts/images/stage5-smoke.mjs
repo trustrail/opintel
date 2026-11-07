@@ -168,6 +168,7 @@ try{
  const xqDirectory=join(output,readdirSync(output).filter(name=>name.startsWith('xq-roundtrip-')).sort().at(-1));
  const xqResult=JSON.parse(readFileSync(join(xqDirectory,'result.json')));assert.equal(xqResult.status,'passed');assert.equal(xqResult.keyEncoding,'sdk-base64-hex-256');assert.equal(xqResult.attempted,200);assert.equal(xqResult.verified,200);assert.equal(xqResult.required,200);assert.equal(xqResult.attempts.length,200);assert.equal(new Set(xqResult.attempts.map(attempt=>attempt.id)).size,200);assert.ok(xqResult.attempts.every(attempt=>attempt.verified&&attempt.fetchStatus===200&&!attempt.cleanupFailed));
  result.checks.xqCheck={authenticated:true,escrowRedeemAttempted:200,escrowRedeemVerified:200,result:join(xqDirectory,'result.json')};
+ advance('packaged-custody-rows-aggregate-companion');result.checks.custodyRegression=await custodyStepsAcceptance({directory,archives,revision:manifest.revision,gateway,base,email:settings.OWNER_EMAIL,team:provider.OPINTEL_XQ_TEAM_ID,apiKey:provider.OPINTEL_XQ_API_KEY,browser:result.checks.firstHour,version:JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version,platform,commandEnv:nested,transportBenchmark,deferTransportBenchmark:true,lab,apiLog:file=>captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested})});
  advance('customer-demo-soak');
  // Reuse the explicitly named external customer database, never engine readiness.
  command('engine','sources','add','v01','--host',customerSource.host,'--port',customerSource.port,'--database',customerSource.database,'--user',customerSource.user,'--password-file',customerSource.passwordFile);
@@ -191,7 +192,8 @@ try{
  advance('soak-result');assert.equal(await childDone,0,'Customer demo soak failed');child=undefined;
  const soakResult=JSON.parse(readFileSync(join(runDirectory,'result.json'))),summary=events().at(-1);assert.equal(soakResult.status,'passed');assert.equal(summary.status,'PASSED');assert.equal(summary.operationalErrors,0);assert.equal(summary.invariantBreaches,0);assert.equal(summary.receiptInvariants.checksSkipped,0);assert.ok(summary.custody.verifiedValues>0);
  result.checks.packagedSoak={durationSeconds:soakDurationSeconds,latencyMs:summary.latencyMs,coverage:summary.coverage,result:join(runDirectory,'result.json'),jsonl,steps:soakResult.steps,operationalErrors:0,invariantBreaches:0,receiptChecksSkipped:0,custodyVerifiedValues:summary.custody.verifiedValues};
- advance('packaged-custody-rows-aggregate-companion');result.checks.custodyRegression=await custodyStepsAcceptance({directory,archives,revision:manifest.revision,gateway,base,email:settings.OWNER_EMAIL,team:provider.OPINTEL_XQ_TEAM_ID,apiKey:provider.OPINTEL_XQ_API_KEY,browser:result.checks.firstHour,version:JSON.parse(readFileSync('package-lock.json')).packages['node_modules/@playwright/test'].version,platform,commandEnv:nested,transportBenchmark,lab,apiLog:file=>captureProcessLog('docker',composeArgs('gateway','logs','--no-color','--no-log-prefix','api'),file,{env:nested})});
+
+ if(transportBenchmark){advance('transport-benchmark');result.checks.custodyRegression.transportBenchmark=await result.checks.custodyRegression.runTransportBenchmark();}
 
  }
  result.status='passed';result.finishedAt=new Date().toISOString();

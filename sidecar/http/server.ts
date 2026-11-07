@@ -1,3 +1,4 @@
+import type {EngineRuntimeSample} from '../../src/shared/engine-runtime.js';
 import {transportFailureCode} from '../../src/shared/infrastructure/transport-failure-code.js';
 import {enginePhase,engineCallId,withEngineCall,validationProgress} from '../../src/shared/engine-phase.js';
 import {egressRegistration,egressRegistered} from '../../src/shared/engine-egress-contract.js';
@@ -31,6 +32,7 @@ export function createSidecarServer(options: {
   execution?: {health?():unknown;preview?(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;execute(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>;validate(body:unknown,signal?:AbortSignal):Promise<Result<unknown>>};
   custody?: {invoke(operation:CustodyOperation,projectId:string,payload:unknown):Promise<Result<unknown>>};
   canonicalisers?: CanonicaliserRegistry;
+  runtime?:()=>EngineRuntimeSample|undefined;
   build?: typeof sidecarBuild | { version: string; contract: number; queryEngineVersion: string };
 }) {
   const build = wire.healthResponse.parse({ ...(options.build ?? sidecarBuild), canonicalisers: (options.canonicalisers ?? canonicalisers).ids });
@@ -39,7 +41,7 @@ export function createSidecarServer(options: {
     ...(options.registerEgress?{'/egress/register':{permission:'pinned_application_certificate' as const,response:egressRegistered,invoke:options.registerEgress}}:{}),
     ...(options.execution?{'/execute':{permission:'pinned_application_certificate' as const,response:executionResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.execute(body,signal)},'/validate':{permission:'pinned_application_certificate' as const,response:validationResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.validate(body,signal)}}:{}),
     ...(options.execution?.preview?{'/preview-rows':{permission:'pinned_application_certificate' as const,response:rowPreviewResponse,invoke:(body:unknown,signal:AbortSignal)=>options.execution!.preview!(body,signal)}}:{}),
-    '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>({ok:true,value:{...build,...(options.execution?.health?{queue:options.execution.health()}: {})}}) },
+    '/health': { permission:'pinned_application_certificate', response:wire.healthResponse, invoke:async()=>{const runtime=options.runtime?.();return {ok:true as const,value:{...build,...(runtime?{runtime}:{}),...(options.execution?.health?{queue:options.execution.health()}: {})}};} },
     '/test-connection': { permission:'pinned_application_certificate', response:wire.connectionResponse, invoke:(body,signal)=>options.connector.testConnection(body,signal) },
     '/schemas': { permission:'pinned_application_certificate', response:wire.schemaListResponse, invoke:(body,signal)=>options.connector.listSchemas(body,signal) },
     '/introspect': { permission:'pinned_application_certificate', response:wire.snapshotResponse, invoke:(body,signal)=>options.connector.introspect(body,signal) },

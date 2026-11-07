@@ -188,3 +188,11 @@ it('ENG-H07: forward registration-version migration round-trips without changing
   await db.query('ROLLBACK TO SAVEPOINT invalid_version');
  }finally{await db.query('ROLLBACK');await db.end();}
 });
+
+it('engine runtime samples reach the existing engine list and do not survive a registration change',async()=>{
+ const f=await fixture(),runtime={sampledAt:new Date().toISOString(),windowMs:1200,samples:20,eventLoop:{meanMs:30,p99Ms:200,maxMs:200}};
+ f.probe.health.mockImplementation(async()=>ok({contract:3,queryEngineVersion:'fixture-build',canonicalisers:[],runtime}));
+ unwrap(await f.registry.verify(f.ctx,f.engine.id));expect((await f.registry.list(f.ctx,null,10))[0]?.runtime).toEqual(runtime);
+ unwrap(await f.registry.update(f.ctx,f.engine.id,{name:'Renamed',address:f.engine.address,certificatePin:f.engine.certificatePin}));
+ expect((await f.registry.list(f.ctx,null,10))[0]?.runtime).toBeNull();
+});

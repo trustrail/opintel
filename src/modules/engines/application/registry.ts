@@ -1,3 +1,4 @@
+import type {EngineRuntimeSample} from '../../../shared/engine-runtime.js';
 import type {EngineTransportLatency} from '../../../shared/engine-transport-telemetry.js';
 import {engineHealthPolicySchema,type EngineHealthPolicy} from './health-policy.js';
 import {readinessFailure,readinessMessages,isReadinessMessage} from '../../../shared/engine-readiness.js';
@@ -27,7 +28,7 @@ export interface EngineRepository {
 export interface EngineTelemetry {snapshot(address:string,pin:string,project:ProjectId):EngineTransportLatency|null;}
 export interface EngineProbe {
  registerEgress?(endpoint:EngineEndpoint,projectId:ProjectId,engineId:EngineId):Promise<Result<void>>;
- health(endpoint:EngineEndpoint):Promise<Result<{contract:number;queryEngineVersion:string;canonicalisers:string[]}>>;
+ health(endpoint:EngineEndpoint):Promise<Result<{contract:number;queryEngineVersion:string;canonicalisers:string[];runtime?:EngineRuntimeSample}>>;
  sentinel(endpoint:EngineEndpoint,project:ProjectId):Promise<Result<{version:number|null;sentinel:string|null}>>;
 }
 export const engineRefusal=(message:string,retryable=false,transportPhase?:string)=>err(new DomainError('source_unavailable',message,{cause:'engine_registry',...(transportPhase?{transportPhase}:{})},retryable));
@@ -111,7 +112,7 @@ export class EngineRegistry {
  endpoint(record:EngineRecord,telemetryProject?:ProjectId):EngineEndpoint{return {telemetryProject,baseUrl:record.address,tls:{...this.tls,certificatePin:record.certificatePin}};}
  async update(ctx:EngineContext,id:EngineId,input:EngineRegistration){const result=await this.repository.update(ctx,id,input);if(result.ok)for(const [key,value] of this.observations)if(value.ctx.projectId===ctx.projectId&&value.record.id===id){this.observations.delete(key);this.tracked.delete(key);}return result;}
  register(ctx:EngineContext,input:EngineRegistration){return this.repository.register(ctx,input);}
- async list(ctx:EngineContext,after:EngineId|null,limit:number){const rows=await this.repository.list(ctx,after,limit);return this.telemetry?rows.map(row=>({...row,transport:this.telemetry!.snapshot(row.address,row.certificatePin,ctx.projectId)})):rows;}
+ async list(ctx:EngineContext,after:EngineId|null,limit:number):Promise<EngineView[]>{const rows=await this.repository.list(ctx,after,limit);return rows.map(row=>{const observed=[...this.observations.values()].find(value=>value.ctx.projectId===ctx.projectId&&value.record.id===row.id&&value.record.address===row.address&&value.record.certificatePin===row.certificatePin&&value.record.name===row.name&&value.record.verifiedAt===row.verifiedAt);return {...row,runtime:observed?.record.runtime??null,...(this.telemetry?{transport:this.telemetry.snapshot(row.address,row.certificatePin,ctx.projectId)}:{})};});}
  async verify(ctx:EngineContext,id:EngineId){
   const record=await this.repository.get(ctx,id);if(!record.ok)return record;
   return this.verifyLoaded(ctx,record.value);
@@ -132,7 +133,7 @@ export class EngineRegistry {
   if(registerEgress&&result.value.contract===3&&this.probe.registerEgress){const registered=await this.probe.registerEgress(this.endpoint(value,ctx.projectId),ctx.projectId,id);if(!registered.ok){if(registered.error.details?.reason==='control_connect_timeout'){console.info({event:'engine.health_observation_missed',timestamp:new Date(this.now()).toISOString(),engineId:id,stage:'egress_registration'});return registered;}this.observations.delete(identity);console.info({event:'engine.verification_refused',timestamp:new Date(this.now()).toISOString(),stage:'egress_registration'});await this.repository.health(ctx,id,{address:value.address,certificatePin:value.certificatePin,name:value.name,registrationVersion:value.registrationVersion,contractVersion:null,health:'unavailable',message:'Engine egress registration failed.',verified:false});return registered;}}
   const matches=result.value.contract===3;
   const updated=await this.repository.health(ctx,id,{address:record.value.address,certificatePin:record.value.certificatePin,name:record.value.name,registrationVersion:record.value.registrationVersion,contractVersion:result.value.contract,health:matches?'healthy':'contract_mismatch',message:matches?null:'This application requires engine contract 3.',verified:matches});
-  if(matches&&updated.ok){this.observations.set(identity,{record:updated.value,queryEngineVersion:result.value.queryEngineVersion,observedAt,ctx});console.info({event:'engine.health_observed',timestamp:new Date(observedAt).toISOString(),engineId:id});return updated;}
+  if(matches&&updated.ok){this.observations.set(identity,{record:{...updated.value,runtime:result.value.runtime??null},queryEngineVersion:result.value.queryEngineVersion,observedAt,ctx});console.info({event:'engine.health_observed',timestamp:new Date(observedAt).toISOString(),engineId:id});return updated;}
   this.observations.delete(identity);
   if(matches)return updated;
   return engineRefusal(`Engine ${record.value.name} reports contract ${result.value.contract}; this application requires contract 3.`);

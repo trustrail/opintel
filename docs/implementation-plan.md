@@ -1666,3 +1666,10 @@ engine routes and response contracts, runtime packaging, typecheck and lint;
 then one full gate. Compare 50 calls/path on equivalent HTTP/1 and HTTP/2
 packaged fixtures, and finish candidate acceptance with custody/companion plus
 a ten-minute standard packaged soak. No cloud measurement; owner runs that.
+
+ARCH-01 diagnostic follow-up (2026-11-07, approved): sample engine event-loop
+scheduling delay, expose the timestamped numeric window through the existing
+engine health/read/panel, and keep absence explicit. This observes delay, not
+its cause. Custody/companion acceptance precedes soak; isolated benchmarks
+remain last. Execution/admission/deadline fixes await review of the retained
+call-id-correlated timeout diagnosis.

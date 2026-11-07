@@ -1187,3 +1187,150 @@ The failed query's elapsed time is diagnostic evidence, not a substitute for
 that benchmark. [Timeout bounds and inventory](../../timeouts.md) remain as
 validated. Overall packaged acceptance and latency comparison remain blocked.
 Stop for review; no merge.
+
+## Retained timeout diagnosis — 2026-11-07 (no execution fix)
+
+Evidence is from `tmp/stage5-acceptance-09enB0`, not a new acceptance run.
+The reproducible, identifier-only extraction is
+[`scripts/diagnostics/engine-timeout-window.mjs`](../../../scripts/diagnostics/engine-timeout-window.mjs).
+Run `node scripts/diagnostics/engine-timeout-window.mjs tmp/stage5-acceptance-09enB0`;
+its sanitized output is [timeout-window-20261107.json](timeout-window-20261107.json).
+
+### Correlation and engine stages (UTC)
+
+| Call | Gateway | Engine |
+|---|---|---|
+| `/execute`, `766d2caf-c79d-4ecb-9c76-57d30f57c46e` | Start 03:51:33.262; written 33.263; abort 03:52:03.659; total 30,399.93 ms | Arrival 03:51:33.280; queue 33.288–42.123; validation 42.123–47.625; execute 48.776–03:52:04.680; response aborted 03:52:03.742 |
+| `/health`, `19c99f49-9b31-4c80-9e4a-70012638a52e` | Start 04:00:35.710; written 36.089; abort 46.246; total 10,539.59 ms | Arrival 04:00:45.819; respond start 45.850, end 46.306 |
+
+Gateway evidence: `gateway-transport.log:2572–2574,10579–10581`.
+Engine evidence: `engine-services.log:19919` onwards and `:228703` onwards;
+the extraction records every matching phase by call id. Both requests were
+written on reused, already-connected H2 sessions. They were not retried after
+writing. Their original session DNS/TCP/TLS times were respectively 14/6/33 ms
+and 9/4/15 ms; those are connection-creation timings, not costs paid by these calls.
+
+The execute admission wait was 8,831.45 ms by the queue's monotonic measurement
+(8.835 seconds between phase timestamps). Validation took 5.502 seconds.
+Prescan was 03:51:47.637–48.768; staging/treatment continued until 03:51:58.853.
+The gateway deadline expired while engine work was still running. The engine's
+own execution timer starts after admission (`sidecar/execution/application/execute.ts:48–53`),
+whereas the caller's deadline already covers the admission wait. This is a
+measured budget-boundary difference; it does not establish the cause of slow work.
+
+Health arrival was 9.730 seconds after gateway write. Its handler/response then
+took 487 ms, completing 60 ms after the gateway abort. This is handler arrival,
+not a kernel packet-arrival timestamp. During the gap, the supervisor logged
+`engine.child_ready` at 04:00:44.919 for pid 29; initial readiness was also pid 29
+at 03:43:31.802. No intervening exit/restart record was found. The supervisor
+emits that event again after an IPC heartbeat gap over ten seconds
+(`sidecar/supervision.ts:28`); it is not evidence of a restart.
+The last preceding engine operation record starts credential resolution at
+04:00:31.728. Credential resolution uses asynchronous filesystem operations
+(`sidecar/infrastructure/source-secrets.ts:19–30`); its stalled completion alone
+cannot distinguish filesystem/thread-pool waiting from process/host scheduling.
+
+### Concurrency and missing resource evidence
+
+The retained `verification/output/operator.json` sets concurrency **2 per pool**,
+query timeout 30 seconds and memory 256 MiB. Both soak pools set threads=1, with
+no tighter concurrency budget (`scripts/operator/reinsurance.ts:77`). The gateway
+takes the minimum pool/project concurrency (`src/modules/mcp/infrastructure/query-reader.ts:37`).
+
+At the execute request's arrival, four admitted requests were awaiting responses:
+two per pool. The failed request entered when a slot became available at
+03:51:42.123. Response-overlap can briefly count five around this handoff; it is
+not five simultaneous queue leases. At health-write time, four admitted requests
+were awaiting responses, again two per pool. Three had entered execution and one
+was validating. That fourth validation spans 04:00:30.147–48.710.
+A queued request's nominal ten-second admission bound was observed firing after
+16,591.92 ms at 04:00:46.238, followed by `engine_saturated` (expected capacity refusal).
+
+Exact native DuckDB instances in use were **not recorded**. Queue leases and
+response overlap are not native instance counts: preflight and privileged/agent
+sessions have distinct lifetimes (`execute.ts:136–146`). No engine-wide DuckDB
+instance limit was found; admission is scoped to project/pool (`queue.ts:15`).
+The configured source-connection limit was 8 per source; sampled lease records
+in the execute window reached 4, not 8. No source-lease sample falls inside the
+health window; the preceding sample is 1 at 04:00:31.716. Do not carry it forward
+as a measured value for the gap.
+
+No engine event-loop lag samples, Docker stats time series, host load/pressure,
+or cgroup CPU-throttling counters were retained for these windows. The lab has
+been removed. Compose specifies engine `pids_limit:256` and default memory 1 GiB,
+with no explicit CPU quota; configuration is not a runtime utilization measurement.
+The retained preflight only reports Docker allocation of 8,325,939,200 bytes;
+that is not usage or pressure during either window. Docker stats CPU percentages
+would not, by themselves, prove cgroup throttling;
+that requires `cpu.stat` counters. Current host statistics cannot reconstruct
+this past run.
+
+**Conclusion: blocked engine process versus starved host is undetermined.**
+The heartbeat gap and late queue timer establish delayed engine progress;
+they do not identify whether the child was blocked or descheduled. Neither a
+transport timeout increase nor an execution fix is justified by these records alone.
+There is no packet-arrival trace to independently rule out delayed frame delivery either.
+
+### The unexpected refusal
+
+There is one unexpected query refusal, not a third independent timeout:
+receipt id `01a1b422-0c08-7fa5-a031-705fbf182121`, the execute call above.
+Its query response `_meta` says `source_unavailable`, cause `deadline_exceeded`,
+`cancellationOrigin: transport_deadline`, `retryable:false`. The scenario was
+`pool0/reinsurance_policies.soak_policies.policies/cedant/clear`.
+The retained receipt-read snapshot itself still says `incomplete`, with null
+refusal code; do not represent the response metadata as a finalized receipt.
+The diagnosis above is the timing/resource diagnosis for this refusal as well.
+
+### Authorized diagnostic additions and proposals
+
+Added a one-second sampled Node `monitorEventLoopDelay` histogram (20 ms
+resolution) to the engine: actual window duration, timestamp, sample count and
+mean/p99/max milliseconds. Missing samples remain null. The sampler logs only
+numeric scheduling metadata, closes on shutdown, and reports the latest sample
+through the existing pinned health response and existing engine read/panel.
+No new endpoint, CSS, query/admission change or timeout change. The panel explains
+that host descheduling is included. This starts measuring future runs; it supplies
+no retroactive lag measurements for this failure.
+
+Health and execution are served by the same TLS listener in the same child/event
+loop (`sidecar/start.ts:36–43`, `sidecar/http/server.ts:44`). Health bypasses admission,
+but cannot bypass a blocked event loop. Proposed, not implemented: keep the TLS/control
+listener in an independent process or worker, dispatch query work to execution workers,
+and answer health using timestamped worker progress. Stale worker progress must report
+unhealthy rather than a healthy listener hiding an unresponsive executor. Separately, review propagating the remaining caller deadline through admission
+and execution rather than starting a fresh execution allowance after queuing;
+that proposal does not extend the public deadline. Host CPU
+starvation can still affect both; correlate lag with timestamped host pressure and
+cgroup counters before choosing resource or worker-isolation changes.
+
+Harness-only change: run the existing kit row/aggregate/replay and companion
+checks before starting soak. Defer the existing isolated 50-call benchmark until
+after successful soak assertions; preserve all assertions, secret-output checks,
+and lab cleanup. FH-015 protects this order. A soak failure can no longer prevent
+the custody/companion checks from running first.
+
+Validation results are recorded below. No new acceptance, soak, latency benchmark,
+or full gate was run for this diagnosis. Stop for review; no merge.
+
+Diagnostic validation:
+
+- Standard normal-test harness: engine-health-admission 22/22, engine-registry
+  25/25, runtime sampling 4/4, first-hour contracts 12/12, provisioning-runtime
+  3/3, real pinned-TLS sidecar/health/OpenAPI 19/19 (85 distinct tests).
+- The first contract run failed because the generated health OpenAPI lacked the
+  optional sample. Regenerated it with the standard `sidecar:openapi` command;
+  the final sidecar file passed 19/19. The sampling retest passed 4/4.
+- Settings component suites: 24/24, including the lag detail and missing state.
+- Strict typecheck passed. Syntax checks passed for both changed harness files
+  and the retained-log extraction script.
+- Final lint passed, including dependency boundaries (612 modules, 2,080 dependencies).
+  Its first run caught missing Node-global imports in the extraction script;
+  explicit `node:process` and `node:console` imports fixed that tooling defect.
+
+Logs: `/private/tmp/arch01-diagnostic-tests.log`,
+`/private/tmp/arch01-diagnostic-retest.log`,
+`/private/tmp/arch01-diagnostic-contract-final.log`,
+`/private/tmp/arch01-diagnostic-console.log`,
+`/private/tmp/arch01-diagnostic-typecheck-final.log`,
+`/private/tmp/arch01-diagnostic-lint-final.log`.

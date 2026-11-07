@@ -95,3 +95,12 @@ it('FH-014: final agent import stages the original ZIP inside the shared lab wit
   const driver=readFileSync('scripts/images/steps-custody-acceptance.mjs','utf8');expect(driver).toContain("run(agent,['identities','add',identityExport");expect(driver).toContain("run(agent,['identities','add',otherIdentityExport");expect(driver).not.toContain("run(agent,['identities','add',join(");
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+
+it('FH-015: custody and companion checks precede soak; isolated transport benchmark stays last',()=>{
+ const driver=readFileSync('scripts/images/stage5-smoke.mjs','utf8');
+ const custody=driver.indexOf("advance('packaged-custody-rows-aggregate-companion')"),soak=driver.indexOf("advance('customer-demo-soak')"),result=driver.indexOf("advance('soak-result')"),benchmark=driver.indexOf("advance('transport-benchmark')");
+ expect(custody).toBeGreaterThan(0);expect(soak).toBeGreaterThan(custody);expect(result).toBeGreaterThan(soak);expect(benchmark).toBeGreaterThan(result);
+ expect(driver.slice(custody,soak)).toContain('deferTransportBenchmark:true');
+ expect(driver).toContain("assert.equal(await childDone,0,'Customer demo soak failed')");
+ const steps=readFileSync('scripts/images/steps-custody-acceptance.mjs','utf8');expect(steps).toContain('persist(measured)');expect(steps).toContain('const benchmark=deferTransportBenchmark?undefined:await measureTransport()');
+});

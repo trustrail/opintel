@@ -1991,3 +1991,11 @@ handled termination, removal of named/anonymous volumes and networks, cleanup
 of unlabeled one-shot jobs identified by owned mounts/networks, preservation of
 another lab, idempotence and resource cleanup despite retention I/O failure.
 Private evidence stays on the host; cleanup failures fail acceptance.
+
+ARCH-01 engine scheduling diagnostics: `test/engine-runtime-sampling.test.ts`
+checks millisecond conversion, real elapsed sample windows, missing samples,
+shutdown cleanup and strict public health metadata. The engine-health-admission
+suite checks existing engine-list exposure and registration invalidation;
+console Settings transport tests check the shared detail view and explicit
+missing-sample state. FH-015 keeps custody/companion checks before soak and
+transport benchmarks after its unchanged pass assertions.

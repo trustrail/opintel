@@ -1,0 +1,419 @@
+{
+  "refusals": [
+    {
+      "responseEvidenceId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+      "code": "source_unavailable",
+      "cause": "deadline_exceeded",
+      "cancellationOrigin": "transport_deadline",
+      "retryable": false
+    },
+    {
+      "receiptId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+      "recordedStatus": "incomplete",
+      "recordedRefusalCode": null
+    }
+  ],
+  "queryLimits": {
+    "concurrencyPerPool": 2,
+    "timeoutSeconds": 30
+  },
+  "calls": [
+    {
+      "callId": "766d2caf-c79d-4ecb-9c76-57d30f57c46e",
+      "phases": [
+        {
+          "at": "2026-11-07T03:51:33.280Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "arrival",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:33.288Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "queue",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:42.123Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "queue",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:42.123Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "validate",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:47.625Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "validate",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:47.637Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:48.768Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:48.776Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "execute",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:57.867Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "stage",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:57.942Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:58.661Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:58.678Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:58.689Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "treat",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:58.697Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "treat",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:58.700Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "stage",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:58.767Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "stage",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:58.768Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T03:51:58.779Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "scan",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:51:58.853Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "stage",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T03:52:03.742Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "respond",
+          "state": "aborted"
+        },
+        {
+          "at": "2026-11-07T03:52:04.680Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "phase": "execute",
+          "state": "end"
+        }
+      ]
+    },
+    {
+      "callId": "19c99f49-9b31-4c80-9e4a-70012638a52e",
+      "phases": [
+        {
+          "at": "2026-11-07T04:00:45.819Z",
+          "requestId": "4ff0098e-ea0b-4146-999d-51a1f69a6215",
+          "phase": "arrival",
+          "state": "end"
+        },
+        {
+          "at": "2026-11-07T04:00:45.850Z",
+          "requestId": "4ff0098e-ea0b-4146-999d-51a1f69a6215",
+          "phase": "respond",
+          "state": "start"
+        },
+        {
+          "at": "2026-11-07T04:00:46.306Z",
+          "requestId": "4ff0098e-ea0b-4146-999d-51a1f69a6215",
+          "phase": "respond",
+          "state": "end"
+        }
+      ]
+    }
+  ],
+  "windows": [
+    {
+      "name": "execute",
+      "start": "2026-11-07T03:51:33.263Z",
+      "end": "2026-11-07T03:52:04.680Z",
+      "observedAdmittedRequests": [
+        {
+          "requestId": "01a1b422-0c00-78a2-88c1-1112776ab7ff",
+          "poolId": "10232ce1-160d-422c-bb32-999b46fb60bc",
+          "admittedAt": "2026-11-07T03:51:33.130Z",
+          "responseAt": "2026-11-07T03:51:42.135Z"
+        },
+        {
+          "requestId": "01a1b422-0c0a-71c1-9ed0-d53b28f02027",
+          "poolId": "10232ce1-160d-422c-bb32-999b46fb60bc",
+          "admittedAt": "2026-11-07T03:51:33.267Z",
+          "responseAt": "2026-11-07T03:51:45.348Z"
+        },
+        {
+          "requestId": "01a1b422-0cdb-7b44-a270-a26731b3e47c",
+          "poolId": "3ab4481c-16f4-4b56-9e50-5c7e8fa45543",
+          "admittedAt": "2026-11-07T03:51:33.315Z",
+          "responseAt": "2026-11-07T03:51:45.437Z"
+        },
+        {
+          "requestId": "01a1b422-0c9c-72dc-893d-b3d0021a0968",
+          "poolId": "3ab4481c-16f4-4b56-9e50-5c7e8fa45543",
+          "admittedAt": "2026-11-07T03:51:33.357Z",
+          "responseAt": "2026-11-07T03:51:45.115Z"
+        },
+        {
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "poolId": "10232ce1-160d-422c-bb32-999b46fb60bc",
+          "admittedAt": "2026-11-07T03:51:42.123Z",
+          "responseAt": "2026-11-07T03:52:03.742Z"
+        }
+      ],
+      "upperBoundAdmittedUnresponded": 5,
+      "sourceLeases": [
+        {
+          "at": "2026-11-07T03:51:35.315Z",
+          "activeLeases": 1,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:35.476Z",
+          "activeLeases": 2,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:35.704Z",
+          "activeLeases": 3,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:36.009Z",
+          "activeLeases": 4,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:36.281Z",
+          "activeLeases": 3,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:36.283Z",
+          "activeLeases": 2,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:36.387Z",
+          "activeLeases": 1,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:36.494Z",
+          "activeLeases": 0,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:38.534Z",
+          "activeLeases": 1,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:38.742Z",
+          "activeLeases": 2,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:39.429Z",
+          "activeLeases": 3,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:39.456Z",
+          "activeLeases": 4,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:39.475Z",
+          "activeLeases": 3,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:39.782Z",
+          "activeLeases": 2,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:40.846Z",
+          "activeLeases": 1,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:40.847Z",
+          "activeLeases": 0,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:47.638Z",
+          "activeLeases": 1,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:48.696Z",
+          "activeLeases": 0,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:57.951Z",
+          "activeLeases": 1,
+          "limit": 8
+        },
+        {
+          "at": "2026-11-07T03:51:58.833Z",
+          "activeLeases": 0,
+          "limit": 8
+        }
+      ],
+      "queueWaits": [
+        {
+          "at": "2026-11-07T03:51:33.267Z",
+          "requestId": "01a1b422-0c0a-71c1-9ed0-d53b28f02027",
+          "waitMs": 0.04590999998617917,
+          "admitted": true
+        },
+        {
+          "at": "2026-11-07T03:51:33.315Z",
+          "requestId": "01a1b422-0cdb-7b44-a270-a26731b3e47c",
+          "waitMs": 1.0516910000005737,
+          "admitted": true
+        },
+        {
+          "at": "2026-11-07T03:51:33.357Z",
+          "requestId": "01a1b422-0c9c-72dc-893d-b3d0021a0968",
+          "waitMs": 0.1702800000202842,
+          "admitted": true
+        },
+        {
+          "at": "2026-11-07T03:51:42.123Z",
+          "requestId": "01a1b422-0c08-7fa5-a031-705fbf182121",
+          "waitMs": 8831.446246000007,
+          "admitted": true
+        },
+        {
+          "at": "2026-11-07T03:51:43.370Z",
+          "requestId": "01a1b422-0cbe-72d2-a445-22cd1dd6da45",
+          "waitMs": 10001.710176000022,
+          "admitted": false
+        },
+        {
+          "at": "2026-11-07T03:51:44.517Z",
+          "requestId": "01a1b422-0e90-79b7-84ce-d3e5e7a6527d",
+          "waitMs": 10083.687841999985,
+          "admitted": false
+        },
+        {
+          "at": "2026-11-07T03:51:44.581Z",
+          "requestId": "01a1b422-0e55-7a6e-a14d-2c70087295c2",
+          "waitMs": 10028.80168199999,
+          "admitted": false
+        },
+        {
+          "at": "2026-11-07T03:51:44.584Z",
+          "requestId": "01a1b422-0e5e-761d-b622-e024a72f3947",
+          "waitMs": 10013.963907999976,
+          "admitted": false
+        },
+        {
+          "at": "2026-11-07T03:51:44.703Z",
+          "requestId": "01a1b422-0eab-7ea3-857d-fc912a299fde",
+          "waitMs": 10117.322596000042,
+          "admitted": false
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "start": "2026-11-07T04:00:36.089Z",
+      "end": "2026-11-07T04:00:46.306Z",
+      "observedAdmittedRequests": [
+        {
+          "requestId": "01a1b42a-2732-79bf-867e-bcc6a1539495",
+          "poolId": "10232ce1-160d-422c-bb32-999b46fb60bc",
+          "admittedAt": "2026-11-07T04:00:26.899Z",
+          "responseAt": "2026-11-07T04:00:49.577Z"
+        },
+        {
+          "requestId": "01a1b42a-2794-7502-9e61-1511144a3cdf",
+          "poolId": "3ab4481c-16f4-4b56-9e50-5c7e8fa45543",
+          "admittedAt": "2026-11-07T04:00:27.408Z",
+          "responseAt": "2026-11-07T04:00:51.911Z"
+        },
+        {
+          "requestId": "01a1b42a-344d-7801-af0b-26c9004029c4",
+          "poolId": "10232ce1-160d-422c-bb32-999b46fb60bc",
+          "admittedAt": "2026-11-07T04:00:27.702Z",
+          "responseAt": "2026-11-07T04:00:51.242Z"
+        },
+        {
+          "requestId": "01a1b42a-351d-79fe-ba7e-082a66c048ee",
+          "poolId": "3ab4481c-16f4-4b56-9e50-5c7e8fa45543",
+          "admittedAt": "2026-11-07T04:00:30.147Z",
+          "responseAt": "2026-11-07T04:00:53.096Z"
+        }
+      ],
+      "upperBoundAdmittedUnresponded": 4,
+      "sourceLeases": [],
+      "queueWaits": [
+        {
+          "at": "2026-11-07T04:00:46.238Z",
+          "requestId": "01a1b42a-3d62-7153-96ad-8640004365cf",
+          "waitMs": 16591.92481499992,
+          "admitted": false
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Admitted-through-response overlap is not a native DuckDB instance count or exact release time.",
+    "No reconstruction of unretained event-loop delay, Docker stats, host load or cgroup CPU throttling."
+  ]
+}
