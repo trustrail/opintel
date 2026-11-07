@@ -1,3 +1,4 @@
+import {enginePhase,validationProgress} from '../../../src/shared/engine-phase.js';
 import {DomainError,ElementId,err} from '../../../src/shared/kernel/index.js';
 import {validationRequest} from '../../../src/shared/execution-contract.js';
 import {DuckDBValidationSessions,validationBudget,type ValidationSessions,type ValidationSession} from '../../session/index.js';
@@ -20,8 +21,8 @@ export class StagedValidator {
    if(r.objects.some(o=>o.readPlan.columns.some(c=>!r.entitlements.some(e=>e.elementId===c.elementId&&e.treatment===c.treatment))))return err(new DomainError('sql_not_permitted','The read plan and authoritative entitlements disagree.',{cause:'inspection_inconsistent',reason:'policy'}));
    const decisions=new Map<string,(typeof r.entitlements)[number]>();
    for(const d of r.entitlements){if(decisions.has(d.elementId)&&decisions.get(d.elementId)!.treatment!==d.treatment)return err(new DomainError('validation_failed','Conflicting element treatments.',{cause:'invalid_plan',reason:'conflicting_treatments'}));decisions.set(d.elementId,d);}
-   session=await this.sessions.open(r,controller.signal);
-   return validateStatement(session,r.sql,{...r.namespace,objects:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name}))},{aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,...(o.readPlan.contributor?{contributor:o.readPlan.contributor.internalName}:{}),columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),entitlements:[...decisions.values()].map(e=>({...e,elementId:ElementId(e.elementId)}))});
+   session=await validationProgress(r.requestId,'session_open',()=>this.sessions.open(r,controller.signal));
+   return validationProgress(r.requestId,'statement',()=>validateStatement(session!,r.sql,{...r.namespace,objects:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name}))},{aggregateMinGroupSize:r.aggregateMinGroupSize,readPlan:r.objects.map(o=>({catalog:o.catalog,schema:o.schema,name:o.name,...(o.readPlan.contributor?{contributor:o.readPlan.contributor.internalName}:{}),columns:o.readPlan.columns.map(c=>({name:c.exposedName,elementId:ElementId(c.elementId),...(c.token?{tokenDomain:c.token.domain}:{})}))})),entitlements:[...decisions.values()].map(e=>({...e,elementId:ElementId(e.elementId)}))}));
   };
   try{
    const result=await run();
@@ -31,6 +32,6 @@ export class StagedValidator {
   }catch(error){
    if(controller.signal.aborted||performance.now()-started>=validationBudget.timeoutMs)return err(new DomainError('budget_exceeded','Validation exceeded its fixed 2-second deadline or was cancelled.',{cause:'interruption_unclassified',resource:'time'},true));
    return err(error instanceof DomainError?error:new DomainError('dependency_unavailable','Validation could not complete. No query was executed.'));
-  }finally{session?.close();stop();parent?.removeEventListener('abort',abort);}
+  }finally{const closing=performance.now();enginePhase(r.requestId,'validate','start',undefined,{stage:'session_close',durationMs:0});try{session?.close();}finally{enginePhase(r.requestId,'validate','end',undefined,{stage:'session_close',durationMs:Math.max(0,performance.now()-closing)});}stop();parent?.removeEventListener('abort',abort);}
  }
 }

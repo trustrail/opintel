@@ -1,5 +1,5 @@
 import {transportFailureCode} from '../../src/shared/infrastructure/transport-failure-code.js';
-import {enginePhase} from '../../src/shared/engine-phase.js';
+import {enginePhase,engineCallId,withEngineCall,validationProgress} from '../../src/shared/engine-phase.js';
 import {egressRegistration,egressRegistered} from '../../src/shared/engine-egress-contract.js';
 import {rowPreviewRequest,rowPreviewResponse} from '../../src/shared/row-preview-contract.js';
 import { executionRequest,validationRequest,executionResponse,validationResponse } from '../../src/shared/execution-contract.js';
@@ -63,7 +63,7 @@ export function createSidecarServer(options: {
   }
   async function handle(req: InternalRequest,res: InternalResponse,controller: AbortController): Promise<void> {
     let requestId: string = randomUUID();
-    const arrivedAt=new Date().toISOString();
+    const arrivedAt=new Date().toISOString(),callId=engineCallId();
     const socket = req.socket as TLSSocket;
     if (!socket.authorized || socket.getPeerCertificate()?.fingerprint256 !== pin) { socket.destroy(); return; }
     if (shuttingDown) { fail(res,503,'dependency_unavailable','Opintel Engine is shutting down.',requestId,true); return; }
@@ -71,9 +71,16 @@ export function createSidecarServer(options: {
     const route = Object.hasOwn(routes,path) ? routes[path] : undefined;
     if (route === undefined) { fail(res,404,'not_found','The endpoint does not exist.',requestId); req.resume(); return; }
     if (req.method !== 'POST') { fail(res,405,'method_not_allowed','This endpoint requires POST.',requestId); req.resume(); return; }
+    const traceResponse=()=>{
+      const interrupted=()=>controller.signal.aborted||('stream' in req&&req.stream.rstCode!==0);
+      res.once('finish',()=>enginePhase(requestId,'respond',interrupted()?'aborted':'end',undefined,{callId}));
+      res.once('close',()=>{if(!res.writableFinished)enginePhase(requestId,'respond','aborted',undefined,{callId});});
+    };
+    if(path==='/validate'){enginePhase(requestId,'arrival','start',arrivedAt,{callId});traceResponse();}
+
     try {
       const execution=path==='/execute'||path==='/validate'||path==='/preview-rows';
-      const bytes = await readBody(req,options.config.maxRequestBytes);
+      const bytes = await (path==='/validate'?validationProgress(requestId,'request_body',()=>readBody(req,options.config.maxRequestBytes)):readBody(req,options.config.maxRequestBytes));
       const size = bytes.length;
       if (controller.signal.aborted) return;
       let body: unknown;
@@ -88,10 +95,8 @@ export function createSidecarServer(options: {
         requestId = parsed.data.requestId;
         if(path==='/execute'&&'limits' in parsed.data&&parsed.data.limits)req.setTimeout(Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000));
       }
-      enginePhase(requestId,'arrival','end',arrivedAt);
-      const interrupted=()=>controller.signal.aborted||('stream' in req&&req.stream.rstCode!==0);
-      res.once('finish',()=>enginePhase(requestId,'respond',interrupted()?'aborted':'end'));
-      res.once('close',()=>{if(!res.writableFinished)enginePhase(requestId,'respond','aborted');});
+      enginePhase(requestId,'arrival','end',arrivedAt,{callId});
+      if(path!=='/validate')traceResponse();
       const result = await route.invoke(body,controller.signal);
       if (controller.signal.aborted) return;
       enginePhase(requestId,'respond','start');
@@ -121,7 +126,7 @@ export function createSidecarServer(options: {
     req.once('aborted',abort);
     req.on('error',abort);
     res.once('close',closed);
-    const work = handle(req,res,controller).catch(()=>{
+    const work = withEngineCall(req.headers['x-opintel-call-id'],()=>handle(req,res,controller)).catch(()=>{
       if(!controller.signal.aborted)fail(res,503,'dependency_unavailable','The Opintel Engine operation failed.',randomUUID(),true);
     }).finally(()=>{
       // Cancellation must close its stream as well as its SQL work. Otherwise

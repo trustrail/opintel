@@ -1,3 +1,4 @@
+import type {ValidationStage} from '../../../src/shared/engine-phase.js';
 import { DomainError } from '../../../src/shared/kernel/index.js';
 import { parseTreeJson,renderTreeJson } from './tree-json.js';
 import { stagingType } from '../../../src/shared/staging-types.js';
@@ -14,19 +15,20 @@ const versionSchema = z.array(z.object({ library_version: z.string(), source_id:
 const objectsSchema = z.array(z.object({ catalog: z.string(), schema: z.string(), name: z.string() }));
 
 export class DuckDBSessionEngine implements SessionEngine {
- constructor(private readonly observe?: StatementObserver, private readonly evidence?: InspectionObserver,private readonly postgresExtension?:string,private readonly initialLimits?:{memoryMb:number;threads:number}) {}
+ constructor(private readonly observe?: StatementObserver, private readonly evidence?: InspectionObserver,private readonly postgresExtension?:string,private readonly initialLimits?:{memoryMb:number;threads:number},private readonly progress?:<T>(stage:ValidationStage,work:()=>Promise<T>)=>Promise<T>) {}
  async open(role: SessionRole): Promise<EngineSession> {
   // Never use the instance cache: two connections in one instance share a
   // catalogue and configuration, which is not the two-session construction.
-  const instance = await DuckDBInstance.create(':memory:', {
+  const wait=this.progress??(<T>(_stage:ValidationStage,work:()=>Promise<T>)=>work());
+  const instance = await wait('instance_create',()=>DuckDBInstance.create(':memory:', {
    enable_external_access: 'true',
    ...(this.initialLimits?{memory_limit:`${this.initialLimits.memoryMb}MB`,threads:String(this.initialLimits.threads)}:{}),
    temp_directory: '', max_temp_directory_size: '0B',
    autoinstall_known_extensions: 'false', autoload_known_extensions: 'false', allow_unsigned_extensions: 'false',
-  });
+  }));
   let opening: DuckDBConnection | undefined;
   try {
-   const connection = await instance.connect(), sessionId = randomUUID();opening=connection;
+   const connection = await wait('connection_open',()=>instance.connect()), sessionId = randomUUID();opening=connection;
    let closed = false;
    const stagedTypes=new Map<string,boolean[]>();
    if(role==='privileged'&&this.postgresExtension){

@@ -68,8 +68,10 @@ it('TRACE-02: an interrupted HTTP execution retains arrival and response-abort e
  try{
   const pending=engineConnect(new URL(`https://127.0.0.1:${port}/execute`),{method:'POST',...options.tls,signal:controller.signal,headers:{'content-type':'application/json','content-length':Buffer.byteLength(encoded)}},encoded,async response=>{for await(const _chunk of response){/* drain */}});
   const rejected=expect(pending).rejects.toBeDefined();await arrival;controller.abort();await rejected;
-  await vi.waitFor(()=>expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.any(String),requestId:'trace-abort',phase:'respond',state:'aborted'}));
-  expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.any(String),requestId:'trace-abort',phase:'arrival',state:'end'});
+  await vi.waitFor(()=>expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.any(String),requestId:'trace-abort',phase:'respond',state:'aborted',callId:expect.any(String)}));
+  expect(log).toHaveBeenCalledWith({event:'engine.request_phase',timestamp:expect.any(String),requestId:'trace-abort',phase:'arrival',state:'end',callId:expect.any(String)});
+  const summary=log.mock.calls.flatMap(([value])=>typeof value==='string'?[JSON.parse(value) as {event?:string;path?:string;callId?:string}]:[]).find(value=>value.event==='engine.transport_call_completed'&&value.path==='/execute');
+  expect(summary?.callId).toBeDefined();expect(log).toHaveBeenCalledWith(expect.objectContaining({event:'engine.request_phase',requestId:'trace-abort',phase:'arrival',callId:summary?.callId}));
  }finally{controller.abort();await blocked.close();log.mockRestore();}
 },10000);
 

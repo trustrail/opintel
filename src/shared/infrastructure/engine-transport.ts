@@ -33,6 +33,7 @@ export async function engineConnect<T>(url:URL,options:RequestOptions&{signal:Ab
     const session=lease.session;
     const headers:Record<string,string|string[]|number>={':method':options.method??'POST',':path':url.pathname+url.search,':authority':url.host};
     for(const [name,value] of Object.entries(options.headers??{}))if(value!==undefined&&!['connection','keep-alive','proxy-connection','upgrade','transfer-encoding','host'].includes(name.toLowerCase()))headers[name.toLowerCase()]=value;
+    headers['x-opintel-call-id']=callId;
     const result=await new Promise<T>((resolve,reject)=>{
      // session.request may throw before HEADERS; once it returns, be conservative.
      let stream:ReturnType<typeof session.request>;try{stream=session.request(headers);}catch(error){const reason=transportFailureCode(error,'request_error');if(['ERR_HTTP2_GOAWAY_SESSION','ERR_HTTP2_INVALID_SESSION'].includes(reason))throw new EngineTransportError('connect',false,false,reason);throw error;}written=true;requestWrittenAt=new Date().toISOString();debug('engine.transport_request_written',{requestWrittenAt,reused,connectionId:trace?.connectionId});

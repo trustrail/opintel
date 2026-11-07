@@ -24,3 +24,6 @@ export const custodyXqOperationFailure=z.strictObject({
  kind:z.enum(['http_refused','unreachable','deadline_exceeded','operation_refused','invalid_response','worker_failed','worker_exited','worker_deadline_exceeded']),
  nativeErrorCode:z.string().max(64).regex(/^[A-Z][A-Z0-9_]+$/u).nullable(),phase:z.enum(['DNS','TCP','TLS','request','response']).nullable(),subcall:z.enum(['subscription','validation','other']).nullable(),attempt:z.number().int().min(1).max(2).nullable(),status:z.number().int().min(100).max(599).nullable(),written:z.boolean().nullable(),
 });
+
+/** Internal worker progress contains no request body, address or credential. */
+export const custodyXqProgress=z.strictObject({type:z.literal('xq-progress'),phase:z.enum(['DNS','TCP','TLS','request','response']),subcall:z.enum(['subscription','validation','other']),attempt:z.number().int().min(1).max(2),written:z.boolean()});

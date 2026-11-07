@@ -1,3 +1,4 @@
+import {createServer as createTcpServer} from 'node:net';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {expect,it} from 'vitest';
@@ -18,7 +19,7 @@ it.each(['reset','timeout','400'])('XQ transport never retries %s after writing'
  server.listen(0,'127.0.0.1');await once(server,'listening');
  try{
   const result=xqRequest(`http://127.0.0.1:${server.address().port}/packet`,{method:'POST'},'synthetic',{connectTimeoutMs:100,deadlineMs:200});
-  if(mode==='400')expect(await result).toMatchObject({status:400,attempt:1});else await expect(result).rejects.toMatchObject({attempt:1,written:true});
+  if(mode==='400')expect(await result).toMatchObject({status:400,attempt:1});else await expect(result).rejects.toMatchObject({attempt:1,written:true,phase:'response'});
   expect(requests).toBe(1);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
@@ -38,4 +39,11 @@ it('connection allowance cannot extend the shared operation deadline',async()=>{
  const started=performance.now();let lookups=0;
  await expect(xqRequest('http://stall.invalid/packet',{method:'POST'},'synthetic',{deadlineMs:120,lookup:()=>{lookups++;}})).rejects.toMatchObject({kind:'deadline_exceeded',phase:'DNS',written:false,attempt:1});
  expect(lookups).toBe(1);expect(performance.now()-started).toBeLessThan(1000);
+});
+
+it('stalled TLS setup is recorded separately from TCP connection failure',async()=>{
+ const sockets=new Set();const server=createTcpServer(socket=>{sockets.add(socket);socket.on('close',()=>sockets.delete(socket));});server.listen(0,'127.0.0.1');await once(server,'listening');const port=server.address().port;
+ try{await expect(xqRequest(`https://127.0.0.1:${port}/packet`,{method:'POST'},'synthetic',{connectTimeoutMs:50,deadlineMs:1000})).rejects.toMatchObject({phase:'TLS',nativeErrorCode:'ETIMEDOUT',written:false,attempt:2});}
+ finally{for(const socket of sockets)socket.destroy();await new Promise(resolve=>server.close(resolve));}
+ await expect(xqRequest(`http://127.0.0.1:${port}/packet`,{method:'POST'},'synthetic')).rejects.toMatchObject({phase:'TCP',nativeErrorCode:'ECONNREFUSED',written:false,attempt:2});
 });

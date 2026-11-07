@@ -1003,3 +1003,39 @@ started. Honest measurement table:
 
 The [timeout table](../../timeouts.md) is unchanged. Overall packaged acceptance
 and before/after latency comparison remain blocked. Stop for review; no merge.
+
+
+## XQ enrollment diagnosis corrections and validation correlation
+
+Implemented in the authorized order, without new query behaviour or routes:
+
+1. **74cd6e4:** XQ failure records have sanitized kind, allowlisted native code,
+   wire phase (DNS/TCP/TLS/request/response), operation id, and enrollment id /
+   credential id when enrollment supplies them. Non-enrollment calls retain
+   operation id and receipt id when available; missing identities remain null.
+   Correlation ids are public UUIDs, never locators, recipient identifiers, keys
+   or provider credentials. SDK exception text and bodies are not logged.
+2. **49a778a:** setup allowance is min(5 seconds, remaining 15-second subcall
+   deadline). Two connect-only attempts maximum, existing retryable codes,
+   no written replay, and the existing 20-second worker limit remain. A
+   pre-write monotonic deadline check prevents a delayed TLS callback writing
+   after expiry. [Timeout bounds and inventory](../../timeouts.md) updated.
+3. Validation telemetry: the gateway overwrites its internal x-opintel-call-id
+   header with its generated call UUID; the pinned engine carries it into
+   arrival/progress/respond records, including an aborted response. Async
+   context keeps concurrent calls separate. Fixed stage names and monotonic
+   durations cover request-body read, session/native instance/connection open,
+   namespace/table setup, search path, hardening, inspection, parse/prepare,
+   statement validation and cleanup. No SQL, object values or exception text
+   enter these records. Validation limits and capability checks are unchanged.
+
+The last observed XQ wire phase is retained across worker termination, including
+an outer worker deadline, so a killed pending TLS operation is not reported as
+an unidentified failure. Before a worker reaches the network, phase/code remain
+honestly null. Tests cover worker-deadline correlation and secret omission.
+
+Targeted validation: the 96-test transport/identity/staging/HTTP set passed;
+completed request-body instrumentation and phase tests passed 30/30; final XQ
+worker/contracts/transport tests passed 15/15. Strict typecheck, lint, syntax and
+whitespace checks passed. Full candidate gate and fresh packaged acceptance
+results follow below; no completed acceptance is claimed yet.

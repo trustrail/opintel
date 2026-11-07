@@ -1,3 +1,4 @@
+import {validationStages} from '../src/shared/engine-phase.js';
 import {afterEach,expect,it,vi} from 'vitest';
 import {z} from 'zod';
 import {withTenant} from '../src/platform/db/scope.js';
@@ -28,7 +29,7 @@ it('custody plaintext never appears in Engine HTTP response payloads; aliases an
  for(const payload of payloads.filter(p=>p.startsWith('/execute '))){const body=JSON.parse(payload.slice('/execute '.length));expect(body.custodyShares.first).toMatch(/^[A-Za-z0-9_-]{43}$/);expect(body.custodyShares.second).toMatch(/^[A-Za-z0-9_-]{43}$/);expect(body).not.toHaveProperty('key');}
  // TRACE-01/02: actual HTTP, scanner, treatment and sealing boundaries correlate
  // to receipts and contain no unbounded fields or custody values.
- const phase=z.strictObject({event:z.literal('engine.request_phase'),timestamp:z.iso.datetime(),requestId:z.string().max(128),phase:z.enum(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']),state:z.enum(['start','end','aborted'])});
+ const phase=z.strictObject({event:z.literal('engine.request_phase'),timestamp:z.iso.datetime(),requestId:z.string().max(128),phase:z.enum(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']),state:z.enum(['start','end','aborted']),callId:z.uuid().optional(),stage:z.enum(validationStages).optional(),durationMs:z.number().nonnegative().optional()});
  const entries=logs.mock.calls.map(call=>phase.safeParse(call[0])).filter(result=>result.success).map(result=>result.data);
  for(const id of requestIds)expect(new Set(entries.filter(e=>e.requestId===id).map(e=>e.phase))).toEqual(new Set(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']));
  expect(JSON.stringify(logs.mock.calls)).not.toContain(sentinel);

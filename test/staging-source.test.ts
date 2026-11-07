@@ -1,3 +1,4 @@
+import {validationStages} from '../src/shared/engine-phase.js';
 import {parsePredicate,predicateHash} from '../src/shared/row-predicate.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -28,7 +29,7 @@ for(const treated of [false,true])it(`C.1 preserves exact clear arrays on the ${
 },30000);
 it('J-024 execution telemetry contains only the allowlist, never source values or SQL',async()=>{
  const logs=vi.spyOn(console,'info').mockImplementation(()=>{});try{const r=request();r.sql="SELECT 'ROW_VALUE_SENTINEL' FROM orders";expect((await executor().execute(r)).ok).toBe(true);
- const phase=z.strictObject({event:z.literal('engine.request_phase'),timestamp:z.iso.datetime(),requestId:z.string().regex(/^[a-zA-Z0-9:_-]{1,128}$/u),phase:z.enum(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']),state:z.enum(['start','end','aborted'])});
+ const phase=z.strictObject({event:z.literal('engine.request_phase'),timestamp:z.iso.datetime(),requestId:z.string().regex(/^[a-zA-Z0-9:_-]{1,128}$/u),phase:z.enum(['arrival','queue','validate','execute','scan','stage','treat','seal','respond']),state:z.enum(['start','end','aborted']),callId:z.uuid().optional(),stage:z.enum(validationStages).optional(),durationMs:z.number().nonnegative().optional()});
  const operation=z.enum(['credentials','connect','backend_identity','begin','settings','metadata','estimate','declare','fetch','close','commit','statement','scanner']);
  const sourcePhase=z.strictObject({event:z.literal('engine.source_operation'),timestamp:z.iso.datetime(),requestId:z.string().regex(/^[a-zA-Z0-9:_-]{1,128}$/u),operation,state:z.enum(['start','end','failed']),attempt:z.number().int().min(1).max(2),sourceId:z.string().uuid().optional(),connectAllowanceMs:z.number().int().positive().optional(),failure:z.strictObject({operation,nativeCode:z.string().regex(/^[A-Z][A-Z0-9_]{1,47}$/u).nullable(),sqlState:z.string().regex(/^[0-9A-Z]{5}$/u).nullable(),attempt:z.number().int().min(1).max(2)}).optional()});
  const sourceConnections=z.strictObject({event:z.literal('engine.source_connections'),timestamp:z.iso.datetime(),sourceId:z.string().uuid(),activeLeases:z.number().int().nonnegative(),limit:z.number().int().positive()});

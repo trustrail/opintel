@@ -1,6 +1,7 @@
 import {xqNativeCode} from './xq-diagnostics.mjs';
 import {isIP} from 'node:net';
 import {URL} from 'node:url';
+import {performance} from 'node:perf_hooks';
 import {Buffer} from 'node:buffer';
 import {setTimeout,clearTimeout} from 'node:timers';
 const {AbortSignal}=globalThis;
@@ -9,11 +10,12 @@ import {request as httpRequest} from 'node:http';
 
 /** No headers or body are written until connection setup completes. Each subcall
  * has one shared deadline and at most one recovery; response failures never retry. */
-export async function xqRequest(url,options,body,{deadlineMs=15000,connectTimeoutMs=5000,lookup}={}){
+export async function xqRequest(url,options,body,{deadlineMs=15000,connectTimeoutMs=5000,lookup,onPhase}={}){
  const target=new URL(url),deadline=performance.now()+deadlineMs,signal=AbortSignal.timeout(deadlineMs);
  if(!['https:','http:'].includes(target.protocol))throw new Error('Unsupported provider transport.');
  for(let attempt=1;;attempt++){
   let written=false,phase=isIP(target.hostname.replace(/^\[|\]$/gu,''))?'TCP':'DNS';
+  const progress=value=>{phase=value;onPhase?.({phase,attempt,written});};progress(phase);
   try{
    if(signal.aborted||performance.now()>=deadline)throw Object.assign(new Error('Provider deadline exhausted.'),{code:'ETIMEDOUT'});
    const response=await new Promise((resolve,reject)=>{
@@ -21,20 +23,21 @@ export async function xqRequest(url,options,body,{deadlineMs=15000,connectTimeou
     const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);if(error)reject(error);else resolve(value);};
     const request=target.protocol==='https:'?httpsRequest:httpRequest;
     const req=request(target,{...options,headers:{...options.headers,...(body===undefined?{}:{'content-length':String(Buffer.byteLength(body))})},signal,agent:false,...(lookup?{lookup}:{})},res=>{
-     phase='response';
+     progress('response');
      const chunks=[];let bytes=0;
      res.on('data',chunk=>{bytes+=chunk.length;if(bytes>1048576){res.destroy();finish(Object.assign(new Error('Provider response exceeded its bound.'),{code:'RESPONSE_OVERSIZED'}));}else chunks.push(chunk);});
      res.once('error',error=>finish(error));
      res.once('end',()=>finish(undefined,{status:res.statusCode??0,text:Buffer.concat(chunks).toString('utf8'),attempt}));
     });
     req.once('error',error=>finish(error));
+    req.once('finish',()=>{progress('response');});
     req.once('socket',socket=>{
-     socket.once('lookup',error=>{if(!error)phase='TCP';});
-     socket.once('connect',()=>{phase=target.protocol==='https:'?'TLS':'request';});
+     socket.once('lookup',error=>{if(!error)progress('TCP');});
+     socket.once('connect',()=>{progress(target.protocol==='https:'?'TLS':'request');});
      socket.once(target.protocol==='https:'?'secureConnect':'connect',()=>{
       if(settled||req.destroyed||signal.aborted)return;
       if(performance.now()>=deadline){req.destroy(Object.assign(new Error('Provider deadline exhausted.'),{code:'ETIMEDOUT'}));return;}
-      clearTimeout(timer);phase='request';written=true;req.end(body);
+      clearTimeout(timer);written=true;progress('request');req.end(body);
      });
     });
     timer=setTimeout(()=>req.destroy(Object.assign(new Error('Provider connection setup timed out.'),{code:'ETIMEDOUT'})),Math.max(1,Math.ceil(Math.min(connectTimeoutMs,deadline-performance.now()))));

@@ -1,4 +1,4 @@
-import {custodyProviderFailure,custodyEscrowRequest,custodyXqOperationFailure} from '../../../shared/custody-failure.js';
+import {custodyProviderFailure,custodyEscrowRequest,custodyXqOperationFailure,custodyXqProgress} from '../../../shared/custody-failure.js';
 import {xqNativeCode} from './xq-diagnostics.mjs';
 import {randomUUID} from 'node:crypto';
 import {decodeXqShare} from '../../../shared/xq-share-codec.mjs';
@@ -14,13 +14,13 @@ export class XqReleaseProvider implements ReleaseProvider {
  constructor(private readonly configuration:XqConfiguration,readonly tenant:string,readonly redeemAt:string,readonly reportedRegion?:string){}
  private call(operation:'escrow'|'revoke'|'fetch'|'health',args:Record<string,unknown>,configuration=this.configuration):Promise<unknown>{return new Promise((resolve,reject)=>{
   const operationId=randomUUID(),correlation=z.object({enrollmentId:z.uuid(),credentialId:z.uuid()}).safeParse(args.correlation),receipt=z.uuid().safeParse(args.receipt);
-  const log=(failure:z.infer<typeof custodyProviderFailure>)=>console.warn(JSON.stringify(custodyXqOperationFailure.parse({event:'custody.xq_operation_failed',timestamp:new Date().toISOString(),operation,operationId,enrollmentId:correlation.success?correlation.data.enrollmentId:null,credentialId:correlation.success?correlation.data.credentialId:null,evidenceId:receipt.success?receipt.data:null,kind:failure.kind,nativeErrorCode:xqNativeCode(failure.nativeErrorCode),phase:failure.phase??null,subcall:failure.subcall??null,attempt:failure.attempt??null,status:'status' in failure?failure.status:null,written:failure.written??null})));
+  const log=(failure:z.infer<typeof custodyProviderFailure>)=>console.warn(JSON.stringify(custodyXqOperationFailure.parse({event:'custody.xq_operation_failed',timestamp:new Date().toISOString(),operation,operationId,enrollmentId:correlation.success?correlation.data.enrollmentId:null,credentialId:correlation.success?correlation.data.credentialId:null,evidenceId:receipt.success?receipt.data:null,kind:failure.kind,nativeErrorCode:xqNativeCode(failure.nativeErrorCode),phase:failure.phase??lastProgress?.phase??null,subcall:failure.subcall??lastProgress?.subcall??null,attempt:failure.attempt??lastProgress?.attempt??null,status:'status' in failure?failure.status:null,written:failure.written??lastProgress?.written??null})));
   const worker=new Worker(new URL('./xq-worker.mjs',import.meta.url),{workerData:{configuration,operation,...args}});
-  let complete=false;
+  let complete=false,lastProgress:z.infer<typeof custodyXqProgress>|undefined;
   const fail=(failure:z.infer<typeof custodyProviderFailure>)=>{if(complete)return;complete=true;clearTimeout(stop);log(failure);reject(new CustodyProviderError(failure));};
   const stop=setTimeout(()=>{if(complete)return;void worker.terminate();if(operation==='health'){complete=true;log({kind:'worker_deadline_exceeded'});resolve({reachable:false,authenticated:false,failure:'deadline_exceeded'});}else fail({kind:'worker_deadline_exceeded'});},20000);
   worker.on('message',(raw:unknown)=>{
-   if(complete)return;const diagnostic=custodyEscrowRequest.safeParse(raw);if(diagnostic.success){if(operation==='escrow')console.info(JSON.stringify({event:'custody.xq_escrow_request',...diagnostic.data}));return;}
+   if(complete)return;const progress=custodyXqProgress.safeParse(raw);if(progress.success){lastProgress=progress.data;return;}const diagnostic=custodyEscrowRequest.safeParse(raw);if(diagnostic.success){if(operation==='escrow')console.info(JSON.stringify({event:'custody.xq_escrow_request',...diagnostic.data}));return;}
    const result=z.discriminatedUnion('ok',[z.object({ok:z.literal(true),value:z.unknown(),diagnostic:custodyProviderFailure.optional()}),z.object({ok:z.literal(false),failure:custodyProviderFailure.optional()})]).safeParse(raw);
    void worker.terminate();
    if(result.success&&result.data.ok){complete=true;clearTimeout(stop);if(result.data.diagnostic)log(result.data.diagnostic);resolve(result.data.value);}

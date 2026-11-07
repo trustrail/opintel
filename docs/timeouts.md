@@ -289,12 +289,12 @@ backoffs are included because they consume deadline budgets.
 | timer: timer / backoff | ms | Caller/configuration dependent | sidecar/execution/application/ports.ts:11 |
 | signal: operation cancellation | r.limits.timeoutMs | Caller/configuration dependent | sidecar/execution/application/preview.ts:17 |
 | acquire: timer / backoff | maxWaitMs | Caller/configuration dependent | sidecar/execution/application/queue.ts:27 |
-| handle: req.setTimeout | Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000) | Caller/configuration dependent | sidecar/http/server.ts:89 |
-| server: req.setTimeout | options.config.limits.operationTimeoutMs+10000 | Caller/configuration dependent | sidecar/http/server.ts:117 |
-| createSidecarServer: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:142 |
-| createSidecarServer: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:143 |
-| close: deadline | new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);}) | Caller/configuration dependent | sidecar/http/server.ts:169 |
-| deadline: timer / backoff | options.config.shutdownTimeoutMs | Caller/configuration dependent | sidecar/http/server.ts:169 |
+| handle: req.setTimeout | Math.min(2147483647,parsed.data.limits.timeoutMs+Math.floor(parsed.data.limits.timeoutMs/3)+10000) | Caller/configuration dependent | sidecar/http/server.ts:96 |
+| server: req.setTimeout | options.config.limits.operationTimeoutMs+10000 | Caller/configuration dependent | sidecar/http/server.ts:122 |
+| createSidecarServer: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:147 |
+| createSidecarServer: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/server.ts:148 |
+| close: deadline | new Promise<void>((resolve)=>{timer=setTimeout(resolve,options.config.shutdownTimeoutMs);}) | Caller/configuration dependent | sidecar/http/server.ts:174 |
+| deadline: timer / backoff | options.config.shutdownTimeoutMs | Caller/configuration dependent | sidecar/http/server.ts:174 |
 | unavailableEngine: server.headersTimeout | 10000 | Caller/configuration dependent | sidecar/http/unavailable.ts:23 |
 | unavailableEngine: server.requestTimeout | 10000 | Caller/configuration dependent | sidecar/http/unavailable.ts:23 |
 | module configuration: realDeadlineClock | { after(milliseconds, expire) { const timer = setTimeout(expire, milliseconds); return () => clearTimeout(timer); }, } | Caller/configuration dependent | sidecar/infrastructure/postgres-source-scope.ts:30 |
@@ -327,7 +327,7 @@ backoffs are included because they consume deadline budgets.
 | reconcile: timer / backoff | delay | Caller/configuration dependent | sidecar/ingest/register.ts:122 |
 | start: timer / backoff | 0 | Caller/configuration dependent | sidecar/ingest/register.ts:126 |
 | start: timer / backoff | 0 | Caller/configuration dependent | sidecar/ingest/register.ts:127 |
-| validationBudget: timeoutMs | 2000 | Caller/configuration dependent | sidecar/session/infrastructure/validation.ts:8 |
+| validationBudget: timeoutMs | 2000 | Caller/configuration dependent | sidecar/session/infrastructure/validation.ts:9 |
 | custodyTimer: periodic schedule | 60000 | Caller/configuration dependent | sidecar/start.ts:33 |
 | pairingTrustTimer: periodic schedule | 1000 | Caller/configuration dependent | sidecar/start.ts:43 |
 | stop: deadline | setTimeout(() => { console.error('Opintel Engine shutdown deadline exceeded. Unfinished register locks require operator recovery.'); process.exit(1); }, config.shutdownTimeoutMs) | Caller/configuration dependent | sidecar/start.ts:56 |
@@ -372,10 +372,10 @@ backoffs are included because they consume deadline budgets.
 | create: timeoutMs | state.budgets.timeoutMs | Caller/configuration dependent | src/modules/pools/domain/pool.ts:49 |
 | start: periodic schedule | 1000 | Caller/configuration dependent | src/modules/release-custody/infrastructure/runtime.ts:173 |
 | stop: timer / backoff | 20000 | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-provider.ts:21 |
-| xqRequest: {deadlineMs=15000,connectTimeoutMs=5000,lookup} | {} | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:12 |
-| xqRequest: deadline | performance.now()+deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:13 |
-| signal: operation cancellation | deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:13 |
-| response: timer / backoff | Math.max(1,Math.ceil(Math.min(connectTimeoutMs,deadline-performance.now()))) | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:40 |
+| xqRequest: {deadlineMs=15000,connectTimeoutMs=5000,lookup,onPhase} | {} | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:13 |
+| xqRequest: deadline | performance.now()+deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:14 |
+| signal: operation cancellation | deadlineMs | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:14 |
+| response: timer / backoff | Math.max(1,Math.ceil(Math.min(connectTimeoutMs,deadline-performance.now()))) | Caller/configuration dependent | src/modules/release-custody/infrastructure/xq-transport.mjs:43 |
 | poll: periodic schedule | 100 | Caller/configuration dependent | src/modules/sources/application/introspection-job.ts:49 |
 | module configuration: this.timeoutMs | options.timeoutMs ?? 9_000 | Caller/configuration dependent | src/modules/sources/infrastructure/sidecar-source-connector.ts:31 |
 | call: timeout | AbortSignal.timeout(this.timeoutMs) | Caller/configuration dependent | src/modules/sources/infrastructure/sidecar-source-connector.ts:97 |
@@ -463,7 +463,7 @@ backoffs are included because they consume deadline budgets.
 | Test: Test case hang guard (unchanged) | 60000 | Caller/configuration dependent | test/credential-local-revocation.test.ts:15 |
 | Test: Test case hang guard (unchanged) | 60000 | Caller/configuration dependent | test/credential-local-revocation.test.ts:52 |
 | Test: Test case hang guard (unchanged) | 60000 | Caller/configuration dependent | test/credential-local-revocation.test.ts:71 |
-| Test: Test case hang guard (unchanged) | 60000 | Caller/configuration dependent | test/custody-engine-transport.test.ts:8 |
+| Test: Test case hang guard (unchanged) | 60000 | Caller/configuration dependent | test/custody-engine-transport.test.ts:9 |
 | Test: result: timeout | 10000 | Caller/configuration dependent | test/customer-command.test.mjs:78 |
 | Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/customer-install.test.mjs:30 |
 | Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/customer-install.test.mjs:40 |
@@ -755,20 +755,20 @@ backoffs are included because they consume deadline budgets.
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/settings-migration.test.ts:6 |
 | Test: Test case hang guard (unchanged) | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:62 |
 | Test: payload: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:66 |
-| Test: req: operation cancellation | 3000 | Caller/configuration dependent | test/sidecar-http.test.ts:93 |
-| Test: beforeAll hook guard (unchanged) | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:104 |
-| Test: module configuration: statementTimeoutMs | 5000 | Caller/configuration dependent | test/sidecar-http.test.ts:108 |
-| Test: module configuration: operationTimeoutMs | 6000 | Caller/configuration dependent | test/sidecar-http.test.ts:108 |
-| Test: module configuration: timeout | 2500 | Caller/configuration dependent | test/sidecar-http.test.ts:213 |
-| Test: Test case hang guard (unchanged) | 15000 | Caller/configuration dependent | test/sidecar-http.test.ts:246 |
-| Test: module configuration: shutdownTimeoutMs | 2000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
-| Test: module configuration: statementTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
-| Test: module configuration: operationTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:252 |
-| Test: module configuration: timeout | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:257 |
-| Test: connector: timeoutMs | 9000 | Caller/configuration dependent | test/sidecar-http.test.ts:258 |
-| Test: module configuration: timeout | 4000 | Caller/configuration dependent | test/sidecar-http.test.ts:264 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/sidecar-http.test.ts:287 |
-| Test: r: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:288 |
+| Test: req: operation cancellation | 3000 | Caller/configuration dependent | test/sidecar-http.test.ts:95 |
+| Test: beforeAll hook guard (unchanged) | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:106 |
+| Test: module configuration: statementTimeoutMs | 5000 | Caller/configuration dependent | test/sidecar-http.test.ts:110 |
+| Test: module configuration: operationTimeoutMs | 6000 | Caller/configuration dependent | test/sidecar-http.test.ts:110 |
+| Test: module configuration: timeout | 2500 | Caller/configuration dependent | test/sidecar-http.test.ts:215 |
+| Test: Test case hang guard (unchanged) | 15000 | Caller/configuration dependent | test/sidecar-http.test.ts:248 |
+| Test: module configuration: shutdownTimeoutMs | 2000 | Caller/configuration dependent | test/sidecar-http.test.ts:254 |
+| Test: module configuration: statementTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:254 |
+| Test: module configuration: operationTimeoutMs | 60000 | Caller/configuration dependent | test/sidecar-http.test.ts:254 |
+| Test: module configuration: timeout | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:259 |
+| Test: connector: timeoutMs | 9000 | Caller/configuration dependent | test/sidecar-http.test.ts:260 |
+| Test: module configuration: timeout | 4000 | Caller/configuration dependent | test/sidecar-http.test.ts:266 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/sidecar-http.test.ts:289 |
+| Test: r: timeoutMs | 10000 | Caller/configuration dependent | test/sidecar-http.test.ts:290 |
 | Test: Test case hang guard (unchanged) | 20000 | Caller/configuration dependent | test/sidecar-landing-check.test.ts:30 |
 | Test: module configuration: timeout | 15000 | Caller/configuration dependent | test/sidecar-landing-check.test.ts:37 |
 | Test: beforeAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/sidecar-pin.test.ts:11 |
@@ -787,11 +787,11 @@ backoffs are included because they consume deadline budgets.
 | Test: Test case hang guard (unchanged) | 15000 | Caller/configuration dependent | test/sidecar-process.test.ts:123 |
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/sidecar-register-help.test.ts:5 |
 | Test: Test case hang guard (unchanged) | 15000 | Caller/configuration dependent | test/sidecar-startup.test.ts:49 |
-| Test: module configuration: deadline | 0 | Caller/configuration dependent | test/sidecar-validation.test.ts:18 |
-| Test: validator: deadline | ms | Caller/configuration dependent | test/sidecar-validation.test.ts:19 |
-| Test: timer: timer / backoff | 0 | Caller/configuration dependent | test/sidecar-validation.test.ts:19 |
-| Test: module configuration: timeoutMs | 999999 | Caller/configuration dependent | test/sidecar-validation.test.ts:20 |
-| Test: module configuration: timeoutMs | 2000 | Caller/configuration dependent | test/sidecar-validation.test.ts:21 |
+| Test: module configuration: deadline | 0 | Caller/configuration dependent | test/sidecar-validation.test.ts:19 |
+| Test: validator: deadline | ms | Caller/configuration dependent | test/sidecar-validation.test.ts:20 |
+| Test: timer: timer / backoff | 0 | Caller/configuration dependent | test/sidecar-validation.test.ts:20 |
+| Test: module configuration: timeoutMs | 999999 | Caller/configuration dependent | test/sidecar-validation.test.ts:21 |
+| Test: module configuration: timeoutMs | 2000 | Caller/configuration dependent | test/sidecar-validation.test.ts:22 |
 | Test: beforeAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/smtp-mail.test.ts:11 |
 | Test: until: timer / backoff | 5 | Caller/configuration dependent | test/soak-observer-session.test.ts:35 |
 | Test: beforeAll hook guard (unchanged) | 30_000 | Caller/configuration dependent | test/source-connector.test.ts:30 |
@@ -809,25 +809,25 @@ backoffs are included because they consume deadline budgets.
 | Test: scope: operationTimeoutMs | 2000 | Caller/configuration dependent | test/staged-execution.test.ts:105 |
 | Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-process.test.ts:12 |
 | Test: r: timeoutMs | 30000 | Caller/configuration dependent | test/staging-process.test.ts:22 |
-| Test: beforeAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:17 |
-| Test: afterAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:18 |
-| Test: request: timeoutMs | 10000 | Caller/configuration dependent | test/staging-source.test.ts:19 |
-| Test: scope: statementTimeoutMs | 5000 | Caller/configuration dependent | test/staging-source.test.ts:20 |
-| Test: scope: operationTimeoutMs | 10000 | Caller/configuration dependent | test/staging-source.test.ts:20 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:21 |
+| Test: beforeAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:18 |
+| Test: afterAll hook guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:19 |
+| Test: request: timeoutMs | 10000 | Caller/configuration dependent | test/staging-source.test.ts:20 |
+| Test: scope: statementTimeoutMs | 5000 | Caller/configuration dependent | test/staging-source.test.ts:21 |
+| Test: scope: operationTimeoutMs | 10000 | Caller/configuration dependent | test/staging-source.test.ts:21 |
 | Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:22 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:24 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:29 |
-| Test: sourcePhase: connectAllowanceMs | z.number().int().positive().optional() | Caller/configuration dependent | test/staging-source.test.ts:33 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:47 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:58 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:72 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:81 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:92 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:102 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:112 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:141 |
-| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:151 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:23 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:25 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:30 |
+| Test: sourcePhase: connectAllowanceMs | z.number().int().positive().optional() | Caller/configuration dependent | test/staging-source.test.ts:34 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:48 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:59 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:73 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:82 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:93 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:103 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:113 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:142 |
+| Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/staging-source.test.ts:152 |
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/tenancy-list-routes.test.ts:164 |
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/token-domain-history.test.ts:15 |
 | Test: Test case hang guard (unchanged) | 60_000 | Caller/configuration dependent | test/token-domain-history.test.ts:37 |
@@ -848,14 +848,16 @@ backoffs are included because they consume deadline budgets.
 | Test: Test case hang guard (unchanged) | 30_000 | Caller/configuration dependent | test/tokenization.test.ts:141 |
 | Test: Test case hang guard (unchanged) | 30000 | Caller/configuration dependent | test/view-compiler-invariants.test.ts:155 |
 | Test: child: timeout | 20000 | Caller/configuration dependent | test/view-compiler-invariants.test.ts:162 |
-| Test: result: connectTimeoutMs | 25 | Caller/configuration dependent | test/xq-transport.test.mjs:11 |
-| Test: result: deadlineMs | 1000 | Caller/configuration dependent | test/xq-transport.test.mjs:11 |
-| Test: result: connectTimeoutMs | 100 | Caller/configuration dependent | test/xq-transport.test.mjs:20 |
-| Test: result: deadlineMs | 200 | Caller/configuration dependent | test/xq-transport.test.mjs:20 |
-| Test: module configuration: connectTimeoutMs | 20 | Caller/configuration dependent | test/xq-transport.test.mjs:27 |
-| Test: module configuration: deadlineMs | 200 | Caller/configuration dependent | test/xq-transport.test.mjs:27 |
-| Test: result: timer / backoff | 1500 | Caller/configuration dependent | test/xq-transport.test.mjs:33 |
-| Test: module configuration: deadlineMs | 120 | Caller/configuration dependent | test/xq-transport.test.mjs:39 |
+| Test: result: connectTimeoutMs | 25 | Caller/configuration dependent | test/xq-transport.test.mjs:12 |
+| Test: result: deadlineMs | 1000 | Caller/configuration dependent | test/xq-transport.test.mjs:12 |
+| Test: result: connectTimeoutMs | 100 | Caller/configuration dependent | test/xq-transport.test.mjs:21 |
+| Test: result: deadlineMs | 200 | Caller/configuration dependent | test/xq-transport.test.mjs:21 |
+| Test: module configuration: connectTimeoutMs | 20 | Caller/configuration dependent | test/xq-transport.test.mjs:28 |
+| Test: module configuration: deadlineMs | 200 | Caller/configuration dependent | test/xq-transport.test.mjs:28 |
+| Test: result: timer / backoff | 1500 | Caller/configuration dependent | test/xq-transport.test.mjs:34 |
+| Test: module configuration: deadlineMs | 120 | Caller/configuration dependent | test/xq-transport.test.mjs:40 |
+| Test: module configuration: connectTimeoutMs | 50 | Caller/configuration dependent | test/xq-transport.test.mjs:46 |
+| Test: module configuration: deadlineMs | 1000 | Caller/configuration dependent | test/xq-transport.test.mjs:46 |
 | module configuration: testTimeout | 30_000 | Caller/configuration dependent | vitest.config.ts:7 |
 <!-- end runtime timeout inventory -->
 

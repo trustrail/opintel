@@ -38,7 +38,7 @@ try{
   const body=method==='GET'?undefined:plain?payload?.data:JSON.stringify(payload),requestBytes=body===undefined?0:Buffer.byteLength(body),requestShape=xqRequestShape(payload,plain,wireShare),startedAt=new Date().toISOString();
   const requestDiagnostic=(status,attempt,written)=>{if(operation==='escrow')parentPort.postMessage({type:'escrow-request',startedAt,completedAt:new Date().toISOString(),evidenceId:receipt??null,subcall,requestBytes,requestShape,status,attempt,written});};
   let response;
-  try{response=await xqRequest(url,{method,headers:requestHeaders},body);}
+  try{response=await xqRequest(url,{method,headers:requestHeaders},body,{onPhase:progress=>parentPort.postMessage({type:'xq-progress',subcall,...progress})});}
   catch(error){requestDiagnostic(null,error.attempt??1,error.written??false);failure={kind:error.kind??'unreachable',subcall,providerCode:null,attempt:error.attempt??1,phase:error.phase??null,nativeErrorCode:error.nativeErrorCode??null,written:error.written??false,requestBytes,requestShape};throw error;}
   requestDiagnostic(response.status,response.attempt,true);
   const ok=response.status>=200&&response.status<300;
