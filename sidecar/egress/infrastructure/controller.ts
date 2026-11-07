@@ -17,6 +17,23 @@ const endpoint=z.strictObject({address:z.string().refine(value=>isIP(value)!==0)
 type Endpoint=z.infer<typeof endpoint>;
 const stored=z.strictObject({binding:egressBinding,policy:egressPolicy.nullable()});
 type Stored=z.infer<typeof stored>;
+// Only state mutations, firewall application and persistence share this queue.
+// Remote heartbeat waits never hold it; object identity rejects stale responses
+// even if a binding is changed and later changed back to the same values.
+export function createEgressWork(current:()=>readonly Stored[]){
+ let work:Promise<unknown>=Promise.resolve();
+ const queue=<T>(fn:()=>Promise<T>):Promise<T>=>{const next=work.then(fn);work=next.catch(()=>{});return next;};
+ const refresh=async(fetch:(entry:Stored)=>Promise<EgressPolicy>,apply:(entry:Stored,policy:EgressPolicy)=>Promise<void>)=>{
+  const snapshot=await queue(async()=>[...current()]);
+  for(const entry of snapshot){try{
+   console.info({event:'engine.egress_sync_started',timestamp:new Date().toISOString(),engineId:entry.binding.engineId});
+   const policy=await fetch(entry);
+   const updated=await queue(async()=>{if(!current().includes(entry))return false;await apply(entry,policy);return true;});
+   console.info({event:updated?'engine.egress_sync_completed':'engine.egress_sync_stale',timestamp:new Date().toISOString(),engineId:entry.binding.engineId});
+  }catch{console.warn({event:'engine.egress_sync_failed',timestamp:new Date().toISOString()});}}
+ };
+ return {queue,refresh};
+}
 const receiptUrl=z.url().refine(value=>{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!url.search&&!url.hash;});
 const configSchema=z.object({receiptUrl:receiptUrl.optional(),postgresReadinessSource:z.string().startsWith('secret://'),tls:z.strictObject({caFile:z.string(),certFile:z.string(),keyFile:z.string(),clientPinFile:z.string()})});
 async function resolveEndpoint(uri:URL):Promise<Endpoint[]>{
@@ -84,10 +101,7 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
    const chunks:Buffer[]=[];let size=0;res.on('error',reject);res.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>2*1024*1024)res.destroy(new Error('Policy too large'));else chunks.push(chunk);});res.on('end',()=>{try{if(res.statusCode!==200||!res.complete)throw new Error('Heartbeat refused');resolve(egressPolicy.parse(JSON.parse(Buffer.concat(chunks).toString('utf8'))));}catch(error){reject(error);}});
   }),{certificatePin:pin});}
 
- // Serialize registration, policy application and persistence; no stale async
- // fetch may overwrite a newer registration or acknowledge a partial apply.
- let work=Promise.resolve();
- const queue=(fn:()=>Promise<void>)=>{const next=work.then(fn);work=next.catch(()=>{});return next;};
+ const work=createEgressWork(()=>state),queue=work.queue;
  await install();await persist();
  const server=createServer((req,res)=>{
   if(req.method!=='POST'||req.url!=='/register'){res.writeHead(404);res.end();req.resume();return;}
@@ -119,10 +133,10 @@ export async function startController(file:string,phase:(value:ControllerPhase)=
  phase('control_listener');
  await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(egressControlAddress,resolve);});
  let busy=false;
- const timer=setInterval(()=>{if(busy)return;busy=true;void queue(async()=>{
-  try{await install();}catch{console.warn({event:'engine.egress_sync_failed',timestamp:new Date().toISOString()});return;}
-  for(const entry of state){try{console.info({event:'engine.egress_sync_started',timestamp:new Date().toISOString(),engineId:entry.binding.engineId});const policy=await fetchPolicy(entry);entry.policy=policy;await install();await persist();console.info({event:'engine.egress_sync_completed',timestamp:new Date().toISOString(),engineId:entry.binding.engineId});}catch{console.warn({event:'engine.egress_sync_failed',timestamp:new Date().toISOString()});}}
- }).finally(()=>{busy=false;});},5000);timer.unref();
+ const timer=setInterval(()=>{if(busy)return;busy=true;void(async()=>{
+  try{await queue(install);}catch{console.warn({event:'engine.egress_sync_failed',timestamp:new Date().toISOString()});return;}
+  await work.refresh(fetchPolicy,async(entry,policy)=>{entry.policy=policy;await install();await persist();});
+ })().finally(()=>{busy=false;});},5000);timer.unref();
  phase('readiness_marker');
  await writeFile('/run/egress-ready','ready\n');
  process.once('SIGTERM',()=>{clearInterval(timer);server.close(()=>process.exit(0));});

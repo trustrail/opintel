@@ -899,3 +899,33 @@ verify p50/p95 remain **not measured** on both sides. The timeout table remains
 [docs/timeouts.md](../../timeouts.md). No timeout, assertion or product fix was
 made, and no acceptance retry followed. Owned lab cleanup passed; development
 Postgres and Redis remain healthy. Stop for review; no merge.
+
+
+## Registration queue correction — candidate validation
+
+Logging was implemented first in 7069cfe: registration queue wait, distinct
+control-client timeout/socket/status/malformed diagnostics, controller failure
+classification, and engine HTTP 5xx status/code/request-id logging. No exception
+messages, response bodies, addresses or credentials are logged. Targeted tests
+24/24, strict typecheck and lint passed.
+
+Periodic heartbeat fetches now run outside the mutation queue. Binding changes,
+firewall/hosts installation, policy application and persistence still serialize.
+The fetch takes a snapshot of entry identities; before applying a response,
+the serialized callback checks that the exact entry is still current. A
+replaced binding, even one restored later to equal values, cannot accept the
+old response. Periodic refreshes do not overlap. No written-request retry,
+deadline or query-admission behaviour changed. Tests cover stalled heartbeat
+with concurrent registration, stale-response rejection and serialized mutation
+recovery: all 38 targeted egress and HTTP tests passed.
+
+The /validate path invokes StagedValidator directly (sidecar/http/server.ts and
+sidecar/execution/application/validate.ts). It does not enter this egress queue
+or the execution admission queue. The previous response-phase timeout therefore
+is not explained by registration queue blocking; its underlying cause remains
+unestablished. No validation deadline was changed.
+
+Before count: four egress-registration HTTP 503s in ekJKaK, with four scenario
+mismatches, seven capacity refusals and one /validate response timeout. The new
+candidate acceptance and isolated latency results will be recorded below after
+validation; they are not yet claimed as passed.

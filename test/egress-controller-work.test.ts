@@ -1,0 +1,40 @@
+import {afterEach,expect,it,vi} from 'vitest';
+import {randomUUID} from 'node:crypto';
+import {createEgressWork} from '../sidecar/egress/infrastructure/controller.js';
+import {EngineId,ProjectId} from '../src/shared/kernel/index.js';
+import type {EgressPolicy} from '../src/shared/engine-egress-contract.js';
+const binding=()=>({projectId:ProjectId(randomUUID()),engineId:EngineId(randomUUID()),gatewayUrl:'https://gateway.example:3102/'});
+const policy:EgressPolicy={version:'a'.repeat(64),assignments:[]};
+const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done;});return {promise,resolve};};
+afterEach(()=>vi.restoreAllMocks());
+it('registration completes while a remote heartbeat remains stalled',async()=>{
+ vi.spyOn(console,'info').mockImplementation(()=>{});
+ const state=[{binding:binding(),policy:null as EgressPolicy|null}],work=createEgressWork(()=>state),started=deferred(),release=deferred();
+ const apply=vi.fn(async()=>{});
+ const sync=work.refresh(async()=>{started.resolve();await release.promise;return policy;},apply);
+ await started.promise;
+ const added={binding:binding(),policy:null};
+ await work.queue(async()=>{state.push(added);});
+ expect(state).toContain(added);expect(apply).not.toHaveBeenCalled();
+ release.resolve();await sync;expect(apply).toHaveBeenCalledExactlyOnceWith(state[0],policy);
+});
+it('a heartbeat fetched for a replaced binding cannot apply or persist its stale policy',async()=>{
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ let state=[{binding:binding(),policy:null as EgressPolicy|null}];const original=state[0]!,work=createEgressWork(()=>state),started=deferred(),release=deferred(),apply=vi.fn(async()=>{});
+ const sync=work.refresh(async()=>{started.resolve();await release.promise;return policy;},apply);
+ await started.promise;
+ await work.queue(async()=>{state=[{binding:{...original.binding},policy:null}];});
+ release.resolve();await sync;
+ expect(apply).not.toHaveBeenCalled();expect(state[0]?.policy).toBeNull();
+ expect(log).toHaveBeenCalledWith(expect.objectContaining({event:'engine.egress_sync_stale'}));
+ await work.refresh(async()=>policy,async(entry,value)=>{entry.policy=value;});expect(state[0]?.policy).toEqual(policy);
+});
+it('firewall and persistence work still serialize, including recovery after a failed mutation',async()=>{
+ vi.spyOn(console,'info').mockImplementation(()=>{});
+ const state=[{binding:binding(),policy:null}],work=createEgressWork(()=>state),started=deferred(),release=deferred(),second=vi.fn(async()=>{});
+ const first=work.queue(async()=>{started.resolve();await release.promise;});await started.promise;
+ const next=work.queue(second);await Promise.resolve();expect(second).not.toHaveBeenCalled();
+ release.resolve();await first;await next;expect(second).toHaveBeenCalledOnce();
+ await expect(work.queue(async()=>{throw new Error('test apply failure');})).rejects.toThrow('test apply failure');
+ await work.queue(second);expect(second).toHaveBeenCalledTimes(2);
+});
